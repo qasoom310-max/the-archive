@@ -30,7 +30,13 @@ return new class extends Migration
             $table->string('done_by_name')->nullable();
             $table->timestamps();
 
-            $table->index(['messageable_type', 'messageable_id', 'done', 'due_date']);
+            // Explicit short name — MySQL/MariaDB caps identifiers at 64 chars
+            // and the Laravel-auto-generated name from these 4 columns is 71.
+            // SQLite (dev) allows much longer; CLAUDE.md §6 calls this out.
+            $table->index(
+                ['messageable_type', 'messageable_id', 'done', 'due_date'],
+                'mail_activities_target_due_idx',
+            );
         });
     }
 

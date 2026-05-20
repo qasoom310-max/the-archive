@@ -60,6 +60,22 @@ jobs:
           cp .env.example .env
           php artisan key:generate --ansi
 
+      # Build the Vite manifest. Several feature tests render full pages
+      # whose layout includes @vite(...) — without public/build/manifest.json
+      # they throw ViteManifestNotFound (per CLAUDE.md §3). PHPStan doesn't
+      # need this, but PHPUnit's view-render tests do.
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Build Vite manifest
+        run: npm run build
+
       - name: Composer analyse (PHPStan level 6)
         run: composer analyse
 

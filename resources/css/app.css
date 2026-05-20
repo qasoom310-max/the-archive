@@ -1,0 +1,49 @@
+@import url('https://fonts.bunny.net/css?family=inter:400,500,600,700');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    html {
+        @apply text-chrome-800 antialiased;
+    }
+    body {
+        @apply bg-chrome-100;
+    }
+}
+
+@layer components {
+    /* Compact Odoo-style controls */
+    .o-btn {
+        @apply inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium
+               transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500;
+    }
+    .o-btn-primary {
+        @apply o-btn bg-primary-600 text-white hover:bg-primary-700;
+    }
+    .o-btn-ghost {
+        @apply o-btn text-chrome-700 hover:bg-chrome-200;
+    }
+    .o-input {
+        @apply w-full rounded-md border-chrome-300 bg-white text-sm
+               focus:border-primary-500 focus:ring-primary-500;
+    }
+    .o-chip {
+        @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium;
+    }
+}
+
+/* Thin Odoo-like scrollbars */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.chrome.400') transparent;
+}
+*::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+    background-color: theme('colors.chrome.400');
+    border-radius: 9999px;
+}

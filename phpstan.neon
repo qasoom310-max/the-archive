@@ -1,0 +1,14 @@
+includes:
+    - ./vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 6
+
+    paths:
+        - app
+        - Modules
+
+    # Enforce our coding standard: no untyped leaks slipping through.
+    treatPhpDocTypesAsCertain: false
+
+    ignoreErrors: []

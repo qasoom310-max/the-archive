@@ -1,0 +1,21 @@
+{
+    "name": "pos",
+    "display_name": "Point of Sale",
+    "summary": "Cash-register sales: sessions, orders, payments & receipts",
+    "description": "A functional Point of Sale: cash-controlled sessions, a live cart terminal with discounts and tax, multiple payment methods with change due, customer assignment, receipts, session close with cash reconciliation, and sales reporting.",
+    "version": "1.0.0",
+    "author": "OpenERP",
+    "category": "Sales",
+    "icon": "shopping-cart",
+    "application": true,
+    "auto_install": false,
+    "depends": ["base", "contacts"],
+    "providers": ["Modules\\Pos\\Providers\\PosServiceProvider"],
+    "models": [
+        "Modules\\Pos\\Models\\PosProduct",
+        "Modules\\Pos\\Models\\PosCategory",
+        "Modules\\Pos\\Models\\PosSession",
+        "Modules\\Pos\\Models\\PosOrder"
+    ],
+    "sequence": 15
+}

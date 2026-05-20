@@ -1,0 +1,13 @@
+{
+    "name": "whatsapp",
+    "display_name": "WhatsApp",
+    "summary": "WhatsApp Business Cloud API: queued template messaging, Chatter integration and webhooks.",
+    "version": "1.0.0",
+    "author": "OpenERP",
+    "category": "Communication",
+    "depends": ["base"],
+    "providers": ["Modules\\WhatsApp\\Providers\\WhatsAppServiceProvider"],
+    "models": [],
+    "application": false,
+    "sequence": 14
+}

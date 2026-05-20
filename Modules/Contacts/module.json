@@ -1,0 +1,16 @@
+{
+    "name": "contacts",
+    "display_name": "Contacts",
+    "summary": "Centralize your address book — companies & individuals",
+    "description": "Base Contacts application: partners with addresses, Chatter (mail.thread) and dynamic List / Kanban / Form views.",
+    "version": "1.0.0",
+    "author": "OpenERP",
+    "category": "Productivity",
+    "icon": "users",
+    "application": true,
+    "auto_install": false,
+    "depends": ["base"],
+    "providers": ["Modules\\Contacts\\Providers\\ContactsServiceProvider"],
+    "models": ["Modules\\Contacts\\Models\\Partner"],
+    "sequence": 5
+}

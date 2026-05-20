@@ -1,0 +1,13 @@
+{
+    "name": "inventory",
+    "display_name": "Inventory",
+    "summary": "Double-entry inventory: warehouses, locations, stock moves and quants.",
+    "version": "1.0.0",
+    "author": "OpenERP",
+    "category": "Operations",
+    "depends": ["base"],
+    "providers": ["Modules\\Inventory\\Providers\\InventoryServiceProvider"],
+    "models": [],
+    "application": true,
+    "sequence": 12
+}

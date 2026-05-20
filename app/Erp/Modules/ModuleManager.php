@@ -138,8 +138,15 @@ final class ModuleManager
             $this->installResolving($dependency, [...$chain, $name]);
         }
 
+        // Migrations are DDL and MySQL/MariaDB auto-commit DDL statements
+        // (CLAUDE.md §6) — wrapping them inside DB::transaction() makes the
+        // final commit() throw "There is no active transaction" because
+        // the implicit commit already closed it. SQLite/PostgreSQL would
+        // be happy either way. So we keep DDL outside, and only the DML
+        // (registry rows + module state flip) stays atomic.
+        $this->runMigrations($manifest);
+
         DB::transaction(function () use ($manifest, $module): void {
-            $this->runMigrations($manifest);
             $this->registerModels($manifest);
 
             $module->update([
@@ -180,18 +187,21 @@ final class ModuleManager
             }
         }
 
-        DB::transaction(function () use ($manifest, $module, $name): void {
+        // Same DDL-outside-transaction split as install(). Registry DML
+        // first (atomic), then DDL (irreversible on MySQL), then the
+        // final state update (only if rollback succeeded).
+        DB::transaction(function () use ($name): void {
             IrUiView::query()->where('module', $name)->delete();
             IrModel::query()->where('module', $name)->delete(); // cascades ir_model_fields
-
-            $this->rollbackMigrations($manifest);
-
-            $module->update([
-                'state' => ModuleState::Uninstalled,
-                'installed_version' => null,
-                'installed_at' => null,
-            ]);
         });
+
+        $this->rollbackMigrations($manifest);
+
+        $module->update([
+            'state' => ModuleState::Uninstalled,
+            'installed_version' => null,
+            'installed_at' => null,
+        ]);
     }
 
     /**

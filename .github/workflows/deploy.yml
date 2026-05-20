@@ -30,9 +30,11 @@ jobs:
       - name: Setup PHP 8.2
         uses: shivammathur/setup-php@v2
         with:
-          # 8.2 matches the dev host (CLAUDE.md §6) so behaviour is identical.
-          # Bump to 8.3 once production is on 8.3+.
-          php-version: '8.2'
+          # 8.3 matches Hostinger production (PHP 8.3.30, verified 2026-05-20).
+          # Dev host is still 8.2.12 per CLAUDE.md §6, but composer.json requires
+          # `^8.2` so both work; CI mirroring prod catches 8.3-specific issues
+          # before they ship.
+          php-version: '8.3'
           extensions: gd, zip, sqlite3, pdo_mysql, pdo_sqlite, mbstring, xml, bcmath, intl, fileinfo, openssl
           coverage: none
           tools: composer:v2

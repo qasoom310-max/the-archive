@@ -182,10 +182,16 @@ jobs:
       # `php artisan migrate --path=Modules/<Name>/database/migrations --force`.
       - name: Remote post-deploy
         run: |
+          # ln -sfn (not `php artisan storage:link`) — Hostinger disables
+          # PHP's exec() in shared-hosting php.ini, and Laravel's storage:link
+          # shells out via exec() to create the symlink. The OS-level `ln`
+          # bypasses that restriction. -s = symbolic, -f = replace existing,
+          # -n = don't follow the target if dst is already a symlink (avoids
+          # accidentally creating a link inside an existing link target).
           ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             "cd ${{ secrets.DEPLOY_PATH }} && \
-             php artisan storage:link --force && \
+             ln -sfn ${{ secrets.DEPLOY_PATH }}/storage/app/public ${{ secrets.DEPLOY_PATH }}/public/storage && \
              php artisan migrate --force && \
              php artisan optimize:clear && \
              php artisan config:cache && \

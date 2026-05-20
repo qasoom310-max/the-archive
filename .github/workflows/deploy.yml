@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup PHP 8.2
+      - name: Setup PHP 8.3
         uses: shivammathur/setup-php@v2
         with:
           # 8.3 matches Hostinger production (PHP 8.3.30, verified 2026-05-20).
@@ -48,6 +48,17 @@ jobs:
 
       - name: Install Composer deps (with dev)
         run: composer install --no-progress --prefer-dist --no-interaction
+
+      # Bootstrap a throwaway .env for the test run. Production .env lives on
+      # the Hostinger host and is never in the repo — CI needs its own. Without
+      # an APP_KEY, anything that touches encryption (sessions, encrypted DB
+      # casts, view-rendered tests) blows up with "No application encryption
+      # key has been specified." Laravel's `key:generate` writes a base64 key
+      # into the just-copied .env so the rest of the job can boot the app.
+      - name: Bootstrap .env (test-only)
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
 
       - name: Composer analyse (PHPStan level 6)
         run: composer analyse
@@ -72,7 +83,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup PHP 8.2 (production extensions)
+      - name: Setup PHP 8.3 (production extensions)
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'

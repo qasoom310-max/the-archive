@@ -173,13 +173,21 @@ jobs:
             -e "ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new" \
             ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/
 
-      # Remote post-deploy: link storage, run pending migrations, refresh
-      # caches. NOTE: `migrate --force` here runs CORE migrations only;
-      # per project memory `post-install-module-migrations-not-auto-applied`,
-      # each module's migrations are NOT in the default migrate path —
-      # those run manually via SSH the first time each module is installed.
-      # On subsequent module migrations: SSH in and run
-      # `php artisan migrate --path=Modules/<Name>/database/migrations --force`.
+      # Remote post-deploy: link storage, run pending migrations (core +
+      # POS module), seed real cashier accounts, re-sync POS view arch,
+      # then rebuild caches.
+      #
+      # Per project memory `post-install-module-migrations-not-auto-applied`,
+      # module migrations live outside Laravel's default migrate path — we
+      # opt the POS module in explicitly here so a future column add
+      # (e.g. pos_orders.customer_phone) doesn't sit Pending on prod.
+      #
+      # `db:seed --class=PosStaffSeeder --force` creates the three real
+      # POS cashier accounts (ramadan / faraj / osama, pos_user group,
+      # no email). The seeder is `updateOrCreate`-keyed by name so re-runs
+      # are idempotent — kept OUT of the default seed chain because tests
+      # using DatabaseMigrations + null-email users trip migrate:rollback
+      # (memory: null-email-seed-breaks-migrate-rollback).
       - name: Remote post-deploy
         run: |
           # ln -sfn (not `php artisan storage:link`) — Hostinger disables
@@ -193,6 +201,9 @@ jobs:
             "cd ${{ secrets.DEPLOY_PATH }} && \
              ln -sfn ${{ secrets.DEPLOY_PATH }}/storage/app/public ${{ secrets.DEPLOY_PATH }}/public/storage && \
              php artisan migrate --force && \
+             php artisan migrate --path=Modules/Pos/database/migrations --force && \
+             php artisan db:seed --class='Database\\Seeders\\PosStaffSeeder' --force && \
+             php artisan module:resync pos && \
              php artisan optimize:clear && \
              php artisan config:cache && \
              php artisan route:cache && \

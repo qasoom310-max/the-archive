@@ -17,6 +17,8 @@ final readonly class ViewArch
      * @param list<array{field: string, dir: 'asc'|'desc'}>  $defaultSort
      * @param list<array{value: string, label: string}>      $stages       (kanban board columns)
      * @param list<FormFieldDef>                             $formFields   (form views)
+     * @param list<FilterDef>                                $filters      (list-view date presets)
+     * @param ?string                                        $customDateField  column the "Custom…" range filters on
      */
     private function __construct(
         public array $columns,
@@ -29,6 +31,8 @@ final readonly class ViewArch
         public array $formFields,
         public int $formCols,
         public ?string $openUrl,
+        public array $filters,
+        public ?string $customDateField,
     ) {}
 
     /**
@@ -47,7 +51,56 @@ final readonly class ViewArch
             formFields: self::parseFormFields($arch),
             formCols: self::int($arch, 'cols', 2),
             openUrl: self::str($arch, 'open'),
+            filters: self::parseFilters($arch),
+            customDateField: self::str($arch, 'custom_date_field'),
         );
+    }
+
+    /**
+     * Parse a list of named filter presets:
+     * `[{name: string, label?: string, field: string, preset: string}, …]`.
+     * Skips malformed entries and entries naming an unknown preset (the
+     * engine treats those as "no filter available" rather than crashing).
+     *
+     * @param array<string, mixed> $arch
+     * @return list<FilterDef>
+     */
+    private static function parseFilters(array $arch): array
+    {
+        $raw = $arch['filters'] ?? [];
+
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $filters = [];
+
+        foreach ($raw as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $name = self::str($entry, 'name');
+            $field = self::str($entry, 'field');
+            $preset = self::str($entry, 'preset');
+
+            if ($name === null || $field === null || $preset === null) {
+                continue;
+            }
+
+            if (! DatePreset::isValid($preset)) {
+                continue;
+            }
+
+            $filters[] = new FilterDef(
+                name: $name,
+                label: self::str($entry, 'label') ?? ucfirst(str_replace('_', ' ', $name)),
+                field: $field,
+                preset: $preset,
+            );
+        }
+
+        return $filters;
     }
 
     /**
@@ -157,9 +210,10 @@ final readonly class ViewArch
                 sum: ($entry['sum'] ?? false) === true,
                 avg: ($entry['avg'] ?? false) === true,
                 align: in_array($align, ['left', 'right', 'center'], true) ? $align : 'left',
-                format: in_array($format, ['text', 'number', 'date', 'datetime', 'badge', 'bool'], true)
+                format: in_array($format, ['text', 'number', 'money', 'date', 'datetime', 'badge', 'bool'], true)
                     ? $format
                     : 'text',
+                sortField: self::str($entry, 'sort_field'),
             );
         }
 

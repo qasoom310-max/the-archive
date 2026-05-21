@@ -17,6 +17,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'whatsapp/webhook',
         ]);
+
+        // Drive the app locale from the `company.language` setting on
+        // every web request, so `__()` and Carbon's localised output
+        // pick up the admin's choice without per-controller plumbing.
+        $middleware->web(append: [
+            \App\Http\Middleware\SetLocale::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

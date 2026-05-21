@@ -22,7 +22,7 @@
                     {{ $active === $section['key']
                         ? 'bg-primary-600 text-white ring-primary-600'
                         : 'bg-white text-chrome-600 ring-chrome-200 hover:text-chrome-900' }}">
-                {{ $section['label'] }}
+                {{ __($section['label']) }}
             </a>
         @endforeach
     </div>

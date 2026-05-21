@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Erp\Views;
 
+use App\Erp\Money\Currencies;
 use BackedEnum;
 use UnitEnum;
 
@@ -52,5 +53,43 @@ final class ValueFormat
         }
 
         return $value instanceof BackedEnum ? $value->value : $value->name;
+    }
+
+    /**
+     * Tailwind color *name* (e.g. 'emerald', 'red') for a status-style
+     * value, when the enum exposes a `color()` method. Returns null for
+     * scalars or enums without one — the caller falls back to a neutral
+     * default. The list/kanban templates map this through a `match` to
+     * concrete Tailwind classes so the JIT compiler can see every class
+     * literal at build time (Tailwind doesn't generate dynamic strings).
+     */
+    public static function color(mixed $value): ?string
+    {
+        if (! $value instanceof UnitEnum) {
+            return null;
+        }
+
+        if (! method_exists($value, 'color')) {
+            return null;
+        }
+
+        $color = $value->color();
+
+        return is_string($color) && $color !== '' ? $color : null;
+    }
+
+    /**
+     * Format a scalar amount through the active currency (from Settings
+     * → General → Default currency). The single entry point used by the
+     * generic list-view template for any column declared `format: money`
+     * — keeps the engine ignorant of which model's column it's painting.
+     */
+    public static function money(mixed $value): string
+    {
+        if (is_int($value) || is_float($value) || is_string($value) || $value === null) {
+            return Currencies::format($value);
+        }
+
+        return (string) $value;
     }
 }

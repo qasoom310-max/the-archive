@@ -1,4 +1,4 @@
-@php $money = fn ($v) => number_format((float) $v, 2); @endphp
+@php $money = fn ($v) => \App\Erp\Money\Currencies::format($v); @endphp
 
 <div class="mx-auto max-w-6xl p-6">
     <div class="mb-4 flex items-center gap-2 text-sm text-chrome-500">

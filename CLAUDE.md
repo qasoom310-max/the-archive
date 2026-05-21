@@ -270,7 +270,7 @@ Keep this table current — it is how state survives across sessions.
 | 7 | **Point of Sale** module: sessions, terminal, payments, receipts, reconciliation | ✅ DONE |
 | 8 | **Settings**: `ir_config_parameter` + cached `SettingManager`/`Setting` facade + admin Settings page | ✅ DONE (General tab; POS/Inventory tabs + wiring the static-consumption toggle = next increments) |
 | 9 | **Inventory**: double-entry schema + Overview Kanban + atomic pickings/transfer flow | ✅ (adjustment/replenishment/lots/valuation+forecast/barcode = next increments) |
-| 10 | **WhatsApp**: Meta Cloud API integration (queued messaging, Chatter button, automations, webhook) | ✅ config+log schema, queued `sendTemplateMessage()`, message-log lifecycle, secure webhook (verify + HMAC), admin Settings tab (templates table/UI · Chatter button · event automations · media/PDF attachments = next increments) |
+| 10 | **WhatsApp**: Meta Cloud API integration (queued messaging, Chatter button, automations, webhook) | ✅ config+log schema, queued `sendTemplateMessage()`, message-log lifecycle, secure webhook (verify + HMAC), admin Settings tab, **POS auto-receipt** (`PosOrderPaid` event → `SendPosOrderReceiptViaWhatsApp` listener → `pos_receipt` template; phone captured at checkout via dial-code dropdown + local digits, composed with leading-zero strip via `PosWhatsAppCountries`) — templates table/UI · Chatter button · other event automations · media/PDF attachments = next increments |
 
 **Phase 8 — Settings (where things live):**
 

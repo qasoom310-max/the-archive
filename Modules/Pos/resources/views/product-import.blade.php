@@ -112,8 +112,8 @@
                                     </td>
                                     <td class="px-2 py-1.5">{{ $row->name }}</td>
                                     <td class="px-2 py-1.5 font-mono text-xs text-chrome-500">{{ $row->barcode }}</td>
-                                    <td class="px-2 py-1.5 text-right">{{ $row->salePrice !== null ? number_format($row->salePrice, 2) : '—' }}</td>
-                                    <td class="px-2 py-1.5 text-right">{{ $row->costPrice !== null ? number_format($row->costPrice, 2) : '—' }}</td>
+                                    <td class="px-2 py-1.5 text-right">{{ $row->salePrice !== null ? \App\Erp\Money\Currencies::format($row->salePrice) : '—' }}</td>
+                                    <td class="px-2 py-1.5 text-right">{{ $row->costPrice !== null ? \App\Erp\Money\Currencies::format($row->costPrice) : '—' }}</td>
                                     <td class="px-2 py-1.5 text-right">{{ $row->taxRate !== null ? number_format($row->taxRate, 2) : '—' }}</td>
                                     <td class="px-2 py-1.5 text-xs text-red-600">
                                         @if ($row->errors)

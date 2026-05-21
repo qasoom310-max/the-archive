@@ -1,23 +1,23 @@
 <form wire:submit="login" class="space-y-4">
     <div>
-        <h2 class="text-lg font-semibold text-chrome-900">Sign in</h2>
-        <p class="text-sm text-chrome-500">Use your OpenERP credentials.</p>
+        <h2 class="text-lg font-semibold text-chrome-900">{{ __('Sign in') }}</h2>
+        <p class="text-sm text-chrome-500">{{ __('Use your OpenERP credentials.') }}</p>
     </div>
 
     <div>
-        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">Email or username</label>
+        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Email or username') }}</label>
         <input type="text" wire:model="email" autofocus autocomplete="username" class="o-input">
         @error('email') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
     </div>
 
     <div>
-        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">Password</label>
+        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Password') }}</label>
         <div class="relative" x-data="{ show: false }">
             <input :type="show ? 'text' : 'password'" wire:model="password"
-                autocomplete="current-password" class="o-input pr-10">
+                autocomplete="current-password" class="o-input pe-10">
             <button type="button" @click="show = !show" tabindex="-1"
-                :aria-label="show ? 'Hide password' : 'Show password'"
-                class="absolute inset-y-0 right-0 flex items-center px-3 text-chrome-400 hover:text-chrome-600">
+                :aria-label="show ? @js(__('Hide password')) : @js(__('Show password'))"
+                class="absolute inset-y-0 end-0 flex items-center px-3 text-primary-600 hover:text-primary-700">
                 <svg x-show="!show" class="size-5" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M10 4C5.5 4 2.4 7.4 1.3 9.3a1.4 1.4 0 0 0 0 1.4C2.4 12.6 5.5 16 10 16s7.6-3.4 8.7-5.3a1.4 1.4 0 0 0 0-1.4C17.6 7.4 14.5 4 10 4Zm0 9a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"/>
                 </svg>
@@ -32,11 +32,11 @@
     <label class="flex items-center gap-2 text-sm text-chrome-600">
         <input type="checkbox" wire:model="remember"
             class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
-        Remember me
+        {{ __('Remember me') }}
     </label>
 
     <button type="submit" class="o-btn-primary w-full justify-center">
-        <span wire:loading.remove wire:target="login">Sign in</span>
-        <span wire:loading wire:target="login">Signing in…</span>
+        <span wire:loading.remove wire:target="login">{{ __('Sign in') }}</span>
+        <span wire:loading wire:target="login">{{ __('Signing in…') }}</span>
     </button>
 </form>

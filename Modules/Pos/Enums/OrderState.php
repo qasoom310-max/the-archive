@@ -13,10 +13,16 @@ enum OrderState: string
 
     public function label(): string
     {
+        // `Done` is the persisted state for a completed sale — the
+        // intermediate `Paid` state only exists for the instant between
+        // markPaid() and finalizeSale() inside one DB transaction, so
+        // no order ever actually sits in it. Labelling Done as "Paid"
+        // matches what cashiers see in their head (the sale was paid)
+        // and what shows up everywhere in the UI.
         return match ($this) {
             self::Draft => 'Draft',
             self::Paid => 'Paid',
-            self::Done => 'Posted',
+            self::Done => 'Paid',
             self::Cancelled => 'Cancelled',
         };
     }

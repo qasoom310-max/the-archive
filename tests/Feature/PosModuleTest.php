@@ -737,4 +737,78 @@ final class PosModuleTest extends TestCase
         $body = ltrim((string) $response->getContent(), "\xEF\xBB\xBF");
         $this->assertStringStartsWith('Name,Barcode,"Sale Price","Cost Price","Tax %"', $body);
     }
+
+    public function test_export_controller_streams_csv_of_all_products(): void
+    {
+        $this->installPos();
+
+        PosProduct::query()->create([
+            'name' => 'Espresso', 'price' => 2.50, 'tax_rate' => 10.0,
+            'cost_price' => 0.80, 'barcode' => '900001',
+        ]);
+        PosProduct::query()->create([
+            'name' => 'Cappuccino', 'price' => 3.20, 'tax_rate' => 10.0,
+            'cost_price' => 1.10, 'barcode' => '900002',
+        ]);
+
+        $response = (new \Modules\Pos\Http\Controllers\PosProductExportController())();
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('text/csv; charset=UTF-8', $response->headers->get('Content-Type'));
+
+        $body = ltrim((string) $response->getContent(), "\xEF\xBB\xBF");
+        $lines = array_values(array_filter(explode("\n", str_replace("\r", '', $body)), strlen(...)));
+
+        // Header matches the importer's canonical column set so an export
+        // can be edited and re-imported without manual reshaping.
+        $this->assertSame('Name,Barcode,"Sale Price","Cost Price","Tax %"', $lines[0]);
+
+        // Two product rows, sorted alphabetically by name for stable diffs.
+        $this->assertCount(3, $lines); // 1 header + 2 products
+        $this->assertSame('Cappuccino,900002,3.20,1.10,10.00', $lines[1]);
+        $this->assertSame('Espresso,900001,2.50,0.80,10.00', $lines[2]);
+    }
+
+    public function test_export_emits_only_header_when_catalogue_is_empty(): void
+    {
+        $this->installPos();
+
+        $response = (new \Modules\Pos\Http\Controllers\PosProductExportController())();
+
+        $body = ltrim((string) $response->getContent(), "\xEF\xBB\xBF");
+        $lines = array_values(array_filter(explode("\n", str_replace("\r", '', $body)), strlen(...)));
+
+        $this->assertCount(1, $lines);
+        $this->assertSame('Name,Barcode,"Sale Price","Cost Price","Tax %"', $lines[0]);
+    }
+
+    public function test_export_blanks_a_missing_barcode_rather_than_writing_null(): void
+    {
+        $this->installPos();
+        PosProduct::query()->create([
+            'name' => 'Mystery Drink', 'price' => 5.00, 'tax_rate' => 0,
+            'cost_price' => 0, 'barcode' => null,
+        ]);
+
+        $response = (new \Modules\Pos\Http\Controllers\PosProductExportController())();
+        $body = ltrim((string) $response->getContent(), "\xEF\xBB\xBF");
+
+        // The barcode column is empty (no "null" string leaking into the CSV).
+        $this->assertStringContainsString('"Mystery Drink",,5.00,0.00,0.00', $body);
+    }
+
+    public function test_export_requires_pos_product_read(): void
+    {
+        $this->installPos();
+
+        // Plain authenticated user with is_admin=false and no group
+        // memberships. AccessControl denies-by-default: no group → no
+        // ModelAccess row matches → AuthorizationException.
+        $stranger = User::factory()->create(['is_admin' => false]);
+        $this->actingAs($stranger);
+
+        $this->expectException(\Illuminate\Auth\Access\AuthorizationException::class);
+
+        (new \Modules\Pos\Http\Controllers\PosProductExportController())();
+    }
 }

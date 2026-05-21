@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Modules\Pos\Providers;
 
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Modules\Pos\Events\PosOrderPaid;
+use Modules\Pos\Listeners\SendPosOrderReceiptViaWhatsApp;
 use Modules\Pos\Services\PosSessionManager;
 
 /**
@@ -20,6 +23,11 @@ final class PosServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        //
+        // Auto-receipt: every finalised POS order fires PosOrderPaid; the
+        // listener queues a WhatsApp template message if the order has a
+        // captured customer phone. Registered here (not in EventServiceProvider)
+        // because the listener depends on the WhatsApp module's service —
+        // we want this binding only when POS is actually installed.
+        Event::listen(PosOrderPaid::class, [SendPosOrderReceiptViaWhatsApp::class, 'handle']);
     }
 }

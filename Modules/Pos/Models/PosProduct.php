@@ -150,12 +150,12 @@ final class PosProduct extends Model implements DefinesIrModel
                 new ViewDefinition('POS Products', 'list', [
                     'columns' => [
                         ['field' => 'name', 'label' => 'Name', 'sortable' => true],
-                        ['field' => 'price', 'label' => 'Sale Price', 'format' => 'number', 'align' => 'right', 'sum' => true, 'sortable' => true],
-                        ['field' => 'cost_price', 'label' => 'Cost', 'format' => 'number', 'align' => 'right', 'sum' => true, 'sortable' => true],
+                        ['field' => 'price', 'label' => 'Sale Price', 'format' => 'money', 'align' => 'right', 'sum' => true, 'sortable' => true],
+                        ['field' => 'cost_price', 'label' => 'Cost', 'format' => 'money', 'align' => 'right', 'sum' => true, 'sortable' => true],
                         // `profit` is an accessor — no sum (engine aggregates via
                         // SQL, which can't see a computed column); no sortable
                         // (engine's whitelist-based orderBy needs a real column).
-                        ['field' => 'profit', 'label' => 'Margin', 'format' => 'number', 'align' => 'right'],
+                        ['field' => 'profit', 'label' => 'Margin', 'format' => 'money', 'align' => 'right'],
                         ['field' => 'tax_rate', 'label' => 'Tax %', 'format' => 'number', 'align' => 'right'],
                         ['field' => 'stock_on_hand', 'label' => 'Stock', 'format' => 'number', 'align' => 'right', 'sortable' => true],
                         ['field' => 'available_servings', 'label' => 'Available Servings', 'align' => 'right'],

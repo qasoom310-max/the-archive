@@ -22,6 +22,7 @@ use Modules\Pos\Models\PosPaymentMethod;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Models\PosSession;
 use Modules\Pos\Services\PosSessionManager;
+use Modules\Pos\Support\PosWhatsAppCountries;
 
 #[Layout('components.layouts.app')]
 #[Title('Point of Sale')]
@@ -35,15 +36,61 @@ final class PosTerminal extends Component
 
     public ?int $categoryId = null;
 
+    public bool $paying = false;
+
+    /**
+     * Customer picker (the Odoo-19-style "Choose Customer" list): when
+     * true the modal is rendered and the cashier picks an existing
+     * Partner or clicks "Create" to switch to the add-customer modal.
+     */
+    public bool $pickingCustomer = false;
+
+    /**
+     * Free-text filter for the customer picker — matches name, phone,
+     * or email (case-insensitive LIKE). Empty = show everyone.
+     */
     public string $customerSearch = '';
 
-    public bool $paying = false;
+    /**
+     * Add-customer modal: when true the overlay is rendered and the
+     * cashier fills the form below.
+     */
+    public bool $addingCustomer = false;
+
+    public string $newCustomerName = '';
+
+    public string $newCustomerCountryCode = PosWhatsAppCountries::DEFAULT_DIAL;
+
+    public string $newCustomerPhone = '';
+
+    public string $newCustomerEmail = '';
+
+    /**
+     * Edit mode: when set, the customer modal pre-fills with this Partner's
+     * fields and "Save" updates rather than creates. Null = create mode.
+     * Visibility of the modal is still controlled by {@see $addingCustomer}.
+     */
+    public ?int $editingCustomerId = null;
 
     public ?int $paymentMethodId = null;
 
     public string $tendered = '';
 
     public ?int $receiptOrderId = null;
+
+    /**
+     * Country dial code for the auto-receipt phone number (e.g. "+973").
+     * Always one of {@see PosWhatsAppCountries::COUNTRIES}; defaults to
+     * Bahrain since that's the primary deployment.
+     */
+    public string $countryCode = PosWhatsAppCountries::DEFAULT_DIAL;
+
+    /**
+     * Local national-format digits typed by the cashier — no country code,
+     * spaces and dashes tolerated and stripped at compose time. Empty =
+     * walk-in, no receipt sent.
+     */
+    public string $localPhone = '';
 
     public function mount(int $session): void
     {
@@ -194,20 +241,336 @@ final class PosTerminal extends Component
         $order->recalculate();
     }
 
-    public function setCustomer(int $partnerId): void
-    {
-        $this->guard(Permission::Write);
-        $order = $this->order();
-        $order->partner_id = $partnerId;
-        $order->save();
-        $this->customerSearch = '';
-    }
-
     public function clearCustomer(): void
     {
         $order = $this->order();
         $order->partner_id = null;
         $order->save();
+    }
+
+    /**
+     * Open the Odoo-19-style "Choose Customer" picker — list of existing
+     * Partners with a live search and a Create button. The cashier either
+     * picks a row (attaches that Partner) or clicks Create to switch into
+     * the add-customer form modal.
+     */
+    public function openCustomerPicker(): void
+    {
+        $this->guard(Permission::Write);
+        $this->customerSearch = '';
+        $this->pickingCustomer = true;
+    }
+
+    public function closeCustomerPicker(): void
+    {
+        $this->pickingCustomer = false;
+        $this->customerSearch = '';
+    }
+
+    /**
+     * Attach an existing Partner to the current draft order and pre-fill
+     * the auto-receipt phone fields from their stored number (if any), so
+     * the cashier doesn't retype it in the payment overlay.
+     */
+    public function pickCustomer(int $partnerId): void
+    {
+        $this->guard(Permission::Write);
+        $partner = Partner::query()->find($partnerId);
+
+        if ($partner === null) {
+            return;
+        }
+
+        $order = $this->order();
+        $order->partner_id = $partner->id;
+        $order->save();
+
+        $phone = $partner->phone;
+        if ($phone !== null && $phone !== '') {
+            [$dial, $local] = $this->splitStoredPhone($phone);
+            $this->countryCode = $dial;
+            $this->localPhone = $local;
+        }
+
+        $this->closeCustomerPicker();
+    }
+
+    /**
+     * Switch from the picker into the create-customer form. Called from
+     * the "Create" button at the top-left of the picker.
+     */
+    public function startCreateCustomer(): void
+    {
+        $this->guard(Permission::Write);
+        $this->closeCustomerPicker();
+        $this->openAddCustomer();
+    }
+
+    /**
+     * Open the customer form modal in EDIT mode for a specific Partner —
+     * reached from the pencil icon on each picker row. Pre-fills name,
+     * country dial + local digits, and email from the stored values, then
+     * swaps the picker for the form.
+     *
+     * Gated by `contacts.partner` Write — users without that permission
+     * never see the pencil button (view check) and can't reach this code
+     * path via wire-replay either.
+     */
+    public function openEditCustomer(int $partnerId): void
+    {
+        app(AccessControl::class)->authorize(
+            Auth::user(),
+            'contacts.partner',
+            Permission::Write,
+        );
+
+        $partner = Partner::query()->find($partnerId);
+
+        if ($partner === null) {
+            return;
+        }
+
+        [$dial, $local] = $this->splitStoredPhone($partner->phone ?? '');
+
+        $this->newCustomerName = $partner->name;
+        $this->newCustomerCountryCode = $dial;
+        $this->newCustomerPhone = $local;
+        $this->newCustomerEmail = $partner->email ?? '';
+        $this->editingCustomerId = $partner->id;
+
+        $this->closeCustomerPicker();
+        $this->addingCustomer = true;
+        $this->resetErrorBag();
+    }
+
+    /**
+     * The modal's Save button calls this — dispatches to create or update
+     * based on whether {@see $editingCustomerId} is set. Keeping the two
+     * branches as separate methods (rather than one merged code path) so
+     * each path's behaviour stays obvious and easy to test in isolation.
+     */
+    public function saveCustomer(): void
+    {
+        if ($this->editingCustomerId !== null) {
+            $this->saveEditedCustomer();
+
+            return;
+        }
+
+        $this->saveNewCustomer();
+    }
+
+    /**
+     * Persist edits to an existing Partner. Same validation rules as
+     * {@see saveNewCustomer()} but does NOT attach to the order — editing
+     * doesn't change who's on this cart. If the edited partner happens to
+     * already be the cart's customer, re-hydrate the local receipt phone
+     * fields so the payment overlay reflects the updated number.
+     */
+    public function saveEditedCustomer(): void
+    {
+        app(AccessControl::class)->authorize(
+            Auth::user(),
+            'contacts.partner',
+            Permission::Write,
+        );
+
+        if ($this->editingCustomerId === null) {
+            return;
+        }
+
+        $this->validate([
+            'newCustomerName' => ['required', 'string', 'max:200'],
+            'newCustomerCountryCode' => ['required', 'string'],
+            'newCustomerPhone' => ['required', 'string', 'max:30'],
+            'newCustomerEmail' => ['nullable', 'email', 'max:200'],
+        ]);
+
+        if (! PosWhatsAppCountries::isValidDial($this->newCustomerCountryCode)) {
+            $this->addError('newCustomerCountryCode', 'Please pick a country.');
+
+            return;
+        }
+
+        $composedDigits = PosWhatsAppCountries::compose(
+            $this->newCustomerCountryCode,
+            $this->newCustomerPhone,
+        );
+
+        if ($composedDigits === null) {
+            $this->addError('newCustomerPhone', 'Please enter a valid phone number.');
+
+            return;
+        }
+
+        $partner = Partner::query()->find($this->editingCustomerId);
+
+        if ($partner === null) {
+            $this->cancelAddCustomer();
+
+            return;
+        }
+
+        $localDigits = preg_replace('/\D+/', '', $this->newCustomerPhone) ?? '';
+        if (str_starts_with($localDigits, '0')) {
+            $localDigits = substr($localDigits, 1);
+        }
+
+        $email = trim($this->newCustomerEmail);
+
+        $partner->update([
+            'name' => trim($this->newCustomerName),
+            'phone' => $this->newCustomerCountryCode . ' ' . $localDigits,
+            'email' => $email === '' ? null : $email,
+        ]);
+
+        // If the edited customer is the one currently on the cart, the
+        // receipt phone might now be stale — refresh local hydration so
+        // the payment overlay matches the partner's new phone.
+        $order = $this->order();
+        if ($order->partner_id === $partner->id) {
+            $this->countryCode = $this->newCustomerCountryCode;
+            $this->localPhone = $localDigits;
+        }
+
+        $this->addingCustomer = false;
+        $this->resetAddCustomerForm();
+    }
+
+    /**
+     * Hard-delete a Partner from the database. Reached from the trash
+     * icon on each picker row, behind a `wire:confirm` browser dialog.
+     *
+     * Gated by the standard ACL on `contacts.partner` Unlink — users
+     * without that permission don't see the button (see render()), and
+     * if they call this directly the authorize() throws → HTTP 403.
+     *
+     * Order history is preserved: `pos_orders.partner_id` is FK'd with
+     * `nullOnDelete()`, so any past orders for this customer keep all
+     * their data (totals, payments, lines, chatter), just with no
+     * customer link. If the deleted partner happened to be the one
+     * attached to the CURRENT draft order, we also reset the locally-
+     * hydrated receipt phone so the next pick starts clean.
+     */
+    public function deleteCustomer(int $partnerId): void
+    {
+        app(AccessControl::class)->authorize(
+            Auth::user(),
+            'contacts.partner',
+            Permission::Unlink,
+        );
+
+        $partner = Partner::query()->find($partnerId);
+
+        if ($partner === null) {
+            return;
+        }
+
+        $order = $this->order();
+        $resetReceiptFields = $order->partner_id === $partner->id;
+
+        $partner->delete();
+
+        if ($resetReceiptFields) {
+            // The FK already nulled order->partner_id on the DB side.
+            // Clear our local receipt hydration so it doesn't carry the
+            // deleted customer's phone into the payment overlay.
+            $this->countryCode = PosWhatsAppCountries::DEFAULT_DIAL;
+            $this->localPhone = '';
+        }
+    }
+
+    /**
+     * Open the "Add customer" form modal with a freshly-reset form.
+     * Public so tests can drive it directly; in production it's reached
+     * by clicking Create inside the picker (see {@see startCreateCustomer}).
+     */
+    public function openAddCustomer(): void
+    {
+        $this->guard(Permission::Write);
+        $this->resetAddCustomerForm();
+        $this->addingCustomer = true;
+    }
+
+    public function cancelAddCustomer(): void
+    {
+        $this->addingCustomer = false;
+        $this->resetAddCustomerForm();
+    }
+
+    /**
+     * Validate the modal form, create a new {@see Partner}, attach it to
+     * the current order, and pre-fill the auto-receipt phone fields from
+     * the same number so the cashier doesn't have to retype it.
+     */
+    public function saveNewCustomer(): void
+    {
+        $this->guard(Permission::Write);
+
+        $this->validate([
+            'newCustomerName' => ['required', 'string', 'max:200'],
+            'newCustomerCountryCode' => ['required', 'string'],
+            'newCustomerPhone' => ['required', 'string', 'max:30'],
+            'newCustomerEmail' => ['nullable', 'email', 'max:200'],
+        ]);
+
+        if (! PosWhatsAppCountries::isValidDial($this->newCustomerCountryCode)) {
+            $this->addError('newCustomerCountryCode', 'Please pick a country.');
+
+            return;
+        }
+
+        // Reuse the same compose() the receipt uses so the Partner.phone
+        // and the auto-receipt destination can never disagree.
+        $composedDigits = PosWhatsAppCountries::compose(
+            $this->newCustomerCountryCode,
+            $this->newCustomerPhone,
+        );
+
+        if ($composedDigits === null) {
+            $this->addError('newCustomerPhone', 'Please enter a valid phone number.');
+
+            return;
+        }
+
+        $localDigits = preg_replace('/\D+/', '', $this->newCustomerPhone) ?? '';
+        if (str_starts_with($localDigits, '0')) {
+            $localDigits = substr($localDigits, 1);
+        }
+
+        $email = trim($this->newCustomerEmail);
+
+        $partner = Partner::query()->create([
+            'name' => trim($this->newCustomerName),
+            // Human-readable international form, matching the seeder convention
+            // ("+973 33123456") so the contact list reads naturally.
+            'phone' => $this->newCustomerCountryCode . ' ' . $localDigits,
+            'email' => $email === '' ? null : $email,
+            'is_company' => false,
+        ]);
+
+        $order = $this->order();
+        $order->partner_id = $partner->id;
+        $order->save();
+
+        // Auto-fill the receipt phone fields from the just-created customer
+        // so the cashier doesn't retype the same number two minutes later
+        // in the payment overlay.
+        $this->countryCode = $this->newCustomerCountryCode;
+        $this->localPhone = $localDigits;
+
+        $this->addingCustomer = false;
+        $this->resetAddCustomerForm();
+    }
+
+    private function resetAddCustomerForm(): void
+    {
+        $this->newCustomerName = '';
+        $this->newCustomerCountryCode = PosWhatsAppCountries::DEFAULT_DIAL;
+        $this->newCustomerPhone = '';
+        $this->newCustomerEmail = '';
+        $this->editingCustomerId = null;
+        $this->resetErrorBag();
     }
 
     public function startPayment(): void
@@ -221,7 +584,44 @@ final class PosTerminal extends Component
         $this->paymentMethodId = PosPaymentMethod::query()
             ->where('active', true)->orderBy('sequence')->value('id');
         $this->tendered = number_format(max(0.0, $order->total - $order->paymentsTotal()), 2, '.', '');
+
+        // If the cashier already entered a phone earlier on this same draft
+        // (e.g. opened the payment overlay, cancelled, reopened) we left
+        // `customer_phone` on the row. Re-hydrate the two fields so the
+        // overlay reflects that state instead of resetting to blank.
+        if ($order->customer_phone !== null && $this->localPhone === '') {
+            [$dial, $local] = $this->splitStoredPhone($order->customer_phone);
+            $this->countryCode = $dial;
+            $this->localPhone = $local;
+        }
+
         $this->paying = true;
+    }
+
+    /**
+     * Best-effort split of a stored phone string back into its (dial,
+     * local) parts for the dropdown + input. Tolerant of multiple input
+     * shapes:
+     *   - `97333123456`   — order's `customer_phone` (digits only)
+     *   - `+973 33123456` — partner's `phone` (with '+' and space)
+     *   - `+973-33-123-456` — any human formatting
+     * All non-digits are stripped first, then the longest matching
+     * country digit-prefix wins. Falls back to Bahrain default + the
+     * full digit string if no prefix matches.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function splitStoredPhone(string $stored): array
+    {
+        $digits = preg_replace('/\D+/', '', $stored) ?? '';
+
+        foreach (PosWhatsAppCountries::all() as $country) {
+            if (str_starts_with($digits, $country['digits'])) {
+                return [$country['dial'], substr($digits, strlen($country['digits']))];
+            }
+        }
+
+        return [PosWhatsAppCountries::DEFAULT_DIAL, $digits];
     }
 
     public function addPayment(): void
@@ -260,6 +660,27 @@ final class PosTerminal extends Component
             return;
         }
 
+        // Compose the cashier-typed (countryCode, localPhone) into the
+        // Meta-ready international digits and store it on the order BEFORE
+        // finalizeSale() fires PosOrderPaid — the auto-receipt listener
+        // reads `$order->customer_phone` to decide whether to send.
+        // compose() returns null if either part is empty / non-digit only,
+        // which the listener treats as "walk-in, skip silently".
+        $order->customer_phone = PosWhatsAppCountries::compose(
+            $this->countryCode,
+            $this->localPhone,
+        );
+
+        // "Processed By" attribution — stamp the finalising cashier at
+        // validate time. resolveDraftOrder() already stamped the creator
+        // when the cart was opened; overwriting here makes the column
+        // reflect who actually CLOSED the sale, which is what shows up
+        // in the orders list. Same person in single-cashier sessions;
+        // for shared registers a different cashier finalising takes the
+        // credit (still audited via Chatter regardless).
+        $order->user_id = $this->currentUserId();
+        $order->save();
+
         $order->finalizeSale();
 
         $this->receiptOrderId = $order->id;
@@ -273,6 +694,8 @@ final class PosTerminal extends Component
         $this->receiptOrderId = null;
         $this->paying = false;
         $this->search = '';
+        $this->countryCode = PosWhatsAppCountries::DEFAULT_DIAL;
+        $this->localPhone = '';
     }
 
     /**
@@ -311,18 +734,26 @@ final class PosTerminal extends Component
     }
 
     /**
+     * Filtered list of Partners for the picker modal. Matches on name,
+     * phone or email (case-insensitive LIKE); empty search returns the
+     * first 50 alphabetically. Limit is plenty for an in-store register;
+     * if the contact list grows past that, swap in pagination.
+     *
      * @return Collection<int, Partner>
      */
-    private function customerResults(): Collection
+    private function customerListQuery(): Collection
     {
-        if (mb_strlen($this->customerSearch) < 2) {
-            return new Collection();
-        }
-
         return Partner::query()
-            ->where('name', 'like', '%' . $this->customerSearch . '%')
+            ->when($this->customerSearch !== '', function ($q): void {
+                $needle = '%' . $this->customerSearch . '%';
+                $q->where(function ($w) use ($needle): void {
+                    $w->where('name', 'like', $needle)
+                        ->orWhere('phone', 'like', $needle)
+                        ->orWhere('email', 'like', $needle);
+                });
+            })
             ->orderBy('name')
-            ->limit(6)
+            ->limit(50)
             ->get();
     }
 
@@ -343,11 +774,26 @@ final class PosTerminal extends Component
                     ->orderBy('sequence')->orderBy('name')->get()
                 : new Collection(),
             'paymentMethods' => PosPaymentMethod::query()->where('active', true)->orderBy('sequence')->get(),
-            'customerResults' => $this->customerResults(),
+            // Only run the partners query when the picker is open — saves a
+            // table scan on every keystroke in the cart.
+            'customerList' => $this->pickingCustomer
+                ? $this->customerListQuery()
+                : new Collection(),
+            'canEditCustomers' => app(AccessControl::class)->allows(
+                Auth::user(),
+                'contacts.partner',
+                Permission::Write,
+            ),
+            'canDeleteCustomers' => app(AccessControl::class)->allows(
+                Auth::user(),
+                'contacts.partner',
+                Permission::Unlink,
+            ),
             'receipt' => $this->receiptOrderId !== null
                 ? PosOrder::query()->with('lines', 'payments.method', 'partner')->find($this->receiptOrderId)
                 : null,
             'now' => Carbon::now(),
+            'whatsappCountries' => PosWhatsAppCountries::all(),
         ]);
     }
 }

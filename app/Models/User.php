@@ -14,6 +14,8 @@ use Illuminate\Notifications\Notifiable;
  * @property int $id
  * @property string $name
  * @property string|null $email
+ * @property string|null $avatar_path   Path on the `public` disk (nullable)
+ * @property string|null $new_email     Pending email change awaiting verification
  * @property bool $is_admin
  * @property string $password
  */
@@ -27,6 +29,8 @@ final class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'avatar_path',
+        'new_email',
         'is_admin',
         'password',
     ];
@@ -60,5 +64,23 @@ final class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->is_admin === true;
+    }
+
+    /**
+     * Human-readable role label for the read-only field on the profile
+     * page. "Administrator" for super-admins; otherwise either the
+     * user's first assigned group name (e.g. "POS / User") or a generic
+     * "User" if they have no groups. Editing roles happens via the
+     * admin User Resource, not from here — this method is display-only.
+     */
+    public function roleLabel(): string
+    {
+        if ($this->isAdmin()) {
+            return 'Administrator';
+        }
+
+        $group = $this->groups()->first();
+
+        return $group !== null ? $group->name : 'User';
     }
 }

@@ -65,8 +65,23 @@
                             @if ($card && count($card->badges) > 0)
                                 <div class="mt-2 flex flex-wrap gap-1">
                                     @foreach ($card->badges as $badge)
-                                        @if ($val($record, $badge))
-                                            <span class="o-chip bg-chrome-100 text-chrome-600">{{ $val($record, $badge) }}</span>
+                                        @php
+                                            $rawBadge = $record->getAttribute($badge);
+                                            $displayBadge = $val($record, $badge);
+                                            $badgeColor = \App\Erp\Views\ValueFormat::color($rawBadge);
+                                            $badgeClasses = match ($badgeColor) {
+                                                'emerald' => 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+                                                'amber'   => 'bg-amber-50 text-amber-700 ring-amber-600/20',
+                                                'sky'     => 'bg-sky-50 text-sky-700 ring-sky-600/20',
+                                                'red'     => 'bg-red-50 text-red-700 ring-red-600/20',
+                                                'rose'    => 'bg-rose-50 text-rose-700 ring-rose-600/20',
+                                                'violet'  => 'bg-violet-50 text-violet-700 ring-violet-600/20',
+                                                'slate'   => 'bg-slate-100 text-slate-700 ring-slate-600/20',
+                                                default   => 'bg-chrome-100 text-chrome-600 ring-chrome-300/40',
+                                            };
+                                        @endphp
+                                        @if ($displayBadge)
+                                            <span class="o-chip {{ $badgeClasses }} ring-1 ring-inset">{{ $displayBadge }}</span>
                                         @endif
                                     @endforeach
                                 </div>

@@ -5,6 +5,7 @@
         $value = \App\Erp\Views\ValueFormat::label($value);
         return match ($format) {
             'number'   => is_numeric($value) ? number_format((float) $value, 2) : (string) $value,
+            'money'    => is_numeric($value) ? \App\Erp\Views\ValueFormat::money($value) : (string) $value,
             'date'     => $value instanceof \Illuminate\Support\Carbon ? $value->isoFormat('MMM D, YYYY') : (string) $value,
             'datetime' => $value instanceof \Illuminate\Support\Carbon ? $value->isoFormat('MMM D, YYYY HH:mm') : (string) $value,
             'bool'     => $value ? 'Yes' : 'No',
@@ -31,6 +32,72 @@
             <span class="text-xs text-chrome-400">{{ $records->total() }} total</span>
         @endif
     </div>
+
+    {{-- Filter chip row — only renders if the arch defines presets. Row of
+         radio-style buttons: "All" plus one chip per preset, and (if the
+         arch declares `custom_date_field`) a "Custom…" chip that pops a
+         from/to picker. Clicking the active chip clears the filter
+         (toggle). Aggregates below scope to the same filter so the
+         footer total tracks what's shown. --}}
+    @if (count($filters) > 0 || $customDateField !== null)
+        <div class="flex flex-wrap items-center gap-2 border-b border-chrome-200 px-4 py-2">
+            <button type="button" wire:click="applyFilterPreset('')"
+                class="o-chip {{ $activeFilter === '' ? 'bg-primary-600 text-white' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
+                All
+            </button>
+            @foreach ($filters as $filter)
+                <button type="button" wire:click="applyFilterPreset('{{ $filter->name }}')"
+                    class="o-chip {{ $activeFilter === $filter->name ? 'bg-primary-600 text-white' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
+                    {{ $filter->label }}
+                </button>
+            @endforeach
+
+            {{-- Custom range chip + popover. Alpine handles open/close +
+                 click-outside; Livewire owns the From/To values (URL-bound
+                 so a picked range is shareable). Apply is server-side —
+                 it normalises both dates, swaps if reversed, and sets
+                 filter='custom'. The chip itself shows the range while
+                 active so the user can read "May 1 → May 7" at a glance. --}}
+            @if ($customDateField !== null)
+                <div x-data="{ open: false }" @click.outside="open = false" class="relative">
+                    <button type="button" @click="open = !open"
+                        class="o-chip flex items-center gap-1.5 {{ $activeFilter === 'custom' ? 'bg-primary-600 text-white' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
+                        @if ($activeFilter === 'custom' && $customRangeLabel)
+                            {{ $customRangeLabel }}
+                        @else
+                            Custom…
+                        @endif
+                        <svg class="size-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="m6 9 6 6 6-6" />
+                        </svg>
+                    </button>
+
+                    <div x-show="open" x-cloak x-transition.opacity
+                        class="absolute left-0 z-30 mt-2 w-72 origin-top-left rounded-lg border border-chrome-200 bg-white p-3 shadow-pop">
+                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-chrome-500">
+                            Pick a date range
+                        </p>
+                        <label class="mb-2 block">
+                            <span class="block text-xs text-chrome-500">From</span>
+                            <input type="date" wire:model="customFrom" class="o-input mt-1 text-sm">
+                        </label>
+                        <label class="mb-3 block">
+                            <span class="block text-xs text-chrome-500">To</span>
+                            <input type="date" wire:model="customTo" class="o-input mt-1 text-sm">
+                        </label>
+                        <div class="flex gap-2">
+                            <button type="button" @click="open = false"
+                                class="o-btn-ghost flex-1 justify-center text-sm">Cancel</button>
+                            <button type="button"
+                                wire:click="applyCustomRange"
+                                @click="open = false"
+                                class="o-btn-primary flex-1 justify-center text-sm">Apply</button>
+                        </div>
+                    </div>
+                </div>
+            @endif
+        </div>
+    @endif
 
     @if (count($columns) === 0)
         <p class="p-10 text-center text-sm text-chrome-400">No columns defined for this view.</p>
@@ -76,7 +143,24 @@
                                             {{ $fmt($value, $col->format) }}
                                         </a>
                                     @elseif ($col->format === 'badge')
-                                        <span class="o-chip bg-primary-50 text-primary-700">{{ $fmt($value, 'text') }}</span>
+                                        {{-- Badge colour comes from the enum's color() method when
+                                             the column is enum-backed (e.g. OrderState: emerald/amber/
+                                             sky/red). The match is here, not in PHP, so every Tailwind
+                                             class is a literal in the source the JIT scanner can see. --}}
+                                        @php
+                                            $badgeColor = \App\Erp\Views\ValueFormat::color($value);
+                                            $badgeClasses = match ($badgeColor) {
+                                                'emerald' => 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+                                                'amber'   => 'bg-amber-50 text-amber-700 ring-amber-600/20',
+                                                'sky'     => 'bg-sky-50 text-sky-700 ring-sky-600/20',
+                                                'red'     => 'bg-red-50 text-red-700 ring-red-600/20',
+                                                'rose'    => 'bg-rose-50 text-rose-700 ring-rose-600/20',
+                                                'violet'  => 'bg-violet-50 text-violet-700 ring-violet-600/20',
+                                                'slate'   => 'bg-slate-100 text-slate-700 ring-slate-600/20',
+                                                default   => 'bg-primary-50 text-primary-700 ring-primary-600/20',
+                                            };
+                                        @endphp
+                                        <span class="o-chip {{ $badgeClasses }} ring-1 ring-inset">{{ $fmt($value, 'text') }}</span>
                                     @else
                                         {{ $fmt($value, $col->format) }}
                                     @endif
@@ -99,7 +183,9 @@
                             @foreach ($columns as $col)
                                 <td class="px-4 py-2 text-{{ $col->align }}">
                                     @if (isset($aggregates[$col->field]))
-                                        {{ number_format($aggregates[$col->field], 2) }}
+                                        {{ $col->format === 'money'
+                                            ? \App\Erp\Views\ValueFormat::money($aggregates[$col->field])
+                                            : number_format($aggregates[$col->field], 2) }}
                                     @endif
                                 </td>
                             @endforeach

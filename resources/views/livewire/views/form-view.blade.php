@@ -64,7 +64,14 @@
                         @break
 
                     @default
+                        {{-- `step="any"` on number inputs accepts decimals without
+                             pinning a fixed precision — important now currencies
+                             can be 2- or 3-decimal (BHD/KWD/OMR etc.). Browsers
+                             default to step="1" on <input type=number>, which is
+                             what kicked out "8.5" with "two nearest valid values
+                             are 8 and 9". Harmless on non-number widgets. --}}
                         <input type="{{ $field->widget === 'datetime' ? 'datetime-local' : $field->widget }}"
+                            @if ($field->widget === 'number') step="any" @endif
                             wire:model="{{ $key }}" placeholder="{{ $field->placeholder }}" class="o-input">
                 @endswitch
 

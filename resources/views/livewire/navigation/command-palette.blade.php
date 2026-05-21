@@ -26,7 +26,7 @@
                         @keydown.arrow-down.prevent="move(1)"
                         @keydown.arrow-up.prevent="move(-1)"
                         @keydown.enter.prevent="go()"
-                        type="text" placeholder="Search apps, records, actions…"
+                        type="text" placeholder="{{ __('Search apps, records, actions…') }}"
                         class="w-full border-0 py-3 text-sm focus:ring-0">
                     <kbd class="rounded border border-chrome-300 bg-chrome-100 px-1.5 py-0.5 text-[10px] text-chrome-500">ESC</kbd>
                 </div>
@@ -43,22 +43,22 @@
                                         {{ \Illuminate\Support\Str::substr($item['label'], 0, 1) }}
                                     </span>
                                     <span>
-                                        <span class="block text-sm font-medium">{{ $item['label'] }}</span>
-                                        <span class="block text-xs text-chrome-400">{{ $item['hint'] }}</span>
+                                        <span class="block text-sm font-medium">{{ __($item['label']) }}</span>
+                                        <span class="block text-xs text-chrome-400">{{ __($item['hint']) }}</span>
                                     </span>
                                 </span>
-                                <span class="o-chip bg-chrome-100 text-chrome-500">{{ $item['group'] }}</span>
+                                <span class="o-chip bg-chrome-100 text-chrome-500">{{ __($item['group']) }}</span>
                             </a>
                         </li>
                     @empty
-                        <li class="px-3 py-8 text-center text-sm text-chrome-400">No matches.</li>
+                        <li class="px-3 py-8 text-center text-sm text-chrome-400">{{ __('No matches.') }}</li>
                     @endforelse
                 </ul>
 
                 <div class="flex items-center gap-4 border-t border-chrome-200 bg-chrome-50 px-4 py-2 text-[11px] text-chrome-400">
-                    <span><kbd class="font-sans">↑↓</kbd> navigate</span>
-                    <span><kbd class="font-sans">↵</kbd> open</span>
-                    <span class="ml-auto"><kbd class="font-sans">⌘K</kbd> / <kbd class="font-sans">Ctrl K</kbd></span>
+                    <span><kbd class="font-sans">↑↓</kbd> {{ __('navigate') }}</span>
+                    <span><kbd class="font-sans">↵</kbd> {{ __('open') }}</span>
+                    <span class="ms-auto"><kbd class="font-sans">⌘K</kbd> / <kbd class="font-sans">Ctrl K</kbd></span>
                 </div>
             </div>
         </div>

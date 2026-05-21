@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Modules\Contacts\Models\Partner;
 use Modules\Pos\Enums\OrderState;
+use Modules\Pos\Events\PosOrderPaid;
 
 /**
  * @property int $id
@@ -32,6 +33,7 @@ use Modules\Pos\Enums\OrderState;
  * @property float $paid_total
  * @property float $change_due
  * @property bool $components_consumed
+ * @property string|null $customer_phone International-format digits (no '+'), e.g. "97333123456"
  * @property Carbon|null $ordered_at
  */
 final class PosOrder extends Model implements Chatterable, DefinesIrModel
@@ -40,11 +42,19 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
 
     protected $table = 'pos_orders';
 
+    /**
+     * Always eager-load the cashier so the list view's `processed_by`
+     * accessor doesn't N+1 on every row.
+     *
+     * @var list<string>
+     */
+    protected $with = ['user'];
+
     /** @var list<string> */
     protected $fillable = [
         'reference', 'pos_session_id', 'partner_id', 'user_id', 'state',
         'subtotal', 'tax_total', 'total', 'paid_total', 'change_due',
-        'components_consumed', 'ordered_at',
+        'components_consumed', 'customer_phone', 'ordered_at',
     ];
 
     /**
@@ -107,6 +117,42 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
     }
 
     /**
+     * "Processed By" accessor — surfaces the cashier's display name (or
+     * '—' for unattributed orders) so the metadata-driven List view can
+     * render the column without needing a real `processed_by` SQL column.
+     *
+     * Sorting on this column routes through the arch-level `sort_field`
+     * override to `user_id` (the real indexed column) — see PosOrder's
+     * irModelDefinition list view.
+     */
+    public function getProcessedByAttribute(): string
+    {
+        if ($this->user_id === null) {
+            return '—';
+        }
+
+        // `$with = ['user']` eager-loads this relation on the list view's
+        // paginated query, so no N+1 here for the typical case. Fall back
+        // to an explicit lookup if a caller built the model without the
+        // relation pre-loaded (defensive). Plain if-blocks rather than
+        // `?->name ?? '—'` because Larastan infers the magic relation
+        // accessor as non-null and rejects the nullsafe form.
+        $user = $this->getRelation('user');
+
+        if ($user instanceof User) {
+            return $user->name;
+        }
+
+        $fresh = User::query()->find($this->user_id);
+
+        if ($fresh !== null) {
+            return $fresh->name;
+        }
+
+        return '—';
+    }
+
+    /**
      * Recompute order totals from its lines.
      */
     public function recalculate(): void
@@ -163,6 +209,11 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
      * Complete the sale atomically: mark paid, post as Done, and decrement
      * raw-material stock for every recipe-backed line — all in one DB
      * transaction so inventory and the order can never drift apart.
+     *
+     * After the DB state is durably committed, fire {@see PosOrderPaid} so
+     * any subscribed automation (e.g. the WhatsApp auto-receipt listener)
+     * can act on it. The event is dispatched OUTSIDE the transaction
+     * closure — if the commit rolls back, no receipt is sent.
      */
     public function finalizeSale(): void
     {
@@ -172,6 +223,8 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
             $this->save();
             $this->consumeComponents();
         });
+
+        event(new PosOrderPaid($this));
     }
 
     /**
@@ -226,25 +279,51 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
                 new FieldDefinition('total', 'Total', 'float', sequence: 30),
                 new FieldDefinition('paid_total', 'Paid', 'float', sequence: 40),
                 new FieldDefinition('ordered_at', 'Ordered', 'datetime', sequence: 50),
+                new FieldDefinition('processed_by', 'Processed By', 'char', sequence: 60),
             ],
             views: [
                 new ViewDefinition('POS Orders', 'list', [
                     'columns' => [
                         ['field' => 'reference', 'label' => 'Reference', 'sortable' => true],
                         ['field' => 'state', 'label' => 'Status', 'format' => 'badge'],
-                        ['field' => 'total', 'label' => 'Total', 'format' => 'number', 'align' => 'right', 'sum' => true, 'sortable' => true],
-                        ['field' => 'paid_total', 'label' => 'Paid', 'format' => 'number', 'align' => 'right'],
+                        ['field' => 'total', 'label' => 'Total', 'format' => 'money', 'align' => 'right', 'sum' => true, 'sortable' => true],
+                        ['field' => 'paid_total', 'label' => 'Paid', 'format' => 'money', 'align' => 'right'],
+                        // `processed_by` is an accessor (User name); we can't ORDER BY
+                        // it in SQL, so we route sort clicks to the real indexed
+                        // `user_id` column via the column's `sort_field` override.
+                        // Sorting groups orders by cashier — alphabetic-by-name would
+                        // need a USERS join the engine doesn't have yet.
+                        ['field' => 'processed_by', 'label' => 'Processed By', 'sortable' => true, 'sort_field' => 'user_id'],
                         ['field' => 'ordered_at', 'label' => 'Ordered', 'format' => 'datetime', 'sortable' => true],
                     ],
                     'default_sort' => [['field' => 'ordered_at', 'dir' => 'desc']],
                     'per_page' => 20,
+                    // Date-range presets surfaced as chip buttons above the
+                    // table. The footer `total` aggregate respects the active
+                    // filter, so the chip row + sum together act as a daily/
+                    // weekly/monthly revenue rollup without a dedicated report.
+                    'filters' => [
+                        ['name' => 'today',      'label' => "Today's Sales", 'field' => 'ordered_at', 'preset' => 'today'],
+                        ['name' => 'yesterday',  'label' => 'Yesterday',     'field' => 'ordered_at', 'preset' => 'yesterday'],
+                        ['name' => 'this_week',  'label' => 'This Week',     'field' => 'ordered_at', 'preset' => 'this_week'],
+                        ['name' => 'this_month', 'label' => 'This Month',    'field' => 'ordered_at', 'preset' => 'this_month'],
+                    ],
+                    // Opt the list into the "Custom…" range chip — the popover
+                    // filters whichever date column we name here. Same field as
+                    // the presets so a user mental-model of "Custom = picky
+                    // version of Today" stays true.
+                    'custom_date_field' => 'ordered_at',
                 ]),
                 new ViewDefinition('POS Orders', 'kanban', [
                     'group_by' => 'state',
+                    // The transient `paid` state (set inside finalizeSale's
+                    // DB transaction, immediately followed by `done`) is
+                    // intentionally NOT a column — no order ever sits in
+                    // it in steady state, and a second "Paid" column next
+                    // to the one below would be a confusing duplicate.
                     'stages' => [
                         ['value' => 'draft', 'label' => 'Draft'],
-                        ['value' => 'paid', 'label' => 'Paid'],
-                        ['value' => 'done', 'label' => 'Posted'],
+                        ['value' => 'done', 'label' => 'Paid'],
                         ['value' => 'cancelled', 'label' => 'Cancelled'],
                     ],
                     'card' => ['title' => 'reference', 'subtitle' => 'total', 'badges' => ['state']],

@@ -47,6 +47,18 @@ Odoo's "addons" paradigm.
 7. **One module = one self-contained vertical** under `Modules/` (see §4).
 8. Blade + Livewire for views; TailwindCSS utility classes — no bespoke CSS unless a
    utility cannot express it. Match Odoo 19's compact, dense, fast aesthetic.
+9. **i18n + RTL discipline.** The app supports English and Arabic (Phase 12). Every
+   new user-facing string MUST be wrapped in `__()` AND added to `lang/ar.json` in the
+   same change — missing keys silently render as the English source, regressing the
+   Arabic experience without warning. Any new layout utility with directionality
+   (`mr-`/`ml-`/`pr-`/`pl-`/`right-X`/`left-X`/`text-left`/`text-right`/`rounded-l-*`/
+   `border-l-*`/`origin-top-left` etc.) MUST be a logical equivalent
+   (`me-`/`ms-`/`pe-`/`ps-`/`end-X`/`start-X`/`text-start`/`text-end`/`rounded-s-*`/
+   `border-s-*`/`origin-top-start`) so `dir="rtl"` mirrors the layout. Carve-outs that
+   stay English by design: WhatsApp settings tab content, brand names ("OpenERP" /
+   "WhatsApp"), ISO codes + currency symbols, user-entered data, CLI snippets,
+   keyboard shortcuts. Money values go through `App\Erp\Money\Currencies::format()` —
+   never raw `number_format()` on amounts.
 
 ---
 
@@ -245,13 +257,56 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
 # → app-switcher → Point of Sale → Open session → register
 ```
 
+**Phase 7 increments shipped 2026-05-21 / 2026-05-22:**
+
+- **WhatsApp auto-receipt** — see Phase 10 row. `pos_orders.customer_phone` column +
+  Terminal phone capture (dial-code + local digits) + listener that queues the
+  `pos_receipt` template message on `PosOrderPaid`. Phone composer in
+  `Modules\Pos\Support\PosWhatsAppCountries` (13 countries, default +973). Test:
+  `tests/Feature/PosWhatsAppReceiptTest.php`.
+- **Customer flow rework** — `PosTerminal` got an Odoo-style customer picker modal
+  (live search + Create/Edit/Delete partner inline). Trigger button is purple, 1/3
+  width. Pencil edit + trash delete per row, red trash, aligned. Test:
+  `tests/Feature/PosAddCustomerTest.php` (26).
+- **Processed By column** — `PosOrder::user()` (cashier; `pos_orders.user_id`,
+  nullable plain-indexed *logical ref*) + `processed_by` accessor renders `User.name`.
+  Engine list arch declares `'sort_field' => 'user_id'` because the engine can't
+  ORDER BY accessors. Test: `tests/Feature/PosProcessedByTest.php` (5).
+- **Status colors** — `OrderState::label()` renamed "Posted" → "Paid". New
+  `OrderState::color()` method drives engine list/kanban badges (Done=emerald,
+  Draft=amber, Cancelled=red). Kanban arch removed the transient `paid` stage (it's
+  immediately followed by `done` inside `finalizeSale()`s transaction — no order ever
+  sits in `paid` in steady state).
+- **POS Reporting + date-filter chips + custom range** —
+  `Modules\Pos\Livewire\PosReporting` at `/app/pos/reporting`: KPI strip
+  (revenue / orders / AOV) + preset switcher (Today / Yesterday / This Week / This
+  Month / Custom), re-keyed list-view embed beneath that scopes to the active preset.
+  List arch on `pos.order` declares 4 date filters + `custom_date_field: ordered_at`;
+  engine renders the chip row + Custom popover generically. New engine pieces:
+  `App\Erp\Views\FilterDef`, `App\Erp\Views\DatePreset`,
+  `ColumnDef::sortField`/`sortColumn()`, `ListView::applyFilter()`/`applyCustomRange()`.
+  Test: `tests/Feature/PosFilterAndReportingTest.php` (18).
+- **Import/Export dropdown** — Import button on `/app/pos/product` is an Alpine
+  dropdown; sibling Export item streams CSV via
+  `Modules\Pos\Http\Controllers\PosProductExportController` (chunked). `pos_user`
+  group sees Export but not Import (Read vs Create ACL).
+- **Money columns** — `total` / `paid_total` (PosOrder) and `price` / `cost_price` /
+  `profit` (PosProduct) arch flipped from `'format' => 'number'` to `'format' =>
+  'money'` so cells + footer aggregates render via `Currencies::format()` (Phase
+  11). After arch changes you'd run `module:resync pos` — the deploy workflow does
+  this automatically now (§6).
+- **Template button icon** — `⬇` Unicode emoji on `/app/pos/product` swapped for
+  a Heroicons outline arrow-down SVG so it inherits the toolbar's text colour
+  instead of rendering as a chunky OS emoji.
+
 **Deliberately OUT of scope** (say so if asked, offer as follow-ups): offline/PWA &
 hardware/IoT (scanners, cash drawer, customer display), restaurant floors/tables/kitchen,
-loyalty/gift cards/coupons, multi-currency, advanced tax (price-included, multi-tax,
-fiscal positions), refunds/returns, and accounting/invoice posting. Known simplification:
-cash reconciliation sums **payment amounts**; change given is computed (`change_due`) but
-not posted as a drawer cash-out, so tendering over total slightly overstates expected cash
-— use exact tender or treat `change_due` as informational.
+loyalty/gift cards/coupons, multi-currency *per-order* (the global default currency from
+Phase 11 IS now applied), advanced tax (price-included, multi-tax, fiscal positions),
+refunds/returns, and accounting/invoice posting. Known simplification: cash
+reconciliation sums **payment amounts**; change given is computed (`change_due`) but
+not posted as a drawer cash-out, so tendering over total slightly overstates expected
+cash — use exact tender or treat `change_due` as informational.
 
 ---
 
@@ -264,13 +319,15 @@ Keep this table current — it is how state survives across sessions.
 | 1 | Init: Laravel 11 + Livewire 3 + Tailwind + PHPStan/PHPUnit + this file | ✅ DONE |
 | 2 | Modular addon arch + `ir_module` / `ir_model(_fields)` / `ir_ui_view` | ✅ DONE |
 | 3 | Odoo 19 UX: master layout, app switcher, ⌘K command palette, sidebar, Chatter (`mail.thread`) | ✅ DONE |
-| 4 | Dynamic view engine: List (sort/bulk/aggregate) + Kanban (drag-drop + rotting indicator) | ✅ DONE |
+| 4 | Dynamic view engine: List (sort/bulk/aggregate/filter/custom-range) + Kanban (drag-drop + rotting indicator) | ✅ DONE |
 | 5 | First module: **Contacts** (`Partner` model + Form/List/Kanban + Chatter) | ✅ DONE |
-| 6 | Auth & access control: login, `res_groups`, `ir_model_access`, enforced in views | ✅ DONE |
-| 7 | **Point of Sale** module: sessions, terminal, payments, receipts, reconciliation | ✅ DONE |
-| 8 | **Settings**: `ir_config_parameter` + cached `SettingManager`/`Setting` facade + admin Settings page | ✅ DONE (General tab; POS/Inventory tabs + wiring the static-consumption toggle = next increments) |
+| 6 | Auth & access control: login, `res_groups`, `ir_model_access`, enforced in views; **Profile self-service** (avatar / email-change via signed link / password) | ✅ DONE |
+| 7 | **Point of Sale** module: sessions, terminal, payments, receipts, reconciliation, customer picker, Processed By, status colors, Reporting + date-filter chips + custom range, Import/Export dropdown, money columns, WhatsApp auto-receipt | ✅ DONE |
+| 8 | **Settings**: `ir_config_parameter` + cached `SettingManager`/`Setting` facade + admin Settings page + generic `$selects` Alpine combobox (currency + language pickers) | ✅ DONE (General tab + dropdowns; POS/Inventory tabs = next increments) |
 | 9 | **Inventory**: double-entry schema + Overview Kanban + atomic pickings/transfer flow | ✅ (adjustment/replenishment/lots/valuation+forecast/barcode = next increments) |
-| 10 | **WhatsApp**: Meta Cloud API integration (queued messaging, Chatter button, automations, webhook) | ✅ config+log schema, queued `sendTemplateMessage()`, message-log lifecycle, secure webhook (verify + HMAC), admin Settings tab, **POS auto-receipt** (`PosOrderPaid` event → `SendPosOrderReceiptViaWhatsApp` listener → `pos_receipt` template; phone captured at checkout via dial-code dropdown + local digits, composed with leading-zero strip via `PosWhatsAppCountries`) — templates table/UI · Chatter button · other event automations · media/PDF attachments = next increments |
+| 10 | **WhatsApp**: Meta Cloud API integration (queued messaging, webhook, admin Settings tab, **POS auto-receipt** shipped) | ✅ DONE; templates table/UI · Chatter button · other event automations · media/PDF attachments = next increments |
+| 11 | **Currency engine**: `App\Erp\Money\{Currency,Currencies}` (27 currencies, Arab-world heavy) + `ValueFormat::money()` + `format: money` column type + Settings dropdown | ✅ DONE |
+| 12 | **Locale & RTL Arabic (Pass 1)**: `SetLocale` middleware + `lang/ar.json` + `<html dir="rtl">` + logical Tailwind utilities + auto-reload on language flip + app-switcher per-module icons | ✅ Pass 1 (foundation + chrome + login + profile + settings + dashboard). Pass 2 (POS interiors, Contacts, Inventory, Chatter, engine list/kanban/form chrome, validation messages) = next |
 
 **Phase 8 — Settings (where things live):**
 
@@ -317,8 +374,65 @@ Usage: `Setting::get('company.name')`, `Setting::set('currency.default', 'EUR')`
 Install (migrations run via the engine): `php artisan module:install whatsapp`. Then
 configure under **Settings → WhatsApp** (admin) and register the webhook URL shown there
 in Meta. **Not yet built** (next increments): `whatsapp_templates` table + parser UI, the
-Chatter "WhatsApp" button, event-triggered automations (e.g. POS Paid → receipt),
+Chatter "WhatsApp" button, other event-triggered automations beyond POS receipt,
 media/PDF attachment URLs, and inbound→Chatter document correlation (`related_*`).
+
+**POS auto-receipt (shipped 2026-05-21):** `Modules\Pos\Events\PosOrderPaid` fires from
+`PosOrder::finalizeSale()`. `Modules\Pos\Listeners\SendPosOrderReceiptViaWhatsApp`
+(registered by hand in `PosServiceProvider::boot()` — not via `EventServiceProvider`
+because POS is a module that only activates on install) builds 4 ordered template
+variables (customer name → "Walk-in" if no partner / order ref / total formatted via
+`Currencies::format()` / `ordered_at` as `M j, Y H:i`) and queues
+`WhatsAppService::sendTemplateMessage($phone, 'pos_receipt', $vars, 'en_US')`. Failures
+are swallowed and logged to the order's Chatter — a misconfigured WhatsApp must NEVER
+break checkout. Phone capture lives in `PosTerminal` (dial-code dropdown + local digits,
+composed via `Modules\Pos\Support\PosWhatsAppCountries` which strips leading zeros,
+default `+973`). `pos_orders.customer_phone` column added via `2026_05_21_200001`.
+
+**Phase 11 — Currency engine (`App\Erp\Money\`):**
+
+| Concern | Location |
+|---|---|
+| Value object | `App\Erp\Money\Currency` (readonly) — `code` / `name` / `symbol` / `decimals` / `position` (before\|after); `format($amount)` does the actual padding |
+| Registry | `App\Erp\Money\Currencies` — **27 currencies**, Arab-world heavy: dinars (BHD/KWD/OMR/JOD/LYD/TND/IQD) = **3 decimals**; SAR/QAR/AED/LBP/SYP/YER/EGP/SDG/DZD/MAD/MRU/SOS = 2 decimals; DJF/KMF = 0 decimals; plus USD/EUR/GBP/INR/PKR/TRY (Western majors prefix the glyph, Arab abbreviations suffix). `all()` / `find(code)` / `active()` (reads `Setting::get('currency.default')` with USD fallback) / `format(amount, code?)` / `flushCache()` for tests |
+| Engine wiring | `App\Erp\Views\ValueFormat::money()` delegates to `Currencies::format()`. `resources/views/livewire/views/list-view.blade.php` `$fmt` closure routes `format: money` columns through it; aggregate footer also detects `'money'` and uses the same path so footer totals match the row format |
+| Whitelist gotcha | `App\Erp\Views\ViewArch::parseList()` had a hardcoded format whitelist that silently downgraded unknown values to `'text'`. `'money'` was added; regression test `CurrencyFormatTest::test_view_arch_whitelist_accepts_money_format` pins it so a future tidy can't undo it |
+| Form widget | `resources/views/livewire/views/form-view.blade.php` — number widget gains `step="any"` so 2-/3-decimal currencies (8.5, 12.345) don't trip browser `step=1` validation ("nearest valid 8 and 9") |
+| Settings dropdown | `App\Livewire\Pages\SettingsPage::$selects['currency.default']` populated from `Currencies::all()`; rendered by `resources/views/livewire/pages/settings.blade.php` as an Alpine combobox (button + popover with search input + filtered list + click-pick + Esc/click-outside to close). Generic across any setting key listed in `$selects` — `$selects['company.language']` reuses the same template |
+| Tests | `tests/Feature/CurrencyFormatTest.php` (10) — BHD 3-decimal suffix, USD 2-decimal prefix, zero-decimal currencies, active-from-setting, fallback-to-USD-on-unknown, explicit-code override, null→zero, dropdown population, arch whitelist |
+
+DB stores `decimal(12,2)`; display can be 3-decimal (BHD `10.000`) — third decimal is always padded `0` at render-time. Production change: admin picks currency in **Settings → General → Default Currency**, save flushes the settings cache, next page render reformats every money cell + the WhatsApp receipt template variable.
+
+**Phase 12 — Locale & RTL Arabic (Pass 1, shipped 2026-05-22):**
+
+| Concern | Location |
+|---|---|
+| Setting | `company.language` (string, `en`\|`ar`, default `en` from `SettingSeeder`) |
+| Middleware | `App\Http\Middleware\SetLocale` — reads `company.language` setting on every web request and calls `app()->setLocale(...)`. Whitelists `['en','ar']`; unknown silently falls back to `en` so a misconfigured row can't 4xx the site. Appended to `web` group in `bootstrap/app.php` |
+| Strings | `lang/ar.json` — English-string-keyed JSON. New `__()` calls without a matching entry render the English key (not a crash); add an entry in the same change (memory: `[[translate-changes-to-arabic]]`) |
+| Direction | Master + guest layouts set `<html dir="rtl">` when locale is `ar`. Pass-1 surfaces converted to **logical Tailwind utilities** so layout mirrors against `dir`: `ms-`/`me-`/`ps-`/`pe-` (margins/padding), `start-`/`end-` (positioning), `text-start`/`text-end` (alignment), `border-s-`/`border-e-` (borders), `rounded-s-`/`rounded-e-` (corners), `origin-top-start` (transform origin) |
+| Auto-reload | `SettingsPage::save()` snapshots `company.language` before write; if it changed, `$this->dispatch('language-changed')`. Master layout `<body>` has `x-on:language-changed.window="window.location.reload()"` — a Livewire partial re-render can't flip the parent `<html dir>` or rebuild the layout, so a full reload is required when locale flips. Saves for *other* settings don't trigger reload |
+| App-switcher icons | `resources/views/livewire/navigation/app-switcher.blade.php` — 2-letter abbreviations replaced with per-module Heroicons mini: contacts=user-group, crm=building-office-2, pos=shopping-bag, sales=currency-dollar, inventory=archive-box, project=briefcase, settings=cog-6-tooth, accounting=wallet. Falls back to a neutral 3×3 grid for unrecognised modules. Module label flows through `__('module.<slug>')` so "Point of Sale" → "نقطة البيع" |
+| Tests | `tests/Feature/LocaleTest.php` (7) — fallback to English on missing setting / unknown code; `dir="rtl"` + translated chrome on Arabic; dropdown population; reload event fires only on language flip (not on other-setting saves); login page renders in Arabic |
+
+**Pass 1 scope (translated + RTL-mirrored):** master `app.blade.php` layout, `guest.blade.php` layout, login (`Auth\Login`), profile (`ProfilePage` + verification controller flashes), settings (header / tabs / combobox / "No matches"), settings nav partial, sidebar, app switcher, command palette, dashboard.
+
+**Pass 2 (next, not yet built):** POS terminal/products/orders/reporting interiors, Contacts module, Inventory module, Chatter, engine list/kanban/form chrome ("Records" / "X selected" / "Delete" / filter chips), validation messages (`lang/ar/validation.php`).
+
+**Carve-outs (deliberately English-only):** WhatsApp settings tab content (brand-aligned), brand names ("OpenERP" / "WhatsApp"), ISO codes + currency symbols ("BHD" / "BD" / "USD"), user-entered data (partner / product names, references, mailbox addresses), CLI snippets in code blocks (`php artisan ...`), keyboard shortcuts ("⌘K"). When in doubt: brand + identifier + user-typed = stay English.
+
+**Profile self-service (shipped 2026-05-21):**
+
+| Concern | Location |
+|---|---|
+| Page | `App\Livewire\ProfilePage` + `resources/views/livewire/profile-page.blade.php`, route `/profile` (auth-only, accessed via topbar user-menu dropdown) |
+| Schema | `2026_05_21_300001_add_profile_fields_to_users_table` — `avatar_path` (nullable text) + `new_email` (nullable indexed string) |
+| Email change | NOT direct write-through. Save parks new value in `users.new_email`; `App\Notifications\VerifyNewEmail` sends a 1-hour signed verification link to the **new** address via `Notification::route('mail', $new)->notify(...)` (anonymous notifiable — the user's default routing would deliver to the OLD address). URL: `URL::temporarySignedRoute('profile.email.verify', now()->addHour(), ['id', 'hash'])` where `hash = sha256(strtolower(trim(email)) . '|' . config('app.key'))` |
+| Verification | `App\Http\Controllers\ProfileEmailVerificationController` (single-action invokable) — checks `hasValidSignature()`, re-derives hash from `users.new_email`, refuses on mismatch (stale link after the user changed their mind → 403). On match: `forceFill(email = new_email, new_email = null, email_verified_at = now())->save()` + redirect to `/profile` with flash. No pending change → friendly redirect (not 4xx). Login NOT required (signature is proof of intent, matches Laravel's stock email-verify convention) |
+| Avatar | `WithFileUploads` → `Storage::disk('public')->store('avatars')`; replacing deletes the previous file (idempotent — `delete()` no-ops on missing) |
+| Role | Read-only display via `User::roleLabel()`; form has no `is_admin` input, and `save()` never touches it — pinned by `test_save_does_not_let_user_promote_themself_via_form_state` |
+| Password | Optional — requires correct `currentPassword`; `min:8` + `confirmed:newPasswordConfirmation`; all three fields have Alpine eye-toggle (purple `text-primary-600`, independent state). Same eye pattern on the login password field |
+| Tests | `tests/Feature/ProfilePageTest.php` (19) — mount prefill, name/avatar/password write-through, email parks + notifies new address (via `assertSentOnDemand` because anonymous notifiable doesn't match user instance), already-taken email rejected, cancel pending clears `new_email`, controller swap on valid sig, refuse on mismatched hash / unsigned / expired, idempotent flash on already-verified, role label correct for admin/non-admin, role can't be promoted via form state |
 
 ---
 
@@ -337,18 +451,36 @@ media/PDF attachment URLs, and inbound→Chatter document correlation (`related_
 - **Module install atomicity:** `ModuleManager` wraps migrate+registry in a
   transaction. SQLite/PostgreSQL have transactional DDL so rollback is clean; **MySQL
   auto-commits DDL**, so a mid-install failure on MySQL can leave partial tables.
-- **Incremental module migrations are NOT auto-applied to the live DB.** A module's
-  migrations run only at `module:install`/`uninstall` (the engine does not
+- **Incremental module migrations are NOT auto-applied to the live DB** (general rule).
+  A module's migrations run only at `module:install`/`uninstall` (the engine does not
   `loadMigrationsFrom`, so plain `php artisan migrate` ignores module dirs). A migration
-  added to an **already-installed** module sits *Pending* on `database/database.sqlite`
-  forever and the running app 500s — yet the whole PHPUnit suite stays green because
-  `DatabaseMigrations` rebuilds in-memory from scratch every test. After adding an
-  incremental migration to an installed module, run it on the live DB yourself:
-  `php artisan migrate --path=Modules/<Module>/database/migrations --force` (idempotent;
-  check with `migrate:status --path=...`). Likewise, after editing a model's
-  `irModelDefinition()` (fields/arch, no schema change) run `php artisan module:resync
-  <module>` to re-reflect it into `ir_model(_fields)` / `ir_ui_view`. Always do this for
-  every module touched and state it in the hand-off — don't let the user find it via a 500.
+  added to an **already-installed** module sits *Pending* on the live DB and the running
+  app 500s — yet PHPUnit stays green because `DatabaseMigrations` rebuilds in-memory
+  every test. Run on the live DB yourself: `php artisan migrate
+  --path=Modules/<Module>/database/migrations --force` (idempotent; check with
+  `migrate:status --path=...`). Likewise, after editing a model's `irModelDefinition()`
+  (fields/arch, no schema change) run `php artisan module:resync <module>` to re-reflect
+  it into `ir_model(_fields)` / `ir_ui_view`. Always do this for every module touched
+  and state it in the hand-off — don't let the user find it via a 500.
+- **Deploy workflow auto-applies POS module state.** `.github/workflows/deploy.yml`'s
+  remote post-deploy now runs, in order: core `migrate --force` → POS `migrate
+  --path=Modules/Pos/database/migrations --force` → `SettingSeeder` → `PosStaffSeeder`
+  → `module:resync pos` → cache rebuild. Idempotent every push to `main`. This means
+  **POS is self-healing on every deploy** — new POS migrations and arch tweaks land
+  without SSH follow-up, and cashier accounts (`ramadan` / `faraj` / `osama`, `pos_user`
+  group, null email) self-restore. `PosStaffSeeder` is kept OUT of the default seed
+  chain (memory: `[[null-email-seed-breaks-migrate-rollback]]`) — it's invoked only by
+  the workflow's remote step. **Other modules** (Contacts, Inventory, WhatsApp) still
+  need manual SSH after their own incremental migrations or arch edits.
+- **`AuthSeeder` is deliberately NOT in the deploy workflow.** Adding it would reset
+  `admin@example.com`'s password to the seeded value on every push — a footgun. Admin
+  + sales user creation is a one-time bootstrap; once prod has them, leave them alone.
+- **Prod mail transport is environment-specific.** `lang/`, `.env`, and per-host SMTP
+  creds never ship from the repo (rsync excludes `.env*`). Dev typically uses
+  Mailtrap sandbox (`sandbox.smtp.mailtrap.io`) — Bahrain ISPs frequently block
+  outbound 2525, so port 587 with `MAIL_ENCRYPTION=tls` is the fallback. Prod uses
+  Hostinger SMTP (mailbox created in hPanel → SMTP creds pasted into prod `.env` via
+  SSH/File Manager → `php artisan config:clear`).
 - **OS:** development host is Windows. Prefer cross-platform tooling and forward slashes
   in code; never hardcode `C:\` paths.
 

@@ -777,9 +777,58 @@ final class PosModuleTest extends TestCase
         $c->call('confirmImport')
             ->assertSet('stage', 'done');
 
+        // Arabic names route to the AR locale (per importer's locale
+        // detection); the EN pill stays empty for these rows.
         $this->assertSame(2, PosProduct::query()->count());
-        $this->assertTrue(PosProduct::query()->where('name->en', 'افوكادو')->exists());
-        $this->assertTrue(PosProduct::query()->where('name->en', 'موز')->exists());
+        $this->assertTrue(PosProduct::query()->where('name->ar', 'افوكادو')->exists());
+        $this->assertTrue(PosProduct::query()->where('name->ar', 'موز')->exists());
+    }
+
+    public function test_importer_routes_arabic_names_to_ar_locale_and_english_to_en(): void
+    {
+        // Smart locale detection on import: an Arabic-script value lands
+        // under the AR pill, an English-script value under EN — same CSV,
+        // mixed rows, no extra columns needed in the template.
+        $this->installPos();
+
+        $csv = "Name,Sale Price\n"
+             . "Espresso,3.0\n"             // English → en
+             . "افوكادو,1.2\n"              // Arabic → ar
+             . "موز,0.8\n";                 // Arabic → ar
+
+        $path = $this->writeCsv('mixed-locale.csv', $csv);
+        $report = app(PosProductImporter::class)->parse($path);
+        app(PosProductImporter::class)->apply($report);
+
+        $espresso = PosProduct::query()->where('name->en', 'Espresso')->sole();
+        $this->assertSame(['en' => 'Espresso'], $espresso->getTranslations('name'));
+        $this->assertArrayNotHasKey('ar', $espresso->getTranslations('name'));
+
+        $avocado = PosProduct::query()->where('name->ar', 'افوكادو')->sole();
+        $this->assertSame(['ar' => 'افوكادو'], $avocado->getTranslations('name'));
+        $this->assertArrayNotHasKey('en', $avocado->getTranslations('name'));
+    }
+
+    public function test_importer_update_preserves_the_other_locale_translation(): void
+    {
+        // A product that already has BOTH locales should keep the
+        // opposite-locale value when an import overwrites only one side.
+        $this->installPos();
+
+        $product = PosProduct::query()->create(['name' => 'Espresso', 'barcode' => '9999', 'price' => 3.0, 'tax_rate' => 0]);
+        $product->setTranslation('name', 'ar', 'إسبريسو')->save();
+
+        // Import an Arabic-only row matched on the same barcode — should
+        // touch ONLY the AR translation, not wipe the EN one.
+        $csv = "Name,Barcode,Sale Price\nإسبريسو محدث,9999,3.5\n";
+        $path = $this->writeCsv('update-ar-only.csv', $csv);
+        $report = app(PosProductImporter::class)->parse($path);
+        app(PosProductImporter::class)->apply($report);
+
+        $fresh = $product->fresh();
+        $this->assertSame('Espresso', $fresh->getTranslation('name', 'en'));     // preserved
+        $this->assertSame('إسبريسو محدث', $fresh->getTranslation('name', 'ar')); // overwritten
+        $this->assertEqualsWithDelta(3.5, $fresh->price, 0.001);                // updated
     }
 
     public function test_confirm_import_with_no_file_and_no_cached_report_surfaces_error(): void

@@ -155,13 +155,14 @@ final class PosProductImporter
         // shouldn't roll back good ones. Each row is its own unit of work.
         foreach ($report->rows as $row) {
             if ($row->action === 'create') {
-                PosProduct::query()->create([
-                    'name' => $row->name,
+                $product = new PosProduct([
                     'barcode' => $row->barcode,
                     'price' => $row->salePrice ?? 0.0,
                     'cost_price' => $row->costPrice ?? 0.0,
                     'tax_rate' => $row->taxRate ?? 0.0,
                 ]);
+                $product->setTranslation('name', self::detectLocale($row->name), $row->name);
+                $product->save();
                 $report->createdCount++;
 
                 continue;
@@ -178,8 +179,11 @@ final class PosProductImporter
                     continue;
                 }
 
+                // Only overwrite the detected-locale translation — preserves
+                // the other locale on the existing product (an English-named
+                // import row shouldn't wipe the row's existing Arabic name).
+                $product->setTranslation('name', self::detectLocale($row->name), $row->name);
                 $product->fill([
-                    'name' => $row->name,
                     // Preserve previous value for blank-but-optional inputs so
                     // partial updates don't wipe fields the user left empty.
                     'price' => $row->salePrice ?? $product->price,
@@ -191,6 +195,23 @@ final class PosProductImporter
         }
 
         return $report;
+    }
+
+    /**
+     * Pick the locale to store a translatable value under based on its
+     * script. Any Arabic-script characters (Unicode `\p{Arabic}`) → 'ar';
+     * everything else → 'en'. Lets the importer take a single "Name"
+     * column and route Arabic-named products to the AR pill, English-
+     * named products to the EN pill, in the same file.
+     *
+     * Mixed strings ("Pepsi باربد") get classified as 'ar' as soon as one
+     * Arabic glyph is present — the brand half stays readable on the AR
+     * side and the user can fill in a clean English translation later via
+     * the form's EN pill. Edge case but acceptable for an import tool.
+     */
+    private static function detectLocale(string $value): string
+    {
+        return preg_match('/\p{Arabic}/u', $value) === 1 ? 'ar' : 'en';
     }
 
     /**

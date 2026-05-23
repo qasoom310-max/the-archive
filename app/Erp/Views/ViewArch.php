@@ -211,7 +211,7 @@ final readonly class ViewArch
                 sum: ($entry['sum'] ?? false) === true,
                 avg: ($entry['avg'] ?? false) === true,
                 align: in_array($align, ['left', 'right', 'center'], true) ? $align : 'left',
-                format: in_array($format, ['text', 'number', 'money', 'date', 'datetime', 'badge', 'bool'], true)
+                format: in_array($format, ['text', 'number', 'money', 'date', 'datetime', 'badge', 'bool', 'toggle'], true)
                     ? $format
                     : 'text',
                 sortField: self::str($entry, 'sort_field'),

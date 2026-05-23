@@ -209,6 +209,22 @@
                                             };
                                         @endphp
                                         <span class="o-chip {{ $badgeClasses }} ring-1 ring-inset">{{ $fmt($value, 'text') }}</span>
+                                    @elseif ($col->format === 'toggle')
+                                        {{-- Interactive switch. wire:click is gated server-side
+                                             on Write permission + arch whitelist (only columns
+                                             with format=toggle are flippable) so a tampered
+                                             click on `id`/`is_admin` can't escape. --}}
+                                        @php $on = (bool) $value; @endphp
+                                        <button type="button"
+                                                wire:click="toggleBoolean({{ $record->getKey() }}, '{{ $col->field }}')"
+                                                wire:loading.attr="disabled"
+                                                role="switch"
+                                                aria-checked="{{ $on ? 'true' : 'false' }}"
+                                                aria-label="{{ $col->label }}"
+                                                title="{{ $col->label }}"
+                                                class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 {{ $on ? 'bg-primary-600' : 'bg-chrome-300' }}">
+                                            <span class="inline-block size-4 transform rounded-full bg-white shadow transition-transform {{ $on ? 'translate-x-[1.125rem]' : 'translate-x-0.5' }}"></span>
+                                        </button>
                                     @else
                                         {{ $fmt($value, $col->format) }}
                                     @endif

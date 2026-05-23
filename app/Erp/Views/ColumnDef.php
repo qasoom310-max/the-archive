@@ -10,8 +10,11 @@ namespace App\Erp\Views;
 final readonly class ColumnDef
 {
     /**
-     * @param 'left'|'right'|'center'                       $align
-     * @param 'text'|'number'|'date'|'datetime'|'badge'|'bool' $format
+     * @param 'left'|'right'|'center'                                  $align
+     * @param 'text'|'number'|'money'|'date'|'datetime'|'badge'|'bool'|'toggle' $format
+     *               'toggle' renders an interactive switch (Yes/No is a
+     *               drag-distance-zero click in the list itself; gated on
+     *               Write permission server-side via ListView::toggleBoolean)
      * @param  ?string  $sortField  Optional SQL column override for sorting:
      *                              used when `field` is an accessor (e.g.
      *                              `processed_by` → name from a relation)

@@ -455,6 +455,69 @@ final class PosModuleTest extends TestCase
         $this->assertSame(2, UserViewPreference::query()->count());
     }
 
+    // ---- Inline boolean toggle ----------------------------------------
+
+    public function test_pos_product_list_toggle_active_flips_and_persists(): void
+    {
+        // The `active` column's arch declares `format: toggle`, so the
+        // engine renders it as an interactive switch + accepts inline
+        // ListView::toggleBoolean calls. One click → the product flips.
+        $this->installPos();
+        $product = PosProduct::query()->create(['name' => 'Tea', 'price' => 1.0, 'tax_rate' => 0, 'active' => true]);
+
+        Livewire::test(ListView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ])->call('toggleBoolean', $product->id, 'active');
+
+        $this->assertFalse((bool) $product->fresh()->active);
+    }
+
+    public function test_pos_product_list_toggle_boolean_rejects_non_toggle_columns(): void
+    {
+        // Arch whitelist: only columns declared with format='toggle' are
+        // flippable. A tampered request naming any other field (e.g. id,
+        // pos_category_id, name) must no-op rather than write through.
+        $this->installPos();
+        $cat = \Modules\Pos\Models\PosCategory::query()->create(['name' => 'X']);
+        $product = PosProduct::query()->create([
+            'name' => 'Tea', 'price' => 1.0, 'tax_rate' => 0, 'active' => true,
+            'pos_category_id' => $cat->id,
+        ]);
+
+        Livewire::test(ListView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ])->call('toggleBoolean', $product->id, 'pos_category_id');
+
+        // Category FK unchanged; product still active.
+        $this->assertSame($cat->id, $product->fresh()->pos_category_id);
+        $this->assertTrue((bool) $product->fresh()->active);
+    }
+
+    public function test_pos_product_list_toggle_boolean_requires_write_permission(): void
+    {
+        // A pos_user (cashier) has no ACL on pos.product at all (per
+        // PosStaffSeeder). toggleBoolean must reject with AuthorizationException
+        // so the cashier can't disable products by spoofing a wire:click.
+        $this->installPos();
+        $this->seed(PosSeeder::class); // sets up pos_user group + ACLs
+
+        $cashier = User::factory()->create(['is_admin' => false]);
+        $cashier->groups()->attach(\App\Models\Auth\Group::query()->where('code', 'pos_user')->sole());
+        $this->actingAs($cashier);
+
+        $product = PosProduct::query()->create(['name' => 'Tea', 'price' => 1.0, 'tax_rate' => 0, 'active' => true]);
+
+        Livewire::test(ListView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ])->call('toggleBoolean', $product->id, 'active')
+          ->assertForbidden();
+
+        $this->assertTrue((bool) $product->fresh()->active); // unchanged
+    }
+
     public function test_product_form_accepts_photo_upload(): void
     {
         $this->installPos();

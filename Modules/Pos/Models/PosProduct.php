@@ -201,7 +201,12 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
                         ['field' => 'stock_on_hand', 'label' => 'Stock', 'format' => 'number', 'align' => 'right', 'sortable' => true, 'hidden_by_default' => true],
                         ['field' => 'available_servings', 'label' => 'Available Servings', 'align' => 'right'],
                         ['field' => 'barcode', 'label' => 'Barcode', 'hidden_by_default' => true],
-                        ['field' => 'active', 'label' => 'Active', 'format' => 'bool'],
+                        // `toggle` makes the column an inline switch — one
+                        // click flips the value via ListView::toggleBoolean
+                        // (Write-gated server-side). Lets staff hide a
+                        // discontinued product from the catalogue without
+                        // opening the form.
+                        ['field' => 'active', 'label' => 'Active', 'format' => 'toggle'],
                     ],
                     'default_sort' => [['field' => 'name', 'dir' => 'asc']],
                     'per_page' => 20,

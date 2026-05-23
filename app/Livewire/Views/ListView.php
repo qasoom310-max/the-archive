@@ -273,6 +273,40 @@ final class ListView extends Component
             || $this->access()->allows(Auth::user(), $this->modelKey, $permission);
     }
 
+    /**
+     * Inline toggle for `format: toggle` boolean columns in the list view.
+     * Flips the column on the named record and persists immediately so the
+     * switch acts native — no Save click, no detail-page round-trip.
+     *
+     * Safety boundaries (all enforced server-side; the Blade just sends a
+     * wire:click):
+     *   - field MUST appear in the arch with format='toggle' (rejects
+     *     `is_admin` / `password_verified_at` / any other random column)
+     *   - user MUST have Write permission on this model
+     *   - record MUST exist; an invalid id silently no-ops (don't 500)
+     *
+     * @param int|string $id
+     */
+    public function toggleBoolean(int|string $id, string $field): void
+    {
+        $column = $this->columnByField($field);
+        if ($column === null || $column->format !== 'toggle') {
+            return;
+        }
+
+        if (! $this->may(Permission::Write)) {
+            $this->access()->authorize(Auth::user(), $this->modelKey, Permission::Write);
+        }
+
+        $record = $this->model::query()->find($id);
+        if ($record === null) {
+            return;
+        }
+
+        $record->setAttribute($field, ! (bool) $record->getAttribute($field));
+        $record->save();
+    }
+
     public function bulkDelete(): void
     {
         if ($this->selected === []) {

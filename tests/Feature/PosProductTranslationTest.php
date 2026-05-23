@@ -257,6 +257,54 @@ final class PosProductTranslationTest extends TestCase
         $this->assertSame('لاتيه', $product->name);
     }
 
+    public function test_product_form_render_sets_breadcrumb_terminal_label_to_product_name(): void
+    {
+        // The master layout reads `breadcrumb_terminal_label` from the
+        // request attributes and substitutes the last URL segment with
+        // it — pages set the attribute in render() so the breadcrumb
+        // reads "Pos / Product / كابتشينو" instead of "Pos / Product / 96".
+        // Tested at the component level (not via HTTP) because module
+        // routes don't activate inside DatabaseMigrations tests.
+        $this->installPos();
+        $this->adminLogin();
+
+        $arabic = PosProduct::query()->create([
+            'name' => ['ar' => 'بيبسي دايت'],
+            'price' => 0.5,
+            'tax_rate' => 0,
+        ]);
+
+        Livewire::test(\Modules\Pos\Livewire\PosProductForm::class, ['id' => $arabic->id]);
+        $this->assertSame('بيبسي دايت', request()->attributes->get('breadcrumb_terminal_label'));
+
+        // Reset the attribute so the next render() drives it fresh.
+        request()->attributes->remove('breadcrumb_terminal_label');
+
+        $english = PosProduct::query()->create([
+            'name' => 'Espresso',
+            'price' => 3.0,
+            'tax_rate' => 0,
+        ]);
+
+        Livewire::test(\Modules\Pos\Livewire\PosProductForm::class, ['id' => $english->id]);
+        $this->assertSame('Espresso', request()->attributes->get('breadcrumb_terminal_label'));
+    }
+
+    public function test_product_form_render_does_not_set_breadcrumb_label_for_new_product(): void
+    {
+        // When the route is /app/pos/product/new (no id), the page has
+        // nothing to override the breadcrumb with — leave the attribute
+        // unset so the layout falls back to the raw "new" URL segment
+        // (which `__()` then localises to "جديد" / "New").
+        $this->installPos();
+        $this->adminLogin();
+
+        request()->attributes->remove('breadcrumb_terminal_label');
+
+        Livewire::test(\Modules\Pos\Livewire\PosProductForm::class, ['id' => null]);
+        $this->assertNull(request()->attributes->get('breadcrumb_terminal_label'));
+    }
+
     public function test_changing_company_language_setting_flips_displayed_product_name(): void
     {
         // End-to-end: the same product name renders in English or Arabic

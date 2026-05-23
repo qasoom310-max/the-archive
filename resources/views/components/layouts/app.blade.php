@@ -44,7 +44,16 @@
              `app` prefix (no route registered at /app on its own). Skip-
              linking the terminal segment keeps the current page visually
              distinct (white + medium weight); skip-linking `app` avoids
-             dropping the user on a 404. --}}
+             dropping the user on a 404.
+
+             A page can replace the LAST segment's display text (e.g. "96"
+             → "بيبسي دايت") by setting the `breadcrumb_terminal_label`
+             request attribute inside its `render()` — generic mechanism,
+             no model coupling in the layout. --}}
+        @php
+            $terminalOverride = request()->attributes->get('breadcrumb_terminal_label');
+            $terminalLabel = is_string($terminalOverride) && $terminalOverride !== '' ? $terminalOverride : null;
+        @endphp
         <nav class="flex items-center gap-1.5 text-sm text-chrome-300">
             <span class="text-chrome-500">/</span>
             <a href="{{ url('/') }}" wire:navigate class="hover:text-white">{{ __('Home') }}</a>
@@ -54,16 +63,19 @@
                     $cumulative[] = $segment;
                     $isLast = $loop->last;
                     $isAppPrefix = $loop->first && $segment === 'app';
+                    $label = $isLast && $terminalLabel !== null
+                        ? $terminalLabel
+                        : __(str_replace(['-', '_'], ' ', $segment));
                 @endphp
                 <span class="text-chrome-500">/</span>
                 @if ($isLast || $isAppPrefix)
-                    <span class="capitalize {{ $isLast ? 'font-medium text-white' : '' }}">
-                        {{ __(str_replace(['-', '_'], ' ', $segment)) }}
+                    <span class="{{ $isLast && $terminalLabel === null ? 'capitalize' : '' }} {{ $isLast ? 'font-medium text-white' : '' }}">
+                        {{ $label }}
                     </span>
                 @else
                     <a href="{{ url('/' . implode('/', $cumulative)) }}" wire:navigate
                         class="capitalize hover:text-white">
-                        {{ __(str_replace(['-', '_'], ' ', $segment)) }}
+                        {{ $label }}
                     </a>
                 @endif
             @endforeach

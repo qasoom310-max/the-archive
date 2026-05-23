@@ -34,8 +34,14 @@ final class PosCategoryForm extends Component
 
     public function render(): View
     {
+        $category = $this->id !== null ? PosCategory::query()->find($this->id) : null;
+
+        if ($category !== null) {
+            request()->attributes->set('breadcrumb_terminal_label', (string) $category->name);
+        }
+
         return view('pos::category-form', [
-            'category' => $this->id !== null ? PosCategory::query()->find($this->id) : null,
+            'category' => $category,
         ]);
     }
 }

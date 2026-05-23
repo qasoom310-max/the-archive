@@ -298,7 +298,11 @@ final class FormView extends Component
                 // `image` excludes AVIF (and any future format Laravel hasn't
                 // baked in yet). Listing extensions keeps modern phone-camera
                 // uploads (HEIC/AVIF) working.
-                $rules['uploads.' . $field->field] = ['nullable', 'mimes:jpg,jpeg,png,gif,webp,bmp,svg,avif,heic,heif', 'max:2048'];
+                // 8 MB so modern phone-camera images (3-5 MB webp/heic) fit
+                // without users having to resize first. PHP's upload_max_filesize
+                // ultimately caps this — bumping the rule alone won't help if
+                // php.ini is set lower.
+                $rules['uploads.' . $field->field] = ['nullable', 'mimes:jpg,jpeg,png,gif,webp,bmp,svg,avif,heic,heif', 'max:8192'];
 
                 continue;
             }

@@ -78,10 +78,13 @@
                                     <svg class="size-7" viewBox="0 0 20 20" fill="currentColor"><path d="M10 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm0 2c-3 0-7 1.6-7 4v2h14v-2c0-2.4-4-4-7-4Z"/></svg>
                                 @endif
                             </span>
-                            <input type="file" wire:model="uploads.{{ $field->field }}" accept="image/*"
-                                class="text-sm text-chrome-600 file:mr-3 file:rounded-md file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm">
+                            <div class="flex flex-col gap-1">
+                                <input type="file" wire:model="uploads.{{ $field->field }}" accept="image/*"
+                                    class="text-sm text-chrome-600 file:mr-3 file:rounded-md file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm">
+                                <p class="text-xs text-chrome-400">{{ __('Accepted: JPG, PNG, GIF, WebP, AVIF, HEIC, SVG, BMP · max 2 MB') }}</p>
+                            </div>
                         </div>
-                        <div wire:loading wire:target="uploads.{{ $field->field }}" class="mt-1 text-xs text-chrome-400">Uploading…</div>
+                        <div wire:loading wire:target="uploads.{{ $field->field }}" class="mt-1 text-xs text-chrome-400">{{ __('Uploading…') }}</div>
                         @break
 
                     @default

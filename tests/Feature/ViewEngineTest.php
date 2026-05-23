@@ -143,13 +143,19 @@ final class ViewEngineTest extends TestCase
         $component->set('perPage', 999)->assertSet('perPage', 8);
     }
 
-    public function test_list_view_uses_compact_pagination_template(): void
+    public function test_list_view_pagination_shows_ellipsis_rail_with_last_page(): void
     {
-        // Seed past the per-page cap so pagination renders. The compact
-        // template shows ONLY previous / "current / last" / next — no
-        // numbered "1 2 3 4 5" rail, no "Showing X to Y of Z" line.
+        // Seed past the per-page cap so pagination renders multiple pages.
+        // With 100 rows / 20 per page = 5 pages.
+        //
+        // The compact template always shows pages 1 & 2, an ellipsis (when
+        // gaps exist), and the last page — plus the current page inserted
+        // in the middle when it isn't already an edge.
+        //
+        // Verbose Laravel default phrasings ("Showing X to Y", numbered
+        // 1-2-3-4-5 rail without ellipsis) must NOT be present.
         $this->seed(DemoViewSeeder::class);
-        for ($i = 1; $i <= 25; $i++) {
+        for ($i = 1; $i <= 100; $i++) {
             DemoTicket::query()->create(['subject' => "T{$i}", 'stage' => 'New', 'amount' => $i]);
         }
 
@@ -157,12 +163,17 @@ final class ViewEngineTest extends TestCase
             ->set('perPage', 20)
             ->html();
 
-        // "1 / 2" — the compact indicator (current page / last page).
-        $this->assertStringContainsString('1 / 2', $html);
+        // Always-present rail: 1, 2, ellipsis, last page (5). Each page
+        // number lives inside its own wire:click button (or aria-current
+        // span). Grep for the click handlers to be whitespace-tolerant.
+        $this->assertStringContainsString('gotoPage(2)', $html);
+        $this->assertStringContainsString('gotoPage(5)', $html);
+        $this->assertStringContainsString('…', $html);
 
-        // Verbose Laravel default phrasings must NOT be present.
+        // Default Laravel paginator phrasings must be absent.
         $this->assertStringNotContainsString('Showing', $html);
-        $this->assertStringNotContainsString('of <span class="font-medium">25</span>', $html);
+        $this->assertStringNotContainsString('gotoPage(3)', $html);
+        $this->assertStringNotContainsString('gotoPage(4)', $html);
     }
 
     public function test_list_view_bulk_delete_and_select_page(): void

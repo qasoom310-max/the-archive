@@ -197,6 +197,66 @@ final class PosProductTranslationTest extends TestCase
             ->assertSet('translationLocale.name', 'en'); // unchanged
     }
 
+    public function test_arabic_only_product_reads_its_arabic_name_under_english_active_locale(): void
+    {
+        // Regression: pre-fix Spatie's default fallbackAny=false returned
+        // empty for `$product->name` when the active locale had no value
+        // for the field — so an Arabic-only product (the common case
+        // after a smart-locale import) displayed as a blank cell in an
+        // EN UI. AppServiceProvider now flips fallbackAny=true so the
+        // single available translation always wins over an empty string.
+        $this->installPos();
+
+        // Pass `name` as a locale-keyed array so Spatie writes the JSON
+        // directly — sidesteps the NOT NULL on the column during the
+        // initial insert (vs `setTranslation` after a blank create).
+        $product = PosProduct::query()->create([
+            'name' => ['ar' => 'افوكادو'],
+            'barcode' => 'X',
+            'price' => 1,
+            'tax_rate' => 0,
+        ]);
+        $product = $product->fresh();
+
+        App::setLocale('en'); // active = en, only ar available
+        $this->assertSame('افوكادو', $product->name);
+
+        App::setLocale('ar'); // active = ar, direct hit
+        $this->assertSame('افوكادو', $product->name);
+    }
+
+    public function test_english_only_product_reads_its_english_name_under_arabic_active_locale(): void
+    {
+        $this->installPos();
+
+        $product = PosProduct::query()->create(['name' => 'Espresso', 'price' => 1, 'tax_rate' => 0]);
+        $product = $product->fresh();
+
+        App::setLocale('ar'); // active = ar, only en available
+        $this->assertSame('Espresso', $product->name);
+
+        App::setLocale('en');
+        $this->assertSame('Espresso', $product->name);
+    }
+
+    public function test_bilingual_product_still_prefers_the_active_locale_over_fallback(): void
+    {
+        // Fallback must NOT clobber an exact-locale match. Having both
+        // translations should resolve to the active locale; fallback
+        // only kicks in when the active locale's value is missing.
+        $this->installPos();
+
+        $product = PosProduct::query()->create(['name' => 'Latte', 'price' => 4, 'tax_rate' => 0]);
+        $product->setTranslation('name', 'ar', 'لاتيه')->save();
+        $product = $product->fresh();
+
+        App::setLocale('en');
+        $this->assertSame('Latte', $product->name);
+
+        App::setLocale('ar');
+        $this->assertSame('لاتيه', $product->name);
+    }
+
     public function test_changing_company_language_setting_flips_displayed_product_name(): void
     {
         // End-to-end: the same product name renders in English or Arabic

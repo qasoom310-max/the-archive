@@ -34,18 +34,22 @@ final class Currencies
             return self::$cache;
         }
 
-        // Decimals follow ISO 4217 (BHD/KWD/OMR/JOD/LYD/TND/IQD → 3;
-        // DJF/KMF → 0; everything else → 2). Symbols use the abbreviation
-        // most commonly rendered in Latin script — keeps the UI legible
-        // without forcing an Arabic-only font stack.
+        // Decimals: 2 across the board for consistent UI rendering
+        // (0.45 not 0.450), except DJF/KMF which are exponent-0 in ISO
+        // 4217 — no fractional unit exists. ISO 4217 spec'd the dinars
+        // (BHD/KWD/OMR/JOD/LYD/TND/IQD) at 3, but our deployments don't
+        // need fils-level precision and the extra zero is visual noise.
+        // Symbols use the abbreviation most commonly rendered in Latin
+        // script — keeps the UI legible without forcing an Arabic-only
+        // font stack.
         $list = [
-            new Currency('BHD', 'Bahraini Dinar',       'BD',   3),
-            new Currency('KWD', 'Kuwaiti Dinar',        'KD',   3),
-            new Currency('OMR', 'Omani Rial',           'OMR',  3),
-            new Currency('JOD', 'Jordanian Dinar',      'JD',   3),
-            new Currency('LYD', 'Libyan Dinar',         'LD',   3),
-            new Currency('TND', 'Tunisian Dinar',       'DT',   3),
-            new Currency('IQD', 'Iraqi Dinar',          'IQD',  3),
+            new Currency('BHD', 'Bahraini Dinar',       'BD',   2),
+            new Currency('KWD', 'Kuwaiti Dinar',        'KD',   2),
+            new Currency('OMR', 'Omani Rial',           'OMR',  2),
+            new Currency('JOD', 'Jordanian Dinar',      'JD',   2),
+            new Currency('LYD', 'Libyan Dinar',         'LD',   2),
+            new Currency('TND', 'Tunisian Dinar',       'DT',   2),
+            new Currency('IQD', 'Iraqi Dinar',          'IQD',  2),
             new Currency('SAR', 'Saudi Riyal',          'SR',   2),
             new Currency('QAR', 'Qatari Riyal',         'QR',   2),
             new Currency('AED', 'UAE Dirham',           'AED',  2),

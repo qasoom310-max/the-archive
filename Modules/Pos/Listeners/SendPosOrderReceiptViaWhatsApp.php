@@ -93,7 +93,7 @@ final class SendPosOrderReceiptViaWhatsApp
             }
         }
 
-        // Active currency is baked into the formatted string (e.g. "10.000 BD"
+        // Active currency is baked into the formatted string (e.g. "10.00 BD"
         // for BHD, "$10.00" for USD) by the central registry — keeps the
         // template variable in lockstep with the in-app display.
         $totalFormatted = Currencies::format($order->total);

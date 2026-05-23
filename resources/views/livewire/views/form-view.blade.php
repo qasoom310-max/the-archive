@@ -139,8 +139,9 @@
 
                     @default
                         {{-- `step="any"` on number inputs accepts decimals without
-                             pinning a fixed precision — important now currencies
-                             can be 2- or 3-decimal (BHD/KWD/OMR etc.). Browsers
+                             pinning a fixed precision — currencies are 2-decimal
+                             across the board now, but a future 3-decimal opt-in
+                             shouldn't force this Blade to change. Browsers
                              default to step="1" on <input type=number>, which is
                              what kicked out "8.5" with "two nearest valid values
                              are 8 and 9". Harmless on non-number widgets. --}}

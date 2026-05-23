@@ -41,16 +41,17 @@ final class CurrencyFormatTest extends TestCase
         }
     }
 
-    public function test_bahraini_dinar_is_three_decimals_suffix_symbol(): void
+    public function test_bahraini_dinar_is_two_decimals_suffix_symbol(): void
     {
+        // Originally ISO-4217 specced at 3 decimals (the fils unit), but
+        // dropped to 2 for UI consistency — see comment in Currencies::all().
         $bhd = Currencies::find('BHD');
         $this->assertInstanceOf(Currency::class, $bhd);
-        $this->assertSame(3, $bhd->decimals);
+        $this->assertSame(2, $bhd->decimals);
         $this->assertSame(Currency::POSITION_AFTER, $bhd->position);
 
-        // Padding to 3 decimals, with the BD suffix on the right.
-        $this->assertSame('20.000 BD', $bhd->format(20));
-        $this->assertSame('1,234.500 BD', $bhd->format(1234.5));
+        $this->assertSame('20.00 BD', $bhd->format(20));
+        $this->assertSame('1,234.50 BD', $bhd->format(1234.5));
     }
 
     public function test_us_dollar_is_two_decimals_prefix_symbol(): void
@@ -74,7 +75,7 @@ final class CurrencyFormatTest extends TestCase
         Setting::set('currency.default', 'BHD');
         Currencies::flushCache();
 
-        $this->assertSame('10.000 BD', Currencies::format(10));
+        $this->assertSame('10.00 BD', Currencies::format(10));
     }
 
     public function test_format_falls_back_to_usd_when_setting_is_unknown(): void
@@ -94,7 +95,7 @@ final class CurrencyFormatTest extends TestCase
 
         // Pass-through override — the WhatsApp receipt or a per-document
         // currency could pin a specific code regardless of the global.
-        $this->assertSame('20.000 BD', Currencies::format(20, 'BHD'));
+        $this->assertSame('20.00 BD', Currencies::format(20, 'BHD'));
     }
 
     public function test_null_amount_renders_as_zero_in_the_active_currency(): void
@@ -102,7 +103,7 @@ final class CurrencyFormatTest extends TestCase
         Setting::set('currency.default', 'BHD');
         Currencies::flushCache();
 
-        $this->assertSame('0.000 BD', Currencies::format(null));
+        $this->assertSame('0.00 BD', Currencies::format(null));
     }
 
     public function test_view_arch_whitelist_accepts_money_format(): void

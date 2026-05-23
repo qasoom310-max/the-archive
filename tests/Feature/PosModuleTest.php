@@ -132,32 +132,61 @@ final class PosModuleTest extends TestCase
         );
     }
 
-    public function test_product_form_accepts_avif_photo_upload(): void
+    /**
+     * @return array<string, array{0: string, 1: string, 2: string}>
+     */
+    public static function imageFormatProvider(): array
     {
-        // Regression: Livewire 3's `temporaryUrl()` throws FileNotPreviewableException
-        // for any extension not in `livewire.temporary_file_upload.preview_mimes`. AVIF
-        // isn't in the package defaults, so picking an .avif photo (modern phone camera
-        // output) 500'd the form before the user could even save. config/livewire.php
-        // extends the list to include avif/heic/heif, and the Blade now guards the
-        // <img> with isPreviewable() so any future unknown type degrades gracefully.
+        // Every extension we now claim to accept (FormView::rules + the
+        // "Accepted: …" hint in form-view.blade.php + livewire.preview_mimes).
+        // Keep these in sync — adding a format here without updating those
+        // three places will fail this test, which is the point.
+        return [
+            'jpg'  => ['photo.jpg',  'image/jpeg', 'Burger'],
+            'jpeg' => ['photo.jpeg', 'image/jpeg', 'Pizza'],
+            'png'  => ['photo.png',  'image/png',  'Salad'],
+            'gif'  => ['photo.gif',  'image/gif',  'Soup'],
+            'webp' => ['photo.webp', 'image/webp', 'حليب جنزبيل'], // ← user's actual case
+            'bmp'  => ['photo.bmp',  'image/bmp',  'Bread'],
+            'svg'  => ['photo.svg',  'image/svg+xml', 'Cake'],
+            'avif' => ['photo.avif', 'image/avif', 'Pepsi'],
+            'heic' => ['photo.heic', 'image/heic', 'Coffee'],
+            'heif' => ['photo.heif', 'image/heif', 'Tea'],
+        ];
+    }
+
+    /**
+     * @dataProvider imageFormatProvider
+     */
+    public function test_product_form_accepts_every_claimed_image_format(string $filename, string $mime, string $productName): void
+    {
+        // Exhaustive coverage of every format the FormView claims to accept.
+        // Includes the WebP + Arabic-product-name combo that reported a 500
+        // — pinning every format-row prevents regressions like the AVIF one,
+        // where the validation rule was correct but Livewire's preview path
+        // threw on an unrelated layer.
         $this->installPos();
         Storage::fake('public');
+
+        $extension = pathinfo($filename, PATHINFO_EXTENSION);
 
         Livewire::test(FormView::class, [
             'model' => PosProduct::class,
             'modelKey' => 'pos.product',
         ])
-            ->set('form.name', 'Pepsi')
-            ->set('form.price', 0.45)
-            ->set('uploads.image_path', UploadedFile::fake()->create('pepsi.avif', 8, 'image/avif'))
+            ->set('form.name', $productName)
+            ->set('form.price', 1.0)
+            ->set('uploads.image_path', UploadedFile::fake()->create($filename, 8, $mime))
             ->assertHasNoErrors()
             ->call('save')
             ->assertHasNoErrors()
             ->assertDispatched('record-saved');
 
-        $product = PosProduct::query()->where('name->en', 'Pepsi')->sole();
+        $product = PosProduct::query()->where('name->en', $productName)->sole();
         $this->assertNotNull($product->image_path);
-        $this->assertStringEndsWith('.avif', $product->image_path);
+        // Symfony normalises `.jpeg` to `.jpg` at storage time — accept both.
+        $expected = $extension === 'jpeg' ? 'jpg' : $extension;
+        $this->assertStringEndsWith('.' . $expected, $product->image_path);
     }
 
     public function test_product_form_accepts_photo_upload(): void

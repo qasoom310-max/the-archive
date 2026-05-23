@@ -749,7 +749,7 @@ final class PosModuleTest extends TestCase
         $this->assertSame('ليمون نعناع', $report->rows[2]->name);
     }
 
-    public function test_commit_uses_cached_preview_when_uploaded_file_is_gone(): void
+    public function test_confirm_import_uses_cached_preview_when_uploaded_file_is_gone(): void
     {
         // Reproduces the prod-only "click Confirm, nothing happens" bug:
         // Hostinger's tmp janitor cleans Livewire's temp uploads between
@@ -774,7 +774,7 @@ final class PosModuleTest extends TestCase
         // Simulate the file vanishing between preview and commit.
         $c->set('file', null);
 
-        $c->call('commit')
+        $c->call('confirmImport')
             ->assertSet('stage', 'done');
 
         $this->assertSame(2, PosProduct::query()->count());
@@ -782,18 +782,19 @@ final class PosModuleTest extends TestCase
         $this->assertTrue(PosProduct::query()->where('name->en', 'موز')->exists());
     }
 
-    public function test_commit_with_no_file_and_no_cached_report_surfaces_error(): void
+    public function test_confirm_import_with_no_file_and_no_cached_report_surfaces_error(): void
     {
         // The other side of the same defence: if BOTH the file and the
-        // cached preview are missing, commit must surface a real error
-        // rather than dropping the user on a button that does nothing.
+        // cached preview are missing, confirmImport must surface a real
+        // error rather than dropping the user on a button that does
+        // nothing.
         $this->installPos();
         $this->seed(AuthSeeder::class);
         $this->actingAs(User::query()->where('email', 'admin@example.com')->sole());
 
         Livewire::test(\Modules\Pos\Livewire\PosProductImport::class)
             ->set('file', null)
-            ->call('commit')
+            ->call('confirmImport')
             ->assertSet('stage', 'preview')
             ->assertSet('file', null)
             ->assertSee('no longer available');

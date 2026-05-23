@@ -131,7 +131,7 @@
 
                 <div class="mt-4 flex justify-end gap-2">
                     <button type="button" wire:click="restart" class="o-btn-ghost">Cancel</button>
-                    <button type="button" wire:click="commit"
+                    <button type="button" wire:click="confirmImport"
                         @disabled($valid === 0)
                         class="o-btn-primary disabled:opacity-40">
                         Confirm import ({{ $valid }} {{ \Illuminate\Support\Str::plural('row', $valid) }})

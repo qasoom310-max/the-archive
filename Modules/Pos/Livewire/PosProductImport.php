@@ -9,7 +9,6 @@ use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -84,29 +83,19 @@ final class PosProductImport extends Component
         $this->stage = 'preview';
     }
 
-    public function commit(): void
+    /**
+     * NB. Named `confirmImport` (not `commit`) because `$wire.commit()` is
+     * a reserved Livewire 3 JS API — `wire:click="commit"` is silently
+     * intercepted by Livewire's internal "commit pending state" path and
+     * never reaches the server. Pre-rename clicks vanished into the
+     * browser with no request, no log, no error.
+     */
+    public function confirmImport(): void
     {
-        // TEMP DIAGNOSTIC — remove after the prod "click does nothing" bug
-        // is root-caused. Logs at every decision point so we can see in
-        // storage/logs/laravel.log exactly which branch the commit took.
-        Log::info('[POS import] commit() entered', [
-            'userId' => Auth::id(),
-            'hasFile' => $this->file !== null,
-            'reportCacheKey' => $this->reportCacheKey,
-            'stage' => $this->stage,
-        ]);
-
         app(AccessControl::class)->authorize(Auth::user(), 'pos.product', Permission::Create);
 
         $importer = app(PosProductImporter::class);
         $report = $this->buildCommitReport($importer);
-
-        Log::info('[POS import] commit() built report', [
-            'reportIsNull' => $report === null,
-            'isFatal' => $report?->isFatal(),
-            'rowCount' => $report !== null ? count($report->rows) : 0,
-            'firstAction' => $report !== null && isset($report->rows[0]) ? $report->rows[0]->action : null,
-        ]);
 
         if ($report === null) {
             // Both the file AND the cached preview are gone — surface a
@@ -132,10 +121,8 @@ final class PosProductImport extends Component
         try {
             $applied = $importer->apply($report);
         } catch (Throwable $e) {
-            Log::error('[POS import] apply() threw', [
-                'message' => $e->getMessage(),
-                'file' => $e->getFile() . ':' . $e->getLine(),
-            ]);
+            // Any DB-level failure (charset, NOT NULL, unique constraint…)
+            // surfaces on the preview panel instead of bubbling as a 500.
             $this->storeReport(new ImportReport(fileErrors: [
                 'Import failed: ' . $e->getMessage(),
             ]));
@@ -143,12 +130,6 @@ final class PosProductImport extends Component
 
             return;
         }
-
-        Log::info('[POS import] commit() finished', [
-            'created' => $applied->createdCount,
-            'updated' => $applied->updatedCount,
-            'skipped' => $applied->skippedCount,
-        ]);
 
         $this->storeReport($applied);
         $this->stage = 'done';

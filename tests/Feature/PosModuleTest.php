@@ -132,6 +132,34 @@ final class PosModuleTest extends TestCase
         );
     }
 
+    public function test_product_form_accepts_avif_photo_upload(): void
+    {
+        // Regression: Livewire 3's `temporaryUrl()` throws FileNotPreviewableException
+        // for any extension not in `livewire.temporary_file_upload.preview_mimes`. AVIF
+        // isn't in the package defaults, so picking an .avif photo (modern phone camera
+        // output) 500'd the form before the user could even save. config/livewire.php
+        // extends the list to include avif/heic/heif, and the Blade now guards the
+        // <img> with isPreviewable() so any future unknown type degrades gracefully.
+        $this->installPos();
+        Storage::fake('public');
+
+        Livewire::test(FormView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ])
+            ->set('form.name', 'Pepsi')
+            ->set('form.price', 0.45)
+            ->set('uploads.image_path', UploadedFile::fake()->create('pepsi.avif', 8, 'image/avif'))
+            ->assertHasNoErrors()
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertDispatched('record-saved');
+
+        $product = PosProduct::query()->where('name->en', 'Pepsi')->sole();
+        $this->assertNotNull($product->image_path);
+        $this->assertStringEndsWith('.avif', $product->image_path);
+    }
+
     public function test_product_form_accepts_photo_upload(): void
     {
         $this->installPos();

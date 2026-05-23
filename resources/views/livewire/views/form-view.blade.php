@@ -71,7 +71,15 @@
                             @php $current = $record->getAttribute($field->field); @endphp
                             <span class="flex size-16 items-center justify-center overflow-hidden rounded-full bg-chrome-100 text-chrome-400">
                                 @if (isset($uploads[$field->field]) && $uploads[$field->field])
-                                    <img src="{{ $uploads[$field->field]->temporaryUrl() }}" class="size-full object-cover">
+                                    {{-- Livewire's temporaryUrl() throws for any extension not in
+                                         livewire.temporary_file_upload.preview_mimes (config/livewire.php).
+                                         Guard so a non-previewable type (e.g. HEIC) renders a placeholder
+                                         instead of 500ing the whole form. --}}
+                                    @if ($uploads[$field->field]->isPreviewable())
+                                        <img src="{{ $uploads[$field->field]->temporaryUrl() }}" class="size-full object-cover">
+                                    @else
+                                        <svg class="size-7" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4h12v12H4V4Zm2 2v8h8V6H6Zm2 2h4v4H8V8Z"/></svg>
+                                    @endif
                                 @elseif ($current)
                                     <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($current) }}" class="size-full object-cover">
                                 @else

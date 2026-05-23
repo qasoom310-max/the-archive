@@ -189,6 +189,38 @@ final class PosModuleTest extends TestCase
         $this->assertStringEndsWith('.' . $expected, $product->image_path);
     }
 
+    public function test_product_form_surfaces_validation_error_when_upload_temp_file_missing(): void
+    {
+        // Regression: a corrupt Livewire snapshot (the file in livewire-tmp
+        // got swept by cleanupOldUploads, or the snapshot rehydrated with a
+        // malformed path) used to 500 inside Flysystem with
+        // UnableToRetrieveMetadata when validate() called getSize(). The
+        // guard in save() now detects this and surfaces a regular validation
+        // error so the user can re-pick the file.
+        $this->installPos();
+        Storage::fake('public');
+        Storage::fake('tmp-for-tests'); // Livewire's test temp disk
+
+        $file = UploadedFile::fake()->create('photo.webp', 8, 'image/webp');
+
+        $form = Livewire::test(FormView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ])
+            ->set('form.name', 'Drink')
+            ->set('form.price', 1.0)
+            ->set('uploads.image_path', $file);
+
+        // Simulate the temp file vanishing under us (cleanup race / 24h sweep).
+        Storage::fake('tmp-for-tests');
+
+        $form->call('save')
+            ->assertHasErrors(['uploads.image_path']);
+
+        // No record was created — save aborted before any DB write.
+        $this->assertSame(0, PosProduct::query()->where('name->en', 'Drink')->count());
+    }
+
     public function test_product_form_accepts_photo_upload(): void
     {
         $this->installPos();

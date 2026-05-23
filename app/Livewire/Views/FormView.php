@@ -214,6 +214,23 @@ final class FormView extends Component
 
     public function save(): void
     {
+        // Drop any "poisoned" uploads — a TemporaryUploadedFile whose backing
+        // file is gone from livewire-tmp (stale snapshot, cleanup race, the
+        // 24-hour cleanupOldUploads sweep, etc.). Without this, validate()'s
+        // `max:` rule blows up inside Flysystem with UnableToRetrieveMetadata
+        // → 500, and the user has no way to recover except a hard refresh.
+        // Surface it as a regular validation error instead.
+        $expired = [];
+        foreach ($this->uploads as $attribute => $file) {
+            if (! $file instanceof TemporaryUploadedFile || ! $file->exists()) {
+                unset($this->uploads[$attribute]);
+                $expired['uploads.' . $attribute] = __('The image upload expired. Please re-select the file and try again.');
+            }
+        }
+        if ($expired !== []) {
+            throw \Illuminate\Validation\ValidationException::withMessages($expired);
+        }
+
         $this->validate($this->rules());
 
         $record = $this->resolveRecord();

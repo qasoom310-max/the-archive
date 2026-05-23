@@ -48,6 +48,26 @@ final class ListView extends Component
     public bool $selectPage = false;
 
     /**
+     * Rows-per-page selection. URL-bound (so the choice is shareable
+     * and survives a refresh). Initialised in `mount()` from the arch
+     * default; user-changeable via the footer dropdown. Validated in
+     * `updatedPerPage()` against {@see PER_PAGE_OPTIONS} (plus the arch
+     * default itself) to shield against URL tampering and to keep the
+     * select chip on a known value.
+     */
+    #[Url(except: 0)]
+    public int $perPage = 0;
+
+    /**
+     * Canonical row-count options the dropdown offers. Kept small +
+     * round so the chip stays one line. A view's arch may declare a
+     * different `per_page` (e.g. 25) — that value becomes the initial
+     * selection AND is preserved as a valid choice so refreshes don't
+     * silently bump the user back to 20.
+     */
+    public const PER_PAGE_OPTIONS = [20, 50, 100];
+
+    /**
      * Name of the currently-active filter preset (see {@see FilterDef})
      * or the sentinel string `custom` when the user has chosen a
      * date range via the Custom popover. URL-bound so the Reporting
@@ -83,6 +103,26 @@ final class ListView extends Component
         if ($this->sorts === []) {
             $this->sorts = $this->arch->defaultSort;
         }
+
+        if ($this->perPage === 0) {
+            $this->perPage = $this->arch->perPage;
+        }
+    }
+
+    /**
+     * Validate the dropdown's new value and reset to page 1 so the user
+     * lands on a fresh paginated slice (otherwise a page index from the
+     * smaller page size could overshoot the new larger result set).
+     */
+    public function updatedPerPage(): void
+    {
+        $valid = [...self::PER_PAGE_OPTIONS, $this->arch->perPage];
+
+        if (! in_array($this->perPage, $valid, true)) {
+            $this->perPage = $this->arch->perPage;
+        }
+
+        $this->resetPage();
     }
 
     #[Computed]
@@ -182,7 +222,7 @@ final class ListView extends Component
         $keyName = $this->model::query()->getModel()->getKeyName();
 
         return $this->buildQuery()
-            ->forPage($this->getPage(), $this->arch->perPage)
+            ->forPage($this->getPage(), $this->perPage)
             ->pluck($keyName)
             ->map(static fn (mixed $v): int|string => is_int($v) ? $v : (string) $v)
             ->values()
@@ -395,7 +435,7 @@ final class ListView extends Component
         }
 
         $arch = $this->arch;
-        $records = $this->buildQuery()->paginate($arch->perPage);
+        $records = $this->buildQuery()->paginate($this->perPage);
 
         // Aggregates must scope to the same filter as the rows above
         // them — otherwise a "Today" filter would show today's rows
@@ -427,6 +467,23 @@ final class ListView extends Component
             'activeFilter' => $this->filter,
             'customDateField' => $arch->customDateField,
             'customRangeLabel' => $this->customRangeLabel(),
+            'perPageOptions' => $this->perPageOptions(),
         ]);
+    }
+
+    /**
+     * Build the dropdown option list — the canonical {@see PER_PAGE_OPTIONS}
+     * plus the arch default if it isn't already in there. Sorted + de-duped
+     * so the dropdown stays clean for non-standard arch defaults (e.g. an
+     * arch with per_page=25 surfaces as 20/25/50/100, not 20/50/100/25).
+     *
+     * @return list<int>
+     */
+    private function perPageOptions(): array
+    {
+        $options = array_values(array_unique([...self::PER_PAGE_OPTIONS, $this->arch->perPage]));
+        sort($options);
+
+        return $options;
     }
 }

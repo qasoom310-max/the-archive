@@ -195,8 +195,17 @@
             </table>
         </div>
 
-        <div class="border-t border-chrome-200 px-4 py-3">
-            {{ $records->links() }}
+        <div class="flex flex-wrap items-center justify-between gap-2 border-t border-chrome-200 px-4 py-3">
+            <label class="flex items-center gap-2 text-xs text-chrome-500">
+                <span>{{ __('Rows per page') }}</span>
+                <select wire:model.live="perPage"
+                    class="rounded-md border-chrome-300 bg-white py-1 ps-2 pe-7 text-xs font-medium text-chrome-700 focus:border-primary-500 focus:ring-primary-500">
+                    @foreach ($perPageOptions as $opt)
+                        <option value="{{ $opt }}">{{ $opt }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <div>{{ $records->links() }}</div>
         </div>
     @endif
 </div>

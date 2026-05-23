@@ -124,6 +124,25 @@ final class ViewEngineTest extends TestCase
             ->assertSee(number_format(400, 2)); // 100 + 250 + 50
     }
 
+    public function test_list_view_per_page_dropdown_defaults_to_arch_and_validates_selection(): void
+    {
+        // Mount uses the arch default (demo.ticket arch declares 8). The
+        // dropdown surfaces 20/50/100 PLUS the arch default; a URL-
+        // tampered value snaps back to the arch default rather than
+        // blowing up the query.
+        $this->seedTickets();
+
+        $component = Livewire::test(ListView::class, ['model' => DemoTicket::class, 'modelKey' => 'demo.ticket']);
+        $this->assertSame(8, $component->get('perPage'));
+
+        // 50 is a canonical option — accepted.
+        $component->set('perPage', 50)->assertSet('perPage', 50);
+        // The arch default itself stays valid even though it's not in the canonical set.
+        $component->set('perPage', 8)->assertSet('perPage', 8);
+        // Anything else falls back to the arch default.
+        $component->set('perPage', 999)->assertSet('perPage', 8);
+    }
+
     public function test_list_view_bulk_delete_and_select_page(): void
     {
         $this->seedTickets();

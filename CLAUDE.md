@@ -328,6 +328,7 @@ Keep this table current — it is how state survives across sessions.
 | 10 | **WhatsApp**: Meta Cloud API integration (queued messaging, webhook, admin Settings tab, **POS auto-receipt** shipped) | ✅ DONE; templates table/UI · Chatter button · other event automations · media/PDF attachments = next increments |
 | 11 | **Currency engine**: `App\Erp\Money\{Currency,Currencies}` (27 currencies, Arab-world heavy) + `ValueFormat::money()` + `format: money` column type + Settings dropdown | ✅ DONE |
 | 12 | **Locale & RTL Arabic (Pass 1)**: `SetLocale` middleware + `lang/ar.json` + `<html dir="rtl">` + logical Tailwind utilities + auto-reload on language flip + app-switcher per-module icons | ✅ Pass 1 (foundation + chrome + login + profile + settings + dashboard). Pass 2 (POS interiors, Contacts, Inventory, Chatter, engine list/kanban/form chrome, validation messages) = next |
+| 13 | **Translatable data**: `spatie/laravel-translatable` + engine `translatable: true` arch flag + Odoo-style EN/AR pills in FormView + `PosProduct.name` opted in | ✅ DONE (PosProduct.name only). Follow-ups: `PosCategory.name`, `Partner.name`, add `description` columns then opt them in |
 
 **Phase 8 — Settings (where things live):**
 
@@ -419,7 +420,21 @@ DB stores `decimal(12,2)`; display can be 3-decimal (BHD `10.000`) — third dec
 
 **Pass 2 (next, not yet built):** POS terminal/products/orders/reporting interiors, Contacts module, Inventory module, Chatter, engine list/kanban/form chrome ("Records" / "X selected" / "Delete" / filter chips), validation messages (`lang/ar/validation.php`).
 
-**Carve-outs (deliberately English-only):** WhatsApp settings tab content (brand-aligned), brand names ("OpenERP" / "WhatsApp"), ISO codes + currency symbols ("BHD" / "BD" / "USD"), user-entered data (partner / product names, references, mailbox addresses), CLI snippets in code blocks (`php artisan ...`), keyboard shortcuts ("⌘K"). When in doubt: brand + identifier + user-typed = stay English.
+**Carve-outs (deliberately English-only):** WhatsApp settings tab content (brand-aligned), brand names ("OpenERP" / "WhatsApp"), ISO codes + currency symbols ("BHD" / "BD" / "USD"), CLI snippets in code blocks (`php artisan ...`), keyboard shortcuts ("⌘K"). When in doubt: brand + identifier = stay English. User-entered *display* data (product / partner names) is **translatable per-record** via Phase 13, not a UI-string carve-out.
+
+**Phase 13 — Translatable data (shipped 2026-05-23):**
+
+| Concern | Location |
+|---|---|
+| Package | `spatie/laravel-translatable` ^6.11. Stores per-locale values as a JSON object on a single column (e.g. `pos_products.name` = `{"en":"Espresso","ar":"إسبريسو"}`); reading `$p->name` returns the active-locale value driven by `app()->getLocale()` (which `SetLocale` middleware sets from `company.language`) |
+| Contract | `App\Erp\Translation\TranslatableModel` — narrow interface declaring `getTranslations()` + `setTranslations()`. Spatie doesn't ship one; we declare ours so PHPStan can type-narrow at engine call sites (`FormView` only sees `class-string<Model>`). Models opt in via `use HasTranslations` **and** `implements TranslatableModel` |
+| Engine flag | `FormFieldDef::$translatable` + `isTranslatable()` (widget guard — only `text` / `textarea` honour it; numbers / checkboxes silently drop the flag). Parsed from arch `'translatable' => true` by `ViewArch::parseFormFields()` |
+| Form UI | `App\Livewire\Views\FormView` — `$translations` (`<field> => <locale> => string`) buffers all locale values across pill switches; `$translationLocale` (`<field> => locale`) tracks the active pill per field. `switchLocale($field, $locale)` flushes the in-progress edit for the OLD locale into the buffer, then loads the NEW locale's value into the input. `save()` writes via `$record->setTranslations(...)` instead of `setAttribute`. Pills render right of the field label (active = `bg-primary-600 text-white`, inactive = `bg-chrome-100`) |
+| Supported locales | `FormView::LOCALES = ['en', 'ar']` — aligned with Phase 12. Adding a third locale = add the code here + a `lang/<code>.json` file; no schema work |
+| Migrated model | `Modules\Pos\Models\PosProduct` (`name` only). Migration `2026_05_23_200001_make_pos_products_name_translatable.php`: ALTER column → TEXT (no-op on SQLite — dynamic typing), data-migrates existing plain-string values to `{"en": value}`. Idempotent (`where name NOT LIKE '{%'`) — safe to re-run on a partial migration. Auto-applied to prod by deploy.yml's POS migrate step |
+| Tests | `tests/Feature/PosProductTranslationTest.php` (9) — JSON storage, locale-driven read, plain-string round-trip, arch-flag presence, mount hydration, switchLocale buffering, save via setTranslations, unknown-locale ignored, end-to-end `company.language` flip changes displayed name |
+
+**Lookup gotcha:** With `name` as JSON, `where('name', 'X')` no longer matches — the column literally holds `{"en":"X"}`. Use `where('name->en', 'X')` (Laravel JSON-path; works on SQLite + MySQL natively). `PosTerminal::products()` `LIKE '%search%'` survives because LIKE substring-matches the raw JSON envelope, and `orderBy('name')` still mostly sorts alphabetically because the `{"en":"` prefix is constant for English-only rows — both degrade once Arabic translations land, so swap to `orderByRaw("json_extract(name, '$.en')")` (driver-aware) and locale-scoped JSON-path search next time you touch the terminal.
 
 **Profile self-service (shipped 2026-05-21):**
 

@@ -128,7 +128,7 @@ final class PosModuleTest extends TestCase
 
         $this->assertSame(
             $category->id,
-            PosProduct::query()->where('name', 'Maassel')->sole()->pos_category_id,
+            PosProduct::query()->where('name->en', 'Maassel')->sole()->pos_category_id,
         );
     }
 
@@ -157,7 +157,7 @@ final class PosModuleTest extends TestCase
             // and the assertion.
             ->assertDispatched('record-saved');
 
-        $product = PosProduct::query()->where('name', 'Burger')->sole();
+        $product = PosProduct::query()->where('name->en', 'Burger')->sole();
         $this->assertNotNull($product->image_path);
         $this->assertStringStartsWith('pos_products/', $product->image_path);
         Storage::disk('public')->assertExists($product->image_path);
@@ -276,7 +276,9 @@ final class PosModuleTest extends TestCase
             ->call('bulkDelete')
             ->assertForbidden();
 
-        $this->assertDatabaseHas('pos_products', ['name' => 'Keepme']);
+        // `name` is now a translatable JSON column; assert via the JSON-path
+        // query instead of a literal column-equality match.
+        $this->assertTrue(PosProduct::query()->where('name->en', 'Keepme')->exists());
     }
 
     public function test_cashier_cannot_add_a_product(): void
@@ -437,7 +439,7 @@ final class PosModuleTest extends TestCase
             ->set('form.name', 'Coal')
             ->call('save');
 
-        $product = PosProduct::query()->where('name', 'Coal')->sole();
+        $product = PosProduct::query()->where('name->en', 'Coal')->sole();
         $this->assertEqualsWithDelta(0.0, $product->price, 0.001);
         $this->assertEqualsWithDelta(0.0, $product->tax_rate, 0.001);
         $this->assertEqualsWithDelta(0.0, $product->stock_on_hand, 0.001);
@@ -571,7 +573,7 @@ final class PosModuleTest extends TestCase
 
         $this->assertSame(
             $beverages->id,
-            PosProduct::query()->where('name', 'Mocha')->sole()->pos_category_id,
+            PosProduct::query()->where('name->en', 'Mocha')->sole()->pos_category_id,
         );
     }
 

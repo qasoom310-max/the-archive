@@ -145,6 +145,7 @@ final readonly class ViewArch
                 options: $options,
                 help: self::str($entry, 'help'),
                 optionsSource: self::parseOptionsSource($entry),
+                translatable: ($entry['translatable'] ?? false) === true,
             );
         }
 

@@ -7,6 +7,7 @@ namespace App\Livewire\Views;
 use App\Erp\Chatter\Chatterable;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
+use App\Erp\Translation\TranslatableModel;
 use App\Erp\Views\FormFieldDef;
 use App\Erp\Views\ViewArch;
 use App\Erp\Views\ViewResolver;
@@ -47,6 +48,38 @@ final class FormView extends Component
     public array $uploads = [];
 
     /**
+     * Per-field translation buffer for fields marked `translatable: true`.
+     * Shape: `[<field> => [<locale> => <string>]]`. Holds the full set of
+     * translations across pill switches so values in an unfocused locale
+     * survive a click. Hydrated in `mount()` from `getTranslations()`,
+     * flushed back to the record in `save()` via `setTranslations()`.
+     *
+     * @var array<string, array<string, string>>
+     */
+    public array $translations = [];
+
+    /**
+     * Which locale each translatable field is currently editing — drives
+     * the active pill in the UI and decides which value gets read/written
+     * to `$form[$field]` on a pill switch.
+     *
+     * Defaults to the active app locale (driven by `company.language` via
+     * `SetLocale` middleware). Falling back to 'en' when the active locale
+     * isn't in `LOCALES` keeps the form sane if a third locale is added
+     * mid-session without restarting.
+     *
+     * @var array<string, string>
+     */
+    public array $translationLocale = [];
+
+    /**
+     * Locales the pills offer. Aligned with Phase 12 (en + ar) — adding a
+     * new locale means adding it here AND in `lang/<code>.json`. The form
+     * silently ignores requests to switch to a locale not in this list.
+     */
+    private const LOCALES = ['en', 'ar'];
+
+    /**
      * @param  class-string<Model>  $model
      */
     public function mount(
@@ -63,10 +96,56 @@ final class FormView extends Component
         $this->redirectTo = $redirectTo;
 
         $record = $this->resolveRecord();
+        $activeLocale = $this->activeLocale();
 
         foreach ($this->arch->formFields as $field) {
+            // Translatable fields take a side-channel: we keep ALL locale
+            // values in `$translations[<field>]`, and surface only the
+            // active locale to `$form[<field>]`. Pill clicks swap the
+            // surfaced value without losing the others.
+            if ($field->isTranslatable() && $record instanceof TranslatableModel) {
+                $all = $record->getTranslations($field->field);
+                $this->translations[$field->field] = $all;
+                $this->translationLocale[$field->field] = $activeLocale;
+                $this->form[$field->field] = $all[$activeLocale] ?? '';
+
+                continue;
+            }
+
             $this->form[$field->field] = $record->getAttribute($field->field);
         }
+    }
+
+    /**
+     * Pick the locale a translatable field should default to on mount.
+     * Prefer the current app locale (so an Arabic-speaking admin lands on
+     * the AR pill) and fall back to English if the app is in a locale the
+     * pills don't currently support.
+     */
+    private function activeLocale(): string
+    {
+        $locale = app()->getLocale();
+
+        return in_array($locale, self::LOCALES, true) ? $locale : 'en';
+    }
+
+    /**
+     * Pill-click action. Persists the in-progress edit for the OLD locale
+     * into the translation buffer, then swaps the surfaced value to the
+     * new locale (loading it from the buffer, blank if never set).
+     */
+    public function switchLocale(string $fieldName, string $locale): void
+    {
+        if (! in_array($locale, self::LOCALES, true)) {
+            return;
+        }
+
+        $current = $this->translationLocale[$fieldName] ?? $this->activeLocale();
+        $value = $this->form[$fieldName] ?? '';
+
+        $this->translations[$fieldName][$current] = is_string($value) ? $value : '';
+        $this->translationLocale[$fieldName] = $locale;
+        $this->form[$fieldName] = $this->translations[$fieldName][$locale] ?? '';
     }
 
     #[Computed]
@@ -151,6 +230,19 @@ final class FormView extends Component
             }
 
             $value = $this->form[$field->field] ?? null;
+
+            // Translatable field — flush the in-progress edit for the
+            // currently-focused locale into the buffer, then write ALL
+            // locales at once. Skips the cast branch below (translatable
+            // is text-shaped by `isTranslatable()`'s widget guard).
+            if ($field->isTranslatable() && $record instanceof TranslatableModel) {
+                $activeLocale = $this->translationLocale[$field->field] ?? $this->activeLocale();
+                $this->translations[$field->field][$activeLocale] = is_string($value) ? $value : '';
+
+                $record->setTranslations($field->field, $this->translations[$field->field]);
+
+                continue;
+            }
 
             // An unticked checkbox is `false`, not `null`; a blank number
             // is `0`, not `null` — keep NOT NULL boolean/numeric columns
@@ -262,6 +354,7 @@ final class FormView extends Component
             'cols' => $this->arch->formCols,
             'record' => $this->resolveRecord(),
             'options' => $options,
+            'locales' => self::LOCALES,
         ]);
     }
 }

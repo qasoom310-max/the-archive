@@ -8,13 +8,20 @@ use App\Erp\Contracts\DefinesIrModel;
 use App\Erp\Registry\FieldDefinition;
 use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
+use App\Erp\Translation\TranslatableModel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\Translatable\HasTranslations;
 
 /**
  * @property int $id
- * @property string $name
+ * @property string $name       Translatable. Stored as JSON `{"en":..., "ar":...}`;
+ *                              read returns the active-locale value
+ *                              (`app()->getLocale()`, driven by `company.language`
+ *                              via `SetLocale` middleware). Write a single locale
+ *                              with `$p->setTranslation('name', 'ar', '…')` or all
+ *                              at once with `$p->setTranslations('name', [...])`.
  * @property float $price       Sale price — column kept as `price` for legacy
  *                              compatibility; UI/imports label it "Sale Price".
  * @property float $cost_price  Procurement cost — drives `profit`.
@@ -27,9 +34,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read int|null $available_servings
  * @property-read float $profit
  */
-final class PosProduct extends Model implements DefinesIrModel
+final class PosProduct extends Model implements DefinesIrModel, TranslatableModel
 {
+    use HasTranslations;
+
     protected $table = 'pos_products';
+
+    /**
+     * Translatable attributes — Spatie's trait intercepts reads/writes on
+     * these and treats the underlying column as JSON keyed by locale. Any
+     * other column behaves normally.
+     *
+     * @var list<string>
+     */
+    public array $translatable = ['name'];
 
     /** @var list<string> */
     protected $fillable = [
@@ -173,7 +191,7 @@ final class PosProduct extends Model implements DefinesIrModel
                 new ViewDefinition('POS Product', 'form', [
                     'cols' => 2,
                     'fields' => [
-                        ['field' => 'name', 'label' => 'Name', 'widget' => 'text', 'required' => true],
+                        ['field' => 'name', 'label' => 'Name', 'widget' => 'text', 'required' => true, 'translatable' => true],
                         ['field' => 'price', 'label' => 'Sale Price', 'widget' => 'number'],
                         ['field' => 'cost_price', 'label' => 'Cost Price', 'widget' => 'number'],
                         ['field' => 'tax_rate', 'label' => 'Tax %', 'widget' => 'number'],

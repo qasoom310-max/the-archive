@@ -17,10 +17,31 @@
                 $full = in_array($field->widget, ['textarea', 'image'], true);
             @endphp
             <div class="{{ $full ? 'sm:col-span-2' : '' }}">
-                <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">
-                    {{ $field->label }}
-                    @if ($field->required) <span class="text-red-500">*</span> @endif
-                </label>
+                <div class="mb-1 flex items-center justify-between gap-2">
+                    <label class="block text-xs font-semibold uppercase tracking-wide text-chrome-500">
+                        {{ $field->label }}
+                        @if ($field->required) <span class="text-red-500">*</span> @endif
+                    </label>
+                    @if ($field->isTranslatable())
+                        {{-- Odoo-style language pills. Active pill = solid purple
+                             (the locale being edited right now); others are light
+                             grey. Clicking calls `switchLocale($field, $locale)`
+                             on the component, which buffers the current edit and
+                             swaps the input to that locale's text. The buffer
+                             holds ALL locales across switches so a click never
+                             loses a value. --}}
+                        @php $activeLocale = $translationLocale[$field->field] ?? 'en'; @endphp
+                        <div class="flex items-center gap-1" wire:key="loc-{{ $field->field }}">
+                            @foreach ($locales as $loc)
+                                <button type="button"
+                                    wire:click="switchLocale('{{ $field->field }}', '{{ $loc }}')"
+                                    class="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider transition-colors {{ $activeLocale === $loc ? 'bg-primary-600 text-white' : 'bg-chrome-100 text-chrome-500 hover:bg-chrome-200' }}">
+                                    {{ $loc }}
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
 
                 @switch($field->widget)
                     @case('textarea')

@@ -30,7 +30,11 @@ final class FormImageUploadController
     public function __invoke(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'file'   => ['required', 'file', 'mimes:jpg,jpeg,png,gif,webp,bmp,svg,avif,heic,heif', 'max:8192'],
+            // SVG deliberately excluded — SVGs can carry inline <script>
+            // tags that execute when another user opens the file URL in a
+            // browser tab, which would be stored-XSS under an admin's
+            // session. We do not need vector logos here; raster only.
+            'file'   => ['required', 'file', 'mimes:jpg,jpeg,png,gif,webp,bmp,avif,heic,heif', 'max:4096'],
             // `bucket` decides the storage subdirectory (e.g. `pos_products`).
             // Whitelisted to lowercase letters/digits/underscores so an attacker
             // can't path-traverse to write into an arbitrary disk location.

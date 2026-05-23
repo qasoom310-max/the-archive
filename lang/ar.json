@@ -13,7 +13,8 @@
     "Guest": "زائر",
     "Uploading…": "جارٍ الرفع…",
     "The image upload expired. Please re-select the file and try again.": "انتهت صلاحية رفع الصورة. يرجى إعادة اختيار الملف والمحاولة مرة أخرى.",
-    "Accepted: JPG, PNG, GIF, WebP, AVIF, HEIC, SVG, BMP · max 8 MB": "الصيغ المقبولة: JPG, PNG, GIF, WebP, AVIF, HEIC, SVG, BMP · الحد الأقصى 8 ميجابايت",
+    "Accepted: JPG, PNG, GIF, WebP, AVIF, HEIC, BMP · max 4 MB": "الصيغ المقبولة: JPG, PNG, GIF, WebP, AVIF, HEIC, BMP · الحد الأقصى 4 ميجابايت",
+    "Upload failed.": "فشل الرفع.",
 
     "Dashboard": "لوحة التحكم",
     "Welcome": "مرحباً",

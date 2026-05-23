@@ -130,7 +130,7 @@
                             <div class="flex flex-col gap-1">
                                 <input type="file" accept="image/*" @change="upload($event)"
                                     class="text-sm text-chrome-600 file:mr-3 file:rounded-md file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm">
-                                <p class="text-xs text-chrome-400">{{ __('Accepted: JPG, PNG, GIF, WebP, AVIF, HEIC, SVG, BMP · max 8 MB') }}</p>
+                                <p class="text-xs text-chrome-400">{{ __('Accepted: JPG, PNG, GIF, WebP, AVIF, HEIC, BMP · max 4 MB') }}</p>
                                 <p x-show="busy" class="text-xs text-chrome-400">{{ __('Uploading…') }}</p>
                                 <p x-show="error" x-text="error" class="text-xs text-red-600"></p>
                             </div>

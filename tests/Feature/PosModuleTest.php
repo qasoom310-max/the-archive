@@ -142,6 +142,8 @@ final class PosModuleTest extends TestCase
         // "Accepted: …" hint in form-view.blade.php + livewire.preview_mimes).
         // Keep these in sync — adding a format here without updating those
         // three places will fail this test, which is the point.
+        //
+        // SVG deliberately absent — stored-XSS risk via inline <script>.
         return [
             'jpg'  => ['photo.jpg',  'image/jpeg', 'Burger'],
             'jpeg' => ['photo.jpeg', 'image/jpeg', 'Pizza'],
@@ -149,7 +151,6 @@ final class PosModuleTest extends TestCase
             'gif'  => ['photo.gif',  'image/gif',  'Soup'],
             'webp' => ['photo.webp', 'image/webp', 'حليب جنزبيل'], // ← user's actual case
             'bmp'  => ['photo.bmp',  'image/bmp',  'Bread'],
-            'svg'  => ['photo.svg',  'image/svg+xml', 'Cake'],
             'avif' => ['photo.avif', 'image/avif', 'Pepsi'],
             'heic' => ['photo.heic', 'image/heic', 'Coffee'],
             'heif' => ['photo.heif', 'image/heif', 'Tea'],
@@ -238,10 +239,23 @@ final class PosModuleTest extends TestCase
     {
         Storage::fake('public');
 
-        // 10 MB > the 8 MB cap.
+        // 5 MB > the 4 MB cap.
         $this->postJson(route('form.upload-image'), [
             'bucket' => 'pos_products',
-            'file' => UploadedFile::fake()->create('big.webp', 10240, 'image/webp'),
+            'file' => UploadedFile::fake()->create('big.webp', 5120, 'image/webp'),
+        ])->assertStatus(422)->assertJsonValidationErrors('file');
+    }
+
+    public function test_form_image_upload_controller_rejects_svg(): void
+    {
+        // SVG is dropped from the allowlist (stored-XSS risk via inline
+        // <script> when another user opens the file URL). Verify it 422s
+        // — if a future tidy "helpfully" re-adds SVG, this fails first.
+        Storage::fake('public');
+
+        $this->postJson(route('form.upload-image'), [
+            'bucket' => 'pos_products',
+            'file' => UploadedFile::fake()->create('vector.svg', 8, 'image/svg+xml'),
         ])->assertStatus(422)->assertJsonValidationErrors('file');
     }
 

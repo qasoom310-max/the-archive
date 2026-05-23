@@ -42,8 +42,12 @@ Route::middleware('auth')->group(function (): void {
 
     // Direct synchronous image upload for FormView image fields. Bypasses
     // Livewire's two-phase async upload mechanism (unreliable on shared
-    // hosts that gate multipart POSTs through mod_security).
-    Route::post('/form/upload-image', FormImageUploadController::class)->name('form.upload-image');
+    // hosts that gate multipart POSTs through mod_security). Throttle
+    // bounds disk-fill DoS by a logged-in user — 30 uploads/min/user is
+    // generous for legitimate use (one upload per product edit).
+    Route::post('/form/upload-image', FormImageUploadController::class)
+        ->middleware('throttle:30,1')
+        ->name('form.upload-image');
 
     // Self-service profile settings — accessible from the user dropdown
     // in the topbar. Role display is read-only here; the admin user

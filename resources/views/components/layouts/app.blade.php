@@ -39,15 +39,33 @@
 
         <a href="{{ url('/') }}" class="ms-1 text-sm font-bold tracking-tight">{{ __('OpenERP') }}</a>
 
-        {{-- Breadcrumbs --}}
+        {{-- Breadcrumbs — every segment is a link back to its cumulative
+             URL except the LAST one (the page you're on) and the bare
+             `app` prefix (no route registered at /app on its own). Skip-
+             linking the terminal segment keeps the current page visually
+             distinct (white + medium weight); skip-linking `app` avoids
+             dropping the user on a 404. --}}
         <nav class="flex items-center gap-1.5 text-sm text-chrome-300">
             <span class="text-chrome-500">/</span>
-            <a href="{{ url('/') }}" class="hover:text-white">{{ __('Home') }}</a>
+            <a href="{{ url('/') }}" wire:navigate class="hover:text-white">{{ __('Home') }}</a>
+            @php $cumulative = []; @endphp
             @foreach ($segments as $segment)
+                @php
+                    $cumulative[] = $segment;
+                    $isLast = $loop->last;
+                    $isAppPrefix = $loop->first && $segment === 'app';
+                @endphp
                 <span class="text-chrome-500">/</span>
-                <span class="capitalize {{ $loop->last ? 'font-medium text-white' : '' }}">
-                    {{ __(str_replace(['-', '_'], ' ', $segment)) }}
-                </span>
+                @if ($isLast || $isAppPrefix)
+                    <span class="capitalize {{ $isLast ? 'font-medium text-white' : '' }}">
+                        {{ __(str_replace(['-', '_'], ' ', $segment)) }}
+                    </span>
+                @else
+                    <a href="{{ url('/' . implode('/', $cumulative)) }}" wire:navigate
+                        class="capitalize hover:text-white">
+                        {{ __(str_replace(['-', '_'], ' ', $segment)) }}
+                    </a>
+                @endif
             @endforeach
         </nav>
 

@@ -1,8 +1,8 @@
 <div class="mx-auto max-w-3xl p-6">
     <div class="mb-4 flex items-center gap-2 text-sm text-chrome-500">
-        <a href="{{ url('/app/pos') }}" wire:navigate class="hover:text-primary-700">Point of Sale</a>
+        <a href="{{ url('/app/pos/product') }}" wire:navigate class="hover:text-primary-700">{{ __('Products') }}</a>
         <span>/</span>
-        <span class="font-medium text-chrome-700">{{ $product?->name ?? 'New product' }}</span>
+        <span class="font-medium text-chrome-700">{{ $product?->name ?? __('New product') }}</span>
     </div>
 
     <livewire:views.form-view

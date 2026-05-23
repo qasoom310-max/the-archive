@@ -19,6 +19,17 @@ final readonly class ColumnDef
      *                              Specify the real column to sort on instead
      *                              (e.g. `user_id`). Defaults to `field`.
      */
+    /**
+     * @param bool $hiddenByDefault  When true, the column is hidden on a
+     *                               user's first visit. They can still
+     *                               opt-in via the engine's column picker
+     *                               (UserViewPreference). Use for fields
+     *                               that aren't load-bearing for the
+     *                               typical workflow (e.g. internal IDs,
+     *                               compliance details, low-traffic stats)
+     *                               but still belong in the arch for
+     *                               power users who care.
+     */
     public function __construct(
         public string $field,
         public string $label,
@@ -28,6 +39,7 @@ final readonly class ColumnDef
         public string $align = 'left',
         public string $format = 'text',
         public ?string $sortField = null,
+        public bool $hiddenByDefault = false,
     ) {}
 
     /**

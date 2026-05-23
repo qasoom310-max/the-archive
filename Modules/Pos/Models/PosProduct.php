@@ -89,6 +89,20 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
     }
 
     /**
+     * Display string for the list-view `category` column. Reads through
+     * the relation so it follows whatever the user typed in the category
+     * form (and naturally Arabic-locale flips with the active translation
+     * once PosCategory.name opts into Spatie). Null when uncategorised —
+     * the engine renders an empty cell, not "null".
+     */
+    public function getCategoryNameAttribute(): ?string
+    {
+        $cat = $this->category;
+
+        return $cat?->name;
+    }
+
+    /**
      * The static recipe (bill of materials) of this finished product.
      *
      * @return HasMany<PosProductRecipe, $this>
@@ -168,16 +182,25 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
                 new ViewDefinition('POS Products', 'list', [
                     'columns' => [
                         ['field' => 'name', 'label' => 'Name', 'sortable' => true],
+                        // `category_name` is an accessor that reads through the
+                        // pos_category relation. Sorts by the underlying FK
+                        // (groups rows by category in id order — good enough
+                        // for the typical "show me products in this category"
+                        // glance; alpha-sort would need a join the engine
+                        // doesn't synthesise yet).
+                        ['field' => 'category_name', 'label' => 'Category', 'sort_field' => 'pos_category_id'],
                         ['field' => 'price', 'label' => 'Sale Price', 'format' => 'money', 'align' => 'right', 'sum' => true, 'sortable' => true],
                         ['field' => 'cost_price', 'label' => 'Cost', 'format' => 'money', 'align' => 'right', 'sum' => true, 'sortable' => true],
                         // `profit` is an accessor — no sum (engine aggregates via
                         // SQL, which can't see a computed column); no sortable
                         // (engine's whitelist-based orderBy needs a real column).
-                        ['field' => 'profit', 'label' => 'Margin', 'format' => 'money', 'align' => 'right'],
-                        ['field' => 'tax_rate', 'label' => 'Tax %', 'format' => 'number', 'align' => 'right'],
-                        ['field' => 'stock_on_hand', 'label' => 'Stock', 'format' => 'number', 'align' => 'right', 'sortable' => true],
+                        // Hidden by default — the typical cashier-led workflow
+                        // doesn't surface margin; power users can toggle it on.
+                        ['field' => 'profit', 'label' => 'Margin', 'format' => 'money', 'align' => 'right', 'hidden_by_default' => true],
+                        ['field' => 'tax_rate', 'label' => 'Tax %', 'format' => 'number', 'align' => 'right', 'hidden_by_default' => true],
+                        ['field' => 'stock_on_hand', 'label' => 'Stock', 'format' => 'number', 'align' => 'right', 'sortable' => true, 'hidden_by_default' => true],
                         ['field' => 'available_servings', 'label' => 'Available Servings', 'align' => 'right'],
-                        ['field' => 'barcode', 'label' => 'Barcode'],
+                        ['field' => 'barcode', 'label' => 'Barcode', 'hidden_by_default' => true],
                         ['field' => 'active', 'label' => 'Active', 'format' => 'bool'],
                     ],
                     'default_sort' => [['field' => 'name', 'dir' => 'asc']],

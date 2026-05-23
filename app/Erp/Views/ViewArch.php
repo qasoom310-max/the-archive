@@ -215,6 +215,7 @@ final readonly class ViewArch
                     ? $format
                     : 'text',
                 sortField: self::str($entry, 'sort_field'),
+                hiddenByDefault: ($entry['hidden_by_default'] ?? false) === true,
             );
         }
 

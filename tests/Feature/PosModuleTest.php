@@ -11,6 +11,7 @@ use App\Erp\Security\Permission;
 use App\Models\Ir\IrModel;
 use App\Models\Ir\IrModule;
 use App\Models\Ir\IrUiView;
+use App\Models\UserViewPreference;
 use App\Models\Mail\MessageType;
 use App\Livewire\Views\FormView;
 use App\Livewire\Views\ListView;
@@ -289,6 +290,169 @@ final class PosModuleTest extends TestCase
 
         // No record was created — save aborted before any DB write.
         $this->assertSame(0, PosProduct::query()->where('name->en', 'Drink')->count());
+    }
+
+    // ---- Column picker (UserViewPreference) ---------------------------
+
+    public function test_pos_product_list_hides_default_hidden_columns_on_first_visit(): void
+    {
+        // Fresh user, no UserViewPreference row yet. The list arch marks
+        // profit / tax_rate / stock_on_hand / barcode as hidden_by_default —
+        // those should be off out of the box, while name / category / price
+        // / cost / available_servings / active stay visible.
+        $this->installPos();
+        $this->seed(PosSeeder::class);
+
+        $component = Livewire::test(ListView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ]);
+
+        $hidden = $component->get('hiddenColumns');
+        sort($hidden);
+        $this->assertSame(
+            ['barcode', 'profit', 'stock_on_hand', 'tax_rate'],
+            $hidden,
+            'Default hidden set must match the arch hidden_by_default flags.',
+        );
+
+        $visibleFields = array_map(static fn ($c) => $c->field, $component->instance()->visibleColumns());
+        $this->assertContains('name', $visibleFields);
+        $this->assertContains('category_name', $visibleFields);
+        $this->assertContains('price', $visibleFields);
+        $this->assertNotContains('tax_rate', $visibleFields);
+        $this->assertNotContains('barcode', $visibleFields);
+    }
+
+    public function test_pos_product_list_category_column_renders_category_name(): void
+    {
+        $this->installPos();
+        $this->seed(PosSeeder::class);
+
+        $cat = \Modules\Pos\Models\PosCategory::query()->create(['name' => 'Hot Drinks']);
+        PosProduct::query()->create([
+            'name' => 'Latte',
+            'price' => 4.0,
+            'tax_rate' => 0,
+            'pos_category_id' => $cat->id,
+        ]);
+
+        $html = Livewire::test(ListView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ])->html();
+
+        // Category column header AND the per-row category name must render.
+        $this->assertStringContainsString('Category', $html);
+        $this->assertStringContainsString('Hot Drinks', $html);
+    }
+
+    public function test_pos_product_list_toggle_column_persists_per_user(): void
+    {
+        // toggleColumn flips visibility AND writes a UserViewPreference row.
+        // A second mount (simulating a fresh page load) reads the saved set.
+        $this->installPos();
+        $this->seed(PosSeeder::class);
+
+        $userId = (int) Auth::id();
+
+        Livewire::test(ListView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ])
+            ->call('toggleColumn', 'price')   // hide it
+            ->call('toggleColumn', 'tax_rate'); // show it (was default-hidden)
+
+        $pref = UserViewPreference::query()
+            ->where('user_id', $userId)
+            ->where('model_key', 'pos.product')
+            ->sole();
+
+        $this->assertContains('price', $pref->hidden_columns);
+        $this->assertNotContains('tax_rate', $pref->hidden_columns);
+
+        // Fresh mount picks up the saved state.
+        $fresh = Livewire::test(ListView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ]);
+        $this->assertContains('price', $fresh->get('hiddenColumns'));
+        $this->assertNotContains('tax_rate', $fresh->get('hiddenColumns'));
+    }
+
+    public function test_pos_product_list_toggle_column_ignores_unknown_field(): void
+    {
+        // Defensive: a tampered request setting an unknown field must
+        // not pollute the user's prefs row.
+        $this->installPos();
+        $this->seed(PosSeeder::class);
+
+        Livewire::test(ListView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ])->call('toggleColumn', 'evil; DROP TABLE users');
+
+        $this->assertSame(0, UserViewPreference::query()->count());
+    }
+
+    public function test_pos_product_list_reorder_persists_and_applies(): void
+    {
+        // reorderColumns saves the picked order. visibleColumns() then
+        // renders columns in that order. Unknown / extra fields in the
+        // posted array are stripped; arch columns not in the array are
+        // appended at the end so nothing is permanently lost.
+        $this->installPos();
+        $this->seed(PosSeeder::class);
+
+        $component = Livewire::test(ListView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ])->call('reorderColumns', ['active', 'name', 'evil_field']);
+
+        $pref = UserViewPreference::query()->sole();
+        $this->assertSame('active', $pref->column_order[0]);
+        $this->assertSame('name', $pref->column_order[1]);
+        $this->assertNotContains('evil_field', $pref->column_order);
+        // Untouched arch columns still appear at the end.
+        $this->assertContains('price', $pref->column_order);
+        $this->assertContains('barcode', $pref->column_order);
+
+        $visible = array_map(static fn ($c) => $c->field, $component->instance()->visibleColumns());
+        $this->assertSame('active', $visible[0]);
+        $this->assertSame('name', $visible[1]);
+    }
+
+    public function test_pos_product_list_two_users_have_independent_column_prefs(): void
+    {
+        $this->installPos();
+        $this->seed(PosSeeder::class);
+
+        // First user (the one acting from setUp): hide name.
+        Livewire::test(ListView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ])->call('toggleColumn', 'name');
+
+        $firstUserId = (int) Auth::id();
+
+        // Second user: act as a separate admin.
+        $second = User::factory()->create(['is_admin' => true]);
+        $this->actingAs($second);
+
+        $secondView = Livewire::test(ListView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ]);
+
+        // Second user sees the default-hidden set, NOT the first user's
+        // 'name' hide. Different row keyed by user_id.
+        $this->assertNotContains('name', $secondView->get('hiddenColumns'));
+
+        // Both rows coexist.
+        $this->assertSame(1, UserViewPreference::query()->where('user_id', $firstUserId)->count());
+
+        $secondView->call('toggleColumn', 'price');
+        $this->assertSame(2, UserViewPreference::query()->count());
     }
 
     public function test_product_form_accepts_photo_upload(): void

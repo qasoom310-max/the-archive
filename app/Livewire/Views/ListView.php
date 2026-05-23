@@ -6,10 +6,12 @@ namespace App\Livewire\Views;
 
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
+use App\Erp\Views\ColumnDef;
 use App\Erp\Views\DatePreset;
 use App\Erp\Views\FilterDef;
 use App\Erp\Views\ViewArch;
 use App\Erp\Views\ViewResolver;
+use App\Models\UserViewPreference;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -92,6 +94,34 @@ final class ListView extends Component
     public string $customTo = '';
 
     /**
+     * Field names the current user has hidden via the column picker.
+     * Hydrated in mount() from {@see UserViewPreference}; defaults to the
+     * arch's `hidden_by_default` set on first visit. Persisted back to
+     * the DB by {@see toggleColumn()} so the choice survives a refresh
+     * and follows the user across browsers / devices.
+     *
+     * @var list<string>
+     */
+    public array $hiddenColumns = [];
+
+    /**
+     * User-chosen display order of column field names. Empty = use the
+     * arch's natural order. Unknown field names (after an arch change)
+     * are filtered out at read time so a stale row can never crash the
+     * view. Persisted by {@see reorderColumns()}.
+     *
+     * @var list<string>
+     */
+    public array $columnOrder = [];
+
+    /**
+     * Flips while the column-picker dropdown is open. Local to the
+     * component — not URL-bound (the dropdown is ephemeral chrome,
+     * not part of a shareable view state).
+     */
+    public bool $columnPickerOpen = false;
+
+    /**
      * @param  class-string<Model>  $model
      */
     public function mount(string $model, string $modelKey = '', string $title = ''): void
@@ -107,6 +137,51 @@ final class ListView extends Component
         if ($this->perPage === 0) {
             $this->perPage = $this->arch->perPage;
         }
+
+        $this->loadUserColumnPreferences();
+    }
+
+    /**
+     * Pull per-user hidden + ordered columns. Modes:
+     *  - No user (e.g. anonymous endpoint, test without login) → just
+     *    apply the arch's hidden-by-default defaults; no persistence.
+     *  - No row yet → seed from arch's `hidden_by_default` set so the
+     *    user sees the curated initial view on their first visit. The
+     *    row itself isn't written until they actually toggle something.
+     *  - Existing row → apply as-is.
+     */
+    private function loadUserColumnPreferences(): void
+    {
+        $user = Auth::user();
+
+        if ($user === null) {
+            $this->hiddenColumns = $this->defaultHiddenFromArch();
+
+            return;
+        }
+
+        $pref = UserViewPreference::forUserAndModel((int) $user->getKey(), $this->modelKey);
+
+        if (! $pref->exists) {
+            $this->hiddenColumns = $this->defaultHiddenFromArch();
+            $this->columnOrder = [];
+
+            return;
+        }
+
+        $this->hiddenColumns = $pref->hidden_columns;
+        $this->columnOrder = $pref->column_order;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function defaultHiddenFromArch(): array
+    {
+        return array_values(array_map(
+            static fn (ColumnDef $c): string => $c->field,
+            array_filter($this->arch->columns, static fn (ColumnDef $c): bool => $c->hiddenByDefault),
+        ));
     }
 
     /**
@@ -428,6 +503,120 @@ final class ListView extends Component
         return null;
     }
 
+    /**
+     * Apply user's hidden + ordered prefs on top of the arch's column
+     * list. Reordering keeps unknown fields in their natural slot so an
+     * arch change (column added later) doesn't drop it from the user's
+     * view. Filtering then drops hidden columns. Always returns a
+     * list — never associative — so the Blade can foreach directly.
+     *
+     * @return list<\App\Erp\Views\ColumnDef>
+     */
+    public function visibleColumns(): array
+    {
+        $archCols = $this->arch->columns;
+
+        if ($this->columnOrder !== []) {
+            $byField = [];
+            foreach ($archCols as $c) {
+                $byField[$c->field] = $c;
+            }
+
+            $ordered = [];
+            $seen = [];
+            foreach ($this->columnOrder as $field) {
+                if (isset($byField[$field])) {
+                    $ordered[] = $byField[$field];
+                    $seen[$field] = true;
+                }
+            }
+            // Append any arch columns the prefs row hasn't seen yet
+            // (introduced by a later arch update) — keep them visible
+            // unless explicitly hidden by the user.
+            foreach ($archCols as $c) {
+                if (! isset($seen[$c->field])) {
+                    $ordered[] = $c;
+                }
+            }
+
+            $archCols = $ordered;
+        }
+
+        return array_values(array_filter(
+            $archCols,
+            fn (ColumnDef $c): bool => ! in_array($c->field, $this->hiddenColumns, true),
+        ));
+    }
+
+    /**
+     * Flip a column's visibility and persist the new hidden set per
+     * (user, model). Unknown fields are ignored so a stale Blade or a
+     * malicious client can't pollute the prefs row.
+     */
+    public function toggleColumn(string $field): void
+    {
+        if ($this->columnByField($field) === null) {
+            return;
+        }
+
+        $hidden = $this->hiddenColumns;
+        $idx = array_search($field, $hidden, true);
+
+        if ($idx === false) {
+            $hidden[] = $field;
+        } else {
+            array_splice($hidden, $idx, 1);
+        }
+
+        $this->hiddenColumns = array_values($hidden);
+
+        $this->persistColumnPreferences();
+    }
+
+    /**
+     * Apply a user-picked column order (drag-drop in the picker). Only
+     * fields the arch actually declares are accepted; extras are
+     * dropped silently. Missing arch columns are appended at the end
+     * so a partial drag-drop still leaves every column reachable.
+     *
+     * @param list<string> $order
+     */
+    public function reorderColumns(array $order): void
+    {
+        $known = array_map(static fn (ColumnDef $c): string => $c->field, $this->arch->columns);
+
+        $clean = [];
+        foreach ($order as $field) {
+            if (is_string($field) && in_array($field, $known, true) && ! in_array($field, $clean, true)) {
+                $clean[] = $field;
+            }
+        }
+
+        foreach ($known as $field) {
+            if (! in_array($field, $clean, true)) {
+                $clean[] = $field;
+            }
+        }
+
+        $this->columnOrder = $clean;
+
+        $this->persistColumnPreferences();
+    }
+
+    private function persistColumnPreferences(): void
+    {
+        $user = Auth::user();
+
+        if ($user === null || $this->modelKey === '') {
+            return;
+        }
+
+        UserViewPreference::query()->updateOrCreate(
+            ['user_id' => (int) $user->getKey(), 'model_key' => $this->modelKey],
+            ['hidden_columns' => $this->hiddenColumns, 'column_order' => $this->columnOrder],
+        );
+    }
+
     public function render(): View
     {
         if (! $this->may(Permission::Read)) {
@@ -458,7 +647,8 @@ final class ListView extends Component
         }
 
         return view('livewire.views.list-view', [
-            'columns' => $arch->columns,
+            'columns' => $this->visibleColumns(),
+            'allColumns' => $arch->columns,
             'records' => $records,
             'aggregates' => $aggregates,
             'openUrl' => $arch->openUrl,

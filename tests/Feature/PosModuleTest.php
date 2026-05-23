@@ -711,6 +711,45 @@ final class PosModuleTest extends TestCase
         $this->assertContains("Missing required column: 'Sale Price'.", $report->fileErrors);
     }
 
+    public function test_preview_round_trips_import_report_across_livewire_wire(): void
+    {
+        // Regression: ImportReport / ImportRow are typed custom-class
+        // properties on PosProductImport. Without Wireable, Livewire 3
+        // crashes the request with "Property type not supported" when
+        // serialising the report from preview() back to the wire. This
+        // test exercises the full Livewire flow (not just the service)
+        // so the dehydrate/hydrate cycle runs end-to-end. Arabic names
+        // are in the fixture because they're what flushed the bug out
+        // in prod first.
+        $this->installPos();
+        $this->seed(AuthSeeder::class);
+        $this->actingAs(User::query()->where('email', 'admin@example.com')->sole());
+
+        $csv = "Name,Sale Price,Cost\n"
+             . "افوكادو,1.2,0\n"
+             . "موز,0.8,0\n"
+             . "ليمون نعناع,0.8,0\n";
+
+        // Livewire's test harness expects a TemporaryUploadedFile (not a
+        // raw UploadedFile) — `UploadedFile::fake()->createWithContent()`
+        // gives us one transparently.
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('arabic.csv', $csv);
+
+        $component = Livewire::test(\Modules\Pos\Livewire\PosProductImport::class)
+            ->set('file', $file)
+            ->call('preview')
+            ->assertSet('stage', 'preview')
+            ->assertHasNoErrors();
+
+        /** @var \Modules\Pos\Imports\ImportReport $report */
+        $report = $component->get('result');
+        $this->assertNotNull($report);
+        $this->assertCount(3, $report->rows);
+        $this->assertSame('افوكادو', $report->rows[0]->name);
+        $this->assertSame('موز', $report->rows[1]->name);
+        $this->assertSame('ليمون نعناع', $report->rows[2]->name);
+    }
+
     public function test_importer_flags_duplicate_barcodes_within_the_same_file(): void
     {
         $this->installPos();

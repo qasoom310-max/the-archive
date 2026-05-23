@@ -711,16 +711,16 @@ final class PosModuleTest extends TestCase
         $this->assertContains("Missing required column: 'Sale Price'.", $report->fileErrors);
     }
 
-    public function test_preview_round_trips_import_report_across_livewire_wire(): void
+    public function test_preview_caches_report_and_renders_arabic_rows(): void
     {
-        // Regression: ImportReport / ImportRow are typed custom-class
-        // properties on PosProductImport. Without Wireable, Livewire 3
-        // crashes the request with "Property type not supported" when
-        // serialising the report from preview() back to the wire. This
-        // test exercises the full Livewire flow (not just the service)
-        // so the dehydrate/hydrate cycle runs end-to-end. Arabic names
-        // are in the fixture because they're what flushed the bug out
-        // in prod first.
+        // Regression: the ImportReport DTO used to live as a public
+        // Livewire property. Livewire 3's nested-array marker format
+        // (`{"s":"arr"}`) wrapping each associative entry on the wire
+        // mangled rows during the rehydrate, so a 48-row preview
+        // collapsed to 2 garbage rows by the time `commit()` ran —
+        // and the click "did nothing". We now park the report in the
+        // cache and only keep its key on the component; sidesteps the
+        // entire Livewire serialisation problem.
         $this->installPos();
         $this->seed(AuthSeeder::class);
         $this->actingAs(User::query()->where('email', 'admin@example.com')->sole());
@@ -730,19 +730,18 @@ final class PosModuleTest extends TestCase
              . "موز,0.8,0\n"
              . "ليمون نعناع,0.8,0\n";
 
-        // Livewire's test harness expects a TemporaryUploadedFile (not a
-        // raw UploadedFile) — `UploadedFile::fake()->createWithContent()`
-        // gives us one transparently.
         $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('arabic.csv', $csv);
 
         $component = Livewire::test(\Modules\Pos\Livewire\PosProductImport::class)
             ->set('file', $file)
             ->call('preview')
             ->assertSet('stage', 'preview')
-            ->assertHasNoErrors();
+            ->assertHasNoErrors()
+            ->assertSee('افوكادو')
+            ->assertSee('موز')
+            ->assertSee('ليمون نعناع');
 
-        /** @var \Modules\Pos\Imports\ImportReport $report */
-        $report = $component->get('result');
+        $report = $component->instance()->loadReport();
         $this->assertNotNull($report);
         $this->assertCount(3, $report->rows);
         $this->assertSame('افوكادو', $report->rows[0]->name);
@@ -750,13 +749,13 @@ final class PosModuleTest extends TestCase
         $this->assertSame('ليمون نعناع', $report->rows[2]->name);
     }
 
-    public function test_commit_uses_buffered_preview_when_uploaded_file_is_gone(): void
+    public function test_commit_uses_cached_preview_when_uploaded_file_is_gone(): void
     {
         // Reproduces the prod-only "click Confirm, nothing happens" bug:
         // Hostinger's tmp janitor cleans Livewire's temp uploads between
         // requests. `commit()` used to silently return when the file
-        // wasn't there. Now it falls back to the Wireable-round-tripped
-        // preview report and the import goes through.
+        // wasn't there. Now it falls back to the cached preview report
+        // and the import goes through.
         $this->installPos();
         $this->seed(AuthSeeder::class);
         $this->actingAs(User::query()->where('email', 'admin@example.com')->sole());
@@ -772,9 +771,7 @@ final class PosModuleTest extends TestCase
             ->call('preview')
             ->assertSet('stage', 'preview');
 
-        // Simulate the file vanishing between preview and commit (what
-        // happens when Hostinger's tmp dir is reaped, livewire-tmp/* is
-        // pruned by a session GC, etc.).
+        // Simulate the file vanishing between preview and commit.
         $c->set('file', null);
 
         $c->call('commit')
@@ -785,10 +782,10 @@ final class PosModuleTest extends TestCase
         $this->assertTrue(PosProduct::query()->where('name->en', 'موز')->exists());
     }
 
-    public function test_commit_with_no_file_and_no_buffered_report_surfaces_error(): void
+    public function test_commit_with_no_file_and_no_cached_report_surfaces_error(): void
     {
         // The other side of the same defence: if BOTH the file and the
-        // buffered preview are missing, commit must surface a real error
+        // cached preview are missing, commit must surface a real error
         // rather than dropping the user on a button that does nothing.
         $this->installPos();
         $this->seed(AuthSeeder::class);
@@ -798,7 +795,8 @@ final class PosModuleTest extends TestCase
             ->set('file', null)
             ->call('commit')
             ->assertSet('stage', 'preview')
-            ->assertSet('file', null);
+            ->assertSet('file', null)
+            ->assertSee('no longer available');
 
         $this->assertSame(0, PosProduct::query()->count());
     }

@@ -750,6 +750,59 @@ final class PosModuleTest extends TestCase
         $this->assertSame('ليمون نعناع', $report->rows[2]->name);
     }
 
+    public function test_commit_uses_buffered_preview_when_uploaded_file_is_gone(): void
+    {
+        // Reproduces the prod-only "click Confirm, nothing happens" bug:
+        // Hostinger's tmp janitor cleans Livewire's temp uploads between
+        // requests. `commit()` used to silently return when the file
+        // wasn't there. Now it falls back to the Wireable-round-tripped
+        // preview report and the import goes through.
+        $this->installPos();
+        $this->seed(AuthSeeder::class);
+        $this->actingAs(User::query()->where('email', 'admin@example.com')->sole());
+
+        $csv = "Name,Sale Price,Cost\n"
+             . "افوكادو,1.2,0\n"
+             . "موز,0.8,0\n";
+
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('arabic.csv', $csv);
+
+        $c = Livewire::test(\Modules\Pos\Livewire\PosProductImport::class)
+            ->set('file', $file)
+            ->call('preview')
+            ->assertSet('stage', 'preview');
+
+        // Simulate the file vanishing between preview and commit (what
+        // happens when Hostinger's tmp dir is reaped, livewire-tmp/* is
+        // pruned by a session GC, etc.).
+        $c->set('file', null);
+
+        $c->call('commit')
+            ->assertSet('stage', 'done');
+
+        $this->assertSame(2, PosProduct::query()->count());
+        $this->assertTrue(PosProduct::query()->where('name->en', 'افوكادو')->exists());
+        $this->assertTrue(PosProduct::query()->where('name->en', 'موز')->exists());
+    }
+
+    public function test_commit_with_no_file_and_no_buffered_report_surfaces_error(): void
+    {
+        // The other side of the same defence: if BOTH the file and the
+        // buffered preview are missing, commit must surface a real error
+        // rather than dropping the user on a button that does nothing.
+        $this->installPos();
+        $this->seed(AuthSeeder::class);
+        $this->actingAs(User::query()->where('email', 'admin@example.com')->sole());
+
+        Livewire::test(\Modules\Pos\Livewire\PosProductImport::class)
+            ->set('file', null)
+            ->call('commit')
+            ->assertSet('stage', 'preview')
+            ->assertSet('file', null);
+
+        $this->assertSame(0, PosProduct::query()->count());
+    }
+
     public function test_importer_flags_duplicate_barcodes_within_the_same_file(): void
     {
         $this->installPos();

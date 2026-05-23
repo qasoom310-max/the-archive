@@ -72,15 +72,22 @@ final class PosProductImport extends Component
     {
         app(AccessControl::class)->authorize(Auth::user(), 'pos.product', Permission::Create);
 
-        if ($this->file === null) {
+        $importer = app(PosProductImporter::class);
+        $report = $this->buildCommitReport($importer);
+
+        if ($report === null) {
+            // File gone AND no buffered preview to fall back on — surface
+            // a real error rather than silently returning (which left the
+            // user staring at a button that did nothing). Drops back to
+            // the upload stage so they can re-pick the file.
+            $this->result = new ImportReport(fileErrors: [
+                'Your uploaded file is no longer available. Please re-upload and try again.',
+            ]);
+            $this->stage = 'preview';
+            $this->file = null;
+
             return;
         }
-
-        // Re-parse on commit (not trusting any client-side state — file is
-        // the source of truth). This also re-checks for barcode collisions
-        // that may have changed since preview.
-        $importer = app(PosProductImporter::class);
-        $report = $importer->parse((string) $this->file->getRealPath());
 
         if ($report->isFatal()) {
             $this->result = $report;
@@ -91,6 +98,30 @@ final class PosProductImport extends Component
 
         $this->result = $importer->apply($report);
         $this->stage = 'done';
+    }
+
+    /**
+     * Source the import report for `commit()`. Prefers a fresh parse of
+     * the still-uploaded file (catches barcode collisions / row edits
+     * that landed since preview); falls back to the Wireable-buffered
+     * preview report when Livewire's tmp upload has been cleaned up
+     * between Preview and Confirm (Hostinger's tmp janitor is known to
+     * do this, leaving `$this->file` non-null but pointing at a missing
+     * path — pre-Wireable that meant a fatal `parse()` and a silent
+     * commit; now `$this->result` round-trips reliably across the wire,
+     * so the user's already-validated preview survives even when the
+     * underlying file does not).
+     */
+    private function buildCommitReport(PosProductImporter $importer): ?ImportReport
+    {
+        if ($this->file !== null) {
+            $path = (string) $this->file->getRealPath();
+            if ($path !== '' && is_file($path)) {
+                return $importer->parse($path);
+            }
+        }
+
+        return $this->result;
     }
 
     public function restart(): void

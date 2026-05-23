@@ -205,7 +205,7 @@
                     @endforeach
                 </select>
             </label>
-            <div>{{ $records->links() }}</div>
+            <div>{{ $records->links('vendor.pagination.compact') }}</div>
         </div>
     @endif
 </div>

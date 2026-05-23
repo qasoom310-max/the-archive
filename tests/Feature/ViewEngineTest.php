@@ -143,6 +143,28 @@ final class ViewEngineTest extends TestCase
         $component->set('perPage', 999)->assertSet('perPage', 8);
     }
 
+    public function test_list_view_uses_compact_pagination_template(): void
+    {
+        // Seed past the per-page cap so pagination renders. The compact
+        // template shows ONLY previous / "current / last" / next — no
+        // numbered "1 2 3 4 5" rail, no "Showing X to Y of Z" line.
+        $this->seed(DemoViewSeeder::class);
+        for ($i = 1; $i <= 25; $i++) {
+            DemoTicket::query()->create(['subject' => "T{$i}", 'stage' => 'New', 'amount' => $i]);
+        }
+
+        $html = Livewire::test(ListView::class, ['model' => DemoTicket::class, 'modelKey' => 'demo.ticket'])
+            ->set('perPage', 20)
+            ->html();
+
+        // "1 / 2" — the compact indicator (current page / last page).
+        $this->assertStringContainsString('1 / 2', $html);
+
+        // Verbose Laravel default phrasings must NOT be present.
+        $this->assertStringNotContainsString('Showing', $html);
+        $this->assertStringNotContainsString('of <span class="font-medium">25</span>', $html);
+    }
+
     public function test_list_view_bulk_delete_and_select_page(): void
     {
         $this->seedTickets();

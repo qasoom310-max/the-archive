@@ -48,6 +48,16 @@ final class FormView extends Component
     public array $uploads = [];
 
     /**
+     * Direct-upload destination paths set by FormImageUploadController:
+     * `[<field> => 'pos_products/abc.webp']`. Populated by the Blade's
+     * Alpine wrapper when the user picks a file — written to the record
+     * in `save()` without going through Livewire's temp-file pipeline.
+     *
+     * @var array<string, string>
+     */
+    public array $imagePaths = [];
+
+    /**
      * Per-field translation buffer for fields marked `translatable: true`.
      * Shape: `[<field> => [<locale> => <string>]]`. Holds the full set of
      * translations across pill switches so values in an unfocused locale
@@ -276,6 +286,18 @@ final class FormView extends Component
             $record->setAttribute($field->field, $value);
         }
 
+        // Direct-upload paths populated by FormImageUploadController via
+        // Alpine in the Blade. Empty string from the Alpine wrapper means
+        // "no change" (vs an explicit clear, which isn't a feature yet).
+        foreach ($this->imagePaths as $attribute => $path) {
+            if ($path !== '') {
+                $record->setAttribute($attribute, $path);
+            }
+        }
+
+        // Legacy Livewire WithFileUploads path — kept for any field that
+        // hasn't been migrated to the direct controller upload. Empty
+        // array on the normal POS path so this loop is a no-op.
         foreach ($this->uploads as $attribute => $file) {
             $stored = $file->store($record->getTable(), 'public');
 

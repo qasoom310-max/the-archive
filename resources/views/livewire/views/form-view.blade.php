@@ -67,32 +67,74 @@
                         @break
 
                     @case('image')
-                        <div class="flex items-center gap-4">
-                            @php $current = $record->getAttribute($field->field); @endphp
+                        {{-- Direct synchronous upload via FormImageUploadController.
+                             Replaced Livewire's two-phase signed-URL upload because
+                             that pipeline silently fails on Hostinger shared hosting
+                             (mod_security blocks the multipart POST to /livewire/upload-file).
+                             Alpine reads the picked file, POSTs it straight to our own
+                             controller, gets back a stored path, writes it onto the
+                             component via $wire.set('imagePaths.<field>', path). --}}
+                        @php
+                            $current = $record->getAttribute($field->field);
+                            $bucket = $record->getTable();
+                            $previewUrl = $current
+                                ? \Illuminate\Support\Facades\Storage::disk('public')->url($current)
+                                : '';
+                        @endphp
+                        <div class="flex items-center gap-4"
+                             x-data="{
+                                 busy: false,
+                                 error: '',
+                                 previewUrl: @js($previewUrl),
+                                 async upload(e) {
+                                     const file = e.target.files[0];
+                                     if (!file) return;
+                                     this.busy = true;
+                                     this.error = '';
+                                     const data = new FormData();
+                                     data.append('file', file);
+                                     data.append('bucket', @js($bucket));
+                                     try {
+                                         const r = await fetch(@js(route('form.upload-image')), {
+                                             method: 'POST',
+                                             headers: {
+                                                 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                                                 'Accept': 'application/json',
+                                             },
+                                             body: data,
+                                             credentials: 'same-origin',
+                                         });
+                                         if (!r.ok) {
+                                             const j = await r.json().catch(() => ({}));
+                                             this.error = (j.errors && j.errors.file && j.errors.file[0]) || j.message || (@js(__('Upload failed.')));
+                                             return;
+                                         }
+                                         const j = await r.json();
+                                         this.previewUrl = j.url;
+                                         await $wire.set(@js('imagePaths.' . $field->field), j.path);
+                                     } catch (err) {
+                                         this.error = err.message || (@js(__('Upload failed.')));
+                                     } finally {
+                                         this.busy = false;
+                                     }
+                                 },
+                             }">
                             <span class="flex size-16 items-center justify-center overflow-hidden rounded-full bg-chrome-100 text-chrome-400">
-                                @if (isset($uploads[$field->field]) && $uploads[$field->field])
-                                    {{-- Livewire's temporaryUrl() throws for any extension not in
-                                         livewire.temporary_file_upload.preview_mimes (config/livewire.php).
-                                         Guard so a non-previewable type (e.g. HEIC) renders a placeholder
-                                         instead of 500ing the whole form. --}}
-                                    @if ($uploads[$field->field]->isPreviewable())
-                                        <img src="{{ $uploads[$field->field]->temporaryUrl() }}" class="size-full object-cover">
-                                    @else
-                                        <svg class="size-7" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4h12v12H4V4Zm2 2v8h8V6H6Zm2 2h4v4H8V8Z"/></svg>
-                                    @endif
-                                @elseif ($current)
-                                    <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($current) }}" class="size-full object-cover">
-                                @else
+                                <template x-if="previewUrl">
+                                    <img :src="previewUrl" class="size-full object-cover">
+                                </template>
+                                <template x-if="!previewUrl">
                                     <svg class="size-7" viewBox="0 0 20 20" fill="currentColor"><path d="M10 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm0 2c-3 0-7 1.6-7 4v2h14v-2c0-2.4-4-4-7-4Z"/></svg>
-                                @endif
+                                </template>
                             </span>
                             <div class="flex flex-col gap-1">
-                                <input type="file" wire:model="uploads.{{ $field->field }}" accept="image/*"
+                                <input type="file" accept="image/*" @change="upload($event)"
                                     class="text-sm text-chrome-600 file:mr-3 file:rounded-md file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm">
                                 <p class="text-xs text-chrome-400">{{ __('Accepted: JPG, PNG, GIF, WebP, AVIF, HEIC, SVG, BMP · max 8 MB') }}</p>
+                                <p x-show="busy" class="text-xs text-chrome-400">{{ __('Uploading…') }}</p>
+                                <p x-show="error" x-text="error" class="text-xs text-red-600"></p>
                             </div>
                         </div>
-                        <div wire:loading wire:target="uploads.{{ $field->field }}" class="mt-1 text-xs text-chrome-400">{{ __('Uploading…') }}</div>
                         @break
 
                     @default

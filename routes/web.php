@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\FormImageUploadController;
 use App\Http\Controllers\ProfileEmailVerificationController;
 use App\Livewire\Auth\Login;
 use App\Livewire\Pages\Dashboard;
@@ -38,6 +39,11 @@ Route::get('/profile/email/verify/{id}/{hash}', ProfileEmailVerificationControll
 Route::middleware('auth')->group(function (): void {
     Route::get('/', Dashboard::class)->name('dashboard');
     Route::get('/playground', Playground::class)->name('playground');
+
+    // Direct synchronous image upload for FormView image fields. Bypasses
+    // Livewire's two-phase async upload mechanism (unreliable on shared
+    // hosts that gate multipart POSTs through mod_security).
+    Route::post('/form/upload-image', FormImageUploadController::class)->name('form.upload-image');
 
     // Self-service profile settings — accessible from the user dropdown
     // in the topbar. Role display is read-only here; the admin user

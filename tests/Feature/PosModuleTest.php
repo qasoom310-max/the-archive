@@ -19,6 +19,7 @@ use Database\Seeders\AuthSeeder;
 use Database\Seeders\PosSeeder;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -158,35 +159,90 @@ final class PosModuleTest extends TestCase
     /**
      * @dataProvider imageFormatProvider
      */
-    public function test_product_form_accepts_every_claimed_image_format(string $filename, string $mime, string $productName): void
+    public function test_form_image_upload_controller_accepts_every_claimed_format(string $filename, string $mime, string $productName): void
     {
-        // Exhaustive coverage of every format the FormView claims to accept.
-        // Includes the WebP + Arabic-product-name combo that reported a 500
-        // — pinning every format-row prevents regressions like the AVIF one,
-        // where the validation rule was correct but Livewire's preview path
-        // threw on an unrelated layer.
+        // Exhaustive coverage of every format the direct-upload controller
+        // accepts (FormImageUploadController, hit from the Blade's Alpine
+        // wrapper). Includes the WebP + Arabic-product-name combo that
+        // reported a 500 in production — this path replaced Livewire's
+        // unreliable signed-URL upload, so pinning every row prevents
+        // regressions on shared hosts where the old flow silently failed.
         $this->installPos();
         Storage::fake('public');
 
         $extension = pathinfo($filename, PATHINFO_EXTENSION);
 
+        $response = $this->post(route('form.upload-image'), [
+            'bucket' => 'pos_products',
+            'file' => UploadedFile::fake()->create($filename, 8, $mime),
+        ]);
+
+        $response->assertOk()->assertJsonStructure(['path', 'url']);
+
+        /** @var string $path */
+        $path = $response->json('path');
+        // Symfony normalises `.jpeg` to `.jpg` at storage time — accept both.
+        $expected = $extension === 'jpeg' ? 'jpg' : $extension;
+        $this->assertStringEndsWith('.' . $expected, $path);
+        $this->assertStringStartsWith('pos_products/', $path);
+        Storage::disk('public')->assertExists($path);
+
+        // The Blade Alpine wrapper would normally do this; replicate the
+        // contract by writing the stored path onto the component property
+        // and saving, then asserting the record persists with that path.
         Livewire::test(FormView::class, [
             'model' => PosProduct::class,
             'modelKey' => 'pos.product',
         ])
             ->set('form.name', $productName)
             ->set('form.price', 1.0)
-            ->set('uploads.image_path', UploadedFile::fake()->create($filename, 8, $mime))
-            ->assertHasNoErrors()
+            ->set('imagePaths.image_path', $path)
             ->call('save')
             ->assertHasNoErrors()
             ->assertDispatched('record-saved');
 
         $product = PosProduct::query()->where('name->en', $productName)->sole();
-        $this->assertNotNull($product->image_path);
-        // Symfony normalises `.jpeg` to `.jpg` at storage time — accept both.
-        $expected = $extension === 'jpeg' ? 'jpg' : $extension;
-        $this->assertStringEndsWith('.' . $expected, $product->image_path);
+        $this->assertSame($path, $product->image_path);
+    }
+
+    public function test_form_image_upload_controller_requires_auth(): void
+    {
+        // Override setUp's actingAs by logging out for this test only.
+        Auth::logout();
+
+        $this->post(route('form.upload-image'), [
+            'bucket' => 'pos_products',
+            'file' => UploadedFile::fake()->create('photo.webp', 8, 'image/webp'),
+        ])->assertRedirect(route('login'));
+    }
+
+    public function test_form_image_upload_controller_rejects_unknown_bucket(): void
+    {
+        // The bucket whitelist prevents path-traversal writes via this
+        // public endpoint. An unknown / attacker-supplied bucket must 422.
+        // Accept: application/json is what the Alpine fetch sends, so the
+        // controller returns 422 with the validation envelope (vs a 302
+        // redirect for a browser HTML form post).
+        $this->postJson(route('form.upload-image'), [
+            'bucket' => '../../../etc',
+            'file' => UploadedFile::fake()->create('photo.webp', 8, 'image/webp'),
+        ])->assertStatus(422);
+
+        $this->postJson(route('form.upload-image'), [
+            'bucket' => 'not_a_real_bucket',
+            'file' => UploadedFile::fake()->create('photo.webp', 8, 'image/webp'),
+        ])->assertStatus(422);
+    }
+
+    public function test_form_image_upload_controller_rejects_oversize_file(): void
+    {
+        Storage::fake('public');
+
+        // 10 MB > the 8 MB cap.
+        $this->postJson(route('form.upload-image'), [
+            'bucket' => 'pos_products',
+            'file' => UploadedFile::fake()->create('big.webp', 10240, 'image/webp'),
+        ])->assertStatus(422)->assertJsonValidationErrors('file');
     }
 
     public function test_product_form_surfaces_validation_error_when_upload_temp_file_missing(): void

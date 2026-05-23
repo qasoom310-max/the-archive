@@ -294,7 +294,11 @@ final class FormView extends Component
 
         foreach ($this->arch->formFields as $field) {
             if ($field->isImage()) {
-                $rules['uploads.' . $field->field] = ['nullable', 'image', 'max:2048'];
+                // Explicit mimes list instead of Laravel's `image` rule —
+                // `image` excludes AVIF (and any future format Laravel hasn't
+                // baked in yet). Listing extensions keeps modern phone-camera
+                // uploads (HEIC/AVIF) working.
+                $rules['uploads.' . $field->field] = ['nullable', 'mimes:jpg,jpeg,png,gif,webp,bmp,svg,avif,heic,heif', 'max:2048'];
 
                 continue;
             }

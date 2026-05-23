@@ -9,6 +9,7 @@ use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -85,10 +86,27 @@ final class PosProductImport extends Component
 
     public function commit(): void
     {
+        // TEMP DIAGNOSTIC — remove after the prod "click does nothing" bug
+        // is root-caused. Logs at every decision point so we can see in
+        // storage/logs/laravel.log exactly which branch the commit took.
+        Log::info('[POS import] commit() entered', [
+            'userId' => Auth::id(),
+            'hasFile' => $this->file !== null,
+            'reportCacheKey' => $this->reportCacheKey,
+            'stage' => $this->stage,
+        ]);
+
         app(AccessControl::class)->authorize(Auth::user(), 'pos.product', Permission::Create);
 
         $importer = app(PosProductImporter::class);
         $report = $this->buildCommitReport($importer);
+
+        Log::info('[POS import] commit() built report', [
+            'reportIsNull' => $report === null,
+            'isFatal' => $report?->isFatal(),
+            'rowCount' => $report !== null ? count($report->rows) : 0,
+            'firstAction' => $report !== null && isset($report->rows[0]) ? $report->rows[0]->action : null,
+        ]);
 
         if ($report === null) {
             // Both the file AND the cached preview are gone — surface a
@@ -114,10 +132,10 @@ final class PosProductImport extends Component
         try {
             $applied = $importer->apply($report);
         } catch (Throwable $e) {
-            // Any DB-level failure (charset, NOT NULL, unique constraint…)
-            // bubbled up silently before. Now we surface it on the preview
-            // panel so the user sees what blew up instead of staring at
-            // an inert Confirm button.
+            Log::error('[POS import] apply() threw', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile() . ':' . $e->getLine(),
+            ]);
             $this->storeReport(new ImportReport(fileErrors: [
                 'Import failed: ' . $e->getMessage(),
             ]));
@@ -125,6 +143,12 @@ final class PosProductImport extends Component
 
             return;
         }
+
+        Log::info('[POS import] commit() finished', [
+            'created' => $applied->createdCount,
+            'updated' => $applied->updatedCount,
+            'skipped' => $applied->skippedCount,
+        ]);
 
         $this->storeReport($applied);
         $this->stage = 'done';

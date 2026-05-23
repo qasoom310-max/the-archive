@@ -163,17 +163,17 @@ final class ViewEngineTest extends TestCase
             ->set('perPage', 20)
             ->html();
 
-        // Always-present rail: 1, 2, ellipsis, last page (5). Each page
-        // number lives inside its own wire:click button (or aria-current
-        // span). Grep for the click handlers to be whitespace-tolerant.
+        // Always-present rail: 1, 2, ellipsis, last page (5). Exactly
+        // one ellipsis — no "1 2 … current … 5" splatter. Pages 3 and 4
+        // never appear in the rail; the user accepts the implicit gap.
         $this->assertStringContainsString('gotoPage(2)', $html);
         $this->assertStringContainsString('gotoPage(5)', $html);
-        $this->assertStringContainsString('…', $html);
+        $this->assertSame(1, substr_count($html, '…'));
+        $this->assertStringNotContainsString('gotoPage(3)', $html);
+        $this->assertStringNotContainsString('gotoPage(4)', $html);
 
         // Default Laravel paginator phrasings must be absent.
         $this->assertStringNotContainsString('Showing', $html);
-        $this->assertStringNotContainsString('gotoPage(3)', $html);
-        $this->assertStringNotContainsString('gotoPage(4)', $html);
     }
 
     public function test_list_view_bulk_delete_and_select_page(): void

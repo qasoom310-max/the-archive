@@ -5,45 +5,22 @@
 
 @if ($paginator !== null && $paginator->hasPages())
     @php
-        // Page-number rail: always show 1 & 2 at the start and the last
-        // page at the end, with an ellipsis bridging any gap. The current
-        // page is also inserted if it isn't already in that core set, so
-        // the user always sees where they are.
-        //
-        // Examples (last = 12):
-        //   current=1  →  [1] 2 … 12
-        //   current=2  →  1 [2] … 12
-        //   current=5  →  1 2 … [5] … 12
-        //   current=11 →  1 2 … [11] 12
-        //   current=12 →  1 2 … [12]
-        // For ≤4 pages we just render every page (no ellipsis ever needed).
+        // Literal "1 2 … LAST" rail. No middle-page insert, no extra slots
+        // for current — current is highlighted only if it happens to be
+        // page 1, 2, or the last page. Anything else stays implicit
+        // between the dots. Exact layout requested by the user.
         $current = (int) $paginator->currentPage();
         $last = (int) $paginator->lastPage();
 
         $items = [];
-        if ($last <= 4) {
+        if ($last <= 3) {
+            // Nothing to elide — render every page.
             for ($i = 1; $i <= $last; $i++) {
                 $items[] = ['type' => 'page', 'n' => $i];
             }
         } else {
             $items[] = ['type' => 'page', 'n' => 1];
             $items[] = ['type' => 'page', 'n' => 2];
-
-            // Drop the current page in the middle if it isn't already at
-            // one of the edges (1, 2, or last) — keeps the "you are here"
-            // dot visible even on deep pages.
-            if (! in_array($current, [1, 2, $last - 1, $last], true)) {
-                $items[] = ['type' => 'gap'];
-                $items[] = ['type' => 'page', 'n' => $current];
-            }
-
-            // last-1 deserves a slot too when current is near the end, so
-            // the rail reads "… 11 [12]" instead of jumping "… [12]".
-            if ($current === $last - 1) {
-                $items[] = ['type' => 'gap'];
-                $items[] = ['type' => 'page', 'n' => $last - 1];
-            }
-
             $items[] = ['type' => 'gap'];
             $items[] = ['type' => 'page', 'n' => $last];
         }
@@ -66,7 +43,6 @@
             </button>
         @endif
 
-        {{-- Page numbers / gaps --}}
         @foreach ($items as $item)
             @if ($item['type'] === 'gap')
                 <span aria-hidden="true"

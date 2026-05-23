@@ -16,7 +16,7 @@
 
 <div class="rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5">
     {{-- Toolbar / bulk-action bar --}}
-    <div class="flex h-12 items-center justify-between border-b border-chrome-200 px-4">
+    <div class="flex h-12 items-center justify-between gap-2 border-b border-chrome-200 px-4">
         @if (count($selected) > 0)
             <div class="flex items-center gap-3">
                 <span class="text-sm font-medium text-chrome-700">{{ count($selected) }} selected</span>
@@ -29,8 +29,56 @@
             </div>
         @else
             <h2 class="text-sm font-semibold text-chrome-800">{{ $title ?: 'Records' }}</h2>
-            <span class="text-xs text-chrome-400">{{ $records->total() }} total</span>
         @endif
+
+        <div class="ms-auto flex items-center gap-3">
+            <span class="text-xs text-chrome-400">{{ $records->total() }} {{ __('total') }}</span>
+
+            {{-- Column-picker — lives in the toolbar (not in a table-header
+                 cell, which would consume column space + re-render with the
+                 rest of <thead> on every Livewire morph). wire:ignore on the
+                 dropdown keeps our drag listeners attached after toggleColumn
+                 round-trips; checkbox states update natively via Alpine's
+                 click handler before the round-trip even fires. --}}
+            <div class="relative"
+                 x-data="{ open: @entangle('columnPickerOpen').live }"
+                 @keydown.escape.window="open = false"
+                 @click.outside="open = false">
+                <button type="button" @click="open = !open"
+                        aria-haspopup="true" :aria-expanded="open"
+                        aria-label="{{ __('Configure columns') }}"
+                        class="flex size-7 items-center justify-center rounded text-chrome-500 hover:bg-chrome-100 hover:text-chrome-700"
+                        title="{{ __('Configure columns') }}">
+                    {{-- Heroicons mini "adjustments-horizontal" --}}
+                    <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2 5.75A.75.75 0 0 1 2.75 5h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 2 5.75ZM14 5.75a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75ZM2 10a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5A.75.75 0 0 1 2 10Zm7 0a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 9 10Zm-7 4.25a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1-.75-.75Zm12 0a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z" clip-rule="evenodd"/><path d="M9.25 4a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM13.25 8.25a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM9.25 12.5a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Z"/></svg>
+                </button>
+
+                <div x-show="open" x-cloak x-transition.origin.top.end
+                     wire:ignore
+                     class="absolute end-0 z-30 mt-2 w-64 origin-top-end rounded-lg bg-white p-2 text-start text-xs font-normal normal-case text-chrome-700 shadow-pop ring-1 ring-chrome-900/5">
+                    <p class="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Columns') }}</p>
+                    <ul x-data="listColumnPicker" x-init="init($el, $wire)"
+                        class="max-h-72 space-y-0.5 overflow-y-auto py-1">
+                        @foreach ($allColumns as $col)
+                            @php
+                                $checked = ! in_array($col->field, $hiddenColumns, true);
+                            @endphp
+                            <li data-col="{{ $col->field }}" draggable="true"
+                                class="flex cursor-grab items-center gap-2 rounded px-2 py-1.5 hover:bg-chrome-50 active:cursor-grabbing">
+                                <svg class="size-3.5 shrink-0 text-chrome-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M7 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm0 6a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm-1 7a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm9-13a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm-1 7a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm1 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/></svg>
+                                <label class="flex flex-1 cursor-pointer items-center gap-2 normal-case tracking-normal">
+                                    <input type="checkbox" {{ $checked ? 'checked' : '' }}
+                                           @change="$wire.toggleColumn('{{ $col->field }}')"
+                                           class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
+                                    <span>{{ $col->label }}</span>
+                                </label>
+                            </li>
+                        @endforeach
+                    </ul>
+                    <p class="border-t border-chrome-100 px-2 pb-1 pt-1.5 text-[11px] text-chrome-400">{{ __('Drag rows to reorder. Click a checkbox to show/hide.') }}</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     {{-- Filter chip row — only renders if the arch defines presets. Row of
@@ -113,7 +161,6 @@
                         @foreach ($columns as $col)
                             @php
                                 $active = collect($sorts)->firstWhere('field', $col->field);
-                                $isLastCol = $loop->last;
                             @endphp
                             <th class="px-4 py-2 text-{{ $col->align }} {{ $col->sortable ? 'cursor-pointer select-none hover:text-chrome-800' : '' }}"
                                 @if ($col->sortable) @click="$wire.sortBy('{{ $col->field }}', $event.shiftKey)" @endif>
@@ -125,48 +172,6 @@
                                 </span>
                             </th>
                         @endforeach
-                        {{-- Column-picker: hidden/order are per-user, persisted server-side
-                             via UserViewPreference. Sortable.js drives the drag — wired up
-                             via a small init script in app.js. Picker contents are seeded
-                             from $allColumns (the full arch set), with checkbox state
-                             coming from $hiddenColumns. --}}
-                        <th class="w-10 px-2 py-2 text-end"
-                            x-data="{ open: @entangle('columnPickerOpen').live }"
-                            @keydown.escape.window="open = false">
-                            <button type="button" @click="open = !open"
-                                    aria-haspopup="true" :aria-expanded="open"
-                                    aria-label="{{ __('Configure columns') }}"
-                                    class="flex size-6 items-center justify-center rounded text-chrome-400 hover:bg-chrome-100 hover:text-chrome-700">
-                                {{-- Heroicons mini "adjustments-horizontal" — closest match
-                                     to the Odoo "columns" icon the user referenced. --}}
-                                <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2 5.75A.75.75 0 0 1 2.75 5h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 2 5.75ZM14 5.75a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75ZM2 10a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5A.75.75 0 0 1 2 10Zm7 0a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 9 10Zm-7 4.25a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1-.75-.75Zm12 0a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z" clip-rule="evenodd"/><path d="M9.25 4a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM13.25 8.25a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM9.25 12.5a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Z"/></svg>
-                            </button>
-
-                            <div x-show="open" x-cloak @click.outside="open = false"
-                                 x-transition.origin.top.end
-                                 class="absolute end-4 z-30 mt-2 w-64 origin-top-end rounded-lg bg-white p-2 text-start text-xs font-normal normal-case text-chrome-700 shadow-pop ring-1 ring-chrome-900/5">
-                                <p class="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Columns') }}</p>
-                                <ul x-data="listColumnPicker" x-init="init($el, $wire)"
-                                    class="max-h-72 space-y-0.5 overflow-y-auto py-1">
-                                    @foreach ($allColumns as $col)
-                                        @php
-                                            $checked = ! in_array($col->field, $hiddenColumns, true);
-                                        @endphp
-                                        <li data-col="{{ $col->field }}"
-                                            class="flex cursor-grab items-center gap-2 rounded px-2 py-1.5 hover:bg-chrome-50 active:cursor-grabbing">
-                                            <svg class="size-3.5 shrink-0 text-chrome-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M7 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm0 6a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm-1 7a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm9-13a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm-1 7a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm1 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/></svg>
-                                            <label class="flex flex-1 cursor-pointer items-center gap-2 normal-case tracking-normal">
-                                                <input type="checkbox" {{ $checked ? 'checked' : '' }}
-                                                       @change="$wire.toggleColumn('{{ $col->field }}')"
-                                                       class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
-                                                <span>{{ $col->label }}</span>
-                                            </label>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                                <p class="border-t border-chrome-100 px-2 pb-1 pt-1.5 text-[11px] text-chrome-400">{{ __('Drag rows to reorder. Click a checkbox to show/hide.') }}</p>
-                            </div>
-                        </th>
                     </tr>
                 </thead>
 
@@ -209,13 +214,10 @@
                                     @endif
                                 </td>
                             @endforeach
-                            {{-- Spacer for the column-picker header cell — keeps
-                                 alignment regardless of how many columns are visible. --}}
-                            <td class="w-10 px-2 py-2"></td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ count($columns) + 2 }}" class="px-4 py-10 text-center text-sm text-chrome-400">
+                            <td colspan="{{ count($columns) + 1 }}" class="px-4 py-10 text-center text-sm text-chrome-400">
                                 No records.
                             </td>
                         </tr>
@@ -235,7 +237,6 @@
                                     @endif
                                 </td>
                             @endforeach
-                            <td class="w-10 px-2 py-2"></td>
                         </tr>
                     </tfoot>
                 @endif

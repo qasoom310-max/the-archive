@@ -25,9 +25,9 @@ final class PosProductImportTemplateController
         app(AccessControl::class)->authorize(Auth::user(), 'pos.product', Permission::Read);
 
         $rows = [
-            ['Name', 'Barcode', 'Sale Price', 'Cost Price', 'Tax %'],
-            ['Espresso',   '5901234123457', '3.50', '0.90', '15'],
-            ['Cappuccino', '5901234123464', '4.50', '1.20', '15'],
+            ['Name', 'Category', 'Barcode', 'Sale Price', 'Cost Price', 'Tax %'],
+            ['Espresso',   'Hot Drinks',  '5901234123457', '3.50', '0.90', '15'],
+            ['Cappuccino', 'Hot Drinks',  '5901234123464', '4.50', '1.20', '15'],
         ];
 
         $handle = fopen('php://temp', 'r+b');

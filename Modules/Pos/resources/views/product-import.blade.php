@@ -34,11 +34,13 @@
 
                 <p class="mt-4 text-xs text-chrome-500">
                     Expected columns: <span class="font-mono">Name</span>,
+                    <span class="font-mono">Category</span>,
                     <span class="font-mono">Barcode</span>,
                     <span class="font-mono">Sale Price</span>,
                     <span class="font-mono">Cost Price</span>,
                     <span class="font-mono">Tax %</span>.
                     Required: <strong>Name</strong> and <strong>Sale Price</strong>.
+                    Unknown <strong>Category</strong> names are created automatically.
                 </p>
 
                 <div class="mt-4 flex justify-end">
@@ -93,6 +95,7 @@
                                 <th class="px-2 py-2 text-left">Row</th>
                                 <th class="px-2 py-2 text-left">Action</th>
                                 <th class="px-2 py-2 text-left">Name</th>
+                                <th class="px-2 py-2 text-left">Category</th>
                                 <th class="px-2 py-2 text-left">Barcode</th>
                                 <th class="px-2 py-2 text-right">Sale</th>
                                 <th class="px-2 py-2 text-right">Cost</th>
@@ -114,6 +117,7 @@
                                         @endif
                                     </td>
                                     <td class="px-2 py-1.5">{{ $row->name }}</td>
+                                    <td class="px-2 py-1.5 text-chrome-500">{{ $row->categoryName ?? '—' }}</td>
                                     <td class="px-2 py-1.5 font-mono text-xs text-chrome-500">{{ $row->barcode }}</td>
                                     <td class="px-2 py-1.5 text-right">{{ $row->salePrice !== null ? \App\Erp\Money\Currencies::format($row->salePrice) : '—' }}</td>
                                     <td class="px-2 py-1.5 text-right">{{ $row->costPrice !== null ? \App\Erp\Money\Currencies::format($row->costPrice) : '—' }}</td>

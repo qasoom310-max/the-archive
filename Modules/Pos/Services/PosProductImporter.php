@@ -6,6 +6,7 @@ namespace Modules\Pos\Services;
 
 use Modules\Pos\Imports\ImportReport;
 use Modules\Pos\Imports\ImportRow;
+use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosProduct;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Throwable;
@@ -34,6 +35,9 @@ final class PosProductImporter
         'tax %' => 'tax_rate',
         'tax' => 'tax_rate',
         'tax_rate' => 'tax_rate',
+        'category' => 'category',
+        'category name' => 'category',
+        'category_name' => 'category',
     ];
 
     public function parse(string $absolutePath): ImportReport
@@ -87,9 +91,12 @@ final class PosProductImporter
             $salePriceRaw = $row[$headerIndex['sale_price']] ?? null;
             $costPriceRaw = isset($headerIndex['cost_price']) ? ($row[$headerIndex['cost_price']] ?? null) : null;
             $taxRaw = isset($headerIndex['tax_rate']) ? ($row[$headerIndex['tax_rate']] ?? null) : null;
+            $categoryName = isset($headerIndex['category'])
+                ? trim((string) ($row[$headerIndex['category']] ?? ''))
+                : '';
 
             // Quietly skip wholly-blank trailing rows (Excel ranges often have these).
-            if ($name === '' && $barcode === '' && $salePriceRaw === null && $costPriceRaw === null && $taxRaw === null) {
+            if ($name === '' && $barcode === '' && $salePriceRaw === null && $costPriceRaw === null && $taxRaw === null && $categoryName === '') {
                 continue;
             }
 
@@ -139,6 +146,7 @@ final class PosProductImporter
                 action: $action,
                 errors: $errors,
                 resolvedId: $existing?->id,
+                categoryName: $categoryName !== '' ? $categoryName : null,
             );
 
             if ($action === 'skip') {
@@ -153,13 +161,25 @@ final class PosProductImporter
     {
         // No transaction wrapper — partial success is the contract. A bad row
         // shouldn't roll back good ones. Each row is its own unit of work.
+
+        // Resolve every category name to a real PosCategory id up-front:
+        // - Pre-loads existing names in one query (no N+1)
+        // - firstOrCreates missing ones, locale-aware via detectLocale()
+        // - Cached by name so repeated rows share the same id
+        $categoryIds = $this->resolveCategoryIds($report->rows);
+
         foreach ($report->rows as $row) {
+            $categoryId = $row->categoryName !== null && $row->categoryName !== ''
+                ? ($categoryIds[$row->categoryName] ?? null)
+                : null;
+
             if ($row->action === 'create') {
                 $product = new PosProduct([
                     'barcode' => $row->barcode,
                     'price' => $row->salePrice ?? 0.0,
                     'cost_price' => $row->costPrice ?? 0.0,
                     'tax_rate' => $row->taxRate ?? 0.0,
+                    'pos_category_id' => $categoryId,
                 ]);
                 $product->setTranslation('name', self::detectLocale($row->name), $row->name);
                 $product->save();
@@ -183,18 +203,75 @@ final class PosProductImporter
                 // the other locale on the existing product (an English-named
                 // import row shouldn't wipe the row's existing Arabic name).
                 $product->setTranslation('name', self::detectLocale($row->name), $row->name);
-                $product->fill([
+
+                $fill = [
                     // Preserve previous value for blank-but-optional inputs so
                     // partial updates don't wipe fields the user left empty.
                     'price' => $row->salePrice ?? $product->price,
                     'cost_price' => $row->costPrice ?? $product->cost_price,
                     'tax_rate' => $row->taxRate ?? $product->tax_rate,
-                ])->save();
+                ];
+                // Only overwrite the category when the row had one — a
+                // blank Category cell on an update means "leave it alone".
+                if ($categoryId !== null) {
+                    $fill['pos_category_id'] = $categoryId;
+                }
+                $product->fill($fill)->save();
                 $report->updatedCount++;
             }
         }
 
         return $report;
+    }
+
+    /**
+     * Map every distinct category name across the report to a PosCategory
+     * id, creating missing ones on the fly. Returns an empty map if no row
+     * carried a category — so the lookup is cheap on imports that don't
+     * use the column.
+     *
+     * @param list<ImportRow> $rows
+     * @return array<string, int>
+     */
+    private function resolveCategoryIds(array $rows): array
+    {
+        $names = [];
+        foreach ($rows as $row) {
+            if ($row->action === 'skip') {
+                continue; // skipped rows don't get applied, so we don't need their category
+            }
+            if ($row->categoryName !== null && $row->categoryName !== '' && ! in_array($row->categoryName, $names, true)) {
+                $names[] = $row->categoryName;
+            }
+        }
+
+        if ($names === []) {
+            return [];
+        }
+
+        // PosCategory.name is a plain (non-translatable) column today, so
+        // a literal-match WHERE works. If/when PosCategory opts into
+        // Spatie translations, swap to `name->en` / `name->ar` lookups.
+        /** @var array<string, int> $byName */
+        $byName = [];
+
+        $existing = PosCategory::query()
+            ->whereIn('name', $names)
+            ->get(['id', 'name']);
+
+        foreach ($existing as $cat) {
+            $byName[(string) $cat->name] = (int) $cat->id;
+        }
+
+        foreach ($names as $name) {
+            if (isset($byName[$name])) {
+                continue;
+            }
+            $category = PosCategory::query()->create(['name' => $name]);
+            $byName[$name] = (int) $category->id;
+        }
+
+        return $byName;
     }
 
     /**

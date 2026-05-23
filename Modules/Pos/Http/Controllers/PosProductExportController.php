@@ -38,18 +38,21 @@ final class PosProductExportController
         // Header — must match the importer's accepted columns verbatim
         // (the importer is tolerant of synonyms, but writing the canonical
         // form here keeps round-trips clean).
-        fputcsv($handle, ['Name', 'Barcode', 'Sale Price', 'Cost Price', 'Tax %']);
+        fputcsv($handle, ['Name', 'Category', 'Barcode', 'Sale Price', 'Cost Price', 'Tax %']);
 
         // Chunked iteration in case the catalogue grows large — avoids
         // hydrating thousands of models at once. orderBy('name') keeps
         // export output deterministic so diffs between exports are readable.
+        // Eager-load the category so chunk() doesn't N+1 on category->name.
         PosProduct::query()
+            ->with('category:id,name')
             ->orderBy('name')
             ->chunk(500, function ($chunk) use ($handle): void {
                 foreach ($chunk as $product) {
                     /** @var PosProduct $product */
                     fputcsv($handle, [
                         $product->name,
+                        $product->category_name ?? '',
                         $product->barcode ?? '',
                         number_format($product->price, 2, '.', ''),
                         number_format($product->cost_price ?? 0.0, 2, '.', ''),

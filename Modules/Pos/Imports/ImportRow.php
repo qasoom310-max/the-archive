@@ -23,6 +23,11 @@ final class ImportRow implements Wireable
 {
     /**
      * @param list<string> $errors
+     *
+     * @param ?string $categoryName Free-text name from the file's "Category"
+     *                              column. Importer firstOrCreates a PosCategory
+     *                              with this exact name at apply-time — null /
+     *                              empty leaves the product uncategorised.
      */
     public function __construct(
         public readonly int $rowNumber,
@@ -34,6 +39,7 @@ final class ImportRow implements Wireable
         public readonly string $action,
         public readonly array $errors,
         public readonly ?int $resolvedId,
+        public readonly ?string $categoryName = null,
     ) {
     }
 
@@ -57,6 +63,7 @@ final class ImportRow implements Wireable
             'action' => $this->action,
             'errors' => $this->errors,
             'resolvedId' => $this->resolvedId,
+            'categoryName' => $this->categoryName,
         ];
     }
 
@@ -81,6 +88,9 @@ final class ImportRow implements Wireable
             action: (string) ($value['action'] ?? 'skip'),
             errors: $errors,
             resolvedId: isset($value['resolvedId']) && is_numeric($value['resolvedId']) ? (int) $value['resolvedId'] : null,
+            categoryName: isset($value['categoryName']) && is_string($value['categoryName']) && $value['categoryName'] !== ''
+                ? $value['categoryName']
+                : null,
         );
     }
 }

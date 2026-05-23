@@ -966,6 +966,74 @@ final class PosModuleTest extends TestCase
         return $path;
     }
 
+    public function test_importer_resolves_category_by_name_and_creates_missing_ones(): void
+    {
+        // Three rows, three category states:
+        //   - "Hot Drinks" exists → product linked to that id
+        //   - "Smoothies" is new   → category auto-created, product linked
+        //   - empty Category cell  → product stays uncategorised
+        // Plus reuse: a 4th row also using "Smoothies" must NOT create a
+        // duplicate category (firstOrCreate semantics).
+        $this->installPos();
+
+        $existing = \Modules\Pos\Models\PosCategory::query()->create(['name' => 'Hot Drinks']);
+
+        $csv = "Name,Category,Barcode,Sale Price\n"
+             . "Espresso,Hot Drinks,A1,3.50\n"
+             . "Mango,Smoothies,B1,4.00\n"
+             . "Loose Tea,,C1,2.00\n"
+             . "Banana,Smoothies,D1,4.00\n";
+
+        $path = $this->writeCsv('cats.csv', $csv);
+        $report = app(PosProductImporter::class)->parse($path);
+
+        $this->assertEmpty($report->fileErrors);
+        $this->assertSame('Hot Drinks', $report->rows[0]->categoryName);
+        $this->assertSame('Smoothies', $report->rows[1]->categoryName);
+        $this->assertNull($report->rows[2]->categoryName);
+
+        app(PosProductImporter::class)->apply($report);
+
+        $espresso = PosProduct::query()->where('barcode', 'A1')->sole();
+        $this->assertSame($existing->id, $espresso->pos_category_id);
+
+        $mango = PosProduct::query()->where('barcode', 'B1')->sole();
+        $smoothies = \Modules\Pos\Models\PosCategory::query()->where('name', 'Smoothies')->sole();
+        $this->assertSame($smoothies->id, $mango->pos_category_id);
+
+        // Duplicate "Smoothies" row attached to the SAME category id.
+        $banana = PosProduct::query()->where('barcode', 'D1')->sole();
+        $this->assertSame($smoothies->id, $banana->pos_category_id);
+
+        // Empty Category cell → null FK.
+        $tea = PosProduct::query()->where('barcode', 'C1')->sole();
+        $this->assertNull($tea->pos_category_id);
+
+        // Exactly one new category created (Smoothies), not two.
+        $this->assertSame(1, \Modules\Pos\Models\PosCategory::query()->where('name', 'Smoothies')->count());
+    }
+
+    public function test_importer_leaves_category_alone_on_update_when_cell_is_blank(): void
+    {
+        // Update path: a blank Category cell must NOT clear an existing
+        // product's category. Same contract as price/cost — blank = keep.
+        $this->installPos();
+        $cat = \Modules\Pos\Models\PosCategory::query()->create(['name' => 'Drinks']);
+        PosProduct::query()->create([
+            'name' => 'Old', 'barcode' => 'X1', 'price' => 1, 'cost_price' => 0, 'tax_rate' => 0,
+            'pos_category_id' => $cat->id,
+        ]);
+
+        $csv = "Name,Category,Barcode,Sale Price\n"
+             . "Renamed,,X1,2.00\n";
+
+        $report = app(PosProductImporter::class)->parse($this->writeCsv('blank-cat.csv', $csv));
+        app(PosProductImporter::class)->apply($report);
+
+        $updated = PosProduct::query()->where('barcode', 'X1')->sole();
+        $this->assertSame($cat->id, $updated->pos_category_id);
+    }
+
     public function test_importer_creates_and_updates_products_by_barcode(): void
     {
         $this->installPos();
@@ -1200,7 +1268,7 @@ final class PosModuleTest extends TestCase
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame('text/csv; charset=UTF-8', $response->headers->get('Content-Type'));
         $body = ltrim((string) $response->getContent(), "\xEF\xBB\xBF");
-        $this->assertStringStartsWith('Name,Barcode,"Sale Price","Cost Price","Tax %"', $body);
+        $this->assertStringStartsWith('Name,Category,Barcode,"Sale Price","Cost Price","Tax %"', $body);
     }
 
     public function test_export_controller_streams_csv_of_all_products(): void
@@ -1226,12 +1294,13 @@ final class PosModuleTest extends TestCase
 
         // Header matches the importer's canonical column set so an export
         // can be edited and re-imported without manual reshaping.
-        $this->assertSame('Name,Barcode,"Sale Price","Cost Price","Tax %"', $lines[0]);
+        $this->assertSame('Name,Category,Barcode,"Sale Price","Cost Price","Tax %"', $lines[0]);
 
         // Two product rows, sorted alphabetically by name for stable diffs.
         $this->assertCount(3, $lines); // 1 header + 2 products
-        $this->assertSame('Cappuccino,900002,3.20,1.10,10.00', $lines[1]);
-        $this->assertSame('Espresso,900001,2.50,0.80,10.00', $lines[2]);
+        // Category column is empty (these products were created without one).
+        $this->assertSame('Cappuccino,,900002,3.20,1.10,10.00', $lines[1]);
+        $this->assertSame('Espresso,,900001,2.50,0.80,10.00', $lines[2]);
     }
 
     public function test_export_emits_only_header_when_catalogue_is_empty(): void
@@ -1244,7 +1313,7 @@ final class PosModuleTest extends TestCase
         $lines = array_values(array_filter(explode("\n", str_replace("\r", '', $body)), strlen(...)));
 
         $this->assertCount(1, $lines);
-        $this->assertSame('Name,Barcode,"Sale Price","Cost Price","Tax %"', $lines[0]);
+        $this->assertSame('Name,Category,Barcode,"Sale Price","Cost Price","Tax %"', $lines[0]);
     }
 
     public function test_export_blanks_a_missing_barcode_rather_than_writing_null(): void
@@ -1259,7 +1328,7 @@ final class PosModuleTest extends TestCase
         $body = ltrim((string) $response->getContent(), "\xEF\xBB\xBF");
 
         // The barcode column is empty (no "null" string leaking into the CSV).
-        $this->assertStringContainsString('"Mystery Drink",,5.00,0.00,0.00', $body);
+        $this->assertStringContainsString('"Mystery Drink",,,5.00,0.00,0.00', $body);
     }
 
     public function test_export_requires_pos_product_read(): void

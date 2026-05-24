@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Erp\Views\RottingRule;
 use App\Erp\Views\ViewResolver;
+use App\Livewire\Views\FormView;
 use App\Livewire\Views\KanbanView;
 use App\Livewire\Views\ListView;
 use App\Models\Demo\DemoTicket;
@@ -326,6 +327,97 @@ final class ViewEngineTest extends TestCase
         Livewire::test(KanbanView::class, ['model' => DemoTicket::class, 'modelKey' => 'k.r'])
             ->call('loadMore')->call('loadMore')->assertSet('loaded', 9)
             ->set('search', 'whatever')->assertSet('loaded', 3);
+    }
+
+    // ---- FormView record navigation --------------------------------------
+
+    public function test_form_view_prev_next_walk_the_pk_in_order(): void
+    {
+        // Three records → middle one has both neighbours; first has only
+        // a `next`; last has only a `prev`. The engine orders by primary
+        // key ascending so this is fully deterministic across runs.
+        $this->seed(DemoViewSeeder::class);
+
+        $a = DemoTicket::query()->create(['subject' => 'A', 'stage' => 'New']);
+        $b = DemoTicket::query()->create(['subject' => 'B', 'stage' => 'New']);
+        $c = DemoTicket::query()->create(['subject' => 'C', 'stage' => 'New']);
+
+        // Middle.
+        /** @var FormView $mid */
+        $mid = Livewire::test(FormView::class, [
+            'model' => DemoTicket::class,
+            'modelKey' => 'demo.ticket',
+            'recordId' => $b->id,
+        ])->instance();
+        $this->assertSame($a->id, $mid->prevId());
+        $this->assertSame($c->id, $mid->nextId());
+
+        // First — no prev.
+        /** @var FormView $first */
+        $first = Livewire::test(FormView::class, [
+            'model' => DemoTicket::class,
+            'modelKey' => 'demo.ticket',
+            'recordId' => $a->id,
+        ])->instance();
+        $this->assertNull($first->prevId());
+        $this->assertSame($b->id, $first->nextId());
+
+        // Last — no next.
+        /** @var FormView $last */
+        $last = Livewire::test(FormView::class, [
+            'model' => DemoTicket::class,
+            'modelKey' => 'demo.ticket',
+            'recordId' => $c->id,
+        ])->instance();
+        $this->assertSame($b->id, $last->prevId());
+        $this->assertNull($last->nextId());
+    }
+
+    public function test_form_view_prev_next_are_null_on_a_new_record(): void
+    {
+        // A brand-new form has no current record id, so the engine
+        // refuses to compute neighbours — the host blade hides the
+        // chevrons entirely so the toolbar layout stays clean.
+        $this->seed(DemoViewSeeder::class);
+        DemoTicket::query()->create(['subject' => 'Only', 'stage' => 'New']);
+
+        /** @var FormView $fresh */
+        $fresh = Livewire::test(FormView::class, [
+            'model' => DemoTicket::class,
+            'modelKey' => 'demo.ticket',
+        ])->instance();
+        $this->assertNull($fresh->prevId());
+        $this->assertNull($fresh->nextId());
+    }
+
+    public function test_form_view_nav_url_swaps_the_trailing_id_segment(): void
+    {
+        // The engine derives sibling URLs by swapping the trailing
+        // segment of the current URL — so any host route shaped
+        // `/.../{id}` works without per-module wiring.
+        $this->seed(DemoViewSeeder::class);
+        $t = DemoTicket::query()->create(['subject' => 'X', 'stage' => 'New']);
+        $other = DemoTicket::query()->create(['subject' => 'Y', 'stage' => 'New']);
+
+        /** @var FormView $component */
+        $component = Livewire::test(FormView::class, [
+            'model' => DemoTicket::class,
+            'modelKey' => 'demo.ticket',
+            'recordId' => $t->id,
+        ])->instance();
+
+        $url = $component->navUrl($other->id);
+
+        // The trailing path segment is now the OTHER record id, and
+        // the path prefix (everything before the last slash) is
+        // identical to the original request URL's prefix. So clicking
+        // "next" from /app/foo/X redirects to /app/foo/Y.
+        $this->assertStringEndsWith('/' . $other->id, $url);
+        $currentUrl = (string) request()->url();
+        $this->assertSame(
+            substr($currentUrl, 0, strrpos($currentUrl, '/') ?: 0),
+            substr($url, 0, strrpos($url, '/') ?: 0),
+        );
     }
 
     public function test_rotting_rule_flags_stale_records(): void

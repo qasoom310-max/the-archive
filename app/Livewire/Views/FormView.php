@@ -383,6 +383,67 @@ final class FormView extends Component
         return $rules;
     }
 
+    /**
+     * Primary key of the record immediately before the current one in
+     * ascending PK order — null on a new record (no current id) and
+     * null when the current record is the first in the table. Hosts
+     * the prev-arrow nav in the form header. Plain PK ordering keeps
+     * the engine model-agnostic; could later honour the list arch's
+     * default_sort, but PK is what users intuitively expect when
+     * paging through "the records I just viewed in the list."
+     */
+    public function prevId(): ?int
+    {
+        return $this->neighborId(direction: 'prev');
+    }
+
+    public function nextId(): ?int
+    {
+        return $this->neighborId(direction: 'next');
+    }
+
+    /**
+     * @param  'prev'|'next'  $direction
+     */
+    private function neighborId(string $direction): ?int
+    {
+        if ($this->recordId === null) {
+            return null;
+        }
+
+        $model = $this->model;
+        $pk = (new $model())->getKeyName();
+
+        $query = $model::query();
+        if ($direction === 'prev') {
+            $query->where($pk, '<', $this->recordId)->orderByDesc($pk);
+        } else {
+            $query->where($pk, '>', $this->recordId)->orderBy($pk);
+        }
+
+        $value = $query->value($pk);
+
+        return $value === null ? null : (int) $value;
+    }
+
+    /**
+     * Build the URL of a sibling record by swapping the trailing
+     * segment of the current request URL. Lets the engine work for
+     * any host route shaped `/.../{id}` without the host needing to
+     * declare a "record URL template" — the URL we're rendering AT
+     * already encodes the right pattern.
+     */
+    public function navUrl(int $id): string
+    {
+        $current = (string) request()->url();
+        $replaced = preg_replace('@/[^/]+$@', '/' . $id, $current);
+
+        // preg_replace returns null on regex error — guard against it
+        // and fall back to the current URL so a navigation click is at
+        // worst a no-op, never a 404.
+        return $replaced ?? $current;
+    }
+
     public function render(): View
     {
         if (! $this->may(Permission::Read)) {
@@ -402,6 +463,8 @@ final class FormView extends Component
             'record' => $this->resolveRecord(),
             'options' => $options,
             'locales' => self::LOCALES,
+            'prevId' => $this->prevId(),
+            'nextId' => $this->nextId(),
         ]);
     }
 }

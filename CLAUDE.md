@@ -265,7 +265,7 @@ grouping, `label()` for display) so List/Kanban stay generic across any model.
 | Schema | `Modules/Contacts/database/migrations/...create_partners_table.php` |
 | UI | `Modules\Contacts\Livewire\{Partners,PartnerForm}` + `resources/views/{partners,partner-form}.blade.php` |
 | Routes | `Modules/Contacts/routes/web.php` → `/app/contacts/partner[/new|/{id}]` |
-| Form engine | `App\Livewire\Views\FormView` + `App\Erp\Views\FormFieldDef` (added in Phase 5) |
+| Form engine | `App\Livewire\Views\FormView` + `App\Erp\Views\FormFieldDef` (added in Phase 5). Record-navigation arrows (prev / next, Odoo-style) appear next to the title on existing records — `prevId()` / `nextId()` order by the model's primary key (ascending) and the target URL is derived by swapping the trailing segment of `request()->url()`, so any host route shaped `/…/{id}` works without per-module wiring. Hidden on new records and disabled at list ends |
 
 `Partner::irModelDefinition()` declares 11 fields + List/Kanban/Form arch (List &
 Kanban carry `'open' => '/app/contacts/partner/{id}'` so rows/cards link to the Form).

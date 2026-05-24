@@ -4,7 +4,52 @@
 
 <form wire:submit="save" class="rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5">
     <div class="flex h-12 items-center justify-between border-b border-chrome-200 px-4">
-        <h2 class="text-sm font-semibold text-chrome-800">{{ $title ?: ($record->exists ? 'Edit' : 'New') }}</h2>
+        <div class="flex items-center gap-3">
+            <h2 class="text-sm font-semibold text-chrome-800">{{ $title ?: ($record->exists ? 'Edit' : 'New') }}</h2>
+
+            {{-- Odoo-style record navigation. Only on saved records (a
+                 brand-new form has no neighbours); a disabled chevron
+                 keeps the layout stable when you hit the first or last
+                 record. Chevrons stay physically left/right regardless
+                 of locale — Odoo's Arabic UI keeps the same visual. --}}
+            @if ($record->exists)
+                <div class="flex items-center gap-0.5">
+                    @if ($prevId !== null)
+                        <a href="{{ $this->navUrl($prevId) }}" wire:navigate
+                            aria-label="{{ __('Previous record') }}" title="{{ __('Previous record') }}"
+                            class="flex size-7 items-center justify-center rounded-md text-chrome-500 hover:bg-chrome-100 hover:text-chrome-800">
+                            <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M12.78 5.22a.75.75 0 0 1 0 1.06L9.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/>
+                            </svg>
+                        </a>
+                    @else
+                        <span aria-label="{{ __('Previous record') }}" aria-disabled="true"
+                            class="flex size-7 cursor-not-allowed items-center justify-center rounded-md text-chrome-300">
+                            <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M12.78 5.22a.75.75 0 0 1 0 1.06L9.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/>
+                            </svg>
+                        </span>
+                    @endif
+
+                    @if ($nextId !== null)
+                        <a href="{{ $this->navUrl($nextId) }}" wire:navigate
+                            aria-label="{{ __('Next record') }}" title="{{ __('Next record') }}"
+                            class="flex size-7 items-center justify-center rounded-md text-chrome-500 hover:bg-chrome-100 hover:text-chrome-800">
+                            <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M7.22 14.78a.75.75 0 0 1 0-1.06L10.94 10 7.22 6.28a.75.75 0 0 1 1.06-1.06l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0Z" clip-rule="evenodd"/>
+                            </svg>
+                        </a>
+                    @else
+                        <span aria-label="{{ __('Next record') }}" aria-disabled="true"
+                            class="flex size-7 cursor-not-allowed items-center justify-center rounded-md text-chrome-300">
+                            <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M7.22 14.78a.75.75 0 0 1 0-1.06L10.94 10 7.22 6.28a.75.75 0 0 1 1.06-1.06l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0Z" clip-rule="evenodd"/>
+                            </svg>
+                        </span>
+                    @endif
+                </div>
+            @endif
+        </div>
         <div class="flex gap-2">
             <button type="submit" class="o-btn-primary">Save</button>
         </div>

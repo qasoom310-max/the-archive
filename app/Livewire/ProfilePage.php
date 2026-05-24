@@ -99,7 +99,14 @@ final class ProfilePage extends Component
             // type=file> will produce from any reasonable source.
             'avatar' => ['nullable', 'image', 'max:4096', 'mimes:png,jpg,jpeg,webp,gif'],
             'currentPassword' => ['nullable', 'string'],
-            'newPassword' => ['nullable', 'string', 'min:8', 'confirmed:newPasswordConfirmation'],
+            // Printable-ASCII whitelist mirrors the client-side
+            // `beforeinput` filter on the password inputs — defence in
+            // depth for JS-disabled clients and crafted payloads. Arabic
+            // (or any non-Latin) character is rejected with a localised
+            // message instead of a generic "format is invalid".
+            'newPassword' => ['nullable', 'string', 'min:8', 'regex:/^[\x20-\x7E]*$/', 'confirmed:newPasswordConfirmation'],
+        ], [
+            'newPassword.regex' => __('Password may only contain English letters, digits, and symbols.'),
         ]);
 
         $user->name = trim($validated['name']);

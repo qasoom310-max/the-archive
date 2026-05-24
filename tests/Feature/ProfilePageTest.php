@@ -128,6 +128,26 @@ final class ProfilePageTest extends TestCase
             ->assertHasErrors('newPassword');
     }
 
+    public function test_new_password_with_arabic_characters_is_rejected(): void
+    {
+        // The blade input has a `beforeinput` filter that blocks non-ASCII
+        // keystrokes, but a crafted Livewire payload (or a JS-disabled
+        // browser) could still POST one — so the server enforces the same
+        // rule with a regex. This test pins the server check.
+        $user = $this->actAsUser();
+        $originalHash = $user->password;
+
+        Livewire::test(ProfilePage::class)
+            ->set('currentPassword', 'correct-horse-battery-staple')
+            ->set('newPassword', 'كلمةsecret1!')
+            ->set('newPasswordConfirmation', 'كلمةsecret1!')
+            ->call('save')
+            ->assertHasErrors(['newPassword' => 'regex']);
+
+        // Password unchanged on disk.
+        $this->assertSame($originalHash, $user->fresh()->password);
+    }
+
     // ───────────────────────── Avatar ──────────────────────────────
 
     public function test_avatar_upload_stores_on_public_disk_and_sets_path(): void

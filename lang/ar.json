@@ -67,6 +67,7 @@
     "Current password": "كلمة المرور الحالية",
     "New password": "كلمة المرور الجديدة",
     "Confirm new password": "تأكيد كلمة المرور الجديدة",
+    "Password may only contain English letters, digits, and symbols.": "يجب أن تحتوي كلمة المرور على أحرف وأرقام ورموز إنجليزية فقط.",
     "Save changes": "حفظ التغييرات",
     "Saving…": "جارٍ الحفظ...",
     "Changing this sends a verification link to the new address. Your current email stays active until you click it.": "تغيير هذا سيرسل رابط تحقق إلى العنوان الجديد. سيظل بريدك الإلكتروني الحالي نشطاً حتى تنقر عليه.",

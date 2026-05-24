@@ -86,7 +86,16 @@
                 <div class="sm:col-span-2">
                     <label class="block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Current password') }}</label>
                     <div class="relative mt-1" x-data="{ show: false }">
+                        {{-- Passwords are constrained to printable ASCII. The
+                             `beforeinput` listener vetoes any keystroke or
+                             paste containing a non-ASCII codepoint before
+                             the input value is mutated, so the field can
+                             never hold an Arabic (or other non-Latin)
+                             character. Server-side regex on `newPassword`
+                             enforces the same rule for JS-disabled clients
+                             and crafted Livewire payloads. --}}
                         <input wire:model="currentPassword" :type="show ? 'text' : 'password'"
+                            x-on:beforeinput="if ($event.data && /[^\x20-\x7E]/.test($event.data)) $event.preventDefault()"
                             autocomplete="current-password" class="o-input pe-10 text-sm">
                         <button type="button" @click="show = !show" tabindex="-1"
                             :aria-label="show ? @js(__('Hide password')) : @js(__('Show password'))"
@@ -105,6 +114,7 @@
                     <label class="block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('New password') }}</label>
                     <div class="relative mt-1" x-data="{ show: false }">
                         <input wire:model="newPassword" :type="show ? 'text' : 'password'"
+                            x-on:beforeinput="if ($event.data && /[^\x20-\x7E]/.test($event.data)) $event.preventDefault()"
                             autocomplete="new-password" class="o-input pe-10 text-sm">
                         <button type="button" @click="show = !show" tabindex="-1"
                             :aria-label="show ? @js(__('Hide password')) : @js(__('Show password'))"
@@ -123,6 +133,7 @@
                     <label class="block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Confirm new password') }}</label>
                     <div class="relative mt-1" x-data="{ show: false }">
                         <input wire:model="newPasswordConfirmation" :type="show ? 'text' : 'password'"
+                            x-on:beforeinput="if ($event.data && /[^\x20-\x7E]/.test($event.data)) $event.preventDefault()"
                             autocomplete="new-password" class="o-input pe-10 text-sm">
                         <button type="button" @click="show = !show" tabindex="-1"
                             :aria-label="show ? @js(__('Hide password')) : @js(__('Show password'))"

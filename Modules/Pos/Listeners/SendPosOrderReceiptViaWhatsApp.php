@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Pos\Listeners;
 
 use App\Erp\Money\Currencies;
+use App\Erp\Settings\Setting;
 use Illuminate\Support\Carbon;
 use Modules\Contacts\Models\Partner;
 use Modules\Pos\Events\PosOrderPaid;
@@ -82,9 +83,12 @@ final class SendPosOrderReceiptViaWhatsApp
     }
 
     /**
-     * Build the 4 positional template variables expected by `pos_receipt`:
-     *   {{1}} customer name (or "Walk-in"), {{2}} order reference,
-     *   {{3}} total with currency, {{4}} ordered datetime.
+     * Build the 5 positional template variables expected by `pos_receipt`:
+     *   {{1}} customer name (or "Walk-in"), {{2}} store name (from
+     *   `company.name`), {{3}} order reference, {{4}} total with currency,
+     *   {{5}} ordered datetime. Meta requires variables to appear in
+     *   numerical order in the body, so the store goes in as {{2}} and
+     *   the rest shift one position up from the original 4-variable layout.
      *
      * @return list<string>
      */
@@ -104,6 +108,12 @@ final class SendPosOrderReceiptViaWhatsApp
             }
         }
 
+        // Store / brand name from the General settings tab. Same source
+        // the on-screen receipt and login page use — keeps the WhatsApp
+        // template in lockstep with the visible branding. Falls back to
+        // "OpenERP" only if the setting was never written.
+        $storeName = (string) Setting::get('company.name', 'OpenERP');
+
         // Active currency is baked into the formatted string (e.g. "10.00 BD"
         // for BHD, "$10.00" for USD) by the central registry — keeps the
         // template variable in lockstep with the in-app display.
@@ -119,6 +129,7 @@ final class SendPosOrderReceiptViaWhatsApp
 
         return [
             $customerName,
+            $storeName,
             $order->reference,
             $totalFormatted,
             $orderedFormatted,

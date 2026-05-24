@@ -145,10 +145,12 @@ final class PosWhatsAppReceiptTest extends TestCase
         $this->assertIsArray($payload);
         $params = $payload['template']['components'][0]['parameters'] ?? null;
         $this->assertIsArray($params);
-        $this->assertCount(4, $params);
-        $this->assertSame('Walk-in', $params[0]['text']); // no partner attached
-        $this->assertSame($order->reference, $params[1]['text']);
-        $this->assertStringContainsString('10.00', $params[2]['text']);
+        // 5 positional placeholders: customer, store, ref, total, datetime
+        $this->assertCount(5, $params);
+        $this->assertSame('Walk-in', $params[0]['text']);            // no partner attached
+        $this->assertIsString($params[1]['text']);                   // store name from company.name
+        $this->assertSame($order->reference, $params[2]['text']);    // shifted from index 1
+        $this->assertStringContainsString('10.00', $params[3]['text']); // total moved from 2 → 3
 
         // And the queued HTTP-call job was actually dispatched.
         Bus::assertDispatched(SendWhatsAppMessage::class, fn (SendWhatsAppMessage $job): bool => $job->to === '97333123456' && $job->logId === $log->id,
@@ -224,6 +226,42 @@ final class PosWhatsAppReceiptTest extends TestCase
         $this->assertSame('en', $payload['template']['language']['code'] ?? null);
     }
 
+    public function test_store_name_variable_is_company_name_setting(): void
+    {
+        // The 2nd template parameter ({{2}}) holds the store / brand name
+        // pulled from `company.name` — same source the on-screen receipt
+        // header uses. Pins both the value AND the position so a future
+        // reorder can't silently desync from the Meta-approved template.
+        $this->installModules();
+        $this->configureWhatsApp();
+        \App\Erp\Settings\Setting::set('company.name', 'Sweileh Cafe');
+        Bus::fake();
+
+        $session = $this->openSession();
+        $method = $this->seedCashPayment();
+        $product = PosProduct::query()->create(['name' => 'Espresso', 'price' => 3.0, 'tax_rate' => 0]);
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('addProduct', $product->id)
+            ->call('startPayment')
+            ->set('countryCode', '+973')
+            ->set('localPhone', '33000000')
+            ->set('paymentMethodId', $method->id)
+            ->set('tendered', '3.00')
+            ->call('addPayment')
+            ->call('validateOrder');
+
+        $log = WhatsAppMessageLog::query()
+            ->where('direction', 'outbound')
+            ->where('template_name', 'pos_receipt')
+            ->sole();
+
+        $payload = $log->payload;
+        $this->assertIsArray($payload);
+        $params = $payload['template']['components'][0]['parameters'];
+        $this->assertSame('Sweileh Cafe', $params[1]['text']);
+    }
+
     public function test_pos_receipt_template_variable_uses_12_hour_clock(): void
     {
         // The 4th positional template variable is the order datetime —
@@ -264,7 +302,9 @@ final class PosWhatsAppReceiptTest extends TestCase
         $params = $payload['template']['components'][0]['parameters'] ?? null;
         $this->assertIsArray($params);
 
-        $orderedAt = $params[3]['text'];
+        // 5th parameter (index 4) is the ordered datetime after the store
+        // name was inserted at index 1.
+        $orderedAt = $params[4]['text'];
         $this->assertSame('May 24, 2026 6:27 PM', $orderedAt);
 
         \Illuminate\Support\Carbon::setTestNow();

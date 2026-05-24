@@ -43,7 +43,7 @@
                 <label class="block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Avatar') }}</label>
                 <input type="file" wire:model="avatar" accept="image/*"
                     class="mt-1 block w-full text-sm text-chrome-700 file:me-3 file:rounded-md file:border-0 file:bg-primary-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-700 hover:file:bg-primary-100">
-                <p class="mt-1 text-xs text-chrome-400">{{ __('PNG, JPG, WEBP or GIF. Up to 2 MB.') }}</p>
+                <p class="mt-1 text-xs text-chrome-400">{{ __('PNG, JPG, WEBP or GIF. Up to 4 MB.') }}</p>
                 @error('avatar') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
         </div>

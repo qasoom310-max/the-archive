@@ -94,10 +94,10 @@ final class ProfilePage extends Component
                 Rule::unique('users', 'email')->ignore($user->id),
                 Rule::unique('users', 'new_email')->ignore($user->id),
             ],
-            // 2 MB cap matches the existing product/avatar uploads in the
-            // app; .png / .jpg / .webp / .gif covers what a browser's
-            // <input type=file> will produce from any reasonable source.
-            'avatar' => ['nullable', 'image', 'max:2048', 'mimes:png,jpg,jpeg,webp,gif'],
+            // 4 MB cap matches the product image upload controller; .png
+            // / .jpg / .webp / .gif covers what a browser's <input
+            // type=file> will produce from any reasonable source.
+            'avatar' => ['nullable', 'image', 'max:4096', 'mimes:png,jpg,jpeg,webp,gif'],
             'currentPassword' => ['nullable', 'string'],
             'newPassword' => ['nullable', 'string', 'min:8', 'confirmed:newPasswordConfirmation'],
         ]);

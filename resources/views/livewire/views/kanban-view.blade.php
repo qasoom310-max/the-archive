@@ -24,8 +24,43 @@
 @endphp
 
 <div>
-    @if ($title !== '')
-        <h2 class="mb-3 text-sm font-semibold text-chrome-800">{{ $title }}</h2>
+    {{-- Toolbar: title on the start, free-text search on the end. The
+         search input only renders when arch.searchable declares fields;
+         empty arch list = no input (and the server silently ignores any
+         smuggled `?search=` URL value, see KanbanView::applySearch).
+         Wire model is `live.debounce.300ms` so each keystroke doesn't
+         round-trip — server hits once typing settles. --}}
+    @if ($title !== '' || $searchable)
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            @if ($title !== '')
+                <h2 class="text-sm font-semibold text-chrome-800">{{ $title }}</h2>
+            @else
+                <span></span> {{-- spacer so search aligns end --}}
+            @endif
+
+            @if ($searchable)
+                <div class="relative w-full max-w-xs">
+                    <svg class="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-chrome-400"
+                        viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 3.5 9.74l3.38 3.38a1 1 0 0 0 1.42-1.42l-3.38-3.38A5.5 5.5 0 0 0 9 3.5ZM5.5 9a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0Z" clip-rule="evenodd"/>
+                    </svg>
+                    <input type="text"
+                        wire:model.live.debounce.300ms="search"
+                        placeholder="{{ __('Search…') }}"
+                        aria-label="{{ __('Search') }}"
+                        class="w-full rounded-md border border-chrome-300 bg-white py-1.5 ps-9 pe-8 text-sm text-chrome-800 placeholder:text-chrome-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                    @if ($search !== '')
+                        <button type="button" wire:click="$set('search', '')"
+                            aria-label="{{ __('Clear search') }}"
+                            class="absolute end-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-chrome-400 hover:text-chrome-700">
+                            <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/>
+                            </svg>
+                        </button>
+                    @endif
+                </div>
+            @endif
+        </div>
     @endif
 
     {{-- Ungrouped boards (catalogue-style — no `group_by` in arch) render as a
@@ -66,13 +101,19 @@
                                  a `card.image` field AND the record has a value for it. Falls
                                  back to a neutral placeholder when the column is declared but
                                  empty, so cards on the same column stay the same height. --}}
+                            {{-- Image hero — `aspect-[4/3]` is noticeably shorter than the
+                                 previous `aspect-square` so a tile grid renders denser,
+                                 closer to Odoo's POS catalogue. Native `loading="lazy"`
+                                 layers a second lazy-load on top of the server-side
+                                 windowing (only loads bytes when the row enters view). --}}
                             @if ($card?->image)
                                 @php $imgPath = $record->getAttribute($card->image); @endphp
-                                <div class="flex aspect-square w-full items-center justify-center bg-chrome-50">
+                                <div class="flex aspect-[4/3] w-full items-center justify-center bg-chrome-50">
                                     @if (is_string($imgPath) && $imgPath !== '')
                                         <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($imgPath) }}"
                                              alt="{{ $card ? $val($record, $card->title) : '' }}"
-                                             class="size-full object-contain p-3">
+                                             loading="lazy" decoding="async"
+                                             class="size-full object-contain p-2">
                                     @else
                                         <svg class="size-10 text-chrome-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M1 5.25A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25v9.5A2.25 2.25 0 0 1 16.75 17H3.25A2.25 2.25 0 0 1 1 14.75v-9.5Zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 0 0 .75-.75v-2.69l-2.22-2.219a.75.75 0 0 0-1.06 0L10 14.06l-3.969-3.97a.75.75 0 0 0-1.06 0L2.5 11.06ZM6.625 7a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Z" clip-rule="evenodd"/></svg>
                                     @endif
@@ -152,5 +193,50 @@
                 </div>
             @endif
         @endforeach
+
+        {{-- Lazy-load sentinel for ungrouped (catalogue) boards. An
+             IntersectionObserver fires once when this element enters
+             the viewport → $wire.loadMore() → server bumps $loaded by
+             arch.per_page → re-render extends the grid. The wire:key
+             includes $loaded so Livewire treats each re-rendered
+             sentinel as a fresh DOM node, which re-runs Alpine's init
+             and attaches a new observer (the previous one disconnects
+             after firing). --}}
+        @if ($groupBy === null && $hasMore)
+            <div wire:key="kanban-sentinel-{{ $loaded }}"
+                class="col-span-full"
+                x-data="{
+                    init() {
+                        const obs = new IntersectionObserver((entries) => {
+                            if (entries[0].isIntersecting) {
+                                obs.disconnect();
+                                $wire.loadMore();
+                            }
+                        }, { rootMargin: '200px' });
+                        obs.observe($el);
+                    }
+                }">
+                <div class="flex items-center justify-center gap-2 py-4 text-xs text-chrome-400"
+                    wire:loading.flex wire:target="loadMore">
+                    <svg class="size-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="40 60"/>
+                    </svg>
+                    {{ __('Loading more…') }}
+                </div>
+            </div>
+        @endif
+
+        {{-- Empty state on an ungrouped board (catalogue) — only shown
+             once the user has actually typed something. A pristine
+             empty catalogue is rare enough that we don't surface a
+             dedicated message; this row is targeted at "search
+             returned nothing". --}}
+        @if ($groupBy === null && $search !== '' && (count($grouped[''] ?? []) === 0))
+            <div class="col-span-full">
+                <p class="rounded-xl border border-dashed border-chrome-300 bg-white p-10 text-center text-sm text-chrome-400">
+                    {{ __('No matches for') }} "<span class="font-medium text-chrome-700">{{ $search }}</span>"
+                </p>
+            </div>
+        @endif
     </div>
 </div>

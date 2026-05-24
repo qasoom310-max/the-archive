@@ -174,11 +174,11 @@ stay (`done=true` → Done) and a `log` message is posted, so nothing vanishes.
 | Arch parsing | `App\Erp\Views\ViewArch` + `ColumnDef` / `KanbanCard` / `RottingRule` (typed, defensive) |
 | Resolution | `App\Erp\Views\ViewResolver` — stored `ir_ui_view` by priority, else auto-default from `ir_model_fields` |
 | List view | `App\Livewire\Views\ListView` — multi-col sort (shift-click), checkbox bulk delete, footer aggregates (`sum`/`avg` over full set), pagination |
-| Kanban view | `App\Livewire\Views\KanbanView` — group-by state, native HTML5 drag-drop → `moveCard()` transition (logs to Chatter if `Chatterable`), rotting cue |
+| Kanban view | `App\Livewire\Views\KanbanView` — group-by state, native HTML5 drag-drop → `moveCard()` transition (logs to Chatter if `Chatterable`), rotting cue. Toolbar `$search` (URL-bound, `LIKE` across arch-declared `searchable`) + IntersectionObserver lazy-load `loadMore()` for ungrouped catalogue boards (initial = `arch.per_page` ?? 12, scroll bottom → bump by the same step). Grouped (state-machine) boards skip lazy-load — they're workflows, not catalogues |
 | Demo | `App\Livewire\Pages\Playground` (`/playground`), `DemoViewSeeder` registers `demo.ticket` model+fields+list/kanban arch |
 
 `arch` schema — **list:** `{columns:[{field,label,sortable,sum,avg,align,format,hidden_by_default,sort_field}], default_sort:[{field,dir}], per_page, filters, custom_date_field, searchable:[fieldName,...]}`.
-**kanban:** `{group_by, stages:[{value,label}], card:{title,subtitle,badges[],image,meta:[{field,label,format}]}, rotting:{field,days}}`.
+**kanban:** `{group_by, stages:[{value,label}], card:{title,subtitle,badges[],image,meta:[{field,label,format}]}, rotting:{field,days}, per_page, searchable:[fieldName,...]}` (the last two activate the toolbar search box and IntersectionObserver lazy-load on ungrouped boards).
 **form:** `{cols, fields:[{field,label,widget,required,placeholder,help,options,optionsFrom,translatable}]}`. A
 `select` field is **model-sourced (a relation picker)** when it declares
 `optionsFrom:{model,value?,label?,orderBy?,excludeSelf?}` — `App\Erp\Views\DynamicOptions`

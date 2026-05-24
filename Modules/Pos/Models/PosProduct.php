@@ -231,6 +231,16 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
                         ],
                     ],
                     'open' => '/app/pos/product/{id}',
+                    // Engine renders 12 tiles up-front and lazy-loads
+                    // another 12 each time the user scrolls to the
+                    // bottom (IntersectionObserver-driven in
+                    // kanban-view.blade.php).
+                    'per_page' => 12,
+                    // Toolbar search: substring `LIKE '%q%'` across both
+                    // fields OR-grouped. Same caveat as the list arch —
+                    // `name` is a Spatie JSON column so LIKE matches the
+                    // raw envelope (fine until Arabic translations land).
+                    'searchable' => ['name', 'barcode'],
                 ]),
                 new ViewDefinition('POS Product', 'form', [
                     'cols' => 2,

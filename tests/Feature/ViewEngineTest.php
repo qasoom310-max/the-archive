@@ -231,6 +231,103 @@ final class ViewEngineTest extends TestCase
         );
     }
 
+    public function test_kanban_search_filters_records_by_arch_searchable(): void
+    {
+        // Set up an ungrouped kanban with a one-field search whitelist.
+        // Records whose subject doesn't substring-match the needle must
+        // not appear in $grouped.
+        IrModel::query()->create([
+            'model' => 'k.s', 'name' => 'KS', 'class' => DemoTicket::class, 'table' => 'demo_tickets',
+        ]);
+        IrUiView::query()->create([
+            'name' => 'K', 'model' => 'k.s', 'type' => 'kanban', 'priority' => 1,
+            'arch' => [
+                'card' => ['title' => 'subject'],
+                'per_page' => 10,
+                'searchable' => ['subject'],
+            ],
+        ]);
+
+        DemoTicket::query()->create(['subject' => 'Avocado smoothie', 'stage' => 'New']);
+        DemoTicket::query()->create(['subject' => 'Banana smoothie', 'stage' => 'New']);
+        DemoTicket::query()->create(['subject' => 'Lemonade', 'stage' => 'New']);
+
+        $component = Livewire::test(KanbanView::class, ['model' => DemoTicket::class, 'modelKey' => 'k.s'])
+            ->assertSet('search', '')
+            ->set('search', 'avocado');
+
+        // Only the avocado ticket survives the LIKE.
+        /** @var array<string, list<\Illuminate\Database\Eloquent\Model>> $grouped */
+        $grouped = $component->viewData('grouped');
+        $rows = $grouped[''] ?? [];
+        $this->assertCount(1, $rows);
+        $this->assertSame('Avocado smoothie', $rows[0]->subject);
+
+        // An empty needle clears the filter and brings every row back.
+        $component->set('search', '');
+        $grouped = $component->viewData('grouped');
+        $this->assertCount(3, $grouped[''] ?? []);
+    }
+
+    public function test_kanban_lazy_loads_in_pages_of_arch_per_page(): void
+    {
+        // Catalogue (ungrouped) board: arch.per_page = 2 means only 2
+        // cards render up-front; loadMore() reveals another 2 each
+        // call. hasMore stays true until $loaded >= total.
+        IrModel::query()->create([
+            'model' => 'k.l', 'name' => 'KL', 'class' => DemoTicket::class, 'table' => 'demo_tickets',
+        ]);
+        IrUiView::query()->create([
+            'name' => 'K', 'model' => 'k.l', 'type' => 'kanban', 'priority' => 1,
+            'arch' => [
+                'card' => ['title' => 'subject'],
+                'per_page' => 2,
+            ],
+        ]);
+
+        for ($i = 1; $i <= 5; $i++) {
+            DemoTicket::query()->create(['subject' => "Card {$i}", 'stage' => 'New']);
+        }
+
+        $component = Livewire::test(KanbanView::class, ['model' => DemoTicket::class, 'modelKey' => 'k.l'])
+            ->assertSet('loaded', 2);
+
+        $this->assertCount(2, $component->viewData('grouped')[''] ?? []);
+        $this->assertTrue($component->viewData('hasMore'));
+
+        $component->call('loadMore')->assertSet('loaded', 4);
+        $this->assertCount(4, $component->viewData('grouped')[''] ?? []);
+        $this->assertTrue($component->viewData('hasMore'));
+
+        $component->call('loadMore')->assertSet('loaded', 6);
+        // Only 5 records exist, so we cap at 5 even though $loaded is 6.
+        $this->assertCount(5, $component->viewData('grouped')[''] ?? []);
+        $this->assertFalse($component->viewData('hasMore'));
+    }
+
+    public function test_kanban_search_resets_the_lazy_load_window(): void
+    {
+        // After scrolling deep into a catalogue, narrowing the query
+        // must snap $loaded back to the first page — otherwise the
+        // grid shows a confusing slice of the now-shorter result set
+        // (e.g. 24 visible but only 3 actually match).
+        IrModel::query()->create([
+            'model' => 'k.r', 'name' => 'KR', 'class' => DemoTicket::class, 'table' => 'demo_tickets',
+        ]);
+        IrUiView::query()->create([
+            'name' => 'K', 'model' => 'k.r', 'type' => 'kanban', 'priority' => 1,
+            'arch' => [
+                'card' => ['title' => 'subject'],
+                'per_page' => 3,
+                'searchable' => ['subject'],
+            ],
+        ]);
+
+        Livewire::test(KanbanView::class, ['model' => DemoTicket::class, 'modelKey' => 'k.r'])
+            ->call('loadMore')->call('loadMore')->assertSet('loaded', 9)
+            ->set('search', 'whatever')->assertSet('loaded', 3);
+    }
+
     public function test_rotting_rule_flags_stale_records(): void
     {
         $fresh = DemoTicket::query()->create(['subject' => 'Fresh', 'stage' => 'New']);

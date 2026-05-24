@@ -355,7 +355,17 @@ final class SettingsPage extends Component
         // Anything other than the supported set blanks the column so
         // the SetLocale middleware falls back to the system default
         // instead of parking the user on an unsupported locale.
-        $user->language = in_array($code, ['en', 'ar'], true) ? $code : null;
+        $desired = in_array($code, ['en', 'ar'], true) ? $code : null;
+
+        // Skip the write when the column already matches — every Save
+        // would otherwise touch `users` even when only Timezone or
+        // Default Currency changed. Cheap correctness fix that also
+        // avoids `updated_at` thrashing the activity log.
+        if ($user->language === $desired) {
+            return;
+        }
+
+        $user->language = $desired;
         $user->save();
     }
 

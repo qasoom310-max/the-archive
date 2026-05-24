@@ -17,7 +17,13 @@ use Livewire\Component;
 /**
  * System configuration hub. Renders every `ir_config_parameter` grouped
  * into tabs, with the control type driven by each parameter's `type`.
- * Admin-only (Odoo's Settings = Administration).
+ *
+ * Role-gated: admins see all keys; non-admins (e.g. POS cashiers) see
+ * only the keys listed in {@see self::NON_ADMIN_KEYS}. The filter is
+ * applied both at mount (so the form only contains allowed keys) and
+ * inside save() (so a crafted Livewire payload can't escalate). The
+ * view is fully data-driven, so widening non-admin access is a one-line
+ * change in NON_ADMIN_KEYS.
  *
  * `$form` is an index-keyed list (not keyed by the dotted setting key)
  * so Livewire's dot-path `wire:model` binding doesn't misread keys like
@@ -27,6 +33,15 @@ use Livewire\Component;
 #[Title('Settings')]
 final class SettingsPage extends Component
 {
+    /**
+     * Setting keys a non-admin user is allowed to view and modify.
+     * Cashiers / sales users land here from the sidebar and should
+     * only be able to flip language — everything else stays admin.
+     *
+     * @var list<string>
+     */
+    public const NON_ADMIN_KEYS = ['company.language'];
+
     /** @var list<array{key: string, label: string, type: string, group: string, description: string|null, value: mixed}> */
     public array $form = [];
 
@@ -45,10 +60,18 @@ final class SettingsPage extends Component
 
     public function mount(): void
     {
-        $this->authorizeAdmin();
+        // Auth still required — guests get bounced to /login by route
+        // middleware before we ever reach here.
+        abort_unless(Auth::check(), 403);
+
+        $allowed = $this->allowedKeysOrNull();
 
         foreach (app(SettingManager::class)->grouped() as $params) {
             foreach ($params as $param) {
+                if ($allowed !== null && ! in_array($param->key, $allowed, true)) {
+                    continue;
+                }
+
                 $this->form[] = [
                     'key' => $param->key,
                     'label' => $param->label,
@@ -62,11 +85,15 @@ final class SettingsPage extends Component
 
         // Currency picker — the catalogue is the central registry, so
         // adding a new ISO code in `Currencies::all()` immediately
-        // surfaces it here without changing the settings page.
-        $this->selects['currency.default'] = array_map(
-            fn ($c): array => ['value' => $c->code, 'label' => $c->label()],
-            array_values(Currencies::all()),
-        );
+        // surfaces it here without changing the settings page. Only
+        // built for admins; non-admins never see the currency row, so
+        // skipping the catalogue avoids a pointless allocation.
+        if ($this->isAdmin()) {
+            $this->selects['currency.default'] = array_map(
+                fn ($c): array => ['value' => $c->code, 'label' => $c->label()],
+                array_values(Currencies::all()),
+            );
+        }
 
         // Language picker — the supported set is whitelisted in the
         // SetLocale middleware. Labels stay localised: an English user
@@ -78,16 +105,26 @@ final class SettingsPage extends Component
         ];
     }
 
-    private function authorizeAdmin(): void
+    /**
+     * @return list<string>|null returns null when the user is admin
+     *                            (meaning "no filter"), otherwise the
+     *                            whitelist a non-admin may view/edit.
+     */
+    private function allowedKeysOrNull(): ?array
+    {
+        return $this->isAdmin() ? null : self::NON_ADMIN_KEYS;
+    }
+
+    private function isAdmin(): bool
     {
         $user = Auth::user();
 
-        abort_unless($user instanceof User && $user->isAdmin(), 403, 'Settings are administrator-only.');
+        return $user instanceof User && $user->isAdmin();
     }
 
     public function save(): void
     {
-        $this->authorizeAdmin();
+        abort_unless(Auth::check(), 403);
 
         // Snapshot the language BEFORE the write so we can detect a flip
         // (`en` → `ar` or vice versa) and trigger a full-page reload —
@@ -95,9 +132,18 @@ final class SettingsPage extends Component
         // only rebuilt on a fresh request.
         $previousLanguage = (string) Setting::get('company.language', 'en');
 
+        $allowed = $this->allowedKeysOrNull();
+
         /** @var array<string, mixed> $values */
         $values = [];
         foreach ($this->form as $row) {
+            // Re-filter here even though mount() already trimmed the
+            // form: defence in depth against a crafted `$set` payload
+            // that injects a forbidden key into the array.
+            if ($allowed !== null && ! in_array($row['key'], $allowed, true)) {
+                continue;
+            }
+
             $values[$row['key']] = $row['value'];
         }
 

@@ -84,11 +84,45 @@ final class SettingsTest extends TestCase
         $this->assertSame('My ERP', Setting::get('company.name'));
     }
 
-    public function test_non_admin_cannot_open_settings(): void
+    public function test_non_admin_can_open_settings_but_only_sees_language(): void
     {
         $this->seed(SettingSeeder::class);
         $this->actingAs(User::factory()->create(['is_admin' => false]));
 
-        Livewire::test(SettingsPage::class)->assertForbidden();
+        $component = Livewire::test(SettingsPage::class)->assertOk();
+
+        // Form must contain exactly the whitelisted keys.
+        /** @var list<array{key: string}> $form */
+        $form = $component->get('form');
+        $this->assertSame(['company.language'], array_column($form, 'key'));
+
+        // Admin-only labels (full setting names) must not appear at all.
+        $component->assertDontSee('Company Name')
+            ->assertDontSee('Default Currency')
+            ->assertDontSee('Timezone')
+            ->assertSee('Language');
+    }
+
+    public function test_non_admin_save_cannot_escalate_to_other_keys(): void
+    {
+        $this->seed(SettingSeeder::class);
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+
+        // Even if a crafted payload smuggles `company.name` into the
+        // form array, save() must drop it. Simulate by setting the
+        // language legitimately, then `$set`ing a forbidden row that
+        // mount() wouldn't have produced.
+        Livewire::test(SettingsPage::class)
+            ->set('form.0.value', 'ar')
+            ->set('form', [
+                ['key' => 'company.language', 'label' => 'Language', 'type' => 'string', 'group' => 'General', 'description' => null, 'value' => 'ar'],
+                ['key' => 'company.name', 'label' => 'Company Name', 'type' => 'string', 'group' => 'General', 'description' => null, 'value' => 'PWNED'],
+            ])
+            ->call('save')
+            ->assertSet('saved', true);
+
+        // Language flipped (allowed) but company.name untouched.
+        $this->assertSame('ar', Setting::get('company.language'));
+        $this->assertSame('OpenERP', Setting::get('company.name'));
     }
 }

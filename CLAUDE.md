@@ -434,7 +434,7 @@ Keep this table current — it is how state survives across sessions.
 | 5 | First module: **Contacts** (`Partner` model + Form/List/Kanban + Chatter) | ✅ DONE |
 | 6 | Auth & access control: login, `res_groups`, `ir_model_access`, enforced in views; **Profile self-service** (avatar / email-change via signed link / password) | ✅ DONE |
 | 7 | **Point of Sale** module: sessions, terminal, payments, receipts, reconciliation, customer picker, Processed By, status colors, Reporting + date-filter chips + custom range, Import/Export dropdown (Category round-trip), money columns, WhatsApp auto-receipt, direct image upload (AVIF/HEIC + safety hardening), per-user column picker, inline Active toggle, Odoo-style kanban product cards in responsive grid, toolbar search (name + barcode) | ✅ DONE |
-| 8 | **Settings**: `ir_config_parameter` + cached `SettingManager`/`Setting` facade + admin Settings page + generic `$selects` Alpine combobox (currency + language pickers) | ✅ DONE (General tab + dropdowns; POS/Inventory tabs = next increments) |
+| 8 | **Settings**: `ir_config_parameter` + cached `SettingManager`/`Setting` facade + role-gated Settings page (admins see all; non-admins see only `company.language`) + generic `$selects` Alpine combobox (currency + language pickers) | ✅ DONE (General tab + dropdowns + role-gated access; POS/Inventory tabs = next increments) |
 | 9 | **Inventory**: double-entry schema + Overview Kanban + atomic pickings/transfer flow | ✅ (adjustment/replenishment/lots/valuation+forecast/barcode = next increments) |
 | 10 | **WhatsApp**: Meta Cloud API integration (queued messaging, webhook, admin Settings tab, **POS auto-receipt** shipped) | ✅ DONE; templates table/UI · Chatter button · other event automations · media/PDF attachments = next increments |
 | 11 | **Currency engine**: `App\Erp\Money\{Currency,Currencies}` (27 currencies, Arab-world heavy — **all dinars now display at 2 decimals per user policy**, originally modelled as 3) + `ValueFormat::money()` + `format: money` column type + Settings dropdown | ✅ DONE |
@@ -448,11 +448,11 @@ Keep this table current — it is how state survives across sessions.
 | Schema | `database/migrations/..._create_ir_config_parameter_table` — `key`(uniq), `value`(text), `type`(string\|bool\|number), `group`, `label`, `description`, `sort` |
 | Model | `App\Models\Ir\IrConfigParameter` |
 | Service | `App\Erp\Settings\SettingManager` (whole set cached `rememberForever` under `erp.settings.all`; `get/set/setMany/grouped/flush`; writes flush) + `App\Erp\Settings\Setting` facade (singleton bound in `AppServiceProvider`) |
-| UI | `App\Livewire\Pages\SettingsPage` (**admin-only** `abort 403`; index-keyed `$form` so dotted keys aren't read as nested; group→tabs; bool=toggle/number/string controls; bulk Save → `setMany` → cache flush) → `resources/views/livewire/pages/settings.blade.php` |
-| Route/Nav | `/app/settings` (named `settings`, registered **before** `/app/{module}`); admin-only link in `Sidebar` |
+| UI | `App\Livewire\Pages\SettingsPage` — **role-gated**: admins see all keys; non-admins (POS cashiers, sales users) see only the keys in `SettingsPage::NON_ADMIN_KEYS` (currently `['company.language']`). Index-keyed `$form` so dotted keys aren't read as nested; `mount()` filters `$form` to the allowed set; `save()` re-filters before `setMany` so a crafted payload can't escalate. Group→tabs; bool=toggle/number/string controls; bulk Save → `setMany` → cache flush → `resources/views/livewire/pages/settings.blade.php` |
+| Route/Nav | `/app/settings` (named `settings`, registered **before** `/app/{module}`); Settings link shown in `Sidebar` to every authenticated user (the page itself enforces what each role can edit) |
 | Seed | `SettingSeeder` (General: `company.name`, `currency.default`, `company.timezone`, `company.language`) — non-destructive (keeps saved values), in default `DatabaseSeeder` chain |
 
-Usage: `Setting::get('company.name')`, `Setting::set('currency.default', 'EUR')`. App-switcher still shows the demo `settings` tile to all (ACL enforced on click → non-admins 403), like other apps.
+Usage: `Setting::get('company.name')`, `Setting::set('currency.default', 'EUR')`. App-switcher still shows the demo `settings` tile to all (ACL enforced on click → non-admins land on the restricted view), like other apps. To grant non-admins another setting, append its key to `SettingsPage::NON_ADMIN_KEYS` — no other changes needed (view is data-driven). The settings-nav partial's WhatsApp pill stays admin-only.
 
 **Phase 9 — Inventory scaffold (where things live):**
 

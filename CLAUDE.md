@@ -177,7 +177,7 @@ stay (`done=true` → Done) and a `log` message is posted, so nothing vanishes.
 | Kanban view | `App\Livewire\Views\KanbanView` — group-by state, native HTML5 drag-drop → `moveCard()` transition (logs to Chatter if `Chatterable`), rotting cue |
 | Demo | `App\Livewire\Pages\Playground` (`/playground`), `DemoViewSeeder` registers `demo.ticket` model+fields+list/kanban arch |
 
-`arch` schema — **list:** `{columns:[{field,label,sortable,sum,avg,align,format,hidden_by_default,sort_field}], default_sort:[{field,dir}], per_page, filters, custom_date_field}`.
+`arch` schema — **list:** `{columns:[{field,label,sortable,sum,avg,align,format,hidden_by_default,sort_field}], default_sort:[{field,dir}], per_page, filters, custom_date_field, searchable:[fieldName,...]}`.
 **kanban:** `{group_by, stages:[{value,label}], card:{title,subtitle,badges[],image,meta:[{field,label,format}]}, rotting:{field,days}}`.
 **form:** `{cols, fields:[{field,label,widget,required,placeholder,help,options,optionsFrom,translatable}]}`. A
 `select` field is **model-sourced (a relation picker)** when it declares
@@ -236,6 +236,25 @@ grouping, `label()` for display) so List/Kanban stay generic across any model.
   Always shows `[1, 2, …, current−1, current, current+1, …, last]` collapsed to
   unique sorted pages with gap-insertion. Replaces the prior layout which hid the
   active page behind an ellipsis on deep pages.
+- **Ungrouped kanban → responsive grid** — `kanban-view.blade.php` branches on
+  `$groupBy === null` (catalogue-style boards with no stages). Those render as
+  a `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4` of
+  cards (no swimlane wrapper, no drop handlers — there's nothing to transition
+  between). Grouped boards (POS orders by state, demo tickets) keep the
+  horizontal swimlane + drag-drop. Used by `PosProduct` so the product
+  catalogue tiles across the page instead of stacking in a single 288px column.
+- **Toolbar free-text search** — `arch.searchable: [field1, field2, ...]` opts a
+  list view into a primary-themed pill search input rendered next to "X total"
+  in the toolbar. Empty / absent = no input rendered. `ListView::$search`
+  (`#[Url(except: '')]`) carries the query; `applySearch()` applies a single
+  OR-grouped `LIKE '%q%'` across the declared fields, and is run on BOTH the
+  paginated query AND every aggregate query so footer totals track the search
+  scope. `wire:model.live.debounce.300ms` so results stream as the user types
+  without spamming the server. Typing on a deep page calls `updatedSearch() →
+  resetPage()` to avoid orphan page indexes. `PosProduct` opts in with
+  `['name', 'barcode']`. Spatie translatable JSON columns (e.g. `name`) still
+  substring-match the raw envelope; once non-English translations land we'll
+  widen to per-locale `json_extract` paths.
 
 **Phase 5 — Contacts module (the reference addon):**
 
@@ -411,10 +430,10 @@ Keep this table current — it is how state survives across sessions.
 | 1 | Init: Laravel 11 + Livewire 3 + Tailwind + PHPStan/PHPUnit + this file | ✅ DONE |
 | 2 | Modular addon arch + `ir_module` / `ir_model(_fields)` / `ir_ui_view` | ✅ DONE |
 | 3 | Odoo 19 UX: master layout, app switcher, ⌘K command palette, sidebar, Chatter (`mail.thread`) | ✅ DONE |
-| 4 | Dynamic view engine: List (sort/bulk/aggregate/filter/custom-range, per-user column picker, hidden-by-default columns, inline `toggle` format) + Kanban (drag-drop, rotting indicator, image hero + meta footer) | ✅ DONE |
+| 4 | Dynamic view engine: List (sort/bulk/aggregate/filter/custom-range, per-user column picker, hidden-by-default columns, inline `toggle` format, arch-driven toolbar search) + Kanban (drag-drop, rotting indicator, image hero + meta footer, responsive grid for ungrouped boards) | ✅ DONE |
 | 5 | First module: **Contacts** (`Partner` model + Form/List/Kanban + Chatter) | ✅ DONE |
 | 6 | Auth & access control: login, `res_groups`, `ir_model_access`, enforced in views; **Profile self-service** (avatar / email-change via signed link / password) | ✅ DONE |
-| 7 | **Point of Sale** module: sessions, terminal, payments, receipts, reconciliation, customer picker, Processed By, status colors, Reporting + date-filter chips + custom range, Import/Export dropdown (Category round-trip), money columns, WhatsApp auto-receipt, direct image upload (AVIF/HEIC + safety hardening), per-user column picker, inline Active toggle, Odoo-style kanban product cards | ✅ DONE |
+| 7 | **Point of Sale** module: sessions, terminal, payments, receipts, reconciliation, customer picker, Processed By, status colors, Reporting + date-filter chips + custom range, Import/Export dropdown (Category round-trip), money columns, WhatsApp auto-receipt, direct image upload (AVIF/HEIC + safety hardening), per-user column picker, inline Active toggle, Odoo-style kanban product cards in responsive grid, toolbar search (name + barcode) | ✅ DONE |
 | 8 | **Settings**: `ir_config_parameter` + cached `SettingManager`/`Setting` facade + admin Settings page + generic `$selects` Alpine combobox (currency + language pickers) | ✅ DONE (General tab + dropdowns; POS/Inventory tabs = next increments) |
 | 9 | **Inventory**: double-entry schema + Overview Kanban + atomic pickings/transfer flow | ✅ (adjustment/replenishment/lots/valuation+forecast/barcode = next increments) |
 | 10 | **WhatsApp**: Meta Cloud API integration (queued messaging, webhook, admin Settings tab, **POS auto-receipt** shipped) | ✅ DONE; templates table/UI · Chatter button · other event automations · media/PDF attachments = next increments |

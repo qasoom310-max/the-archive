@@ -83,9 +83,24 @@
             <p class="text-xs text-chrome-400">{{ __('Leave blank to keep your current password.') }}</p>
 
             <div class="mt-3 grid gap-4 sm:grid-cols-2">
-                <div class="sm:col-span-2">
+                {{-- Each block lifts its own x-data wrapper so `show` (eye
+                     toggle) and `blocked` (Arabic-keystroke notice) live
+                     together — the inline notice can read sibling state
+                     without polluting a parent scope. `notifyBlocked()`
+                     debounces: holding a non-ASCII key extends the visible
+                     window 2.5 s past the LAST press, not the first. --}}
+                <div class="sm:col-span-2" x-data="{
+                        show: false,
+                        blocked: false,
+                        _t: null,
+                        notifyBlocked() {
+                            this.blocked = true;
+                            clearTimeout(this._t);
+                            this._t = setTimeout(() => { this.blocked = false }, 2500);
+                        }
+                    }">
                     <label class="block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Current password') }}</label>
-                    <div class="relative mt-1" x-data="{ show: false }">
+                    <div class="relative mt-1">
                         {{-- Passwords are constrained to printable ASCII. The
                              `beforeinput` listener vetoes any keystroke or
                              paste containing a non-ASCII codepoint before
@@ -95,7 +110,7 @@
                              enforces the same rule for JS-disabled clients
                              and crafted Livewire payloads. --}}
                         <input wire:model="currentPassword" :type="show ? 'text' : 'password'"
-                            x-on:beforeinput="if ($event.data && /[^\x20-\x7E]/.test($event.data)) $event.preventDefault()"
+                            x-on:beforeinput="if ($event.data && /[^\x20-\x7E]/.test($event.data)) { $event.preventDefault(); notifyBlocked() }"
                             autocomplete="current-password" class="o-input pe-10 text-sm">
                         <button type="button" @click="show = !show" tabindex="-1"
                             :aria-label="show ? @js(__('Hide password')) : @js(__('Show password'))"
@@ -108,13 +123,23 @@
                             </svg>
                         </button>
                     </div>
+                    <x-password-ascii-notice />
                     @error('currentPassword') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
-                <div>
+                <div x-data="{
+                        show: false,
+                        blocked: false,
+                        _t: null,
+                        notifyBlocked() {
+                            this.blocked = true;
+                            clearTimeout(this._t);
+                            this._t = setTimeout(() => { this.blocked = false }, 2500);
+                        }
+                    }">
                     <label class="block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('New password') }}</label>
-                    <div class="relative mt-1" x-data="{ show: false }">
+                    <div class="relative mt-1">
                         <input wire:model="newPassword" :type="show ? 'text' : 'password'"
-                            x-on:beforeinput="if ($event.data && /[^\x20-\x7E]/.test($event.data)) $event.preventDefault()"
+                            x-on:beforeinput="if ($event.data && /[^\x20-\x7E]/.test($event.data)) { $event.preventDefault(); notifyBlocked() }"
                             autocomplete="new-password" class="o-input pe-10 text-sm">
                         <button type="button" @click="show = !show" tabindex="-1"
                             :aria-label="show ? @js(__('Hide password')) : @js(__('Show password'))"
@@ -127,13 +152,23 @@
                             </svg>
                         </button>
                     </div>
+                    <x-password-ascii-notice />
                     @error('newPassword') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
-                <div>
+                <div x-data="{
+                        show: false,
+                        blocked: false,
+                        _t: null,
+                        notifyBlocked() {
+                            this.blocked = true;
+                            clearTimeout(this._t);
+                            this._t = setTimeout(() => { this.blocked = false }, 2500);
+                        }
+                    }">
                     <label class="block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Confirm new password') }}</label>
-                    <div class="relative mt-1" x-data="{ show: false }">
+                    <div class="relative mt-1">
                         <input wire:model="newPasswordConfirmation" :type="show ? 'text' : 'password'"
-                            x-on:beforeinput="if ($event.data && /[^\x20-\x7E]/.test($event.data)) $event.preventDefault()"
+                            x-on:beforeinput="if ($event.data && /[^\x20-\x7E]/.test($event.data)) { $event.preventDefault(); notifyBlocked() }"
                             autocomplete="new-password" class="o-input pe-10 text-sm">
                         <button type="button" @click="show = !show" tabindex="-1"
                             :aria-label="show ? @js(__('Hide password')) : @js(__('Show password'))"
@@ -146,6 +181,7 @@
                             </svg>
                         </button>
                     </div>
+                    <x-password-ascii-notice />
                 </div>
             </div>
         </div>

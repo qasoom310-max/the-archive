@@ -28,23 +28,30 @@
         <h2 class="mb-3 text-sm font-semibold text-chrome-800">{{ $title }}</h2>
     @endif
 
-    <div class="flex gap-4 overflow-x-auto pb-4">
+    {{-- Ungrouped boards (catalogue-style — no `group_by` in arch) render as a
+         responsive grid so cards tile across the page instead of stacking in a
+         single 288px swimlane. Drag-drop is a no-op when there are no stages
+         to transition between, so the per-column drop handlers are skipped. --}}
+    <div class="{{ $groupBy === null ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'flex gap-4 overflow-x-auto pb-4' }}">
         @foreach ($columns as $colValue => $colLabel)
-            <div x-data="{ over: false }"
-                @dragover.prevent="over = true"
-                @dragleave="over = false"
-                @drop.prevent="over = false; $wire.moveCard($event.dataTransfer.getData('id'), @js((string) $colValue))"
-                :class="over ? 'bg-primary-50 ring-2 ring-primary-300' : 'bg-chrome-100'"
-                class="flex w-72 shrink-0 flex-col rounded-xl p-2 transition">
+            @if ($groupBy !== null)
+                <div x-data="{ over: false }"
+                    @dragover.prevent="over = true"
+                    @dragleave="over = false"
+                    @drop.prevent="over = false; $wire.moveCard($event.dataTransfer.getData('id'), @js((string) $colValue))"
+                    :class="over ? 'bg-primary-50 ring-2 ring-primary-300' : 'bg-chrome-100'"
+                    class="flex w-72 shrink-0 flex-col rounded-xl p-2 transition">
 
-                <div class="flex items-center justify-between px-2 py-1.5">
-                    <span class="text-sm font-semibold text-chrome-700">{{ $colLabel }}</span>
-                    <span class="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-chrome-500">
-                        {{ count($grouped[$colValue] ?? []) }}
-                    </span>
-                </div>
+                    <div class="flex items-center justify-between px-2 py-1.5">
+                        <span class="text-sm font-semibold text-chrome-700">{{ $colLabel }}</span>
+                        <span class="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-chrome-500">
+                            {{ count($grouped[$colValue] ?? []) }}
+                        </span>
+                    </div>
 
-                <div class="flex min-h-16 flex-col gap-2 p-1">
+                    <div class="flex min-h-16 flex-col gap-2 p-1">
+            @endif
+
                     @forelse ($grouped[$colValue] ?? [] as $record)
                         @php
                             $isRotting = $rotting && $rotting->isRotting($record);
@@ -135,10 +142,15 @@
                             </div>
                         </div>
                     @empty
-                        <p class="px-2 py-6 text-center text-xs text-chrome-400">Drop cards here</p>
+                        @if ($groupBy !== null)
+                            <p class="px-2 py-6 text-center text-xs text-chrome-400">{{ __('Drop cards here') }}</p>
+                        @endif
                     @endforelse
+
+            @if ($groupBy !== null)
+                    </div>
                 </div>
-            </div>
+            @endif
         @endforeach
     </div>
 </div>

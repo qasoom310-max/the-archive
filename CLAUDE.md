@@ -177,9 +177,9 @@ stay (`done=true` → Done) and a `log` message is posted, so nothing vanishes.
 | Kanban view | `App\Livewire\Views\KanbanView` — group-by state, native HTML5 drag-drop → `moveCard()` transition (logs to Chatter if `Chatterable`), rotting cue |
 | Demo | `App\Livewire\Pages\Playground` (`/playground`), `DemoViewSeeder` registers `demo.ticket` model+fields+list/kanban arch |
 
-`arch` schema — **list:** `{columns:[{field,label,sortable,sum,avg,align,format}], default_sort:[{field,dir}], per_page}`.
-**kanban:** `{group_by, stages:[{value,label}], card:{title,subtitle,badges[]}, rotting:{field,days}}`.
-**form:** `{cols, fields:[{field,label,widget,required,placeholder,help,options,optionsFrom}]}`. A
+`arch` schema — **list:** `{columns:[{field,label,sortable,sum,avg,align,format,hidden_by_default,sort_field}], default_sort:[{field,dir}], per_page, filters, custom_date_field}`.
+**kanban:** `{group_by, stages:[{value,label}], card:{title,subtitle,badges[],image,meta:[{field,label,format}]}, rotting:{field,days}}`.
+**form:** `{cols, fields:[{field,label,widget,required,placeholder,help,options,optionsFrom,translatable}]}`. A
 `select` field is **model-sourced (a relation picker)** when it declares
 `optionsFrom:{model,value?,label?,orderBy?,excludeSelf?}` — `App\Erp\Views\DynamicOptions`
 parsed by `ViewArch`, resolved at render in `FormView::effectiveOptions()` (also drives the
@@ -192,6 +192,50 @@ needs an `ir_model`(+fields) row for the default-arch fallback; explicit `ir_ui_
 rows always win. Phase 5's Contacts uses this exact mechanism via `DefinesIrModel`.
 Enum-cast columns are normalised through `App\Erp\Views\ValueFormat` (`key()` for
 grouping, `label()` for display) so List/Kanban stay generic across any model.
+
+**Phase 4 increments (shipped 2026-05-23 / 2026-05-24):**
+
+- **`format: toggle`** — list-view column type that renders an inline iOS-style switch
+  in the cell. One click flips the value server-side via
+  `ListView::toggleBoolean(int|string $id, string $field)` — arch-whitelisted (only
+  fields declared with `format: toggle` are mutable) and Write-gated through
+  `AccessControl`. Used by `PosProduct.active` so staff hide a discontinued product
+  without opening the form. `'toggle'` added to the format whitelist in
+  `ViewArch::parseColumns`; the Blade switch lives in `list-view.blade.php`.
+- **`hidden_by_default: true`** on a column — declared in arch, parsed into
+  `ColumnDef::$hiddenByDefault`. Default state for the per-user column picker
+  (below). User explicitly toggling a hidden-by-default column ON wins and
+  persists across sessions. Used to declutter `PosProduct` list (tax/margin/
+  barcode/stock are off by default).
+- **Per-user column picker** (engine-generic). 3-dots icon in the list-view toolbar
+  opens a popover that lists every arch column with a show/hide toggle + drag handle
+  for reorder. Persisted in DB per (user, model). Schema:
+  `2026_05_24_100001_create_user_view_preferences_table` — `user_id` (FK cascade),
+  `model_key`, `hidden_columns` (JSON), `column_order` (JSON), `unique(user_id,
+  model_key)` named `uvp_user_model_unique` (short to dodge MySQL's 64-char index
+  cap — memory: `[[mysql-index-name-64-char-cap]]`). Model:
+  `App\Models\UserViewPreference::forUserAndModel($userId, $modelKey)`. ListView
+  state: `$hiddenColumns`, `$columnOrder`; helpers `loadUserColumnPreferences()`,
+  `visibleColumns()`, `toggleColumn()`, `reorderColumns()`,
+  `persistColumnPreferences()`. Dropdown wears `wire:ignore` so Alpine drag
+  listeners survive Livewire morphs.
+- **Alpine `$wire` proxy gotcha** — storing `this.wire = wire` in `Alpine.data(...)`
+  wraps the Livewire shim in Alpine's reactivity proxy, which intercepts `.call()`
+  and routes through Vue's `__v_raw` accessor → `MethodNotFoundException`. Always
+  closure-capture: `Alpine.data('foo', () => ({ init(el, wire) { /* use wire
+  directly */ } }))`. Memory: `[[livewire-wire-on-alpine-this]]`.
+- **Kanban card image + meta** — `KanbanCard` extended with `?string $image` and
+  `array $meta` (list of `{field, label, format}`). `ViewArch::parseCard` parses
+  both; meta `format` whitelisted to `money|number|date|datetime|bool`.
+  `kanban-view.blade.php` renders a square image hero (with neutral SVG
+  placeholder when the column is declared but the row is empty — same height
+  cards) and a `<dl>` meta footer with label-on-start, value-on-end. Money rows
+  go through `Currencies::format()`. Used by `PosProduct` for Odoo-style product
+  cards (`image_path` + price/stock meta).
+- **Sliding-window pagination** (`resources/views/vendor/pagination/compact.blade.php`).
+  Always shows `[1, 2, …, current−1, current, current+1, …, last]` collapsed to
+  unique sorted pages with gap-insertion. Replaces the prior layout which hid the
+  active page behind an ellipsis on deep pages.
 
 **Phase 5 — Contacts module (the reference addon):**
 
@@ -299,6 +343,54 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
   a Heroicons outline arrow-down SVG so it inherits the toolbar's text colour
   instead of rendering as a chunky OS emoji.
 
+**Phase 7 increments shipped 2026-05-23 / 2026-05-24:**
+
+- **Direct image upload (Livewire pipeline bypassed)** —
+  `App\Http\Controllers\FormImageUploadController` is a single-action endpoint
+  (POST `/form/upload-image`, `throttle:30,1`, named `form.upload-image`) that
+  accepts a multipart file + `bucket` field, validates
+  `mimes:jpg,jpeg,png,gif,webp,bmp,avif,heic,heif` (**no SVG** — XSS surface) and
+  `max:4096` (4 MB), and stores under `storage/app/public/<bucket>/...`. Bucket
+  whitelist: `pos_products`, `pos_categories`, `partners`, `avatars`. Returns
+  `{path, url}` JSON. `FormView::$imagePaths` holds `<attribute => path>` and
+  `save()` writes those straight onto the record. The Blade `image` widget is an
+  Alpine block that `fetch()`-POSTs and assigns `$wire.imagePaths.<field>` on
+  success. **Why:** Livewire's two-phase async upload kept 500ing on Hostinger
+  (`livewire-tmp/livewire-tmp.` phantom path on WebP, `FileNotPreviewable` on
+  AVIF/HEIC) — the synchronous controller sidesteps the entire `livewire-tmp/` +
+  `temporaryUrl()` chain.
+- **AVIF / HEIC accepted** — `lang/ar.json` + form-view hint string:
+  "Accepted: JPG, PNG, GIF, WebP, AVIF, HEIC, BMP · max 4 MB". `config/livewire.php`
+  was published and `temporary_file_upload.preview_mimes` extended with
+  `avif/heic/heif` — kept around for any legacy callers still on Livewire's path.
+  Memory: `[[livewire-temporary-url-preview-mimes]]`.
+- **Per-user column picker on `/app/pos/product`** — uses the Phase 4 engine
+  primitives. List arch flips `tax_rate` / `profit` / `stock_on_hand` / `barcode`
+  to `hidden_by_default: true`; adds `category_name` (accessor on `PosProduct`,
+  reads through `category` relation; sorts via `sort_field: pos_category_id`
+  because accessors can't be SQL-ordered).
+- **Active column = inline iOS toggle** — `PosProduct` list arch
+  `active` column uses `format: toggle`; one click flips the boolean via
+  `ListView::toggleBoolean` (Write-gated).
+- **Odoo-style kanban product cards** — `PosProduct` kanban arch now declares
+  `card: {title: 'name', image: 'image_path', meta: [{price, money}, {stock_on_hand,
+  number}]}`. No subtitle / badges — meta footer carries the same info more legibly.
+  Renders via the Phase 4 KanbanCard image + meta extension.
+- **Import/Export Category round-trip** — `PosProductExportController` eager-loads
+  `category:id,name` and emits a Category column between Name and Barcode (renders
+  through `category_name` accessor). `PosProductImportTemplateController` includes
+  the column with "Hot Drinks" / etc. example values. `PosProductImporter` has
+  `HEADER_MAP` aliases `category` / `category name` / `category_name`; resolves
+  names → ids in one pre-pass (no N+1). `Modules\Pos\Imports\ImportRow` gained a
+  readonly `categoryName` property with Livewire serialization. Empty cell =
+  leave `pos_category_id` unchanged (or null on create).
+- **All dinar currencies → 2 decimals** — `App\Erp\Money\Currencies` flipped BHD /
+  KWD / OMR / JOD / LYD / TND / IQD from `decimals: 3` to `decimals: 2` per user
+  request ("0.45 BD, not 0.450 BD, for the whole system"). 3-dp dinar formatting
+  notes elsewhere in this file are historical — actual behaviour is now 2-dp
+  everywhere. Default DB column is still `decimal(12,2)` so no schema work was
+  needed; rendering just pads two trailing digits now.
+
 **Deliberately OUT of scope** (say so if asked, offer as follow-ups): offline/PWA &
 hardware/IoT (scanners, cash drawer, customer display), restaurant floors/tables/kitchen,
 loyalty/gift cards/coupons, multi-currency *per-order* (the global default currency from
@@ -319,14 +411,14 @@ Keep this table current — it is how state survives across sessions.
 | 1 | Init: Laravel 11 + Livewire 3 + Tailwind + PHPStan/PHPUnit + this file | ✅ DONE |
 | 2 | Modular addon arch + `ir_module` / `ir_model(_fields)` / `ir_ui_view` | ✅ DONE |
 | 3 | Odoo 19 UX: master layout, app switcher, ⌘K command palette, sidebar, Chatter (`mail.thread`) | ✅ DONE |
-| 4 | Dynamic view engine: List (sort/bulk/aggregate/filter/custom-range) + Kanban (drag-drop + rotting indicator) | ✅ DONE |
+| 4 | Dynamic view engine: List (sort/bulk/aggregate/filter/custom-range, per-user column picker, hidden-by-default columns, inline `toggle` format) + Kanban (drag-drop, rotting indicator, image hero + meta footer) | ✅ DONE |
 | 5 | First module: **Contacts** (`Partner` model + Form/List/Kanban + Chatter) | ✅ DONE |
 | 6 | Auth & access control: login, `res_groups`, `ir_model_access`, enforced in views; **Profile self-service** (avatar / email-change via signed link / password) | ✅ DONE |
-| 7 | **Point of Sale** module: sessions, terminal, payments, receipts, reconciliation, customer picker, Processed By, status colors, Reporting + date-filter chips + custom range, Import/Export dropdown, money columns, WhatsApp auto-receipt | ✅ DONE |
+| 7 | **Point of Sale** module: sessions, terminal, payments, receipts, reconciliation, customer picker, Processed By, status colors, Reporting + date-filter chips + custom range, Import/Export dropdown (Category round-trip), money columns, WhatsApp auto-receipt, direct image upload (AVIF/HEIC + safety hardening), per-user column picker, inline Active toggle, Odoo-style kanban product cards | ✅ DONE |
 | 8 | **Settings**: `ir_config_parameter` + cached `SettingManager`/`Setting` facade + admin Settings page + generic `$selects` Alpine combobox (currency + language pickers) | ✅ DONE (General tab + dropdowns; POS/Inventory tabs = next increments) |
 | 9 | **Inventory**: double-entry schema + Overview Kanban + atomic pickings/transfer flow | ✅ (adjustment/replenishment/lots/valuation+forecast/barcode = next increments) |
 | 10 | **WhatsApp**: Meta Cloud API integration (queued messaging, webhook, admin Settings tab, **POS auto-receipt** shipped) | ✅ DONE; templates table/UI · Chatter button · other event automations · media/PDF attachments = next increments |
-| 11 | **Currency engine**: `App\Erp\Money\{Currency,Currencies}` (27 currencies, Arab-world heavy) + `ValueFormat::money()` + `format: money` column type + Settings dropdown | ✅ DONE |
+| 11 | **Currency engine**: `App\Erp\Money\{Currency,Currencies}` (27 currencies, Arab-world heavy — **all dinars now display at 2 decimals per user policy**, originally modelled as 3) + `ValueFormat::money()` + `format: money` column type + Settings dropdown | ✅ DONE |
 | 12 | **Locale & RTL Arabic (Pass 1)**: `SetLocale` middleware + `lang/ar.json` + `<html dir="rtl">` + logical Tailwind utilities + auto-reload on language flip + app-switcher per-module icons | ✅ Pass 1 (foundation + chrome + login + profile + settings + dashboard). Pass 2 (POS interiors, Contacts, Inventory, Chatter, engine list/kanban/form chrome, validation messages) = next |
 | 13 | **Translatable data**: `spatie/laravel-translatable` + engine `translatable: true` arch flag + Odoo-style EN/AR pills in FormView + `PosProduct.name` opted in | ✅ DONE (PosProduct.name only). Follow-ups: `PosCategory.name`, `Partner.name`, add `description` columns then opt them in |
 
@@ -395,14 +487,14 @@ default `+973`). `pos_orders.customer_phone` column added via `2026_05_21_200001
 | Concern | Location |
 |---|---|
 | Value object | `App\Erp\Money\Currency` (readonly) — `code` / `name` / `symbol` / `decimals` / `position` (before\|after); `format($amount)` does the actual padding |
-| Registry | `App\Erp\Money\Currencies` — **27 currencies**, Arab-world heavy: dinars (BHD/KWD/OMR/JOD/LYD/TND/IQD) = **3 decimals**; SAR/QAR/AED/LBP/SYP/YER/EGP/SDG/DZD/MAD/MRU/SOS = 2 decimals; DJF/KMF = 0 decimals; plus USD/EUR/GBP/INR/PKR/TRY (Western majors prefix the glyph, Arab abbreviations suffix). `all()` / `find(code)` / `active()` (reads `Setting::get('currency.default')` with USD fallback) / `format(amount, code?)` / `flushCache()` for tests |
+| Registry | `App\Erp\Money\Currencies` — **27 currencies**, Arab-world heavy: dinars (BHD/KWD/OMR/JOD/LYD/TND/IQD) = **2 decimals** (originally modelled as 3; flipped 2026-05-24 — "0.45 BD, not 0.450 BD, for the whole system"); SAR/QAR/AED/LBP/SYP/YER/EGP/SDG/DZD/MAD/MRU/SOS = 2 decimals; DJF/KMF = 0 decimals; plus USD/EUR/GBP/INR/PKR/TRY (Western majors prefix the glyph, Arab abbreviations suffix). `all()` / `find(code)` / `active()` (reads `Setting::get('currency.default')` with USD fallback) / `format(amount, code?)` / `flushCache()` for tests |
 | Engine wiring | `App\Erp\Views\ValueFormat::money()` delegates to `Currencies::format()`. `resources/views/livewire/views/list-view.blade.php` `$fmt` closure routes `format: money` columns through it; aggregate footer also detects `'money'` and uses the same path so footer totals match the row format |
 | Whitelist gotcha | `App\Erp\Views\ViewArch::parseList()` had a hardcoded format whitelist that silently downgraded unknown values to `'text'`. `'money'` was added; regression test `CurrencyFormatTest::test_view_arch_whitelist_accepts_money_format` pins it so a future tidy can't undo it |
 | Form widget | `resources/views/livewire/views/form-view.blade.php` — number widget gains `step="any"` so 2-/3-decimal currencies (8.5, 12.345) don't trip browser `step=1` validation ("nearest valid 8 and 9") |
 | Settings dropdown | `App\Livewire\Pages\SettingsPage::$selects['currency.default']` populated from `Currencies::all()`; rendered by `resources/views/livewire/pages/settings.blade.php` as an Alpine combobox (button + popover with search input + filtered list + click-pick + Esc/click-outside to close). Generic across any setting key listed in `$selects` — `$selects['company.language']` reuses the same template |
 | Tests | `tests/Feature/CurrencyFormatTest.php` (10) — BHD 3-decimal suffix, USD 2-decimal prefix, zero-decimal currencies, active-from-setting, fallback-to-USD-on-unknown, explicit-code override, null→zero, dropdown population, arch whitelist |
 
-DB stores `decimal(12,2)`; display can be 3-decimal (BHD `10.000`) — third decimal is always padded `0` at render-time. Production change: admin picks currency in **Settings → General → Default Currency**, save flushes the settings cache, next page render reformats every money cell + the WhatsApp receipt template variable.
+DB stores `decimal(12,2)` and all currencies now display at ≤ 2 decimals (DJF/KMF 0, everything else 2). The `step="any"` form widget gotcha and `flushCache()` test helper still matter — both predate the 2-dp policy and aren't affected by it. Production change: admin picks currency in **Settings → General → Default Currency**, save flushes the settings cache, next page render reformats every money cell + the WhatsApp receipt template variable.
 
 **Phase 12 — Locale & RTL Arabic (Pass 1, shipped 2026-05-22):**
 

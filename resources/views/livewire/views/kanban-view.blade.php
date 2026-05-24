@@ -81,9 +81,11 @@
 
     {{-- Ungrouped boards (catalogue-style — no `group_by` in arch) render as a
          responsive grid so cards tile across the page instead of stacking in a
-         single 288px swimlane. Drag-drop is a no-op when there are no stages
-         to transition between, so the per-column drop handlers are skipped. --}}
-    <div class="{{ $groupBy === null ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'flex gap-4 overflow-x-auto pb-4' }}">
+         single 288px swimlane. `auto-rows-fr` forces every row to share the
+         tallest cell's height, so cards line up across rows too. Drag-drop is
+         a no-op when there are no stages to transition between, so the per-
+         column drop handlers are skipped. --}}
+    <div class="{{ $groupBy === null ? 'grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 items-stretch' : 'flex gap-4 overflow-x-auto pb-4' }}">
         @foreach ($columns as $colValue => $colLabel)
             @if ($groupBy !== null)
                 <div x-data="{ over: false }"
@@ -108,35 +110,42 @@
                             $isRotting = $rotting && $rotting->isRotting($record);
                             $stale = $isRotting ? $rotting->staleDays($record) : 0;
                         @endphp
+                        {{-- Rigid card shell — `flex h-full flex-col` makes every
+                             card fill its grid cell so 4 cards in the same row
+                             always render the same height regardless of image
+                             intrinsic ratio or meta-row count. Image hero is a
+                             FIXED pixel height (h-40 ≈ 160px), not aspect ratio,
+                             so it doesn't scale with column width. Body uses
+                             `flex-1` + `mt-auto` on the footer block to push
+                             meta/badges to the bottom of every card, keeping
+                             titles top-aligned and footers bottom-aligned. --}}
                         <div draggable="true"
                             wire:key="card-{{ $record->getKey() }}"
                             @dragstart="$event.dataTransfer.setData('id', '{{ $record->getKey() }}')"
-                            class="cursor-grab overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-chrome-900/5 active:cursor-grabbing
+                            class="flex h-full flex-col cursor-grab overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-chrome-900/5 active:cursor-grabbing transition hover:shadow-md
                                    {{ $isRotting ? 'border-l-4 border-red-500 opacity-90' : '' }}">
-                            {{-- Image hero (Odoo-style). Only renders when the arch declared
-                                 a `card.image` field AND the record has a value for it. Falls
-                                 back to a neutral placeholder when the column is declared but
-                                 empty, so cards on the same column stay the same height. --}}
-                            {{-- Image hero — `aspect-[4/3]` is noticeably shorter than the
-                                 previous `aspect-square` so a tile grid renders denser,
-                                 closer to Odoo's POS catalogue. Native `loading="lazy"`
-                                 layers a second lazy-load on top of the server-side
-                                 windowing (only loads bytes when the row enters view). --}}
                             @if ($card?->image)
                                 @php $imgPath = $record->getAttribute($card->image); @endphp
-                                <div class="flex aspect-[4/3] w-full items-center justify-center bg-chrome-50">
+                                {{-- Fixed-height image strip. `max-h-full max-w-full`
+                                     + `object-contain` keeps the bitmap inside the box
+                                     while preserving aspect ratio; very wide or very
+                                     tall product photos are letterboxed cleanly within
+                                     the same 160px height. `loading="lazy"` defers
+                                     the byte fetch until the tile scrolls into view. --}}
+                                <div class="flex h-40 shrink-0 items-center justify-center bg-chrome-50 p-3">
                                     @if (is_string($imgPath) && $imgPath !== '')
                                         <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($imgPath) }}"
                                              alt="{{ $card ? $val($record, $card->title) : '' }}"
                                              loading="lazy" decoding="async"
-                                             class="size-full object-contain p-2">
+                                             class="max-h-full max-w-full object-contain">
                                     @else
                                         <svg class="size-10 text-chrome-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M1 5.25A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25v9.5A2.25 2.25 0 0 1 16.75 17H3.25A2.25 2.25 0 0 1 1 14.75v-9.5Zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 0 0 .75-.75v-2.69l-2.22-2.219a.75.75 0 0 0-1.06 0L10 14.06l-3.969-3.97a.75.75 0 0 0-1.06 0L2.5 11.06ZM6.625 7a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Z" clip-rule="evenodd"/></svg>
                                     @endif
                                 </div>
                             @endif
 
-                            <div class="p-3">
+                            <div class="flex flex-1 flex-col p-3">
+                                {{-- Title row stays at the top of the body. --}}
                                 <div class="flex items-start justify-between gap-2">
                                     <p class="text-sm font-semibold text-chrome-800">
                                         @if ($openUrl)
@@ -159,41 +168,48 @@
                                     <p class="mt-0.5 text-xs text-chrome-500">{{ $val($record, $card->subtitle) }}</p>
                                 @endif
 
-                                {{-- Meta rows (label-on-start, value-on-end). The Odoo "price /
-                                     stock" footer. Empty when the arch doesn't declare meta. --}}
-                                @if ($card && count($card->meta) > 0)
-                                    <dl class="mt-2 space-y-0.5 text-xs">
-                                        @foreach ($card->meta as $row)
-                                            <div class="flex items-baseline justify-between gap-2">
-                                                <dt class="text-chrome-500">{{ $row['label'] !== null ? __($row['label']) : ucfirst(str_replace('_', ' ', $row['field'])) }}</dt>
-                                                <dd class="font-medium text-chrome-800 tabular-nums">{{ $metaFmt($record, $row) }}</dd>
-                                            </div>
-                                        @endforeach
-                                    </dl>
-                                @endif
+                                {{-- Footer block: meta rows + badges. `mt-auto`
+                                     pins it to the bottom of the card body, so a
+                                     card with 2-line title and one with 1-line
+                                     title still have their "Sale Price / On hand"
+                                     rows perfectly aligned across the grid. --}}
+                                @if ($card && (count($card->meta) > 0 || count($card->badges) > 0))
+                                    <div class="mt-auto pt-3">
+                                        @if (count($card->meta) > 0)
+                                            <dl class="space-y-0.5 text-xs">
+                                                @foreach ($card->meta as $row)
+                                                    <div class="flex items-baseline justify-between gap-2">
+                                                        <dt class="text-chrome-500">{{ $row['label'] !== null ? __($row['label']) : ucfirst(str_replace('_', ' ', $row['field'])) }}</dt>
+                                                        <dd class="font-medium text-chrome-800 tabular-nums">{{ $metaFmt($record, $row) }}</dd>
+                                                    </div>
+                                                @endforeach
+                                            </dl>
+                                        @endif
 
-                                @if ($card && count($card->badges) > 0)
-                                    <div class="mt-2 flex flex-wrap gap-1">
-                                        @foreach ($card->badges as $badge)
-                                            @php
-                                                $rawBadge = $record->getAttribute($badge);
-                                                $displayBadge = $val($record, $badge);
-                                                $badgeColor = \App\Erp\Views\ValueFormat::color($rawBadge);
-                                                $badgeClasses = match ($badgeColor) {
-                                                    'emerald' => 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-                                                    'amber'   => 'bg-amber-50 text-amber-700 ring-amber-600/20',
-                                                    'sky'     => 'bg-sky-50 text-sky-700 ring-sky-600/20',
-                                                    'red'     => 'bg-red-50 text-red-700 ring-red-600/20',
-                                                    'rose'    => 'bg-rose-50 text-rose-700 ring-rose-600/20',
-                                                    'violet'  => 'bg-violet-50 text-violet-700 ring-violet-600/20',
-                                                    'slate'   => 'bg-slate-100 text-slate-700 ring-slate-600/20',
-                                                    default   => 'bg-chrome-100 text-chrome-600 ring-chrome-300/40',
-                                                };
-                                            @endphp
-                                            @if ($displayBadge)
-                                                <span class="o-chip {{ $badgeClasses }} ring-1 ring-inset">{{ $displayBadge }}</span>
-                                            @endif
-                                        @endforeach
+                                        @if (count($card->badges) > 0)
+                                            <div class="mt-2 flex flex-wrap gap-1">
+                                                @foreach ($card->badges as $badge)
+                                                    @php
+                                                        $rawBadge = $record->getAttribute($badge);
+                                                        $displayBadge = $val($record, $badge);
+                                                        $badgeColor = \App\Erp\Views\ValueFormat::color($rawBadge);
+                                                        $badgeClasses = match ($badgeColor) {
+                                                            'emerald' => 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+                                                            'amber'   => 'bg-amber-50 text-amber-700 ring-amber-600/20',
+                                                            'sky'     => 'bg-sky-50 text-sky-700 ring-sky-600/20',
+                                                            'red'     => 'bg-red-50 text-red-700 ring-red-600/20',
+                                                            'rose'    => 'bg-rose-50 text-rose-700 ring-rose-600/20',
+                                                            'violet'  => 'bg-violet-50 text-violet-700 ring-violet-600/20',
+                                                            'slate'   => 'bg-slate-100 text-slate-700 ring-slate-600/20',
+                                                            default   => 'bg-chrome-100 text-chrome-600 ring-chrome-300/40',
+                                                        };
+                                                    @endphp
+                                                    @if ($displayBadge)
+                                                        <span class="o-chip {{ $badgeClasses }} ring-1 ring-inset">{{ $displayBadge }}</span>
+                                                    @endif
+                                                @endforeach
+                                            </div>
+                                        @endif
                                     </div>
                                 @endif
                             </div>

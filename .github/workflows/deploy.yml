@@ -140,7 +140,13 @@ jobs:
       - name: Trust Hostinger SSH host key
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          # `|| true` so a flaky keyscan (host briefly unreachable from
+          # GitHub's IPs, occasional rate-limit on unauthenticated probes)
+          # doesn't fail the whole deploy. The actual rsync + ssh commands
+          # below use `StrictHostKeyChecking=accept-new`, which trusts the
+          # host fingerprint on first contact — so even with an empty
+          # known_hosts the deploy still goes through.
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
       # rsync the project to Hostinger. Important excludes:
       #   - .git*, tests, node_modules: dev-only weight

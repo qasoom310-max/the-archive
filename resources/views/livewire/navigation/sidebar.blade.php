@@ -8,7 +8,10 @@
     @if ($isAdmin)
         <a href="{{ url('/app/settings') }}"
             class="flex items-center gap-3 rounded-md px-2.5 py-2 text-chrome-700 hover:bg-chrome-200">
-            <svg class="size-5 shrink-0 text-chrome-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.34 1.8a1 1 0 0 1 .95-.7h1.42a1 1 0 0 1 .95.7l.3.96a6.97 6.97 0 0 1 1.46.84l.98-.23a1 1 0 0 1 1.1.45l.71 1.23a1 1 0 0 1-.15 1.2l-.7.7c.05.28.08.56.08.85s-.03.57-.08.85l.7.7a1 1 0 0 1 .15 1.2l-.71 1.23a1 1 0 0 1-1.1.45l-.98-.23c-.45.35-.94.63-1.46.84l-.3.96a1 1 0 0 1-.95.7H9.29a1 1 0 0 1-.95-.7l-.3-.96a6.97 6.97 0 0 1-1.46-.84l-.98.23a1 1 0 0 1-1.1-.45l-.71-1.23a1 1 0 0 1 .15-1.2l.7-.7A5.07 5.07 0 0 1 4.46 10c0-.29.03-.57.08-.85l-.7-.7a1 1 0 0 1-.15-1.2l.71-1.23a1 1 0 0 1 1.1-.45l.98.23c.45-.35.94-.63 1.46-.84l.3-.96ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clip-rule="evenodd"/></svg>
+            {{-- Heroicons mini cog-6-tooth, canonical path. Earlier hand-
+                 rolled version overshot the 0-20 viewBox and rendered
+                 visibly clipped at the icon's edges. --}}
+            <svg class="size-5 shrink-0 text-chrome-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.34 1.804A1 1 0 0 1 9.32 1h1.36a1 1 0 0 1 .98.804l.295 1.473c.497.144.971.342 1.416.587l1.25-.834a1 1 0 0 1 1.262.125l.962.962a1 1 0 0 1 .125 1.262l-.834 1.25c.245.445.443.919.587 1.416l1.473.294a1 1 0 0 1 .804.98v1.361a1 1 0 0 1-.804.98l-1.473.295a6.95 6.95 0 0 1-.587 1.416l.834 1.25a1 1 0 0 1-.125 1.262l-.962.962a1 1 0 0 1-1.262.125l-1.25-.834a6.953 6.953 0 0 1-1.416.587l-.294 1.473a1 1 0 0 1-.98.804H9.32a1 1 0 0 1-.98-.804l-.295-1.473a6.957 6.957 0 0 1-1.416-.587l-1.25.834a1 1 0 0 1-1.262-.125l-.962-.962a1 1 0 0 1-.125-1.262l.834-1.25a6.957 6.957 0 0 1-.587-1.416l-1.473-.294A1 1 0 0 1 1 10.681V9.32a1 1 0 0 1 .804-.98l1.473-.295c.144-.497.342-.971.587-1.416l-.834-1.25a1 1 0 0 1 .125-1.262l.962-.962A1 1 0 0 1 5.38 3.03l1.25.834a6.957 6.957 0 0 1 1.416-.587l.294-1.473ZM13 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" clip-rule="evenodd"/></svg>
             <span x-show="!collapsed" x-cloak class="truncate font-medium">{{ __('Settings') }}</span>
         </a>
     @endif

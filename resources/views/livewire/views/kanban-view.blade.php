@@ -38,26 +38,36 @@
                 <span></span> {{-- spacer so search aligns end --}}
             @endif
 
+            {{-- Same pill-style search bar as ListView (engine consistency):
+                 chrome-100 rounded-full base that lifts to white on focus
+                 with a primary-500 ring; w-44 grows to w-64 on focus for an
+                 Odoo-like reveal. `x-data` mirrors the input value into
+                 Alpine so the clear (×) button visibility doesn't need a
+                 round-trip. --}}
             @if ($searchable)
-                <div class="relative w-full max-w-xs">
-                    <svg class="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-chrome-400"
-                        viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 3.5 9.74l3.38 3.38a1 1 0 0 0 1.42-1.42l-3.38-3.38A5.5 5.5 0 0 0 9 3.5ZM5.5 9a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0Z" clip-rule="evenodd"/>
-                    </svg>
+                <div x-data="{ q: @entangle('search').live }"
+                     class="group relative">
+                    <span class="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-chrome-400 group-focus-within:text-primary-600 transition-colors">
+                        <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clip-rule="evenodd"/>
+                        </svg>
+                    </span>
                     <input type="text"
-                        wire:model.live.debounce.300ms="search"
-                        placeholder="{{ __('Search…') }}"
-                        aria-label="{{ __('Search') }}"
-                        class="w-full rounded-md border border-chrome-300 bg-white py-1.5 ps-9 pe-8 text-sm text-chrome-800 placeholder:text-chrome-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20">
-                    @if ($search !== '')
-                        <button type="button" wire:click="$set('search', '')"
+                           wire:model.live.debounce.300ms="search"
+                           x-model="q"
+                           placeholder="{{ __('Search…') }}"
+                           aria-label="{{ __('Search') }}"
+                           class="w-44 rounded-full border-0 bg-chrome-100 py-1.5 ps-9 pe-9 text-sm text-chrome-800 placeholder:text-chrome-400 transition-all focus:w-64 focus:bg-white focus:shadow-sm focus:ring-2 focus:ring-primary-500 focus:placeholder:text-chrome-300">
+                    <button type="button"
+                            x-show="q.length > 0"
+                            x-cloak
+                            @click="q = ''; $wire.set('search', '')"
                             aria-label="{{ __('Clear search') }}"
-                            class="absolute end-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-chrome-400 hover:text-chrome-700">
-                            <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/>
-                            </svg>
-                        </button>
-                    @endif
+                            class="absolute inset-y-0 end-0 flex items-center pe-3 text-chrome-400 hover:text-primary-600">
+                        <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/>
+                        </svg>
+                    </button>
                 </div>
             @endif
         </div>

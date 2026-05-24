@@ -95,7 +95,18 @@
                     </span>
                 </div>
             @else
-                <button type="submit" class="o-btn-primary">{{ __('Save') }}</button>
+                {{-- `wire:loading.attr="disabled"` blocks a rapid second
+                     click on the Save button while the create request is
+                     in flight — without it, two near-simultaneous submits
+                     can each go through and create duplicate records.
+                     `wire:target="save"` scopes it to the save action so
+                     a translatable-pill click can't accidentally disable
+                     the button. After the first save, the page navigates
+                     to the canonical edit URL and the button is replaced
+                     by the status pill, so no further double-click risk. --}}
+                <button type="submit"
+                        wire:loading.attr="disabled" wire:target="save"
+                        class="o-btn-primary disabled:cursor-not-allowed disabled:opacity-60">{{ __('Save') }}</button>
             @endif
         </div>
     </div>

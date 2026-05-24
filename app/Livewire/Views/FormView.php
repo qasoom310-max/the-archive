@@ -395,8 +395,26 @@ final class FormView extends Component
         // nothing else visibly changes — e.g. POS product edit).
         session()->flash('toast', $isNew ? 'Created.' : 'Saved.');
 
+        // Explicit redirect set by the host (e.g. legacy "back to list"
+        // wiring) wins; otherwise, transition a freshly-created record
+        // to its canonical edit URL by swapping the trailing `/new`
+        // segment for the new id. This kills two birds:
+        //   - Refreshing the page no longer resurfaces the empty "new"
+        //     form, so the user can't accidentally create a duplicate.
+        //   - Save button → status pill on the next render (auto-save
+        //     mode), so a double-click on the original Save button
+        //     can't fire save() a second time.
         if ($this->redirectTo !== '') {
             $this->redirect($this->redirectTo, navigate: true);
+
+            return;
+        }
+
+        if ($isNew && $this->baseUrl !== '') {
+            $editUrl = preg_replace('@/[^/]+$@', '/' . $record->getKey(), $this->baseUrl);
+            if ($editUrl !== null) {
+                $this->redirect($editUrl, navigate: true);
+            }
         }
     }
 

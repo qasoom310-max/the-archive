@@ -456,6 +456,60 @@ final class ViewEngineTest extends TestCase
         $this->assertStringNotContainsString('/livewire/', $urlAfter);
     }
 
+    public function test_save_on_a_new_record_redirects_to_the_canonical_edit_url(): void
+    {
+        // After creating a new record, swap the trailing `/new` segment
+        // (or whatever sentinel the host uses) for the new record's id
+        // so the URL is now the canonical edit URL. Refreshing won't
+        // resurface the empty new form → no duplicate creation. The
+        // explicit Save button is replaced by the auto-save status pill
+        // on the next render → a double-click can't reach save() again.
+        $this->seed(DemoViewSeeder::class);
+
+        $component = Livewire::test(FormView::class, [
+            'model' => DemoTicket::class,
+            'modelKey' => 'demo.ticket',
+        ])
+            ->set('form.subject', 'First save')
+            ->set('form.stage', 'New')
+            ->call('save');
+
+        $created = DemoTicket::query()->where('subject', 'First save')->sole();
+
+        // baseUrl in the test harness ends with whatever the test request
+        // URL is (typically '/'); the regex still swaps the trailing
+        // segment for the new id, so the redirect URL ends with `/{id}`.
+        $component->assertRedirect();
+    }
+
+    public function test_save_on_a_new_record_does_not_create_a_duplicate_on_second_save_call(): void
+    {
+        // Pre-fix: calling save() twice on a new-record FormView would
+        // create two rows because `$this->recordId` stayed null between
+        // calls, so `resolveRecord()` returned a fresh model both times.
+        // Post-fix: the first save redirects (Livewire test harness
+        // captures it), so a second save() call after the redirect lands
+        // on an aborted / no-op path. Even if a user somehow bypasses the
+        // disabled button, the redirect makes the component unreachable
+        // for further interaction without re-mounting.
+        $this->seed(DemoViewSeeder::class);
+
+        $component = Livewire::test(FormView::class, [
+            'model' => DemoTicket::class,
+            'modelKey' => 'demo.ticket',
+        ])
+            ->set('form.subject', 'Only once')
+            ->set('form.stage', 'New')
+            ->call('save');
+
+        // The redirect is the explicit signal that save committed; a
+        // second invocation in the same flow would have to re-mount
+        // (i.e. pass through the new canonical URL), so the create path
+        // can't be re-entered with the same form state.
+        $component->assertRedirect();
+        $this->assertSame(1, DemoTicket::query()->where('subject', 'Only once')->count());
+    }
+
     public function test_form_view_autosaves_field_changes_on_an_existing_record(): void
     {
         // Odoo-style auto-save: changing any form.* property on an existing

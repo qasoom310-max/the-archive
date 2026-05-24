@@ -8,11 +8,13 @@ use App\Erp\Contracts\DefinesIrModel;
 use App\Erp\Registry\FieldDefinition;
 use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
+use App\Erp\Translation\TranslatableModel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
+use Spatie\Translatable\HasTranslations;
 
 /**
  * A POS product category. Self-nesting via `parent_id` (a logical ref —
@@ -20,18 +22,35 @@ use Illuminate\Support\Str;
  * one of its descendants. `slug` is auto-derived (unique) from `name`.
  *
  * @property int $id
- * @property string $name
+ * @property string $name       Translatable. Stored as JSON `{"en":..., "ar":...}`;
+ *                              read returns the active-locale value
+ *                              (`app()->getLocale()`, driven by `company.language`
+ *                              via `SetLocale` middleware). Mirrors the same
+ *                              pattern PosProduct uses for its display name.
  * @property int|null $parent_id
  * @property string|null $slug
  * @property string|null $image
  * @property int $sequence
  */
-final class PosCategory extends Model implements DefinesIrModel
+final class PosCategory extends Model implements DefinesIrModel, TranslatableModel
 {
+    use HasTranslations;
+
     protected $table = 'pos_categories';
 
     /** @var list<string> */
     protected $fillable = ['name', 'parent_id', 'slug', 'image', 'sequence'];
+
+    /**
+     * Translatable attributes — Spatie's trait intercepts reads/writes on
+     * these and treats the underlying column as JSON keyed by locale.
+     * Slug derivation reads `$this->name` which returns the active-locale
+     * value, so a category created while the app is on English produces
+     * an English slug; that stays stable across later locale flips.
+     *
+     * @var list<string>
+     */
+    public array $translatable = ['name'];
 
     /**
      * @return array<string, string>
@@ -167,7 +186,7 @@ final class PosCategory extends Model implements DefinesIrModel
                 new ViewDefinition('POS Category', 'form', [
                     'cols' => 2,
                     'fields' => [
-                        ['field' => 'name', 'label' => 'Name', 'widget' => 'text', 'required' => true],
+                        ['field' => 'name', 'label' => 'Name', 'widget' => 'text', 'required' => true, 'translatable' => true],
                         [
                             'field' => 'parent_id',
                             'label' => 'Parent category',

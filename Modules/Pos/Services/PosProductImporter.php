@@ -249,25 +249,41 @@ final class PosProductImporter
             return [];
         }
 
-        // PosCategory.name is a plain (non-translatable) column today, so
-        // a literal-match WHERE works. If/when PosCategory opts into
-        // Spatie translations, swap to `name->en` / `name->ar` lookups.
+        // PosCategory.name is translatable JSON now — `whereIn('name', ...)`
+        // can't match the raw envelope. Check each unique CSV name against
+        // both locale paths in one batched query, then create the rest
+        // under the detected locale.
         /** @var array<string, int> $byName */
         $byName = [];
 
         $existing = PosCategory::query()
-            ->whereIn('name', $names)
+            ->where(function ($q) use ($names): void {
+                /** @var \Illuminate\Database\Eloquent\Builder<PosCategory> $q */
+                $q->whereIn('name->en', $names)->orWhereIn('name->ar', $names);
+            })
             ->get(['id', 'name']);
 
+        // For matched rows, figure out WHICH csv name they correspond to —
+        // a category might have only one of {en, ar} populated (a fresh
+        // Arabic-only category created during a previous import).
         foreach ($existing as $cat) {
-            $byName[(string) $cat->name] = (int) $cat->id;
+            $translations = $cat->getTranslations('name');
+            foreach ($translations as $value) {
+                if (in_array($value, $names, true)) {
+                    $byName[(string) $value] = (int) $cat->id;
+                }
+            }
         }
 
         foreach ($names as $name) {
             if (isset($byName[$name])) {
                 continue;
             }
-            $category = PosCategory::query()->create(['name' => $name]);
+            // Locale-keyed array → Spatie stores under the detected locale
+            // (Arabic-script names go to `ar`, everything else to `en`).
+            $category = PosCategory::query()->create([
+                'name' => [self::detectLocale($name) => $name],
+            ]);
             $byName[$name] = (int) $category->id;
         }
 

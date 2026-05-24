@@ -1087,7 +1087,11 @@ final class PosModuleTest extends TestCase
             ->call('save')
             ->assertHasNoErrors();
 
-        $this->assertDatabaseHas('pos_categories', ['name' => 'Snacks', 'slug' => 'snacks']);
+        // `name` is translatable JSON now — `assertDatabaseHas('name' =>
+        // 'Snacks')` looks for the raw envelope and misses. Round-trip
+        // through the model instead so Spatie's locale read applies.
+        $cat = PosCategory::query()->where('slug', 'snacks')->sole();
+        $this->assertSame('Snacks', $cat->name);
     }
 
     public function test_terminal_filters_products_by_category_subtree(): void
@@ -1174,7 +1178,9 @@ final class PosModuleTest extends TestCase
         $this->assertSame($existing->id, $espresso->pos_category_id);
 
         $mango = PosProduct::query()->where('barcode', 'B1')->sole();
-        $smoothies = \Modules\Pos\Models\PosCategory::query()->where('name', 'Smoothies')->sole();
+        // Translatable column lookup — `name` is JSON now, plain string
+        // match misses; use the locale-pathed JSON accessor.
+        $smoothies = \Modules\Pos\Models\PosCategory::query()->where('name->en', 'Smoothies')->sole();
         $this->assertSame($smoothies->id, $mango->pos_category_id);
 
         // Duplicate "Smoothies" row attached to the SAME category id.
@@ -1186,7 +1192,7 @@ final class PosModuleTest extends TestCase
         $this->assertNull($tea->pos_category_id);
 
         // Exactly one new category created (Smoothies), not two.
-        $this->assertSame(1, \Modules\Pos\Models\PosCategory::query()->where('name', 'Smoothies')->count());
+        $this->assertSame(1, \Modules\Pos\Models\PosCategory::query()->where('name->en', 'Smoothies')->count());
     }
 
     public function test_importer_leaves_category_alone_on_update_when_cell_is_blank(): void

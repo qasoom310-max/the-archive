@@ -211,6 +211,12 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
                     'default_sort' => [['field' => 'name', 'dir' => 'asc']],
                     'per_page' => 20,
                     'open' => '/app/pos/product/{id}',
+                    // Free-text toolbar search. Substring `LIKE '%q%'` across
+                    // both fields OR-grouped — `name` is a Spatie translatable
+                    // JSON column but the LIKE still substring-matches the raw
+                    // envelope, which is fine until Arabic translations land
+                    // (then we'll widen to per-locale json_extract paths).
+                    'searchable' => ['name', 'barcode'],
                 ]),
                 new ViewDefinition('POS Products', 'kanban', [
                     // Odoo-style product card: photo hero, name, then a

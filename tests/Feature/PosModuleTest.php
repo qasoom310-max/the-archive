@@ -516,6 +516,57 @@ final class PosModuleTest extends TestCase
         $this->assertStringNotContainsString('<img src=', $html);
     }
 
+    // ---- Toolbar search bar -------------------------------------------
+
+    public function test_pos_product_list_search_filters_by_name_or_barcode(): void
+    {
+        // Arch declares `searchable: [name, barcode]`. Setting `$search`
+        // applies a single OR-grouped LIKE across both fields; rows that
+        // match either are kept, others are dropped. Empty search = no
+        // filtering (regression guard for the early-return in applySearch).
+        $this->installPos();
+        PosProduct::query()->create(['name' => 'Espresso', 'barcode' => 'ESP-1', 'price' => 1, 'tax_rate' => 0]);
+        PosProduct::query()->create(['name' => 'Latte',    'barcode' => 'LAT-1', 'price' => 1, 'tax_rate' => 0]);
+        PosProduct::query()->create(['name' => 'Croissant','barcode' => 'CRO-9', 'price' => 1, 'tax_rate' => 0]);
+
+        $component = Livewire::test(ListView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ]);
+
+        // Name substring → matches only Espresso.
+        $html = $component->set('search', 'spress')->html();
+        $this->assertStringContainsString('Espresso', $html);
+        $this->assertStringNotContainsString('Latte', $html);
+        $this->assertStringNotContainsString('Croissant', $html);
+
+        // Barcode substring → matches only the one with CRO- prefix.
+        $html = $component->set('search', 'CRO-')->html();
+        $this->assertStringContainsString('Croissant', $html);
+        $this->assertStringNotContainsString('Espresso', $html);
+
+        // Clearing the box restores the full set.
+        $html = $component->set('search', '')->html();
+        $this->assertStringContainsString('Espresso', $html);
+        $this->assertStringContainsString('Latte', $html);
+        $this->assertStringContainsString('Croissant', $html);
+    }
+
+    public function test_pos_product_list_renders_search_input_when_arch_declares_searchable(): void
+    {
+        // Engine contract: arch.searchable non-empty → toolbar renders an
+        // <input> bound to `search`; empty → no input renders. PosProduct
+        // declares ['name', 'barcode'] so the input must be present.
+        $this->installPos();
+
+        $html = Livewire::test(ListView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ])->html();
+
+        $this->assertStringContainsString('wire:model.live.debounce.300ms="search"', $html);
+    }
+
     // ---- Inline boolean toggle ----------------------------------------
 
     public function test_pos_product_list_toggle_active_flips_and_persists(): void

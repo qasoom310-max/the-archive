@@ -20,6 +20,15 @@ final readonly class ViewArch
      * @param list<FilterDef>                                $filters      (list-view date presets)
      * @param ?string                                        $customDateField  column the "Custom…" range filters on
      */
+    /**
+     * @param list<ColumnDef>                                $columns      (list views)
+     * @param list<array{field: string, dir: 'asc'|'desc'}>  $defaultSort
+     * @param list<array{value: string, label: string}>      $stages       (kanban board columns)
+     * @param list<FormFieldDef>                             $formFields   (form views)
+     * @param list<FilterDef>                                $filters      (list-view date presets)
+     * @param ?string                                        $customDateField  column the "Custom…" range filters on
+     * @param list<string>                                   $searchable   list-view free-text search fields
+     */
     private function __construct(
         public array $columns,
         public array $defaultSort,
@@ -33,6 +42,7 @@ final readonly class ViewArch
         public ?string $openUrl,
         public array $filters,
         public ?string $customDateField,
+        public array $searchable,
     ) {}
 
     /**
@@ -53,7 +63,31 @@ final readonly class ViewArch
             openUrl: self::str($arch, 'open'),
             filters: self::parseFilters($arch),
             customDateField: self::str($arch, 'custom_date_field'),
+            searchable: self::parseSearchable($arch),
         );
+    }
+
+    /**
+     * Arch-declared list of column names the toolbar search bar should
+     * `LIKE '%query%'` across. Empty array = no search bar rendered.
+     * Strings only; non-string entries are dropped silently so a typo
+     * in arch can't crash the view.
+     *
+     * @param array<string, mixed> $arch
+     * @return list<string>
+     */
+    private static function parseSearchable(array $arch): array
+    {
+        $raw = $arch['searchable'] ?? [];
+
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $raw,
+            static fn (mixed $v): bool => is_string($v) && $v !== '',
+        ));
     }
 
     /**

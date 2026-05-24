@@ -122,6 +122,17 @@ final class ListView extends Component
     public bool $columnPickerOpen = false;
 
     /**
+     * Free-text search query. URL-bound so a search is shareable and
+     * survives a refresh. Applied as a single OR-grouped `LIKE
+     * '%query%'` across the arch-declared `searchable` field list (see
+     * {@see ViewArch::$searchable}) — empty arch list = no search bar
+     * rendered and the input is silently ignored even if the URL
+     * smuggles a value.
+     */
+    #[Url(except: '')]
+    public string $search = '';
+
+    /**
      * @param  class-string<Model>  $model
      */
     public function mount(string $model, string $modelKey = '', string $title = ''): void
@@ -189,6 +200,16 @@ final class ListView extends Component
      * lands on a fresh paginated slice (otherwise a page index from the
      * smaller page size could overshoot the new larger result set).
      */
+    /**
+     * Typing in the search box on a deep page would otherwise leave the
+     * user on an orphan page index (e.g. page 7 of an 80-row table after
+     * the search narrows it to 3 rows). Reset to page 1 on every keystroke.
+     */
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
     public function updatedPerPage(): void
     {
         $valid = [...self::PER_PAGE_OPTIONS, $this->arch->perPage];
@@ -346,6 +367,7 @@ final class ListView extends Component
         $query = $this->model::query();
 
         $this->applyFilter($query);
+        $this->applySearch($query);
 
         $sortable = $this->sortableFields();
 
@@ -426,6 +448,38 @@ final class ListView extends Component
 
         [$start, $end] = $range;
         $query->whereBetween($def->field, [$start, $end]);
+    }
+
+    /**
+     * Apply the toolbar search box across every arch-declared `searchable`
+     * field as a single OR-grouped `LIKE '%query%'`. No searchable list
+     * = silent no-op (the input isn't rendered either, so a smuggled URL
+     * value just gets ignored). Spaces around the query are trimmed; an
+     * all-whitespace query is treated as empty.
+     *
+     * For Spatie translatable JSON columns (e.g. `name`), substring-LIKE
+     * still matches because the column literally contains
+     * `{"en":"Espresso",...}` — Espresso substring hits. Once Arabic
+     * translations land we'll want to widen to per-locale JSON-path
+     * matching; for now this is the simplest correct thing.
+     *
+     * @param  Builder<Model>  $query
+     */
+    private function applySearch(Builder $query): void
+    {
+        $needle = trim($this->search);
+
+        if ($needle === '' || $this->arch->searchable === []) {
+            return;
+        }
+
+        $fields = $this->arch->searchable;
+
+        $query->where(function (Builder $sub) use ($fields, $needle): void {
+            foreach ($fields as $field) {
+                $sub->orWhere($field, 'like', '%'.$needle.'%');
+            }
+        });
     }
 
     /**
@@ -672,6 +726,7 @@ final class ListView extends Component
 
             $aggregateQuery = $this->model::query();
             $this->applyFilter($aggregateQuery);
+            $this->applySearch($aggregateQuery);
 
             if ($column->sum) {
                 $aggregates[$column->field] = (float) $aggregateQuery->sum($column->field);
@@ -692,6 +747,7 @@ final class ListView extends Component
             'customDateField' => $arch->customDateField,
             'customRangeLabel' => $this->customRangeLabel(),
             'perPageOptions' => $this->perPageOptions(),
+            'searchable' => $arch->searchable !== [],
         ]);
     }
 

@@ -51,7 +51,32 @@
             @endif
         </div>
         <div class="flex gap-2">
-            <button type="submit" class="o-btn-primary">Save</button>
+            @if ($record->exists)
+                {{-- Auto-save status pill. wire:loading flips to "Saving…"
+                     while ANY of the engine's save paths is in flight
+                     (debounced typing, locale switch, image upload); the
+                     default state shows "Saved" with a check. Errors stay
+                     inline on the field — the pill doesn't try to surface
+                     them, otherwise it would flicker on every partial edit. --}}
+                <div class="flex items-center gap-1.5 text-xs font-medium">
+                    <span wire:loading.delay.flex wire:target="autoSave,save,switchLocale,imagePaths"
+                          class="items-center gap-1 text-chrome-400">
+                        <svg class="size-3.5 animate-spin" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                            <path d="M10 3a7 7 0 1 0 7 7" stroke-linecap="round"/>
+                        </svg>
+                        {{ __('Saving…') }}
+                    </span>
+                    <span wire:loading.remove wire:target="autoSave,save,switchLocale,imagePaths"
+                          class="flex items-center gap-1 text-emerald-600">
+                        <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M16.704 5.296a1 1 0 0 1 0 1.408l-7.5 7.5a1 1 0 0 1-1.408 0l-3.5-3.5a1 1 0 0 1 1.408-1.408L8.5 12.09l6.796-6.795a1 1 0 0 1 1.408 0Z" clip-rule="evenodd"/>
+                        </svg>
+                        {{ __('Saved') }}
+                    </span>
+                </div>
+            @else
+                <button type="submit" class="o-btn-primary">{{ __('Save') }}</button>
+            @endif
         </div>
     </div>
 
@@ -90,20 +115,26 @@
 
                 @switch($field->widget)
                     @case('textarea')
-                        <textarea wire:model="{{ $key }}" rows="3"
+                        {{-- `.live.debounce.500ms` so each pause-while-typing
+                             triggers updated() → autoSave() once the record
+                             exists. New records bypass auto-save and rely on
+                             the Save button (record needs an id first). --}}
+                        <textarea wire:model.live.debounce.500ms="{{ $key }}" rows="3"
                             placeholder="{{ $field->placeholder }}" class="o-input resize-none"></textarea>
                         @break
 
                     @case('checkbox')
+                        {{-- Boolean — no debounce, the click IS the commit. --}}
                         <label class="inline-flex items-center gap-2">
-                            <input type="checkbox" wire:model="{{ $key }}"
+                            <input type="checkbox" wire:model.live="{{ $key }}"
                                 class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
                             <span class="text-sm text-chrome-600">{{ $field->placeholder ?: 'Yes' }}</span>
                         </label>
                         @break
 
                     @case('select')
-                        <select wire:model="{{ $key }}" class="o-input">
+                        {{-- Picking is an atomic action — auto-save instantly. --}}
+                        <select wire:model.live="{{ $key }}" class="o-input">
                             <option value="">—</option>
                             @foreach (($options[$field->field] ?? $field->options) as $opt)
                                 <option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>
@@ -189,10 +220,13 @@
                              shouldn't force this Blade to change. Browsers
                              default to step="1" on <input type=number>, which is
                              what kicked out "8.5" with "two nearest valid values
-                             are 8 and 9". Harmless on non-number widgets. --}}
+                             are 8 and 9". Harmless on non-number widgets.
+                             `.live.debounce.500ms` powers auto-save: each pause
+                             after a keystroke syncs the value to the server
+                             and runs autoSave() once the record exists. --}}
                         <input type="{{ $field->widget === 'datetime' ? 'datetime-local' : $field->widget }}"
                             @if ($field->widget === 'number') step="any" @endif
-                            wire:model="{{ $key }}" placeholder="{{ $field->placeholder }}" class="o-input">
+                            wire:model.live.debounce.500ms="{{ $key }}" placeholder="{{ $field->placeholder }}" class="o-input">
                 @endswitch
 
                 @error($key) <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror

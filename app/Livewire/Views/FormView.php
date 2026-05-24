@@ -156,6 +156,12 @@ final class FormView extends Component
         $this->translations[$fieldName][$current] = is_string($value) ? $value : '';
         $this->translationLocale[$fieldName] = $locale;
         $this->form[$fieldName] = $this->translations[$fieldName][$locale] ?? '';
+
+        // Flush the just-buffered locale value before the pill swap renders —
+        // otherwise an edit made on the EN pill could sit unsaved while the
+        // user works on AR. updated() won't fire for this server-side mutation
+        // of $translations, so call autoSave directly.
+        $this->autoSave();
     }
 
     #[Computed]
@@ -222,7 +228,55 @@ final class FormView extends Component
             || $this->access()->allows(Auth::user(), $this->modelKey, $permission);
     }
 
-    public function save(): void
+    /**
+     * Livewire lifecycle hook — fires after any public property is updated.
+     * For text inputs `wire:model.live.debounce.500ms` debounces the request
+     * client-side; checkbox/select fire instantly. We forward each change to
+     * `autoSave()` once the row exists. The hook receives the dotted path
+     * (e.g. `form.name`, `imagePaths.image_path`, `translations.name.ar`),
+     * so we filter to the three buffers `save()` actually writes through.
+     */
+    public function updated(string $name): void
+    {
+        if ($this->recordId === null) {
+            return;
+        }
+
+        if (
+            ! str_starts_with($name, 'form.')
+            && ! str_starts_with($name, 'translations.')
+            && ! str_starts_with($name, 'imagePaths.')
+        ) {
+            return;
+        }
+
+        $this->autoSave();
+    }
+
+    /**
+     * Silent variant of `save()` for Odoo-style auto-save. Same persistence
+     * path (so the same validation / ACL / chatter / translatable / image
+     * code runs) but: no flash toast, no redirect, ValidationException is
+     * swallowed (inline field errors already render via `@error`). Does
+     * nothing on a brand-new record — the row needs an id first, which
+     * comes from the explicit Save button.
+     */
+    public function autoSave(): void
+    {
+        if ($this->recordId === null) {
+            return;
+        }
+
+        try {
+            $this->save(silent: true);
+        } catch (\Illuminate\Validation\ValidationException) {
+            // Errors already populated $this->errors → rendered under each
+            // field. Auto-save just refuses to commit. The next keystroke
+            // that fixes the invalid field will fire updated() and retry.
+        }
+    }
+
+    public function save(bool $silent = false): void
     {
         // Drop any "poisoned" uploads — a TemporaryUploadedFile whose backing
         // file is gone from livewire-tmp (stale snapshot, cleanup race, the
@@ -313,6 +367,14 @@ final class FormView extends Component
         }
 
         $this->dispatch('record-saved', id: $record->getKey());
+
+        // Auto-save fires on every keystroke — flashing "Saved." every
+        // 500 ms and (worse) redirecting would be unusable. Skip both
+        // when silent; the inline status pill in the Blade is the
+        // visible confirmation for that path.
+        if ($silent) {
+            return;
+        }
 
         // Visible confirmation: app layout reads this flash on the next render
         // (covers redirects, including a redirect back to the same URL where

@@ -420,6 +420,95 @@ final class ViewEngineTest extends TestCase
         );
     }
 
+    public function test_form_view_autosaves_field_changes_on_an_existing_record(): void
+    {
+        // Odoo-style auto-save: changing any form.* property on an existing
+        // record persists immediately — no Save button click needed. We
+        // simulate the `wire:model.live` round-trip by calling Livewire's
+        // `set()` on `form.subject`; the engine's updated() hook fires
+        // updates → autoSave() → record gets written.
+        $this->seed(DemoViewSeeder::class);
+        $ticket = DemoTicket::query()->create(['subject' => 'Old', 'stage' => 'New']);
+
+        Livewire::test(FormView::class, [
+            'model' => DemoTicket::class,
+            'modelKey' => 'demo.ticket',
+            'recordId' => $ticket->id,
+        ])->set('form.subject', 'Edited via autosave');
+
+        $this->assertSame('Edited via autosave', $ticket->fresh()->subject);
+    }
+
+    public function test_form_view_autosave_does_not_redirect_or_flash(): void
+    {
+        // Auto-save runs on every keystroke; a flash toast every 500ms
+        // (or worse, a redirect) would make the form unusable. The
+        // silent path returns early before either fires.
+        $this->seed(DemoViewSeeder::class);
+        $ticket = DemoTicket::query()->create(['subject' => 'Old', 'stage' => 'New']);
+
+        $component = Livewire::test(FormView::class, [
+            'model' => DemoTicket::class,
+            'modelKey' => 'demo.ticket',
+            'recordId' => $ticket->id,
+            'redirectTo' => '/playground',
+        ])->set('form.subject', 'Auto');
+
+        $component->assertNoRedirect();
+        $this->assertNull(session('toast'));
+    }
+
+    public function test_form_view_autosave_no_ops_on_a_new_record(): void
+    {
+        // A brand-new form has no row to write to yet — autoSave() must
+        // be a no-op. The explicit Save button still creates the row.
+        $this->seed(DemoViewSeeder::class);
+        $countBefore = DemoTicket::query()->count();
+
+        Livewire::test(FormView::class, [
+            'model' => DemoTicket::class,
+            'modelKey' => 'demo.ticket',
+        ])->set('form.subject', 'Should not create a row');
+
+        $this->assertSame($countBefore, DemoTicket::query()->count());
+    }
+
+    public function test_form_view_autosave_silently_skips_when_validation_fails(): void
+    {
+        // Clearing a required field shouldn't crash or commit — autoSave
+        // swallows ValidationException so the next valid keystroke saves
+        // and the inline @error pill renders the message in the meantime.
+        // The default demo arch doesn't mark anything required, so we
+        // register a form view explicitly with subject required.
+        $this->seed(DemoViewSeeder::class);
+        IrUiView::query()->updateOrCreate(
+            ['model' => 'demo.ticket', 'type' => 'form'],
+            [
+                'name' => 'Demo Tickets (Form)',
+                'arch' => [
+                    'cols' => 1,
+                    'fields' => [
+                        ['field' => 'subject', 'label' => 'Subject', 'widget' => 'text', 'required' => true],
+                        ['field' => 'stage', 'label' => 'Stage', 'widget' => 'text'],
+                    ],
+                ],
+            ],
+        );
+
+        $ticket = DemoTicket::query()->create(['subject' => 'Has a subject', 'stage' => 'New']);
+
+        Livewire::test(FormView::class, [
+            'model' => DemoTicket::class,
+            'modelKey' => 'demo.ticket',
+            'recordId' => $ticket->id,
+        ])->set('form.subject', '');
+
+        // Subject is required → autoSave bailed out, the row keeps its
+        // old subject. (Without the try/catch we'd see ValidationException
+        // bubble through the wire request.)
+        $this->assertSame('Has a subject', $ticket->fresh()->subject);
+    }
+
     public function test_rotting_rule_flags_stale_records(): void
     {
         $fresh = DemoTicket::query()->create(['subject' => 'Fresh', 'stage' => 'New']);

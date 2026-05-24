@@ -914,17 +914,18 @@ final class PosModuleTest extends TestCase
         $this->assertNull($plain->available_servings);
     }
 
-    public function test_saving_a_product_redirects_to_the_products_list(): void
+    public function test_product_form_does_not_redirect_after_save(): void
     {
+        // Auto-save persists silently on every keystroke — redirecting
+        // mid-typing to the products list would be jarring. The PosProductForm
+        // no longer listens for `record-saved` (was a manual-save-button
+        // legacy when there was a single explicit save point). Verifies the
+        // form host stays on the page for the auto-save lifecycle.
         $this->installPos();
         $product = PosProduct::query()->create(['name' => 'Shisha', 'price' => 20, 'tax_rate' => 0]);
 
-        // The engine FormView dispatches `record-saved`; the product form
-        // redirects to the POS products list so the user sees the saved row
-        // (the layout's flash toast carries the visible "Saved." confirmation).
-        Livewire::test(PosProductForm::class)
-            ->call('onSaved', $product->id)
-            ->assertRedirect('/app/pos/product');
+        Livewire::test(PosProductForm::class, ['id' => $product->id])
+            ->assertNoRedirect();
     }
 
     public function test_product_form_saves_with_blank_numeric_fields(): void

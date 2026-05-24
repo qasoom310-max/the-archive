@@ -6,7 +6,6 @@ namespace Modules\Pos\Livewire;
 
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Pos\Models\PosCategory;
@@ -24,12 +23,6 @@ final class PosCategoryForm extends Component
     public function mount(?int $id = null): void
     {
         $this->id = $id;
-    }
-
-    #[On('record-saved')]
-    public function onSaved(): void
-    {
-        $this->redirect('/app/pos/category', navigate: true);
     }
 
     public function render(): View

@@ -52,26 +52,46 @@
         </div>
         <div class="flex gap-2">
             @if ($record->exists)
-                {{-- Auto-save status pill. wire:loading flips to "Saving…"
-                     while ANY of the engine's save paths is in flight
-                     (debounced typing, locale switch, image upload); the
-                     default state shows "Saved" with a check. Errors stay
-                     inline on the field — the pill doesn't try to surface
-                     them, otherwise it would flicker on every partial edit. --}}
-                <div class="flex items-center gap-1.5 text-xs font-medium">
-                    <span wire:loading.delay.flex wire:target="autoSave,save,switchLocale,imagePaths"
-                          class="items-center gap-1 text-chrome-400">
+                {{-- Auto-save status pill. Driven by Livewire's commit
+                     lifecycle hook so the state cleanly flips between
+                     "Saving…" (request in flight) and "Saved" (idle / last
+                     request succeeded). Earlier we tried `wire:loading`
+                     directives but they don't reliably match wire:model.live
+                     commits (those target the property, not the autoSave
+                     method) — both branches ended up visible at the same
+                     time. The hook is scoped to THIS component id so other
+                     Livewire activity on the page can't trigger a flicker. --}}
+                <div class="flex items-center gap-1.5 text-xs font-medium"
+                     x-data="{
+                        state: 'saved',
+                        init() {
+                            const id = this.$root.closest('[wire\\:id]')?.getAttribute('wire:id');
+                            if (!id) return;
+                            Livewire.hook('commit', ({ component, succeed, fail }) => {
+                                if (component.id !== id) return;
+                                this.state = 'saving';
+                                succeed(() => { this.state = 'saved'; });
+                                fail(() => { this.state = 'error'; });
+                            });
+                        }
+                     }">
+                    <span x-show="state === 'saving'" class="flex items-center gap-1 text-chrome-400">
                         <svg class="size-3.5 animate-spin" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
                             <path d="M10 3a7 7 0 1 0 7 7" stroke-linecap="round"/>
                         </svg>
                         {{ __('Saving…') }}
                     </span>
-                    <span wire:loading.remove wire:target="autoSave,save,switchLocale,imagePaths"
-                          class="flex items-center gap-1 text-emerald-600">
+                    <span x-show="state === 'saved'" class="flex items-center gap-1 text-emerald-600">
                         <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                             <path fill-rule="evenodd" d="M16.704 5.296a1 1 0 0 1 0 1.408l-7.5 7.5a1 1 0 0 1-1.408 0l-3.5-3.5a1 1 0 0 1 1.408-1.408L8.5 12.09l6.796-6.795a1 1 0 0 1 1.408 0Z" clip-rule="evenodd"/>
                         </svg>
                         {{ __('Saved') }}
+                    </span>
+                    <span x-show="state === 'error'" class="flex items-center gap-1 text-red-600">
+                        <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm-.75-5.75a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-1.5 0v4.5Zm.75 2.25a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/>
+                        </svg>
+                        {{ __('Not saved') }}
                     </span>
                 </div>
             @else

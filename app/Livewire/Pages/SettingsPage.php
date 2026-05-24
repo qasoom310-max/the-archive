@@ -131,6 +131,93 @@ final class SettingsPage extends Component
             ['value' => 'en', 'label' => 'English'],
             ['value' => 'ar', 'label' => 'العربية'],
         ];
+
+        // Timezone picker — admin-only. Built once per mount; ~38
+        // entries instead of the 400+ raw IANA list (one per unique
+        // UTC offset).
+        if ($this->isAdmin()) {
+            $this->selects['company.timezone'] = $this->timezoneOptions();
+        }
+    }
+
+    /**
+     * Deduplicated timezone picker options. Iterates every IANA
+     * identifier, groups by the zone's CURRENT UTC offset, picks one
+     * representative per group, and labels the row with the offset
+     * plus a handful of sample city names. Saudi Arabia / Bahrain /
+     * Qatar / Kuwait / Iraq all sit on UTC+03:00 — they collapse to a
+     * single row whose value is e.g. `Asia/Bahrain` but whose label
+     * advertises every nearby country, so the combobox search hits a
+     * country name even when the underlying IANA id is a different
+     * city.
+     *
+     * "UTC" is preferred as the offset-0 representative because the
+     * literal string is already saved as the seeded default and users
+     * recognise it; otherwise the first non-Etc/ alphabetical IANA
+     * identifier in each bucket wins.
+     *
+     * @return list<array{value: string, label: string}>
+     */
+    private function timezoneOptions(): array
+    {
+        $now = new \DateTimeImmutable();
+
+        /** @var array<int, list<string>> $byOffset */
+        $byOffset = [];
+        foreach (\DateTimeZone::listIdentifiers() as $id) {
+            $offset = (new \DateTimeZone($id))->getOffset($now);
+            $byOffset[$offset] ??= [];
+            $byOffset[$offset][] = $id;
+        }
+
+        ksort($byOffset);
+
+        $options = [];
+        foreach ($byOffset as $offset => $ids) {
+            // Representative: UTC for offset 0 (special-cased so the
+            // seeded default keeps working), otherwise the first non-
+            // Etc/ alphabetical zone — DateTimeZone::listIdentifiers
+            // already returns the list alphabetically.
+            $rep = $offset === 0 && in_array('UTC', $ids, true)
+                ? 'UTC'
+                : (array_values(array_filter($ids, static fn (string $i): bool => ! str_starts_with($i, 'Etc/')))[0] ?? $ids[0]);
+
+            // ALL cities in this offset bucket (skipping Etc/* which
+            // are technical aliases) — long labels, but the combobox
+            // is searchable so a user typing "Riyadh" or "Bahrain"
+            // hits the UTC+03:00 row even when the rep is e.g.
+            // "Africa/Addis_Ababa". Truncating the list (as we did
+            // at first) defeats the search by hiding everyone whose
+            // city wasn't in the alphabetical top N.
+            $cities = array_values(array_filter(
+                $ids,
+                static fn (string $i): bool => ! str_starts_with($i, 'Etc/'),
+            ));
+
+            // Strip the region prefix from the city list for a cleaner
+            // label — "Asia/Bahrain" → "Bahrain". Underscores in
+            // multi-word cities become spaces ("New_York" → "New York").
+            $cityLabel = implode(', ', array_map(
+                static function (string $id): string {
+                    $tail = str_contains($id, '/') ? substr((string) strrchr($id, '/'), 1) : $id;
+
+                    return str_replace('_', ' ', $tail);
+                },
+                $cities,
+            ));
+
+            $hours = intdiv(abs($offset), 3600);
+            $minutes = intdiv(abs($offset) % 3600, 60);
+            $sign = $offset >= 0 ? '+' : '-';
+            $offsetLabel = sprintf('UTC%s%02d:%02d', $sign, $hours, $minutes);
+
+            $options[] = [
+                'value' => $rep,
+                'label' => "({$offsetLabel}) {$cityLabel}",
+            ];
+        }
+
+        return $options;
     }
 
     /**

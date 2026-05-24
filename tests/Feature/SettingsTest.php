@@ -198,6 +198,60 @@ final class SettingsTest extends TestCase
         $this->assertSame('company/uploaded.webp', Setting::get('company.logo'));
     }
 
+    // ───────────────────────── Timezone dropdown ─────────────────────────
+
+    public function test_timezone_dropdown_is_populated_and_deduplicated(): void
+    {
+        // Saudi Arabia (Asia/Riyadh) and Bahrain (Asia/Bahrain) share
+        // UTC+03:00 — the dropdown must collapse them into ONE row.
+        // Total entries should sit well below the raw IANA count (400+).
+        $this->seed(SettingSeeder::class);
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+
+        $component = Livewire::test(SettingsPage::class);
+        /** @var array<string, list<array{value: string, label: string}>> $selects */
+        $selects = $component->get('selects');
+
+        $this->assertArrayHasKey('company.timezone', $selects);
+
+        // Roughly 38 unique offsets in IANA's current dataset; assert a
+        // tight band so a future PHP DST tweak doesn't flake the test.
+        $this->assertGreaterThan(20, count($selects['company.timezone']));
+        $this->assertLessThan(60, count($selects['company.timezone']));
+
+        // UTC must be the offset-0 representative (seeded default
+        // depends on this).
+        $values = array_column($selects['company.timezone'], 'value');
+        $this->assertContains('UTC', $values);
+
+        // The UTC+03:00 row must mention multiple Gulf cities so a
+        // user typing "Riyadh" still finds it even though the value
+        // is e.g. "Asia/Bahrain". The first non-Etc alphabetical zone
+        // for UTC+03:00 is Asia/Aden — but the label includes the
+        // next several too.
+        $labels = array_column($selects['company.timezone'], 'label');
+        $utcPlus3 = array_values(array_filter($labels, static fn ($l): bool => str_starts_with($l, '(UTC+03:00)')));
+        $this->assertNotEmpty($utcPlus3);
+        // At least one well-known Gulf city should appear so search is
+        // useful — Bahrain, Riyadh, Qatar, and Kuwait all sit here.
+        $this->assertMatchesRegularExpression('/Bahrain|Riyadh|Qatar|Kuwait|Baghdad/', $utcPlus3[0]);
+    }
+
+    public function test_timezone_dropdown_is_hidden_from_non_admins(): void
+    {
+        // Cashiers / sales users land on the language-only view —
+        // building the 400-entry IANA list for them is pointless
+        // (and the row isn't even rendered).
+        $this->seed(SettingSeeder::class);
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+
+        $component = Livewire::test(SettingsPage::class);
+        /** @var array<string, list<array{value: string, label: string}>> $selects */
+        $selects = $component->get('selects');
+
+        $this->assertArrayNotHasKey('company.timezone', $selects);
+    }
+
     public function test_settings_page_save_without_new_upload_keeps_existing_logo(): void
     {
         // Re-saving the form without touching the logo input must NOT

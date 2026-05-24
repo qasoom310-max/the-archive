@@ -28,8 +28,11 @@ final class WhatsAppService
      * Queue a Meta-approved template message.
      *
      * `$variables` maps positionally onto the template's body
-     * placeholders ({{1}}, {{2}}, …) — this is the seed of the
-     * Template Parser; richer header/button components come later.
+     * placeholders ({{1}}, {{2}}, …). `$headerImageUrl` (optional)
+     * fills a HEADER:IMAGE component — Meta fetches the URL at send
+     * time, so it must be publicly reachable (i.e. on the `public`
+     * disk under `storage/app/public/...`, not behind auth). Pass null
+     * for templates without an image header.
      *
      * @param list<string|int|float> $variables ordered body placeholder values
      */
@@ -38,6 +41,7 @@ final class WhatsAppService
         string $template,
         array $variables = [],
         string $languageCode = 'en_US',
+        ?string $headerImageUrl = null,
     ): void {
         $config = WhatsAppConfiguration::current();
 
@@ -53,6 +57,22 @@ final class WhatsAppService
             throw new WhatsAppException('A destination phone number is required.');
         }
 
+        $components = [];
+
+        // Header (image) goes BEFORE body in Meta's components array.
+        if ($headerImageUrl !== null && $headerImageUrl !== '') {
+            $components[] = [
+                'type' => 'header',
+                'parameters' => [
+                    ['type' => 'image', 'image' => ['link' => $headerImageUrl]],
+                ],
+            ];
+        }
+
+        foreach ($this->buildBodyComponents($variables) as $component) {
+            $components[] = $component;
+        }
+
         $payload = [
             'messaging_product' => 'whatsapp',
             'recipient_type' => 'individual',
@@ -61,7 +81,7 @@ final class WhatsAppService
             'template' => [
                 'name' => $template,
                 'language' => ['code' => $languageCode],
-                'components' => $this->buildBodyComponents($variables),
+                'components' => $components,
             ],
         ];
 

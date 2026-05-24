@@ -9,6 +9,7 @@ use App\Erp\Settings\Setting;
 use Illuminate\Support\Carbon;
 use Modules\Pos\Events\PosOrderPaid;
 use Modules\Pos\Models\PosOrder;
+use Modules\Pos\Services\PosReceiptImageRenderer;
 use Modules\WhatsApp\Exceptions\WhatsAppException;
 use Modules\WhatsApp\Models\WhatsAppConfiguration;
 use Modules\WhatsApp\Services\WhatsAppService;
@@ -33,8 +34,10 @@ use Throwable;
  */
 final class SendPosOrderReceiptViaWhatsApp
 {
-    public function __construct(private readonly WhatsAppService $whatsapp)
-    {
+    public function __construct(
+        private readonly WhatsAppService $whatsapp,
+        private readonly PosReceiptImageRenderer $images,
+    ) {
     }
 
     public function handle(PosOrderPaid $event): void
@@ -60,15 +63,29 @@ final class SendPosOrderReceiptViaWhatsApp
         $config = WhatsAppConfiguration::current();
         $language = (string) $config->template_language !== '' ? (string) $config->template_language : 'en';
 
+        // Render the receipt PNG. If Imagick / DomPDF blows up (missing
+        // ext, weird order data, disk full) swallow it and send without
+        // the image — the body text alone is still useful to the
+        // customer. We log the rendering failure to Chatter so it's
+        // observable without breaking the sale.
+        $headerImageUrl = null;
+        try {
+            $headerImageUrl = $this->images->render($order);
+        } catch (Throwable $e) {
+            $order->logChange("Receipt image render failed (sending text-only): {$e->getMessage()}");
+        }
+
         try {
             $this->whatsapp->sendTemplateMessage(
                 to: $phone,
                 template: 'pos_receipt',
                 variables: $variables,
                 languageCode: $language,
+                headerImageUrl: $headerImageUrl,
             );
 
-            $order->logChange("WhatsApp receipt queued to +{$phone} (template: pos_receipt, lang: {$language}).");
+            $withImage = $headerImageUrl !== null ? ' (with image)' : '';
+            $order->logChange("WhatsApp receipt queued to +{$phone} (template: pos_receipt, lang: {$language}){$withImage}.");
         } catch (WhatsAppException $e) {
             // Expected operational failure — WhatsApp not configured /
             // disabled / missing template. Surface on Chatter so the

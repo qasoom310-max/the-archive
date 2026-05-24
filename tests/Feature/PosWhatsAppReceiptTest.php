@@ -19,6 +19,7 @@ use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosPaymentMethod;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Models\PosSession;
+use Modules\Pos\Services\PosReceiptImageRenderer;
 use Modules\Pos\Support\PosWhatsAppCountries;
 use Modules\WhatsApp\Jobs\SendWhatsAppMessage;
 use Modules\WhatsApp\Models\WhatsAppConfiguration;
@@ -41,6 +42,20 @@ final class PosWhatsAppReceiptTest extends TestCase
     {
         parent::setUp();
         $this->actingAs(User::factory()->create(['is_admin' => true]));
+
+        // Stub the receipt image renderer so tests don't need Imagick.
+        // The real implementation is exercised by its own focused test;
+        // here we only care that the listener forwards the returned URL
+        // to the WhatsApp service unchanged. Returning a known sentinel
+        // makes payload assertions deterministic. Mockery (vs an
+        // anonymous subclass) because the renderer is `final` per the
+        // project's "final by default" rule.
+        $stub = \Mockery::mock(PosReceiptImageRenderer::class);
+        $stub->shouldReceive('render')->andReturnUsing(
+            fn (\Modules\Pos\Models\PosOrder $order): string =>
+                'https://example.test/receipts/' . $order->id . '.png',
+        );
+        $this->app->instance(PosReceiptImageRenderer::class, $stub);
     }
 
     private function installModules(): void
@@ -143,7 +158,7 @@ final class PosWhatsAppReceiptTest extends TestCase
         // 4 ordered placeholders per the spec: name, ref, total+currency, datetime.
         $payload = $log->payload;
         $this->assertIsArray($payload);
-        $params = $payload['template']['components'][0]['parameters'] ?? null;
+        $params = $payload['template']['components'][1]['parameters'] ?? null;
         $this->assertIsArray($params);
         // 4 positional placeholders: store, ref, total, datetime
         // (customer-name slot was dropped — cashiers rarely capture a
@@ -227,6 +242,45 @@ final class PosWhatsAppReceiptTest extends TestCase
         $this->assertSame('en', $payload['template']['language']['code'] ?? null);
     }
 
+    public function test_payload_includes_a_header_image_component_with_renderer_url(): void
+    {
+        // The listener calls PosReceiptImageRenderer to produce a public
+        // image URL, then passes it through WhatsAppService as a
+        // HEADER:IMAGE component. Meta needs the components in the
+        // header-then-body order — verify the shape here so a future
+        // refactor can't drop the header silently.
+        $this->installModules();
+        $this->configureWhatsApp();
+        Bus::fake();
+
+        $session = $this->openSession();
+        $method = $this->seedCashPayment();
+        $product = PosProduct::query()->create(['name' => 'Espresso', 'price' => 3.0, 'tax_rate' => 0]);
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('addProduct', $product->id)
+            ->call('startPayment')
+            ->set('countryCode', '+973')
+            ->set('localPhone', '33000000')
+            ->set('paymentMethodId', $method->id)
+            ->set('tendered', '3.00')
+            ->call('addPayment')
+            ->call('validateOrder');
+
+        $log = WhatsAppMessageLog::query()
+            ->where('direction', 'outbound')
+            ->where('template_name', 'pos_receipt')
+            ->sole();
+
+        $payload = $log->payload;
+        $this->assertIsArray($payload);
+        $components = $payload['template']['components'];
+        $this->assertSame('header', $components[0]['type']);
+        $this->assertSame('image', $components[0]['parameters'][0]['type']);
+        $this->assertStringStartsWith('https://example.test/receipts/', $components[0]['parameters'][0]['image']['link']);
+        $this->assertSame('body', $components[1]['type']);
+    }
+
     public function test_store_name_variable_is_company_name_setting(): void
     {
         // The 2nd template parameter ({{2}}) holds the store / brand name
@@ -259,7 +313,7 @@ final class PosWhatsAppReceiptTest extends TestCase
 
         $payload = $log->payload;
         $this->assertIsArray($payload);
-        $params = $payload['template']['components'][0]['parameters'];
+        $params = $payload['template']['components'][1]['parameters'];
         // Store name is now {{1}} (index 0) after the customer-name slot
         // was dropped — it's the first thing in the body.
         $this->assertSame('Sweileh Cafe', $params[0]['text']);
@@ -302,7 +356,7 @@ final class PosWhatsAppReceiptTest extends TestCase
 
         $payload = $log->payload;
         $this->assertIsArray($payload);
-        $params = $payload['template']['components'][0]['parameters'] ?? null;
+        $params = $payload['template']['components'][1]['parameters'] ?? null;
         $this->assertIsArray($params);
 
         // 4 positional vars now: store, ref, total, datetime — datetime

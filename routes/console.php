@@ -30,3 +30,20 @@ Schedule::command('queue:work --stop-when-empty --max-time=50')
     ->everyMinute()
     ->withoutOverlapping()
     ->runInBackground();
+
+// Daily housekeeping: drop rendered WhatsApp receipt PNGs older than
+// 7 days. Meta typically fetches the image within seconds of the send
+// (and never re-fetches), so anything past a week is just clutter on
+// disk. Kept locally rather than pushed to S3 — Hostinger Cloud has
+// plenty of headroom and the per-order PNG is ~80–150 KB.
+Schedule::call(function (): void {
+    $disk = \Illuminate\Support\Facades\Storage::disk('public');
+    $bucket = \Modules\Pos\Services\PosReceiptImageRenderer::BUCKET;
+    $cutoff = now()->subDays(7)->getTimestamp();
+
+    foreach ($disk->files($bucket) as $path) {
+        if ($disk->lastModified($path) < $cutoff) {
+            $disk->delete($path);
+        }
+    }
+})->daily()->name('prune-whatsapp-receipts')->withoutOverlapping();

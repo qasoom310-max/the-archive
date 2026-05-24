@@ -415,8 +415,17 @@
                             class="mx-auto mb-2 h-14 w-auto max-w-[10rem] object-contain">
                     @endif
                     <p class="text-base font-bold text-chrome-900">{{ $companyName }}</p>
-                    <p class="text-xs text-chrome-400">{{ $receipt->reference }} · {{ $now->isoFormat('MMM D, YYYY HH:mm') }}</p>
+                    {{-- 12-hour clock (`h:mm A`) so receipts read "6:27 PM"
+                         instead of "18:27" — matches the format every retail
+                         POS in Bahrain / Saudi prints. `isoFormat` from Carbon
+                         (Moment.js tokens) — `h` is hour 1–12, `A` is AM/PM. --}}
+                    <p class="text-xs text-chrome-400">{{ $receipt->reference }} · {{ $now->isoFormat('MMM D, YYYY h:mm A') }}</p>
                     @if ($receipt->partner)<p class="text-xs text-chrome-500">Customer: {{ $receipt->partner->name }}</p>@endif
+                    {{-- Stored as digits-only ("97333123456"); prefix "+" so
+                         it reads as an international number. Falls through
+                         silently when the cashier didn't capture one — most
+                         walk-ins. --}}
+                    @if ($receipt->customer_phone)<p class="text-xs text-chrome-500">Phone: +{{ $receipt->customer_phone }}</p>@endif
                 </div>
                 <div class="my-3 border-y border-dashed border-chrome-300 py-2 text-sm">
                     @foreach ($receipt->lines as $l)

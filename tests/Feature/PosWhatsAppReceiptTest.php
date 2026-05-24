@@ -154,6 +154,52 @@ final class PosWhatsAppReceiptTest extends TestCase
         );
     }
 
+    public function test_pos_receipt_template_variable_uses_12_hour_clock(): void
+    {
+        // The 4th positional template variable is the order datetime —
+        // every retail POS in the region prints "6:27 PM" rather than
+        // "18:27", and the WhatsApp message has to match the on-screen
+        // receipt. Pinning the formatter here so a refactor doesn't
+        // silently flip it back to 24-hour.
+        $this->installModules();
+        $this->configureWhatsApp();
+        Bus::fake();
+
+        $session = $this->openSession();
+        $method = $this->seedCashPayment();
+        $product = PosProduct::query()->create(['name' => 'Coffee', 'price' => 4.0, 'tax_rate' => 0]);
+
+        // Lock the clock to an afternoon moment so the 12-hour formatter
+        // produces a "PM" suffix (06:27 → "6:27 AM" would also work; we
+        // want a known suffix to assert on).
+        \Illuminate\Support\Carbon::setTestNow('2026-05-24 18:27:00');
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('addProduct', $product->id)
+            ->call('startPayment')
+            ->set('countryCode', '+973')
+            ->set('localPhone', '33 123 456')
+            ->set('paymentMethodId', $method->id)
+            ->set('tendered', '4.00')
+            ->call('addPayment')
+            ->call('validateOrder');
+
+        $log = WhatsAppMessageLog::query()
+            ->where('direction', 'outbound')
+            ->where('template_name', 'pos_receipt')
+            ->sole();
+
+        $payload = $log->payload;
+        $this->assertIsArray($payload);
+        $params = $payload['template']['components'][0]['parameters'] ?? null;
+        $this->assertIsArray($params);
+
+        $orderedAt = $params[3]['text'];
+        $this->assertSame('May 24, 2026 6:27 PM', $orderedAt);
+
+        \Illuminate\Support\Carbon::setTestNow();
+    }
+
     public function test_finalize_without_phone_sends_no_receipt(): void
     {
         $this->installModules();

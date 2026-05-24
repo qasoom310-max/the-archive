@@ -100,8 +100,11 @@ final class SendPosOrderReceiptViaWhatsApp
 
         // Ordered timestamp falls back to "now" if the order isn't yet
         // stamped (defensive — finalizeSale() always sets it via markPaid).
+        // 12-hour clock (`g:i A`) so the WhatsApp template renders e.g.
+        // "May 24, 2026 6:27 PM" instead of "May 24, 2026 18:27" — matches
+        // the on-screen receipt and is what every retail POS uses here.
         $orderedAt = $order->ordered_at ?? Carbon::now();
-        $orderedFormatted = $orderedAt->format('M j, Y H:i');
+        $orderedFormatted = $orderedAt->format('M j, Y g:i A');
 
         return [
             $customerName,

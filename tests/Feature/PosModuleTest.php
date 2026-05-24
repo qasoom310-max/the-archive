@@ -914,6 +914,61 @@ final class PosModuleTest extends TestCase
         $this->assertNull($plain->available_servings);
     }
 
+    public function test_receipt_panel_shows_customer_phone_and_12_hour_time(): void
+    {
+        // The receipt overlay must print the captured customer phone
+        // (prefixed with "+") and the order datetime in 12-hour format.
+        // Together these are the two visible signals that the on-screen
+        // receipt matches what gets sent to WhatsApp.
+        $this->installPos();
+        $session = $this->openSession();
+        $method = \Modules\Pos\Models\PosPaymentMethod::query()->create([
+            'name' => 'Cash', 'kind' => 'cash', 'active' => true, 'sequence' => 1,
+        ]);
+        $product = PosProduct::query()->create(['name' => 'Pepsi', 'price' => 0.45, 'tax_rate' => 0]);
+
+        // Lock the clock so the rendered time is deterministic.
+        \Illuminate\Support\Carbon::setTestNow('2026-05-24 18:27:00');
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('addProduct', $product->id)
+            ->call('startPayment')
+            ->set('countryCode', '+973')
+            ->set('localPhone', '33 123 456')
+            ->set('paymentMethodId', $method->id)
+            ->set('tendered', '0.45')
+            ->call('addPayment')
+            ->call('validateOrder')
+            // Phone shown with the international "+" prefix.
+            ->assertSee('Phone: +97333123456')
+            // 12-hour clock, not "18:27".
+            ->assertSee('6:27 PM')
+            ->assertDontSee('18:27');
+
+        \Illuminate\Support\Carbon::setTestNow();
+    }
+
+    public function test_receipt_panel_omits_phone_when_walk_in(): void
+    {
+        // No phone captured → no "Phone:" line. Layout stays clean for
+        // the walk-in case (the most common path).
+        $this->installPos();
+        $session = $this->openSession();
+        $method = \Modules\Pos\Models\PosPaymentMethod::query()->create([
+            'name' => 'Cash', 'kind' => 'cash', 'active' => true, 'sequence' => 1,
+        ]);
+        $product = PosProduct::query()->create(['name' => 'Water', 'price' => 0.30, 'tax_rate' => 0]);
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('addProduct', $product->id)
+            ->call('startPayment')
+            ->set('paymentMethodId', $method->id)
+            ->set('tendered', '0.30')
+            ->call('addPayment')
+            ->call('validateOrder')
+            ->assertDontSee('Phone:');
+    }
+
     public function test_product_form_does_not_redirect_after_save(): void
     {
         // Auto-save persists silently on every keystroke — redirecting

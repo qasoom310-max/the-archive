@@ -106,7 +106,8 @@ final class SettingsTest extends TestCase
     public function test_non_admin_save_cannot_escalate_to_other_keys(): void
     {
         $this->seed(SettingSeeder::class);
-        $this->actingAs(User::factory()->create(['is_admin' => false]));
+        $user = User::factory()->create(['is_admin' => false]);
+        $this->actingAs($user);
 
         // Even if a crafted payload smuggles `company.name` into the
         // form array, save() must drop it. Simulate by setting the
@@ -121,8 +122,11 @@ final class SettingsTest extends TestCase
             ->call('save')
             ->assertSet('saved', true);
 
-        // Language flipped (allowed) but company.name untouched.
-        $this->assertSame('ar', Setting::get('company.language'));
+        // Language flipped on the USER row (per-user routing), the
+        // system company.language stays at its seeded default, and
+        // company.name is untouched.
+        $this->assertSame('ar', $user->fresh()->language);
+        $this->assertSame('en', Setting::get('company.language'));
         $this->assertSame('OpenERP', Setting::get('company.name'));
     }
 }

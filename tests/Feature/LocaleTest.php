@@ -12,8 +12,12 @@ use Tests\TestCase;
 /**
  * Locale wiring contract:
  *
- *   - The `company.language` setting drives `app()->getLocale()` on every
- *     web request via the `SetLocale` middleware.
+ *   - **Per-user**: `Auth::user()->language` drives `app()->getLocale()`
+ *     on every web request via the `SetLocale` middleware. Faraj on
+ *     `ar` and Qassim on `en` simultaneously work as expected.
+ *   - Users with no personal preference (NULL column, e.g. fresh
+ *     factory rows) fall back to the system-wide `company.language`
+ *     setting, which is also the locale of the guest /login page.
  *   - Unknown/empty values silently fall back to English so a misconfig
  *     can't 4xx the whole site.
  *   - Arabic flips the `<html>` element to `dir="rtl"` so logical CSS
@@ -118,8 +122,10 @@ final class LocaleTest extends TestCase
             ->call('save')
             ->assertDispatched('language-changed');
 
-        // …and the setting actually changed on disk.
-        $this->assertSame('ar', Setting::get('company.language'));
+        // …and the choice landed on the USER row, not the system setting
+        // (so other users keep their own preference).
+        $this->assertSame('ar', $admin->fresh()->language);
+        $this->assertSame('en', Setting::get('company.language'));
     }
 
     public function test_saving_without_changing_language_does_not_trigger_reload(): void
@@ -128,15 +134,48 @@ final class LocaleTest extends TestCase
         // would be jarring for "just changed another setting" workflows.
         Setting::set('company.language', 'en');
 
-        $admin = User::factory()->create(['is_admin' => true]);
+        $admin = User::factory()->create(['is_admin' => true, 'language' => 'en']);
         $this->actingAs($admin);
 
         // No form mutations → save() persists the same value back, but the
-        // before/after snapshot of `company.language` matches, so no
+        // before/after snapshot of the effective language matches, so no
         // browser event should be dispatched.
         \Livewire\Livewire::test(\App\Livewire\Pages\SettingsPage::class)
             ->call('save')
             ->assertNotDispatched('language-changed');
+    }
+
+    public function test_users_have_independent_language_preferences(): void
+    {
+        // The whole reason for the per-user routing: Faraj on `ar`
+        // mustn't drag Qassim into Arabic. Two users sharing the same
+        // host, each request resolves to that user's own locale.
+        Setting::set('company.language', 'en');
+
+        $faraj = User::factory()->create(['name' => 'Faraj', 'language' => 'ar']);
+        $qassim = User::factory()->create(['name' => 'Qassim', 'language' => 'en']);
+
+        $this->actingAs($faraj);
+        $this->get('/')->assertOk();
+        $this->assertSame('ar', app()->getLocale(), 'Faraj should see Arabic');
+
+        $this->actingAs($qassim);
+        $this->get('/')->assertOk();
+        $this->assertSame('en', app()->getLocale(), 'Qassim should see English');
+    }
+
+    public function test_user_without_preference_inherits_system_default(): void
+    {
+        // NULL `users.language` (e.g. a freshly seeded account) falls
+        // back to the system-wide setting — same path the login page
+        // uses for a guest request.
+        Setting::set('company.language', 'ar');
+
+        $user = User::factory()->create(['language' => null]);
+        $this->actingAs($user);
+
+        $this->get('/')->assertOk();
+        $this->assertSame('ar', app()->getLocale());
     }
 
     public function test_arabic_login_page_renders_translated_form(): void

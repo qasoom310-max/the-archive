@@ -25,6 +25,14 @@ use Livewire\Component;
  * view is fully data-driven, so widening non-admin access is a one-line
  * change in NON_ADMIN_KEYS.
  *
+ * **The "Language" row is special** — it's a per-user preference, not a
+ * system setting. mount() pre-fills from `Auth::user()->language` (with
+ * `company.language` as the system-wide fallback), and save() writes
+ * back to the user row instead of the `ir_config_parameter` table. So
+ * Faraj picking Arabic doesn't flip Qassim into Arabic. The system
+ * `company.language` is still the seed default for new users / the
+ * guest /login page.
+ *
  * `$form` is an index-keyed list (not keyed by the dotted setting key)
  * so Livewire's dot-path `wire:model` binding doesn't misread keys like
  * `company.name` as nested arrays.
@@ -41,6 +49,13 @@ final class SettingsPage extends Component
      * @var list<string>
      */
     public const NON_ADMIN_KEYS = ['company.language'];
+
+    /**
+     * The one key that's actually a per-user preference. mount() and
+     * save() route it to `users.language` instead of the system
+     * settings table.
+     */
+    private const PER_USER_LANGUAGE_KEY = 'company.language';
 
     /** @var list<array{key: string, label: string, type: string, group: string, description: string|null, value: mixed}> */
     public array $form = [];
@@ -78,7 +93,7 @@ final class SettingsPage extends Component
                     'type' => $param->type,
                     'group' => $param->group,
                     'description' => $param->description,
-                    'value' => Setting::get($param->key),
+                    'value' => $this->initialValue($param->key),
                 ];
             }
         }
@@ -99,10 +114,39 @@ final class SettingsPage extends Component
         // SetLocale middleware. Labels stay localised: an English user
         // sees "English / Arabic", an Arabic user sees "Arabic /
         // English" (the in-language native names side-by-side).
-        $this->selects['company.language'] = [
+        $this->selects[self::PER_USER_LANGUAGE_KEY] = [
             ['value' => 'en', 'label' => 'English'],
             ['value' => 'ar', 'label' => 'العربية'],
         ];
+    }
+
+    /**
+     * Initial value for a row in the form. The language key is
+     * special-cased: it reflects the logged-in user's preference, not
+     * the system default. Anything else reads through SettingManager.
+     */
+    private function initialValue(string $key): mixed
+    {
+        if ($key === self::PER_USER_LANGUAGE_KEY) {
+            return $this->effectiveLanguage();
+        }
+
+        return Setting::get($key);
+    }
+
+    /**
+     * The locale the user is actually using right now: their personal
+     * row preference, falling back to the system-wide default. Mirrors
+     * the read order in `App\Http\Middleware\SetLocale`.
+     */
+    private function effectiveLanguage(): string
+    {
+        $user = Auth::user();
+        if ($user instanceof User && $user->language !== null && $user->language !== '') {
+            return $user->language;
+        }
+
+        return (string) Setting::get(self::PER_USER_LANGUAGE_KEY, 'en');
     }
 
     /**
@@ -126,16 +170,19 @@ final class SettingsPage extends Component
     {
         abort_unless(Auth::check(), 403);
 
-        // Snapshot the language BEFORE the write so we can detect a flip
-        // (`en` → `ar` or vice versa) and trigger a full-page reload —
-        // the master layout's `dir` attribute and translated chrome are
-        // only rebuilt on a fresh request.
-        $previousLanguage = (string) Setting::get('company.language', 'en');
+        // Snapshot the EFFECTIVE language before the write so we can
+        // detect a flip (`en` → `ar` or vice versa) and trigger a
+        // full-page reload — the master layout's `dir` attribute and
+        // translated chrome are only rebuilt on a fresh request. We
+        // compare effective (user OR system) rather than the raw user
+        // column so flipping from "null/inherit en" to "ar" still
+        // triggers a reload.
+        $previousLanguage = $this->effectiveLanguage();
 
         $allowed = $this->allowedKeysOrNull();
 
-        /** @var array<string, mixed> $values */
-        $values = [];
+        /** @var array<string, mixed> $systemValues */
+        $systemValues = [];
         foreach ($this->form as $row) {
             // Re-filter here even though mount() already trimmed the
             // form: defence in depth against a crafted `$set` payload
@@ -144,19 +191,28 @@ final class SettingsPage extends Component
                 continue;
             }
 
-            $values[$row['key']] = $row['value'];
+            if ($row['key'] === self::PER_USER_LANGUAGE_KEY) {
+                $this->persistUserLanguage($row['value']);
+
+                continue;
+            }
+
+            $systemValues[$row['key']] = $row['value'];
         }
 
-        app(SettingManager::class)->setMany($values);
+        if ($systemValues !== []) {
+            app(SettingManager::class)->setMany($systemValues);
+        }
 
-        // Reflect the persisted+re-cast values back into the form.
+        // Reflect the persisted+re-cast values back into the form (the
+        // language row re-reads from the user, others from settings).
         foreach ($this->form as $i => $row) {
-            $this->form[$i]['value'] = Setting::get($row['key']);
+            $this->form[$i]['value'] = $this->initialValue($row['key']);
         }
 
         $this->saved = true;
 
-        $newLanguage = (string) Setting::get('company.language', 'en');
+        $newLanguage = $this->effectiveLanguage();
 
         if ($previousLanguage !== $newLanguage) {
             // Fire a browser-level event the layout's Alpine listener
@@ -166,6 +222,26 @@ final class SettingsPage extends Component
             // `<html dir>` attribute.
             $this->dispatch('language-changed');
         }
+    }
+
+    /**
+     * Write the language choice to the logged-in user's row. Empty /
+     * unrecognised values blank the column → the user falls back to
+     * the system default on the next request.
+     */
+    private function persistUserLanguage(mixed $value): void
+    {
+        $user = Auth::user();
+        if (! $user instanceof User) {
+            return;
+        }
+
+        $code = is_string($value) ? strtolower(trim($value)) : '';
+        // Anything other than the supported set blanks the column so
+        // the SetLocale middleware falls back to the system default
+        // instead of parking the user on an unsupported locale.
+        $user->language = in_array($code, ['en', 'ar'], true) ? $code : null;
+        $user->save();
     }
 
     public function updated(): void

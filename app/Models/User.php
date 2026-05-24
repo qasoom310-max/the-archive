@@ -16,6 +16,7 @@ use Illuminate\Notifications\Notifiable;
  * @property string|null $email
  * @property string|null $avatar_path   Path on the `public` disk (nullable)
  * @property string|null $new_email     Pending email change awaiting verification
+ * @property string|null $language      Personal language preference (`en`|`ar`); null = follow company.language
  * @property bool $is_admin
  * @property string $password
  */
@@ -31,6 +32,7 @@ final class User extends Authenticatable
         'email',
         'avatar_path',
         'new_email',
+        'language',
         'is_admin',
         'password',
     ];

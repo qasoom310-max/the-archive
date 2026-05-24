@@ -5,24 +5,49 @@
 
 @if ($paginator !== null && $paginator->hasPages())
     @php
-        // Literal "1 2 … LAST" rail. No middle-page insert, no extra slots
-        // for current — current is highlighted only if it happens to be
-        // page 1, 2, or the last page. Anything else stays implicit
-        // between the dots. Exact layout requested by the user.
+        // Sliding-window pagination:
+        //   - Always show first 2 pages (anchor the start)
+        //   - Always show last page (anchor the end)
+        //   - Always show current page ± 1 (the "window buffer")
+        //   - Insert "…" between any non-consecutive entries
+        // So the current page is NEVER hidden behind an ellipsis.
+        //
+        // Examples (last = 10):
+        //   current=1   →  [1] 2 … 10
+        //   current=3   →  1 2 [3] 4 … 10
+        //   current=5   →  1 2 … 4 [5] 6 … 10
+        //   current=9   →  1 2 … 8 [9] 10
+        //   current=10  →  1 2 … 9 [10]
+        // For small page counts the windows merge and you just get the
+        // full run (e.g. last=5, current=3 → 1 2 [3] 4 5, no ellipsis).
         $current = (int) $paginator->currentPage();
         $last = (int) $paginator->lastPage();
 
-        $items = [];
-        if ($last <= 3) {
-            // Nothing to elide — render every page.
-            for ($i = 1; $i <= $last; $i++) {
-                $items[] = ['type' => 'page', 'n' => $i];
+        $pages = [1];
+        if ($last >= 2) {
+            $pages[] = 2;
+        }
+        foreach ([-1, 0, 1] as $delta) {
+            $candidate = $current + $delta;
+            if ($candidate >= 1 && $candidate <= $last) {
+                $pages[] = $candidate;
             }
-        } else {
-            $items[] = ['type' => 'page', 'n' => 1];
-            $items[] = ['type' => 'page', 'n' => 2];
-            $items[] = ['type' => 'gap'];
-            $items[] = ['type' => 'page', 'n' => $last];
+        }
+        $pages[] = $last;
+
+        $pages = array_values(array_unique($pages));
+        sort($pages);
+
+        // Walk the de-duped sorted list and drop an "…" between any
+        // non-consecutive pair (e.g. between 2 and 4 → insert gap).
+        $items = [];
+        $previous = null;
+        foreach ($pages as $page) {
+            if ($previous !== null && $page - $previous > 1) {
+                $items[] = ['type' => 'gap'];
+            }
+            $items[] = ['type' => 'page', 'n' => $page];
+            $previous = $page;
         }
     @endphp
 

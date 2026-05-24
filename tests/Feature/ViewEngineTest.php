@@ -143,37 +143,54 @@ final class ViewEngineTest extends TestCase
         $component->set('perPage', 999)->assertSet('perPage', 8);
     }
 
-    public function test_list_view_pagination_shows_ellipsis_rail_with_last_page(): void
+    public function test_list_view_pagination_always_shows_current_page_with_window_buffer(): void
     {
-        // Seed past the per-page cap so pagination renders multiple pages.
-        // With 100 rows / 20 per page = 5 pages.
+        // Sliding-window pagination: first 2, current ± 1, and last are
+        // always rendered; "…" only ever appears between non-consecutive
+        // entries. The current page is NEVER compressed into an ellipsis
+        // (the bug the user hit on page 3 of 5 with the old layout).
         //
-        // The compact template always shows pages 1 & 2, an ellipsis (when
-        // gaps exist), and the last page — plus the current page inserted
-        // in the middle when it isn't already an edge.
-        //
-        // Verbose Laravel default phrasings ("Showing X to Y", numbered
-        // 1-2-3-4-5 rail without ellipsis) must NOT be present.
+        // Seed 200 rows / 20 per page = 10 pages so the windows don't
+        // collapse and we can assert ellipsis behaviour properly.
         $this->seed(DemoViewSeeder::class);
-        for ($i = 1; $i <= 100; $i++) {
+        for ($i = 1; $i <= 200; $i++) {
             DemoTicket::query()->create(['subject' => "T{$i}", 'stage' => 'New', 'amount' => $i]);
         }
 
-        $html = Livewire::test(ListView::class, ['model' => DemoTicket::class, 'modelKey' => 'demo.ticket'])
-            ->set('perPage', 20)
-            ->html();
+        $component = Livewire::test(ListView::class, ['model' => DemoTicket::class, 'modelKey' => 'demo.ticket'])
+            ->set('perPage', 20);
 
-        // Always-present rail: 1, 2, ellipsis, last page (5). Exactly
-        // one ellipsis — no "1 2 … current … 5" splatter. Pages 3 and 4
-        // never appear in the rail; the user accepts the implicit gap.
+        // --- Page 1 (initial) — current is rendered as an aria-current span,
+        // not a button. 1, 2 (start), and 10 (last) are always present.
+        $html = $component->html();
+        $this->assertStringContainsString('aria-current="page"', $html);
         $this->assertStringContainsString('gotoPage(2)', $html);
-        $this->assertStringContainsString('gotoPage(5)', $html);
-        $this->assertSame(1, substr_count($html, '…'));
-        $this->assertStringNotContainsString('gotoPage(3)', $html);
-        $this->assertStringNotContainsString('gotoPage(4)', $html);
+        $this->assertStringContainsString('gotoPage(10)', $html);
+        $this->assertStringNotContainsString('Showing', $html); // no verbose default
 
-        // Default Laravel paginator phrasings must be absent.
-        $this->assertStringNotContainsString('Showing', $html);
+        // --- Page 3 — the original bug: current must be rendered, NOT
+        // hidden behind an ellipsis. Window: 1 2 [3] 4 … 10.
+        $component->call('gotoPage', 3);
+        $html = $component->html();
+        $this->assertStringContainsString('gotoPage(4)', $html); // current+1 visible
+        $this->assertStringContainsString('gotoPage(10)', $html);
+        $this->assertStringContainsString('aria-current="page"', $html);
+        // No gotoPage(3) — current is a span, not a clickable button.
+        $this->assertStringNotContainsString('gotoPage(3)', $html);
+
+        // --- Page 5 (middle) — both sides have ellipses: 1 2 … 4 [5] 6 … 10.
+        $component->call('gotoPage', 5);
+        $html = $component->html();
+        $this->assertSame(2, substr_count($html, '…'));
+        $this->assertStringContainsString('gotoPage(4)', $html); // window left
+        $this->assertStringContainsString('gotoPage(6)', $html); // window right
+        $this->assertStringContainsString('gotoPage(10)', $html);
+
+        // --- Last page — current=10 anchored at the end, no trailing button.
+        $component->call('gotoPage', 10);
+        $html = $component->html();
+        $this->assertStringContainsString('gotoPage(9)', $html); // current-1 visible
+        $this->assertStringContainsString('aria-current="page"', $html);
     }
 
     public function test_list_view_bulk_delete_and_select_page(): void

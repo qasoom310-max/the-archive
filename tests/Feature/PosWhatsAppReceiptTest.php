@@ -57,7 +57,7 @@ final class PosWhatsAppReceiptTest extends TestCase
         Event::listen(PosOrderPaid::class, [SendPosOrderReceiptViaWhatsApp::class, 'handle']);
     }
 
-    private function configureWhatsApp(): void
+    private function configureWhatsApp(string $templateLanguage = 'en'): void
     {
         WhatsAppConfiguration::query()->create([
             'phone_number_id' => '100000000000001',
@@ -66,6 +66,7 @@ final class PosWhatsAppReceiptTest extends TestCase
             'app_secret' => 'app-secret-abc',
             'webhook_verify_token' => 'verify-me-123',
             'api_version' => 'v21.0',
+            'template_language' => $templateLanguage,
             'enabled' => true,
         ]);
     }
@@ -152,6 +153,75 @@ final class PosWhatsAppReceiptTest extends TestCase
         // And the queued HTTP-call job was actually dispatched.
         Bus::assertDispatched(SendWhatsAppMessage::class, fn (SendWhatsAppMessage $job): bool => $job->to === '97333123456' && $job->logId === $log->id,
         );
+    }
+
+    public function test_template_language_code_is_read_from_configuration(): void
+    {
+        // Pre-fix the listener hard-coded 'en_US'. Meta rejected with
+        // #132001 "Template name does not exist in the translation" when
+        // the customer's account had `pos_receipt` approved under 'en'.
+        // Reading the language from `WhatsAppConfiguration::template_language`
+        // lets admins flip 'en' / 'en_US' / 'ar' from the Settings UI.
+        $this->installModules();
+        $this->configureWhatsApp(templateLanguage: 'ar');
+        Bus::fake();
+
+        $session = $this->openSession();
+        $method = $this->seedCashPayment();
+        $product = PosProduct::query()->create(['name' => 'Tea', 'price' => 2.0, 'tax_rate' => 0]);
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('addProduct', $product->id)
+            ->call('startPayment')
+            ->set('countryCode', '+973')
+            ->set('localPhone', '33000000')
+            ->set('paymentMethodId', $method->id)
+            ->set('tendered', '2.00')
+            ->call('addPayment')
+            ->call('validateOrder');
+
+        $log = WhatsAppMessageLog::query()
+            ->where('direction', 'outbound')
+            ->where('template_name', 'pos_receipt')
+            ->sole();
+
+        $payload = $log->payload;
+        $this->assertIsArray($payload);
+        $this->assertSame('ar', $payload['template']['language']['code'] ?? null);
+    }
+
+    public function test_template_language_defaults_to_en_when_unset(): void
+    {
+        // Fallback for an old config row that predates the column being
+        // added. The migration sets default 'en', so callers don't need
+        // a config flip on existing installs — but the listener also
+        // null-coalesces to 'en' as belt-and-braces.
+        $this->installModules();
+        $this->configureWhatsApp(templateLanguage: '');
+        Bus::fake();
+
+        $session = $this->openSession();
+        $method = $this->seedCashPayment();
+        $product = PosProduct::query()->create(['name' => 'Cookie', 'price' => 1.0, 'tax_rate' => 0]);
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('addProduct', $product->id)
+            ->call('startPayment')
+            ->set('countryCode', '+973')
+            ->set('localPhone', '33111111')
+            ->set('paymentMethodId', $method->id)
+            ->set('tendered', '1.00')
+            ->call('addPayment')
+            ->call('validateOrder');
+
+        $log = WhatsAppMessageLog::query()
+            ->where('direction', 'outbound')
+            ->where('template_name', 'pos_receipt')
+            ->sole();
+
+        $payload = $log->payload;
+        $this->assertIsArray($payload);
+        $this->assertSame('en', $payload['template']['language']['code'] ?? null);
     }
 
     public function test_pos_receipt_template_variable_uses_12_hour_clock(): void

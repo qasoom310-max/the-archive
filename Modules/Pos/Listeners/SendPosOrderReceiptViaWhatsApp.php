@@ -10,6 +10,7 @@ use Modules\Contacts\Models\Partner;
 use Modules\Pos\Events\PosOrderPaid;
 use Modules\Pos\Models\PosOrder;
 use Modules\WhatsApp\Exceptions\WhatsAppException;
+use Modules\WhatsApp\Models\WhatsAppConfiguration;
 use Modules\WhatsApp\Services\WhatsAppService;
 use Throwable;
 
@@ -49,15 +50,25 @@ final class SendPosOrderReceiptViaWhatsApp
 
         $variables = $this->buildTemplateVariables($order);
 
+        // Meta locale code the template was approved under. Read from
+        // config so admins can flip 'en' / 'en_US' / 'ar' / etc. in the
+        // Settings UI without redeploying. Fallback to 'en' (the most
+        // common default when a template is created under English in
+        // WhatsApp Manager). Old hard-coded 'en_US' was wrong for the
+        // typical account — they get #132001 "Template name does not
+        // exist in the translation" because Meta has it under 'en'.
+        $config = WhatsAppConfiguration::current();
+        $language = (string) $config->template_language !== '' ? (string) $config->template_language : 'en';
+
         try {
             $this->whatsapp->sendTemplateMessage(
                 to: $phone,
                 template: 'pos_receipt',
                 variables: $variables,
-                languageCode: 'en_US',
+                languageCode: $language,
             );
 
-            $order->logChange("WhatsApp receipt queued to +{$phone} (template: pos_receipt).");
+            $order->logChange("WhatsApp receipt queued to +{$phone} (template: pos_receipt, lang: {$language}).");
         } catch (WhatsAppException $e) {
             // Expected operational failure — WhatsApp not configured /
             // disabled / missing template. Surface on Chatter so the

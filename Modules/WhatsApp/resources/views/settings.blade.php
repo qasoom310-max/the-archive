@@ -40,6 +40,7 @@
                 ['phoneNumberId', 'Phone number ID', 'Meta "from" phone number id (Graph API).'],
                 ['businessAccountId', 'Business account ID', 'WhatsApp Business Account (WABA) id.'],
                 ['apiVersion', 'Graph API version', 'e.g. v21.0'],
+                ['templateLanguage', 'Template language', 'Locale code your template is approved under in WhatsApp Manager — e.g. "en" for English, "en_US" for English (US), "ar" for Arabic. Wrong code = #132001 error.'],
                 ['fromPhoneLabel', 'Sender label', 'Human-friendly name shown in the UI.'],
             ];
         @endphp

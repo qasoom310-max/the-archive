@@ -28,6 +28,15 @@ final class WhatsAppSettings extends Component
 
     public string $apiVersion = 'v21.0';
 
+    /**
+     * Meta template locale code. Must MATCH the language tab the template
+     * was approved under in WhatsApp Manager — e.g. "English" = 'en',
+     * "English (US)" = 'en_US', "Arabic" = 'ar'. Wrong code triggers a
+     * Graph #132001 "Template name does not exist in the translation"
+     * error and the message silently fails.
+     */
+    public string $templateLanguage = 'en';
+
     public string $fromPhoneLabel = '';
 
     public bool $enabled = false;
@@ -56,6 +65,7 @@ final class WhatsAppSettings extends Component
         $this->phoneNumberId = (string) $config->phone_number_id;
         $this->businessAccountId = (string) $config->business_account_id;
         $this->apiVersion = (string) $config->api_version !== '' ? (string) $config->api_version : 'v21.0';
+        $this->templateLanguage = (string) $config->template_language !== '' ? (string) $config->template_language : 'en';
         $this->fromPhoneLabel = (string) $config->from_phone_label;
         $this->enabled = (bool) $config->enabled;
 
@@ -80,6 +90,7 @@ final class WhatsAppSettings extends Component
         $config->phone_number_id = trim($this->phoneNumberId) ?: null;
         $config->business_account_id = trim($this->businessAccountId) ?: null;
         $config->api_version = trim($this->apiVersion) ?: 'v21.0';
+        $config->template_language = trim($this->templateLanguage) ?: 'en';
         $config->from_phone_label = trim($this->fromPhoneLabel) ?: null;
         $config->enabled = $this->enabled;
 

@@ -20,6 +20,12 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $app_secret
  * @property string|null $webhook_verify_token
  * @property string|null $api_version
+ * @property string|null $template_language  Meta locale code for the outbound template,
+ *                                            e.g. 'en' / 'en_US' / 'ar'. Must match the
+ *                                            language tab where the template was approved
+ *                                            in WhatsApp Manager — wrong code = Graph
+ *                                            error #132001 "Template name does not exist
+ *                                            in the translation".
  * @property string|null $from_phone_label
  * @property bool $enabled
  */
@@ -31,7 +37,7 @@ final class WhatsAppConfiguration extends Model
     protected $fillable = [
         'phone_number_id', 'business_account_id', 'access_token',
         'app_secret', 'webhook_verify_token', 'api_version',
-        'from_phone_label', 'enabled',
+        'template_language', 'from_phone_label', 'enabled',
     ];
 
     /**

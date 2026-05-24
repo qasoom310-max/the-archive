@@ -529,7 +529,9 @@ DB stores `decimal(12,2)` and all currencies now display at ≤ 2 decimals (DJF/
 
 **Pass 1 scope (translated + RTL-mirrored):** master `app.blade.php` layout, `guest.blade.php` layout, login (`Auth\Login`), profile (`ProfilePage` + verification controller flashes), settings (header / tabs / combobox / "No matches"), settings nav partial, sidebar, app switcher, command palette, dashboard.
 
-**Pass 2 (next, not yet built):** POS terminal/products/orders/reporting interiors, Contacts module, Inventory module, Chatter, engine list/kanban/form chrome ("Records" / "X selected" / "Delete" / filter chips), validation messages (`lang/ar/validation.php`).
+**Pass 2 increment shipped 2026-05-24** — POS home + POS session pages, breadcrumb path segments (`app`/`pos`/`session`/`contacts`/…), sidebar `ir_model` labels (`POS Order`/`POS Session`/`POS Product`/`POS Category`/`Partner`), `OrderState::label()` + `SessionState::label()` outputs (Draft/Paid/Cancelled/In progress/Closed) — these run through `__()` at the call-site so the enum stays untouched. All sweeps also flipped `ml-`/`text-right` → `ms-`/`text-end` for RTL mirroring.
+
+**Pass 2 still pending:** POS terminal/products/orders/reporting interiors, Contacts module, Inventory module, Chatter, engine list/kanban/form chrome ("Records" / "X selected" / "Delete" / filter chips), validation messages (`lang/ar/validation.php`).
 
 **Carve-outs (deliberately English-only):** WhatsApp settings tab content (brand-aligned), brand names ("OpenERP" / "WhatsApp"), ISO codes + currency symbols ("BHD" / "BD" / "USD"), CLI snippets in code blocks (`php artisan ...`), keyboard shortcuts ("⌘K"). When in doubt: brand + identifier = stay English. User-entered *display* data (product / partner names) is **translatable per-record** via Phase 13, not a UI-string carve-out.
 

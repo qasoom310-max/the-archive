@@ -4,7 +4,7 @@
     `user` may be null (→ "Unassigned"); `sub` is optional.
 --}}
 @php
-    $chipName = $user?->name ?? 'Unassigned';
+    $chipName = $user?->name ?? __('Unassigned');
     $chipInitial = \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($chipName, 0, 1)) ?: '?';
 @endphp
 <span class="inline-flex items-center gap-2">

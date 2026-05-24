@@ -944,6 +944,29 @@ final class PosModuleTest extends TestCase
         $this->assertEqualsWithDelta(0.0, $product->stock_on_hand, 0.001);
     }
 
+    public function test_new_product_form_defaults_active_to_true(): void
+    {
+        // A brand-new PosProduct should land in the form with the Active
+        // checkbox already ticked, matching the DB column default. Without
+        // the model-level `$attributes['active'] => true`, the in-memory
+        // record reads `null` for unset attributes, the engine coerces it
+        // to `false` on save, and a fresh product hides itself from the
+        // POS terminal until the cashier re-ticks the box.
+        $this->installPos();
+
+        $component = Livewire::test(FormView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ]);
+
+        $component->assertSet('form.active', true);
+
+        $component->set('form.name', 'Default-Active Widget')->call('save');
+
+        $product = PosProduct::query()->where('name->en', 'Default-Active Widget')->sole();
+        $this->assertTrue($product->active);
+    }
+
     public function test_home_offers_resume_when_the_register_is_open(): void
     {
         $this->installPos();

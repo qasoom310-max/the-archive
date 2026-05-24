@@ -56,6 +56,20 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
     ];
 
     /**
+     * Defaults applied to fresh in-memory instances (before save). The DB
+     * column already defaults `active` to true, but Eloquent reads
+     * `getAttribute('active')` for a `new PosProduct()` as null — which
+     * makes the engine FormView render the checkbox unchecked when a
+     * cashier opens "New product". Setting it here means the form starts
+     * with the box ticked, matching the persistence default.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'active' => true,
+    ];
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array

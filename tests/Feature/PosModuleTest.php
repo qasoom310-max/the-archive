@@ -455,6 +455,67 @@ final class PosModuleTest extends TestCase
         $this->assertSame(2, UserViewPreference::query()->count());
     }
 
+    // ---- Kanban product card ------------------------------------------
+
+    public function test_pos_product_kanban_card_renders_image_name_price_and_stock(): void
+    {
+        // Odoo-style product card. The arch declares card.image=image_path
+        // plus a meta footer with price (money-formatted) and stock_on_hand
+        // (number-formatted). Verify each piece lands in the rendered HTML.
+        $this->installPos();
+        Storage::fake('public');
+        // Pin currency to BHD so the assertion below matches "4.50 BD".
+        // Test bootstrap defaults to USD; the meta formatter uses the
+        // active currency setting.
+        \App\Erp\Settings\Setting::set('currency.default', 'BHD');
+        \App\Erp\Money\Currencies::flushCache();
+
+        // Seed one realistic product with a stored image. The fake disk
+        // is just for URL generation; the file doesn't need real bytes
+        // for the Blade to render an <img> tag.
+        PosProduct::query()->create([
+            'name' => 'Cappuccino', 'price' => 4.50, 'tax_rate' => 0,
+            'cost_price' => 1.20, 'stock_on_hand' => 42, 'image_path' => 'pos_products/cappa.jpg',
+        ]);
+
+        $html = Livewire::test(\App\Livewire\Views\KanbanView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ])->html();
+
+        // Image hero is present and points at the public-disk URL.
+        $this->assertStringContainsString('pos_products/cappa.jpg', $html);
+        // Name (the card title).
+        $this->assertStringContainsString('Cappuccino', $html);
+        // Money-formatted price (current BHD: "4.50 BD").
+        $this->assertStringContainsString('4.50 BD', $html);
+        // Number-formatted stock + its label.
+        $this->assertStringContainsString('On hand', $html);
+        $this->assertStringContainsString('42', $html);
+    }
+
+    public function test_pos_product_kanban_card_renders_placeholder_when_image_missing(): void
+    {
+        // image_path null on a product → the arch still declared card.image,
+        // so the hero slot renders (so heights match across cards) but
+        // shows the SVG placeholder, not a broken <img>.
+        $this->installPos();
+        Storage::fake('public');
+
+        PosProduct::query()->create([
+            'name' => 'Tea', 'price' => 1.0, 'tax_rate' => 0,
+        ]); // no image_path
+
+        $html = Livewire::test(\App\Livewire\Views\KanbanView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ])->html();
+
+        $this->assertStringContainsString('Tea', $html);
+        // No <img> tag means the placeholder branch fired.
+        $this->assertStringNotContainsString('<img src=', $html);
+    }
+
     // ---- Inline boolean toggle ----------------------------------------
 
     public function test_pos_product_list_toggle_active_flips_and_persists(): void

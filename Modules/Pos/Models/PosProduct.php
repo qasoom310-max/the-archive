@@ -213,7 +213,17 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
                     'open' => '/app/pos/product/{id}',
                 ]),
                 new ViewDefinition('POS Products', 'kanban', [
-                    'card' => ['title' => 'name', 'subtitle' => 'price', 'badges' => ['barcode']],
+                    // Odoo-style product card: photo hero, name, then a
+                    // "Price · Stock" meta footer. No subtitle / badges —
+                    // the meta rows carry the same info more legibly.
+                    'card' => [
+                        'title' => 'name',
+                        'image' => 'image_path',
+                        'meta' => [
+                            ['field' => 'price', 'label' => 'Sale Price', 'format' => 'money'],
+                            ['field' => 'stock_on_hand', 'label' => 'On hand', 'format' => 'number'],
+                        ],
+                    ],
                     'open' => '/app/pos/product/{id}',
                 ]),
                 new ViewDefinition('POS Product', 'form', [

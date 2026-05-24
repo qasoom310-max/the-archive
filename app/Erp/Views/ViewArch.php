@@ -307,7 +307,31 @@ final readonly class ViewArch
             ));
         }
 
-        return new KanbanCard($title, self::str($raw, 'subtitle'), $badges);
+        $image = self::str($raw, 'image');
+
+        $meta = [];
+        if (isset($raw['meta']) && is_array($raw['meta'])) {
+            foreach ($raw['meta'] as $entry) {
+                if (! is_array($entry)) {
+                    continue;
+                }
+                $field = self::str($entry, 'field');
+                if ($field === null) {
+                    continue;
+                }
+                $format = self::str($entry, 'format');
+                $meta[] = [
+                    'field' => $field,
+                    'label' => self::str($entry, 'label'),
+                    // Whitelist the formats the kanban Blade knows how to render.
+                    'format' => in_array($format, ['money', 'number', 'date', 'datetime', 'bool'], true)
+                        ? $format
+                        : null,
+                ];
+            }
+        }
+
+        return new KanbanCard($title, self::str($raw, 'subtitle'), $badges, $image, $meta);
     }
 
     /**

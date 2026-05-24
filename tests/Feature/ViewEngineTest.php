@@ -420,6 +420,42 @@ final class ViewEngineTest extends TestCase
         );
     }
 
+    public function test_form_view_nav_url_survives_an_auto_save_rerender(): void
+    {
+        // Regression: navUrl used to read `request()->url()` at render
+        // time, but on a Livewire AJAX request (which auto-save fires
+        // on every keystroke) that returns the Livewire endpoint
+        // (`/livewire/update`). The chevron href got rewritten to
+        // `/livewire/<id>` after the first auto-save → 404 on click.
+        // We now capture the URL at mount and reuse it, so re-renders
+        // can't poison the prev/next links.
+        $this->seed(DemoViewSeeder::class);
+        $a = DemoTicket::query()->create(['subject' => 'A', 'stage' => 'New']);
+        $b = DemoTicket::query()->create(['subject' => 'B', 'stage' => 'New']);
+
+        $test = Livewire::test(FormView::class, [
+            'model' => DemoTicket::class,
+            'modelKey' => 'demo.ticket',
+            'recordId' => $a->id,
+        ]);
+
+        /** @var FormView $before */
+        $before = $test->instance();
+        $urlBefore = $before->navUrl($b->id);
+
+        // Trigger an auto-save round-trip (the path that, pre-fix,
+        // re-rendered with a poisoned navUrl).
+        $test->set('form.subject', 'A edited');
+
+        /** @var FormView $after */
+        $after = $test->instance();
+        $urlAfter = $after->navUrl($b->id);
+
+        $this->assertSame($urlBefore, $urlAfter);
+        $this->assertStringEndsWith('/' . $b->id, $urlAfter);
+        $this->assertStringNotContainsString('/livewire/', $urlAfter);
+    }
+
     public function test_form_view_autosaves_field_changes_on_an_existing_record(): void
     {
         // Odoo-style auto-save: changing any form.* property on an existing

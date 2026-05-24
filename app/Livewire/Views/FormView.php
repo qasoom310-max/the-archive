@@ -41,6 +41,19 @@ final class FormView extends Component
 
     public string $redirectTo = '';
 
+    /**
+     * Page URL captured at mount, used by `navUrl()` to build prev/next
+     * record links. Stored as a property (not re-read at render time)
+     * because on subsequent Livewire AJAX requests `request()->url()`
+     * returns the Livewire endpoint (`/livewire/update`) instead of the
+     * original page URL — auto-save re-renders the form, the chevron
+     * links get rebuilt, and "Next" then points at `/livewire/<id>` which
+     * 404s. mount() is called once per page load (and again on each
+     * wire:navigate to a sibling record) so this stays in lockstep with
+     * the record being viewed.
+     */
+    public string $baseUrl = '';
+
     /** @var array<string, mixed> */
     public array $form = [];
 
@@ -104,6 +117,7 @@ final class FormView extends Component
         $this->recordId = $recordId;
         $this->title = $title;
         $this->redirectTo = $redirectTo;
+        $this->baseUrl = (string) request()->url();
 
         $record = $this->resolveRecord();
         $activeLocale = $this->activeLocale();
@@ -497,13 +511,17 @@ final class FormView extends Component
      */
     public function navUrl(int $id): string
     {
-        $current = (string) request()->url();
-        $replaced = preg_replace('@/[^/]+$@', '/' . $id, $current);
+        // Use the captured mount-time URL, NOT `request()->url()`. The
+        // latter returns `/livewire/update` during an AJAX request (which
+        // auto-save fires on every keystroke), and the regex below would
+        // splice the id in there → `/livewire/<id>` → 404 on click.
+        $base = $this->baseUrl !== '' ? $this->baseUrl : (string) request()->url();
+        $replaced = preg_replace('@/[^/]+$@', '/' . $id, $base);
 
         // preg_replace returns null on regex error — guard against it
-        // and fall back to the current URL so a navigation click is at
+        // and fall back to the base URL so a navigation click is at
         // worst a no-op, never a 404.
-        return $replaced ?? $current;
+        return $replaced ?? $base;
     }
 
     public function render(): View

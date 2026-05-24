@@ -52,12 +52,18 @@
                             <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.452 4.391l3.328 3.329a.75.75 0 1 1-1.06 1.06l-3.329-3.328A7 7 0 0 1 2 9Z" clip-rule="evenodd"/>
                         </svg>
                     </span>
+                    {{-- White pill with a subtle chrome-200 outline so
+                         the search bar stands out against any kanban
+                         background (the chrome-100 fill blended into
+                         the page on the POS catalogue). Focus keeps
+                         the Odoo-style w-44 → w-64 reveal and lifts
+                         the outline to the primary-500 ring + shadow. --}}
                     <input type="text"
                            wire:model.live.debounce.300ms="search"
                            x-model="q"
                            placeholder="{{ __('Search…') }}"
                            aria-label="{{ __('Search') }}"
-                           class="w-44 rounded-full border-0 bg-chrome-100 py-1.5 ps-9 pe-9 text-sm text-chrome-800 placeholder:text-chrome-400 transition-all focus:w-64 focus:bg-white focus:shadow-sm focus:ring-2 focus:ring-primary-500 focus:placeholder:text-chrome-300">
+                           class="w-44 rounded-full border-0 bg-white py-1.5 ps-9 pe-9 text-sm text-chrome-800 placeholder:text-chrome-400 shadow-sm ring-1 ring-chrome-200 transition-all focus:w-64 focus:shadow focus:ring-2 focus:ring-primary-500 focus:placeholder:text-chrome-300">
                     <button type="button"
                             x-show="q.length > 0"
                             x-cloak

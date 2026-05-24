@@ -172,6 +172,7 @@ jobs:
             --exclude='storage/app/public/pos_products/' \
             --exclude='storage/app/public/pos_categories/' \
             --exclude='storage/app/public/partners/' \
+            --exclude='storage/app/public/company/' \
             --exclude='storage/logs/' \
             --exclude='storage/framework/cache/data/' \
             --exclude='storage/framework/sessions/' \

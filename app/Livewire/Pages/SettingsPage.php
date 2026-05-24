@@ -71,6 +71,19 @@ final class SettingsPage extends Component
      */
     public array $selects = [];
 
+    /**
+     * Direct-upload paths populated by the Alpine wrapper around each
+     * `image`-type setting row. Indexed by ROW POSITION (matching
+     * `$form`'s index) so a dotted setting key like `company.logo` can
+     * survive Livewire's dot-path traversal in `->set()` — same trick
+     * `$form` itself uses. Written into the corresponding
+     * `ir_config_parameter` row in `save()`. Empty entry = no new
+     * upload this submit, keep existing path.
+     *
+     * @var array<int, string>
+     */
+    public array $imagePaths = [];
+
     public bool $saved = false;
 
     public function mount(): void
@@ -183,7 +196,7 @@ final class SettingsPage extends Component
 
         /** @var array<string, mixed> $systemValues */
         $systemValues = [];
-        foreach ($this->form as $row) {
+        foreach ($this->form as $i => $row) {
             // Re-filter here even though mount() already trimmed the
             // form: defence in depth against a crafted `$set` payload
             // that injects a forbidden key into the array.
@@ -193,6 +206,21 @@ final class SettingsPage extends Component
 
             if ($row['key'] === self::PER_USER_LANGUAGE_KEY) {
                 $this->persistUserLanguage($row['value']);
+
+                continue;
+            }
+
+            // Image-type setting: the upload widget writes the new path
+            // into $imagePaths[<row index>] via FormImageUploadController.
+            // Index keying (not setting-key keying) dodges Livewire's
+            // dot-path interpretation of `$set('imagePaths.company.logo', …)`.
+            // An empty entry means "no new upload this submit" → keep
+            // the existing value rather than blanking it.
+            if ($row['type'] === 'image') {
+                $newPath = $this->imagePaths[$i] ?? null;
+                if (is_string($newPath) && $newPath !== '') {
+                    $systemValues[$row['key']] = $newPath;
+                }
 
                 continue;
             }

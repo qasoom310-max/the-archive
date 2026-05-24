@@ -129,4 +129,87 @@ final class SettingsTest extends TestCase
         $this->assertSame('en', Setting::get('company.language'));
         $this->assertSame('OpenERP', Setting::get('company.name'));
     }
+
+    // ───────────────────────── Company logo ─────────────────────────
+
+    public function test_logo_url_is_null_when_no_setting(): void
+    {
+        // Fresh install: company.logo seeded as empty string. Logo::url()
+        // must return null so the layouts fall back to text branding.
+        $this->seed(SettingSeeder::class);
+
+        $this->assertNull(\App\Erp\Branding\Logo::url());
+    }
+
+    public function test_logo_url_is_null_when_file_is_missing(): void
+    {
+        // Same regression guard as User::avatarUrl: a setting can point
+        // at a now-gone file (deploy bucket wipe). Render falls back to
+        // null instead of producing a broken-image URL.
+        $this->seed(SettingSeeder::class);
+        \Illuminate\Support\Facades\Storage::fake('public');
+        Setting::set('company.logo', 'company/wiped.webp');
+
+        $this->assertNull(\App\Erp\Branding\Logo::url());
+    }
+
+    public function test_logo_url_returns_url_when_setting_and_file_both_present(): void
+    {
+        $this->seed(SettingSeeder::class);
+        \Illuminate\Support\Facades\Storage::fake('public');
+        \Illuminate\Support\Facades\Storage::disk('public')->put('company/test.png', 'fake-bytes');
+        Setting::set('company.logo', 'company/test.png');
+
+        $url = \App\Erp\Branding\Logo::url();
+        $this->assertNotNull($url);
+        $this->assertStringContainsString('company/test.png', $url);
+    }
+
+    public function test_settings_page_save_persists_uploaded_logo_path(): void
+    {
+        // The image-type row's value is held in $imagePaths (populated
+        // by the upload widget), not in $form[i].value. save() must
+        // merge it into ir_config_parameter so the next page render
+        // picks it up. imagePaths is INDEX-keyed (by row position)
+        // because Livewire's set() treats dots as path traversal — the
+        // setting key "company.logo" would otherwise be split.
+        $this->seed(SettingSeeder::class);
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+
+        $component = Livewire::test(SettingsPage::class)->assertOk();
+
+        // Find the row index of company.logo in $form (sort 15 → likely
+        // index 1, but assert by lookup so a re-sort doesn't break us).
+        /** @var list<array{key: string}> $form */
+        $form = $component->get('form');
+        $logoIndex = null;
+        foreach ($form as $i => $row) {
+            if ($row['key'] === 'company.logo') {
+                $logoIndex = $i;
+                break;
+            }
+        }
+        $this->assertNotNull($logoIndex, 'company.logo row must be present in the seeded form');
+
+        $component->set("imagePaths.{$logoIndex}", 'company/uploaded.webp')
+            ->call('save')
+            ->assertSet('saved', true);
+
+        $this->assertSame('company/uploaded.webp', Setting::get('company.logo'));
+    }
+
+    public function test_settings_page_save_without_new_upload_keeps_existing_logo(): void
+    {
+        // Re-saving the form without touching the logo input must NOT
+        // blank the column — a no-op for the image row.
+        $this->seed(SettingSeeder::class);
+        Setting::set('company.logo', 'company/existing.png');
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+
+        Livewire::test(SettingsPage::class)
+            ->call('save')
+            ->assertSet('saved', true);
+
+        $this->assertSame('company/existing.png', Setting::get('company.logo'));
+    }
 }

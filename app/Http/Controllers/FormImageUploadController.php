@@ -65,6 +65,11 @@ final class FormImageUploadController
             'pos_categories',
             'partners',
             'avatars',
+            // Company branding (logo on receipt + login + topbar). Must
+            // stay in lockstep with the rsync --exclude list in
+            // .github/workflows/deploy.yml (memory:
+            // rsync-delete-wipes-user-uploads).
+            'company',
         ];
     }
 }

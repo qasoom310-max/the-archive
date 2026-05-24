@@ -37,7 +37,17 @@
             <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 4.5A1.5 1.5 0 0 1 3.5 3h13A1.5 1.5 0 0 1 18 4.5v11a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 2 15.5v-11ZM7 4.5H4v11h3v-11Z" clip-rule="evenodd"/></svg>
         </button>
 
-        <a href="{{ url('/') }}" class="ms-1 text-sm font-bold tracking-tight">{{ __('OpenERP') }}</a>
+        {{-- Brand: custom company logo when an admin has uploaded one,
+             else the OpenERP wordmark. Logo::url() is null-safe (missing
+             file → null → fallback to text). --}}
+        @php $brandLogoUrl = \App\Erp\Branding\Logo::url(); @endphp
+        <a href="{{ url('/') }}" class="ms-1 flex items-center" aria-label="{{ __('OpenERP') }}">
+            @if ($brandLogoUrl)
+                <img src="{{ $brandLogoUrl }}" alt="{{ __('OpenERP') }}" class="h-7 w-auto max-w-[8rem] object-contain">
+            @else
+                <span class="text-sm font-bold tracking-tight">{{ __('OpenERP') }}</span>
+            @endif
+        </a>
 
         {{-- Breadcrumbs — every segment is a link back to its cumulative
              URL except the LAST one (the page you're on) and the bare

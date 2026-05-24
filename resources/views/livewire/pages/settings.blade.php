@@ -142,6 +142,82 @@
                                 </div>
                             @elseif ($row['type'] === 'number')
                                 <input type="number" step="0.01" wire:model="form.{{ $i }}.value" class="o-input max-w-xs">
+                            @elseif ($row['type'] === 'image')
+                                {{-- Image-type setting (e.g. company.logo). The
+                                     upload goes direct to FormImageUploadController,
+                                     same pattern as FormView's image widget — no
+                                     Livewire two-phase temp file. The returned path
+                                     is written to `$wire.imagePaths.<key>` and the
+                                     SettingsPage::save() merges it into the row's
+                                     value before flushing to ir_config_parameter.
+                                     `bucket` is hard-coded here to `company` because
+                                     the only image setting today is the logo; if
+                                     another image setting is added we can derive the
+                                     bucket from the key. --}}
+                                @php
+                                    $previewUrl = (is_string($row['value']) && $row['value'] !== '')
+                                        ? \Illuminate\Support\Facades\Storage::disk('public')->url($row['value'])
+                                        : null;
+                                    // Guard: file might be missing on disk (e.g. a
+                                    // bucket-wipe regression). Treat as no preview.
+                                    if ($previewUrl !== null && ! \Illuminate\Support\Facades\Storage::disk('public')->exists($row['value'])) {
+                                        $previewUrl = null;
+                                    }
+                                @endphp
+                                <div class="flex items-start gap-4"
+                                    x-data="{
+                                        busy: false,
+                                        error: '',
+                                        previewUrl: @js($previewUrl),
+                                        async upload(e) {
+                                            const file = e.target.files[0];
+                                            if (!file) return;
+                                            this.busy = true;
+                                            this.error = '';
+                                            const data = new FormData();
+                                            data.append('file', file);
+                                            data.append('bucket', 'company');
+                                            try {
+                                                const r = await fetch(@js(route('form.upload-image')), {
+                                                    method: 'POST',
+                                                    headers: {
+                                                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                                                        'Accept': 'application/json',
+                                                    },
+                                                    body: data,
+                                                    credentials: 'same-origin',
+                                                });
+                                                if (!r.ok) {
+                                                    const j = await r.json().catch(() => ({}));
+                                                    this.error = (j.errors && j.errors.file && j.errors.file[0]) || j.message || (@js(__('Upload failed.')));
+                                                    return;
+                                                }
+                                                const j = await r.json();
+                                                this.previewUrl = j.url;
+                                                await $wire.set(@js('imagePaths.' . $i), j.path);
+                                            } catch (err) {
+                                                this.error = err.message || (@js(__('Upload failed.')));
+                                            } finally {
+                                                this.busy = false;
+                                            }
+                                        },
+                                    }">
+                                    <span class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-chrome-100 ring-1 ring-chrome-200 text-chrome-400">
+                                        <template x-if="previewUrl">
+                                            <img :src="previewUrl" alt="" class="size-full object-contain p-1">
+                                        </template>
+                                        <template x-if="!previewUrl">
+                                            <svg class="size-7" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M1 5.25A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25v9.5A2.25 2.25 0 0 1 16.75 17H3.25A2.25 2.25 0 0 1 1 14.75v-9.5Zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 0 0 .75-.75v-2.69l-2.22-2.219a.75.75 0 0 0-1.06 0L10 14.06l-3.969-3.97a.75.75 0 0 0-1.06 0L2.5 11.06ZM6.625 7a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Z" clip-rule="evenodd"/></svg>
+                                        </template>
+                                    </span>
+                                    <div class="flex flex-1 flex-col gap-1">
+                                        <input type="file" accept="image/*" @change="upload($event)"
+                                            class="text-sm text-chrome-600 file:me-3 file:rounded-md file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-chrome-200">
+                                        <p class="text-xs text-chrome-400">{{ __('Accepted: JPG, PNG, GIF, WebP, AVIF, HEIC, BMP · max 4 MB') }}</p>
+                                        <p x-show="busy" class="text-xs text-chrome-400">{{ __('Uploading…') }}</p>
+                                        <p x-show="error" x-text="error" class="text-xs text-red-600"></p>
+                                    </div>
+                                </div>
                             @else
                                 <input type="text" wire:model="form.{{ $i }}.value" class="o-input">
                             @endif

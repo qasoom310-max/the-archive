@@ -402,7 +402,19 @@
         <div class="fixed inset-0 z-40 flex items-center justify-center bg-chrome-900/40 p-4">
             <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-pop">
                 <div class="text-center">
-                    <p class="text-base font-bold text-chrome-900">OpenERP POS</p>
+                    {{-- Custom company logo when uploaded; falls back to
+                         the company name text + "OpenERP POS". The logo
+                         is the main reason this setting exists, so it
+                         displays prominently on the receipt header. --}}
+                    @php
+                        $receiptLogoUrl = \App\Erp\Branding\Logo::url();
+                        $companyName = \App\Erp\Settings\Setting::get('company.name', 'OpenERP');
+                    @endphp
+                    @if ($receiptLogoUrl)
+                        <img src="{{ $receiptLogoUrl }}" alt="{{ $companyName }}"
+                            class="mx-auto mb-2 h-14 w-auto max-w-[10rem] object-contain">
+                    @endif
+                    <p class="text-base font-bold text-chrome-900">{{ $companyName }}</p>
                     <p class="text-xs text-chrome-400">{{ $receipt->reference }} · {{ $now->isoFormat('MMM D, YYYY HH:mm') }}</p>
                     @if ($receipt->partner)<p class="text-xs text-chrome-500">Customer: {{ $receipt->partner->name }}</p>@endif
                 </div>

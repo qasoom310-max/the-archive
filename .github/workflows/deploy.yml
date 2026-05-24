@@ -146,7 +146,13 @@ jobs:
       #   - .git*, tests, node_modules: dev-only weight
       #   - .env: never overwrite the prod .env from the repo
       #   - database/database.sqlite: dev-only DB; prod uses MySQL
-      #   - storage/app/public/pos_products/: user uploads (per-host data)
+      #   - storage/app/public/{avatars,pos_products,pos_categories,partners}/:
+      #     ALL four user-upload buckets the FormImageUploadController
+      #     whitelists. --delete would wipe them on every deploy and
+      #     leave DB rows pointing at gone files (regression observed
+      #     2026-05-24 — user avatars disappeared after a deploy because
+      #     only pos_products/ was protected). Add the bucket name here
+      #     in lockstep with any new entry in FormImageUploadController.
       #   - storage/logs/, framework caches: per-host runtime data
       # --delete prunes remote files that no longer exist locally (clean
       # deploys), but `--exclude` paths are protected on BOTH sides — so
@@ -162,7 +168,10 @@ jobs:
             --exclude='.env.*' \
             --exclude='database/database.sqlite' \
             --exclude='database/*.sqlite-journal' \
+            --exclude='storage/app/public/avatars/' \
             --exclude='storage/app/public/pos_products/' \
+            --exclude='storage/app/public/pos_categories/' \
+            --exclude='storage/app/public/partners/' \
             --exclude='storage/logs/' \
             --exclude='storage/framework/cache/data/' \
             --exclude='storage/framework/sessions/' \

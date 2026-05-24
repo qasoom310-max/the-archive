@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * @property int $id
@@ -66,6 +67,28 @@ final class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->is_admin === true;
+    }
+
+    /**
+     * Public URL of the user's avatar — null when no avatar is set, AND
+     * null when the column points at a file that no longer exists on
+     * disk (so the UI's fallback initial-letter renders instead of a
+     * broken-image icon). Prevents the regression where a deploy wiped
+     * the avatars bucket but the DB row kept the stale path; both call
+     * sites (profile page + topbar) now go through this guard.
+     */
+    public function avatarUrl(): ?string
+    {
+        if ($this->avatar_path === null || $this->avatar_path === '') {
+            return null;
+        }
+
+        $disk = Storage::disk('public');
+        if (! $disk->exists($this->avatar_path)) {
+            return null;
+        }
+
+        return $disk->url($this->avatar_path);
     }
 
     /**

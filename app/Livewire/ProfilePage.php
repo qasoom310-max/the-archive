@@ -194,9 +194,10 @@ final class ProfilePage extends Component
 
         return view('livewire.profile-page', [
             'user' => $user,
-            'avatarUrl' => $user->avatar_path !== null && $user->avatar_path !== ''
-                ? Storage::disk('public')->url($user->avatar_path)
-                : null,
+            // Goes through User::avatarUrl() so a stale avatar_path
+            // pointing at a missing file falls back to null (initial
+            // letter) instead of rendering a broken-image icon.
+            'avatarUrl' => $user->avatarUrl(),
             'roleLabel' => $user->roleLabel(),
             'pendingEmail' => $user->new_email,
         ]);

@@ -190,6 +190,50 @@ final class ProfilePageTest extends TestCase
         Storage::disk('public')->assertExists($secondPath);
     }
 
+    public function test_avatar_url_falls_back_to_null_when_the_underlying_file_is_missing(): void
+    {
+        // Regression guard: a deploy that wiped the avatars bucket
+        // (rsync --delete without an --exclude for storage/app/public/
+        // avatars/) used to leave DB rows pointing at gone files, so
+        // the topbar and profile page rendered a broken-image icon.
+        // User::avatarUrl() now returns null when the file is missing
+        // so the initial-letter fallback renders instead.
+        Storage::fake('public');
+        $user = User::factory()->create(['avatar_path' => 'avatars/ghost.jpg']);
+
+        $this->assertNull($user->avatarUrl(), 'Missing file should not return a URL');
+
+        // Now write the file and re-check — present file should yield a URL.
+        Storage::disk('public')->put('avatars/ghost.jpg', 'fake-bytes');
+        $this->assertNotNull($user->avatarUrl());
+        $this->assertStringContainsString('avatars/ghost.jpg', (string) $user->avatarUrl());
+    }
+
+    public function test_avatar_url_is_null_when_no_path_is_stored(): void
+    {
+        $user = User::factory()->create(['avatar_path' => null]);
+
+        $this->assertNull($user->avatarUrl());
+    }
+
+    public function test_profile_page_does_not_emit_img_tag_when_avatar_file_missing(): void
+    {
+        // Belt-and-braces: the *view* must not render an <img> whose
+        // src would 404. Reaches into the rendered HTML to confirm the
+        // letter fallback won the @if branch.
+        Storage::fake('public');
+        $user = User::factory()->create([
+            'name' => 'Qassim',
+            'avatar_path' => 'avatars/wiped-by-deploy.jpg', // no actual file
+        ]);
+        $this->actingAs($user);
+
+        $component = Livewire::test(ProfilePage::class);
+        $this->assertNull($component->get('avatarUrl'));
+        // The initial letter "Q" must be visible somewhere on the page.
+        $component->assertSee('Q', false);
+    }
+
     // ─────────────────── Email change (deferred) ───────────────────
 
     public function test_changing_email_parks_in_new_email_and_sends_verification_to_new_address(): void

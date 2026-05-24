@@ -96,12 +96,13 @@
                 <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a6 6 0 0 0-6 6v3.6l-1.3 2.6A1 1 0 0 0 3.6 16h12.8a1 1 0 0 0 .9-1.4L16 11.6V8a6 6 0 0 0-6-6Zm0 16a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 10 18Z"/></svg>
             </button>
 
-            {{-- User menu --}}
+            {{-- User menu — avatar URL goes through User::avatarUrl() so
+                 a stale `avatar_path` pointing at a missing file falls
+                 back to null (initial letter) instead of a broken-image
+                 icon. Same guard runs on the profile page. --}}
             @php
                 $authUser = auth()->user();
-                $authAvatarUrl = $authUser?->avatar_path
-                    ? \Illuminate\Support\Facades\Storage::disk('public')->url($authUser->avatar_path)
-                    : null;
+                $authAvatarUrl = $authUser?->avatarUrl();
             @endphp
             <div x-data="{ open: false }" class="relative" @keydown.escape.window="open = false">
                 <button type="button" @click="open = !open"

@@ -7,7 +7,6 @@ namespace Modules\Pos\Listeners;
 use App\Erp\Money\Currencies;
 use App\Erp\Settings\Setting;
 use Illuminate\Support\Carbon;
-use Modules\Contacts\Models\Partner;
 use Modules\Pos\Events\PosOrderPaid;
 use Modules\Pos\Models\PosOrder;
 use Modules\WhatsApp\Exceptions\WhatsAppException;
@@ -83,31 +82,20 @@ final class SendPosOrderReceiptViaWhatsApp
     }
 
     /**
-     * Build the 5 positional template variables expected by `pos_receipt`:
-     *   {{1}} customer name (or "Walk-in"), {{2}} store name (from
-     *   `company.name`), {{3}} order reference, {{4}} total with currency,
-     *   {{5}} ordered datetime. Meta requires variables to appear in
-     *   numerical order in the body, so the store goes in as {{2}} and
-     *   the rest shift one position up from the original 4-variable layout.
+     * Build the 4 positional template variables expected by `pos_receipt`:
+     *   {{1}} store name (from `company.name`), {{2}} order reference,
+     *   {{3}} total with currency, {{4}} ordered datetime.
+     *
+     * The customer name was originally {{1}} but the cashier workflow
+     * almost never captures a partner on each sale, so the receipt would
+     * always say "Hello Walk-in" — noise, not personalisation. Dropped
+     * to keep the body short and brand-led. Add it back here if a future
+     * template re-introduces a customer placeholder.
      *
      * @return list<string>
      */
     private function buildTemplateVariables(PosOrder $order): array
     {
-        // Resolve the customer name with two explicit null checks rather
-        // than `?->` / `??` — Larastan infers `$order->partner` (relation
-        // magic property) as non-null AND treats the ternary as collapsing
-        // to non-null, so the chained nullsafe form trips `nullsafe.neverNull`.
-        // Plain `if`s keep PHPStan calm while preserving runtime safety
-        // (partner_id may be null; the looked-up row may have been deleted).
-        $customerName = 'Walk-in';
-        if ($order->partner_id !== null) {
-            $partner = Partner::query()->find($order->partner_id);
-            if ($partner !== null) {
-                $customerName = $partner->name;
-            }
-        }
-
         // Store / brand name from the General settings tab. Same source
         // the on-screen receipt and login page use — keeps the WhatsApp
         // template in lockstep with the visible branding. Falls back to
@@ -128,7 +116,6 @@ final class SendPosOrderReceiptViaWhatsApp
         $orderedFormatted = $orderedAt->format('M j, Y g:i A');
 
         return [
-            $customerName,
             $storeName,
             $order->reference,
             $totalFormatted,

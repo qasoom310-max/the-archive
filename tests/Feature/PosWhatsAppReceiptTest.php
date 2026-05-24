@@ -145,12 +145,13 @@ final class PosWhatsAppReceiptTest extends TestCase
         $this->assertIsArray($payload);
         $params = $payload['template']['components'][0]['parameters'] ?? null;
         $this->assertIsArray($params);
-        // 5 positional placeholders: customer, store, ref, total, datetime
-        $this->assertCount(5, $params);
-        $this->assertSame('Walk-in', $params[0]['text']);            // no partner attached
-        $this->assertIsString($params[1]['text']);                   // store name from company.name
-        $this->assertSame($order->reference, $params[2]['text']);    // shifted from index 1
-        $this->assertStringContainsString('10.00', $params[3]['text']); // total moved from 2 → 3
+        // 4 positional placeholders: store, ref, total, datetime
+        // (customer-name slot was dropped — cashiers rarely capture a
+        // partner, so "Hello Walk-in" was noise on every receipt).
+        $this->assertCount(4, $params);
+        $this->assertIsString($params[0]['text']);                   // store name from company.name
+        $this->assertSame($order->reference, $params[1]['text']);
+        $this->assertStringContainsString('10.00', $params[2]['text']);
 
         // And the queued HTTP-call job was actually dispatched.
         Bus::assertDispatched(SendWhatsAppMessage::class, fn (SendWhatsAppMessage $job): bool => $job->to === '97333123456' && $job->logId === $log->id,
@@ -259,7 +260,9 @@ final class PosWhatsAppReceiptTest extends TestCase
         $payload = $log->payload;
         $this->assertIsArray($payload);
         $params = $payload['template']['components'][0]['parameters'];
-        $this->assertSame('Sweileh Cafe', $params[1]['text']);
+        // Store name is now {{1}} (index 0) after the customer-name slot
+        // was dropped — it's the first thing in the body.
+        $this->assertSame('Sweileh Cafe', $params[0]['text']);
     }
 
     public function test_pos_receipt_template_variable_uses_12_hour_clock(): void
@@ -302,9 +305,9 @@ final class PosWhatsAppReceiptTest extends TestCase
         $params = $payload['template']['components'][0]['parameters'] ?? null;
         $this->assertIsArray($params);
 
-        // 5th parameter (index 4) is the ordered datetime after the store
-        // name was inserted at index 1.
-        $orderedAt = $params[4]['text'];
+        // 4 positional vars now: store, ref, total, datetime — datetime
+        // is index 3 after dropping the customer-name slot.
+        $orderedAt = $params[3]['text'];
         $this->assertSame('May 24, 2026 6:27 PM', $orderedAt);
 
         \Illuminate\Support\Carbon::setTestNow();

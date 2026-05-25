@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Modules\Accounting\Database\Seeders;
+namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Modules\Accounting\Enums\AccountType;
@@ -13,7 +13,7 @@ use Modules\Accounting\Models\Account;
  * work out of the box, and enough surface area to demo all three
  * financial statements meaningfully.
  *
- * Codes line up with the defaults in `config/accounting.php`:
+ * Codes line up with the defaults in `Modules/Accounting/config/accounting.php`:
  *   1010 Cash · 1020 Bank · 1100 AR · 1200 Inventory
  *   2010 AP
  *   3010 Owner's Equity
@@ -23,11 +23,26 @@ use Modules\Accounting\Models\Account;
  * Idempotent — each row is upserted by `code`, so re-running the seeder
  * on top of edits to `name` / `is_reconcilable` re-asserts the canonical
  * values without duplicating.
+ *
+ * Lives at the project root `database/seeders/` (not inside the module)
+ * to match the project convention — every module's seeder sits under
+ * the `Database\Seeders` namespace so `db:seed --class=` autoloads it
+ * via PSR-4 (Linux is case-sensitive: namespace casing must match the
+ * on-disk directory casing, and only the root `Database/Seeders/` has
+ * that mapping wired up).
  */
 final class ChartOfAccountsSeeder extends Seeder
 {
     public function run(): void
     {
+        // The Accounting module must be installed (creates the `accounts`
+        // table) before this seeder can do anything useful. Guard so
+        // a CI run that calls the default seed chain pre-install is a
+        // no-op instead of a SQL error.
+        if (! \Schema::hasTable('accounts')) {
+            return;
+        }
+
         $groups = [
             // Assets (1xxx)
             ['code' => '1000', 'name' => ['en' => 'Assets', 'ar' => 'الأصول'], 'type' => AccountType::Asset, 'parent' => null, 'reconcilable' => false],

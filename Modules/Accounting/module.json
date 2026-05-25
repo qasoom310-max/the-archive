@@ -1,0 +1,19 @@
+{
+    "name": "accounting",
+    "display_name": "Accounting",
+    "summary": "Double-entry bookkeeping: chart of accounts, journals, ledgers & financial statements",
+    "description": "QuickBooks/Odoo-style accounting engine. Hierarchical chart of accounts, balanced journal entries with draft/posted lifecycle, automatic postings from POS sales and purchase invoices, and the three core financial statements (Trial Balance, Profit & Loss, Balance Sheet).",
+    "version": "1.0.0",
+    "author": "OpenERP",
+    "category": "Accounting",
+    "icon": "wallet",
+    "application": true,
+    "auto_install": false,
+    "depends": ["base", "contacts"],
+    "providers": ["Modules\\Accounting\\Providers\\AccountingServiceProvider"],
+    "models": [
+        "Modules\\Accounting\\Models\\Account",
+        "Modules\\Accounting\\Models\\JournalEntry"
+    ],
+    "sequence": 20
+}

@@ -454,6 +454,7 @@ Keep this table current — it is how state survives across sessions.
 | 11 | **Currency engine**: `App\Erp\Money\{Currency,Currencies}` (27 currencies, Arab-world heavy — **all dinars now display at 2 decimals per user policy**, originally modelled as 3) + `ValueFormat::money()` + `format: money` column type + Settings dropdown | ✅ DONE |
 | 12 | **Locale & RTL Arabic (Pass 1)**: `SetLocale` middleware + `lang/ar.json` + `<html dir="rtl">` + logical Tailwind utilities + auto-reload on language flip + app-switcher per-module icons | ✅ Pass 1 (foundation + chrome + login + profile + settings + dashboard). Pass 2 (POS interiors, Contacts, Inventory, Chatter, engine list/kanban/form chrome, validation messages) = next |
 | 13 | **Translatable data**: `spatie/laravel-translatable` + engine `translatable: true` arch flag + Odoo-style EN/AR pills in FormView + `PosProduct.name` and `PosCategory.name` opted in | ✅ DONE (POS Product + Category names). Follow-ups: `Partner.name`, add `description` columns then opt them in |
+| 14 | **Accounting**: double-entry COA + balanced journal entries (draft→posted) + sequence-generated numbers + auto-post on POS sale & purchase invoice + Trial Balance / P&L / Balance Sheet | ✅ Backend (schema/models/services/listeners/seeder). Follow-ups: Livewire screens (statements pages, journal-line inline editor), bank reconciliation, taxes module, manual-entry form, fixed-asset depreciation |
 
 **Phase 8 — Settings (where things live):**
 
@@ -605,6 +606,40 @@ DB stores `decimal(12,2)` and all currencies now display at ≤ 2 decimals (DJF/
 | Importer category lookup | `PosProductImporter::resolveCategoryIds()` queries `where('name->en', ...)->orWhere('name->ar', ...)` because `whereIn('name', $names)` can't match the JSON envelope. New categories are created with a locale-keyed `name` array under the script-detected locale (`detectLocale()`). Pinned by `test_importer_resolves_category_by_name_and_creates_missing_ones` |
 
 **Lookup gotcha:** With `name` as JSON, `where('name', 'X')` no longer matches — the column literally holds `{"en":"X"}`. Use `where('name->en', 'X')` (Laravel JSON-path; works on SQLite + MySQL natively). `PosTerminal::products()` `LIKE '%search%'` survives because LIKE substring-matches the raw JSON envelope, and `orderBy('name')` still mostly sorts alphabetically because the `{"en":"` prefix is constant for English-only rows — both degrade once Arabic translations land, so swap to `orderByRaw("json_extract(name, '$.en')")` (driver-aware) and locale-scoped JSON-path search next time you touch the terminal.
+
+**Phase 14 — Accounting module (`Modules/Accounting/`, depends on `contacts`):**
+
+| Concern | Location |
+|---|---|
+| Manifest | `Modules/Accounting/module.json` (`application:true`, `depends:[base,contacts]`, models: Account + JournalEntry, sequence 20) |
+| Schema | 4 tables — `accounts` (COA, hierarchical `parent_id`, translatable JSON `name`, `is_reconcilable`, `active`), `journal_entries` (`number` unique, `date`, `reference` indexed, `narration`, `state`, `user_id`, `posted_at`), `journal_items` (`debit`/`credit` decimal(15,2), `partner_id` logical ref, `memo`), `accounting_sequences` (per-(prefix,year) counter, unique `acc_seq_prefix_year_unique`) |
+| Enums | `Modules\Accounting\Enums\{AccountType,JournalEntryState}`. `AccountType::normalBalance()` returns `'debit'` (Asset/Expense) or `'credit'` (Liability/Equity/Income) — that single fact drives every balance + statement query. `signedBalance(debit,credit)` flips the sign per convention. `isProfitAndLoss()` / `isBalanceSheet()` split the COA for statement scoping |
+| Models | `Modules\Accounting\Models\{Account,JournalEntry,JournalItem,AccountingSequence}`. `Account` uses Spatie `HasTranslations` (`name`), is `DefinesIrModel`, exposes `byCode()`, `totalDebit()`/`totalCredit()`/`balance()`/`signedBalance()` (posted-only, date-windowed), and `subtreeBalance()`+`subtreeIds()` for parent rollups (iterative + visited-set, cycle-safe like PosCategory). `JournalEntry` is `DefinesIrModel + Chatterable`, exposes `assertBalanced()` (throws `UnbalancedJournalEntryException`) + `isBalanced()`/`isPosted()`. `JournalItem` has builder helpers `asDebit($n)` / `asCredit($n)` that null out the opposite side |
+| Posting service | `Modules\Accounting\Services\JournalPoster` — sole entry point. `createDraft(date,lines,reference,narration,prefix)` persists header+lines in one transaction with an auto-generated `number`. `post(JournalEntry)` validates balance, flips state to Posted, stamps `posted_at`, logs to Chatter. Idempotent (no-op on already-posted). `record(...)` = create+post for the automated listeners (rolls back the whole entry if unbalanced — no orphan drafts). `Auth::id()` stamps `user_id` |
+| Sequence service | `Modules\Accounting\Services\SequenceGenerator::next(prefix,year?)` returns `"MISC/2026/0001"`-style strings under a `lockForUpdate` on `accounting_sequences` — race-safe across concurrent workers (MySQL/Postgres); SQLite's single-writer model is the second safety net, and `journal_entries.number` UNIQUE is the third |
+| Validation | `Modules\Accounting\Exceptions\UnbalancedJournalEntryException` carries `totalDebit`/`totalCredit` so the form can render "Out of balance by 0.50" without re-summing. Threshold `< 0.005` so 2-dp rounding noise can never trip it |
+| Reports | `Modules\Accounting\Services\FinancialReports` — `trialBalance(from?,to?,includeZero=false)` (joined COA × posted items, grouped by account), `profitAndLoss(from?,to?)` (income − expense + net), `balanceSheet(asOf?)` (assets / liabilities / equity + **retained-earnings carry-forward** so Assets = Liabilities + Equity actually balances after the first period closes; includes `is_balanced` self-check), `accountLedger(Account,from?,to?)` (per-line drill-down with running balance — sign-aware per the account's `normalBalance()`). All driver-portable DB-level aggregates; only posted entries count |
+| Translatable name lookup | `accounts.name` is JSON envelope (Spatie); `FinancialReports::translatedName()` decodes the raw column value for the active locale at the query layer (DB raw aggregates can't go through Eloquent accessors). Falls back to `en` then first available key then raw |
+| Auto-posting (POS) | `Modules\Accounting\Listeners\RecordPosSaleInJournal` — listens to `PosOrderPaid`, books `Dr Cash {total} / Cr Sales Income {subtotal} / Cr Sales Tax Payable {tax_total}` (the tax leg only when `accounting.accounts.sales_tax_payable` is configured; otherwise the full gross hits Sales Income). Errors are swallowed and logged to the order's Chatter — a missing COA row must NEVER break checkout (same convention as the WhatsApp listener) |
+| Auto-posting (purchase) | `Modules\Accounting\Listeners\RecordPurchaseInJournal::handle(object $event)` — event-shape agnostic via duck-typing (`property_exists($event, 'invoice')`). Books `Dr Inventory|Purchase Expense {total} / Cr AP {total}` based on `$invoice->is_stock_purchase`. The Purchases module doesn't exist yet — when it lands, fire `Modules\Purchases\Events\PurchaseInvoiceConfirmed` (with the @phpstan-type shape on the listener) and wire `Event::listen(...)` in `AccountingServiceProvider::boot()`. Direct `record(object $invoice)` entry point is already test-friendly |
+| Config | `Modules/Accounting/config/accounting.php` — code→meaning mapping (`accounts.cash='1010'`, `bank='1020'`, `accounts_receivable='1100'`, `inventory='1200'`, `accounts_payable='2010'`, `sales_tax_payable=''` (off), `sales_income='4010'`, `purchase_expense='5010'`) + sequence prefixes (`misc=MISC`, `sales=SALE`, `purchase=PURC`). Merged via `mergeConfigFrom` in the provider; override per-project by publishing to `config/accounting.php`. **No `env()` calls** — the file sits outside the project `config/` dir, larastan rule `noEnvCallsOutsideOfConfig` forbids it there |
+| Seeder | `Modules\Accounting\Database\Seeders\ChartOfAccountsSeeder` — 13 accounts across all 5 types with EN/AR translations, parent groupings (1000 Assets / 2000 Liabilities / 3000 Equity / 4000 Income / 5000 Expense), idempotent (two-pass: insert then wire parent_id). Manual run — NOT in default chain (a future deploy.yml step can call it after `module:install accounting`, similar to PosStaffSeeder) |
+
+Install: `php artisan module:install accounting` (auto-pulls Contacts), then
+`php artisan db:seed --class="Modules\Accounting\Database\Seeders\ChartOfAccountsSeeder"`.
+The POS↔Accounting auto-posting wakes up immediately — any sale finalised after the
+listener registers books a balanced journal entry. The Account list/form are mounted
+at `/app/accounting/account` and Journal Entries at `/app/accounting/journal-entry`
+by the engine (no explicit routes needed yet).
+
+**Deliberately OUT of scope this increment** (say so if asked, offer as follow-ups):
+Livewire screens for the three statements (`FinancialReports` returns plain arrays
+ready to bind), a journal-line inline editor (manual entries today go through
+`JournalPoster::createDraft()` programmatically), bank reconciliation, multi-currency
+journal items (single-currency from `Setting::get('currency.default')`), tax codes /
+fiscal positions, fixed-asset depreciation, year-end closing automation. The
+retained-earnings carry-forward on the balance sheet is *computed live* — there's
+no closing-entry concept yet.
 
 **Profile self-service (shipped 2026-05-21):**
 

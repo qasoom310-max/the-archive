@@ -265,7 +265,7 @@ grouping, `label()` for display) so List/Kanban stay generic across any model.
 | Schema | `Modules/Contacts/database/migrations/...create_partners_table.php` |
 | UI | `Modules\Contacts\Livewire\{Partners,PartnerForm}` + `resources/views/{partners,partner-form}.blade.php` |
 | Routes | `Modules/Contacts/routes/web.php` → `/app/contacts/partner[/new|/{id}]` |
-| Form engine | `App\Livewire\Views\FormView` + `App\Erp\Views\FormFieldDef` (added in Phase 5). Record-navigation arrows (prev / next, Odoo-style) appear next to the title on existing records — `prevId()` / `nextId()` order by the model's primary key (ascending) and the target URL is derived by swapping the trailing segment of `request()->url()`, so any host route shaped `/…/{id}` works without per-module wiring. Hidden on new records and disabled at list ends. **Auto-save** (Odoo-style): on existing records every field change persists silently — `wire:model.live.debounce.500ms` on text inputs (`wire:model.live` on checkbox/select), Livewire `updated($name)` hook routes `form.*`/`translations.*`/`imagePaths.*` changes through `autoSave()`. ValidationException is swallowed so partial/invalid edits show inline errors but don't commit anything; the next valid keystroke saves. `switchLocale()` and the image-upload Alpine wrapper both end by triggering auto-save. The "Save" button is replaced with a status pill ("Saved ✓" / "Saving…") on existing records and only stays a button on `/new` (the row has to exist before auto-save has a target). No redirect or flash toast from auto-save — those still happen for the explicit Save click that creates a new row |
+| Form engine | `App\Livewire\Views\FormView` + `App\Erp\Views\FormFieldDef` (added in Phase 5). Record-navigation arrows (prev / next, Odoo-style) appear next to the title on existing records — `prevId()` / `nextId()` order by the model's primary key (ascending). The target URL is derived from a `$baseUrl` **captured at mount** (not re-read at render) so Livewire's AJAX endpoint URL (`/livewire/update`) can never poison the chevron links during auto-save re-renders. Hidden on new records and disabled at list ends. **Auto-save** (Odoo-style): on existing records every field change persists silently — `wire:model.live.debounce.500ms` on text inputs (`wire:model.live` on checkbox/select), Livewire `updated($name)` hook routes `form.*`/`translations.*`/`imagePaths.*` changes through `autoSave()`. ValidationException is swallowed so partial/invalid edits show inline errors but don't commit anything; the next valid keystroke saves. `switchLocale()` and the image-upload Alpine wrapper both end by triggering auto-save. **Status pill** (replaces the Save button on existing records): Alpine wrapper hooks `Livewire.hook('commit')` and flips state between `saved`/`saving`/`error` — wire:loading directives weren't reliable because wire:model.live commits target the *property*, not the autoSave method. **Create flow** on a new record: explicit Save button (`wire:loading.attr="disabled"` to block double-clicks), then on first successful create `save()` redirects to the canonical edit URL (`/app/pos/product/new` → `/app/pos/product/{newId}` via Livewire `navigate`). Auto-save kicks in from there. The redirect both prevents refresh-creates-a-duplicate AND swaps the button for the status pill. Host components no longer listen for `record-saved` to redirect to lists (PosProductForm + PosCategoryForm both stripped the listener — the form is the durable workspace now) |
 
 `Partner::irModelDefinition()` declares 11 fields + List/Kanban/Form arch (List &
 Kanban carry `'open' => '/app/contacts/partner/{id}'` so rows/cards link to the Form).
@@ -362,6 +362,15 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
   a Heroicons outline arrow-down SVG so it inherits the toolbar's text colour
   instead of rendering as a chunky OS emoji.
 
+**Phase 7 increments shipped 2026-05-25:**
+
+- **New product form defaults Active=true** — `PosProduct::$attributes = ['active' => true]`.
+  DB column defaulted `true` on insert, but a fresh `new PosProduct()` in memory had
+  `null` for unset attributes — the engine FormView coerced that null to `false` on
+  save, so a cashier creating a new product had to remember to tick Active or the
+  product hid itself from the terminal. Pinned by
+  `test_new_product_form_defaults_active_to_true`.
+
 **Phase 7 increments shipped 2026-05-23 / 2026-05-24:**
 
 - **Direct image upload (Livewire pipeline bypassed)** —
@@ -438,10 +447,10 @@ Keep this table current — it is how state survives across sessions.
 | 4 | Dynamic view engine: List (sort/bulk/aggregate/filter/custom-range, per-user column picker, hidden-by-default columns, inline `toggle` format, arch-driven toolbar search) + Kanban (drag-drop, rotting indicator, image hero + meta footer, responsive grid for ungrouped boards) | ✅ DONE |
 | 5 | First module: **Contacts** (`Partner` model + Form/List/Kanban + Chatter) | ✅ DONE |
 | 6 | Auth & access control: login, `res_groups`, `ir_model_access`, enforced in views; **Profile self-service** (avatar / email-change via signed link / password) | ✅ DONE |
-| 7 | **Point of Sale** module: sessions, terminal, payments, receipts, reconciliation, customer picker, Processed By, status colors, Reporting + date-filter chips + custom range, Import/Export dropdown (Category round-trip), money columns, WhatsApp auto-receipt, direct image upload (AVIF/HEIC + safety hardening), per-user column picker, inline Active toggle, Odoo-style kanban product cards in responsive grid, toolbar search (name + barcode) | ✅ DONE |
+| 7 | **Point of Sale** module: sessions, terminal, payments, receipts, reconciliation, customer picker, Processed By, status colors, Reporting + date-filter chips + custom range, Import/Export dropdown (Category round-trip), money columns, WhatsApp auto-receipt **with per-order PNG header image** (DomPDF + Imagick), 12-hour-clock receipts + customer phone on overlay, direct image upload (AVIF/HEIC + safety hardening), per-user column picker, inline Active toggle, Odoo-style kanban product cards in responsive grid, toolbar search (name + barcode), new-product form defaults Active=true | ✅ DONE |
 | 8 | **Settings**: `ir_config_parameter` + cached `SettingManager`/`Setting` facade + role-gated Settings page (admins see all; non-admins see only `company.language`) + generic `$selects` Alpine combobox (currency + language pickers) | ✅ DONE (General tab + dropdowns + role-gated access; POS/Inventory tabs = next increments) |
 | 9 | **Inventory**: double-entry schema + Overview Kanban + atomic pickings/transfer flow | ✅ (adjustment/replenishment/lots/valuation+forecast/barcode = next increments) |
-| 10 | **WhatsApp**: Meta Cloud API integration (queued messaging, webhook, admin Settings tab, **POS auto-receipt** shipped) | ✅ DONE; templates table/UI · Chatter button · other event automations · media/PDF attachments = next increments |
+| 10 | **WhatsApp**: Meta Cloud API integration (queued messaging, webhook, admin Settings tab, **POS auto-receipt** with PNG image header, configurable template language) | ✅ DONE; templates table/UI · Chatter button · other event automations · richer attachment types = next increments |
 | 11 | **Currency engine**: `App\Erp\Money\{Currency,Currencies}` (27 currencies, Arab-world heavy — **all dinars now display at 2 decimals per user policy**, originally modelled as 3) + `ValueFormat::money()` + `format: money` column type + Settings dropdown | ✅ DONE |
 | 12 | **Locale & RTL Arabic (Pass 1)**: `SetLocale` middleware + `lang/ar.json` + `<html dir="rtl">` + logical Tailwind utilities + auto-reload on language flip + app-switcher per-module icons | ✅ Pass 1 (foundation + chrome + login + profile + settings + dashboard). Pass 2 (POS interiors, Contacts, Inventory, Chatter, engine list/kanban/form chrome, validation messages) = next |
 | 13 | **Translatable data**: `spatie/laravel-translatable` + engine `translatable: true` arch flag + Odoo-style EN/AR pills in FormView + `PosProduct.name` and `PosCategory.name` opted in | ✅ DONE (POS Product + Category names). Follow-ups: `Partner.name`, add `description` columns then opt them in |
@@ -485,7 +494,7 @@ Usage: `Setting::get('company.name')`, `Setting::set('currency.default', 'EUR')`
 | Queued send | `SendWhatsAppMessage` (`ShouldQueue`, `tries=3`, 30s backoff, `?logId`) — POSTs via injected `Http\Factory`; success → log `sent` + stores `wamid`; non-2xx → log `failed` + throw → retry → `failed_jobs`. Queue driver `database` (already in `.env`) |
 | Webhook | `Http\Controllers\WebhookController` — **GET** verify (constant-time `hub.verify_token` check, echoes `hub.challenge`) · **POST** verify `X-Hub-Signature-256` HMAC of raw body keyed by `app_secret`, then status callbacks advance the matching outbound log by `wamid`, inbound messages stored as `received` rows. Routes `Modules/WhatsApp/routes/web.php`: `/whatsapp/webhook` GET+POST are **public (not in `auth`)**; `/app/settings/whatsapp` is `auth` |
 | CSRF | `bootstrap/app.php` → `validateCsrfTokens(except: ['whatsapp/webhook'])` — module routes load inside the `web` group, so the Meta POST needs this global exception (path, no leading slash) |
-| Settings UI | `Modules\WhatsApp\Livewire\WhatsAppSettings` (**admin-only** `abort 403`) + `whatsapp::settings`; secrets are **write-only** (never echoed; blank on save = keep). Surfaced as a tab via `resources/views/partials/settings-nav.blade.php` (`@include`d by both the core settings view and this one; shows the WhatsApp pill only when the module is `Installed`) |
+| Settings UI | `Modules\WhatsApp\Livewire\WhatsAppSettings` (**admin-only** `abort 403`) + `whatsapp::settings`; secrets are **write-only** (never echoed; blank on save = keep). Surfaced as a tab via `resources/views/partials/settings-nav.blade.php` (`@include`d by both the core settings view and this one; shows the WhatsApp pill only when the module is `Installed`). **Template language** field (added 2026-05-24) is the Meta locale code the outbound template was approved under — `en` (default), `en_US`, `ar`, etc. — flipping it requires no redeploy. Wrong code = `#132001` "Template name does not exist in the translation" and silent fail; column added by migration `2026_05_24_300002_add_template_language_to_whatsapp_configuration` (auto-applied by `deploy.yml`'s WhatsApp migrate step) |
 | Errors | `Modules\WhatsApp\Exceptions\WhatsAppException` (config missing/disabled, or non-2xx Graph response) |
 | Tests | `tests/Feature/WhatsAppModuleTest.php` (11) — install schema, encrypted-at-rest save, admin gate, service→queued-log, job sent/failed, webhook verify/signature/status+inbound. Webhook tested by calling the controller directly (module routes only register on boot **after** install — the known engine gap) |
 
@@ -495,17 +504,57 @@ in Meta. **Not yet built** (next increments): `whatsapp_templates` table + parse
 Chatter "WhatsApp" button, other event-triggered automations beyond POS receipt,
 media/PDF attachment URLs, and inbound→Chatter document correlation (`related_*`).
 
-**POS auto-receipt (shipped 2026-05-21):** `Modules\Pos\Events\PosOrderPaid` fires from
-`PosOrder::finalizeSale()`. `Modules\Pos\Listeners\SendPosOrderReceiptViaWhatsApp`
-(registered by hand in `PosServiceProvider::boot()` — not via `EventServiceProvider`
-because POS is a module that only activates on install) builds 4 ordered template
-variables (customer name → "Walk-in" if no partner / order ref / total formatted via
-`Currencies::format()` / `ordered_at` as `M j, Y H:i`) and queues
-`WhatsAppService::sendTemplateMessage($phone, 'pos_receipt', $vars, 'en_US')`. Failures
-are swallowed and logged to the order's Chatter — a misconfigured WhatsApp must NEVER
-break checkout. Phone capture lives in `PosTerminal` (dial-code dropdown + local digits,
-composed via `Modules\Pos\Support\PosWhatsAppCountries` which strips leading zeros,
-default `+973`). `pos_orders.customer_phone` column added via `2026_05_21_200001`.
+**POS auto-receipt (shipped 2026-05-21, refined 2026-05-24/25):**
+`Modules\Pos\Events\PosOrderPaid` fires from `PosOrder::finalizeSale()`.
+`Modules\Pos\Listeners\SendPosOrderReceiptViaWhatsApp` (registered by hand in
+`PosServiceProvider::boot()` — not via `EventServiceProvider` because POS is a module
+that only activates on install) builds **4 ordered body variables**: store name (from
+`Setting::get('company.name')`) / order ref / total via `Currencies::format()` /
+`ordered_at` as **`M j, Y g:i A`** (12-hour with AM/PM — every retail POS in the region
+prints AM/PM). The customer-name slot was dropped — cashiers rarely capture a partner,
+so the legacy "Hello Walk-in" header was noise; the template now opens "Hello, thank you
+for your order at {store}." instead. Sends via
+`WhatsAppService::sendTemplateMessage($phone, 'pos_receipt', $vars, $config->template_language, $imageUrl)`.
+Failures are swallowed and logged to the order's Chatter — a misconfigured WhatsApp
+must NEVER break checkout. Phone capture lives in `PosTerminal` (dial-code dropdown +
+local digits, composed via `Modules\Pos\Support\PosWhatsAppCountries` which strips
+leading zeros, default `+973`). `pos_orders.customer_phone` column added via
+`2026_05_21_200001`.
+
+**Receipt overlay (on-screen, in `Modules/Pos/resources/views/terminal.blade.php`):**
+mirrors the WhatsApp variables — header reads `{ref} · {M j, Y h:mm A}` (12-hour) and
+shows `Phone: +{customer_phone}` underneath the customer name when one was captured.
+Walk-ins with no phone get no extra line. Logo above the company name via
+`App\Erp\Branding\Logo::url()` (returns null when the logo path is unset OR the file
+is missing on disk — same defensive guard `User::avatarUrl()` uses to avoid broken-img
+icons after a rsync regression).
+
+**POS receipt PNG image (Phase 7, shipped 2026-05-25):** every paid order is also
+rendered as a PNG that goes into the WhatsApp template as a `HEADER:IMAGE` component,
+so the customer sees the receipt VISUALLY above the body text on their phone. Pipeline
+is pure server-side, no external service:
+
+| Concern | Location |
+|---|---|
+| Library | `barryvdh/laravel-dompdf ^3.1` — pure PHP, no system binaries beyond Imagick |
+| Blade | `Modules/Pos/resources/views/receipt-pdf.blade.php` — inlined-CSS single-page receipt layout (DomPDF can't share Tailwind/Vite). Reads logo from filesystem path (`Storage::disk('public')->path(...)`), not URL, because DomPDF's HTTP fetcher is disabled |
+| Renderer | `Modules\Pos\Services\PosReceiptImageRenderer` — DomPDF → in-memory PDF → Imagick (200 DPI, links to Ghostscript library directly so the shell-`exec` block on Hostinger doesn't matter) → PNG (`png`, q90, ~80–150 KB). Saves to `storage/app/public/whatsapp-receipts/{safeRef}-{id}.png`, returns public URL. Throws `RuntimeException` if Imagick disappears; listener catches and falls back to text-only send |
+| Wiring | `WhatsAppService::sendTemplateMessage()` extended with optional `?string $headerImageUrl` param — emits a `{type: header, parameters: [{type: image, image: {link}}]}` component **before** `body`. Null = no header (back-compat with text-only templates) |
+| Bucket | `storage/app/public/whatsapp-receipts/` — same `--exclude` contract as the other user-content buckets in `deploy.yml` rsync (memory: `[[rsync-delete-wipes-user-uploads]]`) |
+| Cleanup | `routes/console.php` scheduled task `prune-whatsapp-receipts` runs daily and deletes PNGs older than 7 days — Meta fetches the URL once at send time, never re-fetches, so anything older is disk clutter |
+| Tests | `tests/Feature/PosWhatsAppReceiptTest.php` — `PosReceiptImageRenderer` Mockery-stubbed (not final per the project convention) so the suite doesn't need Imagick locally. New `test_payload_includes_a_header_image_component_with_renderer_url` pins the components shape (header at [0], body at [1]). Pre-fix tests reading body params from `components[0]` were shifted to `[1]` |
+
+Meta requires the template's header type to be locked at template-creation time — so
+the user re-registered `pos_receipt` on the Test WABA with `Header → Image` selected
+and a placeholder PNG (Meta needs a sample to approve; the real image is supplied per
+send). 4 body placeholders: `{{1}}` store name, `{{2}}` order ref, `{{3}}` total,
+`{{4}}` datetime (12-hour).
+
+**Note on Test WABA:** auto-receipt requires the configured `business_account_id` (in
+`whatsapp_configuration`) to be the SAME WABA the `pos_receipt` template lives under.
+Different WABAs = Meta returns `#132001 Template name does not exist in the translation`
+even when the template name is correct (the sender can only use templates owned by its
+own WABA).
 
 **Phase 11 — Currency engine (`App\Erp\Money\`):**
 
@@ -598,16 +647,27 @@ DB stores `decimal(12,2)` and all currencies now display at ≤ 2 decimals (DJF/
   (fields/arch, no schema change) run `php artisan module:resync <module>` to re-reflect
   it into `ir_model(_fields)` / `ir_ui_view`. Always do this for every module touched
   and state it in the hand-off — don't let the user find it via a 500.
-- **Deploy workflow auto-applies POS module state.** `.github/workflows/deploy.yml`'s
+- **Deploy workflow auto-applies POS + WhatsApp module state.** `.github/workflows/deploy.yml`'s
   remote post-deploy now runs, in order: core `migrate --force` → POS `migrate
-  --path=Modules/Pos/database/migrations --force` → `SettingSeeder` → `PosStaffSeeder`
-  → `module:resync pos` → cache rebuild. Idempotent every push to `main`. This means
-  **POS is self-healing on every deploy** — new POS migrations and arch tweaks land
-  without SSH follow-up, and cashier accounts (`ramadan` / `faraj` / `osama`, `pos_user`
-  group, null email) self-restore. `PosStaffSeeder` is kept OUT of the default seed
-  chain (memory: `[[null-email-seed-breaks-migrate-rollback]]`) — it's invoked only by
-  the workflow's remote step. **Other modules** (Contacts, Inventory, WhatsApp) still
-  need manual SSH after their own incremental migrations or arch edits.
+  --path=Modules/Pos/database/migrations --force` → WhatsApp `migrate
+  --path=Modules/WhatsApp/database/migrations --force` → `SettingSeeder` →
+  `PosStaffSeeder` → `module:resync pos` → cache rebuild. Idempotent every push
+  to `main`. This means **POS + WhatsApp are self-healing on every deploy** — new
+  migrations / arch tweaks land without SSH follow-up, and cashier accounts (`ramadan` /
+  `faraj` / `osama`, `pos_user` group, null email) self-restore. `PosStaffSeeder` is
+  kept OUT of the default seed chain (memory: `[[null-email-seed-breaks-migrate-rollback]]`)
+  — it's invoked only by the workflow's remote step. **Other modules** (Contacts,
+  Inventory) still need manual SSH after their own incremental migrations or arch edits.
+- **Queue worker on Hostinger Cloud (no persistent processes).** Outbound WhatsApp
+  sends go through the `database` queue (`SendWhatsAppMessage` job). Hostinger Cloud
+  doesn't run daemons (no systemd / supervisor available), so we hook Laravel's
+  scheduler in `routes/console.php`: `Schedule::command('queue:work --stop-when-empty
+  --max-time=50')->everyMinute()->withoutOverlapping()->runInBackground()`. A single
+  `* * * * *` cron in hPanel runs `php artisan schedule:run` and drains the queue
+  every minute. **If the cron is missing, queued jobs sit in the `jobs` table forever**
+  (symptom: `whatsapp_messages_log.status='queued'` never advances to `sent`). Use
+  `ps aux | grep queue:work` to verify nothing else is running first. Same scheduler
+  also runs `prune-whatsapp-receipts` daily to drop PNGs older than 7 days.
 - **`AuthSeeder` is deliberately NOT in the deploy workflow.** Adding it would reset
   `admin@example.com`'s password to the seeded value on every push — a footgun. Admin
   + sales user creation is a one-time bootstrap; once prod has them, leave them alone.

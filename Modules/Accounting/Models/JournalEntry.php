@@ -128,7 +128,7 @@ final class JournalEntry extends Model implements Chatterable, DefinesIrModel
                     ],
                     'default_sort' => [['field' => 'date', 'dir' => 'desc']],
                     'per_page' => 20,
-                    'open' => '/app/accounting/journal-entry/{id}',
+                    'open' => '/app/accounting/journal_entry/{id}',
                     'searchable' => ['number', 'reference'],
                     'filters' => [
                         ['name' => 'today',      'label' => "Today",      'field' => 'date', 'preset' => 'today'],

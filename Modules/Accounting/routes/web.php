@@ -27,12 +27,15 @@ Route::middleware('auth')->group(function (): void {
         ->whereNumber('id')
         ->name('accounting.account.edit');
 
-    // Journal Entries
-    Route::get('/app/accounting/journal-entry', JournalEntries::class)
+    // Journal Entries — note the URL uses an underscore (not a hyphen)
+    // because the Sidebar derives the slug from the `ir_model` key
+    // (`accounting.journal_entry`) verbatim. Mismatching = sidebar link
+    // 404s. (memory: module-sidebar-and-engine-contract)
+    Route::get('/app/accounting/journal_entry', JournalEntries::class)
         ->name('accounting.journal_entry.index');
-    Route::get('/app/accounting/journal-entry/new', JournalEntryForm::class)
+    Route::get('/app/accounting/journal_entry/new', JournalEntryForm::class)
         ->name('accounting.journal_entry.create');
-    Route::get('/app/accounting/journal-entry/{id}', JournalEntryForm::class)
+    Route::get('/app/accounting/journal_entry/{id}', JournalEntryForm::class)
         ->whereNumber('id')
         ->name('accounting.journal_entry.edit');
 });

@@ -629,7 +629,7 @@ Install: `php artisan module:install accounting` (auto-pulls Contacts), then
 `php artisan db:seed --class="Database\Seeders\ChartOfAccountsSeeder"`.
 The POS↔Accounting auto-posting wakes up immediately — any sale finalised after the
 listener registers books a balanced journal entry. The Account list/form are mounted
-at `/app/accounting/account` and Journal Entries at `/app/accounting/journal-entry`
+at `/app/accounting/account` and Journal Entries at `/app/accounting/journal_entry`
 by the engine (no explicit routes needed yet).
 
 **Deliberately OUT of scope this increment** (say so if asked, offer as follow-ups):

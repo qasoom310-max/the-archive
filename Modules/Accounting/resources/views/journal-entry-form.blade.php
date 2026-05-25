@@ -2,7 +2,7 @@
     <div class="mb-4 flex items-center gap-2 text-sm text-chrome-500">
         <a href="{{ url('/app/accounting') }}" wire:navigate class="hover:text-primary-700">{{ __('Accounting') }}</a>
         <span>/</span>
-        <a href="{{ url('/app/accounting/journal-entry') }}" wire:navigate class="hover:text-primary-700">{{ __('Journal Entries') }}</a>
+        <a href="{{ url('/app/accounting/journal_entry') }}" wire:navigate class="hover:text-primary-700">{{ __('Journal Entries') }}</a>
         <span>/</span>
         <span class="font-medium text-chrome-700">{{ $entry?->number ?? __('New entry') }}</span>
     </div>

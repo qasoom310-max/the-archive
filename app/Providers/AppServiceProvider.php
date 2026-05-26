@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Erp\Settings\Setting;
 use App\Erp\Settings\SettingManager;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Spatie\Translatable\Translatable;
+use Throwable;
 
 final class AppServiceProvider extends ServiceProvider
 {
@@ -33,5 +36,54 @@ final class AppServiceProvider extends ServiceProvider
         $translatable = $this->app->make(Translatable::class);
         $translatable->fallbackLocale = (string) config('app.fallback_locale', 'en');
         $translatable->fallbackAny = true;
+
+        $this->applyConfiguredTimezone();
+    }
+
+    /**
+     * Honour the admin-configured `company.timezone` (e.g. "Asia/Bahrain")
+     * for the rest of the request. Laravel's `LoadConfiguration` bootstrapper
+     * already called `date_default_timezone_set(config('app.timezone'))`
+     * before service providers run — so we need to override BOTH the
+     * `app.timezone` config value (consumed by future config reads) and
+     * `date_default_timezone_set()` (consumed by PHP's date functions and
+     * therefore by Carbon::now()). Without this step every receipt /
+     * activity / log timestamp renders in UTC even when the admin picked
+     * a +3 timezone in Settings.
+     *
+     * Defensive: settings live in `ir_config_parameter` which may not
+     * exist yet during the very first `migrate` run (or in CI before
+     * the seed step). We guard with `Schema::hasTable` AND a broad
+     * try/catch so a misconfigured / unavailable settings table can
+     * never break a boot — the framework default (`config/app.php`)
+     * silently wins instead.
+     */
+    private function applyConfiguredTimezone(): void
+    {
+        try {
+            if (! Schema::hasTable('ir_config_parameter')) {
+                return;
+            }
+
+            $tz = Setting::get('company.timezone');
+
+            if (! is_string($tz) || $tz === '') {
+                return;
+            }
+
+            // Validate against PHP's IANA tz list before applying — an
+            // invalid value would make every later date() / Carbon call
+            // raise a warning. `timezone_identifiers_list()` is the
+            // authoritative source.
+            if (! in_array($tz, timezone_identifiers_list(), true)) {
+                return;
+            }
+
+            config(['app.timezone' => $tz]);
+            date_default_timezone_set($tz);
+        } catch (Throwable) {
+            // Boot must never crash because of settings — fall back
+            // silently to whatever config/app.php specified.
+        }
     }
 }

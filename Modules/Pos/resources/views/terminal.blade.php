@@ -285,12 +285,10 @@
                         Phone <span class="text-red-500">*</span>
                     </label>
                     <div class="mt-1 flex gap-2">
-                        <select wire:model="newCustomerCountryCode"
-                            class="w-32 shrink-0 truncate rounded-md border border-chrome-300 bg-white px-2 py-1.5 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500">
-                            @foreach ($whatsappCountries as $country)
-                                <option value="{{ $country['dial'] }}">{{ $country['label'] }}</option>
-                            @endforeach
-                        </select>
+                        @include('pos::partials.country-picker', [
+                            'wireModel' => 'newCustomerCountryCode',
+                            'countries' => $whatsappCountries,
+                        ])
                         <input type="tel" inputmode="numeric" wire:model="newCustomerPhone"
                             class="o-input flex-1 text-sm tabular-nums" placeholder="Phone number" autocomplete="off">
                     </div>
@@ -364,12 +362,10 @@
                         <span class="ml-1 font-normal normal-case tracking-normal text-chrome-400">(optional)</span>
                     </label>
                     <div class="mt-1 flex gap-2">
-                        <select wire:model="countryCode"
-                            class="w-32 shrink-0 truncate rounded-md border border-chrome-300 bg-white px-2 py-1.5 text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500">
-                            @foreach ($whatsappCountries as $country)
-                                <option value="{{ $country['dial'] }}">{{ $country['label'] }}</option>
-                            @endforeach
-                        </select>
+                        @include('pos::partials.country-picker', [
+                            'wireModel' => 'countryCode',
+                            'countries' => $whatsappCountries,
+                        ])
                         <input type="tel" inputmode="numeric" wire:model="localPhone"
                             class="o-input flex-1 text-sm tabular-nums" placeholder="Phone number" autocomplete="off">
                     </div>

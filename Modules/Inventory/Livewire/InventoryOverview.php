@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Inventory\Livewire;
 
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -14,6 +15,7 @@ use Modules\Inventory\Models\StockLocation;
 use Modules\Inventory\Models\StockMove;
 use Modules\Inventory\Models\StockOperationType;
 use Modules\Inventory\Models\StockQuant;
+use Modules\Inventory\Services\InventoryAccess;
 
 /**
  * Inventory Overview — the operations dashboard. One Kanban card per
@@ -24,6 +26,11 @@ use Modules\Inventory\Models\StockQuant;
 #[Title('Inventory')]
 final class InventoryOverview extends Component
 {
+    public function mount(): void
+    {
+        abort_unless(InventoryAccess::canAccess(Auth::user()), 403);
+    }
+
     public function render(): View
     {
         $types = StockOperationType::query()

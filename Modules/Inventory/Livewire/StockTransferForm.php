@@ -6,6 +6,7 @@ namespace Modules\Inventory\Livewire;
 
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -14,6 +15,7 @@ use Modules\Inventory\Enums\MoveState;
 use Modules\Inventory\Models\StockLocation;
 use Modules\Inventory\Models\StockMove;
 use Modules\Inventory\Models\StockOperationType;
+use Modules\Inventory\Services\InventoryAccess;
 
 /**
  * Create a new transfer (stock move). Source/destination default from
@@ -38,6 +40,8 @@ final class StockTransferForm extends Component
 
     public function mount(?int $type = null): void
     {
+        abort_unless(InventoryAccess::canAccess(Auth::user()), 403);
+
         $this->scheduledAt = Carbon::now()->format('Y-m-d');
 
         if ($type !== null) {
@@ -86,7 +90,16 @@ final class StockTransferForm extends Component
             ->where('stock_operation_type_id', $this->operationTypeId)
             ->count() + 1;
 
-        DB::transaction(function () use ($code, $seq, $qty): void {
+        // Non-admin submissions land as Draft (= "Pending approval"): they
+        // sit in the list waiting for an admin to click Validate, which
+        // is the moment the move actually adjusts stock. Admin creates
+        // keep the prior Assigned ("Ready") state so day-to-day operations
+        // don't need an extra click.
+        $initialState = InventoryAccess::canApprove(Auth::user())
+            ? MoveState::Assigned
+            : MoveState::Draft;
+
+        DB::transaction(function () use ($code, $seq, $qty, $initialState): void {
             StockMove::query()->create([
                 'reference' => sprintf('WH/%s/%05d', $code, $seq),
                 'stock_operation_type_id' => $this->operationTypeId,
@@ -94,7 +107,7 @@ final class StockTransferForm extends Component
                 'product_qty' => $qty,
                 'source_location_id' => $this->sourceId,
                 'dest_location_id' => $this->destId,
-                'state' => MoveState::Assigned,
+                'state' => $initialState,
                 'scheduled_at' => $this->scheduledAt !== '' ? Carbon::parse($this->scheduledAt) : null,
             ]);
         });

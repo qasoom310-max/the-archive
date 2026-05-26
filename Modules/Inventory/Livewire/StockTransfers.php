@@ -5,17 +5,19 @@ declare(strict_types=1);
 namespace Modules\Inventory\Livewire;
 
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Modules\Inventory\Models\StockMove;
 use Modules\Inventory\Models\StockOperationType;
+use Modules\Inventory\Services\InventoryAccess;
 
 /**
  * Pickings list. Optionally filtered to one operation type (the
  * dashboard "View All" deep-links here via ?type=). "Validate" runs
- * the atomic transfer.
+ * the atomic transfer — admin-only (see InventoryAccess::canApprove).
  */
 #[Layout('components.layouts.app')]
 #[Title('Transfers')]
@@ -26,8 +28,18 @@ final class StockTransfers extends Component
 
     public string $flash = '';
 
+    public function mount(): void
+    {
+        abort_unless(InventoryAccess::canAccess(Auth::user()), 403);
+    }
+
     public function validateMove(int $moveId): void
     {
+        // Server-side gate — never trust the absent button. A data-entry
+        // user shouldn't be able to validate even if they craft the
+        // wire:click manually. Admin only.
+        abort_unless(InventoryAccess::canApprove(Auth::user()), 403);
+
         $move = StockMove::query()->find($moveId);
 
         if ($move === null) {
@@ -54,6 +66,7 @@ final class StockTransfers extends Component
             'activeType' => $this->type !== null
                 ? StockOperationType::query()->find($this->type)
                 : null,
+            'canApprove' => InventoryAccess::canApprove(Auth::user()),
         ]);
     }
 }

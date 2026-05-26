@@ -32,6 +32,17 @@ final class PosStaffSeeder extends Seeder
             ['name' => 'osama', 'password' => 'O1234567o'],
         ];
 
+        // Inventory data-entry role. Members can browse Inventory and
+        // create stock moves, but every move they submit lands in Draft
+        // state ("Awaiting approval") — only an admin can click Validate
+        // to actually move stock. Currently scoped to Osama (per the
+        // request "for osama only not all pos users"); ramadan / faraj
+        // intentionally stay POS-only.
+        $inventoryGroup = Group::query()->updateOrCreate(
+            ['code' => \Modules\Inventory\Services\InventoryAccess::GROUP_USER],
+            ['name' => 'Inventory / Data Entry', 'description' => 'Create inventory entries (admin approves)'],
+        );
+
         foreach ($staff as $person) {
             $user = User::query()->updateOrCreate(
                 ['name' => $person['name']],
@@ -43,6 +54,18 @@ final class PosStaffSeeder extends Seeder
             );
 
             $user->groups()->syncWithoutDetaching([$posGroup->id]);
+
+            // Osama additionally gets the inventory data-entry group.
+            // syncWithoutDetaching → idempotent (re-running the seeder
+            // doesn't bump anyone else into the group).
+            if ($person['name'] === 'osama') {
+                $user->groups()->syncWithoutDetaching([$inventoryGroup->id]);
+            } else {
+                // Defensive: if osama was renamed or this list changed,
+                // ensure stale inventory_user grants are revoked from
+                // non-osama cashiers on every seed run.
+                $user->groups()->detach($inventoryGroup->id);
+            }
         }
 
         // Cashier policy: operate the POS for ORDERS ONLY — sessions +

@@ -57,9 +57,16 @@
                         <td class="px-4 py-2 text-chrome-400">{{ $m->scheduled_at?->isoFormat('MMM D, HH:mm') ?? '—' }}</td>
                         <td class="px-4 py-2 text-right">
                             @if ($m->state->isOpen())
-                                <button wire:click="validateMove({{ $m->id }})"
-                                    wire:confirm="Validate {{ $m->reference }}? This posts the move to inventory."
-                                    class="o-btn-primary">Validate</button>
+                                @if ($canApprove)
+                                    <button wire:click="validateMove({{ $m->id }})"
+                                        wire:confirm="Validate {{ $m->reference }}? This posts the move to inventory."
+                                        class="o-btn-primary">Validate</button>
+                                @else
+                                    {{-- Non-admin (e.g. inventory data-entry user): they see
+                                         their submitted entry sitting in Draft / Pending state,
+                                         awaiting an admin to validate it. --}}
+                                    <span class="o-chip bg-amber-50 text-amber-700">Awaiting approval</span>
+                                @endif
                             @endif
                         </td>
                     </tr>

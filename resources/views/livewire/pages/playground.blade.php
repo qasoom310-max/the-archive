@@ -1,4 +1,4 @@
-<div class="mx-auto max-w-7xl p-6">
+<div class="mx-auto max-w-7xl p-4 sm:p-6">
     <div class="mb-4">
         <h1 class="text-xl font-bold text-chrome-900">Dynamic View Engine</h1>
         <p class="text-sm text-chrome-500">

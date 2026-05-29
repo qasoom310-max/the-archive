@@ -25,13 +25,18 @@
     $activeModule = ($segments[0] ?? null) === 'app' ? ($segments[1] ?? null) : null;
 @endphp
 
-<div x-data="{ collapsed: $persist(false) }" class="flex h-full flex-col">
+<div x-data="{ collapsed: $persist(false), mobileOpen: false }" class="flex h-full flex-col"
+    @keydown.escape.window="mobileOpen = false">
 
     {{-- ───────────────────────── Top navigation bar ───────────────────────── --}}
-    <header class="flex h-12 shrink-0 items-center gap-2 bg-primary-800 px-2 text-white">
+    <header class="flex h-12 shrink-0 items-center gap-1 bg-primary-800 px-2 text-white sm:gap-2">
         <livewire:navigation.app-switcher />
 
-        <button type="button" @click="collapsed = !collapsed"
+        {{-- Sidebar toggle. On desktop (`md+`) this collapses the always-visible
+             aside between w-60 and w-14. On mobile it opens an overlay drawer
+             (the aside element below switches mode at the same breakpoint). --}}
+        <button type="button"
+            @click="window.innerWidth >= 768 ? collapsed = !collapsed : mobileOpen = !mobileOpen"
             class="flex size-9 items-center justify-center rounded-md text-chrome-200 hover:bg-white/10"
             title="{{ __('Toggle sidebar') }}">
             <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 4.5A1.5 1.5 0 0 1 3.5 3h13A1.5 1.5 0 0 1 18 4.5v11a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 2 15.5v-11ZM7 4.5H4v11h3v-11Z" clip-rule="evenodd"/></svg>
@@ -64,7 +69,10 @@
             $terminalOverride = request()->attributes->get('breadcrumb_terminal_label');
             $terminalLabel = is_string($terminalOverride) && $terminalOverride !== '' ? $terminalOverride : null;
         @endphp
-        <nav class="flex items-center gap-1.5 text-sm text-chrome-300">
+        {{-- Breadcrumbs eat horizontal space the topbar can't afford on a
+             360px phone — the brand + hamburger + search button + user menu
+             already push the layout to the edge. Show from `md` upward. --}}
+        <nav class="hidden items-center gap-1.5 text-sm text-chrome-300 md:flex">
             <span class="text-chrome-500">/</span>
             <a href="{{ url('/') }}" wire:navigate class="hover:text-white">{{ __('Home') }}</a>
             @php $cumulative = []; @endphp
@@ -154,9 +162,27 @@
     </header>
 
     {{-- ───────────────────────── Body: sidebar + content ──────────────────── --}}
-    <div class="flex min-h-0 flex-1">
-        <aside :class="collapsed ? 'w-14' : 'w-60'"
-            class="shrink-0 overflow-y-auto border-e border-chrome-200 bg-chrome-50 transition-[width] duration-150">
+    <div class="relative flex min-h-0 flex-1">
+        {{-- Backdrop for the mobile drawer. Only renders on small screens
+             (`md:hidden`); clicking it dismisses the drawer. --}}
+        <div x-show="mobileOpen" x-cloak x-transition.opacity
+            @click="mobileOpen = false"
+            class="fixed inset-0 z-30 bg-chrome-900/40 md:hidden"
+            aria-hidden="true"></div>
+
+        {{-- Sidebar. Two layout modes driven by viewport size:
+             - `md+`: an always-visible column in the flex flow, width
+               toggled by the `collapsed` persist flag.
+             - `<md`: a fixed-position overlay drawer that slides in from
+               the start edge when `mobileOpen` is true; otherwise pushed
+               off-screen via a negative translate. The `start-0` anchor
+               flips automatically for RTL. --}}
+        <aside
+            :class="[
+                collapsed ? 'md:w-14' : 'md:w-60',
+                mobileOpen ? 'translate-x-0' : 'rtl:translate-x-full -translate-x-full'
+            ]"
+            class="fixed inset-y-0 start-0 top-12 z-40 w-64 shrink-0 overflow-y-auto border-e border-chrome-200 bg-chrome-50 transition-transform duration-150 md:static md:top-0 md:translate-x-0 md:transition-[width]">
             <livewire:navigation.sidebar :active-module="$activeModule" />
         </aside>
 

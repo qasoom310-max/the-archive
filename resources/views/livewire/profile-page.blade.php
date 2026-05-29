@@ -1,4 +1,4 @@
-<div class="mx-auto max-w-3xl p-6">
+<div class="mx-auto max-w-3xl p-4 sm:p-6">
     <div class="mb-6">
         <h1 class="text-xl font-bold text-chrome-900">{{ __('Profile') }}</h1>
         <p class="text-sm text-chrome-500">{{ __('Manage your name, photo, email and password.') }}</p>

@@ -15,8 +15,11 @@
 @endphp
 
 <div class="rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5">
-    {{-- Toolbar / bulk-action bar --}}
-    <div class="flex h-12 items-center justify-between gap-2 border-b border-chrome-200 px-4">
+    {{-- Toolbar / bulk-action bar. Phone (`<sm`): stacks vertically so the
+         title sits above the search/totals/column-picker row instead of
+         overflowing the viewport. Tablet+ (`sm`): single horizontal bar
+         (the original h-12 layout). --}}
+    <div class="flex flex-col items-stretch gap-2 border-b border-chrome-200 px-3 py-2 sm:h-12 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-0">
         @if (count($selected) > 0)
             <div class="flex items-center gap-3">
                 <span class="text-sm font-medium text-chrome-700">{{ count($selected) }} selected</span>
@@ -31,7 +34,7 @@
             <h2 class="text-sm font-semibold text-chrome-800">{{ $title ?: 'Records' }}</h2>
         @endif
 
-        <div class="ms-auto flex items-center gap-3">
+        <div class="flex items-center justify-between gap-2 sm:ms-auto sm:justify-end sm:gap-3">
             {{-- Free-text search bar — only renders when the arch declares
                  a `searchable` field list. Styled as a primary-themed pill:
                  muted chrome-100 base that lifts to white on focus with a
@@ -51,7 +54,7 @@
                            x-model="q"
                            placeholder="{{ __('Search…') }}"
                            aria-label="{{ __('Search') }}"
-                           class="w-44 rounded-full border-0 bg-chrome-100 py-1.5 ps-9 pe-9 text-sm text-chrome-800 placeholder:text-chrome-400 transition-all focus:w-64 focus:bg-white focus:shadow-sm focus:ring-2 focus:ring-primary-500 focus:placeholder:text-chrome-300">
+                           class="w-full rounded-full border-0 bg-chrome-100 py-1.5 ps-9 pe-9 text-sm text-chrome-800 placeholder:text-chrome-400 transition-all focus:bg-white focus:shadow-sm focus:ring-2 focus:ring-primary-500 focus:placeholder:text-chrome-300 sm:w-44 sm:focus:w-64">
                     <button type="button"
                             x-show="q.length > 0"
                             x-cloak
@@ -86,7 +89,7 @@
 
                 <div x-show="open" x-cloak x-transition.origin.top.end
                      wire:ignore
-                     class="absolute end-0 z-30 mt-2 w-64 origin-top-end rounded-lg bg-white p-2 text-start text-xs font-normal normal-case text-chrome-700 shadow-pop ring-1 ring-chrome-900/5">
+                     class="absolute end-0 z-30 mt-2 w-64 max-w-[calc(100vw-1.5rem)] origin-top-end rounded-lg bg-white p-2 text-start text-xs font-normal normal-case text-chrome-700 shadow-pop ring-1 ring-chrome-900/5">
                     <p class="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Columns') }}</p>
                     <ul x-data="listColumnPicker" x-init="init($el, $wire)"
                         class="max-h-72 space-y-0.5 overflow-y-auto py-1">

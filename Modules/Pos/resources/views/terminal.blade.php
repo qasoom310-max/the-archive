@@ -1,8 +1,13 @@
 @php $money = fn ($v) => \App\Erp\Money\Currencies::format($v); @endphp
 
-<div class="flex h-[calc(100vh-3rem)] bg-chrome-100" wire:poll.30s="heartbeat">
-    {{-- ───────────── Order / cart panel ───────────── --}}
-    <section class="flex w-[38%] min-w-[340px] flex-col border-r border-chrome-200 bg-white">
+<div class="flex h-[calc(100vh-3rem)] flex-col bg-chrome-100 lg:flex-row" wire:poll.30s="heartbeat">
+    {{-- ───────────── Order / cart panel ─────────────
+         Mobile (`<lg`): stacked above the product grid, capped at 45vh so
+         the keyboard + product grid both stay reachable. Desktop (`lg+`):
+         a fixed-width column on the start edge, full viewport height.
+         `border-e` is the logical equivalent of border-r so the divider
+         flips to the correct side under RTL Arabic. --}}
+    <section class="flex max-h-[45vh] w-full shrink-0 flex-col border-b border-chrome-200 bg-white lg:max-h-none lg:w-[38%] lg:min-w-[340px] lg:border-b-0 lg:border-e">
         <div class="flex items-center justify-between border-b border-chrome-200 px-4 py-3">
             <div class="min-w-0">
                 <p class="text-sm font-bold text-chrome-900">{{ $order->reference }}</p>
@@ -121,7 +126,7 @@
             @endif
         </div>
 
-        <div class="grid flex-1 auto-rows-min grid-cols-2 gap-3 overflow-y-auto p-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div class="grid flex-1 auto-rows-min grid-cols-2 gap-2 overflow-y-auto p-3 sm:gap-3 sm:grid-cols-3 sm:p-4 lg:grid-cols-4 xl:grid-cols-5">
             @forelse ($products as $product)
                 @php $yield = $product->theoreticalYield(); @endphp
                 <button wire:click="addProduct({{ $product->id }})" wire:key="prod-{{ $product->id }}"

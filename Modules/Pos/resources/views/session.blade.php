@@ -1,6 +1,6 @@
 @php $money = fn ($v) => \App\Erp\Money\Currencies::format($v); @endphp
 
-<div class="mx-auto max-w-6xl p-6">
+<div class="mx-auto max-w-6xl p-4 sm:p-6">
     <div class="mb-4 flex items-center gap-2 text-sm text-chrome-500">
         <a href="{{ url('/app/pos') }}" wire:navigate class="hover:text-primary-700">{{ __('Point of Sale') }}</a>
         <span>/</span>
@@ -39,8 +39,10 @@
             </div>
 
             {{-- Orders --}}
-            <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5">
+            <div class="rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5">
                 <div class="border-b border-chrome-200 px-4 py-2 text-sm font-semibold text-chrome-800">{{ __('Orders') }}</div>
+                {{-- overflow-x-auto so 5-col table scrolls on phone, not the page. --}}
+                <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-chrome-100 text-sm">
                     <tbody class="divide-y divide-chrome-100">
                         @forelse ($orders as $o)
@@ -56,6 +58,7 @@
                         @endforelse
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
 

@@ -48,7 +48,7 @@
     @if ($showActivityForm)
         <div class="rounded-lg border border-primary-200 bg-primary-50/40 p-3">
             <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-primary-700">Schedule activity</p>
-            <div class="grid grid-cols-2 gap-2">
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <select wire:model="activityTypeId" class="o-input">
                     <option value="">Activity type…</option>
                     @foreach ($activityTypes as $type)
@@ -57,9 +57,9 @@
                 </select>
                 <input type="date" wire:model="activityDue" class="o-input">
                 <input type="text" wire:model="activitySummary" placeholder="Summary"
-                    class="o-input col-span-2">
+                    class="o-input sm:col-span-2">
                 <textarea wire:model="activityNote" rows="2" placeholder="Note (optional)"
-                    class="o-input col-span-2 resize-none"></textarea>
+                    class="o-input resize-none sm:col-span-2"></textarea>
             </div>
             @error('activityTypeId') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             @error('activitySummary') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror

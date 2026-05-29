@@ -1,4 +1,4 @@
-<div class="mx-auto max-w-4xl p-6" x-data="{ tab: '{{ array_key_first($tabs) ?? '' }}' }">
+<div class="mx-auto max-w-4xl p-4 sm:p-6" x-data="{ tab: '{{ array_key_first($tabs) ?? '' }}' }">
     <div class="mb-5 flex items-center justify-between">
         <div>
             <h1 class="text-xl font-bold text-chrome-900">{{ __('Settings') }}</h1>

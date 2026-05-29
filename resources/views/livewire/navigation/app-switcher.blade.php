@@ -46,7 +46,7 @@
 
     <div x-show="open" x-cloak x-transition.origin.top.left
         @click.outside="open = false"
-        class="absolute start-0 z-40 mt-2 w-80 origin-top-start rounded-xl bg-white p-3 shadow-pop ring-1 ring-chrome-900/5">
+        class="absolute start-0 z-40 mt-2 w-80 max-w-[calc(100vw-1rem)] origin-top-start rounded-xl bg-white p-3 shadow-pop ring-1 ring-chrome-900/5">
         @if ($apps->isEmpty())
             <p class="px-2 py-6 text-center text-sm text-chrome-400">
                 {{ __('No applications installed.') }}<br>

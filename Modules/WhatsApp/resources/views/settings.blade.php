@@ -1,4 +1,4 @@
-<div class="mx-auto max-w-4xl p-6">
+<div class="mx-auto max-w-4xl p-4 sm:p-6">
     <div class="mb-5 flex items-center justify-between">
         <div>
             <h1 class="text-xl font-bold text-chrome-900">Settings</h1>

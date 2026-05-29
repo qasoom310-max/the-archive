@@ -1,4 +1,4 @@
-<div class="mx-auto max-w-6xl p-6">
+<div class="mx-auto max-w-6xl p-4 sm:p-6">
     <div class="mb-6">
         <h1 class="text-xl font-bold text-chrome-900">Inventory Overview</h1>
         <p class="text-sm text-chrome-500">Double-entry stock operations across all warehouses.</p>

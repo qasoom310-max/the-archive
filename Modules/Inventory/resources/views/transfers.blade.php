@@ -1,6 +1,6 @@
 @php $num = fn ($v) => rtrim(rtrim(number_format((float) $v, 3), '0'), '.'); @endphp
 
-<div class="mx-auto max-w-6xl p-6">
+<div class="mx-auto max-w-6xl p-4 sm:p-6">
     <div class="mb-4 flex items-center justify-between">
         <div>
             <h1 class="text-xl font-bold text-chrome-900">
@@ -27,7 +27,10 @@
         @endforeach
     </div>
 
-    <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5">
+    {{-- overflow-x-auto on the wrapper lets a 7-column table scroll
+         horizontally inside its card on phones without exploding the
+         page-level viewport. --}}
+    <div class="overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5">
         <table class="min-w-full divide-y divide-chrome-200 text-sm">
             <thead class="bg-chrome-50 text-xs uppercase tracking-wide text-chrome-500">
                 <tr>

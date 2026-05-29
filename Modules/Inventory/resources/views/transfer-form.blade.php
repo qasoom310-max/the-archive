@@ -1,4 +1,4 @@
-<div class="mx-auto max-w-2xl p-6">
+<div class="mx-auto max-w-2xl p-4 sm:p-6">
     <div class="mb-4 flex items-center gap-2 text-sm text-chrome-500">
         <a href="{{ url('/app/inventory') }}" wire:navigate class="hover:text-primary-700">Inventory</a>
         <span>/</span>

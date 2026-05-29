@@ -183,12 +183,19 @@
                the start edge when `mobileOpen` is true; otherwise pushed
                off-screen via a negative translate. The `start-0` anchor
                flips automatically for RTL. --}}
+        {{-- Translate-x classes are scoped to `max-md:` so they apply only on
+             phones. Any CSS `transform` — even translate(0) — creates a
+             stacking context; on tablet+ that context competed with the
+             header's app-switcher dropdown at the same z-level, and DOM
+             order made the static sidebar render over the dropdown labels.
+             Restricting transforms to mobile leaves the desktop sidebar
+             in pure document flow, so header dropdowns paint cleanly above. --}}
         <aside
             :class="[
                 collapsed ? 'md:w-14' : 'md:w-60',
-                mobileOpen ? 'translate-x-0' : 'rtl:translate-x-full -translate-x-full'
+                mobileOpen ? 'max-md:translate-x-0' : 'max-md:-translate-x-full max-md:rtl:translate-x-full'
             ]"
-            class="fixed inset-y-0 start-0 top-12 z-40 w-64 shrink-0 overflow-y-auto border-e border-chrome-200 bg-chrome-50 transition-transform duration-150 md:static md:top-0 md:translate-x-0 md:transition-[width]">
+            class="fixed inset-y-0 start-0 top-12 z-40 w-64 shrink-0 overflow-y-auto border-e border-chrome-200 bg-chrome-50 transition-transform duration-150 md:static md:top-0 md:transition-[width]">
             <livewire:navigation.sidebar :active-module="$activeModule" />
         </aside>
 

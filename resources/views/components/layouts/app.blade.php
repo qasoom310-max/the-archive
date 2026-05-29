@@ -161,8 +161,14 @@
         </div>
     </header>
 
-    {{-- ───────────────────────── Body: sidebar + content ──────────────────── --}}
-    <div class="relative flex min-h-0 flex-1">
+    {{-- ───────────────────────── Body: sidebar + content ────────────────────
+         No `relative` here — that would establish a new stacking context that
+         sits ABOVE the header (sibling, also auto-z, but later in DOM) and
+         shove the sidebar's static column on top of any header dropdown
+         (app-switcher, user menu) that extends down past the topbar.
+         The backdrop and drawer below are `fixed`, so they position against
+         the viewport directly and don't need a relative parent. --}}
+    <div class="flex min-h-0 flex-1">
         {{-- Backdrop for the mobile drawer. Only renders on small screens
              (`md:hidden`); clicking it dismisses the drawer. --}}
         <div x-show="mobileOpen" x-cloak x-transition.opacity

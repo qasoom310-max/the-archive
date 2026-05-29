@@ -10,6 +10,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -132,25 +133,45 @@ final class PosTerminal extends Component
 
     private function resolveDraftOrder(PosSession $session): PosOrder
     {
-        $order = PosOrder::query()
-            ->where('pos_session_id', $session->id)
-            ->where('state', OrderState::Draft)
-            ->latest('id')
-            ->first();
+        // Wrap the whole find-or-create in a row-locked transaction. Without
+        // it, two terminals opening the same session at the same time can
+        // both see "no draft", both compute the same next sequence, and one
+        // hits `pos_orders_reference_unique` with a 500. The lock on the
+        // session row serialises every cashier on this register so only
+        // one is computing the sequence at a time.
+        return DB::transaction(function () use ($session): PosOrder {
+            PosSession::query()->whereKey($session->id)->lockForUpdate()->first();
 
-        if ($order !== null) {
-            return $order;
-        }
+            $existing = PosOrder::query()
+                ->where('pos_session_id', $session->id)
+                ->where('state', OrderState::Draft)
+                ->latest('id')
+                ->first();
 
-        $seq = PosOrder::query()->where('pos_session_id', $session->id)->count() + 1;
+            if ($existing !== null) {
+                return $existing;
+            }
 
-        // Audit: the cashier who opened the cart owns the order.
-        return PosOrder::query()->create([
-            'pos_session_id' => $session->id,
-            'user_id' => $this->currentUserId(),
-            'reference' => sprintf('POS/%d/%04d', $session->id, $seq),
-            'state' => OrderState::Draft,
-        ]);
+            // Next sequence = MAX(seq) + 1, NOT count() + 1. Using count()
+            // breaks the moment any order is deleted (count goes down but
+            // the unique reference column doesn't), reusing the deleted
+            // row's number on the next terminal open. Parse the trailing
+            // digits off every reference for this session in PHP — small
+            // dataset (orders in one session), portable across SQLite/
+            // MySQL/Postgres without driver-specific SUBSTRING_INDEX.
+            $maxSeq = (int) PosOrder::query()
+                ->where('pos_session_id', $session->id)
+                ->pluck('reference')
+                ->map(static fn (string $r): int => (int) substr($r, (int) strrpos($r, '/') + 1))
+                ->max();
+
+            return PosOrder::query()->create([
+                'pos_session_id' => $session->id,
+                'user_id' => $this->currentUserId(),
+                'reference' => sprintf('POS/%d/%04d', $session->id, $maxSeq + 1),
+                'state' => OrderState::Draft,
+            ]);
+        });
     }
 
     private function order(): PosOrder

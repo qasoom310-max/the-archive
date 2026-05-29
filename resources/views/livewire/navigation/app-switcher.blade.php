@@ -44,9 +44,16 @@
         </svg>
     </button>
 
+    {{-- `fixed` (not absolute) so the dropdown escapes every parent stacking
+         context — including any subtle one created by the sidebar's
+         transforms / `relative` siblings / etc. — and paints in the root
+         layer at z-50, above the static sidebar that was clipping the
+         tile labels on tablet. `top-12` clears the h-12 topbar; `start-2`
+         lines the dropdown up with the trigger button. RTL flips both
+         automatically because of the logical `start-`/`end-` utilities. --}}
     <div x-show="open" x-cloak x-transition.origin.top.left
         @click.outside="open = false"
-        class="absolute start-0 z-40 mt-2 w-80 max-w-[calc(100vw-1rem)] origin-top-start rounded-xl bg-white p-3 shadow-pop ring-1 ring-chrome-900/5">
+        class="fixed start-2 top-12 z-50 mt-1 w-80 max-w-[calc(100vw-1rem)] origin-top-start rounded-xl bg-white p-3 shadow-pop ring-1 ring-chrome-900/5">
         @if ($apps->isEmpty())
             <p class="px-2 py-6 text-center text-sm text-chrome-400">
                 {{ __('No applications installed.') }}<br>

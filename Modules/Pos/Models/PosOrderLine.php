@@ -6,12 +6,15 @@ namespace Modules\Pos\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
+use Modules\Pos\Enums\PrepStatus;
 
 /**
  * @property int $id
  * @property int $pos_order_id
  * @property int|null $pos_product_id
  * @property string $name
+ * @property string|null $notes
  * @property float $qty
  * @property float $unit_price
  * @property float $discount
@@ -19,6 +22,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property float $subtotal
  * @property float $tax_amount
  * @property float $total
+ * @property PrepStatus|null $prep_status
+ * @property Carbon|null $prep_sent_at
+ * @property Carbon|null $prep_started_at
+ * @property Carbon|null $prep_ready_at
+ * @property Carbon|null $prep_completed_at
  */
 final class PosOrderLine extends Model
 {
@@ -26,8 +34,11 @@ final class PosOrderLine extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'pos_order_id', 'pos_product_id', 'name', 'qty', 'unit_price',
-        'discount', 'tax_rate', 'subtotal', 'tax_amount', 'total',
+        'pos_order_id', 'pos_product_id', 'name', 'notes',
+        'qty', 'unit_price', 'discount', 'tax_rate',
+        'subtotal', 'tax_amount', 'total',
+        'prep_status', 'prep_sent_at', 'prep_started_at',
+        'prep_ready_at', 'prep_completed_at',
     ];
 
     /**
@@ -43,7 +54,45 @@ final class PosOrderLine extends Model
             'subtotal' => 'float',
             'tax_amount' => 'float',
             'total' => 'float',
+            'prep_status' => PrepStatus::class,
+            'prep_sent_at' => 'datetime',
+            'prep_started_at' => 'datetime',
+            'prep_ready_at' => 'datetime',
+            'prep_completed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Advance the KDS state machine and stamp the matching transition
+     * timestamp. Idempotent for the terminal state (`completed`) — calling
+     * `advance()` on a Completed line is a no-op so the kitchen can hammer
+     * the button without consequence.
+     */
+    public function advancePrep(): void
+    {
+        $current = $this->prep_status;
+
+        if ($current === null) {
+            return;
+        }
+
+        $next = $current->next();
+
+        if ($next === null) {
+            return;
+        }
+
+        $now = Carbon::now();
+        $this->prep_status = $next;
+
+        match ($next) {
+            PrepStatus::Preparing => $this->prep_started_at = $now,
+            PrepStatus::Ready => $this->prep_ready_at = $now,
+            PrepStatus::Completed => $this->prep_completed_at = $now,
+            default => null,
+        };
+
+        $this->save();
     }
 
     /**

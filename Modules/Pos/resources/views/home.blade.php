@@ -30,6 +30,22 @@
                 <input type="number" step="0.01" wire:model="openingCash" class="o-input mt-1">
                 <button wire:click="openSession" class="o-btn-primary mt-3 w-full justify-center">{{ __('Open session') }}</button>
             @endif
+
+            {{-- Kitchen Display deep-links. The same component drives both
+                 screens — the URL `station` segment parameterises whether
+                 it shows food or shisha tickets. Each device pins one. --}}
+            <div class="mt-5 grid grid-cols-2 gap-2">
+                <a href="{{ url('/app/pos/kitchen/kitchen') }}" wire:navigate
+                    class="flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-3 py-3 text-sm font-semibold text-white shadow-sm hover:bg-amber-700">
+                    <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 9.5A3.5 3.5 0 0 0 5.5 13H9v6h2v-6h3.5a3.5 3.5 0 1 0-3.39-4.4 3.5 3.5 0 1 0-7.22 0A3.5 3.5 0 0 0 2 9.5Z" clip-rule="evenodd"/></svg>
+                    {{ __('Kitchen') }}
+                </a>
+                <a href="{{ url('/app/pos/kitchen/shisha') }}" wire:navigate
+                    class="flex items-center justify-center gap-2 rounded-lg bg-fuchsia-600 px-3 py-3 text-sm font-semibold text-white shadow-sm hover:bg-fuchsia-700">
+                    <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a1 1 0 0 0-1 1v2a3 3 0 0 1-3 3H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-2a3 3 0 0 1-3-3V3a1 1 0 0 0-1-1Z"/></svg>
+                    {{ __('Shisha') }}
+                </a>
+            </div>
         </div>
 
         <div class="lg:col-span-2">

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Modules\Pos\Http\Controllers\PosProductExportController;
 use Modules\Pos\Http\Controllers\PosProductImportTemplateController;
+use Modules\Pos\Livewire\KitchenDisplay;
 use Modules\Pos\Livewire\PosCategories;
 use Modules\Pos\Livewire\PosCategoryForm;
 use Modules\Pos\Livewire\PosHome;
@@ -54,4 +55,12 @@ Route::middleware('auth')->group(function (): void {
 
     Route::get('/app/pos/product/{id}', PosProductForm::class)
         ->whereNumber('id')->name('pos.product.edit');
+
+    // Kitchen Display Screen — same component, one URL per station so each
+    // staff screen can be bookmarked / pinned. `whereIn('station', ...)`
+    // bounces unknown station names to a 404 instead of bubbling an
+    // InvalidArgumentException from PrepStation::from() into the layout.
+    Route::get('/app/pos/kitchen/{station}', KitchenDisplay::class)
+        ->whereIn('station', ['kitchen', 'shisha'])
+        ->name('pos.kitchen');
 });

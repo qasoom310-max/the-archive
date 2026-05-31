@@ -262,6 +262,26 @@ final class PosTerminal extends Component
         $order->recalculate();
     }
 
+    /**
+     * Attach a free-text note to a cart line — surfaced verbatim on the
+     * matching Kitchen Display ticket so the cook sees "no pickle / extra
+     * chilli / well-done" without leaving the screen. Empty string clears it.
+     */
+    public function setLineNotes(int $lineId, string $notes): void
+    {
+        $this->guard(Permission::Write);
+        $order = $this->order();
+        $line = $order->lines()->whereKey($lineId)->first();
+
+        if ($line === null) {
+            return;
+        }
+
+        $trimmed = trim($notes);
+        $line->notes = $trimmed === '' ? null : $trimmed;
+        $line->save();
+    }
+
     public function clearCustomer(): void
     {
         $order = $this->order();

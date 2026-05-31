@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
+use Modules\Pos\Enums\PrepStation;
 use Spatie\Translatable\HasTranslations;
 
 /**
@@ -31,6 +32,10 @@ use Spatie\Translatable\HasTranslations;
  * @property string|null $slug
  * @property string|null $image
  * @property int $sequence
+ * @property PrepStation|null $station Kitchen Display routing key — when a
+ *                                     sale finalises, each line's product →
+ *                                     category → station decides whether
+ *                                     the line becomes a KDS ticket.
  */
 final class PosCategory extends Model implements DefinesIrModel, TranslatableModel
 {
@@ -39,7 +44,7 @@ final class PosCategory extends Model implements DefinesIrModel, TranslatableMod
     protected $table = 'pos_categories';
 
     /** @var list<string> */
-    protected $fillable = ['name', 'parent_id', 'slug', 'image', 'sequence'];
+    protected $fillable = ['name', 'parent_id', 'slug', 'image', 'sequence', 'station'];
 
     /**
      * Translatable attributes — Spatie's trait intercepts reads/writes on
@@ -57,7 +62,11 @@ final class PosCategory extends Model implements DefinesIrModel, TranslatableMod
      */
     protected function casts(): array
     {
-        return ['sequence' => 'integer', 'parent_id' => 'integer'];
+        return [
+            'sequence' => 'integer',
+            'parent_id' => 'integer',
+            'station' => PrepStation::class,
+        ];
     }
 
     protected static function booted(): void
@@ -201,6 +210,17 @@ final class PosCategory extends Model implements DefinesIrModel, TranslatableMod
                             'help' => 'Leave blank for a top-level category.',
                         ],
                         ['field' => 'image', 'label' => 'Icon / image', 'widget' => 'text', 'placeholder' => 'emoji or image path', 'help' => 'Shown on the POS category button.'],
+                        [
+                            'field' => 'station',
+                            'label' => 'Kitchen station',
+                            'widget' => 'select',
+                            'options' => [
+                                ['value' => '', 'label' => '— None (no KDS routing) —'],
+                                ['value' => 'kitchen', 'label' => 'Kitchen'],
+                                ['value' => 'shisha', 'label' => 'Shisha'],
+                            ],
+                            'help' => 'Sales of products in this category get queued to the matching KDS screen.',
+                        ],
                         ['field' => 'sequence', 'label' => 'Sequence', 'widget' => 'number'],
                     ],
                 ]),

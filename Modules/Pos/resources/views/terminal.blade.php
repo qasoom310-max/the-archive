@@ -46,31 +46,56 @@
         {{-- Lines --}}
         <div class="flex-1 overflow-y-auto">
             @forelse ($lines as $line)
-                <div wire:key="line-{{ $line->id }}"
-                    class="flex items-center gap-3 border-b border-chrome-100 px-4 py-2.5">
-                    <div class="min-w-0 flex-1">
-                        <p class="truncate text-sm font-medium text-chrome-800">{{ $line->name }}</p>
-                        <p class="text-xs text-chrome-400">
-                            {{ $money($line->unit_price) }} each
-                            @if ($line->tax_rate > 0) · tax {{ number_format((float) $line->tax_rate, 2) }}% @endif
-                        </p>
+                {{-- Each cart row is its own Alpine island so the "note"
+                     editor can collapse/expand without re-renders. The
+                     note travels to the matching KDS ticket so the
+                     cashier can flag "no pickle / extra spicy" without
+                     leaving the terminal. --}}
+                <div wire:key="line-{{ $line->id }}" x-data="{ noteOpen: {{ $line->notes ? 'true' : 'false' }} }"
+                    class="border-b border-chrome-100 px-4 py-2.5">
+                    <div class="flex items-center gap-3">
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-sm font-medium text-chrome-800">{{ $line->name }}</p>
+                            <p class="text-xs text-chrome-400">
+                                {{ $money($line->unit_price) }} each
+                                @if ($line->tax_rate > 0) · tax {{ number_format((float) $line->tax_rate, 2) }}% @endif
+                            </p>
+                        </div>
+
+                        {{-- Quantity stepper: −  [qty]  +  (decrementing to 0 removes the line) --}}
+                        <div class="flex shrink-0 items-center rounded-lg border border-chrome-200 bg-chrome-50">
+                            <button type="button" wire:click="updateQuantity({{ $line->id }}, false)"
+                                class="flex size-7 items-center justify-center rounded-l-lg text-chrome-600 hover:bg-chrome-200"
+                                aria-label="Decrease quantity">−</button>
+                            <span class="w-9 text-center text-sm font-semibold tabular-nums text-chrome-900">{{ (int) $line->qty }}</span>
+                            <button type="button" wire:click="updateQuantity({{ $line->id }}, true)"
+                                class="flex size-7 items-center justify-center rounded-r-lg text-chrome-600 hover:bg-chrome-200"
+                                aria-label="Increase quantity">+</button>
+                        </div>
+
+                        <div class="w-20 shrink-0 text-right">
+                            <p class="text-sm font-semibold text-chrome-900">{{ $money($line->total) }}</p>
+                            <div class="flex items-center justify-end gap-2">
+                                <button type="button" @click="noteOpen = !noteOpen"
+                                    :class="noteOpen || @js((bool) $line->notes) ? 'text-amber-600' : 'text-chrome-400 hover:text-amber-600'"
+                                    class="text-xs"
+                                    title="{{ __('Kitchen note') }}">{{ __('note') }}</button>
+                                <button type="button" wire:click="removeLine({{ $line->id }})"
+                                    class="text-xs text-red-500 hover:underline">{{ __('remove') }}</button>
+                            </div>
+                        </div>
                     </div>
 
-                    {{-- Quantity stepper: −  [qty]  +  (decrementing to 0 removes the line) --}}
-                    <div class="flex shrink-0 items-center rounded-lg border border-chrome-200 bg-chrome-50">
-                        <button type="button" wire:click="updateQuantity({{ $line->id }}, false)"
-                            class="flex size-7 items-center justify-center rounded-l-lg text-chrome-600 hover:bg-chrome-200"
-                            aria-label="Decrease quantity">−</button>
-                        <span class="w-9 text-center text-sm font-semibold tabular-nums text-chrome-900">{{ (int) $line->qty }}</span>
-                        <button type="button" wire:click="updateQuantity({{ $line->id }}, true)"
-                            class="flex size-7 items-center justify-center rounded-r-lg text-chrome-600 hover:bg-chrome-200"
-                            aria-label="Increase quantity">+</button>
-                    </div>
-
-                    <div class="w-20 shrink-0 text-right">
-                        <p class="text-sm font-semibold text-chrome-900">{{ $money($line->total) }}</p>
-                        <button type="button" wire:click="removeLine({{ $line->id }})"
-                            class="text-xs text-red-500 hover:underline">remove</button>
+                    {{-- Inline note editor. Saves on blur (and on Enter) so
+                         the cashier doesn't lose half-typed text on a swipe.
+                         Empty value clears the note. --}}
+                    <div x-show="noteOpen" x-cloak class="mt-2">
+                        <input type="text"
+                               value="{{ $line->notes }}"
+                               placeholder="{{ __('e.g. no pickle, extra chilli…') }}"
+                               @blur="$wire.setLineNotes({{ $line->id }}, $event.target.value)"
+                               @keydown.enter.prevent="$wire.setLineNotes({{ $line->id }}, $event.target.value); noteOpen = false"
+                               class="w-full rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-900 placeholder:text-amber-400 focus:border-amber-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30">
                     </div>
                 </div>
             @empty

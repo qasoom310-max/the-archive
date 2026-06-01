@@ -40,9 +40,16 @@ final class KitchenDisplay extends Component
 {
     public PrepStation $station;
 
-    public function mount(string $station): void
+    /**
+     * Livewire/Laravel resolves the `{station}` route segment via the typed
+     * property below — the string from the URL is converted to `PrepStation`
+     * before `mount()` runs. Typing the param as `PrepStation` (not `string`)
+     * lets the binding line up; an unknown value gets rejected upstream by
+     * the route's `whereIn` constraint, never reaching this method.
+     */
+    public function mount(PrepStation $station): void
     {
-        $this->station = PrepStation::from($station);
+        $this->station = $station;
     }
 
     /**

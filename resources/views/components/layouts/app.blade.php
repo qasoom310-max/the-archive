@@ -232,25 +232,32 @@
 
 @livewireScripts
 
-{{-- Auto-reload on CSRF token mismatch.
+{{-- Silent auto-reload on CSRF token mismatch.
      Every push wipes Laravel's caches (optimize:clear + config:cache + …)
      which can invalidate the CSRF token a long-open POS / KDS tab is
-     still holding. Without this hook the next Livewire request from that
-     tab gets a 419 → the cashier sees an "Page Expired" prompt
-     mid-checkout. We intercept Livewire's `request.exception` hook and,
-     if the server replied 419, silently reload the page so the tab
-     picks up a fresh token. No data loss — the cart is server-side. --}}
+     still holding. Without this the next Livewire AJAX request returns
+     419 → Livewire's request handler shows a hardcoded
+     `confirm('This page has expired…')` and the cashier sees the dialog
+     mid-checkout.
+
+     Livewire's 419 handling is locked inside its internal request loop
+     and fires BEFORE any `request`/`fail` hook can preventDefault. The
+     only reliable way to suppress the prompt is to override the global
+     `confirm` itself: when the message is the page-expired one (and ONLY
+     then), silently reload. Every other `confirm()` call — Livewire's
+     wire:confirm bulk-delete prompts, browser native uses — continues
+     to flow through to the original implementation. --}}
 <script>
-    document.addEventListener('livewire:init', () => {
-        Livewire.hook('request', ({ fail }) => {
-            fail(({ status, preventDefault }) => {
-                if (status === 419) {
-                    preventDefault();
-                    window.location.reload();
-                }
-            });
-        });
-    });
+    (function () {
+        const originalConfirm = window.confirm.bind(window);
+        window.confirm = function (message) {
+            if (typeof message === 'string' && message.indexOf('This page has expired') !== -1) {
+                window.location.reload();
+                return false;
+            }
+            return originalConfirm(message);
+        };
+    })();
 </script>
 
 </body>

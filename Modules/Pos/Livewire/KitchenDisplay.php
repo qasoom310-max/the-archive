@@ -72,10 +72,28 @@ final class KitchenDisplay extends Component
     }
 
     /**
+     * Move every Pending line on this order (for this station) ONE step
+     * forward — to Preparing. Drives the "Start preparing" button on the
+     * Pending column. Lines already past Pending are left alone (a half-
+     * started ticket shouldn't reset).
+     */
+    public function markOrderPreparing(int $orderId): void
+    {
+        $lines = $this->stationLinesForOrder($orderId)
+            ->filter(static fn (PosOrderLine $l) => $l->prep_status === PrepStatus::Pending);
+
+        foreach ($lines as $line) {
+            $line->advancePrep();
+        }
+    }
+
+    /**
      * Mark every active line on this order (for this station) as Ready.
-     * Bulk "all done" button on the card header — saves the cook from
+     * Bulk "all done" button on the Preparing column — saves the cook from
      * tapping each row individually when a multi-item ticket finishes
-     * together. Skips lines already past Ready.
+     * together. Walks each line forward step-by-step (stamping the
+     * intermediate `prep_started_at` for any Pending line that's bypassed
+     * straight to Ready). Lines already at Ready or past are skipped.
      */
     public function markOrderReady(int $orderId): void
     {

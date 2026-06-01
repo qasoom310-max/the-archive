@@ -145,7 +145,7 @@
                             <footer class="mt-4 flex gap-2">
                                 @if ($column === \Modules\Pos\Enums\PrepStatus::Pending)
                                     <button type="button"
-                                            wire:click="markOrderReady({{ $ticket->orderId }})"
+                                            wire:click="markOrderPreparing({{ $ticket->orderId }})"
                                             class="flex min-h-12 flex-1 items-center justify-center rounded-lg bg-sky-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-sky-700 active:scale-[0.98]">
                                         {{ __('Start preparing') }}
                                     </button>

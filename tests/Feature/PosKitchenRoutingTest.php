@@ -9,9 +9,11 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\Event;
 use Modules\Pos\Enums\OrderState;
+use Modules\Pos\Enums\PrepStation;
 use Modules\Pos\Enums\PrepStatus;
 use Modules\Pos\Events\PosOrderPaid;
 use Modules\Pos\Listeners\QueueLinesForKitchen;
+use Modules\Pos\Livewire\KitchenDisplay;
 use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosOrderLine;
@@ -118,6 +120,57 @@ final class PosKitchenRoutingTest extends TestCase
         $this->assertNotNull($byName['Espresso']->prep_sent_at);
         $this->assertNotNull($byName['Apple Shisha']->prep_sent_at);
         $this->assertNull($byName['Water']->prep_sent_at);
+    }
+
+    /**
+     * Regression: the Pending column's "Start preparing" button used to
+     * call `markOrderReady`, which loops `advancePrep()` until every line
+     * is Ready — so Pending jumped straight past Preparing. The Pending
+     * → Preparing transition must move exactly one step and stamp
+     * `prep_started_at`.
+     */
+    public function test_mark_order_preparing_advances_pending_lines_exactly_one_step(): void
+    {
+        $this->installPos();
+
+        $admin = User::query()->where('is_admin', true)->sole();
+
+        $cat = PosCategory::query()->create(['name' => 'Hot Drinks', 'station' => 'kitchen']);
+        $product = PosProduct::query()->create([
+            'name' => 'Espresso', 'price' => 3.0, 'tax_rate' => 0.0,
+            'cost_price' => 1.0, 'pos_category_id' => $cat->id, 'active' => true,
+        ]);
+        $cash = PosPaymentMethod::query()->create(['name' => 'Cash', 'code' => 'cash', 'active' => true]);
+
+        $session = app(PosSessionManager::class)->openOrResume(0.0, $admin->id);
+        $order = PosOrder::query()->create([
+            'pos_session_id' => $session->id,
+            'reference' => 'POS/' . $session->id . '/0001',
+            'state' => OrderState::Draft,
+            'user_id' => $admin->id,
+            'subtotal' => 3.0, 'tax_total' => 0.0, 'total' => 3.0,
+        ]);
+        PosOrderLine::query()->create([
+            'pos_order_id' => $order->id,
+            'pos_product_id' => $product->id,
+            'name' => 'Espresso',
+            'qty' => 1,
+            'unit_price' => 3.0, 'tax_rate' => 0.0, 'discount_pct' => 0.0,
+            'subtotal' => 3.0, 'tax_amount' => 0.0, 'total' => 3.0,
+        ]);
+        $order->payments()->create(['pos_payment_method_id' => $cash->id, 'amount' => 3.0]);
+        $order->finalizeSale();
+
+        $this->assertSame(PrepStatus::Pending, PosOrderLine::query()->first()->prep_status);
+
+        $kds = new KitchenDisplay();
+        $kds->station = PrepStation::Kitchen;
+        $kds->markOrderPreparing($order->id);
+
+        $line = PosOrderLine::query()->first();
+        $this->assertSame(PrepStatus::Preparing, $line->prep_status);
+        $this->assertNotNull($line->prep_started_at);
+        $this->assertNull($line->prep_ready_at);
     }
 
     public function test_listener_is_idempotent_on_double_dispatch(): void

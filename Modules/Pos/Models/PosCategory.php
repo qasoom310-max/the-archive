@@ -10,6 +10,7 @@ use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
 use App\Erp\Translation\TranslatableModel;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -65,8 +66,44 @@ final class PosCategory extends Model implements DefinesIrModel, TranslatableMod
         return [
             'sequence' => 'integer',
             'parent_id' => 'integer',
-            'station' => PrepStation::class,
+            // `station` is intentionally NOT cast here — the Attribute
+            // mutator below handles both directions, including the engine
+            // FormView's empty-string "None" choice which the standard
+            // PrepStation enum cast would reject with a ValueError at
+            // setAttribute time (before any saving hook can normalise it).
         ];
+    }
+
+    /**
+     * Custom station accessor/mutator. Replaces the standard enum cast so
+     * the engine FormView can write an empty string ("— None (no KDS
+     * routing) —") without 500ing on a ValueError. Empty / "null" string /
+     * null all coerce to a real null on write; non-empty values must
+     * match a valid `PrepStation` case. Reads always return either the
+     * enum instance or null.
+     *
+     * @return Attribute<PrepStation|null, mixed>
+     */
+    protected function station(): Attribute
+    {
+        return Attribute::make(
+            get: static fn (?string $value): ?PrepStation => $value === null || $value === ''
+                ? null
+                : PrepStation::tryFrom($value),
+            set: static function (mixed $value): ?string {
+                if ($value === null || $value === '' || $value === 'null') {
+                    return null;
+                }
+                if ($value instanceof PrepStation) {
+                    return $value->value;
+                }
+                // tryFrom returns null for unrecognised strings — store
+                // null rather than letting an invalid scribble persist.
+                return is_string($value)
+                    ? (PrepStation::tryFrom($value)?->value)
+                    : null;
+            },
+        );
     }
 
     protected static function booted(): void

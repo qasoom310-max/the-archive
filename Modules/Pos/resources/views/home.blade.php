@@ -37,12 +37,26 @@
             <div class="mt-5 grid grid-cols-2 gap-2">
                 <a href="{{ url('/app/pos/kitchen/kitchen') }}" wire:navigate
                     class="flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-3 py-3 text-sm font-semibold text-white shadow-sm hover:bg-amber-700">
-                    <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 9.5A3.5 3.5 0 0 0 5.5 13H9v6h2v-6h3.5a3.5 3.5 0 1 0-3.39-4.4 3.5 3.5 0 1 0-7.22 0A3.5 3.5 0 0 0 2 9.5Z" clip-rule="evenodd"/></svg>
+                    {{-- Heroicons solid `fire` — universal shorthand for
+                         cooking / hot-food prep, much clearer than the
+                         previous people-icon shape. --}}
+                    <svg class="size-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M12.395 2.553a1 1 0 0 0-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 0 0-.613 3.58 2.64 2.64 0 0 1-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 0 0 5.05 6.05 6.981 6.981 0 0 0 3 11a7 7 0 1 0 11.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03ZM12.12 15.12A3 3 0 0 1 7 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0 1 13 13a2.99 2.99 0 0 1-.879 2.121Z" clip-rule="evenodd"/>
+                    </svg>
                     {{ __('Kitchen') }}
                 </a>
                 <a href="{{ url('/app/pos/kitchen/shisha') }}" wire:navigate
                     class="flex items-center justify-center gap-2 rounded-lg bg-fuchsia-600 px-3 py-3 text-sm font-semibold text-white shadow-sm hover:bg-fuchsia-700">
-                    <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a1 1 0 0 0-1 1v2a3 3 0 0 1-3 3H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-2a3 3 0 0 1-3-3V3a1 1 0 0 0-1-1Z"/></svg>
+                    {{-- Custom smoke-wisps glyph: three rising curls. No
+                         Heroicon ships a hookah, and a thumbs-up was
+                         actively misleading. Smoke is the next-best
+                         universal cue (drawn as overlapping curves so it
+                         reads at 20×20). --}}
+                    <svg class="size-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M6 16c0-2 2-2 2-4s-2-2-2-4 2-2 2-4"/>
+                        <path d="M10 16c0-2 2-2 2-4s-2-2-2-4 2-2 2-4"/>
+                        <path d="M14 16c0-2 2-2 2-4s-2-2-2-4"/>
+                    </svg>
                     {{ __('Shisha') }}
                 </a>
             </div>

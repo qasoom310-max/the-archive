@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Modules\Pos\Listeners;
 
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Modules\Pos\Enums\PrepStatus;
 use Modules\Pos\Events\PosOrderPaid;
-use Modules\Pos\Models\PosCategory;
-use Modules\Pos\Models\PosOrderLine;
 
 /**
  * On every finalised sale, stamp `prep_status = pending` + `prep_sent_at`
@@ -47,8 +46,13 @@ final class QueueLinesForKitchen
             return;
         }
 
-        /** @var array<int, ?string> $stationByProduct */
-        $stationByProduct = PosCategory::query()
+        // Pluck via the QUERY BUILDER (DB::table, not Eloquent) so the
+        // `station` Attribute accessor on PosCategory doesn't hydrate
+        // each value into a PrepStation enum — we only need the raw
+        // string here, and the map closure below carries a `?string`
+        // return type that would TypeError on an enum instance.
+        /** @var array<int, string|null> $stationByCategory */
+        $stationByCategory = DB::table('pos_categories')
             ->whereIn('id', function ($q) use ($productIds): void {
                 $q->select('pos_category_id')
                     ->from('pos_products')
@@ -58,10 +62,11 @@ final class QueueLinesForKitchen
             ->pluck('station', 'id')
             ->all();
 
-        $productToStation = \Modules\Pos\Models\PosProduct::query()
+        /** @var array<int, string|null> $productToStation */
+        $productToStation = DB::table('pos_products')
             ->whereIn('id', $productIds)
             ->pluck('pos_category_id', 'id')
-            ->map(static fn (?int $catId): ?string => $catId !== null ? ($stationByProduct[$catId] ?? null) : null)
+            ->map(static fn ($catId): ?string => $catId !== null ? ($stationByCategory[(int) $catId] ?? null) : null)
             ->all();
 
         $now = Carbon::now();

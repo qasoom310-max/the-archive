@@ -136,7 +136,20 @@ final class FormView extends Component
                 continue;
             }
 
-            $this->form[$field->field] = $record->getAttribute($field->field);
+            $value = $record->getAttribute($field->field);
+
+            // Backed enums (e.g. PrepStation, OrderState cast via enum) must
+            // be flattened to their scalar `value` before landing in $form.
+            // Reasons: (1) the `<select>` widget compares against string
+            // option values, (2) the `in:` validation rule string-casts the
+            // value and a BackedEnum has no __toString — the validator dies
+            // with "Object of class X could not be converted to string"
+            // the moment the form auto-saves (e.g. AR pill click).
+            if ($value instanceof \BackedEnum) {
+                $value = $value->value;
+            }
+
+            $this->form[$field->field] = $value;
         }
     }
 

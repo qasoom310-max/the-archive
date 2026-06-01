@@ -225,4 +225,32 @@ final class PosCategoryTranslationTest extends TestCase
             ->call('switchLocale', 'name', 'fr')
             ->assertSet('translationLocale.name', 'en');
     }
+
+    /**
+     * Regression: a category whose `station` is set to a backed-enum value
+     * (PrepStation::Kitchen) previously hydrated `$form['station']` with
+     * the enum INSTANCE. The next auto-save (e.g. on AR pill click) then
+     * crashed the `in:` validator with "Object of class PrepStation could
+     * not be converted to string". The form layer must flatten backed
+     * enums to their scalar value at mount.
+     */
+    public function test_form_hydrates_backed_enum_attributes_as_scalar(): void
+    {
+        $this->installPos();
+        $this->adminLogin();
+
+        $category = PosCategory::query()->create(['name' => 'Hot Drinks', 'station' => 'kitchen']);
+
+        $component = Livewire::test(FormView::class, [
+            'model' => PosCategory::class,
+            'modelKey' => 'pos.category',
+            'recordId' => $category->id,
+        ]);
+
+        $component->assertSet('form.station', 'kitchen');
+
+        // The AR-pill auto-save used to throw here — pin it.
+        $component->call('switchLocale', 'name', 'ar')
+            ->assertHasNoErrors();
+    }
 }

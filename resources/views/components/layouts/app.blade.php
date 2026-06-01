@@ -231,5 +231,27 @@
 </div>
 
 @livewireScripts
+
+{{-- Auto-reload on CSRF token mismatch.
+     Every push wipes Laravel's caches (optimize:clear + config:cache + …)
+     which can invalidate the CSRF token a long-open POS / KDS tab is
+     still holding. Without this hook the next Livewire request from that
+     tab gets a 419 → the cashier sees an "Page Expired" prompt
+     mid-checkout. We intercept Livewire's `request.exception` hook and,
+     if the server replied 419, silently reload the page so the tab
+     picks up a fresh token. No data loss — the cart is server-side. --}}
+<script>
+    document.addEventListener('livewire:init', () => {
+        Livewire.hook('request', ({ fail }) => {
+            fail(({ status, preventDefault }) => {
+                if (status === 419) {
+                    preventDefault();
+                    window.location.reload();
+                }
+            });
+        });
+    });
+</script>
+
 </body>
 </html>

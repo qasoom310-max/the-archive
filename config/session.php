@@ -32,7 +32,11 @@ return [
     |
     */
 
-    'lifetime' => (int) env('SESSION_LIFETIME', 120),
+    // Default bumped from 120 → 720 (12 hours) so a POS terminal left open
+    // across a full lunch / dinner service doesn't expire mid-checkout and
+    // 419 the cashier on Validate. Override per-host via SESSION_LIFETIME
+    // in .env if a shorter window is desired.
+    'lifetime' => (int) env('SESSION_LIFETIME', 720),
 
     'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
 

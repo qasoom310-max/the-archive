@@ -115,6 +115,31 @@
         </div>
     </div>
 
+    {{-- Dynamic filter chip rows — one row per arch-declared
+         `filters_dynamic` group (e.g. Category for POS products). Each row
+         loads its options from the related model (no DB work in the blade
+         itself; ListView::loadDynamicFilterOptions did the query). Clicking
+         the active chip clears the group (visual "All" behaviour). --}}
+    @foreach ($dynamicFilterDefs as $def)
+        @php $options = $dynamicFilterOptions[$def->name] ?? []; @endphp
+        @if (count($options) > 0)
+            <div class="flex flex-wrap items-center gap-1.5 border-b border-chrome-100 px-3 py-2 sm:px-4">
+                <span class="me-1 text-xs font-semibold uppercase tracking-wide text-chrome-400">{{ __($def->label) }}</span>
+                <button type="button" wire:click="applyDynamicFilter('{{ $def->name }}', '')"
+                    class="o-chip {{ ! isset($activeDynamicFilters[$def->name]) ? 'bg-primary-600 text-white' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
+                    {{ __('All') }}
+                </button>
+                @foreach ($options as $opt)
+                    @php $isActive = isset($activeDynamicFilters[$def->name]) && (string) $activeDynamicFilters[$def->name] === $opt['value']; @endphp
+                    <button type="button" wire:click="applyDynamicFilter('{{ $def->name }}', '{{ $opt['value'] }}')"
+                        class="o-chip {{ $isActive ? 'bg-primary-600 text-white' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
+                        {{ $opt['label'] }}
+                    </button>
+                @endforeach
+            </div>
+        @endif
+    @endforeach
+
     {{-- Filter chip row — only renders if the arch defines presets. Row of
          radio-style buttons: "All" plus one chip per preset, and (if the
          arch declares `custom_date_field`) a "Custom…" chip that pops a

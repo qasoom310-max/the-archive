@@ -28,6 +28,7 @@ final readonly class ViewArch
      * @param list<FilterDef>                                $filters      (list-view date presets)
      * @param ?string                                        $customDateField  column the "Custom…" range filters on
      * @param list<string>                                   $searchable   list-view free-text search fields
+     * @param list<DynamicFilterDef>                         $dynamicFilters list-view filter chips loaded from another model
      */
     private function __construct(
         public array $columns,
@@ -43,6 +44,7 @@ final readonly class ViewArch
         public array $filters,
         public ?string $customDateField,
         public array $searchable,
+        public array $dynamicFilters,
     ) {}
 
     /**
@@ -64,7 +66,67 @@ final readonly class ViewArch
             filters: self::parseFilters($arch),
             customDateField: self::str($arch, 'custom_date_field'),
             searchable: self::parseSearchable($arch),
+            dynamicFilters: self::parseDynamicFilters($arch),
         );
+    }
+
+    /**
+     * Parse a list of dynamic (model-sourced) filter chip groups:
+     * `[{name, label?, field, optionsFrom: {model, value?, label?, orderBy?}}, …]`.
+     *
+     * Entries missing any of {name, field, optionsFrom.model} are
+     * dropped silently — same defensive policy as `parseFilters`.
+     *
+     * @param array<string, mixed> $arch
+     * @return list<DynamicFilterDef>
+     */
+    private static function parseDynamicFilters(array $arch): array
+    {
+        $raw = $arch['filters_dynamic'] ?? [];
+
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $out = [];
+
+        foreach ($raw as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $name = self::str($entry, 'name');
+            $field = self::str($entry, 'field');
+
+            $optionsFromRaw = $entry['optionsFrom'] ?? null;
+            if ($name === null || $field === null || ! is_array($optionsFromRaw)) {
+                continue;
+            }
+
+            $model = $optionsFromRaw['model'] ?? null;
+            if (! is_string($model) || ! class_exists($model) || ! is_subclass_of($model, \Illuminate\Database\Eloquent\Model::class)) {
+                continue;
+            }
+
+            /** @var array{model: class-string<\Illuminate\Database\Eloquent\Model>, value: string, label: string, orderBy?: string} $optionsFrom */
+            $optionsFrom = [
+                'model' => $model,
+                'value' => is_string($optionsFromRaw['value'] ?? null) ? $optionsFromRaw['value'] : 'id',
+                'label' => is_string($optionsFromRaw['label'] ?? null) ? $optionsFromRaw['label'] : 'name',
+            ];
+            if (is_string($optionsFromRaw['orderBy'] ?? null)) {
+                $optionsFrom['orderBy'] = $optionsFromRaw['orderBy'];
+            }
+
+            $out[] = new DynamicFilterDef(
+                name: $name,
+                label: self::str($entry, 'label') ?? ucfirst(str_replace('_', ' ', $name)),
+                field: $field,
+                optionsFrom: $optionsFrom,
+            );
+        }
+
+        return $out;
     }
 
     /**

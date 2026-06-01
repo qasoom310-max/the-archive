@@ -94,6 +94,17 @@ final class ListView extends Component
     public string $customTo = '';
 
     /**
+     * Active dynamic-filter selection: `<filter name> => <picked value>`.
+     * One entry per arch-declared `filters_dynamic` chip group; missing
+     * keys mean "no filter applied". URL-bound so a category-filtered list
+     * is shareable (`?dynamicFilters[category]=4`).
+     *
+     * @var array<string, string|int>
+     */
+    #[Url(except: [])]
+    public array $dynamicFilters = [];
+
+    /**
      * Field names the current user has hidden via the column picker.
      * Hydrated in mount() from {@see UserViewPreference}; defaults to the
      * arch's `hidden_by_default` set on first visit. Persisted back to
@@ -367,6 +378,7 @@ final class ListView extends Component
         $query = $this->model::query();
 
         $this->applyFilter($query);
+        $this->applyDynamicFilters($query);
         $this->applySearch($query);
 
         $sortable = $this->sortableFields();
@@ -448,6 +460,112 @@ final class ListView extends Component
 
         [$start, $end] = $range;
         $query->whereBetween($def->field, [$start, $end]);
+    }
+
+    /**
+     * Apply every active arch-declared `filters_dynamic` selection as an
+     * equality where-clause on the field it names. Unknown filter names
+     * (URL tampering, stale links after arch changes) are silently
+     * dropped. Used in BOTH the paginated query and the aggregate
+     * queries so footer totals track the chip selection.
+     *
+     * @param  Builder<Model>  $query
+     */
+    private function applyDynamicFilters(Builder $query): void
+    {
+        if ($this->arch->dynamicFilters === [] || $this->dynamicFilters === []) {
+            return;
+        }
+
+        $validByName = [];
+        foreach ($this->arch->dynamicFilters as $def) {
+            $validByName[$def->name] = $def;
+        }
+
+        foreach ($this->dynamicFilters as $name => $value) {
+            if (! isset($validByName[$name])) {
+                continue;
+            }
+            if ($value === '' || $value === null) {
+                continue;
+            }
+            $query->where($validByName[$name]->field, $value);
+        }
+    }
+
+    /**
+     * Toggle a dynamic-filter chip. Clicking the currently-active chip
+     * in the same group clears the filter (visual "All" behaviour); a
+     * different value swaps the selection. Pagination resets so the
+     * user lands on page 1 of the new scope.
+     */
+    public function applyDynamicFilter(string $name, string $value): void
+    {
+        $valid = array_map(
+            static fn (\App\Erp\Views\DynamicFilterDef $d): string => $d->name,
+            $this->arch->dynamicFilters,
+        );
+
+        if (! in_array($name, $valid, true)) {
+            return;
+        }
+
+        $current = $this->dynamicFilters[$name] ?? null;
+
+        if ($value === '' || (string) $current === $value) {
+            unset($this->dynamicFilters[$name]);
+        } else {
+            $this->dynamicFilters[$name] = $value;
+        }
+
+        $this->resetPage();
+    }
+
+    /**
+     * Resolve every dynamic-filter chip's option list ONCE per render —
+     * the engine takes care of querying the related model based on the
+     * arch's `optionsFrom` declaration. Returned as
+     * `<filter name> => list<{value, label}>` so the blade can iterate
+     * without doing any DB work itself.
+     *
+     * @return array<string, list<array{value: string, label: string}>>
+     */
+    private function loadDynamicFilterOptions(): array
+    {
+        $out = [];
+
+        foreach ($this->arch->dynamicFilters as $def) {
+            /** @var class-string<Model> $modelClass */
+            $modelClass = $def->optionsFrom['model'];
+            $query = $modelClass::query();
+
+            if (isset($def->optionsFrom['orderBy'])) {
+                $query->orderBy($def->optionsFrom['orderBy']);
+            }
+
+            $valueCol = $def->optionsFrom['value'];
+            $labelCol = $def->optionsFrom['label'];
+
+            $options = [];
+            // We can't `select($valueCol, $labelCol)` because a
+            // translatable label column (Spatie HasTranslations) needs
+            // the model's casts pipeline to decode. Get full models.
+            foreach ($query->get() as $row) {
+                $value = $row->getAttribute($valueCol);
+                $label = $row->getAttribute($labelCol);
+                if ($value === null) {
+                    continue;
+                }
+                $options[] = [
+                    'value' => (string) $value,
+                    'label' => is_string($label) ? $label : (string) $label,
+                ];
+            }
+
+            $out[$def->name] = $options;
+        }
+
+        return $out;
     }
 
     /**
@@ -726,6 +844,7 @@ final class ListView extends Component
 
             $aggregateQuery = $this->model::query();
             $this->applyFilter($aggregateQuery);
+            $this->applyDynamicFilters($aggregateQuery);
             $this->applySearch($aggregateQuery);
 
             if ($column->sum) {
@@ -748,6 +867,9 @@ final class ListView extends Component
             'customRangeLabel' => $this->customRangeLabel(),
             'perPageOptions' => $this->perPageOptions(),
             'searchable' => $arch->searchable !== [],
+            'dynamicFilterDefs' => $arch->dynamicFilters,
+            'dynamicFilterOptions' => $this->loadDynamicFilterOptions(),
+            'activeDynamicFilters' => $this->dynamicFilters,
         ]);
     }
 

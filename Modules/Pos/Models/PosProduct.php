@@ -231,6 +231,23 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
                     // envelope, which is fine until Arabic translations land
                     // (then we'll widen to per-locale json_extract paths).
                     'searchable' => ['name', 'barcode'],
+                    // Category chip row above the table — one chip per
+                    // PosCategory row, ordered by sequence then alphabetic
+                    // by the localised name. Tap a chip → list scopes to
+                    // products in that category; tap "All" to clear.
+                    'filters_dynamic' => [
+                        [
+                            'name' => 'category',
+                            'label' => 'Category',
+                            'field' => 'pos_category_id',
+                            'optionsFrom' => [
+                                'model' => PosCategory::class,
+                                'value' => 'id',
+                                'label' => 'name',
+                                'orderBy' => 'sequence',
+                            ],
+                        ],
+                    ],
                 ]),
                 new ViewDefinition('POS Products', 'kanban', [
                     // Odoo-style product card: photo hero, name, then a

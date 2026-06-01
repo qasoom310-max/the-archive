@@ -117,6 +117,17 @@ final class KitchenDisplay extends Component
     {
         $tickets = $this->loadTickets();
 
+        // Diagnostic: how many categories are actually wired to this
+        // station? An empty KDS is almost always "no categories assigned"
+        // (the listener correctly routes nothing). Surface the count and
+        // the names so the empty state can tell the admin exactly what
+        // to do instead of just showing "No tickets."
+        $routedCategories = \Modules\Pos\Models\PosCategory::query()
+            ->where('station', $this->station->value)
+            ->orderBy('sequence')
+            ->orderBy('name')
+            ->get();
+
         return view('pos::kitchen-display', [
             'tickets' => $tickets,
             'columns' => [
@@ -131,6 +142,7 @@ final class KitchenDisplay extends Component
                 ->sort()
                 ->values()
                 ->all(),
+            'routedCategories' => $routedCategories,
         ]);
     }
 

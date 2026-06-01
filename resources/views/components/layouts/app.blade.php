@@ -14,6 +14,22 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? 'OpenERP' }}</title>
     <style>[x-cloak]{display:none!important}</style>
+    {{-- Silent reload on CSRF token mismatch — installed BEFORE any other
+         script so Livewire's request loop (which calls `confirm(…)` for
+         419 via a global bareword lookup) hits our override. Touching any
+         other confirm() call is left untouched. --}}
+    <script>
+        (function () {
+            const originalConfirm = window.confirm.bind(window);
+            window.confirm = function (message) {
+                if (typeof message === 'string' && message.indexOf('This page has expired') !== -1) {
+                    window.location.reload();
+                    return false;
+                }
+                return originalConfirm(message);
+            };
+        })();
+    </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>
@@ -231,34 +247,6 @@
 </div>
 
 @livewireScripts
-
-{{-- Silent auto-reload on CSRF token mismatch.
-     Every push wipes Laravel's caches (optimize:clear + config:cache + …)
-     which can invalidate the CSRF token a long-open POS / KDS tab is
-     still holding. Without this the next Livewire AJAX request returns
-     419 → Livewire's request handler shows a hardcoded
-     `confirm('This page has expired…')` and the cashier sees the dialog
-     mid-checkout.
-
-     Livewire's 419 handling is locked inside its internal request loop
-     and fires BEFORE any `request`/`fail` hook can preventDefault. The
-     only reliable way to suppress the prompt is to override the global
-     `confirm` itself: when the message is the page-expired one (and ONLY
-     then), silently reload. Every other `confirm()` call — Livewire's
-     wire:confirm bulk-delete prompts, browser native uses — continues
-     to flow through to the original implementation. --}}
-<script>
-    (function () {
-        const originalConfirm = window.confirm.bind(window);
-        window.confirm = function (message) {
-            if (typeof message === 'string' && message.indexOf('This page has expired') !== -1) {
-                window.location.reload();
-                return false;
-            }
-            return originalConfirm(message);
-        };
-    })();
-</script>
 
 </body>
 </html>

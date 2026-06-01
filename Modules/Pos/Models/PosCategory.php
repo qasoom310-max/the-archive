@@ -179,6 +179,7 @@ final class PosCategory extends Model implements DefinesIrModel, TranslatableMod
             fields: [
                 new FieldDefinition('name', 'Name', 'char', required: true, sequence: 10),
                 new FieldDefinition('parent_id', 'Parent', 'many2one', relation: 'pos.category', sequence: 20),
+                new FieldDefinition('station', 'Kitchen station', 'selection', sequence: 25),
                 new FieldDefinition('sequence', 'Sequence', 'integer', sequence: 30),
             ],
             views: [
@@ -186,6 +187,10 @@ final class PosCategory extends Model implements DefinesIrModel, TranslatableMod
                     'columns' => [
                         ['field' => 'name', 'label' => 'Name', 'sortable' => true],
                         ['field' => 'slug', 'label' => 'Slug'],
+                        // KDS routing at a glance — empty cell = no station,
+                        // colored badge otherwise. Sortable so admin can
+                        // group all "Unrouted" rows together with a click.
+                        ['field' => 'station', 'label' => 'Station', 'format' => 'badge', 'sortable' => true],
                         ['field' => 'sequence', 'label' => 'Sequence', 'format' => 'number', 'align' => 'right', 'sortable' => true],
                     ],
                     'default_sort' => [['field' => 'sequence', 'dir' => 'asc']],

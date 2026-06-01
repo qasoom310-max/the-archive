@@ -47,6 +47,26 @@
         </div>
     </div>
 
+    {{-- Diagnostic banner. If NO categories route to this station the KDS
+         can never have tickets — surface that as a friendly, actionable
+         message instead of an "empty board" mystery. Only renders when
+         the wiring is missing; once an admin assigns even one category
+         the banner disappears. --}}
+    @if ($routedCategories->isEmpty())
+        <div class="mx-3 my-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 shadow-sm">
+            <p class="font-bold">⚠️ {{ __('No categories are routed to this station yet.') }}</p>
+            <p class="mt-1">
+                {{ __('Open POS → Categories, edit each one that belongs here, and set "Kitchen station" to') }}
+                <span class="font-semibold">{{ $stationLabel }}</span>.
+                {{ __('Until then no sale will ever appear on this screen.') }}
+            </p>
+            <a href="{{ url('/app/pos/category') }}"
+               class="mt-3 inline-flex items-center gap-2 rounded-md bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700">
+                {{ __('Go to Categories') }} →
+            </a>
+        </div>
+    @endif
+
     {{-- 3-column kanban. Mobile-first stack; sm+ side-by-side. Each column
          scrolls vertically. Large gaps + bold colour bands per status so a
          distracted cook can read state at a glance. --}}

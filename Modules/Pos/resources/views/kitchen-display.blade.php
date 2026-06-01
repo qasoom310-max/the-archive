@@ -180,11 +180,13 @@
 @endpush
 
 <script>
-    // Web Audio "ping" — generated in code so we don't need to ship
-    // an audio file (and avoid the autoplay-policy round trips that
-    // <audio src=…> triggers). The AudioContext only resumes after a
-    // user gesture, so the "Tap to enable sound" button calls
-    // `enableAudio()` first; subsequent polls can play freely.
+    // Web Audio "ping" — generated in code so we don't ship an audio
+    // file (and skip the autoplay round trips <audio src=…> triggers).
+    // AudioContext only starts running after a user gesture, so the
+    // "Tap to enable sound" button kicks it off; once unlocked it stays
+    // alive across polls (we call .resume() defensively before each
+    // ping because some browsers — esp. Safari/iOS — drop the context
+    // back to `suspended` on visibility changes).
     document.addEventListener('alpine:init', () => {
         Alpine.data('kitchenDisplay', (initialIds) => ({
             prevIds: new Set(initialIds),
@@ -192,29 +194,58 @@
             audioReady: false,
 
             init() {
-                // Track new ticket arrivals across Livewire morphs. The
-                // server emits `activeTicketIds` (sorted) on every render
-                // — we re-read it from the DOM via x-init lookup. Simpler
-                // approach: just intercept Livewire's `morph.updated`.
-                Livewire.hook('morph.updated', () => {
-                    const fresh = this.readActiveIds();
-                    for (const id of fresh) {
-                        if (!this.prevIds.has(id)) {
-                            this.ping();
-                            break; // one beep per poll batch
+                // Use Livewire 3's `commit` hook (fires once per server
+                // round-trip, including wire:poll) instead of `morph.updated`.
+                // The earlier `morph.updated` choice was unreliable: that
+                // hook fires per CHANGED element, but a brand-new ticket
+                // arrives as a NEW <article> (handled by `morph.added`),
+                // so the diff check never ran for the case we cared about.
+                // `commit.succeed` fires after the DOM is fully patched —
+                // every fresh poll lands here, and the queryselector below
+                // reads the post-patch ticket list.
+                Livewire.hook('commit', ({ component, succeed }) => {
+                    // Scope to THIS component instance — the page might host
+                    // other Livewire components and we only want our polls.
+                    const root = this.$root;
+                    const wireId = root?.closest('[wire\\:id]')?.getAttribute('wire:id');
+                    if (!wireId || component.id !== wireId) return;
+
+                    succeed(() => {
+                        const fresh = this.readActiveIds();
+                        let isNew = false;
+                        for (const id of fresh) {
+                            if (!this.prevIds.has(id)) {
+                                isNew = true;
+                                break;
+                            }
                         }
+                        this.prevIds = new Set(fresh);
+                        if (isNew) {
+                            this.ping();
+                            this.flashHeader();
+                        }
+                    });
+                });
+
+                // Some browsers suspend a backgrounded AudioContext. Resume
+                // it the moment the tab becomes visible again so a ping
+                // that fires seconds later actually plays.
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible'
+                        && this.audioCtx
+                        && this.audioCtx.state === 'suspended') {
+                        this.audioCtx.resume();
                     }
-                    this.prevIds = new Set(fresh);
                 });
             },
 
             readActiveIds() {
-                // The server-rendered list is embedded in the wrapping
-                // element's `x-data` initialiser — but after a morph it's
-                // re-emitted with the new ids. Easiest: re-derive from
-                // the rendered ticket cards' `wire:key`.
+                // Re-derive from the rendered cards' `wire:key`. Scope to
+                // THIS component's DOM root so two KDS tabs open at once
+                // can't bleed ids into each other.
                 const ids = [];
-                document.querySelectorAll('article[wire\\:key^="ticket-"]').forEach((el) => {
+                const root = this.$root || document;
+                root.querySelectorAll('article[wire\\:key^="ticket-"]').forEach((el) => {
                     const key = el.getAttribute('wire:key');
                     const id = parseInt(key.replace('ticket-', ''), 10);
                     if (!Number.isNaN(id)) ids.push(id);
@@ -223,36 +254,62 @@
             },
 
             enableAudio() {
-                if (this.audioCtx) {
-                    this.audioReady = true;
-                    return;
-                }
                 try {
-                    const AC = window.AudioContext || window.webkitAudioContext;
-                    this.audioCtx = new AC();
-                    this.audioReady = true;
-                    // Play a soft acknowledgement beep so the user knows
-                    // the click worked.
-                    this.ping(880, 0.08);
+                    if (!this.audioCtx) {
+                        const AC = window.AudioContext || window.webkitAudioContext;
+                        this.audioCtx = new AC();
+                    }
+                    // .resume() returns a Promise — wait so the
+                    // acknowledgement ping below actually plays.
+                    Promise.resolve(this.audioCtx.resume()).then(() => {
+                        this.audioReady = this.audioCtx.state === 'running';
+                        if (this.audioReady) {
+                            this.ping(880, 0.08); // confirmation beep
+                        }
+                    });
                 } catch (e) {
                     this.audioReady = false;
                 }
             },
 
-            ping(freq = 1040, duration = 0.18) {
+            ping(freq = 1040, duration = 0.22) {
                 if (!this.audioCtx) return;
+                // Defensive resume — Safari/iOS can suspend silently
+                // even mid-page. Calling .resume() on a `running` ctx
+                // is a no-op, so this is cheap.
+                if (this.audioCtx.state === 'suspended') {
+                    this.audioCtx.resume();
+                }
                 const ctx = this.audioCtx;
                 const t0 = ctx.currentTime;
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.value = freq;
-                gain.gain.setValueAtTime(0.0001, t0);
-                gain.gain.exponentialRampToValueAtTime(0.4, t0 + 0.01);
-                gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
-                osc.connect(gain).connect(ctx.destination);
-                osc.start(t0);
-                osc.stop(t0 + duration + 0.02);
+
+                // Two short tones back-to-back — easier to distinguish from
+                // ambient kitchen noise than a single beep.
+                const tones = [freq, freq * 1.5];
+                tones.forEach((f, i) => {
+                    const start = t0 + i * (duration + 0.04);
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = f;
+                    gain.gain.setValueAtTime(0.0001, start);
+                    gain.gain.exponentialRampToValueAtTime(0.5, start + 0.015);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+                    osc.connect(gain).connect(ctx.destination);
+                    osc.start(start);
+                    osc.stop(start + duration + 0.02);
+                });
+            },
+
+            // Visual feedback: pulse the page background briefly so the
+            // arrival is obvious even if the device is muted (it often
+            // is — the cook hasn't tapped "enable sound" yet on every
+            // reload, and the kitchen tablet may be plugged into mute).
+            flashHeader() {
+                const root = this.$root;
+                if (!root) return;
+                root.classList.add('kds-new-flash');
+                setTimeout(() => root.classList.remove('kds-new-flash'), 900);
             },
         }));
     });
@@ -267,5 +324,17 @@
     }
     .animate-late {
         animation: lateFlash 1.6s ease-in-out infinite;
+    }
+
+    /* New-ticket arrival pulse — fires for ~0.9s after each fresh ticket
+       so a muted kitchen tablet still has a visible cue alongside the
+       Web Audio ping. */
+    @keyframes kdsNewFlash {
+        0%   { box-shadow: inset 0 0 0 6px rgba(16, 185, 129, 0); }
+        15%  { box-shadow: inset 0 0 0 6px rgba(16, 185, 129, 0.75); }
+        100% { box-shadow: inset 0 0 0 6px rgba(16, 185, 129, 0); }
+    }
+    .kds-new-flash {
+        animation: kdsNewFlash 0.9s ease-out;
     }
 </style>

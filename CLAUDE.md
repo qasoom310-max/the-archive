@@ -815,8 +815,11 @@ showing ticket status, persisting `audio enabled` across browser sessions.
 - **`AuthSeeder` is deliberately NOT in the deploy workflow.** Adding it would reset
   `admin@example.com`'s password to the seeded value on every push — a footgun. Admin
   + sales user creation is a one-time bootstrap; once prod has them, leave them alone.
-- **Prod mail transport is environment-specific.** `lang/`, `.env`, and per-host SMTP
-  creds never ship from the repo (rsync excludes `.env*`). Dev typically uses
+- **Prod mail transport is environment-specific.** `.env` and per-host SMTP
+  creds never ship from the repo (rsync excludes `.env*`). NOTE: `lang/` **does**
+  ship — it is NOT in deploy.yml's rsync `--exclude` list, so committing an updated
+  `lang/ar.json` and pushing to `main` deploys the new translations to prod (the
+  workflow's `optimize:clear` clears stale caches). Dev typically uses
   Mailtrap sandbox (`sandbox.smtp.mailtrap.io`) — Bahrain ISPs frequently block
   outbound 2525, so port 587 with `MAIL_ENCRYPTION=tls` is the fallback. Prod uses
   Hostinger SMTP (mailbox created in hPanel → SMTP creds pasted into prod `.env` via

@@ -428,7 +428,7 @@ final class PosTerminal extends Component
         ]);
 
         if (! PosWhatsAppCountries::isValidDial($this->newCustomerCountryCode)) {
-            $this->addError('newCustomerCountryCode', 'Please pick a country.');
+            $this->addError('newCustomerCountryCode', __('Please pick a country.'));
 
             return;
         }
@@ -439,7 +439,7 @@ final class PosTerminal extends Component
         );
 
         if ($composedDigits === null) {
-            $this->addError('newCustomerPhone', 'Please enter a valid phone number.');
+            $this->addError('newCustomerPhone', __('Please enter a valid phone number.'));
 
             return;
         }
@@ -556,7 +556,7 @@ final class PosTerminal extends Component
         ]);
 
         if (! PosWhatsAppCountries::isValidDial($this->newCustomerCountryCode)) {
-            $this->addError('newCustomerCountryCode', 'Please pick a country.');
+            $this->addError('newCustomerCountryCode', __('Please pick a country.'));
 
             return;
         }
@@ -569,7 +569,7 @@ final class PosTerminal extends Component
         );
 
         if ($composedDigits === null) {
-            $this->addError('newCustomerPhone', 'Please enter a valid phone number.');
+            $this->addError('newCustomerPhone', __('Please enter a valid phone number.'));
 
             return;
         }

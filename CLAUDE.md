@@ -424,8 +424,84 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
   everywhere. Default DB column is still `decimal(12,2)` so no schema work was
   needed; rendering just pads two trailing digits now.
 
+**Phase 7 increments shipped 2026-06-01 / 2026-06-02 (engine + KDS hardening):**
+
+- **`PosCategory.station` — custom Attribute mutator (cast removed)** —
+  the standard `'station' => PrepStation::class` enum cast rejected the engine
+  FormView's empty-string option ("— None (no KDS routing) —") with
+  `ValueError: "" is not a valid backing value` at `setAttribute` time, before
+  any saving hook could normalise it. Cast removed; replaced with an explicit
+  `protected function station(): Attribute` whose `set` closure coerces
+  `null` / `''` / `'null'` / unrecognised string → null, and accepts either
+  a `PrepStation` instance or its `value` string. Read path still returns the
+  enum (or null). Fixed the 500 a cashier hit when opening the category form
+  and saving with no station chosen.
+- **Engine `FormView` flattens `BackedEnum` on mount** ([app/Livewire/Views/FormView.php:139](app/Livewire/Views/FormView.php#L139)) —
+  `$record->getAttribute($field)` on an enum-cast column returns the enum
+  instance. The instance landed in `$form[<field>]`, and the next auto-save
+  fed it to validator rules like `in:` which string-cast each value — a
+  `BackedEnum` has no `__toString` so the validator 500ed with "Object of
+  class X could not be converted to string". This was the *actual* cause of
+  the AR-pill 500 on the category form (the earlier mutator fix above was a
+  prerequisite but didn't address the read path). Fix: in mount, coerce
+  `$value instanceof \BackedEnum ? $value->value : $value` before storing.
+  The save path is unaffected — Eloquent's enum cast / our custom mutator
+  converts the scalar back. Memory: `[[livewire-backed-enum-in-array-prop]]`.
+  Pinned by `test_form_hydrates_backed_enum_attributes_as_scalar` on
+  `PosCategoryTranslationTest`.
+- **KDS routing listener — bypass Eloquent enum accessor**
+  ([Modules/Pos/Listeners/QueueLinesForKitchen.php](Modules/Pos/Listeners/QueueLinesForKitchen.php)) —
+  was `PosCategory::query()->pluck('station', 'id')` which routes through the
+  `station` Attribute accessor and returns `PrepStation` enum instances. The
+  next `map(static fn (?int $catId): ?string => ...)` then `TypeError`-ed.
+  Because `event(PosOrderPaid)` fires AFTER `finalizeSale()`'s DB transaction,
+  the sale persisted but the listener crashed silently — `prep_status` never
+  got stamped, KDS screens stayed empty. Both plucks now use `DB::table()`
+  so the raw string column comes back unmolested. Locked in by
+  `PosKitchenRoutingTest::test_finalize_sale_stamps_prep_status_only_on_routed_lines`
+  (covers kitchen-routed, shisha-routed, AND no-station categories in one sale).
+- **KDS state machine — `markOrderPreparing()` for the Pending column**
+  ([Modules/Pos/Livewire/KitchenDisplay.php](Modules/Pos/Livewire/KitchenDisplay.php))
+  ([Modules/Pos/resources/views/kitchen-display.blade.php:148](Modules/Pos/resources/views/kitchen-display.blade.php#L148)) —
+  the Pending column's "Start preparing" button was wired to `markOrderReady`,
+  which loops `advancePrep()` until every line is Ready. One tap walked the
+  ticket Pending → Preparing → Ready in a single click, skipping the
+  Preparing column entirely. New `markOrderPreparing()` advances Pending
+  lines by exactly one step (stamps `prep_started_at`). Preparing column's
+  "Mark ready" button still uses `markOrderReady` (it short-circuits any
+  late-stage Pending line forward). Pinned by
+  `test_mark_order_preparing_advances_pending_lines_exactly_one_step`.
+- **KDS sound + visible flash — reliable trigger across browsers**
+  ([Modules/Pos/resources/views/kitchen-display.blade.php:182-280](Modules/Pos/resources/views/kitchen-display.blade.php#L182-L280)) —
+  the original Web-Audio ping hooked `Livewire.hook('morph.updated', ...)`,
+  but that hook fires per *changed* element only. A brand-new ticket arrives
+  as a NEW `<article>` (Livewire dispatches `morph.added`), so the diff
+  check never ran for new arrivals. Switched to `Livewire.hook('commit',
+  { succeed })` scoped to this component's `wire:id` — fires reliably once
+  per round-trip after the DOM patch. Also defensive:
+  `AudioContext.resume()` awaited inside `enableAudio()` so the confirmation
+  beep on the first click actually plays; defensive resume before each
+  `ping()` and on `visibilitychange` so a backgrounded tab doesn't silently
+  drop to `suspended` (Safari/iOS especially). Ping is now a two-tone beep
+  (1040 Hz then 1560 Hz, ~0.22 s each) at higher gain. Even with sound
+  muted, a 0.9-second green inset ring flashes on the wrapper via
+  `.kds-new-flash` (CSS keyframes) — same component method
+  `flashHeader()` invoked alongside `ping()`. Still requires the user to
+  tap "Tap to enable sound" once per tab session (browser autoplay rule —
+  no workaround).
+- **POS Home KDS deep-link icons** ([Modules/Pos/resources/views/home.blade.php:38-58](Modules/Pos/resources/views/home.blade.php#L38-L58)) —
+  Kitchen had a people-cluster glyph and Shisha had a thumbs-up — neither
+  read as what the button does. Kitchen now uses Heroicons solid `fire`
+  (universal cooking shorthand); Shisha uses a custom 3-curl smoke-wisp
+  drawing (no Heroicon ships a hookah). Memory:
+  `[[use-svg-icons-not-emoji]]`.
+
+**Phase 7 OUT-of-scope adjustment:** "restaurant floors/tables/kitchen" became
+"restaurant floors/tables" — the *Kitchen Display* slice now ships (Phase 15
+below). Floor / table layouts (restaurant POS) remain out.
+
 **Deliberately OUT of scope** (say so if asked, offer as follow-ups): offline/PWA &
-hardware/IoT (scanners, cash drawer, customer display), restaurant floors/tables/kitchen,
+hardware/IoT (scanners, cash drawer, customer display), restaurant floors/tables,
 loyalty/gift cards/coupons, multi-currency *per-order* (the global default currency from
 Phase 11 IS now applied), advanced tax (price-included, multi-tax, fiscal positions),
 refunds/returns, and accounting/invoice posting. Known simplification: cash
@@ -455,6 +531,7 @@ Keep this table current — it is how state survives across sessions.
 | 12 | **Locale & RTL Arabic (Pass 1)**: `SetLocale` middleware + `lang/ar.json` + `<html dir="rtl">` + logical Tailwind utilities + auto-reload on language flip + app-switcher per-module icons | ✅ Pass 1 (foundation + chrome + login + profile + settings + dashboard). Pass 2 (POS interiors, Contacts, Inventory, Chatter, engine list/kanban/form chrome, validation messages) = next |
 | 13 | **Translatable data**: `spatie/laravel-translatable` + engine `translatable: true` arch flag + Odoo-style EN/AR pills in FormView + `PosProduct.name` and `PosCategory.name` opted in | ✅ DONE (POS Product + Category names). Follow-ups: `Partner.name`, add `description` columns then opt them in |
 | 14 | **Accounting**: double-entry COA + balanced journal entries (draft→posted) + sequence-generated numbers + auto-post on POS sale & purchase invoice + Trial Balance / P&L / Balance Sheet | ✅ Backend (schema/models/services/listeners/seeder). Follow-ups: Livewire screens (statements pages, journal-line inline editor), bank reconciliation, taxes module, manual-entry form, fixed-asset depreciation |
+| 15 | **Kitchen Display System (KDS)**: per-category station routing (`kitchen` / `shisha`), `PosOrderPaid` listener stamps `prep_status=pending` on routed lines, 3-column kanban screen polling every 5s (`/app/pos/kitchen/{station}`), single-tap state machine (Pending → Preparing → Ready → Completed), late-ticket flash, Web Audio ping + green-flash on new arrivals | ✅ DONE |
 
 **Phase 8 — Settings (where things live):**
 
@@ -640,6 +717,38 @@ journal items (single-currency from `Setting::get('currency.default')`), tax cod
 fiscal positions, fixed-asset depreciation, year-end closing automation. The
 retained-earnings carry-forward on the balance sheet is *computed live* — there's
 no closing-entry concept yet.
+
+**Phase 15 — Kitchen Display System (`Modules/Pos/`, shipped 2026-06-01 / 2026-06-02):**
+
+| Concern | Location |
+|---|---|
+| Enum: station | `Modules\Pos\Enums\PrepStation` — backed-string `kitchen` / `shisha` + `label()`. Adding a new station = a new case + `/app/pos/kitchen/<value>` URL (the screen is the same component, parameterised). |
+| Enum: line lifecycle | `Modules\Pos\Enums\PrepStatus` — `pending` → `preparing` → `ready` → `completed`. Provides `next()` (single-step forward), `nextLabel()` (button text per state), `color()` (Tailwind tone token), `label()` (translated user-facing name), `active()` (list of statuses still on screen). |
+| Category → station | `pos_categories.station` (nullable VARCHAR(16), indexed) added by `2026_05_31_200002_add_station_to_pos_categories`. `PosCategory` exposes it via a **custom Attribute mutator** (not the standard enum cast — see Phase 7 increment 2026-06-01 for why); list arch declares `format: badge`, form arch declares `widget: select` with options `['' → "— None (no KDS routing) —", 'kitchen' → 'Kitchen', 'shisha' → 'Shisha']`. |
+| Line lifecycle columns | `pos_order_lines.{prep_status, prep_sent_at, prep_started_at, prep_ready_at, prep_completed_at}` added by `2026_05_31_200001_add_kds_columns_to_pos_order_lines`. `PosOrderLine::advancePrep()` walks one step forward and stamps the matching transition timestamp; idempotent at the terminal state. |
+| Routing listener | `Modules\Pos\Listeners\QueueLinesForKitchen` — on `PosOrderPaid` (fired post-transaction by `PosOrder::finalizeSale()`), stamps `prep_status = pending` + `prep_sent_at` on every line whose product → category → station resolves. Idempotent (a line already past Pending is left alone). **Uses `DB::table()`** for the station lookup pluck — Eloquent's `pluck` would route through the `station` Attribute accessor and hand back `PrepStation` enum instances that the typed map closure can't return. Wired in `PosServiceProvider::boot()` alongside the WhatsApp listener. |
+| Screen | `Modules\Pos\Livewire\KitchenDisplay` — single component parameterised by `public PrepStation $station;`. Routes: `/app/pos/kitchen/kitchen` (food) and `/app/pos/kitchen/shisha` (shisha) under `web/auth/pos.session:Read`. `mount(PrepStation $station)` — typed as the enum because Livewire converts the URL segment via the typed property before `mount()` runs (an earlier `string` type 500ed with TypeError; route-level `whereIn` rejects unknown values upstream). |
+| Component methods | `advance(int $lineId)` (per-line single-step), `markOrderPreparing(int $orderId)` (Pending → Preparing for every Pending line on the order — drives Pending column button), `markOrderReady(int $orderId)` (walks every Pending/Preparing line forward to Ready — drives Preparing column button), `completeOrder(int $orderId)` (forces every active line to Completed — drives Ready column button). All filter by station so a Shisha screen can never mutate a Kitchen line. |
+| Ticket aggregation | `loadTickets()` queries active lines for THIS station, groups by order, returns `Collection<int, KitchenTicket>`. `KitchenTicket` (`Modules\Pos\Support\KitchenTicket`) is a readonly VO: `orderId`, `reference`, `sentAt` (earliest `prep_sent_at` on the order), `status` (least-progressed line's status — a multi-item ticket only graduates to Ready when every line is ready), `lines`. |
+| View | `Modules\Pos\resources\views\kitchen-display.blade.php` — 3-column kanban (Pending / Preparing / Ready, hard-coded tone tokens so JIT scans every Tailwind class). Each card = one order's lines for this station. `wire:poll.5s` on the wrapping div. Big touch targets (`min-h-12`), late-ticket red ring (CSS `@keyframes lateFlash` after 15 minutes), per-line notes underlined. Mobile-first stack → `sm:grid-cols-3`. |
+| Empty-state diagnostic | If `PosCategory::where('station', $station)->count() === 0`, the screen renders an amber banner ("No categories are routed to this station yet … Open POS → Categories, edit each one that belongs here, and set Kitchen station to <name>") with a "Go to Categories" link. Surfaces the wiring gap that would otherwise just look like an "always empty" screen. |
+| Sound + visual cue | Web Audio API generates a 2-tone ping in-code (no audio file). Hooked via `Livewire.hook('commit', { succeed })` scoped to this component's `wire:id` — fires once per round-trip after DOM patch, regardless of whether the new ticket arrived as `morph.added` or `morph.updated`. AudioContext is `.resume()`-d defensively before every ping + on `visibilitychange` so backgrounded-tab suspensions don't silently mute the kitchen. A 0.9-second green inset-ring flash on the wrapper accompanies each ping so a muted device still has a visible cue. First ping requires "Tap to enable sound" once per session (browser autoplay rule). |
+| Deep-link buttons | POS Home (`Modules/Pos/resources/views/home.blade.php`) shows two buttons next to the session controls: Kitchen (amber, Heroicons solid `fire`) and Shisha (fuchsia, custom 3-curl smoke-wisp SVG). `wire:navigate` — each device pins one screen on rendering. |
+| Tests | `tests/Feature/PosKitchenRoutingTest.php` — (1) routing stamps only lines whose category has a station, leaves no-station lines null; (2) `markOrderPreparing` advances exactly one step; (3) re-dispatching `PosOrderPaid` doesn't reset a Preparing line back to Pending. |
+
+A bill containing both food and shisha produces **two tickets on two different
+screens** — the same `pos_orders` row, but only the lines whose category routes
+here appear on this station. A Kitchen screen never sees Shisha lines and vice
+versa; `lineBelongsToStation()` guards every mutation. Orders placed before a
+category was assigned a station produce **no** KDS tickets (the listener
+correctly routes nothing); the empty-state banner explains the wiring.
+
+**Deliberately OUT of scope this increment** (say so if asked, offer as follow-ups):
+restaurant floors / tables, multi-prep-step recipes (e.g. "first prepare the
+sauce while the steak rests"), per-line cashier notes pinned to specific
+preparation steps, KDS audit trail / replay, expediter view (one screen
+showing all stations at once), runner mobile screen, customer-facing screen
+showing ticket status, persisting `audio enabled` across browser sessions.
 
 **Profile self-service (shipped 2026-05-21):**
 

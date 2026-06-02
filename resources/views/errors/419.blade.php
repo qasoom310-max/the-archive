@@ -16,6 +16,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="refresh" content="0; url={{ url()->current() }}">
     <title>{{ __('Refreshing…') }}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('brand/openerp-mark.svg') }}">
     <script>window.location.replace({!! json_encode(url()->current()) !!});</script>
 </head>
 <body></body>

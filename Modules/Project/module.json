@@ -1,0 +1,19 @@
+{
+    "name": "project",
+    "display_name": "Project",
+    "summary": "Project management: Kanban boards, sub-tasks, timesheets & analytic costing",
+    "description": "Odoo-style project management. Projects group tasks across configurable Kanban stages; tasks support sub-tasks, a priority star, a normal/blocked/done state and planned hours. Timesheets log time against tasks and post statistical cost lines to the project's analytic account.",
+    "version": "1.0.0",
+    "author": "OpenERP",
+    "category": "Operations",
+    "icon": "briefcase",
+    "application": true,
+    "auto_install": false,
+    "depends": ["base"],
+    "providers": ["Modules\\Project\\Providers\\ProjectServiceProvider"],
+    "models": [
+        "Modules\\Project\\Models\\Project",
+        "Modules\\Project\\Models\\ProjectTask"
+    ],
+    "sequence": 25
+}

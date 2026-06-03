@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Storage;
  * @property string|null $avatar_path   Path on the `public` disk (nullable)
  * @property string|null $new_email     Pending email change awaiting verification
  * @property string|null $language      Personal language preference (`en`|`ar`); null = follow company.language
+ * @property float|null $hourly_cost    Labour rate per hour (Project module); null = use project.default_hourly_cost
  * @property bool $is_admin
  * @property string $password
  */
@@ -34,6 +35,7 @@ final class User extends Authenticatable
         'avatar_path',
         'new_email',
         'language',
+        'hourly_cost',
         'is_admin',
         'password',
     ];
@@ -53,6 +55,9 @@ final class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_admin' => 'boolean',
+            // Project module: the column is added by that module's migration,
+            // so it's simply absent (reads null) until Project is installed.
+            'hourly_cost' => 'float',
         ];
     }
 

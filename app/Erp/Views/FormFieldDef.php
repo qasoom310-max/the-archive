@@ -10,7 +10,7 @@ namespace App\Erp\Views;
 final readonly class FormFieldDef
 {
     /**
-     * @param 'text'|'textarea'|'email'|'tel'|'number'|'checkbox'|'select'|'date'|'datetime'|'image' $widget
+     * @param 'text'|'textarea'|'email'|'tel'|'number'|'checkbox'|'select'|'date'|'datetime'|'image'|'color' $widget
      * @param list<array{value: string, label: string}> $options
      * @param bool $translatable  When true the field renders with Odoo-style
      *                            language pills (EN / AR) and saves via

@@ -163,6 +163,33 @@
                         </label>
                         @break
 
+                    @case('color')
+                        {{-- Clickable swatch (opens the OS colour picker) kept in
+                             sync with a hex text field, so a colour can be picked
+                             visually OR typed. Both push to the same wire model;
+                             the swatch uses @change (one commit per pick, not per
+                             drag frame), the text field is debounced. The leading
+                             preview dot mirrors whatever's currently valid. --}}
+                        @php $colorVal = (string) ($record->getAttribute($field->field) ?? ''); @endphp
+                        <div class="flex items-center gap-2"
+                            x-data="{
+                                color: @js($colorVal),
+                                get swatch() {
+                                    return /^#[0-9a-fA-F]{6}$/.test(this.color) ? this.color : '{{ '#714b67' }}';
+                                },
+                                sync(v) { this.color = v; $wire.set('{{ $key }}', v); },
+                            }">
+                            <input type="color" :value="swatch"
+                                @change="sync($event.target.value)"
+                                aria-label="{{ $field->label }}"
+                                class="size-9 shrink-0 cursor-pointer rounded-md border border-chrome-300 bg-white p-1">
+                            <input type="text" :value="color" maxlength="7"
+                                @input.debounce.400ms="sync($event.target.value)"
+                                placeholder="{{ $field->placeholder }}"
+                                class="o-input max-w-[8rem] font-mono uppercase">
+                        </div>
+                        @break
+
                     @case('select')
                         {{-- Picking is an atomic action — auto-save instantly. --}}
                         <select wire:model.live="{{ $key }}" class="o-input">

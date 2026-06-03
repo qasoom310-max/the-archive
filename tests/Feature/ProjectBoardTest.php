@@ -157,4 +157,67 @@ final class ProjectBoardTest extends TestCase
         $this->assertSame('First task', $task->title);
         $this->assertSame($todo->id, $task->stage_id);
     }
+
+    public function test_edit_stage_renames_the_column(): void
+    {
+        $project = $this->makeProjectWithTwoStages();
+        $todo = $project->stages()->where('name', 'To Do')->sole();
+
+        Livewire::test(ProjectBoard::class, ['project' => $project->id])
+            ->call('editStage', $todo->id, '  Up Next  ');
+
+        $this->assertSame('Up Next', $todo->refresh()->name);
+    }
+
+    public function test_delete_stage_reassigns_tasks_to_another_column_and_removes_it(): void
+    {
+        $project = $this->makeProjectWithTwoStages();
+        [$todo, $doing] = $project->stages()->orderBy('sequence')->get()->all();
+
+        $task = ProjectTask::query()->create([
+            'project_id' => $project->id,
+            'stage_id' => $todo->id,
+            'title' => 'A',
+            'sequence' => 0,
+        ]);
+
+        Livewire::test(ProjectBoard::class, ['project' => $project->id])
+            ->call('deleteStage', $todo->id);
+
+        $this->assertNull(ProjectStage::query()->find($todo->id));
+        // Task survived, moved to the only remaining column.
+        $this->assertSame($doing->id, $task->refresh()->stage_id);
+    }
+
+    public function test_delete_only_stage_unassigns_its_tasks_without_deleting_them(): void
+    {
+        $project = Project::query()->create(['name' => 'Solo']);
+        $only = ProjectStage::query()->create(['project_id' => $project->id, 'name' => 'All', 'sequence' => 0]);
+        $task = ProjectTask::query()->create([
+            'project_id' => $project->id,
+            'stage_id' => $only->id,
+            'title' => 'A',
+            'sequence' => 0,
+        ]);
+
+        Livewire::test(ProjectBoard::class, ['project' => $project->id])
+            ->call('deleteStage', $only->id);
+
+        $this->assertNull(ProjectStage::query()->find($only->id));
+        $this->assertNotNull($task->refresh());      // not deleted
+        $this->assertNull($task->stage_id);          // just unstaged
+    }
+
+    public function test_delete_stage_ignores_a_stage_from_another_project(): void
+    {
+        $project = $this->makeProjectWithTwoStages();
+        $other = Project::query()->create(['name' => 'Other']);
+        $foreignStage = ProjectStage::query()->create(['project_id' => $other->id, 'name' => 'X', 'sequence' => 0]);
+
+        Livewire::test(ProjectBoard::class, ['project' => $project->id])
+            ->call('deleteStage', $foreignStage->id);
+
+        // The board can't delete a column outside its project.
+        $this->assertNotNull(ProjectStage::query()->find($foreignStage->id));
+    }
 }

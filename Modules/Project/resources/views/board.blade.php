@@ -25,9 +25,41 @@
                 :class="over ? 'bg-primary-50 ring-2 ring-primary-300' : 'bg-chrome-200/60'"
                 class="flex w-72 shrink-0 flex-col rounded-xl p-2 transition">
 
-                <div class="mb-2 flex items-center justify-between px-1">
-                    <h2 class="text-sm font-semibold text-chrome-700">{{ $stage->name }}</h2>
-                    <span class="rounded-full bg-white px-2 text-xs font-bold text-chrome-500">{{ $stageTasks->count() }}</span>
+                <div class="mb-2 flex items-center justify-between gap-1 px-1" x-data="{ editing: false }">
+                    <div class="min-w-0 flex-1">
+                        {{-- Double-click the title (or the pencil) to rename in place. --}}
+                        <h2 x-show="!editing"
+                            @dblclick="@js($canWrite) && (editing = true, $nextTick(() => $refs.stage{{ $stage->id }}.focus()))"
+                            class="truncate text-sm font-semibold text-chrome-700">{{ $stage->name }}</h2>
+                        <input x-show="editing" x-cloak type="text" value="{{ $stage->name }}"
+                            x-ref="stage{{ $stage->id }}"
+                            @keydown.enter="$wire.editStage({{ $stage->id }}, $event.target.value); editing = false"
+                            @blur="$wire.editStage({{ $stage->id }}, $event.target.value); editing = false"
+                            @keydown.escape="editing = false"
+                            class="w-full rounded border border-chrome-300 px-2 py-0.5 text-sm font-semibold text-chrome-800 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                    </div>
+                    <div class="flex shrink-0 items-center gap-1">
+                        <span class="rounded-full bg-white px-2 text-xs font-bold text-chrome-500">{{ $stageTasks->count() }}</span>
+                        @if ($canWrite)
+                            <button type="button" title="{{ __('Rename') }}"
+                                @click="editing = true; $nextTick(() => $refs.stage{{ $stage->id }}.focus())"
+                                class="text-chrome-400 transition hover:text-primary-600">
+                                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" />
+                                </svg>
+                            </button>
+                        @endif
+                        @if ($canDelete)
+                            <button type="button" title="{{ __('Delete column') }}"
+                                wire:click="deleteStage({{ $stage->id }})"
+                                wire:confirm="{{ $stageTasks->count() > 0 ? __('Delete this column? Its tasks will move to another column (or be unassigned if none).') : __('Delete this column?') }}"
+                                class="text-chrome-400 transition hover:text-red-600">
+                                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21q.149.222.22.469M19.228 5.79a48.108 48.108 0 0 0-3.478-.397m-12 .562q.249-.247.561-.398a48 48 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                </svg>
+                            </button>
+                        @endif
+                    </div>
                 </div>
 
                 <div class="flex-1 space-y-2 overflow-y-auto">

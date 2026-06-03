@@ -109,6 +109,61 @@ final class ProjectBoard extends Component
     }
 
     /**
+     * Rename a column. Write-gated, project-scoped. Empty name is ignored
+     * (treated as a cancel).
+     */
+    public function editStage(int $stageId, string $name): void
+    {
+        app(AccessControl::class)->authorize(Auth::user(), 'project.task', Permission::Write);
+
+        $name = trim($name);
+
+        if ($name === '') {
+            return;
+        }
+
+        ProjectStage::query()
+            ->where('project_id', $this->projectId)
+            ->whereKey($stageId)
+            ->update(['name' => $name]);
+    }
+
+    /**
+     * Delete a column. Unlink-gated. Non-destructive to tasks: any cards in
+     * the column are reassigned to the nearest remaining stage so nothing is
+     * orphaned; if it's the only stage, its tasks fall back to unstaged
+     * (stage_id null) rather than being deleted.
+     */
+    public function deleteStage(int $stageId): void
+    {
+        app(AccessControl::class)->authorize(Auth::user(), 'project.task', Permission::Unlink);
+
+        $stage = ProjectStage::query()
+            ->where('project_id', $this->projectId)
+            ->whereKey($stageId)
+            ->first();
+
+        if ($stage === null) {
+            return;
+        }
+
+        DB::transaction(function () use ($stage): void {
+            $target = ProjectStage::query()
+                ->where('project_id', $this->projectId)
+                ->whereKeyNot($stage->getKey())
+                ->orderBy('sequence')->orderBy('id')
+                ->first();
+
+            ProjectTask::query()
+                ->where('project_id', $this->projectId)
+                ->where('stage_id', $stage->getKey())
+                ->update(['stage_id' => $target?->getKey()]);
+
+            $stage->delete();
+        });
+    }
+
+    /**
      * Move a task to a new stage at a target position, then renumber the
      * destination column so the order persists. Runs whenever a card is
      * dropped. Write-gated and scoped to THIS project so a crafted payload
@@ -196,6 +251,8 @@ final class ProjectBoard extends Component
             'tasksByStage' => $tasks->groupBy('stage_id'),
             'canWrite' => app(AccessControl::class)
                 ->allows(Auth::user(), 'project.task', Permission::Write),
+            'canDelete' => app(AccessControl::class)
+                ->allows(Auth::user(), 'project.task', Permission::Unlink),
         ]);
     }
 }

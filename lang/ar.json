@@ -333,5 +333,9 @@
     "Archived": "مؤرشف",
     "Blocked": "متوقّف",
     "In Progress": "قيد التنفيذ",
-    "h": "س"
+    "h": "س",
+    "Rename": "إعادة تسمية",
+    "Delete column": "حذف العمود",
+    "Delete this column?": "حذف هذا العمود؟",
+    "Delete this column? Its tasks will move to another column (or be unassigned if none).": "حذف هذا العمود؟ ستُنقل مهامه إلى عمود آخر (أو يُلغى تعيينها إن لم يوجد)."
 }

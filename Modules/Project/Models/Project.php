@@ -126,8 +126,9 @@ final class Project extends Model implements DefinesIrModel, TranslatableModel
                     ],
                     'default_sort' => [['field' => 'name', 'dir' => 'asc']],
                     'per_page' => 20,
-                    // Rows open the Kanban board, not a record form.
-                    'open' => '/app/project/{id}/board',
+                    // List rows open the settings form; the home cards open
+                    // the board (the workspace).
+                    'open' => '/app/project/project/{id}',
                 ]),
                 new ViewDefinition('Project', 'form', [
                     'cols' => 2,

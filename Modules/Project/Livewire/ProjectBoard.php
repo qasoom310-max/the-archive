@@ -28,11 +28,84 @@ final class ProjectBoard extends Component
 {
     public int $projectId;
 
+    /** Bound to the "add stage" input. */
+    public string $newStageName = '';
+
+    /**
+     * Bound to each column's "add task" input, keyed by stage id.
+     *
+     * @var array<int, string>
+     */
+    public array $newTaskTitle = [];
+
     public function mount(int $project): void
     {
         app(AccessControl::class)->authorize(Auth::user(), 'project.task', Permission::Read);
 
         $this->projectId = $project;
+    }
+
+    /**
+     * Append a new Kanban column to this project. Create-gated.
+     */
+    public function addStage(): void
+    {
+        app(AccessControl::class)->authorize(Auth::user(), 'project.task', Permission::Create);
+
+        $name = trim($this->newStageName);
+
+        if ($name === '') {
+            return;
+        }
+
+        $maxSequence = (int) ProjectStage::query()
+            ->where('project_id', $this->projectId)
+            ->max('sequence');
+
+        ProjectStage::query()->create([
+            'project_id' => $this->projectId,
+            'name' => $name,
+            'sequence' => $maxSequence + 1,
+        ]);
+
+        $this->newStageName = '';
+    }
+
+    /**
+     * Add a task to the bottom of a column. Create-gated and project-scoped.
+     */
+    public function addTask(int $stageId): void
+    {
+        app(AccessControl::class)->authorize(Auth::user(), 'project.task', Permission::Create);
+
+        $stageBelongsToProject = ProjectStage::query()
+            ->where('project_id', $this->projectId)
+            ->whereKey($stageId)
+            ->exists();
+
+        if (! $stageBelongsToProject) {
+            return;
+        }
+
+        $title = trim($this->newTaskTitle[$stageId] ?? '');
+
+        if ($title === '') {
+            return;
+        }
+
+        $maxSequence = (int) ProjectTask::query()
+            ->where('project_id', $this->projectId)
+            ->where('stage_id', $stageId)
+            ->max('sequence');
+
+        ProjectTask::query()->create([
+            'project_id' => $this->projectId,
+            'stage_id' => $stageId,
+            'title' => $title,
+            'sequence' => $maxSequence + 1,
+        ]);
+
+        $this->newTaskTitle[$stageId] = '';
     }
 
     /**

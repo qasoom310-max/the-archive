@@ -29,6 +29,10 @@ final class ProjectHome extends Component
             ->orderBy('name')
             ->get();
 
-        return view('project::home', ['projects' => $projects]);
+        return view('project::home', [
+            'projects' => $projects,
+            'canCreate' => app(AccessControl::class)
+                ->allows(Auth::user(), 'project.project', Permission::Create),
+        ]);
     }
 }

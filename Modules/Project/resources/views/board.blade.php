@@ -76,12 +76,31 @@
                         <p class="px-1 py-6 text-center text-xs text-chrome-400">{{ __('No tasks.') }}</p>
                     @endforelse
                 </div>
+
+                @if ($canWrite)
+                    {{-- Quick-add a task to the bottom of this column (Enter to submit). --}}
+                    <form wire:submit="addTask({{ $stage->id }})" class="mt-2 shrink-0">
+                        <input type="text" wire:model="newTaskTitle.{{ $stage->id }}"
+                            placeholder="{{ __('+ Add task') }}"
+                            class="w-full rounded-lg border border-chrome-200 bg-white/70 px-3 py-1.5 text-sm text-chrome-700 placeholder:text-chrome-400 focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                    </form>
+                @endif
             </div>
         @endforeach
 
-        @if ($stages->isEmpty())
+        @if ($canWrite)
+            {{-- Add a new Kanban column (Enter to submit). --}}
+            <div class="w-64 shrink-0">
+                <form wire:submit="addStage"
+                    class="rounded-xl border-2 border-dashed border-chrome-300 p-2 transition hover:border-primary-400">
+                    <input type="text" wire:model="newStageName"
+                        placeholder="{{ __('+ Add stage') }}"
+                        class="w-full rounded-lg bg-white px-3 py-1.5 text-sm text-chrome-700 placeholder:text-chrome-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                </form>
+            </div>
+        @elseif ($stages->isEmpty())
             <div class="m-auto text-center text-sm text-chrome-400">
-                {{ __('No stages yet. Add stages to start the board.') }}
+                {{ __('No stages yet.') }}
             </div>
         @endif
     </div>

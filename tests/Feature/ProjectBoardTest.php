@@ -127,4 +127,34 @@ final class ProjectBoardTest extends TestCase
         // The board can't reach a task outside its project.
         $this->assertSame($otherStage->id, $foreignTask->refresh()->stage_id);
     }
+
+    public function test_add_stage_appends_a_column(): void
+    {
+        $project = Project::query()->create(['name' => 'Fresh']);
+
+        Livewire::test(ProjectBoard::class, ['project' => $project->id])
+            ->set('newStageName', 'To Do')
+            ->call('addStage')
+            ->set('newStageName', 'Doing')
+            ->call('addStage');
+
+        $stages = ProjectStage::query()->where('project_id', $project->id)
+            ->orderBy('sequence')->pluck('name')->all();
+
+        $this->assertSame(['To Do', 'Doing'], $stages);
+    }
+
+    public function test_add_task_appends_to_a_column(): void
+    {
+        $project = $this->makeProjectWithTwoStages();
+        $todo = $project->stages()->where('name', 'To Do')->sole();
+
+        Livewire::test(ProjectBoard::class, ['project' => $project->id])
+            ->set("newTaskTitle.{$todo->id}", 'First task')
+            ->call('addTask', $todo->id);
+
+        $task = ProjectTask::query()->where('project_id', $project->id)->sole();
+        $this->assertSame('First task', $task->title);
+        $this->assertSame($todo->id, $task->stage_id);
+    }
 }

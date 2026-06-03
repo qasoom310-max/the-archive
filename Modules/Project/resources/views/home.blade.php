@@ -1,7 +1,13 @@
 <div class="mx-auto max-w-6xl p-4 sm:p-6">
-    <div class="mb-6">
-        <h1 class="text-xl font-bold text-chrome-900">{{ __('Projects') }}</h1>
-        <p class="text-sm text-chrome-500">{{ __('Pick a project to open its Kanban board.') }}</p>
+    <div class="mb-6 flex items-start justify-between gap-3">
+        <div>
+            <h1 class="text-xl font-bold text-chrome-900">{{ __('Projects') }}</h1>
+            <p class="text-sm text-chrome-500">{{ __('Pick a project to open its Kanban board.') }}</p>
+        </div>
+        @if ($canCreate)
+            <a href="{{ url('/app/project/project/new') }}" wire:navigate
+                class="o-btn-primary shrink-0 text-sm">{{ __('New project') }}</a>
+        @endif
     </div>
 
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

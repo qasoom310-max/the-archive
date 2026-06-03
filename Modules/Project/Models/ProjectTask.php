@@ -208,6 +208,7 @@ final class ProjectTask extends Model implements Chatterable, DefinesIrModel
                     'default_sort' => [['field' => 'sequence', 'dir' => 'asc']],
                     'per_page' => 30,
                     'searchable' => ['title'],
+                    'open' => '/app/project/task/{id}',
                 ]),
                 new ViewDefinition('Task', 'form', [
                     'cols' => 2,

@@ -337,5 +337,7 @@
     "Rename": "إعادة تسمية",
     "Delete column": "حذف العمود",
     "Delete this column?": "حذف هذا العمود؟",
-    "Delete this column? Its tasks will move to another column (or be unassigned if none).": "حذف هذا العمود؟ ستُنقل مهامه إلى عمود آخر (أو يُلغى تعيينها إن لم يوجد)."
+    "Delete this column? Its tasks will move to another column (or be unassigned if none).": "حذف هذا العمود؟ ستُنقل مهامه إلى عمود آخر (أو يُلغى تعيينها إن لم يوجد).",
+    "Delete project": "حذف المشروع",
+    "Delete this project and all its tasks, timesheets and cost lines? This cannot be undone.": "حذف هذا المشروع وكل مهامه وسجلات الوقت وبنود التكلفة؟ لا يمكن التراجع عن ذلك."
 }

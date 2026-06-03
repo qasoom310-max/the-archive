@@ -43,10 +43,20 @@ final class Sidebar extends Component
                 ->orderBy('name')
                 ->get()
                 ->filter(fn (IrModel $m): bool => $access->allows($user, $m->model, Permission::Read))
-                ->map(fn (IrModel $m): array => [
-                    'label' => $m->name,
-                    'url' => url('/app/' . $module->name . '/' . $this->resourceSlug($module->name, $m->model)),
-                ])
+                ->map(function (IrModel $m) use ($module): array {
+                    $slug = $this->resourceSlug($module->name, $m->model);
+
+                    // The module's primary model — its resource name equals
+                    // the module name (e.g. project.project under "project") —
+                    // links to the module home (/app/{module}) instead of a
+                    // redundant /app/project/project.
+                    return [
+                        'label' => $m->name,
+                        'url' => $slug === $module->name
+                            ? url('/app/' . $module->name)
+                            : url('/app/' . $module->name . '/' . $slug),
+                    ];
+                })
                 ->values()
                 ->all()
             : [];

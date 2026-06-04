@@ -150,6 +150,20 @@ jobs:
           echo
           echo "=========================================="
 
+      # Definitive reachability probe: can this runner open a raw TCP socket
+      # to the deploy host's SSH port at all? Separates a network/firewall
+      # block (TCP can't open) from an SSH-level problem (TCP opens, auth/host
+      # key fails). Non-fatal — always continues so the real deploy still runs.
+      - name: Probe TCP reachability to deploy host
+        continue-on-error: true
+        run: |
+          echo "Outbound sanity (github.com:443):"
+          timeout 10 bash -c 'exec 3<>/dev/tcp/140.82.112.3/443' \
+            && echo "OUTBOUND_OK" || echo "OUTBOUND_FAIL"
+          echo "Deploy host SSH port:"
+          timeout 20 bash -c 'exec 3<>/dev/tcp/${{ secrets.SSH_HOST }}/${{ secrets.SSH_PORT }}' \
+            && echo "DEPLOY_HOST_TCP_OPEN" || echo "DEPLOY_HOST_TCP_BLOCKED_OR_TIMEOUT"
+
       - name: Trust Hostinger SSH host key
         run: |
           mkdir -p ~/.ssh

@@ -137,6 +137,19 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      # Print the runner's public IPv4 so Hostinger can check whether this
+      # source IP is being blocked by their firewall/fail2ban. NOTE: GitHub
+      # rotates runner IPs per-run, so this is only the *current* one — a
+      # durable fix is whitelisting GitHub's published Actions ranges.
+      - name: Print runner public IP (for Hostinger firewall check)
+        run: |
+          echo "=== GitHub Actions runner public IPv4 ==="
+          curl -s --max-time 10 https://api.ipify.org \
+            || curl -s --max-time 10 https://ifconfig.me \
+            || curl -s --max-time 10 https://checkip.amazonaws.com
+          echo
+          echo "=========================================="
+
       - name: Trust Hostinger SSH host key
         run: |
           mkdir -p ~/.ssh

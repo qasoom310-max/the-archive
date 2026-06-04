@@ -74,6 +74,21 @@ final class ProjectHomeTest extends TestCase
         $this->assertNotNull(Project::query()->find($keep->id));
     }
 
+    public function test_project_form_renders_a_native_colour_picker(): void
+    {
+        // Drives the real engine render path: the reflected `project.project`
+        // form arch must surface the Color field as a native colour picker
+        // (a clickable swatch), not a plain text box.
+        Livewire::test(\App\Livewire\Views\FormView::class, [
+            'model' => Project::class,
+            'modelKey' => 'project.project',
+        ])
+            ->assertSeeHtml('type="color"')
+            // The swatch is wired to the same `form.color` model the hex
+            // field uses, so picking and typing stay in sync.
+            ->assertSeeHtml("\$wire.set('form.color'");
+    }
+
     public function test_sidebar_project_entry_links_to_the_module_home(): void
     {
         Livewire::test(Sidebar::class, ['activeModule' => 'project'])

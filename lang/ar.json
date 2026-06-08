@@ -373,5 +373,17 @@
     "POS Condiment": "إضافة نقطة البيع",
     "New condiment": "إضافة جديدة",
     "Edit condiment": "تعديل الإضافة",
-    "Add-ons the cashier can attach to any product (extra cheese, no ice…). Price 0 = free.": "إضافات يمكن للكاشير إرفاقها بأي منتج (جبنة إضافية، بدون ثلج…). السعر 0 = مجاني."
+    "Add-ons the cashier can attach to any product (extra cheese, no ice…). Price 0 = free.": "إضافات يمكن للكاشير إرفاقها بأي منتج (جبنة إضافية، بدون ثلج…). السعر 0 = مجاني.",
+    "Customer discount": "خصم العميل",
+    "Customer Discounts": "خصومات العملاء",
+    "Customer Discount": "خصم العميل",
+    "Discount %": "نسبة الخصم %",
+    "Label": "تسمية",
+    "New discount": "خصم جديد",
+    "Edit discount": "تعديل الخصم",
+    "Manage customer discounts": "إدارة خصومات العملاء",
+    "Assign an open discount % to a phone number. When the cashier adds that customer at the register, it comes off the order total.": "عيّن نسبة خصم مفتوحة لرقم هاتف. عند إضافة الكاشير لذلك العميل عند الصندوق، يُخصم من إجمالي الطلب.",
+    "The customer phone this discount applies to. Country code optional — it matches with or without it.": "هاتف العميل الذي ينطبق عليه هذا الخصم. رمز الدولة اختياري — يتطابق بوجوده أو بدونه.",
+    "Percent off the whole order total (0–100). Applied when this customer is added at the register.": "نسبة خصم من إجمالي الطلب بالكامل (0–100). تُطبَّق عند إضافة هذا العميل عند الصندوق.",
+    "Optional note so you recognise this number. Never shown to the customer.": "ملاحظة اختيارية لتتعرف على هذا الرقم. لا تُعرض للعميل أبدًا."
 }

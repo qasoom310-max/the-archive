@@ -526,6 +526,44 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
   (universal cooking shorthand); Shisha uses a custom 3-curl smoke-wisp
   drawing (no Heroicon ships a hookah). Memory:
   `[[use-svg-icons-not-emoji]]`.
+- **Per-phone customer discounts (shipped 2026-06-08)** — an **admin** assigns
+  an *open* discount **%** to a customer **phone number**; when the cashier
+  **adds that customer at the register**, the percentage comes off the whole
+  order total automatically. **Admin-only catalogue** (`pos.customer_discount`,
+  `pos_customer_discounts` table — `phone`, `discount_percent` decimal(5,2)
+  clamped 0–100 on save, optional `label`, `active`; engine list/form at
+  `/app/pos/customer_discount`). Admin-only by **deny-default ACL** — no
+  `pos_user` grant exists for the model, so cashiers never see the
+  list/sidebar entry (engine Read guard 403s them) while the superuser
+  bypasses. **Matching** (`PosCustomerDiscount::findForPhone()`) normalises
+  both sides to bare digits (leading trunk-zero dropped): exact match first,
+  then suffix match (≥ 7 digits) so a stored local "33123456" still resolves a
+  register phone carrying the country code "97333123456" and the human
+  "+973 33123456" form. **Application** is a snapshot on the order:
+  `pos_orders.customer_discount_percent` + `customer_discount_total` columns
+  (migration `2026_06_08_400002`). `PosOrder::recalculate()` reduces only the
+  final `total` by the percentage (subtotal/tax stay raw line sums for
+  display; the discount is its own line). `PosOrder::applyCustomerDiscount(?phone)`
+  resolves + snapshots the percent then recalculates; the percent persists on
+  the row so adding more products keeps the discount applied.
+  `PosTerminal::syncCustomerDiscount()` (re-fetches the partner fresh) is fired
+  from `pickCustomer` / `saveNewCustomer` / `saveEditedCustomer` (if current) /
+  `clearCustomer` / `deleteCustomer` (if current) / `startPayment` /
+  `updatedLocalPhone` — prefers the attached Partner's phone, falls back to the
+  typed receipt phone. **The POS "+ Customer" button is relabelled
+  "+ Customer discount"** (still opens the same customer picker). The discount
+  line renders in the cart totals, the payment overlay summary, the on-screen
+  receipt, and the WhatsApp PNG receipt (`receipt-pdf.blade.php` +
+  `PosReceiptImageRenderer` pass `customerDiscount`/`customerDiscountPercent`).
+  `PosCustomerDiscount` added to the manifest `models[]` (needs
+  `module:resync pos` — the deploy workflow does this automatically). Demo row
+  seeded by `PosSeeder::seedCustomerDiscounts()` (`+973 33000000` → 10%,
+  idempotent). The core **dashboard "Getting started" card was removed**; in
+  its place an **admin-only** "Customer Discounts" card links to the manager
+  (`resources/views/livewire/pages/dashboard.blade.php`). Test:
+  `tests/Feature/PosCustomerDiscountTest.php` (6 — phone normalisation /
+  suffix match, inactive skipped, percent clamp, apply-on-add, persist +
+  clear, admin-only ACL).
 
 **Phase 7 OUT-of-scope adjustment:** "restaurant floors/tables/kitchen" became
 "restaurant floors/tables" — the *Kitchen Display* slice now ships (Phase 15

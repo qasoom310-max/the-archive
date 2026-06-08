@@ -35,10 +35,12 @@
                     <button wire:click="clearCustomer" class="ms-2 shrink-0 text-xs text-red-600 hover:underline">{{ __('remove') }}</button>
                 </div>
             @else
-                {{-- Primary-purple, sized to ~1/3 of the cart panel width. --}}
+                {{-- Primary-purple. Opens the customer picker; picking a
+                     customer whose phone has an admin-set discount applies it
+                     to the order automatically. --}}
                 <button type="button" wire:click="openCustomerPicker"
-                    class="o-btn-primary w-1/3 justify-center gap-1.5 text-sm">
-                    <span class="text-base leading-none">+</span> {{ __('Customer') }}
+                    class="o-btn-primary justify-center gap-1.5 text-sm">
+                    <span class="text-base leading-none">+</span> {{ __('Customer discount') }}
                 </button>
             @endif
         </div>
@@ -125,6 +127,12 @@
             <div class="flex justify-between text-sm text-chrome-500">
                 <span>{{ __('Tax') }}</span><span>{{ $money($order->tax_total) }}</span>
             </div>
+            @if ($order->customer_discount_total > 0)
+                <div class="flex justify-between text-sm font-medium text-emerald-600">
+                    <span>{{ __('Customer discount') }} ({{ rtrim(rtrim(number_format($order->customer_discount_percent, 2), '0'), '.') }}%)</span>
+                    <span>−{{ $money($order->customer_discount_total) }}</span>
+                </div>
+            @endif
             <div class="mt-1 flex justify-between text-lg font-bold text-chrome-900">
                 <span>{{ __('Total') }}</span><span>{{ $money($order->total) }}</span>
             </div>
@@ -426,6 +434,12 @@
 
                 @php $remaining = round($order->total - $order->paymentsTotal(), 2); @endphp
                 <div class="rounded-xl bg-chrome-50 p-3 text-sm">
+                    @if ($order->customer_discount_total > 0)
+                        <div class="flex justify-between text-emerald-600">
+                            <span>{{ __('Customer discount') }} ({{ rtrim(rtrim(number_format($order->customer_discount_percent, 2), '0'), '.') }}%)</span>
+                            <span>−{{ $money($order->customer_discount_total) }}</span>
+                        </div>
+                    @endif
                     <div class="flex justify-between"><span class="text-chrome-500">{{ __('Total') }}</span><span class="font-semibold">{{ $money($order->total) }}</span></div>
                     <div class="flex justify-between"><span class="text-chrome-500">{{ __('Paid') }}</span><span>{{ $money($order->paymentsTotal()) }}</span></div>
                     <div class="flex justify-between text-base font-bold {{ $remaining <= 0 ? 'text-emerald-600' : 'text-chrome-900' }}">
@@ -535,6 +549,9 @@
                 <div class="space-y-0.5 text-sm">
                     <div class="flex justify-between text-chrome-500"><span>{{ __('Subtotal') }}</span><span>{{ $money($receipt->subtotal) }}</span></div>
                     <div class="flex justify-between text-chrome-500"><span>{{ __('Tax') }}</span><span>{{ $money($receipt->tax_total) }}</span></div>
+                    @if ($receipt->customer_discount_total > 0)
+                        <div class="flex justify-between text-emerald-600"><span>{{ __('Customer discount') }} ({{ rtrim(rtrim(number_format($receipt->customer_discount_percent, 2), '0'), '.') }}%)</span><span>−{{ $money($receipt->customer_discount_total) }}</span></div>
+                    @endif
                     <div class="flex justify-between font-bold"><span>{{ __('Total') }}</span><span>{{ $money($receipt->total) }}</span></div>
                     @foreach ($receipt->payments as $p)
                         <div class="flex justify-between text-chrome-500"><span>{{ $p->method?->name }}</span><span>{{ $money($p->amount) }}</span></div>

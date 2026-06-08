@@ -28,19 +28,28 @@
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <section class="lg:col-span-2">
-            <div class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-chrome-900/5">
-                <h2 class="mb-2 text-sm font-semibold text-chrome-800">{{ __('Getting started') }}</h2>
-                <p class="text-sm text-chrome-500">
-                    {{ __('This is the Odoo-style application shell. Use the grid icon to switch apps, the sidebar to navigate within a module, and the Chatter on the right to follow a record\'s history and schedule activities.') }}
-                </p>
-                <ul class="mt-4 space-y-2 text-sm text-chrome-600">
-                    <li>• <code class="rounded bg-chrome-100 px-1">php artisan module:list</code> — {{ __('see modules') }}</li>
-                    <li>• <code class="rounded bg-chrome-100 px-1">php artisan module:install &lt;name&gt;</code> — {{ __('install one') }}</li>
-                </ul>
-                <a href="{{ url('/playground') }}" class="o-btn-primary mt-4">
-                    {{ __('Open the View Engine playground') }} →
-                </a>
-            </div>
+            @if (auth()->user()?->isAdmin())
+                {{-- Admin-only: manage per-phone customer discounts. An admin
+                     assigns an open discount % to a phone number; when the
+                     cashier adds that customer at the register, it applies to
+                     the order total automatically. --}}
+                <div class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-chrome-900/5">
+                    <div class="flex items-start gap-4">
+                        <span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white">
+                            <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.78 2.22a.75.75 0 0 1 0 1.06l-14.5 14.5a.75.75 0 1 1-1.06-1.06l14.5-14.5a.75.75 0 0 1 1.06 0ZM5.5 7a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm9 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Z"/></svg>
+                        </span>
+                        <div class="min-w-0">
+                            <h2 class="text-sm font-semibold text-chrome-800">{{ __('Customer Discounts') }}</h2>
+                            <p class="mt-1 text-sm text-chrome-500">
+                                {{ __('Assign an open discount % to a phone number. When the cashier adds that customer at the register, it comes off the order total.') }}
+                            </p>
+                            <a href="{{ url('/app/pos/customer_discount') }}" wire:navigate class="o-btn-primary mt-4">
+                                {{ __('Manage customer discounts') }} →
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            @endif
         </section>
 
         <section>

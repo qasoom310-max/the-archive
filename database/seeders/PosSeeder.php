@@ -11,6 +11,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Schema;
 use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosCondiment;
+use Modules\Pos\Models\PosCustomerDiscount;
 use Modules\Pos\Models\PosPaymentMethod;
 use Modules\Pos\Models\PosProduct;
 
@@ -26,6 +27,7 @@ final class PosSeeder extends Seeder
         // Condiments seed independently of the products guard below so a demo
         // add-on list exists even on a DB that already has products.
         $this->seedCondiments();
+        $this->seedCustomerDiscounts();
 
         if (! Schema::hasTable('pos_products') || PosProduct::query()->exists()) {
             return;
@@ -119,5 +121,24 @@ final class PosSeeder extends Seeder
                 'active' => true,
             ]);
         }
+    }
+
+    /**
+     * One demo per-phone customer discount so the admin sees the shape of
+     * the feature. Idempotent — skipped once any discount exists. Seeded
+     * independently of the products guard so it runs on an existing DB too.
+     */
+    private function seedCustomerDiscounts(): void
+    {
+        if (! Schema::hasTable('pos_customer_discounts') || PosCustomerDiscount::query()->exists()) {
+            return;
+        }
+
+        PosCustomerDiscount::query()->create([
+            'phone' => '+973 33000000',
+            'discount_percent' => 10,
+            'label' => 'VIP — demo customer',
+            'active' => true,
+        ]);
     }
 }

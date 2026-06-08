@@ -32,6 +32,8 @@ use Modules\Pos\Events\PosOrderPaid;
  * @property float $total
  * @property float $paid_total
  * @property float $change_due
+ * @property float $customer_discount_percent
+ * @property float $customer_discount_total
  * @property bool $components_consumed
  * @property string|null $customer_phone International-format digits (no '+'), e.g. "97333123456"
  * @property Carbon|null $ordered_at
@@ -54,6 +56,7 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
     protected $fillable = [
         'reference', 'pos_session_id', 'partner_id', 'user_id', 'state',
         'subtotal', 'tax_total', 'total', 'paid_total', 'change_due',
+        'customer_discount_percent', 'customer_discount_total',
         'components_consumed', 'customer_phone', 'ordered_at',
     ];
 
@@ -69,6 +72,8 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
             'total' => 'float',
             'paid_total' => 'float',
             'change_due' => 'float',
+            'customer_discount_percent' => 'float',
+            'customer_discount_total' => 'float',
             'components_consumed' => 'boolean',
             'ordered_at' => 'datetime',
         ];
@@ -153,7 +158,12 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
     }
 
     /**
-     * Recompute order totals from its lines.
+     * Recompute order totals from its lines, then apply the order-level
+     * customer discount (a percentage off the gross). `subtotal`/`tax_total`
+     * stay as the raw line sums for display; the discount is shown as its
+     * own line and only the final `total` is reduced. The percentage itself
+     * persists on the row (set by {@see applyCustomerDiscount()}), so adding
+     * more products keeps the discount applied.
      */
     public function recalculate(): void
     {
@@ -161,8 +171,36 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
 
         $this->subtotal = round((float) $lines->sum('subtotal'), 2);
         $this->tax_total = round((float) $lines->sum('tax_amount'), 2);
-        $this->total = round((float) $lines->sum('total'), 2);
+
+        $gross = round((float) $lines->sum('total'), 2);
+        $percent = max(0.0, min(100.0, $this->customer_discount_percent));
+
+        $this->customer_discount_total = round($gross * $percent / 100, 2);
+        $this->total = round($gross - $this->customer_discount_total, 2);
         $this->save();
+    }
+
+    /**
+     * Resolve and apply the open per-phone customer discount for the given
+     * phone number (or clear it when `$phone` is null / unmatched), then
+     * recompute totals. Called from the terminal whenever the cart's
+     * customer changes. The matched percentage is snapshot onto the order so
+     * a later edit of the discount rule can't rewrite a finalised sale.
+     */
+    public function applyCustomerDiscount(?string $phone): void
+    {
+        $percent = 0.0;
+
+        if ($phone !== null && $phone !== '') {
+            $match = PosCustomerDiscount::findForPhone($phone);
+
+            if ($match !== null) {
+                $percent = max(0.0, min(100.0, $match->discount_percent));
+            }
+        }
+
+        $this->customer_discount_percent = round($percent, 2);
+        $this->recalculate();
     }
 
     public function paymentsTotal(): float

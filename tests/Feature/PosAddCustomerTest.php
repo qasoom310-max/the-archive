@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
 use Modules\Contacts\Models\Partner;
+use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Enums\SessionState;
 use Modules\Pos\Livewire\PosTerminal;
 use Modules\Pos\Models\PosOrder;
@@ -308,10 +309,14 @@ final class PosAddCustomerTest extends TestCase
         $repeatCustomer = Partner::query()->create(['name' => 'Repeat Riza', 'phone' => '+973 33000003']);
 
         // Past order belonging to this customer — simulates a completed sale.
+        // Marked Done so the terminal's resolveDraftOrder() doesn't adopt it
+        // as the live cart (a Draft with a hardcoded total but no lines would
+        // otherwise be recalculated to 0 the moment any recompute fires).
         $pastOrder = PosOrder::query()->create([
             'pos_session_id' => $session->id,
             'partner_id' => $repeatCustomer->id,
             'reference' => 'POS/0001',
+            'state' => OrderState::Done,
             'total' => 12.50,
         ]);
 

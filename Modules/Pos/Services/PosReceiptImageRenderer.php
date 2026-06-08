@@ -140,6 +140,11 @@ class PosReceiptImageRenderer
             'lines' => $lines,
             'subtotal' => Currencies::format((float) $order->subtotal),
             'taxTotal' => Currencies::format((float) $order->tax_total),
+            // Open per-phone customer discount — only shown when one applied.
+            'customerDiscount' => $order->customer_discount_total > 0
+                ? Currencies::format((float) $order->customer_discount_total)
+                : null,
+            'customerDiscountPercent' => rtrim(rtrim(number_format((float) $order->customer_discount_percent, 2), '0'), '.'),
             'total' => Currencies::format((float) $order->total),
             'payments' => $payments,
             'changeDue' => $order->change_due > 0 ? Currencies::format((float) $order->change_due) : null,

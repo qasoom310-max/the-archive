@@ -374,6 +374,50 @@ final class PosTerminal extends Component
         $order = $this->order();
         $order->partner_id = null;
         $order->save();
+
+        // Removing the customer drops any phone-keyed discount and resets the
+        // receipt phone so the cleared customer's number can't linger.
+        $this->countryCode = PosWhatsAppCountries::DEFAULT_DIAL;
+        $this->localPhone = '';
+        $this->syncCustomerDiscount();
+    }
+
+    /**
+     * Resolve and apply the open per-phone customer discount for the order's
+     * current customer. Prefers the attached Partner's stored phone (the
+     * "added customer" the admin keyed the discount to); falls back to the
+     * phone the cashier typed in the receipt row. Re-fetches the partner
+     * relation fresh so a just-saved `partner_id` is reflected.
+     */
+    private function syncCustomerDiscount(): void
+    {
+        $order = PosOrder::query()->with('partner')->findOrFail($this->orderId);
+        $order->applyCustomerDiscount($this->resolveDiscountPhone($order));
+    }
+
+    private function resolveDiscountPhone(PosOrder $order): ?string
+    {
+        $partner = $order->partner;
+
+        if ($partner !== null) {
+            $phone = $partner->phone;
+
+            if ($phone !== null && $phone !== '') {
+                return $phone;
+            }
+        }
+
+        return PosWhatsAppCountries::compose($this->countryCode, $this->localPhone);
+    }
+
+    /**
+     * Livewire hook: re-evaluate the discount when the cashier types a phone
+     * in the receipt row (covers walk-ins with no attached Partner). The
+     * attached Partner's phone still wins inside {@see resolveDiscountPhone()}.
+     */
+    public function updatedLocalPhone(): void
+    {
+        $this->syncCustomerDiscount();
     }
 
     /**
@@ -420,6 +464,8 @@ final class PosTerminal extends Component
             $this->localPhone = $local;
         }
 
+        // Apply any open per-phone discount now that the customer is attached.
+        $this->syncCustomerDiscount();
         $this->closeCustomerPicker();
     }
 
@@ -559,6 +605,8 @@ final class PosTerminal extends Component
         if ($order->partner_id === $partner->id) {
             $this->countryCode = $this->newCustomerCountryCode;
             $this->localPhone = $localDigits;
+            // The edited phone may now match (or stop matching) a discount.
+            $this->syncCustomerDiscount();
         }
 
         $this->addingCustomer = false;
@@ -605,6 +653,8 @@ final class PosTerminal extends Component
             // deleted customer's phone into the payment overlay.
             $this->countryCode = PosWhatsAppCountries::DEFAULT_DIAL;
             $this->localPhone = '';
+            // ...and drop the discount that customer's phone carried.
+            $this->syncCustomerDiscount();
         }
     }
 
@@ -687,6 +737,9 @@ final class PosTerminal extends Component
         $this->countryCode = $this->newCustomerCountryCode;
         $this->localPhone = $localDigits;
 
+        // Apply any open per-phone discount for the new customer's number.
+        $this->syncCustomerDiscount();
+
         $this->addingCustomer = false;
         $this->resetAddCustomerForm();
     }
@@ -711,7 +764,6 @@ final class PosTerminal extends Component
 
         $this->paymentMethodId = PosPaymentMethod::query()
             ->where('active', true)->orderBy('sequence')->value('id');
-        $this->tendered = number_format(max(0.0, $order->total - $order->paymentsTotal()), 2, '.', '');
 
         // If the cashier already entered a phone earlier on this same draft
         // (e.g. opened the payment overlay, cancelled, reopened) we left
@@ -722,6 +774,14 @@ final class PosTerminal extends Component
             $this->countryCode = $dial;
             $this->localPhone = $local;
         }
+
+        // Lock in the discount from the best-known phone before computing the
+        // tendered default, so the "Total" the cashier collects already
+        // reflects it. syncCustomerDiscount() persists the recalculated total.
+        $this->syncCustomerDiscount();
+
+        $fresh = $this->order();
+        $this->tendered = number_format(max(0.0, $fresh->total - $fresh->paymentsTotal()), 2, '.', '');
 
         $this->paying = true;
     }

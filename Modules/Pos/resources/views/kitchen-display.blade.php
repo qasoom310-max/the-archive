@@ -77,7 +77,8 @@
                 $columnTickets = $tickets->where('status', $column);
             @endphp
 
-            <div class="flex min-h-0 flex-col rounded-xl ring-1 ring-chrome-900/5 {{ $tone['bg'] }}">
+            <div @if ($column === \Modules\Pos\Enums\PrepStatus::Pending) data-kds-new-column @endif
+                 class="flex min-h-0 flex-col rounded-xl ring-1 ring-chrome-900/5 {{ $tone['bg'] }}">
                 {{-- Column header — large + colour-banded for at-a-glance scan. --}}
                 <div class="flex items-center justify-between rounded-t-xl px-4 py-3 text-white {{ $tone['header'] }}">
                     <h2 class="text-base font-bold uppercase tracking-wide">{{ $column->label() }}</h2>
@@ -222,7 +223,7 @@
                         this.prevIds = new Set(fresh);
                         if (isNew) {
                             this.ping();
-                            this.flashHeader();
+                            this.glowNewColumn();
                         }
                     });
                 });
@@ -301,15 +302,21 @@
                 });
             },
 
-            // Visual feedback: pulse the page background briefly so the
-            // arrival is obvious even if the device is muted (it often
-            // is — the cook hasn't tapped "enable sound" yet on every
-            // reload, and the kitchen tablet may be plugged into mute).
-            flashHeader() {
-                const root = this.$root;
-                if (!root) return;
-                root.classList.add('kds-new-flash');
-                setTimeout(() => root.classList.remove('kds-new-flash'), 900);
+            // Visual feedback: make the NEW column glow for a few pulses so a
+            // fresh order is obvious even if the device is muted (it often is —
+            // the cook hasn't tapped "enable sound" yet on every reload, and
+            // the kitchen tablet may be plugged into mute). Targeted at the
+            // Pending column specifically — that's where every fresh ticket
+            // lands. Scoped to this component's DOM root so two KDS tabs don't
+            // flash each other. We remove + force a reflow + re-add the class so
+            // a second arrival mid-animation restarts the glow cleanly.
+            glowNewColumn() {
+                const col = (this.$root || document).querySelector('[data-kds-new-column]');
+                if (!col) return;
+                col.classList.remove('kds-new-glow');
+                void col.offsetWidth; // force reflow → restart the animation
+                col.classList.add('kds-new-glow');
+                setTimeout(() => col.classList.remove('kds-new-glow'), 2600);
             },
         }));
     });
@@ -326,15 +333,16 @@
         animation: lateFlash 1.6s ease-in-out infinite;
     }
 
-    /* New-ticket arrival pulse — fires for ~0.9s after each fresh ticket
-       so a muted kitchen tablet still has a visible cue alongside the
-       Web Audio ping. */
-    @keyframes kdsNewFlash {
-        0%   { box-shadow: inset 0 0 0 6px rgba(16, 185, 129, 0); }
-        15%  { box-shadow: inset 0 0 0 6px rgba(16, 185, 129, 0.75); }
-        100% { box-shadow: inset 0 0 0 6px rgba(16, 185, 129, 0); }
+    /* New-order arrival — the NEW (Pending) column glows with three warm
+       amber pulses (~2.6s total) so a fresh ticket is obvious even on a
+       muted kitchen tablet, alongside the Web Audio ping. Amber matches the
+       NEW header band. Outer glow (not inset) so it reads as a "glow". */
+    @keyframes kdsNewGlow {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        50%      { box-shadow: 0 0 26px 5px rgba(245, 158, 11, 0.9), 0 0 0 3px rgba(245, 158, 11, 0.55); }
     }
-    .kds-new-flash {
-        animation: kdsNewFlash 0.9s ease-out;
+    .kds-new-glow {
+        animation: kdsNewGlow 0.85s ease-in-out 3;
+        border-radius: 0.75rem; /* match rounded-xl so the glow hugs the corners */
     }
 </style>

@@ -484,10 +484,14 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
   `ping()` and on `visibilitychange` so a backgrounded tab doesn't silently
   drop to `suspended` (Safari/iOS especially). Ping is now a two-tone beep
   (1040 Hz then 1560 Hz, ~0.22 s each) at higher gain. Even with sound
-  muted, a 0.9-second green inset ring flashes on the wrapper via
-  `.kds-new-flash` (CSS keyframes) — same component method
-  `flashHeader()` invoked alongside `ping()`. Still requires the user to
-  tap "Tap to enable sound" once per tab session (browser autoplay rule —
+  muted, the **NEW (Pending) column glows** with three warm amber pulses
+  (~2.6 s) on each fresh order via `.kds-new-glow` (CSS keyframes) — the
+  component method `glowNewColumn()` (invoked alongside `ping()`) targets
+  the `[data-kds-new-column]` element scoped to this component's root, and
+  remove + reflow + re-adds the class so a second arrival mid-pulse restarts
+  it cleanly. (Superseded the earlier whole-wrapper `flashHeader()` /
+  `.kds-new-flash` green inset ring on 2026-06-08.) Still requires the user
+  to tap "Tap to enable sound" once per tab session (browser autoplay rule —
   no workaround).
 - **POS Home KDS deep-link icons** ([Modules/Pos/resources/views/home.blade.php:38-58](Modules/Pos/resources/views/home.blade.php#L38-L58)) —
   Kitchen had a people-cluster glyph and Shisha had a thumbs-up — neither
@@ -735,7 +739,7 @@ no closing-entry concept yet.
 | Ticket aggregation | `loadTickets()` queries active lines for THIS station, groups by order, returns `Collection<int, KitchenTicket>`. `KitchenTicket` (`Modules\Pos\Support\KitchenTicket`) is a readonly VO: `orderId`, `reference`, `sentAt` (earliest `prep_sent_at` on the order), `status` (least-progressed line's status — a multi-item ticket only graduates to Ready when every line is ready), `lines`. |
 | View | `Modules\Pos\resources\views\kitchen-display.blade.php` — 3-column kanban (Pending / Preparing / Ready, hard-coded tone tokens so JIT scans every Tailwind class). Each card = one order's lines for this station. `wire:poll.5s` on the wrapping div. Big touch targets (`min-h-12`), late-ticket red ring (CSS `@keyframes lateFlash` after 15 minutes), per-line notes underlined. Mobile-first stack → `sm:grid-cols-3`. |
 | Empty-state diagnostic | If `PosCategory::where('station', $station)->count() === 0`, the screen renders an amber banner ("No categories are routed to this station yet … Open POS → Categories, edit each one that belongs here, and set Kitchen station to <name>") with a "Go to Categories" link. Surfaces the wiring gap that would otherwise just look like an "always empty" screen. |
-| Sound + visual cue | Web Audio API generates a 2-tone ping in-code (no audio file). Hooked via `Livewire.hook('commit', { succeed })` scoped to this component's `wire:id` — fires once per round-trip after DOM patch, regardless of whether the new ticket arrived as `morph.added` or `morph.updated`. AudioContext is `.resume()`-d defensively before every ping + on `visibilitychange` so backgrounded-tab suspensions don't silently mute the kitchen. A 0.9-second green inset-ring flash on the wrapper accompanies each ping so a muted device still has a visible cue. First ping requires "Tap to enable sound" once per session (browser autoplay rule). |
+| Sound + visual cue | Web Audio API generates a 2-tone ping in-code (no audio file). Hooked via `Livewire.hook('commit', { succeed })` scoped to this component's `wire:id` — fires once per round-trip after DOM patch, regardless of whether the new ticket arrived as `morph.added` or `morph.updated`. AudioContext is `.resume()`-d defensively before every ping + on `visibilitychange` so backgrounded-tab suspensions don't silently mute the kitchen. The **NEW (Pending) column glows** (three amber pulses, ~2.6s, `.kds-new-glow` on the `[data-kds-new-column]` element via `glowNewColumn()`) on each fresh order so a muted device still has a visible cue. First ping requires "Tap to enable sound" once per session (browser autoplay rule). |
 | Deep-link buttons | POS Home (`Modules/Pos/resources/views/home.blade.php`) shows two buttons next to the session controls: Kitchen (amber, Heroicons solid `fire`) and Shisha (fuchsia, custom 3-curl smoke-wisp SVG). `wire:navigate` — each device pins one screen on rendering. |
 | Tests | `tests/Feature/PosKitchenRoutingTest.php` — (1) routing stamps only lines whose category has a station, leaves no-station lines null; (2) `markOrderPreparing` advances exactly one step; (3) re-dispatching `PosOrderPaid` doesn't reset a Preparing line back to Pending. |
 

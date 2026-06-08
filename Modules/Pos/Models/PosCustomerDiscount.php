@@ -33,7 +33,7 @@ final class PosCustomerDiscount extends Model implements DefinesIrModel
      * Length of the rolling discount window. A purchase pushes the expiry
      * to (order date + this); going this long with no purchase lapses it.
      */
-    public const WINDOW_DAYS = 90;
+    public const WINDOW_DAYS = 30;
 
     protected $table = 'pos_customer_discounts';
 
@@ -207,7 +207,7 @@ final class PosCustomerDiscount extends Model implements DefinesIrModel
                         ['field' => 'phone', 'label' => 'Phone', 'widget' => 'text', 'required' => true, 'placeholder' => '+973 33123456', 'help' => 'The customer phone this discount applies to. Country code optional — it matches with or without it.'],
                         ['field' => 'discount_percent', 'label' => 'Discount %', 'widget' => 'number', 'required' => true, 'help' => 'Percent off the whole order total (0–100). Applied when this customer is added at the register.'],
                         ['field' => 'label', 'label' => 'Label', 'widget' => 'text', 'placeholder' => 'e.g. VIP — Abu Ali', 'help' => 'Optional note so you recognise this number. Never shown to the customer.'],
-                        ['field' => 'active', 'label' => 'Active', 'widget' => 'checkbox', 'help' => 'Auto-expires 90 days after activation if the customer doesn\'t buy. Each purchase within the window renews it for another 90 days. Re-enabling a lapsed one starts a fresh 90 days.'],
+                        ['field' => 'active', 'label' => 'Active', 'widget' => 'checkbox', 'help' => 'Auto-expires 30 days after activation if the customer doesn\'t buy. Each purchase within the window renews it for another 30 days. Re-enabling a lapsed one starts a fresh 30 days.'],
                     ],
                 ]),
             ],

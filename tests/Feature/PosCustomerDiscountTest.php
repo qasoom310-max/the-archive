@@ -148,7 +148,7 @@ final class PosCustomerDiscountTest extends TestCase
         $this->assertFalse($access->allows($cashier, 'pos.customer_discount', Permission::Write));
     }
 
-    public function test_discount_gets_a_90_day_window_on_creation(): void
+    public function test_discount_gets_a_30_day_window_on_creation(): void
     {
         $discount = PosCustomerDiscount::query()->create([
             'phone' => '33123456',
@@ -156,8 +156,8 @@ final class PosCustomerDiscountTest extends TestCase
         ]);
 
         $this->assertNotNull($discount->expires_at);
-        // ~90 days out from activation (allow a day of slack either side).
-        $this->assertTrue($discount->expires_at?->between(now()->addDays(89), now()->addDays(91)) ?? false);
+        // ~30 days out from activation (allow a day of slack either side).
+        $this->assertTrue($discount->expires_at?->between(now()->addDays(29), now()->addDays(31)) ?? false);
     }
 
     public function test_find_for_phone_skips_a_lapsed_discount(): void
@@ -182,7 +182,7 @@ final class PosCustomerDiscountTest extends TestCase
         $product = PosProduct::query()->create(['name' => 'Coffee', 'price' => 10, 'tax_rate' => 0, 'active' => true]);
         $discount = PosCustomerDiscount::query()->create(['phone' => '+973 33123456', 'discount_percent' => 10, 'active' => true]);
 
-        // Window about to lapse — a renewal will visibly push it out to ~90 days.
+        // Window about to lapse — a renewal will visibly push it out to ~30 days.
         PosCustomerDiscount::query()->whereKey($discount->id)->update(['expires_at' => now()->addDays(3)]);
 
         Livewire::test(PosTerminal::class, ['session' => $session->id])
@@ -196,7 +196,7 @@ final class PosCustomerDiscountTest extends TestCase
         $this->assertSame(9.0, (float) $order->total); // 10 − 10%
 
         $discount->refresh();
-        $this->assertTrue($discount->expires_at?->greaterThan(now()->addDays(80)) ?? false);
+        $this->assertTrue($discount->expires_at?->greaterThan(now()->addDays(25)) ?? false);
     }
 
     public function test_deactivate_lapsed_flips_active_off_for_expired_rows_only(): void
@@ -220,8 +220,8 @@ final class PosCustomerDiscountTest extends TestCase
 
         $discount->refresh();
         $discount->active = true;
-        $discount->save(); // saving hook restarts the 90-day clock
+        $discount->save(); // saving hook restarts the 30-day clock
 
-        $this->assertTrue($discount->expires_at?->greaterThan(now()->addDays(80)) ?? false);
+        $this->assertTrue($discount->expires_at?->greaterThan(now()->addDays(25)) ?? false);
     }
 }

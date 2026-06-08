@@ -63,6 +63,12 @@
                 <td>{{ $line['qty'] }}× {{ $line['name'] }}</td>
                 <td class="r">{{ $line['total'] }}</td>
             </tr>
+            @foreach ($line['condiments'] ?? [] as $condiment)
+                <tr>
+                    <td class="muted" style="padding-left: 10px; font-size: 11px;">{{ $condiment }}</td>
+                    <td></td>
+                </tr>
+            @endforeach
         @endforeach
     </table>
 

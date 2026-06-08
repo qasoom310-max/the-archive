@@ -105,6 +105,11 @@ class PosReceiptImageRenderer
                 'qty' => rtrim(rtrim(number_format((float) $line->qty, 3), '0'), '.'),
                 'name' => (string) $line->name,
                 'total' => Currencies::format((float) $line->total),
+                'condiments' => array_map(
+                    static fn (array $c): string => '+ ' . $c['name']
+                        . ($c['price'] > 0 ? ' (' . Currencies::format($c['price']) . ')' : ''),
+                    $line->condiments ?? [],
+                ),
             ];
         }
 

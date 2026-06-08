@@ -133,6 +133,11 @@
                                             <span class="flex-1 text-base font-semibold text-chrome-900">{{ $line->name }}</span>
                                             <span class="o-chip {{ $lineTone['badge'] }}">{{ $line->prep_status?->label() }}</span>
                                         </div>
+                                        @if (!empty($line->condiments))
+                                            <p class="ms-9 mt-1 text-sm font-semibold text-primary-700">
+                                                + {{ collect($line->condiments)->pluck('name')->join('، ') }}
+                                            </p>
+                                        @endif
                                         @if ($line->notes)
                                             <p class="ms-9 mt-1 border-s-2 border-amber-400 ps-2 text-sm font-medium text-amber-800">
                                                 ✱ {{ $line->notes }}

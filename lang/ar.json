@@ -361,5 +361,17 @@
     "Unit cost": "تكلفة الوحدة",
     "Notes": "ملاحظات",
     "Remove": "إزالة",
-    "Add at least one product line with a quantity before confirming.": "أضف بندًا واحدًا على الأقل مع كمية قبل التأكيد."
+    "Add at least one product line with a quantity before confirming.": "أضف بندًا واحدًا على الأقل مع كمية قبل التأكيد.",
+    "Add-ons": "الإضافات",
+    "add-ons": "إضافات",
+    "Free": "مجاني",
+    "Line total": "إجمالي البند",
+    "No condiments yet.": "لا توجد إضافات بعد.",
+    "Add one": "أضف واحدة",
+    "Condiments": "الإضافات",
+    "POS Condiments": "إضافات نقطة البيع",
+    "POS Condiment": "إضافة نقطة البيع",
+    "New condiment": "إضافة جديدة",
+    "Edit condiment": "تعديل الإضافة",
+    "Add-ons the cashier can attach to any product (extra cheese, no ice…). Price 0 = free.": "إضافات يمكن للكاشير إرفاقها بأي منتج (جبنة إضافية، بدون ثلج…). السعر 0 = مجاني."
 }

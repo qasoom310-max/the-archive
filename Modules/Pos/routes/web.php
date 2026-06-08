@@ -8,6 +8,8 @@ use Modules\Pos\Http\Controllers\PosProductImportTemplateController;
 use Modules\Pos\Livewire\KitchenDisplay;
 use Modules\Pos\Livewire\PosCategories;
 use Modules\Pos\Livewire\PosCategoryForm;
+use Modules\Pos\Livewire\PosCondimentForm;
+use Modules\Pos\Livewire\PosCondiments;
 use Modules\Pos\Livewire\PosHome;
 use Modules\Pos\Livewire\PosOrders;
 use Modules\Pos\Livewire\PosProductForm;
@@ -29,11 +31,16 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/pos/order', PosOrders::class)->name('pos.order.index');
     Route::get('/app/pos/product', PosProducts::class)->name('pos.product.index');
     Route::get('/app/pos/category', PosCategories::class)->name('pos.category.index');
+    Route::get('/app/pos/condiment', PosCondiments::class)->name('pos.condiment.index');
     Route::get('/app/pos/session', PosHome::class)->name('pos.session.index');
 
     Route::get('/app/pos/category/new', PosCategoryForm::class)->name('pos.category.create');
     Route::get('/app/pos/category/{id}', PosCategoryForm::class)
         ->whereNumber('id')->name('pos.category.edit');
+
+    Route::get('/app/pos/condiment/new', PosCondimentForm::class)->name('pos.condiment.create');
+    Route::get('/app/pos/condiment/{id}', PosCondimentForm::class)
+        ->whereNumber('id')->name('pos.condiment.edit');
 
     Route::get('/app/pos/session/{session}/terminal', PosTerminal::class)
         ->whereNumber('session')->name('pos.terminal');

@@ -60,6 +60,17 @@
                                 {{ $money($line->unit_price) }} {{ __('each') }}
                                 @if ($line->tax_rate > 0) · {{ __('tax') }} {{ number_format((float) $line->tax_rate, 2) }}% @endif
                             </p>
+                            {{-- Attached condiments — name + surcharge (free ones show
+                                 no price). Travels to the kitchen ticket + receipt. --}}
+                            @if (!empty($line->condiments))
+                                <div class="mt-1 flex flex-wrap gap-1">
+                                    @foreach ($line->condiments as $c)
+                                        <span class="inline-flex items-center gap-1 rounded bg-primary-50 px-1.5 py-0.5 text-[11px] font-medium text-primary-700">
+                                            {{ $c['name'] }}@if (($c['price'] ?? 0) > 0)<span class="text-primary-500"> +{{ $money($c['price']) }}</span>@endif
+                                        </span>
+                                    @endforeach
+                                </div>
+                            @endif
                         </div>
 
                         {{-- Quantity stepper: −  [qty]  +  (decrementing to 0 removes the line) --}}
@@ -73,9 +84,12 @@
                                 aria-label="{{ __('Increase quantity') }}">+</button>
                         </div>
 
-                        <div class="w-20 shrink-0 text-end">
+                        <div class="w-28 shrink-0 text-end">
                             <p class="text-sm font-semibold text-chrome-900">{{ $money($line->total) }}</p>
-                            <div class="flex items-center justify-end gap-2">
+                            <div class="flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5">
+                                <button type="button" wire:click="openCondiments({{ $line->id }})"
+                                    class="text-xs {{ !empty($line->condiments) ? 'font-semibold text-primary-600' : 'text-chrome-400 hover:text-primary-600' }}"
+                                    title="{{ __('Add-ons') }}">{{ __('add-ons') }}</button>
                                 <button type="button" @click="noteOpen = !noteOpen"
                                     :class="noteOpen || @js((bool) $line->notes) ? 'text-amber-600' : 'text-chrome-400 hover:text-amber-600'"
                                     class="text-xs"
@@ -186,6 +200,53 @@
             @endforelse
         </div>
     </section>
+
+    {{-- ───────────── Condiment / add-on picker overlay ───────────── --}}
+    @if ($pickingCondiments && $condimentLine !== null)
+        @php $selectedIds = collect($condimentLine->condiments ?? [])->pluck('id')->map(fn ($v) => (int) $v)->all(); @endphp
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-chrome-900/40 p-4">
+            <div class="flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-pop">
+                <div class="flex items-center justify-between gap-4 border-b border-chrome-200 px-5 py-3">
+                    <div class="min-w-0">
+                        <h2 class="truncate text-base font-semibold text-chrome-900">{{ __('Add-ons') }}</h2>
+                        <p class="truncate text-xs text-chrome-500">{{ $condimentLine->name }}</p>
+                    </div>
+                    <button type="button" wire:click="closeCondiments" class="o-btn-primary text-sm">{{ __('Done') }}</button>
+                </div>
+
+                {{-- Tap a row to toggle. Live: each tap recomputes the line + the
+                     footer total below. Free add-ons show "Free", priced ones the
+                     surcharge. --}}
+                <div class="flex-1 divide-y divide-chrome-100 overflow-y-auto">
+                    @forelse ($condiments as $cond)
+                        @php $isOn = in_array((int) $cond->id, $selectedIds, true); @endphp
+                        <button type="button" wire:click="toggleCondiment({{ $cond->id }})" wire:key="cond-{{ $cond->id }}"
+                            class="flex w-full items-center justify-between gap-3 px-5 py-3 text-start transition hover:bg-chrome-50 {{ $isOn ? 'bg-primary-50/60' : '' }}">
+                            <span class="flex items-center gap-3">
+                                <span class="flex size-5 items-center justify-center rounded border {{ $isOn ? 'border-primary-600 bg-primary-600 text-white' : 'border-chrome-300 text-transparent' }}">
+                                    <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 5.296a1 1 0 0 1 0 1.408l-7.5 7.5a1 1 0 0 1-1.408 0l-3.5-3.5a1 1 0 0 1 1.408-1.408L8.5 12.09l6.796-6.795a1 1 0 0 1 1.408 0Z" clip-rule="evenodd"/></svg>
+                                </span>
+                                <span class="font-medium text-chrome-800">{{ $cond->name }}</span>
+                            </span>
+                            <span class="shrink-0 text-sm font-semibold {{ $cond->price > 0 ? 'text-chrome-700' : 'text-emerald-600' }}">
+                                {{ $cond->price > 0 ? '+' . $money($cond->price) : __('Free') }}
+                            </span>
+                        </button>
+                    @empty
+                        <p class="px-5 py-10 text-center text-sm text-chrome-400">
+                            {{ __('No condiments yet.') }}
+                            <a href="{{ url('/app/pos/condiment/new') }}" class="text-primary-600 hover:underline">{{ __('Add one') }}</a>.
+                        </p>
+                    @endforelse
+                </div>
+
+                <div class="border-t border-chrome-200 px-5 py-3 text-end text-sm">
+                    <span class="text-chrome-500">{{ __('Line total') }}: </span>
+                    <span class="font-bold text-chrome-900">{{ $money($condimentLine->total) }}</span>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{-- ───────────── Choose-customer picker overlay (Odoo-19 style) ───────────── --}}
     @if ($pickingCustomer)
@@ -459,6 +520,16 @@
                             <span>{{ rtrim(rtrim(number_format($l->qty, 3), '0'), '.') }}× {{ $l->name }}</span>
                             <span>{{ $money($l->total) }}</span>
                         </div>
+                        @if (!empty($l->condiments))
+                            <div class="ps-5 text-xs text-chrome-500">
+                                @foreach ($l->condiments as $c)
+                                    <div class="flex justify-between">
+                                        <span>+ {{ $c['name'] }}</span>
+                                        @if (($c['price'] ?? 0) > 0)<span>{{ $money($c['price']) }}</span>@endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
                     @endforeach
                 </div>
                 <div class="space-y-0.5 text-sm">

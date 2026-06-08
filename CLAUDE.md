@@ -494,6 +494,32 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
   `glowNewColumn()` on 2026-06-08, itself superseding the whole-wrapper
   `flashHeader()` / `.kds-new-flash` ring.) Still requires the user to tap
   "Tap to enable sound" once per tab session (browser autoplay rule).
+- **Condiments / add-ons (shipped 2026-06-08)** — a cashier attaches add-ons
+  (extra cheese, no ice…) to any cart line at the register. **One global
+  priced list** (`pos.condiment`, `pos_condiments` table — translatable
+  `name`, `price` decimal where 0 = free, `active`, `sequence`; managed via
+  the engine list/form at `/app/pos/condiment`, admin-level like `pos.product`
+  — cashiers operate the picker but don't manage the catalogue). Selection is
+  stored as a **price/name snapshot** on the line via
+  `pos_order_lines.condiments` JSON (`'array'` cast; migration
+  `2026_06_08_300002`) — a snapshot so a later catalogue edit can't rewrite a
+  finalised order. `PosOrderLine::condimentsSurcharge()` sums the attached
+  prices and `recompute()` treats it as a **per-unit** surcharge
+  (`qty × (unit_price + surcharge)`), so 2 burgers with cheese pay cheese
+  twice. Terminal: each cart line has an **"add-ons"** button →
+  `PosTerminal::openCondiments($lineId)` opens a picker overlay; tapping a row
+  `toggleCondiment($id)` adds/removes the snapshot and recomputes line + order
+  live. `addProduct` merges only into a PLAIN line (no discount AND no
+  condiments) so a condiment'd line is never silently bumped. Condiments
+  render on the cart line, the **KDS ticket** (`+ name, name` in primary
+  colour), the on-screen receipt, and the WhatsApp PNG receipt
+  (`PosReceiptImageRenderer` emits a `condiments` string list per line).
+  `PosCondiment` added to the manifest `models[]` (needs `module:resync pos`).
+  Demo set seeded by `PosSeeder::seedCondiments()` (Extra cheese 0.50, Extra
+  sauce 0.30, Ice cubes free, No ice free, Extra shot 0.40 — idempotent,
+  independent of the products guard). Test:
+  `tests/Feature/PosCondimentTest.php` (3 — per-unit surcharge, live toggle
+  on/off, no-merge-into-condiment'd-line).
 - **POS Home KDS deep-link icons** ([Modules/Pos/resources/views/home.blade.php:38-58](Modules/Pos/resources/views/home.blade.php#L38-L58)) —
   Kitchen had a people-cluster glyph and Shisha had a thumbs-up — neither
   read as what the button does. Kitchen now uses Heroicons solid `fire`

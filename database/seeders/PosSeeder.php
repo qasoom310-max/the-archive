@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Schema;
 use Modules\Pos\Models\PosCategory;
+use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosPaymentMethod;
 use Modules\Pos\Models\PosProduct;
 
@@ -22,6 +23,10 @@ final class PosSeeder extends Seeder
 {
     public function run(): void
     {
+        // Condiments seed independently of the products guard below so a demo
+        // add-on list exists even on a DB that already has products.
+        $this->seedCondiments();
+
         if (! Schema::hasTable('pos_products') || PosProduct::query()->exists()) {
             return;
         }
@@ -84,6 +89,35 @@ final class PosSeeder extends Seeder
                     'perm_unlink' => $unlink,
                 ],
             );
+        }
+    }
+
+    /**
+     * A small global condiment list (priced + free) so the register picker
+     * isn't empty. Idempotent — skipped once any condiment exists. Seeded
+     * independently of the products guard so it runs on an existing DB too.
+     */
+    private function seedCondiments(): void
+    {
+        if (! Schema::hasTable('pos_condiments') || PosCondiment::query()->exists()) {
+            return;
+        }
+
+        $condiments = [
+            ['Extra cheese', 0.50, 10],
+            ['Extra sauce', 0.30, 20],
+            ['Ice cubes', 0.00, 30],
+            ['No ice', 0.00, 40],
+            ['Extra shot', 0.40, 50],
+        ];
+
+        foreach ($condiments as [$name, $price, $sequence]) {
+            PosCondiment::query()->create([
+                'name' => $name,
+                'price' => $price,
+                'sequence' => $sequence,
+                'active' => true,
+            ]);
         }
     }
 }

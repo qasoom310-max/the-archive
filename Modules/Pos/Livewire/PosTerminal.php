@@ -18,7 +18,9 @@ use Modules\Contacts\Models\Partner;
 use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Enums\SessionState;
 use Modules\Pos\Models\PosCategory;
+use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosOrder;
+use Modules\Pos\Models\PosOrderLine;
 use Modules\Pos\Models\PosPaymentMethod;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Models\PosSession;
@@ -38,6 +40,16 @@ final class PosTerminal extends Component
     public ?int $categoryId = null;
 
     public bool $paying = false;
+
+    /**
+     * Condiment picker: which cart line is being edited, and whether the
+     * overlay is open. Any active condiment can be toggled onto any line
+     * (one global list); the selection is stored as a price/name snapshot
+     * on the line.
+     */
+    public bool $pickingCondiments = false;
+
+    public ?int $condimentLineId = null;
 
     /**
      * Customer picker (the Odoo-19-style "Choose Customer" list): when
@@ -185,10 +197,14 @@ final class PosTerminal extends Component
         $product = PosProduct::query()->findOrFail($productId);
         $order = $this->order();
 
+        // Merge only into a PLAIN line (no discount, no condiments) — a line
+        // carrying condiments is distinct, so tapping the product again starts
+        // a fresh line rather than silently bumping the condiment'd one.
         $line = $order->lines()
             ->where('pos_product_id', $product->id)
             ->where('discount', 0)
-            ->first();
+            ->get()
+            ->first(static fn (PosOrderLine $l): bool => empty($l->condiments));
 
         if ($line !== null) {
             $line->qty += 1;
@@ -280,6 +296,77 @@ final class PosTerminal extends Component
         $trimmed = trim($notes);
         $line->notes = $trimmed === '' ? null : $trimmed;
         $line->save();
+    }
+
+    /**
+     * Open the condiment picker for a cart line. Any active condiment may be
+     * toggled onto any line (one global list).
+     */
+    public function openCondiments(int $lineId): void
+    {
+        $this->guard(Permission::Write);
+
+        if ($this->order()->lines()->whereKey($lineId)->exists()) {
+            $this->condimentLineId = $lineId;
+            $this->pickingCondiments = true;
+        }
+    }
+
+    public function closeCondiments(): void
+    {
+        $this->pickingCondiments = false;
+        $this->condimentLineId = null;
+    }
+
+    /**
+     * Toggle a condiment on the line being edited. Stores a price + name
+     * SNAPSHOT on the line (so a later catalogue edit can't rewrite a
+     * finalised order) and recomputes the line + order totals live.
+     */
+    public function toggleCondiment(int $condimentId): void
+    {
+        $this->guard(Permission::Write);
+
+        if ($this->condimentLineId === null) {
+            return;
+        }
+
+        $order = $this->order();
+        $line = $order->lines()->whereKey($this->condimentLineId)->first();
+
+        if ($line === null) {
+            return;
+        }
+
+        $removed = false;
+        $next = [];
+        foreach ($line->condiments ?? [] as $condiment) {
+            if ((int) ($condiment['id'] ?? 0) === $condimentId) {
+                $removed = true; // toggle off
+
+                continue;
+            }
+            $next[] = $condiment;
+        }
+
+        if (! $removed) {
+            $condiment = PosCondiment::query()->where('active', true)->find($condimentId);
+
+            if ($condiment === null) {
+                return;
+            }
+
+            $next[] = [
+                'id' => (int) $condiment->id,
+                'name' => (string) $condiment->name,
+                'price' => round((float) $condiment->price, 2),
+            ];
+        }
+
+        $line->condiments = $next;
+        $line->recompute();
+        $line->save();
+        $order->recalculate();
     }
 
     public function clearCustomer(): void
@@ -830,6 +917,15 @@ final class PosTerminal extends Component
                 'contacts.partner',
                 Permission::Unlink,
             ),
+            // Only query condiments while the picker is open. The line being
+            // edited carries its selection (rendered as ticked rows).
+            'condiments' => $this->pickingCondiments
+                ? PosCondiment::query()->where('active', true)
+                    ->orderBy('sequence')->orderBy('name')->get()
+                : new Collection(),
+            'condimentLine' => $this->pickingCondiments && $this->condimentLineId !== null
+                ? $order->lines()->whereKey($this->condimentLineId)->first()
+                : null,
             'receipt' => $this->receiptOrderId !== null
                 ? PosOrder::query()->with('lines', 'payments.method', 'partner')->find($this->receiptOrderId)
                 : null,

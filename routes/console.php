@@ -47,3 +47,18 @@ Schedule::call(function (): void {
         }
     }
 })->daily()->name('prune-whatsapp-receipts')->withoutOverlapping();
+
+// Daily: lapse per-phone customer discounts that have gone 90 days with no
+// qualifying purchase. The rolling window (`pos_customer_discounts.expires_at`)
+// is pushed forward on every paid order that uses the discount; once it lapses
+// this sweep flips `active` off so the admin list shows it as inactive.
+// (The register stops applying it the moment it expires regardless — see
+// `PosCustomerDiscount::findForPhone()` — so a missed cron tick is harmless.)
+// Guarded so it no-ops when the POS module isn't installed.
+Schedule::call(function (): void {
+    if (! \Illuminate\Support\Facades\Schema::hasTable('pos_customer_discounts')) {
+        return;
+    }
+
+    \Modules\Pos\Models\PosCustomerDiscount::deactivateLapsed();
+})->daily()->name('expire-customer-discounts')->withoutOverlapping();

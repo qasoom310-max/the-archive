@@ -379,6 +379,8 @@
     "Customer Discount": "خصم العميل",
     "Discount %": "نسبة الخصم %",
     "Label": "تسمية",
+    "Expires": "تنتهي في",
+    "Auto-expires 90 days after activation if the customer doesn't buy. Each purchase within the window renews it for another 90 days. Re-enabling a lapsed one starts a fresh 90 days.": "ينتهي تلقائيًا بعد 90 يومًا من التفعيل إذا لم يشترِ العميل. كل عملية شراء ضمن المدة تجدده 90 يومًا إضافية. إعادة تفعيل خصم منتهٍ تبدأ 90 يومًا جديدة.",
     "New discount": "خصم جديد",
     "Edit discount": "تعديل الخصم",
     "Manage customer discounts": "إدارة خصومات العملاء",

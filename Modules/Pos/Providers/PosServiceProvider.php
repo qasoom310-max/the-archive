@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Modules\Pos\Events\PosOrderPaid;
 use Modules\Pos\Listeners\QueueLinesForKitchen;
+use Modules\Pos\Listeners\RenewCustomerDiscount;
 use Modules\Pos\Listeners\SendPosOrderReceiptViaWhatsApp;
 use Modules\Pos\Services\PosSessionManager;
 
@@ -35,5 +36,9 @@ final class PosServiceProvider extends ServiceProvider
         // whose product's category has a `station` set so the Kitchen /
         // Shisha screens pick them up on next poll.
         Event::listen(PosOrderPaid::class, [QueueLinesForKitchen::class, 'handle']);
+
+        // Rolling discount renewal: a paid order that used a per-phone
+        // customer discount pushes that discount's 90-day window forward.
+        Event::listen(PosOrderPaid::class, [RenewCustomerDiscount::class, 'handle']);
     }
 }

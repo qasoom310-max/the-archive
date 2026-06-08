@@ -560,10 +560,30 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
   seeded by `PosSeeder::seedCustomerDiscounts()` (`+973 33000000` → 10%,
   idempotent). The core **dashboard "Getting started" card was removed**; in
   its place an **admin-only** "Customer Discounts" card links to the manager
-  (`resources/views/livewire/pages/dashboard.blade.php`). Test:
-  `tests/Feature/PosCustomerDiscountTest.php` (6 — phone normalisation /
-  suffix match, inactive skipped, percent clamp, apply-on-add, persist +
-  clear, admin-only ACL).
+  (`resources/views/livewire/pages/dashboard.blade.php`).
+  - **Rolling 90-day expiry (renews on purchase).** `pos_customer_discounts.expires_at`
+    (migration `2026_06_08_400003`, backfills existing rows to `created_at + 90`).
+    `PosCustomerDiscount::WINDOW_DAYS = 90`. The `saving` hook starts/restarts the
+    clock (`expires_at = now + 90`) whenever the discount is **active** but has no
+    live window — i.e. on create AND when an admin re-enables a lapsed one (an
+    already-future expiry is left untouched, so editing the percent/label doesn't
+    reset it). `findForPhone()` only returns discounts whose window is still open
+    (`expires_at >= now`), so a lapsed one stops applying at the register
+    immediately regardless of the `active` flag. **Renewal:** `RenewCustomerDiscount`
+    listens to `PosOrderPaid` (wired in `PosServiceProvider::boot()`); when a paid
+    order actually used a discount (`customer_discount_percent > 0`) it pushes that
+    discount's `expires_at` to `ordered_at + 90` via `renewFrom()`. **Sweep:** a
+    daily scheduled task (`expire-customer-discounts` in `routes/console.php`) calls
+    `PosCustomerDiscount::deactivateLapsed()` — a mass update (bypasses the saving
+    hook, so it doesn't restart the window) flipping `active = false` on every
+    expired row so the admin list reflects it (cron-independent for correctness —
+    the register guard above already blocks expired discounts between ticks).
+    The list shows an **Expires** datetime column. Re-enabling a lapsed discount
+    starts a fresh 90 days.
+  Test: `tests/Feature/PosCustomerDiscountTest.php` (11 — phone normalisation /
+  suffix match, inactive skipped, percent clamp, apply-on-add, persist + clear,
+  admin-only ACL, 90-day window on create, findForPhone skips lapsed, paid-order
+  renews window, sweep deactivates only expired, re-enable restarts window).
 
 **Phase 7 OUT-of-scope adjustment:** "restaurant floors/tables/kitchen" became
 "restaurant floors/tables" — the *Kitchen Display* slice now ships (Phase 15

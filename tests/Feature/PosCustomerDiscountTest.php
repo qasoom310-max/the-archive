@@ -9,12 +9,16 @@ use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Support\Facades\Event;
 use Livewire\Livewire;
 use Modules\Contacts\Models\Partner;
 use Modules\Pos\Enums\SessionState;
+use Modules\Pos\Events\PosOrderPaid;
+use Modules\Pos\Listeners\RenewCustomerDiscount;
 use Modules\Pos\Livewire\PosTerminal;
 use Modules\Pos\Models\PosCustomerDiscount;
 use Modules\Pos\Models\PosOrder;
+use Modules\Pos\Models\PosPaymentMethod;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Models\PosSession;
 use Tests\TestCase;
@@ -142,5 +146,83 @@ final class PosCustomerDiscountTest extends TestCase
         $this->assertTrue($access->allows($admin, 'pos.customer_discount', Permission::Read));
         $this->assertFalse($access->allows($cashier, 'pos.customer_discount', Permission::Read));
         $this->assertFalse($access->allows($cashier, 'pos.customer_discount', Permission::Write));
+    }
+
+    public function test_discount_gets_a_90_day_window_on_creation(): void
+    {
+        $discount = PosCustomerDiscount::query()->create([
+            'phone' => '33123456',
+            'discount_percent' => 10,
+        ]);
+
+        $this->assertNotNull($discount->expires_at);
+        // ~90 days out from activation (allow a day of slack either side).
+        $this->assertTrue($discount->expires_at?->between(now()->addDays(89), now()->addDays(91)) ?? false);
+    }
+
+    public function test_find_for_phone_skips_a_lapsed_discount(): void
+    {
+        $discount = PosCustomerDiscount::query()->create(['phone' => '33123456', 'discount_percent' => 10]);
+
+        // Mass update bypasses the saving hook, so the past expiry sticks
+        // (simulating 90 days elapsing with no purchase).
+        PosCustomerDiscount::query()->whereKey($discount->id)->update(['expires_at' => now()->subDay()]);
+
+        $this->assertNull(PosCustomerDiscount::findForPhone('33123456'));
+    }
+
+    public function test_a_paid_order_renews_the_discount_window(): void
+    {
+        // The renewal listener boots with the module in production; mid-test
+        // install skips PosServiceProvider::boot(), so wire it by hand.
+        Event::listen(PosOrderPaid::class, [RenewCustomerDiscount::class, 'handle']);
+
+        $session = $this->openSession();
+        PosPaymentMethod::query()->create(['name' => 'Cash', 'is_cash' => true, 'sequence' => 10]);
+        $product = PosProduct::query()->create(['name' => 'Coffee', 'price' => 10, 'tax_rate' => 0, 'active' => true]);
+        $discount = PosCustomerDiscount::query()->create(['phone' => '+973 33123456', 'discount_percent' => 10, 'active' => true]);
+        $partner = Partner::query()->create(['name' => 'Abu Ali', 'phone' => '+973 33123456', 'is_company' => false]);
+
+        // Window about to lapse — a renewal will visibly push it out to ~90 days.
+        PosCustomerDiscount::query()->whereKey($discount->id)->update(['expires_at' => now()->addDays(3)]);
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('addProduct', $product->id)
+            ->call('pickCustomer', $partner->id)
+            ->call('startPayment')
+            ->call('addPayment')      // tenders the discounted total (9.00)
+            ->call('validateOrder');  // finalizes → fires PosOrderPaid
+
+        $order = PosOrder::query()->where('pos_session_id', $session->id)->firstOrFail();
+        $this->assertSame(9.0, (float) $order->total); // 10 − 10%
+
+        $discount->refresh();
+        $this->assertTrue($discount->expires_at?->greaterThan(now()->addDays(80)) ?? false);
+    }
+
+    public function test_deactivate_lapsed_flips_active_off_for_expired_rows_only(): void
+    {
+        $live = PosCustomerDiscount::query()->create(['phone' => '33111111', 'discount_percent' => 10]);
+        $lapsed = PosCustomerDiscount::query()->create(['phone' => '33222222', 'discount_percent' => 10]);
+        PosCustomerDiscount::query()->whereKey($lapsed->id)->update(['expires_at' => now()->subDay()]);
+
+        $this->assertSame(1, PosCustomerDiscount::deactivateLapsed());
+        $this->assertTrue((bool) $live->fresh()?->active);    // still in window
+        $this->assertFalse((bool) $lapsed->fresh()?->active);  // swept inactive
+    }
+
+    public function test_re_enabling_a_lapsed_discount_starts_a_fresh_window(): void
+    {
+        $discount = PosCustomerDiscount::query()->create(['phone' => '33123456', 'discount_percent' => 10]);
+
+        // Simulate a lapsed + swept discount (expired, active off).
+        PosCustomerDiscount::query()->whereKey($discount->id)
+            ->update(['expires_at' => now()->subDays(5), 'active' => false]);
+
+        $discount->refresh();
+        $discount->active = true;
+        $discount->save(); // saving hook restarts the 90-day clock
+
+        $this->assertTrue($discount->expires_at?->greaterThan(now()->addDays(80)) ?? false);
     }
 }

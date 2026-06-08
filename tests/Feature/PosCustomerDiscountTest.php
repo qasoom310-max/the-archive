@@ -11,7 +11,6 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\Event;
 use Livewire\Livewire;
-use Modules\Contacts\Models\Partner;
 use Modules\Pos\Enums\SessionState;
 use Modules\Pos\Events\PosOrderPaid;
 use Modules\Pos\Listeners\RenewCustomerDiscount;
@@ -91,12 +90,11 @@ final class PosCustomerDiscountTest extends TestCase
         $this->assertSame(100.0, $rule->fresh()?->discount_percent);
     }
 
-    public function test_adding_a_customer_with_a_matching_phone_applies_the_discount(): void
+    public function test_typing_a_matching_phone_applies_the_discount(): void
     {
         $session = $this->openSession();
         $product = PosProduct::query()->create(['name' => 'Coffee', 'price' => 10, 'tax_rate' => 0, 'active' => true]);
         PosCustomerDiscount::query()->create(['phone' => '+973 33123456', 'discount_percent' => 10, 'active' => true]);
-        $partner = Partner::query()->create(['name' => 'Abu Ali', 'phone' => '+973 33123456', 'is_company' => false]);
 
         $component = Livewire::test(PosTerminal::class, ['session' => $session->id])
             ->call('addProduct', $product->id);
@@ -104,32 +102,34 @@ final class PosCustomerDiscountTest extends TestCase
         $order = PosOrder::query()->where('pos_session_id', $session->id)->firstOrFail();
         $this->assertSame(10.0, (float) $order->total);
 
-        $component->call('pickCustomer', $partner->id);
+        // Cashier types the phone (default dial +973); the matching discount
+        // applies via the updatedLocalPhone hook — no customer record saved.
+        $component->set('localPhone', '33123456');
 
         $order->refresh();
+        $this->assertNull($order->partner_id); // nothing saved as a customer
         $this->assertSame(10.0, (float) $order->customer_discount_percent);
         $this->assertSame(1.0, (float) $order->customer_discount_total);
         $this->assertSame(9.0, (float) $order->total);
     }
 
-    public function test_discount_persists_as_more_products_are_added_then_clears_when_customer_removed(): void
+    public function test_discount_persists_as_more_products_are_added_then_clears_when_phone_removed(): void
     {
         $session = $this->openSession();
         $product = PosProduct::query()->create(['name' => 'Coffee', 'price' => 10, 'tax_rate' => 0, 'active' => true]);
         PosCustomerDiscount::query()->create(['phone' => '33123456', 'discount_percent' => 10, 'active' => true]);
-        $partner = Partner::query()->create(['name' => 'Abu Ali', 'phone' => '+973 33123456', 'is_company' => false]);
 
         $component = Livewire::test(PosTerminal::class, ['session' => $session->id])
             ->call('addProduct', $product->id)
-            ->call('pickCustomer', $partner->id)
+            ->set('localPhone', '33123456')
             ->call('addProduct', $product->id); // gross now 20
 
         $order = PosOrder::query()->where('pos_session_id', $session->id)->firstOrFail();
         $this->assertSame(2.0, (float) $order->customer_discount_total);
         $this->assertSame(18.0, (float) $order->total);
 
-        // Removing the customer drops the discount entirely.
-        $component->call('clearCustomer');
+        // Clearing the phone drops the discount entirely.
+        $component->call('clearPhone');
         $order->refresh();
         $this->assertSame(0.0, (float) $order->customer_discount_percent);
         $this->assertSame(0.0, (float) $order->customer_discount_total);
@@ -181,14 +181,13 @@ final class PosCustomerDiscountTest extends TestCase
         PosPaymentMethod::query()->create(['name' => 'Cash', 'is_cash' => true, 'sequence' => 10]);
         $product = PosProduct::query()->create(['name' => 'Coffee', 'price' => 10, 'tax_rate' => 0, 'active' => true]);
         $discount = PosCustomerDiscount::query()->create(['phone' => '+973 33123456', 'discount_percent' => 10, 'active' => true]);
-        $partner = Partner::query()->create(['name' => 'Abu Ali', 'phone' => '+973 33123456', 'is_company' => false]);
 
         // Window about to lapse — a renewal will visibly push it out to ~90 days.
         PosCustomerDiscount::query()->whereKey($discount->id)->update(['expires_at' => now()->addDays(3)]);
 
         Livewire::test(PosTerminal::class, ['session' => $session->id])
             ->call('addProduct', $product->id)
-            ->call('pickCustomer', $partner->id)
+            ->set('localPhone', '33123456') // applies the 10% discount
             ->call('startPayment')
             ->call('addPayment')      // tenders the discounted total (9.00)
             ->call('validateOrder');  // finalizes → fires PosOrderPaid

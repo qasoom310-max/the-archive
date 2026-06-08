@@ -20,25 +20,33 @@
             </div>
         </div>
 
-        {{-- Customer — either shows the attached partner + remove button, or
-             a "+ Customer" button that opens the Odoo-19-style picker modal
-             (list of existing partners + search + Create button). --}}
+        {{-- Customer discount — the cashier types a phone number and a
+             matching per-phone discount applies. Nothing is saved as a
+             customer; the same number is reused for the WhatsApp receipt at
+             checkout. Shows the entered phone + applied discount, or a
+             "+ Customer discount" button that opens the phone-entry modal. --}}
         <div class="border-b border-chrome-200 px-4 py-2">
-            @if ($order->partner)
+            @if ($localPhone !== '')
                 <div class="flex items-center justify-between">
                     <div class="min-w-0">
-                        <p class="truncate text-sm font-medium text-chrome-800">{{ $order->partner->name }}</p>
-                        <p class="truncate text-xs text-chrome-400">
-                            {{ $order->partner->phone }}@if ($order->partner->phone && $order->partner->email) · @endif{{ $order->partner->email }}
-                        </p>
+                        <p class="truncate text-sm font-medium text-chrome-800 tabular-nums">{{ $countryCode }} {{ $localPhone }}</p>
+                        @if ($order->customer_discount_percent > 0)
+                            <p class="truncate text-xs font-medium text-emerald-600">
+                                {{ rtrim(rtrim(number_format($order->customer_discount_percent, 2), '0'), '.') }}% {{ __('discount applied') }}
+                            </p>
+                        @else
+                            <p class="truncate text-xs text-chrome-400">{{ __('No discount for this number') }}</p>
+                        @endif
                     </div>
-                    <button wire:click="clearCustomer" class="ms-2 shrink-0 text-xs text-red-600 hover:underline">{{ __('remove') }}</button>
+                    <div class="ms-2 flex shrink-0 items-center gap-2">
+                        <button type="button" wire:click="openPhoneEntry" class="text-xs text-primary-600 hover:underline">{{ __('edit') }}</button>
+                        <button type="button" wire:click="clearPhone" class="text-xs text-red-600 hover:underline">{{ __('remove') }}</button>
+                    </div>
                 </div>
             @else
-                {{-- Primary-purple. Opens the customer picker; picking a
-                     customer whose phone has an admin-set discount applies it
-                     to the order automatically. --}}
-                <button type="button" wire:click="openCustomerPicker"
+                {{-- Primary-purple. Opens a phone-entry box; a number with an
+                     admin-set discount applies it to the order automatically. --}}
+                <button type="button" wire:click="openPhoneEntry"
                     class="o-btn-primary justify-center gap-1.5 text-sm">
                     <span class="text-base leading-none">+</span> {{ __('Customer discount') }}
                 </button>
@@ -256,168 +264,52 @@
         </div>
     @endif
 
-    {{-- ───────────── Choose-customer picker overlay (Odoo-19 style) ───────────── --}}
-    @if ($pickingCustomer)
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-chrome-900/40 p-4">
-            <div class="flex max-h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-pop">
-                {{-- Header: Create button (purple, primary action) + title on the left,
-                     live search on the right. Search filters by name/phone/email. --}}
-                <div class="flex items-center justify-between gap-4 border-b border-chrome-200 px-5 py-3">
-                    <div class="flex items-center gap-3">
-                        <button type="button" wire:click="startCreateCustomer"
-                            class="o-btn-primary text-sm">{{ __('Create') }}</button>
-                        <h2 class="text-base font-semibold text-chrome-900">{{ __('Choose Customer') }}</h2>
-                    </div>
-                    <input wire:model.live.debounce.250ms="customerSearch"
-                        placeholder="{{ __('Search Customers…') }}"
-                        class="o-input w-72 max-w-full text-sm" autocomplete="off">
-                </div>
-
-                {{-- List — flex row with two sibling buttons (pick + delete) per
-                     row. Sibling rather than nested because <button> inside <button>
-                     is invalid HTML and gives unpredictable click behaviour. The
-                     trash button only renders when the user has Unlink on
-                     contacts.partner (cashiers without delete rights don't see it). --}}
-                <div class="flex-1 divide-y divide-chrome-100 overflow-y-auto">
-                    @forelse ($customerList as $c)
-                        <div class="group flex items-stretch hover:bg-chrome-50" wire:key="cust-{{ $c->id }}">
-                            <button type="button" wire:click="pickCustomer({{ $c->id }})"
-                                class="flex flex-1 items-start justify-between gap-4 px-5 py-3 text-start">
-                                <div class="min-w-0 flex-1">
-                                    <p class="truncate font-semibold text-chrome-900">{{ $c->name }}</p>
-                                    @if ($c->city || $c->country)
-                                        <p class="truncate text-xs text-chrome-500">
-                                            {{ trim(($c->city ?? '') . ' ' . ($c->country ?? '')) }}
-                                        </p>
-                                    @endif
-                                </div>
-                                <div class="shrink-0 text-end text-sm">
-                                    @if ($c->phone)
-                                        <p class="font-medium text-chrome-700 tabular-nums">{{ $c->phone }}</p>
-                                    @endif
-                                    @if ($c->email)
-                                        <p class="text-chrome-500">{{ $c->email }}</p>
-                                    @endif
-                                </div>
-                            </button>
-                            @if ($canEditCustomers || $canDeleteCustomers)
-                                <div class="flex shrink-0 items-stretch gap-1 pe-3">
-                                    @if ($canEditCustomers)
-                                        <button type="button"
-                                            wire:click="openEditCustomer({{ $c->id }})"
-                                            title="{{ __('Edit customer') }}"
-                                            aria-label="{{ __('Edit') }} {{ $c->name }}"
-                                            class="flex w-8 items-center justify-center text-blue-500 transition-colors hover:text-blue-700">
-                                            {{-- Heroicons mini pencil-square --}}
-                                            <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                                            </svg>
-                                        </button>
-                                    @endif
-                                    @if ($canDeleteCustomers)
-                                        <button type="button"
-                                            wire:click="deleteCustomer({{ $c->id }})"
-                                            wire:confirm="{{ __('Delete :name forever? This cannot be undone — past orders for this customer will be kept but unlinked.', ['name' => $c->name]) }}"
-                                            title="{{ __('Delete customer') }}"
-                                            aria-label="{{ __('Delete') }} {{ $c->name }}"
-                                            class="flex w-8 items-center justify-center text-red-500 transition-colors hover:text-red-700">
-                                            {{-- Heroicons mini trash --}}
-                                            <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21q.149.222.22.469M19.228 5.79a48.108 48.108 0 0 0-3.478-.397m-12 .562q.249-.247.561-.398a48 48 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0M5.75 5.79l.875 13.114a2.25 2.25 0 0 0 2.244 2.077h6.262a2.25 2.25 0 0 0 2.244-2.077L18.25 5.79" />
-                                            </svg>
-                                        </button>
-                                    @endif
-                                </div>
-                            @endif
-                        </div>
-                    @empty
-                        <p class="px-5 py-10 text-center text-sm text-chrome-400">
-                            @if ($customerSearch !== '')
-                                {{ __('No customers match') }} "<span class="font-medium text-chrome-600">{{ $customerSearch }}</span>" {{ __('— click Create to add one.') }}
-                            @else
-                                {{ __('No customers yet. Click Create to add the first one.') }}
-                            @endif
-                        </p>
-                    @endforelse
-                </div>
-
-                {{-- Footer: discard closes without selecting. --}}
-                <button type="button" wire:click="closeCustomerPicker"
-                    class="border-t border-chrome-200 px-5 py-3 text-center text-sm font-medium text-chrome-600 hover:bg-chrome-50">
-                    {{ __('Discard') }}
-                </button>
-            </div>
-        </div>
-    @endif
-
-    {{-- ───────────── Add-customer overlay ───────────── --}}
-    @if ($addingCustomer)
+    {{-- ───────────── Customer-discount phone-entry overlay ───────────── --}}
+    @if ($enteringPhone)
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-chrome-900/40 p-4">
             <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-pop">
-                <div class="mb-4 flex items-center justify-between">
-                    <h2 class="text-base font-bold text-chrome-900">
-                        {{ $editingCustomerId !== null ? __('Edit customer') : __('Add customer') }}
-                    </h2>
-                    <button type="button" wire:click="cancelAddCustomer"
+                <div class="mb-1 flex items-center justify-between">
+                    <h2 class="text-base font-bold text-chrome-900">{{ __('Customer discount') }}</h2>
+                    <button type="button" wire:click="closePhoneEntry"
                         class="text-sm text-chrome-400 hover:text-chrome-700">✕</button>
                 </div>
+                <p class="mb-4 text-xs text-chrome-500">{{ __('Enter the customer\'s phone to apply their discount. Nothing is saved — the number is only used for this sale\'s discount and WhatsApp receipt.') }}</p>
 
-                {{-- Name (required) --}}
-                <div class="mb-3">
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-chrome-500">
-                        {{ __('Name') }} <span class="text-red-500">*</span>
-                    </label>
-                    <input wire:model="newCustomerName"
-                        class="o-input mt-1 text-sm" placeholder="{{ __('Customer name') }}" autocomplete="off">
-                    @error('newCustomerName')
-                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                    @enderror
+                <label class="block text-xs font-semibold uppercase tracking-wide text-chrome-500">
+                    {{ __('Phone number') }}
+                </label>
+                <div class="mt-1 flex gap-2">
+                    @include('pos::partials.country-picker', [
+                        'wireModel' => 'countryCode',
+                        'countries' => $whatsappCountries,
+                    ])
+                    <input type="tel" inputmode="numeric" autofocus
+                        wire:model.live.debounce.500ms="localPhone"
+                        class="o-input flex-1 text-sm tabular-nums" placeholder="{{ __('Phone number') }}" autocomplete="off">
                 </div>
 
-                {{-- Phone (required) — same dial-code dropdown as the receipt
-                     row, so the digits Partner stores match what the receipt
-                     listener will send to. --}}
-                <div class="mb-3">
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-chrome-500">
-                        {{ __('Phone') }} <span class="text-red-500">*</span>
-                    </label>
-                    <div class="mt-1 flex gap-2">
-                        @include('pos::partials.country-picker', [
-                            'wireModel' => 'newCustomerCountryCode',
-                            'countries' => $whatsappCountries,
-                        ])
-                        <input type="tel" inputmode="numeric" wire:model="newCustomerPhone"
-                            class="o-input flex-1 text-sm tabular-nums" placeholder="{{ __('Phone number') }}" autocomplete="off">
-                    </div>
-                    @error('newCustomerPhone')
-                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                    @enderror
-                    @error('newCustomerCountryCode')
-                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                    @enderror
+                {{-- Live discount feedback as the cashier types. --}}
+                <div class="mt-3 rounded-lg px-3 py-2 text-sm
+                    {{ $order->customer_discount_percent > 0
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : ($localPhone !== '' ? 'bg-amber-50 text-amber-700' : 'bg-chrome-50 text-chrome-500') }}">
+                    @if ($order->customer_discount_percent > 0)
+                        ✓ {{ rtrim(rtrim(number_format($order->customer_discount_percent, 2), '0'), '.') }}% {{ __('discount applied') }}
+                        <span class="font-semibold">−{{ $money($order->customer_discount_total) }}</span>
+                    @elseif ($localPhone !== '')
+                        {{ __('No discount set for this number.') }}
+                    @else
+                        {{ __('Enter a phone number above.') }}
+                    @endif
                 </div>
 
-                {{-- Email (optional) --}}
-                <div class="mb-5">
-                    <label class="block text-xs font-semibold uppercase tracking-wide text-chrome-500">
-                        {{ __('Email') }} <span class="ms-1 font-normal normal-case tracking-normal text-chrome-400">{{ __('(optional)') }}</span>
-                    </label>
-                    <input type="email" wire:model="newCustomerEmail"
-                        class="o-input mt-1 text-sm" placeholder="customer@example.com" autocomplete="off">
-                    @error('newCustomerEmail')
-                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <div class="flex gap-2">
-                    <button type="button" wire:click="cancelAddCustomer"
-                        class="o-btn-ghost flex-1 justify-center">{{ __('Cancel') }}</button>
-                    <button type="button" wire:click="saveCustomer"
-                        class="o-btn-primary flex-1 justify-center">
-                        {{ $editingCustomerId !== null ? __('Save changes') : __('Save customer') }}
-                    </button>
+                <div class="mt-4 flex gap-2">
+                    @if ($localPhone !== '')
+                        <button type="button" wire:click="clearPhone"
+                            class="o-btn-ghost flex-1 justify-center">{{ __('Remove') }}</button>
+                    @endif
+                    <button type="button" wire:click="closePhoneEntry"
+                        class="o-btn-primary flex-1 justify-center">{{ __('Done') }}</button>
                 </div>
             </div>
         </div>

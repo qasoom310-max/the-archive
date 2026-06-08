@@ -330,7 +330,10 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
 - **Customer flow rework** — `PosTerminal` got an Odoo-style customer picker modal
   (live search + Create/Edit/Delete partner inline). Trigger button is purple, 1/3
   width. Pencil edit + trash delete per row, red trash, aligned. Test:
-  `tests/Feature/PosAddCustomerTest.php` (26).
+  `tests/Feature/PosAddCustomerTest.php` (26). **⚠️ REMOVED 2026-06-08** — the whole
+  picker + inline-Partner CRUD was ripped out and replaced by a phone-entry box (the
+  terminal no longer saves customers); see the "No saved customers" note in the
+  per-phone customer-discount increment below. `PosAddCustomerTest.php` was deleted.
 - **Processed By column** — `PosOrder::user()` (cashier; `pos_orders.user_id`,
   nullable plain-indexed *logical ref*) + `processed_by` accessor renders `User.name`.
   Engine list arch declares `'sort_field' => 'user_id'` because the engine can't
@@ -546,15 +549,27 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
   display; the discount is its own line). `PosOrder::applyCustomerDiscount(?phone)`
   resolves + snapshots the percent then recalculates; the percent persists on
   the row so adding more products keeps the discount applied.
-  `PosTerminal::syncCustomerDiscount()` (re-fetches the partner fresh) is fired
-  from `pickCustomer` / `saveNewCustomer` / `saveEditedCustomer` (if current) /
-  `clearCustomer` / `deleteCustomer` (if current) / `startPayment` /
-  `updatedLocalPhone` — prefers the attached Partner's phone, falls back to the
-  typed receipt phone. **The POS "+ Customer" button is relabelled
-  "+ Customer discount"** (still opens the same customer picker). The discount
-  line renders in the cart totals, the payment overlay summary, the on-screen
-  receipt, and the WhatsApp PNG receipt (`receipt-pdf.blade.php` +
+  `PosTerminal::syncCustomerDiscount()` applies the discount from the cashier-typed
+  phone (`countryCode` + `localPhone` → `compose()`), fired from `updatedLocalPhone`
+  / `updatedCountryCode` / `closePhoneEntry` / `startPayment` / `clearPhone`. The
+  discount line renders in the cart totals, the payment overlay summary, the
+  on-screen receipt, and the WhatsApp PNG receipt (`receipt-pdf.blade.php` +
   `PosReceiptImageRenderer` pass `customerDiscount`/`customerDiscountPercent`).
+  - **No saved customers (changed 2026-06-08).** The earlier Odoo-style "Choose
+    Customer" picker + inline create/edit/delete-Partner flow was **removed** from
+    the terminal per user request ("don't save customer phone numbers — just apply
+    the discount when the cashier adds the phone number"). The **"+ Customer
+    discount"** button now opens a lightweight **phone-entry modal**
+    (`$enteringPhone`, `openPhoneEntry`/`closePhoneEntry`/`clearPhone`): the cashier
+    types a phone, the matching discount applies live, and **nothing is persisted as
+    a customer** (`pos_orders.partner_id` is left null). The **same typed number**
+    still drives the WhatsApp receipt for that one sale (`order.customer_phone` set at
+    `validateOrder`, as before). All the removed methods (`openCustomerPicker`,
+    `pickCustomer`, `saveNewCustomer`, `saveEditedCustomer`, `deleteCustomer`,
+    `clearCustomer`, `customerListQuery`, etc.) and the `newCustomer*`/`pickingCustomer`
+    props are gone; `tests/Feature/PosAddCustomerTest.php` was deleted with the feature.
+    The Contacts module + `Partner` model are untouched — only the POS terminal stopped
+    creating/listing them.
   `PosCustomerDiscount` added to the manifest `models[]` (needs
   `module:resync pos` — the deploy workflow does this automatically). Demo row
   seeded by `PosSeeder::seedCustomerDiscounts()` (`+973 33000000` → 10%,

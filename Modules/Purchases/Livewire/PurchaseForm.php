@@ -1,0 +1,309 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Modules\Purchases\Livewire;
+
+use App\Erp\Security\AccessControl;
+use App\Erp\Security\Permission;
+use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
+use Livewire\Component;
+use Modules\Contacts\Models\Partner;
+use Modules\Pos\Models\PosProduct;
+use Modules\Purchases\Enums\PurchaseState;
+use Modules\Purchases\Models\Purchase;
+use Modules\Purchases\Models\PurchaseLine;
+use Modules\Purchases\Services\PurchaseConfirmer;
+
+/**
+ * Custom master/detail editor for a vendor bill: header (vendor, date) plus
+ * repeatable product lines. While Draft it auto-saves on Save; the Confirm
+ * button hands off to {@see PurchaseConfirmer}, which receives the stock and
+ * posts the accounting entry. A confirmed bill is read-only.
+ */
+#[Layout('components.layouts.app')]
+#[Title('Purchase')]
+final class PurchaseForm extends Component
+{
+    public ?int $id = null;
+
+    /** @var array<string, mixed> */
+    public array $form = [
+        'reference' => '',
+        'partner_id' => '',
+        'date' => '',
+        'is_stock_purchase' => true,
+        'notes' => '',
+    ];
+
+    /** @var list<array<string, mixed>> */
+    public array $lines = [];
+
+    public string $state = 'draft';
+
+    public ?string $reference = null;
+
+    public bool $justConfirmed = false;
+
+    public function mount(?int $id = null): void
+    {
+        $this->id = $id;
+
+        if ($id === null) {
+            $this->form['date'] = Carbon::now()->toDateString();
+            $this->lines = [$this->emptyLine()];
+
+            return;
+        }
+
+        $purchase = Purchase::query()->with('lines')->findOrFail($id);
+
+        $this->state = $purchase->state->value;
+        $this->reference = $purchase->reference;
+        $this->form = [
+            'reference' => (string) ($purchase->reference ?? ''),
+            'partner_id' => $purchase->partner_id ?? '',
+            'date' => $purchase->date->toDateString(),
+            'is_stock_purchase' => (bool) $purchase->is_stock_purchase,
+            'notes' => (string) ($purchase->notes ?? ''),
+        ];
+
+        $this->lines = $purchase->lines
+            ->map(static fn (PurchaseLine $l): array => [
+                'pos_product_id' => $l->pos_product_id ?? '',
+                'description' => $l->description,
+                'quantity' => $l->quantity,
+                'unit_cost' => $l->unit_cost,
+            ])
+            ->all();
+
+        if ($this->lines === []) {
+            $this->lines = [$this->emptyLine()];
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function emptyLine(): array
+    {
+        return ['pos_product_id' => '', 'description' => '', 'quantity' => 1, 'unit_cost' => 0];
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    protected function rules(): array
+    {
+        return [
+            'form.partner_id' => ['nullable'],
+            'form.date' => ['required', 'date'],
+            'form.reference' => ['nullable', 'string', 'max:255'],
+            'form.notes' => ['nullable', 'string'],
+            'lines' => ['array'],
+            'lines.*.pos_product_id' => ['nullable'],
+            'lines.*.quantity' => ['numeric', 'min:0'],
+            'lines.*.unit_cost' => ['numeric', 'min:0'],
+        ];
+    }
+
+    public function addLine(): void
+    {
+        if ($this->state === PurchaseState::Confirmed->value) {
+            return;
+        }
+
+        $this->lines[] = $this->emptyLine();
+    }
+
+    public function removeLine(int $index): void
+    {
+        if ($this->state === PurchaseState::Confirmed->value) {
+            return;
+        }
+
+        unset($this->lines[$index]);
+        $this->lines = array_values($this->lines);
+
+        if ($this->lines === []) {
+            $this->lines = [$this->emptyLine()];
+        }
+    }
+
+    /**
+     * When a product is picked, prefill the description and default the unit
+     * cost to the product's recorded cost price (the user can still override).
+     */
+    public function updatedLines(mixed $value, string $key): void
+    {
+        if (! str_ends_with($key, '.pos_product_id')) {
+            return;
+        }
+
+        $index = (int) explode('.', $key)[0];
+        $productId = ($value === '' || $value === null) ? null : (int) $value;
+
+        if ($productId === null || ! isset($this->lines[$index])) {
+            return;
+        }
+
+        $product = PosProduct::query()->find($productId);
+
+        if ($product === null) {
+            return;
+        }
+
+        if (($this->lines[$index]['description'] ?? '') === '') {
+            $this->lines[$index]['description'] = (string) $product->name;
+        }
+
+        $cost = (float) $this->lines[$index]['unit_cost'];
+        if ($cost <= 0.0) {
+            $this->lines[$index]['unit_cost'] = (float) $product->cost_price;
+        }
+    }
+
+    /**
+     * Live total of the editor rows (a plain method, not a Livewire computed
+     * property — render() passes the value to the view).
+     */
+    private function currentTotal(): float
+    {
+        $total = 0.0;
+
+        foreach ($this->lines as $line) {
+            $total += (float) ($line['quantity'] ?? 0) * (float) ($line['unit_cost'] ?? 0);
+        }
+
+        return round($total, 2);
+    }
+
+    public function save(): void
+    {
+        if ($this->state === PurchaseState::Confirmed->value) {
+            return;
+        }
+
+        $permission = $this->id === null ? Permission::Create : Permission::Write;
+        app(AccessControl::class)->authorize(Auth::user(), 'purchases.purchase', $permission);
+
+        $wasNew = $this->id === null;
+        $this->persistRecord();
+
+        if ($wasNew) {
+            $this->redirectRoute('purchases.purchase.edit', ['id' => $this->id], navigate: true);
+        }
+    }
+
+    public function confirm(): void
+    {
+        if ($this->state === PurchaseState::Confirmed->value) {
+            return;
+        }
+
+        app(AccessControl::class)->authorize(Auth::user(), 'purchases.purchase', Permission::Write);
+
+        $this->validate();
+
+        $hasUsableLine = collect($this->lines)->contains(
+            static fn (array $l): bool => ($l['pos_product_id'] ?? '') !== '' && (float) ($l['quantity'] ?? 0) > 0,
+        );
+
+        if (! $hasUsableLine) {
+            $this->addError('lines', __('Add at least one product line with a quantity before confirming.'));
+
+            return;
+        }
+
+        $confirmed = app(PurchaseConfirmer::class)->confirm($this->persistRecord());
+
+        $this->state = $confirmed->state->value;
+        $this->reference = $confirmed->reference;
+        $this->form['reference'] = (string) ($confirmed->reference ?? '');
+        $this->justConfirmed = true;
+    }
+
+    /**
+     * Write the header + lines (delete-and-recreate the lines — a draft bill
+     * is small and this keeps the editor stateless). Returns the persisted
+     * Purchase and stamps `$this->id`.
+     */
+    private function persistRecord(): Purchase
+    {
+        $this->validate();
+
+        $purchase = $this->id !== null
+            ? Purchase::query()->findOrFail($this->id)
+            : new Purchase();
+
+        $partnerId = ($this->form['partner_id'] === '' || $this->form['partner_id'] === null)
+            ? null
+            : (int) $this->form['partner_id'];
+
+        $reference = trim((string) ($this->form['reference'] ?? ''));
+
+        $purchase->fill([
+            'reference' => $reference === '' ? $purchase->reference : $reference,
+            'partner_id' => $partnerId,
+            'date' => (string) $this->form['date'],
+            'is_stock_purchase' => (bool) ($this->form['is_stock_purchase'] ?? true),
+            'notes' => ($this->form['notes'] === '') ? null : (string) $this->form['notes'],
+        ]);
+        $purchase->save();
+
+        $this->id = (int) $purchase->getKey();
+
+        // Delete-and-recreate the lines from the editor state.
+        $purchase->lines()->delete();
+
+        foreach ($this->lines as $line) {
+            $productId = ($line['pos_product_id'] ?? '') === '' ? null : (int) $line['pos_product_id'];
+            $quantity = (float) ($line['quantity'] ?? 0);
+
+            // Skip rows that have neither a product nor a quantity — empty
+            // editor rows shouldn't persist.
+            if ($productId === null && $quantity <= 0.0) {
+                continue;
+            }
+
+            $description = trim((string) ($line['description'] ?? ''));
+            if ($description === '' && $productId !== null) {
+                $product = PosProduct::query()->find($productId);
+                if ($product !== null) {
+                    $description = (string) $product->name;
+                }
+            }
+
+            $purchase->lines()->create([
+                'pos_product_id' => $productId,
+                'description' => $description,
+                'quantity' => $quantity,
+                'unit_cost' => (float) ($line['unit_cost'] ?? 0),
+            ]);
+        }
+
+        $purchase->recomputeTotal();
+        $purchase->save();
+
+        return $purchase->fresh(['lines']) ?? $purchase;
+    }
+
+    public function render(): View
+    {
+        $access = app(AccessControl::class);
+        $user = Auth::user();
+
+        return view('purchases::purchase-form', [
+            'vendors' => Partner::query()->orderBy('name')->get(['id', 'name']),
+            'products' => PosProduct::query()->orderBy('name')->get(['id', 'name', 'cost_price']),
+            'total' => $this->currentTotal(),
+            'isConfirmed' => $this->state === PurchaseState::Confirmed->value,
+            'canWrite' => $access->allows($user, 'purchases.purchase', Permission::Write),
+            'canCreate' => $access->allows($user, 'purchases.purchase', Permission::Create),
+        ]);
+    }
+}

@@ -7,6 +7,7 @@ namespace Modules\Accounting\Providers;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Modules\Accounting\Listeners\RecordPosSaleInJournal;
+use Modules\Accounting\Listeners\RecordPurchaseInJournal;
 use Modules\Accounting\Services\FinancialReports;
 use Modules\Accounting\Services\JournalPoster;
 use Modules\Accounting\Services\SequenceGenerator;
@@ -44,9 +45,15 @@ final class AccountingServiceProvider extends ServiceProvider
         // useful "configure mapping" exception rather than a fatal boot).
         Event::listen(PosOrderPaid::class, [RecordPosSaleInJournal::class, 'handle']);
 
-        // Purchase → Accounting. The Purchases module doesn't exist yet;
-        // when it lands, fire `Modules\Purchases\Events\PurchaseInvoiceConfirmed`
-        // and wire `RecordPurchaseInJournal::handle` here (the listener is
-        // already implemented and event-shape-agnostic).
+        // Purchase → Accounting. The Purchases module fires
+        // `PurchaseInvoiceConfirmed` (carrying the Purchase as `$invoice`)
+        // when a vendor bill is confirmed; this books Dr Inventory|Purchase
+        // Expense / Cr Accounts Payable. Registered by the string event name
+        // so Accounting carries NO compile-time dependency on Purchases — if
+        // that module isn't installed the event simply never fires.
+        Event::listen(
+            'Modules\Purchases\Events\PurchaseInvoiceConfirmed',
+            [RecordPurchaseInJournal::class, 'handle'],
+        );
     }
 }

@@ -1,0 +1,173 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature;
+
+use App\Erp\Modules\ModuleManager;
+use App\Models\User;
+use Database\Seeders\ChartOfAccountsSeeder;
+use Database\Seeders\InventorySeeder;
+use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Livewire\Livewire;
+use Modules\Accounting\Models\Account;
+use Modules\Accounting\Models\JournalEntry;
+use Modules\Accounting\Providers\AccountingServiceProvider;
+use Modules\Inventory\Models\StockOperationType;
+use Modules\Inventory\Models\StockQuant;
+use Modules\Pos\Models\PosProduct;
+use Modules\Purchases\Enums\PurchaseState;
+use Modules\Purchases\Livewire\PurchaseForm;
+use Modules\Purchases\Models\Purchase;
+use Modules\Purchases\Services\PurchaseConfirmer;
+use Tests\TestCase;
+
+/**
+ * The whole point of the Purchases module: confirming a vendor bill must
+ * move POS stock, warehouse stock AND the accounting books together.
+ */
+final class PurchaseConfirmTest extends TestCase
+{
+    use DatabaseMigrations;
+
+    private int $stockLocationId;
+
+    private int $vendorLocationId;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+
+        // Installing purchases pulls contacts + pos + inventory + accounting.
+        app(ModuleManager::class)->install('purchases');
+
+        // Module providers boot at app-boot — before this setUp installed the
+        // modules — so the Purchase→Accounting event listener wasn't wired yet
+        // (the known "module listeners register on the boot AFTER install" gap).
+        // Re-registering the provider now runs its boot() and the Event::listen,
+        // exactly as production does (where modules are installed before boot).
+        $this->app->register(AccountingServiceProvider::class);
+
+        (new ChartOfAccountsSeeder())->run();
+        (new InventorySeeder())->run();
+
+        $receipt = StockOperationType::query()->where('code', 'incoming')->firstOrFail();
+        $this->stockLocationId = (int) $receipt->default_dest_location_id;
+        $this->vendorLocationId = (int) $receipt->default_source_location_id;
+    }
+
+    private function coal(float $stock = 0.0): PosProduct
+    {
+        return PosProduct::query()->create([
+            'name' => 'Coal',
+            'price' => 1.0,
+            'cost_price' => 0.5,
+            'stock_on_hand' => $stock,
+            'active' => true,
+        ]);
+    }
+
+    private function quantAt(int $locationId, int $productId): float
+    {
+        return (float) (StockQuant::query()
+            ->where('stock_location_id', $locationId)
+            ->where('product_id', $productId)
+            ->value('quantity') ?? 0.0);
+    }
+
+    private function draftBill(PosProduct $product, float $qty, float $unitCost, bool $stockPurchase = true): Purchase
+    {
+        $purchase = Purchase::query()->create([
+            'date' => '2026-06-08',
+            'is_stock_purchase' => $stockPurchase,
+        ]);
+        $purchase->lines()->create([
+            'pos_product_id' => $product->id,
+            'description' => 'Coal',
+            'quantity' => $qty,
+            'unit_cost' => $unitCost,
+        ]);
+
+        return $purchase;
+    }
+
+    public function test_confirm_raises_pos_stock_warehouse_stock_and_posts_accounting(): void
+    {
+        $coal = $this->coal(stock: 4.0);
+        $stockBefore = $this->quantAt($this->stockLocationId, (int) $coal->id);
+        $vendorBefore = $this->quantAt($this->vendorLocationId, (int) $coal->id);
+
+        $purchase = $this->draftBill($coal, qty: 10.0, unitCost: 0.5);
+        app(PurchaseConfirmer::class)->confirm($purchase);
+
+        // 1) POS stock.
+        $this->assertSame(14.0, (float) $coal->fresh()?->stock_on_hand);
+
+        // 2) Warehouse stock — Stock location up 10, Vendor location down 10.
+        $this->assertSame($stockBefore + 10.0, $this->quantAt($this->stockLocationId, (int) $coal->id));
+        $this->assertSame($vendorBefore - 10.0, $this->quantAt($this->vendorLocationId, (int) $coal->id));
+
+        // 3) Accounting — a posted entry: Dr Inventory 5.00 / Cr A/P 5.00.
+        $purchase->refresh();
+        $this->assertTrue($purchase->state === PurchaseState::Confirmed);
+        $this->assertSame(5.0, (float) $purchase->total);
+
+        $entry = JournalEntry::query()->where('reference', $purchase->reference)->firstOrFail();
+        $this->assertTrue($entry->isPosted());
+
+        $inventory = Account::byCode('1200');
+        $payable = Account::byCode('2010');
+        $this->assertNotNull($inventory);
+        $this->assertNotNull($payable);
+
+        $this->assertSame(5.0, (float) $entry->items()->where('account_id', $inventory->id)->sum('debit'));
+        $this->assertSame(5.0, (float) $entry->items()->where('account_id', $payable->id)->sum('credit'));
+    }
+
+    public function test_confirm_is_idempotent(): void
+    {
+        $coal = $this->coal(stock: 0.0);
+        $purchase = $this->draftBill($coal, qty: 10.0, unitCost: 0.5);
+
+        $confirmer = app(PurchaseConfirmer::class);
+        $confirmer->confirm($purchase);
+        $confirmer->confirm($purchase->fresh() ?? $purchase); // second call — no double count
+
+        $this->assertSame(10.0, (float) $coal->fresh()?->stock_on_hand);
+        $this->assertSame(1, JournalEntry::query()->where('reference', $purchase->reference)->count());
+    }
+
+    public function test_non_stock_purchase_debits_expense_not_inventory(): void
+    {
+        $coal = $this->coal(stock: 0.0);
+        $purchase = $this->draftBill($coal, qty: 4.0, unitCost: 2.0, stockPurchase: false);
+
+        app(PurchaseConfirmer::class)->confirm($purchase);
+
+        $entry = JournalEntry::query()->where('reference', $purchase->reference)->firstOrFail();
+        $expense = Account::byCode('5010');
+        $inventory = Account::byCode('1200');
+        $this->assertNotNull($expense);
+        $this->assertNotNull($inventory);
+
+        $this->assertSame(8.0, (float) $entry->items()->where('account_id', $expense->id)->sum('debit'));
+        $this->assertSame(0.0, (float) $entry->items()->where('account_id', $inventory->id)->sum('debit'));
+    }
+
+    public function test_form_confirm_button_syncs_stock_end_to_end(): void
+    {
+        $coal = $this->coal(stock: 2.0);
+
+        Livewire::test(PurchaseForm::class)
+            ->set('form.date', '2026-06-08')
+            ->set('lines.0.pos_product_id', (int) $coal->id)
+            ->set('lines.0.quantity', 7)
+            ->set('lines.0.unit_cost', 0.5)
+            ->call('confirm')
+            ->assertSet('state', 'confirmed');
+
+        $this->assertSame(9.0, (float) $coal->fresh()?->stock_on_hand);
+        $this->assertSame(1, Purchase::query()->where('state', 'confirmed')->count());
+    }
+}

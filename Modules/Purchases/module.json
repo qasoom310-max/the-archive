@@ -1,0 +1,18 @@
+{
+    "name": "purchases",
+    "display_name": "Purchases",
+    "summary": "Vendor bills that receive stock and post to accounting in one step",
+    "description": "Record a purchase from a vendor as a bill with line items. Confirming the bill raises POS product stock, posts a warehouse receipt move into Inventory (keeping both stock figures in sync), and books the matching accounting entry (Dr Inventory / Cr Accounts Payable) automatically.",
+    "version": "1.0.0",
+    "author": "OpenERP",
+    "category": "Inventory",
+    "icon": "archive-box",
+    "application": true,
+    "auto_install": false,
+    "depends": ["base", "contacts", "pos", "inventory", "accounting"],
+    "providers": ["Modules\\Purchases\\Providers\\PurchasesServiceProvider"],
+    "models": [
+        "Modules\\Purchases\\Models\\Purchase"
+    ],
+    "sequence": 25
+}

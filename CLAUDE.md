@@ -532,6 +532,7 @@ Keep this table current — it is how state survives across sessions.
 | 13 | **Translatable data**: `spatie/laravel-translatable` + engine `translatable: true` arch flag + Odoo-style EN/AR pills in FormView + `PosProduct.name` and `PosCategory.name` opted in | ✅ DONE (POS Product + Category names). Follow-ups: `Partner.name`, add `description` columns then opt them in |
 | 14 | **Accounting**: double-entry COA + balanced journal entries (draft→posted) + sequence-generated numbers + auto-post on POS sale & purchase invoice + Trial Balance / P&L / Balance Sheet | ✅ Backend (schema/models/services/listeners/seeder). Follow-ups: Livewire screens (statements pages, journal-line inline editor), bank reconciliation, taxes module, manual-entry form, fixed-asset depreciation |
 | 15 | **Kitchen Display System (KDS)**: per-category station routing (`kitchen` / `shisha`), `PosOrderPaid` listener stamps `prep_status=pending` on routed lines, 3-column kanban screen polling every 5s (`/app/pos/kitchen/{station}`), single-tap state machine (Pending → Preparing → Ready → Completed), late-ticket flash, Web Audio ping + green-flash on new arrivals | ✅ DONE |
+| 16 | **Purchases** (`Modules/Purchases/`): vendor bills with line items; **Confirm** atomically raises POS `stock_on_hand`, posts an Inventory receipt move (Vendor → Stock, updating `stock_quants` keyed by the same product id) AND books the accounting entry (Dr Inventory/Expense · Cr A/P) via `PurchaseInvoiceConfirmed` → the pre-existing `RecordPurchaseInJournal` listener. Custom master/detail Livewire editor; engine list | ✅ DONE |
 
 **Phase 8 — Settings (where things live):**
 
@@ -700,7 +701,7 @@ DB stores `decimal(12,2)` and all currencies now display at ≤ 2 decimals (DJF/
 | Reports | `Modules\Accounting\Services\FinancialReports` — `trialBalance(from?,to?,includeZero=false)` (joined COA × posted items, grouped by account), `profitAndLoss(from?,to?)` (income − expense + net), `balanceSheet(asOf?)` (assets / liabilities / equity + **retained-earnings carry-forward** so Assets = Liabilities + Equity actually balances after the first period closes; includes `is_balanced` self-check), `accountLedger(Account,from?,to?)` (per-line drill-down with running balance — sign-aware per the account's `normalBalance()`). All driver-portable DB-level aggregates; only posted entries count |
 | Translatable name lookup | `accounts.name` is JSON envelope (Spatie); `FinancialReports::translatedName()` decodes the raw column value for the active locale at the query layer (DB raw aggregates can't go through Eloquent accessors). Falls back to `en` then first available key then raw |
 | Auto-posting (POS) | `Modules\Accounting\Listeners\RecordPosSaleInJournal` — listens to `PosOrderPaid`, books `Dr Cash {total} / Cr Sales Income {subtotal} / Cr Sales Tax Payable {tax_total}` (the tax leg only when `accounting.accounts.sales_tax_payable` is configured; otherwise the full gross hits Sales Income). Errors are swallowed and logged to the order's Chatter — a missing COA row must NEVER break checkout (same convention as the WhatsApp listener) |
-| Auto-posting (purchase) | `Modules\Accounting\Listeners\RecordPurchaseInJournal::handle(object $event)` — event-shape agnostic via duck-typing (`property_exists($event, 'invoice')`). Books `Dr Inventory|Purchase Expense {total} / Cr AP {total}` based on `$invoice->is_stock_purchase`. The Purchases module doesn't exist yet — when it lands, fire `Modules\Purchases\Events\PurchaseInvoiceConfirmed` (with the @phpstan-type shape on the listener) and wire `Event::listen(...)` in `AccountingServiceProvider::boot()`. Direct `record(object $invoice)` entry point is already test-friendly |
+| Auto-posting (purchase) | `Modules\Accounting\Listeners\RecordPurchaseInJournal::handle(object $event)` — event-shape agnostic via duck-typing (`property_exists($event, 'invoice')`). Books `Dr Inventory|Purchase Expense {total} / Cr AP {total}` based on `$invoice->is_stock_purchase`. **Now live** — the Phase 16 Purchases module fires `Modules\Purchases\Events\PurchaseInvoiceConfirmed` (the `Purchase` model satisfies the `@phpstan-type Invoice` shape), wired in `AccountingServiceProvider::boot()` by the string event name. Direct `record(object $invoice)` entry point is also test-friendly |
 | Config | `Modules/Accounting/config/accounting.php` — code→meaning mapping (`accounts.cash='1010'`, `bank='1020'`, `accounts_receivable='1100'`, `inventory='1200'`, `accounts_payable='2010'`, `sales_tax_payable=''` (off), `sales_income='4010'`, `purchase_expense='5010'`) + sequence prefixes (`misc=MISC`, `sales=SALE`, `purchase=PURC`). Merged via `mergeConfigFrom` in the provider; override per-project by publishing to `config/accounting.php`. **No `env()` calls** — the file sits outside the project `config/` dir, larastan rule `noEnvCallsOutsideOfConfig` forbids it there |
 | Seeder | `Database\Seeders\ChartOfAccountsSeeder` (lives at the root `database/seeders/` — project convention — NOT under `Modules/Accounting/`; PSR-4 only maps `Database\Seeders\` → root `database/seeders/`, and Linux is case-sensitive on autoload paths). 13 accounts across all 5 types with EN/AR translations, parent groupings (1000 Assets / 2000 Liabilities / 3000 Equity / 4000 Income / 5000 Expense), idempotent (two-pass: insert then wire parent_id), `Schema::hasTable('accounts')` guarded so it's a no-op pre-install. Manual run — NOT in default chain |
 
@@ -751,6 +752,35 @@ sauce while the steak rests"), per-line cashier notes pinned to specific
 preparation steps, KDS audit trail / replay, expediter view (one screen
 showing all stations at once), runner mobile screen, customer-facing screen
 showing ticket status, persisting `audio enabled` across browser sessions.
+
+**Phase 16 — Purchases module (`Modules/Purchases/`, shipped 2026-06-08):**
+
+| Concern | Location |
+|---|---|
+| Manifest | `Modules/Purchases/module.json` (`application:true`, `depends:[base,contacts,pos,inventory,accounting]`, models: Purchase, sequence 25) — depends on all four so the full receive-stock-and-post flow always has its pieces |
+| Schema | `purchases` (header: `reference` unique/auto `BILL/<Y>/<id>`, `partner_id`/`user_id` logical refs, `date`, `state`, `is_stock_purchase`, `total`, `notes`, `confirmed_at`) + `purchase_lines` (`purchase_id` FK cascade, `pos_product_id` **logical ref** — the key that links both stock legs, `description`, `quantity`, `unit_cost`, `subtotal`) |
+| Enum | `Modules\Purchases\Enums\PurchaseState` — Draft / Confirmed / Cancelled + `label()` (translate at call-site) + `color()` |
+| Models | `Purchase` (`DefinesIrModel + Chatterable`; columns match the Accounting listener's `@phpstan-type Invoice` shape so the model IS the event payload; `recomputeTotal()`, `created` hook fills `reference`) · `PurchaseLine` (`saving` hook derives `subtotal = qty × unit_cost`) |
+| Confirmer | `Modules\Purchases\Services\PurchaseConfirmer::confirm()` — the 3-way sync, idempotent (no-op once Confirmed). In **one DB transaction**: flip state + per line `raisePosStock()` (POS `stock_on_hand += qty`) and `receiveIntoWarehouse()` (create a Vendor→Stock `StockMove` keyed by `pos_product_id`, then `process()` → updates `stock_quants`). AFTER the txn commits, fires `PurchaseInvoiceConfirmed`; accounting failure is swallowed → logged to the bill's Chatter (a missing COA must never undo a received bill — same convention as the POS receipt/journal listeners). Inventory leg is defensive: if the warehouse topology isn't seeded it logs a skip and POS stock still syncs |
+| Event → Accounting | `Modules\Purchases\Events\PurchaseInvoiceConfirmed(Purchase $invoice)`; wired in `AccountingServiceProvider::boot()` via the **string** event name (no compile-time dep on Purchases). `RecordPurchaseInJournal` books Dr Inventory (`is_stock_purchase`) or Purchase Expense · Cr A/P |
+| UI | `Modules\Purchases\Livewire\Purchases` (engine list wrapper) + `PurchaseForm` (**custom** master/detail line editor — vendor/date/reference/notes header, repeatable product rows with live subtotal + total, **Save draft** + **Confirm**; a Confirmed bill is read-only with a green "stock + accounting updated" banner). Picking a product prefills description + unit cost from `cost_price` |
+| Routes | `Modules/Purchases/routes/web.php` → `/app/purchases` (redirect), `/app/purchases/purchase[/new\|/{id}]` (all `auth`). List rows open the custom form |
+| Seeder | `Database\Seeders\PurchaseSeeder` (root `database/seeders/` per convention) — `purchase_user` group + `purchases.purchase` ACL (RWC, no unlink) + a demo "Gulf Coal & Supplies" vendor. Idempotent; deliberately creates **no** confirmed bill (would mutate stock as a seed side effect). Manual run, not in default chain |
+| Tests | `tests/Feature/PurchaseConfirmTest.php` (4) — confirm raises POS stock + warehouse quant (Stock up, Vendor down) + posts a balanced journal entry; idempotent (single entry, no double count); `is_stock_purchase=false` debits Expense not Inventory; end-to-end `PurchaseForm` Confirm. setUp re-registers `AccountingServiceProvider` so the event listener is wired (the "module listeners register on the boot AFTER install" gap) |
+
+Install (auto-pulls contacts + pos + inventory + accounting): `php artisan module:install
+purchases`, then `php artisan db:seed --class="Database\Seeders\PurchaseSeeder"`. For both
+stock legs + accounting to actually post, the warehouse topology (`InventorySeeder`) and
+Chart of Accounts (`ChartOfAccountsSeeder`) must be seeded. The buy-coal flow: app-switcher →
+Purchases → New → pick vendor + add a coal line (qty × unit cost) → **Confirm** → POS tile
+count and Inventory on-hand both rise, and a Dr Inventory / Cr A/P entry posts.
+
+**Deliberately OUT of scope this increment** (say so if asked, offer as follow-ups):
+editing/un-confirming a confirmed bill (reversal/credit note), partial receipts (receive less
+than ordered), vendor price lists / purchase orders (request-for-quote → PO → bill), landed
+costs, multi-warehouse destination picker (always receives into the Receipt op type's Stock
+location), per-bill currency (uses the global default), and paying the bill (A/P settlement —
+the credit sits in Accounts Payable, no payment/bank reconciliation yet).
 
 **Profile self-service (shipped 2026-05-21):**
 

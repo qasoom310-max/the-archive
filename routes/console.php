@@ -17,18 +17,26 @@ Artisan::command('inspire', function () {
 //
 // `--stop-when-empty` exits cleanly once the queue is drained so the
 // process doesn't outlive its cron slot. `--max-time=50` caps wall time
-// at 50s so two ticks can never overlap (cron fires every 60s). Without
-// `withoutOverlapping()` two slow jobs could otherwise stack workers;
-// the lock guarantees only one drainer is live at a time.
+// at 50s so a worker can't meaningfully outlive its 60s cron slot.
 //
-// Symptom of NOT having this wired: queued WhatsApp messages
+// DELIBERATELY NO `withoutOverlapping()` here. We learned the hard way
+// (prod queue frozen 2026-05-26 → 2026-06-09): combined with
+// `runInBackground()`, the host can kill the detached worker AFTER
+// `schedule:run` returns but BEFORE the chained `schedule:finish`
+// releases the overlap mutex — orphaning the lock. Once orphaned, every
+// subsequent `schedule:run` (cron AND manual) silently skips `queue:work`,
+// and the stuck mutex outlived even its 24h TTL (sat stuck for 14 days).
+// `--max-time=50` already bounds the worker, and the `database` queue
+// driver reserves rows so a brief two-worker overlap can't double-process
+// a job — so overlap protection buys us nothing but this failure mode.
+//
+// Symptom of NOT having a worker wired at all: queued WhatsApp messages
 // (`whatsapp_messages_log.status='queued'`) never advance to `sent`,
 // even though the order Chatter shows the send was queued — the actual
 // HTTP POST to Meta's Graph API lives in `SendWhatsAppMessage`, which
 // needs a worker to dequeue it.
 Schedule::command('queue:work --stop-when-empty --max-time=50')
     ->everyMinute()
-    ->withoutOverlapping()
     ->runInBackground();
 
 // Daily housekeeping: drop rendered WhatsApp receipt PNGs older than

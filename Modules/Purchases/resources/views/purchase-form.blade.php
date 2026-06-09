@@ -41,7 +41,19 @@
 
         <div class="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
             <div>
-                <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Vendor') }}</label>
+                <div class="mb-1 flex items-center justify-between gap-2">
+                    <label class="block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Vendor') }}</label>
+                    @unless ($isConfirmed)
+                        @if ($canWrite || $canCreate)
+                            {{-- Inline vendor create — no trip to Contacts. --}}
+                            <button type="button" wire:click="openVendorModal"
+                                class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-primary-700 hover:bg-primary-50">
+                                <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
+                                {{ __('New vendor') }}
+                            </button>
+                        @endif
+                    @endunless
+                </div>
                 <select wire:model="form.partner_id" @disabled($isConfirmed) class="o-input">
                     <option value="">—</option>
                     @foreach ($vendors as $vendor)
@@ -146,4 +158,50 @@
             <textarea wire:model="form.notes" rows="2" @disabled($isConfirmed) class="o-input resize-none"></textarea>
         </div>
     </form>
+
+    {{-- Inline "new vendor" modal. Lives OUTSIDE the bill <form> so its inputs
+         and submit can't trip the outer form. Saving creates a Partner and
+         selects it on the bill. --}}
+    @if ($addingVendor)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4"
+            x-data x-on:keydown.escape.window="$wire.closeVendorModal()"
+            x-init="$nextTick(() => $refs.vendorName && $refs.vendorName.focus())">
+            <div class="absolute inset-0 bg-chrome-900/40" wire:click="closeVendorModal"></div>
+            <div class="relative w-full max-w-md rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5">
+                <div class="mb-4 flex items-center justify-between">
+                    <h3 class="text-sm font-semibold text-chrome-800">{{ __('New vendor') }}</h3>
+                    <button type="button" wire:click="closeVendorModal" class="text-chrome-400 transition hover:text-chrome-700" title="{{ __('Close') }}">
+                        <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                    </button>
+                </div>
+                <form wire:submit.prevent="saveVendor" class="space-y-3">
+                    <div>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Name') }} <span class="text-red-500">*</span></label>
+                        <input type="text" wire:model="newVendor.name" x-ref="vendorName"
+                            placeholder="{{ __('Vendor name') }}" class="o-input">
+                        @error('newVendor.name') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Phone') }}</label>
+                            <input type="text" wire:model="newVendor.phone" class="o-input">
+                            @error('newVendor.phone') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Email') }}</label>
+                            <input type="email" wire:model="newVendor.email" class="o-input">
+                            @error('newVendor.email') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2 pt-2">
+                        <button type="button" wire:click="closeVendorModal"
+                            class="rounded-md px-3 py-1.5 text-sm font-medium text-chrome-600 ring-1 ring-chrome-300 hover:bg-chrome-50">
+                            {{ __('Cancel') }}
+                        </button>
+                        <button type="submit" class="o-btn-primary">{{ __('Add vendor') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
 </div>

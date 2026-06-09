@@ -49,6 +49,12 @@ final class PurchaseForm extends Component
 
     public bool $justConfirmed = false;
 
+    /** Inline "new vendor" modal toggle. */
+    public bool $addingVendor = false;
+
+    /** @var array<string, string> */
+    public array $newVendor = ['name' => '', 'phone' => '', 'email' => ''];
+
     public function mount(?int $id = null): void
     {
         $this->id = $id;
@@ -132,6 +138,64 @@ final class PurchaseForm extends Component
         if ($this->lines === []) {
             $this->lines = [$this->emptyLine()];
         }
+    }
+
+    /**
+     * Open the inline "new vendor" modal — a quick Partner create so the buyer
+     * doesn't have to leave the bill and go to Contacts.
+     */
+    public function openVendorModal(): void
+    {
+        if ($this->state === PurchaseState::Confirmed->value) {
+            return;
+        }
+
+        $this->newVendor = ['name' => '', 'phone' => '', 'email' => ''];
+        $this->resetValidation();
+        $this->addingVendor = true;
+    }
+
+    public function closeVendorModal(): void
+    {
+        $this->addingVendor = false;
+    }
+
+    /**
+     * Persist the inline vendor as a Partner and select it on the bill. Gated
+     * by the same purchase-create permission that gates the form itself (so the
+     * buyer who may raise a bill may also add its vendor reference).
+     */
+    public function saveVendor(): void
+    {
+        if ($this->state === PurchaseState::Confirmed->value) {
+            return;
+        }
+
+        app(AccessControl::class)->authorize(Auth::user(), 'purchases.purchase', Permission::Create);
+
+        $name = trim((string) ($this->newVendor['name'] ?? ''));
+        $phone = trim((string) ($this->newVendor['phone'] ?? ''));
+        $email = trim((string) ($this->newVendor['email'] ?? ''));
+        $this->newVendor = ['name' => $name, 'phone' => $phone, 'email' => $email];
+
+        // `email` only fires when one was typed — an empty box stays optional
+        // (the rule on '' would otherwise reject a blank email).
+        $this->validate([
+            'newVendor.name' => ['required', 'string', 'max:255'],
+            'newVendor.phone' => ['nullable', 'string', 'max:50'],
+            'newVendor.email' => [$email === '' ? 'nullable' : 'email', 'max:255'],
+        ]);
+
+        $vendor = Partner::query()->create([
+            'name' => $name,
+            'phone' => $phone === '' ? null : $phone,
+            'email' => $email === '' ? null : $email,
+            'is_company' => true,
+        ]);
+
+        $this->form['partner_id'] = (string) $vendor->getKey();
+        $this->newVendor = ['name' => '', 'phone' => '', 'email' => ''];
+        $this->addingVendor = false;
     }
 
     /**

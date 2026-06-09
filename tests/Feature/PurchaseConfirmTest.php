@@ -13,6 +13,7 @@ use Livewire\Livewire;
 use Modules\Accounting\Models\Account;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Accounting\Providers\AccountingServiceProvider;
+use Modules\Contacts\Models\Partner;
 use Modules\Inventory\Models\StockOperationType;
 use Modules\Inventory\Models\StockQuant;
 use Modules\Pos\Models\PosProduct;
@@ -169,5 +170,47 @@ final class PurchaseConfirmTest extends TestCase
 
         $this->assertSame(9.0, (float) $coal->fresh()?->stock_on_hand);
         $this->assertSame(1, Purchase::query()->where('state', 'confirmed')->count());
+    }
+
+    public function test_inline_vendor_create_makes_a_partner_and_selects_it(): void
+    {
+        Livewire::test(PurchaseForm::class)
+            ->call('openVendorModal')
+            ->assertSet('addingVendor', true)
+            ->set('newVendor.name', 'Gulf Coal & Supplies')
+            ->set('newVendor.phone', '+973 1700 0000')
+            ->set('newVendor.email', 'sales@gulfcoal.test')
+            ->call('saveVendor')
+            ->assertHasNoErrors()
+            ->assertSet('addingVendor', false);
+
+        $vendor = Partner::query()->where('name', 'Gulf Coal & Supplies')->firstOrFail();
+        $this->assertTrue((bool) $vendor->is_company);
+        $this->assertSame('sales@gulfcoal.test', $vendor->email);
+
+        // The new vendor is selected on the bill without a trip to Contacts.
+        Livewire::test(PurchaseForm::class)
+            ->call('openVendorModal')
+            ->set('newVendor.name', 'Second Vendor')
+            ->call('saveVendor')
+            ->assertSet('form.partner_id', (string) Partner::query()->where('name', 'Second Vendor')->value('id'));
+    }
+
+    public function test_inline_vendor_requires_a_name_and_validates_email(): void
+    {
+        Livewire::test(PurchaseForm::class)
+            ->call('openVendorModal')
+            ->set('newVendor.name', '')
+            ->call('saveVendor')
+            ->assertHasErrors(['newVendor.name' => 'required']);
+
+        Livewire::test(PurchaseForm::class)
+            ->call('openVendorModal')
+            ->set('newVendor.name', 'Has Bad Email')
+            ->set('newVendor.email', 'not-an-email')
+            ->call('saveVendor')
+            ->assertHasErrors(['newVendor.email']);
+
+        $this->assertSame(0, Partner::query()->where('name', 'Has Bad Email')->count());
     }
 }

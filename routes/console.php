@@ -62,3 +62,35 @@ Schedule::call(function (): void {
 
     \Modules\Pos\Models\PosCustomerDiscount::deactivateLapsed();
 })->daily()->name('expire-customer-discounts')->withoutOverlapping();
+
+// Automated daily sales + stock PDF report. The cafe trades noon → 6 AM, so
+// this fires at 6:10 AM (in the company timezone) and emails the report for the
+// night that just closed (yesterday 12:00 → today 06:00) to the admin-managed
+// recipient list. The timezone is read once at schedule-build time (guarded so
+// it can't fail before the settings table exists); the window math + send are
+// guarded again inside the closure so it no-ops with no POS / no recipients.
+$reportTimezone = (string) config('app.timezone');
+
+try {
+    if (\Illuminate\Support\Facades\Schema::hasTable('ir_config_parameter')) {
+        $companyTz = \App\Erp\Settings\Setting::get('company.timezone');
+        if (is_string($companyTz) && $companyTz !== '') {
+            $reportTimezone = $companyTz;
+        }
+    }
+} catch (\Throwable) {
+    // Settings unavailable (e.g. pre-migration) — fall back to app timezone.
+}
+
+Schedule::call(function (): void {
+    if (! \Illuminate\Support\Facades\Schema::hasTable('pos_orders')
+        || ! \Illuminate\Support\Facades\Schema::hasTable('report_recipients')) {
+        return;
+    }
+
+    try {
+        app(\Modules\Pos\Services\DailyReport::class)->sendLastClosedReport();
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::error('Daily report send failed: ' . $e->getMessage());
+    }
+})->dailyAt('06:10')->timezone($reportTimezone)->name('daily-pos-report')->withoutOverlapping();

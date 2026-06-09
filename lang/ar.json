@@ -15,6 +15,7 @@
     "Uploading…": "جارٍ الرفع…",
     "The image upload expired. Please re-select the file and try again.": "انتهت صلاحية رفع الصورة. يرجى إعادة اختيار الملف والمحاولة مرة أخرى.",
     "Accepted: JPG, PNG, GIF, WebP, AVIF, HEIC, BMP · max 4 MB": "الصيغ المقبولة: JPG, PNG, GIF, WebP, AVIF, HEIC, BMP · الحد الأقصى 4 ميجابايت",
+    "Accepted: PDF, JPG, PNG, WebP · max 8 MB": "الصيغ المقبولة: PDF, JPG, PNG, WebP · الحد الأقصى 8 ميجابايت",
     "Upload failed.": "فشل الرفع.",
 
     "Dashboard": "لوحة التحكم",

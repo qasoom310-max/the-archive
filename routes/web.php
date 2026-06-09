@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\FormFileUploadController;
 use App\Http\Controllers\FormImageUploadController;
 use App\Http\Controllers\ProfileEmailVerificationController;
 use App\Livewire\Auth\Login;
@@ -48,6 +49,12 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/form/upload-image', FormImageUploadController::class)
         ->middleware('throttle:30,1')
         ->name('form.upload-image');
+
+    // Document sibling of the image upload — accepts PDF + images for
+    // FormView `file` widget fields. Same throttle (disk-fill DoS guard).
+    Route::post('/form/upload-file', FormFileUploadController::class)
+        ->middleware('throttle:30,1')
+        ->name('form.upload-file');
 
     // Self-service profile settings — accessible from the user dropdown
     // in the topbar. Role display is read-only here; the admin user

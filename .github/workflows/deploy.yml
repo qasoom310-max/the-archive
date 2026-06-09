@@ -207,6 +207,7 @@ jobs:
             --exclude='storage/app/public/partners/' \
             --exclude='storage/app/public/company/' \
             --exclude='storage/app/public/whatsapp-receipts/' \
+            --exclude='storage/app/public/accounts/' \
             --exclude='storage/logs/' \
             --exclude='storage/framework/cache/data/' \
             --exclude='storage/framework/sessions/' \
@@ -247,9 +248,11 @@ jobs:
              php artisan migrate --force && \
              php artisan migrate --path=Modules/Pos/database/migrations --force && \
              php artisan migrate --path=Modules/WhatsApp/database/migrations --force && \
+             php artisan migrate --path=Modules/Accounting/database/migrations --force && \
              php artisan db:seed --class='Database\\Seeders\\SettingSeeder' --force && \
              php artisan db:seed --class='Database\\Seeders\\PosStaffSeeder' --force && \
              php artisan module:resync pos && \
+             php artisan module:resync accounting && \
              php artisan optimize:clear && \
              php artisan config:cache && \
              php artisan route:cache && \

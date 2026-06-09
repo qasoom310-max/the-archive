@@ -219,7 +219,7 @@ final readonly class ViewArch
             }
 
             $widget = self::str($entry, 'widget') ?? 'text';
-            $allowed = ['text', 'textarea', 'email', 'tel', 'number', 'checkbox', 'select', 'date', 'datetime', 'image', 'color'];
+            $allowed = ['text', 'textarea', 'email', 'tel', 'number', 'checkbox', 'select', 'date', 'datetime', 'image', 'file', 'color'];
 
             $options = [];
             if (isset($entry['options']) && is_array($entry['options'])) {

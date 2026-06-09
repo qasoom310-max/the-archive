@@ -10,7 +10,7 @@ namespace App\Erp\Views;
 final readonly class FormFieldDef
 {
     /**
-     * @param 'text'|'textarea'|'email'|'tel'|'number'|'checkbox'|'select'|'date'|'datetime'|'image'|'color' $widget
+     * @param 'text'|'textarea'|'email'|'tel'|'number'|'checkbox'|'select'|'date'|'datetime'|'image'|'file'|'color' $widget
      * @param list<array{value: string, label: string}> $options
      * @param bool $translatable  When true the field renders with Odoo-style
      *                            language pills (EN / AR) and saves via
@@ -34,6 +34,16 @@ final readonly class FormFieldDef
     public function isImage(): bool
     {
         return $this->widget === 'image';
+    }
+
+    /**
+     * A document upload (PDF/image) handled by the direct
+     * FormFileUploadController — its value lives in FormView's `$filePaths`
+     * buffer, not in `$form`, exactly like {@see isImage()}.
+     */
+    public function isFile(): bool
+    {
+        return $this->widget === 'file';
     }
 
     /**

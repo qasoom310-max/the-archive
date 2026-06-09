@@ -35,6 +35,10 @@ use Spatie\Translatable\HasTranslations;
  * @property int|null $parent_id
  * @property bool $is_reconcilable
  * @property bool $active
+ * @property string|null $document_path  Relative path on the `public` disk to an
+ *                                       attached PDF/image (invoice, receipt, photo).
+ * @property float|null $cost_per_unit
+ * @property int|null $units
  */
 final class Account extends Model implements DefinesIrModel, TranslatableModel
 {
@@ -43,7 +47,7 @@ final class Account extends Model implements DefinesIrModel, TranslatableModel
     protected $table = 'accounts';
 
     /** @var list<string> */
-    protected $fillable = ['code', 'name', 'type', 'parent_id', 'is_reconcilable', 'active'];
+    protected $fillable = ['code', 'name', 'type', 'parent_id', 'is_reconcilable', 'active', 'document_path', 'cost_per_unit', 'units'];
 
     /** @var list<string> */
     public array $translatable = ['name'];
@@ -58,6 +62,8 @@ final class Account extends Model implements DefinesIrModel, TranslatableModel
             'is_reconcilable' => 'boolean',
             'active' => 'boolean',
             'parent_id' => 'integer',
+            'cost_per_unit' => 'float',
+            'units' => 'integer',
         ];
     }
 
@@ -252,6 +258,9 @@ final class Account extends Model implements DefinesIrModel, TranslatableModel
                 new FieldDefinition('parent_id', 'Parent', 'many2one', relation: 'accounting.account', sequence: 40),
                 new FieldDefinition('is_reconcilable', 'Reconcilable', 'boolean', sequence: 50),
                 new FieldDefinition('active', 'Active', 'boolean', sequence: 60),
+                new FieldDefinition('document_path', 'Attachment', 'binary', sequence: 70),
+                new FieldDefinition('cost_per_unit', 'Cost / unit', 'float', sequence: 80),
+                new FieldDefinition('units', 'Number of units', 'integer', sequence: 90),
             ],
             views: [
                 new ViewDefinition('Chart of Accounts', 'list', [
@@ -300,6 +309,9 @@ final class Account extends Model implements DefinesIrModel, TranslatableModel
                         ],
                         ['field' => 'is_reconcilable', 'label' => 'Reconcilable', 'widget' => 'checkbox'],
                         ['field' => 'active', 'label' => 'Active', 'widget' => 'checkbox'],
+                        ['field' => 'cost_per_unit', 'label' => 'Cost / unit', 'widget' => 'number', 'placeholder' => '0.00'],
+                        ['field' => 'units', 'label' => 'Number of units', 'widget' => 'number', 'placeholder' => '0'],
+                        ['field' => 'document_path', 'label' => 'Attachment', 'widget' => 'file', 'help' => 'PDF or image — invoice, receipt or a photo.'],
                     ],
                 ]),
             ],

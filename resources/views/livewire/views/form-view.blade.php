@@ -115,7 +115,7 @@
         @foreach ($fields as $field)
             @php
                 $key = 'form.' . $field->field;
-                $full = in_array($field->widget, ['textarea', 'image'], true);
+                $full = in_array($field->widget, ['textarea', 'image', 'file'], true);
             @endphp
             <div class="{{ $full ? 'sm:col-span-2' : '' }}">
                 <div class="mb-1 flex items-center justify-between gap-2">
@@ -265,6 +265,77 @@
                                 <input type="file" accept="image/*" @change="upload($event)"
                                     class="text-sm text-chrome-600 file:mr-3 file:rounded-md file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm">
                                 <p class="text-xs text-chrome-400">{{ __('Accepted: JPG, PNG, GIF, WebP, AVIF, HEIC, BMP · max 4 MB') }}</p>
+                                <p x-show="busy" class="text-xs text-chrome-400">{{ __('Uploading…') }}</p>
+                                <p x-show="error" x-text="error" class="text-xs text-red-600"></p>
+                            </div>
+                        </div>
+                        @break
+
+                    @case('file')
+                        {{-- Direct synchronous DOCUMENT upload via
+                             FormFileUploadController (PDF + images). Same Alpine
+                             pattern as the image widget, but writes the stored
+                             path to $wire.filePaths.<field> and shows the current
+                             document as a "view" link rather than a thumbnail. --}}
+                        @php
+                            $currentFile = $record->getAttribute($field->field);
+                            $fileBucket = $record->getTable();
+                            $fileUrl = $currentFile
+                                ? \Illuminate\Support\Facades\Storage::disk('public')->url($currentFile)
+                                : '';
+                            $fileName = $currentFile ? basename((string) $currentFile) : '';
+                        @endphp
+                        <div class="flex flex-wrap items-center gap-4"
+                             x-data="{
+                                 busy: false,
+                                 error: '',
+                                 fileUrl: @js($fileUrl),
+                                 fileName: @js($fileName),
+                                 async upload(e) {
+                                     const file = e.target.files[0];
+                                     if (!file) return;
+                                     this.busy = true;
+                                     this.error = '';
+                                     const data = new FormData();
+                                     data.append('file', file);
+                                     data.append('bucket', @js($fileBucket));
+                                     try {
+                                         const r = await fetch(@js(route('form.upload-file')), {
+                                             method: 'POST',
+                                             headers: {
+                                                 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                                                 'Accept': 'application/json',
+                                             },
+                                             body: data,
+                                             credentials: 'same-origin',
+                                         });
+                                         if (!r.ok) {
+                                             const j = await r.json().catch(() => ({}));
+                                             this.error = (j.errors && j.errors.file && j.errors.file[0]) || j.message || (@js(__('Upload failed.')));
+                                             return;
+                                         }
+                                         const j = await r.json();
+                                         this.fileUrl = j.url;
+                                         this.fileName = j.name;
+                                         await $wire.set(@js('filePaths.' . $field->field), j.path);
+                                     } catch (err) {
+                                         this.error = err.message || (@js(__('Upload failed.')));
+                                     } finally {
+                                         this.busy = false;
+                                     }
+                                 },
+                             }">
+                            <template x-if="fileUrl">
+                                <a :href="fileUrl" target="_blank" rel="noopener"
+                                    class="inline-flex items-center gap-2 rounded-md bg-chrome-100 px-3 py-1.5 text-sm text-chrome-700 hover:bg-chrome-200">
+                                    <svg class="size-4 shrink-0 text-chrome-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 0 1 2-2h5.586A2 2 0 0 1 13 2.586L15.414 5A2 2 0 0 1 16 6.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Zm7 0v3a1 1 0 0 0 1 1h3l-4-4Z" clip-rule="evenodd"/></svg>
+                                    <span x-text="fileName" class="max-w-[12rem] truncate"></span>
+                                </a>
+                            </template>
+                            <div class="flex flex-col gap-1">
+                                <input type="file" accept=".pdf,image/*" @change="upload($event)"
+                                    class="text-sm text-chrome-600 file:me-3 file:rounded-md file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm">
+                                <p class="text-xs text-chrome-400">{{ __('Accepted: PDF, JPG, PNG, WebP · max 8 MB') }}</p>
                                 <p x-show="busy" class="text-xs text-chrome-400">{{ __('Uploading…') }}</p>
                                 <p x-show="error" x-text="error" class="text-xs text-red-600"></p>
                             </div>

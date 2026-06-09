@@ -71,6 +71,16 @@ final class FormView extends Component
     public array $imagePaths = [];
 
     /**
+     * Direct-upload destination paths set by FormFileUploadController for
+     * `file` (document) widget fields: `[<field> => 'accounts/abc.pdf']`.
+     * Same mechanism as {@see $imagePaths} but for PDFs/documents — written
+     * to the record in `save()`; empty string means "no change".
+     *
+     * @var array<string, string>
+     */
+    public array $filePaths = [];
+
+    /**
      * Per-field translation buffer for fields marked `translatable: true`.
      * Shape: `[<field> => [<locale> => <string>]]`. Holds the full set of
      * translations across pill switches so values in an unfocused locale
@@ -273,6 +283,7 @@ final class FormView extends Component
             ! str_starts_with($name, 'form.')
             && ! str_starts_with($name, 'translations.')
             && ! str_starts_with($name, 'imagePaths.')
+            && ! str_starts_with($name, 'filePaths.')
         ) {
             return;
         }
@@ -333,7 +344,9 @@ final class FormView extends Component
         }
 
         foreach ($this->arch->formFields as $field) {
-            if ($field->isImage()) {
+            // Image + file widgets carry their value in the dedicated
+            // $imagePaths / $filePaths buffers (written below), never $form.
+            if ($field->isImage() || $field->isFile()) {
                 continue;
             }
 
@@ -371,6 +384,14 @@ final class FormView extends Component
         // Alpine in the Blade. Empty string from the Alpine wrapper means
         // "no change" (vs an explicit clear, which isn't a feature yet).
         foreach ($this->imagePaths as $attribute => $path) {
+            if ($path !== '') {
+                $record->setAttribute($attribute, $path);
+            }
+        }
+
+        // Document (`file` widget) upload paths from FormFileUploadController.
+        // Same contract: empty string = "no change".
+        foreach ($this->filePaths as $attribute => $path) {
             if ($path !== '') {
                 $record->setAttribute($attribute, $path);
             }
@@ -450,6 +471,13 @@ final class FormView extends Component
                 // the rule alone won't help if php.ini is set lower.
                 $rules['uploads.' . $field->field] = ['nullable', 'mimes:jpg,jpeg,png,gif,webp,bmp,avif,heic,heif', 'max:4096'];
 
+                continue;
+            }
+
+            // `file` (document) widgets upload straight to
+            // FormFileUploadController, which validates server-side — there's
+            // no Livewire-bound value to rule over here.
+            if ($field->isFile()) {
                 continue;
             }
 

@@ -27,7 +27,7 @@
             <div class="sm:col-span-2">
                 <button type="button" wire:click="$toggle('enabled')"
                     class="relative inline-flex h-6 w-11 items-center rounded-full transition
-                        {{ $enabled ? 'bg-primary-600' : 'bg-chrome-300' }}">
+                        {{ $enabled ? 'bg-primary-500' : 'bg-chrome-300' }}">
                     <span class="inline-block size-4 transform rounded-full bg-white transition
                         {{ $enabled ? 'translate-x-6' : 'translate-x-1' }}"></span>
                 </button>

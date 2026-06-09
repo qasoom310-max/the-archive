@@ -44,7 +44,7 @@
                     </div>
                 </div>
             @else
-                {{-- Primary-purple. Opens a phone-entry box; a number with an
+                {{-- Primary brand button. Opens a phone-entry box; a number with an
                      admin-set discount applies it to the order automatically. --}}
                 <button type="button" wire:click="openPhoneEntry"
                     class="o-btn-primary justify-center gap-1.5 text-sm">
@@ -239,7 +239,7 @@
                         <button type="button" wire:click="toggleCondiment({{ $cond->id }})" wire:key="cond-{{ $cond->id }}"
                             class="flex w-full items-center justify-between gap-3 px-5 py-3 text-start transition hover:bg-chrome-50 {{ $isOn ? 'bg-primary-50/60' : '' }}">
                             <span class="flex items-center gap-3">
-                                <span class="flex size-5 items-center justify-center rounded border {{ $isOn ? 'border-primary-600 bg-primary-600 text-white' : 'border-chrome-300 text-transparent' }}">
+                                <span class="flex size-5 items-center justify-center rounded border {{ $isOn ? 'border-primary-400 bg-primary-400 text-chrome-900' : 'border-chrome-300 text-transparent' }}">
                                     <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.704 5.296a1 1 0 0 1 0 1.408l-7.5 7.5a1 1 0 0 1-1.408 0l-3.5-3.5a1 1 0 0 1 1.408-1.408L8.5 12.09l6.796-6.795a1 1 0 0 1 1.408 0Z" clip-rule="evenodd"/></svg>
                                 </span>
                                 <span class="font-medium text-chrome-800">{{ $cond->name }}</span>

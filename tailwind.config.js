@@ -16,19 +16,25 @@ export default {
     theme: {
         extend: {
             colors: {
-                // Odoo 19 signature aubergine/violet brand accent.
+                // Brand accent: bright lemon-yellow (#F5EF1A). Monotonic
+                // light→dark ramp. The bright end (≤400) carries dark text and
+                // backs the chrome (topbar, primary buttons, active chips); the
+                // dark gold/olive end (≥600) stays legible as accent TEXT on
+                // white. 400 is the exact brand colour — use it for solid brand
+                // fills with `text-chrome-900` on top (white text is unreadable
+                // on yellow).
                 primary: {
-                    50: '#f7f4f6',
-                    100: '#ede5ea',
-                    200: '#d9c8d3',
-                    300: '#bfa1b4',
-                    400: '#9f7390',
-                    500: '#875a7b', // Odoo brand
-                    600: '#714b67',
-                    700: '#5d3e55',
-                    800: '#4d3447',
-                    900: '#412d3c',
-                    950: '#241620',
+                    50: '#fefee8',
+                    100: '#fdfbc5',
+                    200: '#fbf690',
+                    300: '#f7ee51',
+                    400: '#f5ef1a', // brand — bright fill, pair with text-chrome-900
+                    500: '#d9c90a',
+                    600: '#a99107', // readable accent text on white
+                    700: '#86730c',
+                    800: '#6b5b10',
+                    900: '#594c13',
+                    950: '#332b08',
                 },
                 // Dense, cool-gray chrome like the Odoo 19 web client.
                 chrome: {

@@ -53,7 +53,7 @@
                                 <button type="button"
                                     wire:click="$set('form.{{ $i }}.value', {{ $row['value'] ? 'false' : 'true' }})"
                                     class="relative inline-flex h-6 w-11 items-center rounded-full transition
-                                        {{ $row['value'] ? 'bg-primary-600' : 'bg-chrome-300' }}">
+                                        {{ $row['value'] ? 'bg-primary-500' : 'bg-chrome-300' }}">
                                     <span class="inline-block size-4 transform rounded-full bg-white transition
                                         {{ $row['value'] ? 'translate-x-6' : 'translate-x-1' }}"></span>
                                 </button>

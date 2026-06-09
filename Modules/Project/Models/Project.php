@@ -135,7 +135,7 @@ final class Project extends Model implements DefinesIrModel, TranslatableModel
                     'fields' => [
                         ['field' => 'name', 'label' => 'Name', 'widget' => 'text', 'required' => true, 'translatable' => true],
                         ['field' => 'description', 'label' => 'Description', 'widget' => 'textarea'],
-                        ['field' => 'color', 'label' => 'Color', 'widget' => 'color', 'placeholder' => '#714b67', 'help' => 'Hex colour used to group the project visually.'],
+                        ['field' => 'color', 'label' => 'Color', 'widget' => 'color', 'placeholder' => '#f5ef1a', 'help' => 'Hex colour used to group the project visually.'],
                         ['field' => 'status', 'label' => 'Status', 'widget' => 'select', 'options' => [
                             ['value' => 'active', 'label' => 'Active'],
                             ['value' => 'archived', 'label' => 'Archived'],

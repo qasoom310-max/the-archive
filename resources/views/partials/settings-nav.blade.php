@@ -25,7 +25,7 @@
             <a href="{{ $section['url'] }}" wire:navigate
                 class="rounded-lg px-3 py-1.5 text-sm font-medium ring-1 transition
                     {{ $active === $section['key']
-                        ? 'bg-primary-600 text-white ring-primary-600'
+                        ? 'bg-primary-400 text-chrome-900 ring-primary-400'
                         : 'bg-white text-chrome-600 ring-chrome-200 hover:text-chrome-900' }}">
                 {{ __($section['label']) }}
             </a>

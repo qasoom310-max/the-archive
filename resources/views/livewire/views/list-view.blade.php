@@ -126,13 +126,13 @@
             <div class="flex flex-wrap items-center gap-1.5 border-b border-chrome-100 px-3 py-2 sm:px-4">
                 <span class="me-1 text-xs font-semibold uppercase tracking-wide text-chrome-400">{{ __($def->label) }}</span>
                 <button type="button" wire:click="applyDynamicFilter('{{ $def->name }}', '')"
-                    class="o-chip {{ ! isset($activeDynamicFilters[$def->name]) ? 'bg-primary-600 text-white' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
+                    class="o-chip {{ ! isset($activeDynamicFilters[$def->name]) ? 'bg-primary-400 text-chrome-900' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
                     {{ __('All') }}
                 </button>
                 @foreach ($options as $opt)
                     @php $isActive = isset($activeDynamicFilters[$def->name]) && (string) $activeDynamicFilters[$def->name] === $opt['value']; @endphp
                     <button type="button" wire:click="applyDynamicFilter('{{ $def->name }}', '{{ $opt['value'] }}')"
-                        class="o-chip {{ $isActive ? 'bg-primary-600 text-white' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
+                        class="o-chip {{ $isActive ? 'bg-primary-400 text-chrome-900' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
                         {{ $opt['label'] }}
                     </button>
                 @endforeach
@@ -149,12 +149,12 @@
     @if (count($filters) > 0 || $customDateField !== null)
         <div class="flex flex-wrap items-center gap-2 border-b border-chrome-200 px-4 py-2">
             <button type="button" wire:click="applyFilterPreset('')"
-                class="o-chip {{ $activeFilter === '' ? 'bg-primary-600 text-white' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
+                class="o-chip {{ $activeFilter === '' ? 'bg-primary-400 text-chrome-900' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
                 All
             </button>
             @foreach ($filters as $filter)
                 <button type="button" wire:click="applyFilterPreset('{{ $filter->name }}')"
-                    class="o-chip {{ $activeFilter === $filter->name ? 'bg-primary-600 text-white' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
+                    class="o-chip {{ $activeFilter === $filter->name ? 'bg-primary-400 text-chrome-900' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
                     {{ $filter->label }}
                 </button>
             @endforeach
@@ -168,7 +168,7 @@
             @if ($customDateField !== null)
                 <div x-data="{ open: false }" @click.outside="open = false" class="relative">
                     <button type="button" @click="open = !open"
-                        class="o-chip flex items-center gap-1.5 {{ $activeFilter === 'custom' ? 'bg-primary-600 text-white' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
+                        class="o-chip flex items-center gap-1.5 {{ $activeFilter === 'custom' ? 'bg-primary-400 text-chrome-900' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
                         @if ($activeFilter === 'custom' && $customRangeLabel)
                             {{ $customRangeLabel }}
                         @else
@@ -281,7 +281,7 @@
                                                 aria-checked="{{ $on ? 'true' : 'false' }}"
                                                 aria-label="{{ $col->label }}"
                                                 title="{{ $col->label }}"
-                                                class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 {{ $on ? 'bg-primary-600' : 'bg-chrome-300' }}">
+                                                class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 {{ $on ? 'bg-primary-500' : 'bg-chrome-300' }}">
                                             <span class="inline-block size-4 transform rounded-full bg-white shadow transition-transform {{ $on ? 'translate-x-[1.125rem]' : 'translate-x-0.5' }}"></span>
                                         </button>
                                     @else

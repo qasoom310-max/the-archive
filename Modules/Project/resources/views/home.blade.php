@@ -18,7 +18,7 @@
                 <a href="{{ url('/app/project/' . $project->id . '/board') }}" wire:navigate class="block">
                     <div class="flex items-center gap-3 pe-16">
                         <span class="size-3 shrink-0 rounded-full"
-                            style="background: {{ $project->color ?: '#714b67' }}"></span>
+                            style="background: {{ $project->color ?: '#f5ef1a' }}">
                         <h2 class="truncate font-semibold text-chrome-800">{{ $project->name }}</h2>
                     </div>
                     <p class="mt-2 text-xs text-chrome-400">

@@ -91,7 +91,7 @@ final class ProjectSeeder extends Seeder
         $project = Project::query()->create([
             'name' => 'Website Revamp',
             'description' => 'Redesign and rebuild the public marketing site.',
-            'color' => '#714b67',
+            'color' => '#f5ef1a',
         ]);
 
         /** @var array<string, int> $stages */

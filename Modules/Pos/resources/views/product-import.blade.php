@@ -26,9 +26,9 @@
             <div class="rounded-lg border-2 border-dashed border-chrome-200 p-6">
                 <input type="file" wire:model="file" accept=".xlsx,.csv"
                     class="block w-full text-sm text-chrome-600
-                           file:mr-3 file:rounded-md file:border-0 file:bg-primary-700
-                           file:px-4 file:py-2 file:text-sm file:font-medium file:text-white
-                           hover:file:bg-primary-800">
+                           file:mr-3 file:rounded-md file:border-0 file:bg-primary-400
+                           file:px-4 file:py-2 file:text-sm file:font-medium file:text-chrome-900
+                           hover:file:bg-primary-500">
                 <div wire:loading wire:target="file" class="mt-2 text-xs text-chrome-400">Uploading…</div>
                 @error('file') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror
 

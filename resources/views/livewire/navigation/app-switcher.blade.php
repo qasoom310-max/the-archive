@@ -55,8 +55,8 @@
         <a href="{{ url('/app/' . $app->name) }}"
             @class([
                 'flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors',
-                'bg-white/15 font-medium text-white' => $isActive,
-                'text-chrome-200 hover:bg-white/10 hover:text-white' => ! $isActive,
+                'bg-black/10 font-medium text-chrome-900' => $isActive,
+                'text-chrome-800 hover:bg-black/10 hover:text-chrome-900' => ! $isActive,
             ])
             @if ($isActive) aria-current="page" @endif
             title="{{ $label }}">

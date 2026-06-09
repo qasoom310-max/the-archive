@@ -124,9 +124,9 @@
                         @if ($field->required) <span class="text-red-500">*</span> @endif
                     </label>
                     @if ($field->isTranslatable())
-                        {{-- Odoo-style language pills. Active pill = solid purple
-                             (the locale being edited right now); others are light
-                             grey. Clicking calls `switchLocale($field, $locale)`
+                        {{-- Odoo-style language pills. Active pill = solid brand
+                             yellow (the locale being edited right now); others are
+                             light grey. Clicking calls `switchLocale($field, $locale)`
                              on the component, which buffers the current edit and
                              swaps the input to that locale's text. The buffer
                              holds ALL locales across switches so a click never
@@ -136,7 +136,7 @@
                             @foreach ($locales as $loc)
                                 <button type="button"
                                     wire:click="switchLocale('{{ $field->field }}', '{{ $loc }}')"
-                                    class="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider transition-colors {{ $activeLocale === $loc ? 'bg-primary-600 text-white' : 'bg-chrome-100 text-chrome-500 hover:bg-chrome-200' }}">
+                                    class="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider transition-colors {{ $activeLocale === $loc ? 'bg-primary-400 text-chrome-900' : 'bg-chrome-100 text-chrome-500 hover:bg-chrome-200' }}">
                                     {{ $loc }}
                                 </button>
                             @endforeach

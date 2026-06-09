@@ -97,7 +97,7 @@
 
                             @if ($task->assignee)
                                 <div class="mt-2 flex items-center gap-1.5">
-                                    <span class="flex size-5 items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white">
+                                    <span class="flex size-5 items-center justify-center rounded-full bg-primary-400 text-[10px] font-bold text-chrome-900">
                                         {{ \Illuminate\Support\Str::substr($task->assignee->name, 0, 1) }}
                                     </span>
                                     <span class="truncate text-xs text-chrome-500">{{ $task->assignee->name }}</span>

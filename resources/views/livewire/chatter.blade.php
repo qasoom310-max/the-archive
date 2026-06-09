@@ -111,7 +111,7 @@
     <div class="space-y-4">
         @forelse ($messages as $msg)
             <div class="flex gap-3">
-                <div class="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-600 text-xs font-semibold text-white">
+                <div class="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-400 text-xs font-semibold text-chrome-900">
                     {{ \Illuminate\Support\Str::of($msg->authorLabel())->explode(' ')->map(fn ($p) => \Illuminate\Support\Str::substr($p, 0, 1))->take(2)->implode('') }}
                 </div>
                 <div class="min-w-0 flex-1">

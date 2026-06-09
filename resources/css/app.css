@@ -20,7 +20,9 @@
                transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500;
     }
     .o-btn-primary {
-        @apply o-btn bg-primary-600 text-white hover:bg-primary-700;
+        /* Brand yellow is too light for white text — dark label on the
+           bright #F5EF1A fill, deeper gold (500) on hover. */
+        @apply o-btn bg-primary-400 text-chrome-900 hover:bg-primary-500;
     }
     .o-btn-ghost {
         @apply o-btn text-chrome-700 hover:bg-chrome-200;

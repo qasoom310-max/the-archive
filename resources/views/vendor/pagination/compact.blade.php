@@ -74,7 +74,7 @@
                       class="flex select-none items-center border-s border-chrome-300 px-2 py-1.5 text-chrome-400">…</span>
             @elseif ($item['n'] === $current)
                 <span aria-current="page"
-                      class="flex min-w-[2rem] items-center justify-center border-s border-chrome-300 bg-primary-600 px-2 py-1.5 text-white">
+                      class="flex min-w-[2rem] items-center justify-center border-s border-chrome-300 bg-primary-400 px-2 py-1.5 text-chrome-900">
                     {{ $item['n'] }}
                 </span>
             @else

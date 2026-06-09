@@ -10,12 +10,12 @@
     {{-- KPI tiles --}}
     <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         @foreach ([
-            ['Installed apps', $appCount, 'bg-primary-600'],
-            ['Installed modules', $moduleCount, 'bg-emerald-600'],
-            ['Registered models', $modelCount, 'bg-sky-600'],
-        ] as [$label, $value, $color])
+            ['Installed apps', $appCount, 'bg-primary-400', 'text-chrome-900'],
+            ['Installed modules', $moduleCount, 'bg-emerald-600', 'text-white'],
+            ['Registered models', $modelCount, 'bg-sky-600', 'text-white'],
+        ] as [$label, $value, $color, $textColor])
             <div class="flex items-center gap-4 rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
-                <span class="flex size-10 items-center justify-center rounded-lg {{ $color }} text-white">
+                <span class="flex size-10 items-center justify-center rounded-lg {{ $color }} {{ $textColor }}">
                     <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4h14v3H3V4Zm0 5h14v3H3V9Zm0 5h14v3H3v-3Z"/></svg>
                 </span>
                 <div>
@@ -33,7 +33,7 @@
             <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
                 <div class="flex items-center justify-between">
                     <h2 class="flex items-center gap-2 text-sm font-semibold text-chrome-800">
-                        <span class="flex size-7 items-center justify-center rounded-lg bg-primary-600 text-white">
+                        <span class="flex size-7 items-center justify-center rounded-lg bg-primary-400 text-chrome-900">
                             <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 1a1 1 0 0 1 1 1v1.06a4 4 0 0 1 3 3.87 1 1 0 1 1-2 0 2 2 0 0 0-1-1.73V9.2l1.2.4A4 4 0 0 1 11 17.94V19a1 1 0 1 1-2 0v-1.06a4 4 0 0 1-3-3.87 1 1 0 1 1 2 0 2 2 0 0 0 1 1.73v-3.13l-1.2-.4A4 4 0 0 1 9 2.06V2a1 1 0 0 1 1-1Z"/></svg>
                         </span>
                         {{ __('Daily sale') }}

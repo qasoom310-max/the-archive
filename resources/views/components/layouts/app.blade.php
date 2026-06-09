@@ -46,13 +46,16 @@
     @keydown.escape.window="mobileOpen = false">
 
     {{-- ───────────────────────── Top navigation bar ───────────────────────── --}}
-    <header class="flex h-12 shrink-0 items-center gap-1 bg-primary-800 px-2 text-white sm:gap-2">
+    {{-- Brand chrome is the bright #F5EF1A; white text is unreadable on it, so
+         everything in the bar uses dark (chrome-900/800) text and black/N
+         translucent hover overlays instead of white/N. --}}
+    <header class="flex h-12 shrink-0 items-center gap-1 bg-primary-400 px-2 text-chrome-900 sm:gap-2">
         {{-- Sidebar toggle. On desktop (`md+`) this collapses the always-visible
              aside between w-60 and w-14. On mobile it opens an overlay drawer
              (the aside element below switches mode at the same breakpoint). --}}
         <button type="button"
             @click="window.innerWidth >= 768 ? collapsed = !collapsed : mobileOpen = !mobileOpen"
-            class="flex size-9 items-center justify-center rounded-md text-chrome-200 hover:bg-white/10"
+            class="flex size-9 items-center justify-center rounded-md text-chrome-800 hover:bg-black/10"
             title="{{ __('Toggle sidebar') }}">
             <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 4.5A1.5 1.5 0 0 1 3.5 3h13A1.5 1.5 0 0 1 18 4.5v11a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 2 15.5v-11ZM7 4.5H4v11h3v-11Z" clip-rule="evenodd"/></svg>
         </button>
@@ -94,9 +97,9 @@
              always-visible app bar takes the flexible middle. `shrink-0` keeps
              them from squeezing the app links; shown from `lg` upward so the
              app bar gets the room on phones/tablets. --}}
-        <nav class="hidden shrink-0 items-center gap-1.5 text-sm text-chrome-300 lg:flex">
-            <span class="text-chrome-500">/</span>
-            <a href="{{ url('/') }}" wire:navigate class="hover:text-white">{{ __('Home') }}</a>
+        <nav class="hidden shrink-0 items-center gap-1.5 text-sm text-chrome-700 lg:flex">
+            <span class="text-chrome-600">/</span>
+            <a href="{{ url('/') }}" wire:navigate class="hover:text-chrome-900">{{ __('Home') }}</a>
             @php $cumulative = []; @endphp
             @foreach ($segments as $segment)
                 @php
@@ -107,14 +110,14 @@
                         ? $terminalLabel
                         : __(str_replace(['-', '_'], ' ', $segment));
                 @endphp
-                <span class="text-chrome-500">/</span>
+                <span class="text-chrome-600">/</span>
                 @if ($isLast || $isAppPrefix)
-                    <span class="{{ $isLast && $terminalLabel === null ? 'capitalize' : '' }} {{ $isLast ? 'font-medium text-white' : '' }}">
+                    <span class="{{ $isLast && $terminalLabel === null ? 'capitalize' : '' }} {{ $isLast ? 'font-medium text-chrome-900' : '' }}">
                         {{ $label }}
                     </span>
                 @else
                     <a href="{{ url('/' . implode('/', $cumulative)) }}" wire:navigate
-                        class="capitalize hover:text-white">
+                        class="capitalize hover:text-chrome-900">
                         {{ $label }}
                     </a>
                 @endif
@@ -125,14 +128,14 @@
             {{-- Global search → command palette --}}
             <button type="button"
                 @click="$dispatch('open-command-palette')"
-                class="flex items-center gap-2 rounded-md bg-white/10 px-3 py-1.5 text-xs text-chrome-200 hover:bg-white/20">
+                class="flex items-center gap-2 rounded-md bg-black/10 px-3 py-1.5 text-xs text-chrome-800 hover:bg-black/20">
                 <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 3.5 9.74l3.38 3.38a1 1 0 0 0 1.42-1.42l-3.38-3.38A5.5 5.5 0 0 0 9 3.5ZM5.5 9a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0Z" clip-rule="evenodd"/></svg>
                 <span class="hidden sm:inline">{{ __('Search…') }}</span>
-                <kbd class="hidden rounded border border-white/20 px-1 text-[10px] sm:inline">⌘K</kbd>
+                <kbd class="hidden rounded border border-black/20 px-1 text-[10px] sm:inline">⌘K</kbd>
             </button>
 
             {{-- Activities --}}
-            <button type="button" class="relative flex size-9 items-center justify-center rounded-md text-chrome-200 hover:bg-white/10" title="{{ __('Activities') }}">
+            <button type="button" class="relative flex size-9 items-center justify-center rounded-md text-chrome-800 hover:bg-black/10" title="{{ __('Activities') }}">
                 <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a6 6 0 0 0-6 6v3.6l-1.3 2.6A1 1 0 0 0 3.6 16h12.8a1 1 0 0 0 .9-1.4L16 11.6V8a6 6 0 0 0-6-6Zm0 16a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 10 18Z"/></svg>
             </button>
 
@@ -146,8 +149,8 @@
             @endphp
             <div x-data="{ open: false }" class="relative" @keydown.escape.window="open = false">
                 <button type="button" @click="open = !open"
-                    class="flex items-center gap-2 rounded-md py-1 pl-1 pr-2 hover:bg-white/10">
-                    <span class="flex size-7 items-center justify-center overflow-hidden rounded-full bg-white/20 text-xs font-semibold">
+                    class="flex items-center gap-2 rounded-md py-1 pl-1 pr-2 hover:bg-black/10">
+                    <span class="flex size-7 items-center justify-center overflow-hidden rounded-full bg-black/15 text-xs font-semibold">
                         @if ($authAvatarUrl)
                             <img src="{{ $authAvatarUrl }}" alt="{{ $authUser?->name }}" class="size-full object-cover">
                         @else

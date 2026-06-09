@@ -8,7 +8,7 @@
     $chipInitial = \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($chipName, 0, 1)) ?: '?';
 @endphp
 <span class="inline-flex items-center gap-2">
-    <span class="flex size-7 items-center justify-center rounded-full bg-primary-600 text-xs font-bold text-white"
+    <span class="flex size-7 items-center justify-center rounded-full bg-primary-400 text-xs font-bold text-chrome-900"
         title="{{ $chipName }}">{{ $chipInitial }}</span>
     <span class="leading-tight">
         <span class="block text-sm font-medium text-chrome-800">{{ $chipName }}</span>

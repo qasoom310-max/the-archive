@@ -14,7 +14,7 @@
     <div class="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-white p-2 shadow-sm ring-1 ring-chrome-900/5">
         @foreach ($presets as $p)
             <button type="button" wire:click="setPreset('{{ $p['name'] }}')"
-                class="o-chip {{ $activePreset === $p['name'] ? 'bg-primary-600 text-white' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
+                class="o-chip {{ $activePreset === $p['name'] ? 'bg-primary-400 text-chrome-900' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
                 {{ $p['label'] }}
             </button>
         @endforeach

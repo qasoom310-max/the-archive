@@ -78,51 +78,8 @@
              Highlights the current module via $activeModule. --}}
         <livewire:navigation.app-switcher :active-module="$activeModule" />
 
-        {{-- Breadcrumbs — every segment is a link back to its cumulative
-             URL except the LAST one (the page you're on) and the bare
-             `app` prefix (no route registered at /app on its own). Skip-
-             linking the terminal segment keeps the current page visually
-             distinct (white + medium weight); skip-linking `app` avoids
-             dropping the user on a 404.
-
-             A page can replace the LAST segment's display text (e.g. "96"
-             → "بيبسي دايت") by setting the `breadcrumb_terminal_label`
-             request attribute inside its `render()` — generic mechanism,
-             no model coupling in the layout. --}}
-        @php
-            $terminalOverride = request()->attributes->get('breadcrumb_terminal_label');
-            $terminalLabel = is_string($terminalOverride) && $terminalOverride !== '' ? $terminalOverride : null;
-        @endphp
-        {{-- Breadcrumbs eat horizontal space the topbar can't afford once the
-             always-visible app bar takes the flexible middle. `shrink-0` keeps
-             them from squeezing the app links; shown from `lg` upward so the
-             app bar gets the room on phones/tablets. --}}
-        <nav class="hidden shrink-0 items-center gap-1.5 text-sm text-chrome-700 lg:flex">
-            <span class="text-chrome-600">/</span>
-            <a href="{{ url('/') }}" wire:navigate class="hover:text-chrome-900">{{ __('Home') }}</a>
-            @php $cumulative = []; @endphp
-            @foreach ($segments as $segment)
-                @php
-                    $cumulative[] = $segment;
-                    $isLast = $loop->last;
-                    $isAppPrefix = $loop->first && $segment === 'app';
-                    $label = $isLast && $terminalLabel !== null
-                        ? $terminalLabel
-                        : __(str_replace(['-', '_'], ' ', $segment));
-                @endphp
-                <span class="text-chrome-600">/</span>
-                @if ($isLast || $isAppPrefix)
-                    <span class="{{ $isLast && $terminalLabel === null ? 'capitalize' : '' }} {{ $isLast ? 'font-medium text-chrome-900' : '' }}">
-                        {{ $label }}
-                    </span>
-                @else
-                    <a href="{{ url('/' . implode('/', $cumulative)) }}" wire:navigate
-                        class="capitalize hover:text-chrome-900">
-                        {{ $label }}
-                    </a>
-                @endif
-            @endforeach
-        </nav>
+        {{-- Breadcrumbs moved out of the topbar to their own strip directly
+             below it (see the breadcrumb bar after </header>). --}}
 
         <div class="ms-auto flex items-center gap-1">
             {{-- Global search → command palette --}}
@@ -185,6 +142,45 @@
             </div>
         </div>
     </header>
+
+    {{-- ───────────────────────── Breadcrumb bar ──────────────────────────
+         Its own full-width strip directly under the topbar (moved out of the
+         yellow topbar so the always-visible app bar owns that row). Light
+         chrome strip with muted, dark breadcrumb text. A page can override
+         the LAST segment's label via the `breadcrumb_terminal_label` request
+         attribute set in its render() — generic, no model coupling here.
+         Hidden on phones (md+) so it doesn't eat vertical space on small
+         screens. --}}
+    @php
+        $terminalOverride = request()->attributes->get('breadcrumb_terminal_label');
+        $terminalLabel = is_string($terminalOverride) && $terminalOverride !== '' ? $terminalOverride : null;
+    @endphp
+    <nav class="hidden shrink-0 items-center gap-1.5 border-b border-chrome-200 bg-white px-4 py-2 text-sm text-chrome-500 md:flex"
+        aria-label="{{ __('Breadcrumb') }}">
+        <a href="{{ url('/') }}" wire:navigate class="hover:text-chrome-800">{{ __('Home') }}</a>
+        @php $cumulative = []; @endphp
+        @foreach ($segments as $segment)
+            @php
+                $cumulative[] = $segment;
+                $isLast = $loop->last;
+                $isAppPrefix = $loop->first && $segment === 'app';
+                $label = $isLast && $terminalLabel !== null
+                    ? $terminalLabel
+                    : __(str_replace(['-', '_'], ' ', $segment));
+            @endphp
+            <span class="text-chrome-300">/</span>
+            @if ($isLast || $isAppPrefix)
+                <span class="{{ $isLast && $terminalLabel === null ? 'capitalize' : '' }} {{ $isLast ? 'font-medium text-chrome-800' : '' }}">
+                    {{ $label }}
+                </span>
+            @else
+                <a href="{{ url('/' . implode('/', $cumulative)) }}" wire:navigate
+                    class="capitalize hover:text-chrome-800">
+                    {{ $label }}
+                </a>
+            @endif
+        @endforeach
+    </nav>
 
     {{-- ───────────────────────── Body: sidebar + content ────────────────────
          No `relative` here — that would establish a new stacking context that

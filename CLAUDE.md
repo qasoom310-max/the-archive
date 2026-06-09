@@ -957,12 +957,23 @@ the credit sits in Accounts Payable, no payment/bank reconciliation yet).
   sends go through the `database` queue (`SendWhatsAppMessage` job). Hostinger Cloud
   doesn't run daemons (no systemd / supervisor available), so we hook Laravel's
   scheduler in `routes/console.php`: `Schedule::command('queue:work --stop-when-empty
-  --max-time=50')->everyMinute()->withoutOverlapping()->runInBackground()`. A single
+  --max-time=50')->everyMinute()->runInBackground()`. A single
   `* * * * *` cron in hPanel runs `php artisan schedule:run` and drains the queue
   every minute. **If the cron is missing, queued jobs sit in the `jobs` table forever**
   (symptom: `whatsapp_messages_log.status='queued'` never advances to `sent`). Use
   `ps aux | grep queue:work` to verify nothing else is running first. Same scheduler
   also runs `prune-whatsapp-receipts` daily to drop PNGs older than 7 days.
+  **The `queue:work` entry deliberately has NO `withoutOverlapping()`** (removed
+  2026-06-09, commit `eca9b68`). With `runInBackground()` the host can kill the detached
+  worker after `schedule:run` returns but before `schedule:finish` releases the overlap
+  mutex — orphaning the lock, after which EVERY `schedule:run` (cron *and* manual) silently
+  skips `queue:work` and the whole queue freezes (it stayed frozen 2026-05-26 → 06-09, past
+  the 24h TTL). Diagnose with `schedule:list` (persistent `Has Mutex` on `queue:work` =
+  stuck); clear immediately with `php artisan schedule:clear-cache`. Do NOT re-add
+  `withoutOverlapping()` to that line — `--max-time=50` + the `database` driver's row
+  reservation make brief overlap harmless. The daily `Schedule::call(closure)` tasks keep
+  `withoutOverlapping()` safely (they run in-process, releasing the lock before
+  `schedule:run` exits). Memory: `[[schedule-withoutoverlapping-orphaned-mutex]]`.
 - **`AuthSeeder` is deliberately NOT in the deploy workflow.** Adding it would reset
   `admin@example.com`'s password to the seeded value on every push — a footgun. Admin
   + sales user creation is a one-time bootstrap; once prod has them, leave them alone.

@@ -1,16 +1,11 @@
 @php
-    $tileColors = [
-        'bg-primary-600', 'bg-emerald-600', 'bg-sky-600', 'bg-amber-600',
-        'bg-rose-600', 'bg-indigo-600', 'bg-teal-600', 'bg-fuchsia-600',
-    ];
-
     /**
      * Per-module icon paths. Each entry is the inner SVG markup (paths
      * only — the wrapping <svg> is rendered once in the loop). Heroicons
-     * Mini (20×20, fill="currentColor"), so they inherit the tile's
-     * white text colour. Modules not listed here fall through to the
-     * neutral "grid" default — keeps the switcher resilient when a new
-     * module ships before its icon does.
+     * Mini (20×20, fill="currentColor"), so they inherit the link's text
+     * colour. Modules not listed here fall through to the neutral "grid"
+     * default — keeps the bar resilient when a new module ships before
+     * its icon does.
      */
     $moduleIcons = [
         'contacts' => '<path d="M10 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm-4.51 7.326a.78.78 0 0 1-.358-.442 3 3 0 0 1 4.308-3.516 6.484 6.484 0 0 0-1.905 3.959c-.023.222-.014.442.025.654a4.97 4.97 0 0 1-2.07-.655ZM12.97 16.654a4.97 4.97 0 0 0 2.07-.655.78.78 0 0 0 .357-.442 3 3 0 0 0-4.308-3.517 6.484 6.484 0 0 1 1.907 3.96 2.32 2.32 0 0 1-.026.654ZM18 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM5.304 16.19a.844.844 0 0 1-.277-.71 5 5 0 0 1 9.947 0 .843.843 0 0 1-.277.71A6.975 6.975 0 0 1 10 18a6.974 6.974 0 0 1-4.696-1.81Z"/>',
@@ -32,64 +27,43 @@
         'purchases' => '<path d="M1 1.75A.75.75 0 0 1 1.75 1h1.628a1.75 1.75 0 0 1 1.734 1.51L5.18 3a65.25 65.25 0 0 1 13.36 1.412.75.75 0 0 1 .58.875 48.645 48.645 0 0 1-1.618 6.2.75.75 0 0 1-.712.513H6a2.503 2.503 0 0 0-2.292 1.5H17.25a.75.75 0 0 1 0 1.5H2.76a.75.75 0 0 1-.748-.807 4.002 4.002 0 0 1 2.716-3.486L3.626 2.716a.25.25 0 0 0-.248-.216H1.75A.75.75 0 0 1 1 1.75ZM6 17.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm9.5 1.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/>',
     ];
 
-    // Neutral fallback — 3×3 grid (same shape as the trigger button's
-    // icon) so unrecognised modules still look intentional, not broken.
+    // Neutral fallback — 3×3 grid — so unrecognised modules still get a
+    // tidy glyph instead of an empty slot.
     $defaultModuleIcon = '<path d="M3 3h4v4H3V3Zm0 6h4v4H3V9Zm0 6h4v4H3v-4Zm6-12h4v4H9V3Zm0 6h4v4H9V9Zm0 6h4v4H9v-4Zm6-12h4v4h-4V3Zm0 6h4v4h-4V9Zm0 6h4v4h-4v-4Z"/>';
 @endphp
 
-<div x-data="{ open: false }" class="relative" @keydown.escape.window="open = false">
-    <button type="button" @click="open = !open"
-        class="flex size-9 items-center justify-center rounded-md text-chrome-200 hover:bg-white/10"
-        title="{{ __('Apps') }}">
-        <svg class="size-5" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M3 3h4v4H3V3Zm0 6h4v4H3V9Zm0 6h4v4H3v-4Zm6-12h4v4H9V3Zm0 6h4v4H9V9Zm0 6h4v4H9v-4Zm6-12h4v4h-4V3Zm0 6h4v4h-4V9Zm0 6h4v4h-4v-4Z"/>
-        </svg>
-    </button>
+{{-- Always-visible app bar. Flexible middle region of the topbar: it
+     takes the space left between the brand and the right-hand controls
+     and scrolls horizontally if more apps are installed than fit (so the
+     bar never wraps and breaks the fixed-height header). The active app
+     is highlighted. Replaced the old 9-square dropdown trigger. --}}
+<nav class="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
+    aria-label="{{ __('Applications') }}">
+    @foreach ($apps as $app)
+        @php
+            // Prefer a registry translation by module slug so "POS" → "نقطة البيع"
+            // even if the module's display_name in `ir_module` is English. The
+            // ar.json `module.<name>` key drives this; with no entry the
+            // server-stored display_name is shown unchanged.
+            $moduleKey = 'module.' . $app->name;
+            $label = __($moduleKey);
+            if ($label === $moduleKey) { $label = $app->display_name; }
 
-    {{-- `fixed` (not absolute) so the dropdown escapes every parent stacking
-         context — including any subtle one created by the sidebar's
-         transforms / `relative` siblings / etc. — and paints in the root
-         layer at z-50, above the static sidebar that was clipping the
-         tile labels on tablet. `top-12` clears the h-12 topbar; `start-2`
-         lines the dropdown up with the trigger button. RTL flips both
-         automatically because of the logical `start-`/`end-` utilities. --}}
-    <div x-show="open" x-cloak x-transition.origin.top.left
-        @click.outside="open = false"
-        class="fixed start-2 top-12 z-50 mt-1 w-80 max-w-[calc(100vw-1rem)] origin-top-start rounded-xl bg-white p-3 shadow-pop ring-1 ring-chrome-900/5">
-        @if ($apps->isEmpty())
-            <p class="px-2 py-6 text-center text-sm text-chrome-400">
-                {{ __('No applications installed.') }}<br>
-                <span class="text-xs">{{ __('Run') }} <code class="rounded bg-chrome-100 px-1">php artisan module:install &lt;name&gt;</code></span>
-            </p>
-        @else
-            <div class="grid grid-cols-3 gap-1">
-                @foreach ($apps as $app)
-                    @php
-                        $color = $tileColors[crc32($app->name) % count($tileColors)];
-                        // Prefer a registry translation by module slug so "POS" → "نقطة البيع"
-                        // even if the module's display_name in `ir_module` is English. The
-                        // ar.json `module.<name>` key drives this; if no entry exists the
-                        // server-stored display_name is shown unchanged.
-                        $moduleKey = 'module.' . $app->name;
-                        $label = __($moduleKey);
-                        if ($label === $moduleKey) { $label = $app->display_name; }
-
-                        $iconBody = $moduleIcons[$app->name] ?? $defaultModuleIcon;
-                    @endphp
-                    <a href="{{ url('/app/' . $app->name) }}"
-                        class="flex flex-col items-center gap-2 rounded-lg p-3 text-center hover:bg-chrome-100">
-                        <span class="flex size-12 items-center justify-center rounded-xl {{ $color }} text-white">
-                            {{-- Module-specific Heroicon body (paths only); the wrapping
-                                 <svg> is the styling host. Falls back to a 3×3 grid so
-                                 an unrecognised module still gets a neat tile. --}}
-                            <svg class="size-6" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                {!! $iconBody !!}
-                            </svg>
-                        </span>
-                        <span class="line-clamp-2 text-xs font-medium text-chrome-700">{{ $label }}</span>
-                    </a>
-                @endforeach
-            </div>
-        @endif
-    </div>
-</div>
+            $iconBody = $moduleIcons[$app->name] ?? $defaultModuleIcon;
+            $isActive = $activeModule === $app->name;
+        @endphp
+        <a href="{{ url('/app/' . $app->name) }}"
+            @class([
+                'flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors',
+                'bg-white/15 font-medium text-white' => $isActive,
+                'text-chrome-200 hover:bg-white/10 hover:text-white' => ! $isActive,
+            ])
+            @if ($isActive) aria-current="page" @endif
+            title="{{ $label }}">
+            <svg class="size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                {!! $iconBody !!}
+            </svg>
+            <span class="hidden sm:inline">{{ $label }}</span>
+        </a>
+    @endforeach
+</nav>

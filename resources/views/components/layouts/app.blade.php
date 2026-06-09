@@ -47,8 +47,6 @@
 
     {{-- ───────────────────────── Top navigation bar ───────────────────────── --}}
     <header class="flex h-12 shrink-0 items-center gap-1 bg-primary-800 px-2 text-white sm:gap-2">
-        <livewire:navigation.app-switcher />
-
         {{-- Sidebar toggle. On desktop (`md+`) this collapses the always-visible
              aside between w-60 and w-14. On mobile it opens an overlay drawer
              (the aside element below switches mode at the same breakpoint). --}}
@@ -71,6 +69,12 @@
             @endif
         </a>
 
+        {{-- Always-visible app bar (replaced the 9-square dropdown). Renders
+             every installed application as an inline link; the flexible
+             middle region of the topbar, scrolls horizontally on overflow.
+             Highlights the current module via $activeModule. --}}
+        <livewire:navigation.app-switcher :active-module="$activeModule" />
+
         {{-- Breadcrumbs — every segment is a link back to its cumulative
              URL except the LAST one (the page you're on) and the bare
              `app` prefix (no route registered at /app on its own). Skip-
@@ -86,10 +90,11 @@
             $terminalOverride = request()->attributes->get('breadcrumb_terminal_label');
             $terminalLabel = is_string($terminalOverride) && $terminalOverride !== '' ? $terminalOverride : null;
         @endphp
-        {{-- Breadcrumbs eat horizontal space the topbar can't afford on a
-             360px phone — the brand + hamburger + search button + user menu
-             already push the layout to the edge. Show from `md` upward. --}}
-        <nav class="hidden items-center gap-1.5 text-sm text-chrome-300 md:flex">
+        {{-- Breadcrumbs eat horizontal space the topbar can't afford once the
+             always-visible app bar takes the flexible middle. `shrink-0` keeps
+             them from squeezing the app links; shown from `lg` upward so the
+             app bar gets the room on phones/tablets. --}}
+        <nav class="hidden shrink-0 items-center gap-1.5 text-sm text-chrome-300 lg:flex">
             <span class="text-chrome-500">/</span>
             <a href="{{ url('/') }}" wire:navigate class="hover:text-white">{{ __('Home') }}</a>
             @php $cumulative = []; @endphp
@@ -182,7 +187,7 @@
          No `relative` here — that would establish a new stacking context that
          sits ABOVE the header (sibling, also auto-z, but later in DOM) and
          shove the sidebar's static column on top of any header dropdown
-         (app-switcher, user menu) that extends down past the topbar.
+         (the user menu) that extends down past the topbar.
          The backdrop and drawer below are `fixed`, so they position against
          the viewport directly and don't need a relative parent. --}}
     <div class="flex min-h-0 flex-1">
@@ -203,8 +208,8 @@
         {{-- Translate-x classes are scoped to `max-md:` so they apply only on
              phones. Any CSS `transform` — even translate(0) — creates a
              stacking context; on tablet+ that context competed with the
-             header's app-switcher dropdown at the same z-level, and DOM
-             order made the static sidebar render over the dropdown labels.
+             header's dropdowns (the user menu) at the same z-level, and DOM
+             order made the static sidebar render over the dropdown.
              Restricting transforms to mobile leaves the desktop sidebar
              in pure document flow, so header dropdowns paint cleanly above. --}}
         <aside

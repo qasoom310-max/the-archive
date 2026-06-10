@@ -149,7 +149,7 @@ always satisfied (never resolved on disk).
 | Concern | Location |
 |---|---|
 | Master layout | `resources/views/components/layouts/app.blade.php` (Livewire full-page layout) |
-| App switcher | `App\Livewire\Navigation\AppSwitcher` → installed `application` modules |
+| App switcher | `App\Livewire\Navigation\AppSwitcher` → installed `application` modules. **As of 2026-06-09 this is an always-visible inline app BAR in the topbar, not a 9-square dropdown** (see Shell & branding increments below) |
 | Command palette | `App\Livewire\Navigation\CommandPalette` (⌘K/Ctrl+K, fuzzy, `open-command-palette` event) |
 | Contextual sidebar | `App\Livewire\Navigation\Sidebar` (driven by `/app/{module}` segment) |
 | Chatter (`mail.thread`) | `App\Livewire\Chatter` + `App\Erp\Chatter\{HasChatter trait, Chatterable iface, ActivityBucket}` |
@@ -166,6 +166,40 @@ stay (`done=true` → Done) and a `log` message is posted, so nothing vanishes.
 - **Demo apps:** `DemoAppSeeder` inserts placeholder `ir_module` rows (crm/sales/…)
   with no on-disk manifest, purely so the shell looks alive pre-Phase-5. Real modules
   are installed via `ModuleManager`; do not `module:uninstall` a seeded demo app.
+
+**Shell & branding increments (shipped 2026-06-09):**
+
+- **Always-visible topbar app bar** (replaced the 9-square dropdown) —
+  `AppSwitcher` now renders every installed `application` module as an inline
+  row of icon+label links in the topbar (flexible middle region, horizontal-
+  scroll on overflow), with the current module highlighted. New
+  `AppSwitcher::$activeModule` prop (passed `:active-module="$activeModule"`
+  from the layout, mirrors `Sidebar`). The grid trigger button is gone.
+  `app-switcher.blade.php` is now a `<nav>` of links (no Alpine dropdown);
+  active = filled pill, hover = subtle overlay. Test:
+  `ShellNavigationTest::test_app_switcher_lists_only_installed_applications`
+  still green (each app still renders its label). Added `module.project` AR key.
+- **Breadcrumb moved to its own bar under the topbar** — the breadcrumb left
+  the topbar (which the app bar now fills) and became a dedicated full-width
+  strip directly below `</header>` in `app.blade.php`: light `bg-white`
+  border-bottom strip, muted dark breadcrumb text, `hidden md:flex` (off on
+  phones to save vertical space). Same segment-link logic +
+  `breadcrumb_terminal_label` request-attribute override as before. AR key
+  `Breadcrumb` added.
+- **Rebrand: purple → bright yellow `#F5EF1A`** — the `primary` Tailwind
+  palette (`tailwind.config.js`) flipped from Odoo aubergine to a **monotonic
+  lemon-yellow ramp**: bright `#F5EF1A` at `400` (chrome backgrounds), dark
+  gold/olive at `600–900` (so the many `text-primary-*` accents stay legible
+  on white). Because white text is unreadable on the bright fill, every solid
+  brand surface flips to **dark text** (`text-chrome-900`) + black/N hover
+  overlays: topbar, app bar, `o-btn-primary` (`bg-primary-400 text-chrome-900`),
+  filter/preset/locale chips, pagination current page, settings tabs, avatars/
+  badges, KPI + daily-sale tiles, module-home tile, condiment checkbox, file-
+  input button, login page. Toggles use the deeper `500`. Brand favicon/
+  wordmark SVGs (`public/brand/openerp-{mark,logo}.svg`) recoloured to a yellow
+  tile with dark glyphs; leftover `#714b67` project-colour defaults → `#f5ef1a`.
+  **Rule for new chrome: any solid `bg-primary-400/500` fill carries
+  `text-chrome-900`, never `text-white`.**
 
 **Phase 4 — implemented view engine (where things live):**
 
@@ -255,6 +289,27 @@ grouping, `label()` for display) so List/Kanban stay generic across any model.
   `['name', 'barcode']`. Spatie translatable JSON columns (e.g. `name`) still
   substring-match the raw envelope; once non-English translations land we'll
   widen to per-locale `json_extract` paths.
+
+**Phase 4 increment shipped 2026-06-09 — engine `file` (document) widget:**
+
+- **Generic `file` widget** — the document sibling of the `image` widget, for
+  any `DefinesIrModel` form. Declare `'widget' => 'file'` in form arch and the
+  field renders a PDF/image uploader showing the current file as a "view" link.
+  Pieces: `App\Http\Controllers\FormFileUploadController` (POST
+  `/form/upload-file`, `throttle:30,1`, `form.upload-file`; accepts
+  `mimes:pdf,jpg,jpeg,png,gif,webp,bmp,avif,heic,heif`, `max:8192` (8 MB), **no
+  SVG** — same stored-XSS reasoning as the image controller; bucket whitelist,
+  bucket = the model's table name like the image widget). `FormView::$filePaths`
+  (`<attr> => path`) mirrors `$imagePaths` — written to the record in `save()`,
+  routed through `autoSave()` by the `updated()` hook (`filePaths.` prefix),
+  and the field is skipped in the `$form` loop + `rules()` (validated in the
+  controller). `FormFieldDef::isFile()`, `'file'` added to `ViewArch`'s widget
+  whitelist, full-width in the form grid. Blade `@case('file')` is an Alpine
+  `fetch`-POST uploader (same shape as `image`) that sets
+  `$wire.filePaths.<field>`. **Every bucket the file widget writes to must also
+  be in `deploy.yml`'s rsync `--exclude` list** (memory:
+  `[[rsync-delete-wipes-user-uploads]]`). First consumer: Accounting `Account`
+  (Phase 14 increment). Test: `tests/Feature/AccountFileFieldTest.php`.
 
 **Phase 5 — Contacts module (the reference addon):**
 
@@ -840,6 +895,26 @@ fiscal positions, fixed-asset depreciation, year-end closing automation. The
 retained-earnings carry-forward on the balance sheet is *computed live* — there's
 no closing-entry concept yet.
 
+**Phase 14 increment shipped 2026-06-09 — account asset fields:**
+
+- **Attachment + cost/unit + units on an account** — three optional,
+  **descriptive-only** fields on the Chart-of-Accounts `Account` form (they do
+  NOT feed any ledger maths — journal items remain the source of truth). New
+  columns via `2026_06_09_400005_add_asset_fields_to_accounts`: `document_path`
+  (string, the engine `file` widget — PDF/image), `cost_per_unit`
+  (`decimal(12,2)`, cast `float`), `units` (`unsignedInteger`, cast `integer`).
+  Added to `Account` fillable/casts + `irModelDefinition()` fields + form arch
+  (`document_path` = `'widget' => 'file'`, the other two = `'number'`). The
+  upload bucket is `accounts` (whitelisted in `FormFileUploadController` +
+  excluded in `deploy.yml` rsync). **Deploy now self-heals Accounting**: the
+  remote post-deploy step runs `migrate --path=Modules/Accounting/database/
+  migrations --force` and `module:resync accounting` (added 2026-06-09), so
+  accounting migrations/arch land on prod without manual SSH — same treatment
+  POS already had. Test: `tests/Feature/AccountFileFieldTest.php` (upload
+  endpoint accept-PDF / reject bad type+bucket, form renders the 3 fields,
+  save persists all three). If asked for a real fixed-asset register
+  (depreciation, asset categories) — that's a separate feature, not this.
+
 **Phase 15 — Kitchen Display System (`Modules/Pos/`, shipped 2026-06-01 / 2026-06-02):**
 
 | Concern | Location |
@@ -900,6 +975,21 @@ than ordered), vendor price lists / purchase orders (request-for-quote → PO �
 costs, multi-warehouse destination picker (always receives into the Receipt op type's Stock
 location), per-bill currency (uses the global default), and paying the bill (A/P settlement —
 the credit sits in Accounts Payable, no payment/bank reconciliation yet).
+
+**Phase 16 increment shipped 2026-06-09 — inline vendor create:**
+
+- **"New vendor" on the bill** — a button next to the Vendor picker in
+  `PurchaseForm` opens a small modal (name required, optional phone/email) that
+  creates a `Partner` (`is_company = true`) and selects it on the bill — no trip
+  to Contacts. `PurchaseForm::{openVendorModal,closeVendorModal,saveVendor}` +
+  `$addingVendor` / `$newVendor`. Gated by the same `purchases.purchase` Create
+  permission as the form (so a buyer who may raise a bill may add its vendor);
+  hidden once the bill is Confirmed. The modal lives **outside** the bill
+  `<form>` so its inputs/submit can't trip the outer form; Esc / backdrop close
+  it; `email` only validates when one is typed (blank stays optional). Test:
+  `PurchaseConfirmTest::{test_inline_vendor_create_makes_a_partner_and_selects_it,
+  test_inline_vendor_requires_a_name_and_validates_email}`. AR keys added
+  (مورد جديد / إضافة مورد / اسم المورد / إغلاق).
 
 **Profile self-service (shipped 2026-05-21):**
 

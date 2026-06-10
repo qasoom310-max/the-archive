@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Erp\Modules\ModuleManager;
-use App\Livewire\Navigation\Sidebar;
+use App\Erp\Navigation\ModuleMenu;
+use App\Models\Ir\IrModule;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
 use Modules\Project\Livewire\ProjectHome;
@@ -102,13 +104,16 @@ final class ProjectHomeTest extends TestCase
             ->assertSee('Visible Project');
     }
 
-    public function test_sidebar_project_entry_links_to_the_module_home(): void
+    public function test_module_menu_links_project_primary_to_the_module_home(): void
     {
-        Livewire::test(Sidebar::class, ['activeModule' => 'project'])
-            // project.project → /app/project (not the redundant /app/project/project)
-            ->assertSeeHtml('href="' . url('/app/project') . '"')
-            ->assertDontSee(url('/app/project/project'))
-            // project.task is unchanged.
-            ->assertSeeHtml('href="' . url('/app/project/task') . '"');
+        // The app-home tiles (and breadcrumbs) read from ModuleMenu now that
+        // the sidebar is gone. The primary model collapses to /app/project
+        // (not the redundant /app/project/project); task keeps its own slug.
+        $module = IrModule::query()->where('name', 'project')->firstOrFail();
+
+        $urls = array_column(app(ModuleMenu::class)->items($module, Auth::user()), 'url', 'model');
+
+        $this->assertSame(url('/app/project'), $urls['project.project']);
+        $this->assertSame(url('/app/project/task'), $urls['project.task']);
     }
 }

@@ -55,4 +55,13 @@
             <p class="text-sm text-chrome-400">{{ __('No projects yet.') }}</p>
         @endforelse
     </div>
+
+    {{-- App-home dashboard: clickable containers for each Project area
+         (Projects, Tasks). Mirrors what the sidebar used to list. --}}
+    @if (! empty($tiles))
+        <div class="mt-8">
+            <h2 class="mb-3 text-sm font-semibold text-chrome-800">{{ __('Manage') }}</h2>
+            @include('partials.module-tiles', ['tiles' => $tiles])
+        </div>
+    @endif
 </div>

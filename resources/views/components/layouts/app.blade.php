@@ -42,29 +42,18 @@
     $activeModule = ($segments[0] ?? null) === 'app' ? ($segments[1] ?? null) : null;
 @endphp
 
-<div x-data="{ collapsed: $persist(false), mobileOpen: false }" class="flex h-full flex-col"
-    @keydown.escape.window="mobileOpen = false">
+<div class="flex h-full flex-col">
 
     {{-- ───────────────────────── Top navigation bar ───────────────────────── --}}
     {{-- Brand chrome is the bright #F5EF1A; white text is unreadable on it, so
          everything in the bar uses dark (chrome-900/800) text and black/N
          translucent hover overlays instead of white/N. --}}
     <header class="flex h-12 shrink-0 items-center gap-1 bg-primary-400 px-2 text-chrome-900 sm:gap-2">
-        {{-- Sidebar toggle. On desktop (`md+`) this collapses the always-visible
-             aside between w-60 and w-14. On mobile it opens an overlay drawer
-             (the aside element below switches mode at the same breakpoint). --}}
-        <button type="button"
-            @click="window.innerWidth >= 768 ? collapsed = !collapsed : mobileOpen = !mobileOpen"
-            class="flex size-9 items-center justify-center rounded-md text-chrome-800 hover:bg-black/10"
-            title="{{ __('Toggle sidebar') }}">
-            <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 4.5A1.5 1.5 0 0 1 3.5 3h13A1.5 1.5 0 0 1 18 4.5v11a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 2 15.5v-11ZM7 4.5H4v11h3v-11Z" clip-rule="evenodd"/></svg>
-        </button>
-
         {{-- Brand: custom company logo when an admin has uploaded one,
              else the OpenERP wordmark. Logo::url() is null-safe (missing
              file → null → fallback to text). --}}
         @php $brandLogoUrl = \App\Erp\Branding\Logo::url(); @endphp
-        <a href="{{ url('/') }}" class="ms-1 flex items-center" aria-label="{{ __('OpenERP') }}">
+        <a href="{{ url('/') }}" wire:navigate class="ms-1 flex items-center" aria-label="{{ __('OpenERP') }}" title="{{ __('Home') }}">
             @if ($brandLogoUrl)
                 <img src="{{ $brandLogoUrl }}" alt="{{ __('OpenERP') }}" class="h-7 w-auto max-w-[8rem] object-contain">
             @else
@@ -194,48 +183,15 @@
         @endforeach
     </nav>
 
-    {{-- ───────────────────────── Body: sidebar + content ────────────────────
-         No `relative` here — that would establish a new stacking context that
-         sits ABOVE the header (sibling, also auto-z, but later in DOM) and
-         shove the sidebar's static column on top of any header dropdown
-         (the user menu) that extends down past the topbar.
-         The backdrop and drawer below are `fixed`, so they position against
-         the viewport directly and don't need a relative parent. --}}
-    <div class="flex min-h-0 flex-1">
-        {{-- Backdrop for the mobile drawer. Only renders on small screens
-             (`md:hidden`); clicking it dismisses the drawer. --}}
-        <div x-show="mobileOpen" x-cloak x-transition.opacity
-            @click="mobileOpen = false"
-            class="fixed inset-0 z-30 bg-chrome-900/40 md:hidden"
-            aria-hidden="true"></div>
-
-        {{-- Sidebar. Two layout modes driven by viewport size:
-             - `md+`: an always-visible column in the flex flow, width
-               toggled by the `collapsed` persist flag.
-             - `<md`: a fixed-position overlay drawer that slides in from
-               the start edge when `mobileOpen` is true; otherwise pushed
-               off-screen via a negative translate. The `start-0` anchor
-               flips automatically for RTL. --}}
-        {{-- Translate-x classes are scoped to `max-md:` so they apply only on
-             phones. Any CSS `transform` — even translate(0) — creates a
-             stacking context; on tablet+ that context competed with the
-             header's dropdowns (the user menu) at the same z-level, and DOM
-             order made the static sidebar render over the dropdown.
-             Restricting transforms to mobile leaves the desktop sidebar
-             in pure document flow, so header dropdowns paint cleanly above. --}}
-        <aside
-            :class="[
-                collapsed ? 'md:w-14' : 'md:w-60',
-                mobileOpen ? 'max-md:translate-x-0' : 'max-md:-translate-x-full max-md:rtl:translate-x-full'
-            ]"
-            class="fixed inset-y-0 start-0 top-12 z-40 w-64 shrink-0 overflow-y-auto border-e border-chrome-200 bg-chrome-50 transition-transform duration-150 md:static md:top-0 md:transition-[width]">
-            <livewire:navigation.sidebar :active-module="$activeModule" />
-        </aside>
-
-        <main class="min-w-0 flex-1 overflow-y-auto">
-            {{ $slot }}
-        </main>
-    </div>
+    {{-- ───────────────────────────── Body: content ──────────────────────────
+         The contextual sidebar was removed (2026-06-10). Each app lands on its
+         own dashboard of tiles (the engine ModuleHome, or each module's home),
+         so the app's models are reachable from there; app-to-app switching is
+         the always-visible topbar app bar. The MAIN dashboard (daily report,
+         KPIs) is reached via the brand logo or the breadcrumb "Home" link. --}}
+    <main class="min-h-0 flex-1 overflow-y-auto">
+        {{ $slot }}
+    </main>
 
     {{-- Global command palette (⌘K) --}}
     <livewire:navigation.command-palette />

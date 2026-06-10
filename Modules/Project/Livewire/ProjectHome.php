@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Modules\Project\Livewire;
 
+use App\Erp\Navigation\ModuleMenu;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
+use App\Models\Ir\IrModule;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -55,8 +57,14 @@ final class ProjectHome extends Component
         $access = app(AccessControl::class);
         $user = Auth::user();
 
+        // App-home tiles (the model "tabs" that used to live in the sidebar):
+        // Project + Task, each respecting the viewer's Read ACL.
+        $module = IrModule::query()->where('name', 'project')->first();
+        $tiles = $module !== null ? app(ModuleMenu::class)->items($module, $user) : [];
+
         return view('project::home', [
             'projects' => $projects,
+            'tiles' => $tiles,
             'canCreate' => $access->allows($user, 'project.project', Permission::Create),
             'canEdit' => $access->allows($user, 'project.project', Permission::Write),
             'canDelete' => $access->allows($user, 'project.project', Permission::Unlink),

@@ -151,7 +151,7 @@ always satisfied (never resolved on disk).
 | Master layout | `resources/views/components/layouts/app.blade.php` (Livewire full-page layout) |
 | App switcher | `App\Livewire\Navigation\AppSwitcher` → installed `application` modules. **As of 2026-06-09 this is an always-visible inline app BAR in the topbar, not a 9-square dropdown** (see Shell & branding increments below) |
 | Command palette | `App\Livewire\Navigation\CommandPalette` (⌘K/Ctrl+K, fuzzy, `open-command-palette` event) |
-| Contextual sidebar | `App\Livewire\Navigation\Sidebar` (driven by `/app/{module}` segment) |
+| Contextual sidebar | **REMOVED 2026-06-10.** Every app now lands on its own tile dashboard (see below); app-to-app nav is the topbar app bar. `App\Erp\Navigation\ModuleMenu` (the old sidebar's model-list logic) lives on and drives the tiles |
 | Chatter (`mail.thread`) | `App\Livewire\Chatter` + `App\Erp\Chatter\{HasChatter trait, Chatterable iface, ActivityBucket}` |
 | Chatter storage | `mail_messages` / `mail_activities` / `mail_activity_types` + `App\Models\Mail\*` |
 | Pages / routes | `App\Livewire\Pages\{Dashboard,ModuleHome}`; routes `/` and `/app/{module}` |
@@ -188,14 +188,34 @@ stay (`done=true` → Done) and a `log` message is posted, so nothing vanishes.
     **"Manage"** tile section below them (Customer Discount / POS Category /
     Condiment / Order / Product / Session — each respecting the viewer's
     Read ACL, so cashiers don't see the admin-only Customer Discount tile).
-  - Sidebar unchanged in behaviour (still the in-app quick-nav), just sources
-    its entries from `ModuleMenu` now. Apps with a custom non-`ModuleHome`
-    landing don't get tiles automatically: **Inventory** (custom Overview,
-    models not yet `DefinesIrModel`) and **Purchases** (`/app/purchases`
-    redirects straight to its single list) — offer as follow-ups if asked.
   - Tests: `tests/Feature/ModuleMenuTest.php` (admin sees all + correct URLs,
     non-admin only readable models, guest sees nothing, ModuleHome renders
     tiles). AR keys added: `Manage`, `Application module`.
+
+- **Sidebar removed — every app lands on its own dashboard (shipped 2026-06-10)** —
+  the contextual left sidebar (`App\Livewire\Navigation\Sidebar` + its view)
+  was **deleted** from `components/layouts/app.blade.php` (along with the
+  collapse toggle + mobile drawer). Each app's landing now IS its dashboard,
+  reachable from the topbar app bar:
+  - **Contacts / Accounting** — `/app/{module}` falls through to the core
+    `/app/{module}` → `ModuleHome` tile dashboard (no module home route).
+  - **POS** — `PosHome` (register/KDS controls + a "Manage" tile section).
+  - **Project** — `ProjectHome` (the project-board picker) **gained** the same
+    "Manage" tile section (Project + Task) so its models stay reachable without
+    the sidebar. Tiles come from `ModuleMenu::items('project', user)`.
+  - **Purchases** — the `/app/purchases` **redirect was removed** so it now
+    falls through to `ModuleHome` (Purchase tile). Test:
+    `PurchaseConfirmTest::test_purchases_app_lands_on_its_tile_dashboard`.
+  - **Inventory** — keeps its custom `InventoryOverview` (operation-type cards
+    + KPIs); it registers **no** `DefinesIrModel` models, so it has no model
+    tiles — the Overview already IS its dashboard.
+  - **Main dashboard** (`/`, daily report + KPIs) is reached via the **brand
+    logo** (now `wire:navigate` to `/`, title "Home") or the breadcrumb
+    **Home** link — there's no longer a sidebar "Dashboard" entry.
+  - `ProjectHomeTest`'s old `Sidebar` render test was rewritten to assert
+    `ModuleMenu` primary-model→home URL mapping directly. `ModuleMenu` doc +
+    the §3 shell table row updated. Unused AR keys (`Toggle sidebar`, sidebar
+    `Workspace`/`Pick an app to begin`) left in place (harmless).
 
 **Shell & branding increments (shipped 2026-06-09):**
 

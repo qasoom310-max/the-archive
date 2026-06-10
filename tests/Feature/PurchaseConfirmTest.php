@@ -213,4 +213,14 @@ final class PurchaseConfirmTest extends TestCase
 
         $this->assertSame(0, Partner::query()->where('name', 'Has Bad Email')->count());
     }
+
+    public function test_purchases_app_lands_on_its_tile_dashboard(): void
+    {
+        // The sidebar is gone: /app/purchases now renders the engine tile
+        // dashboard (ModuleHome) with a Purchase tile linking to the list,
+        // instead of redirecting straight to /app/purchases/purchase.
+        $this->get('/app/purchases')
+            ->assertOk()
+            ->assertSeeHtml('href="' . url('/app/purchases/purchase') . '"');
+    }
 }

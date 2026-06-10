@@ -13,9 +13,10 @@ use Illuminate\Support\Str;
 
 /**
  * Builds a module's menu: every registered ir_model the user may Read,
- * mapped to its resource URL. Shared by the contextual {@see \App\Livewire\Navigation\Sidebar}
- * and the Odoo-style app-home tile dashboards so both stay in lock-step
- * (same entries, same ACL filtering, same slug rules).
+ * mapped to its resource URL. Drives the Odoo-style app-home tile dashboards
+ * (the generic {@see \App\Livewire\Pages\ModuleHome} and each module's own
+ * home — POS, Project, …) so every app lists the same entries with the same
+ * ACL filtering and slug rules. (Replaced the old contextual sidebar.)
  */
 final class ModuleMenu
 {

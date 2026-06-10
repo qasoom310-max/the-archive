@@ -13,7 +13,9 @@ use Modules\Purchases\Livewire\Purchases;
  * FormView. (memory: module-sidebar-and-engine-contract)
  */
 Route::middleware('auth')->group(function (): void {
-    Route::redirect('/app/purchases', '/app/purchases/purchase');
+    // No '/app/purchases' route here on purpose: it falls through to the core
+    // `/app/{module}` → ModuleHome, so Purchases lands on its tile dashboard
+    // (the Purchase tile) like every other app. (Was a redirect to the list.)
 
     Route::get('/app/purchases/purchase', Purchases::class)
         ->name('purchases.purchase.index');

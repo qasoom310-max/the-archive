@@ -121,6 +121,16 @@
                         </svg>
                         {{ __('Profile') }}
                     </a>
+                    {{-- My database (multi-tenant) — admin-only. Opens the
+                         database manager to create/switch separate ERPs. --}}
+                    @if ($authUser?->isAdmin())
+                        <a href="{{ url('/workspaces') }}" wire:navigate
+                            class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-chrome-100">
+                            {{-- Heroicons mini circle-stack (database) --}}
+                            <svg class="size-4 text-chrome-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1c-3.866 0-7 1.343-7 3v12c0 1.657 3.134 3 7 3s7-1.343 7-3V4c0-1.657-3.134-3-7-3Zm5 15c0 .35-1.793 1.5-5 1.5S5 16.35 5 16v-2.05c1.298.66 3.107 1.05 5 1.05s3.702-.39 5-1.05V16Zm0-4c0 .35-1.793 1.5-5 1.5S5 12.35 5 12V9.95C6.298 10.61 8.107 11 10 11s3.702-.39 5-1.05V12Zm-5-3C6.793 9 5 7.85 5 7.5V5.95C6.298 6.61 8.107 7 10 7s3.702-.39 5-1.05V7.5c0 .35-1.793 1.5-5 1.5Z"/></svg>
+                            {{ __('My database') }}
+                        </a>
+                    @endif
                     {{-- Settings lives here (not the sidebar). Shown to every
                          authenticated user; SettingsPage enforces what each
                          role may actually edit (admins all, others language). --}}

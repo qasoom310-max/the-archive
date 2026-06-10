@@ -1109,6 +1109,32 @@ the credit sits in Accounts Payable, no payment/bank reconciliation yet).
 | Password | Optional — requires correct `currentPassword`; `min:8` + `confirmed:newPasswordConfirmation`; all three fields have Alpine eye-toggle (purple `text-primary-600`, independent state). Same eye pattern on the login password field. **Printable-ASCII only** — blade inputs carry an `x-on:beforeinput` filter that `preventDefault`s any keystroke or paste whose `event.data` matches `/[^\x20-\x7E]/`, and `newPassword` carries a matching `regex:/^[\x20-\x7E]*$/` server-side rule (defence in depth for JS-disabled clients / crafted payloads). Each block's Alpine scope holds a debounced `blocked` flag flipped by `notifyBlocked()` on a vetoed press; reusable Blade component `<x-password-ascii-notice />` (in `resources/views/components/`) reads it and fades in an amber pill "English characters only." 2.5 s window past the last attempt. Login form is **not** filtered so users with pre-existing non-ASCII passwords aren't locked out |
 | Tests | `tests/Feature/ProfilePageTest.php` (19) — mount prefill, name/avatar/password write-through, email parks + notifies new address (via `assertSentOnDemand` because anonymous notifiable doesn't match user instance), already-taken email rejected, cancel pending clears `new_email`, controller swap on valid sig, refuse on mismatched hash / unsigned / expired, idempotent flash on already-verified, role label correct for admin/non-admin, role can't be promoted via form state |
 
+**Multi-database / "My database" (workspaces — shipped 2026-06-11):**
+
+Odoo-style database manager: an admin can create separate, isolated ERPs and
+switch between them from the topbar **"My database"** menu item (between
+Profile and Settings). Each workspace is its own **SQLite file**; **one login**
+works across all of them (Main admins are copied into each on provisioning,
+matched by email). Memory: `[[workspaces-tenancy-architecture]]`.
+
+| Concern | Location |
+|---|---|
+| Registry | `workspaces` table (core migration `2026_06_11_100001`, lives in the **Main** DB) + `App\Models\Workspace` — **pinned to the boot-time default connection by NAME** via `Workspace::$landlordConnection` (so the list is always read from Main even while a tenant is the active default; pinning by name, not a clone, shares the in-memory SQLite used in tests). `is_main` row = today's data (no file); others store a bare `database` filename under `storage/app/workspaces/`. `databasePath()` resolves it |
+| Connection wiring | `App\Providers\WorkspaceServiceProvider` (registered FIRST in `bootstrap/providers.php`) — sets `Workspace::$landlordConnection`, **pins `session.connection` + the database `queue` connection to the boot-time default** (so a tenant swap never logs anyone out / orphans jobs — no-op on Main), and registers a reusable `tenant` SQLite connection whose path is set at runtime |
+| Routing | `App\Http\Middleware\SetActiveWorkspace` (web group, appended AFTER StartSession + BEFORE the `auth` route middleware, listed before `SetLocale`). **Main = strict zero-cost no-op: no `erp_workspace` cookie ⇒ returns immediately, no DB query, no dependency on the `workspaces` table** (safe mid-deploy). For a tenant: swaps `database.default` → `tenant` (its file) + `cache.prefix` → `ws<id>_`, then **rebinds auth by email** (`Auth::setUser` the tenant user matching the Main identity's email — the persisted session login id is NEVER changed, so switching back to Main restores the original cleanly). Whole tenant path wrapped in try/catch → falls back to Main, never breaks a request |
+| Manager | `App\Erp\Tenancy\WorkspaceManager` — `provision(name, owner, ?modules)` (touch SQLite file → `withTenant()` swaps default → `Artisan::call('migrate')` (core) → `ModuleManager::install` each discovered module → `AuthSeeder` + copy Main admins by email + `SettingSeeder`), `activate()`, `withTenant()`, `delete()` (drops file + row; Main undeletable), `current()`/`all()`/`ensureMain()` |
+| Switch | `App\Http\Controllers\SwitchWorkspaceController` (GET `/workspaces/switch/{id}`, admin-only) queues the `erp_workspace` cookie (1-yr) + full-page redirect home — a plain GET so the Set-Cookie rides the redirect |
+| UI | `App\Livewire\WorkspacesPage` (`/workspaces`, **admin-only**) — list / create (synchronous provisioning, "Building…" state) / delete; switch via links. Menu item in `components/layouts/app.blade.php` (admin-only). `resources/views/livewire/pages/workspaces.blade.php` |
+| Deploy | `storage/app/workspaces/` **MUST be in deploy.yml's rsync `--exclude`** (added 2026-06-11) — else `--delete` wipes every user-created database (`[[rsync-delete-wipes-user-uploads]]`). The `workspaces` migration is core, so deploy's core `migrate` creates the registry table automatically |
+| Tests | `tests/Feature/WorkspaceTest.php` (8 — Main is default with no cookie, provision builds an isolated DB with modules+admin (Main untouched), delete removes file+row, Main undeletable, non-admin 403, name validation, cookie routes a request to the tenant + keeps auth, switch admin-gate + cookie) |
+
+**Known MVP limitations (offer as follow-ups):** auth is **admin-only** for
+switching (the rebind matches Main admins by email — a non-admin added only in
+a tenant can't switch in); background **queue jobs** run in the Main context
+(queue pinned to Main); no backup/duplicate/rename; provisioning is synchronous
+(~seconds, installs every module); creating a MySQL/Postgres workspace isn't
+supported (SQLite files only, per the chosen architecture).
+
 ---
 
 ## 6. Known Environment Caveats

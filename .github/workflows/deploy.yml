@@ -208,6 +208,7 @@ jobs:
             --exclude='storage/app/public/company/' \
             --exclude='storage/app/public/whatsapp-receipts/' \
             --exclude='storage/app/public/accounts/' \
+            --exclude='storage/app/workspaces/' \
             --exclude='storage/logs/' \
             --exclude='storage/framework/cache/data/' \
             --exclude='storage/framework/sessions/' \

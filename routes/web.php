@@ -5,12 +5,14 @@ declare(strict_types=1);
 use App\Http\Controllers\FormFileUploadController;
 use App\Http\Controllers\FormImageUploadController;
 use App\Http\Controllers\ProfileEmailVerificationController;
+use App\Http\Controllers\SwitchWorkspaceController;
 use App\Livewire\Auth\Login;
 use App\Livewire\Pages\Dashboard;
 use App\Livewire\Pages\ModuleHome;
 use App\Livewire\Pages\Playground;
 use App\Livewire\Pages\SettingsPage;
 use App\Livewire\ProfilePage;
+use App\Livewire\WorkspacesPage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -60,6 +62,13 @@ Route::middleware('auth')->group(function (): void {
     // in the topbar. Role display is read-only here; the admin user
     // resource is the entry point for editing other users' roles.
     Route::get('/profile', ProfilePage::class)->name('profile');
+
+    // Multi-database ("My database") manager — admin-only. List/create/delete
+    // is the Livewire page; switching is a plain GET so the cookie rides the
+    // redirect (see SwitchWorkspaceController).
+    Route::get('/workspaces', WorkspacesPage::class)->name('workspaces');
+    Route::get('/workspaces/switch/{workspace}', SwitchWorkspaceController::class)
+        ->whereNumber('workspace')->name('workspaces.switch');
 
     // Explicit before the /app/{module} wildcard so it wins.
     Route::get('/app/settings', SettingsPage::class)->name('settings');

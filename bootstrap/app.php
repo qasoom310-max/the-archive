@@ -31,10 +31,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // hosting where the only ingress IS that proxy.
         $middleware->trustProxies(at: '*');
 
-        // Drive the app locale from the `company.language` setting on
-        // every web request, so `__()` and Carbon's localised output
-        // pick up the admin's choice without per-controller plumbing.
+        // Route each request to the active workspace's database BEFORE
+        // anything reads settings/locale or checks auth. Appended (so it
+        // runs after StartSession + cookie decryption) and listed before
+        // SetLocale (which reads per-workspace settings). Main = no-op.
         $middleware->web(append: [
+            \App\Http\Middleware\SetActiveWorkspace::class,
             \App\Http\Middleware\SetLocale::class,
         ]);
     })

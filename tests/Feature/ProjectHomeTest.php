@@ -89,6 +89,19 @@ final class ProjectHomeTest extends TestCase
             ->assertSeeHtml("\$wire.set('form.color'");
     }
 
+    public function test_project_card_shows_the_name_beside_a_closed_colour_dot(): void
+    {
+        // Regression: the colour-dot <span> used to be left unclosed, so the
+        // <h2> title was nested inside a 12px circle and never rendered (the
+        // card showed only a blob + task count). Pin the span as self-closed
+        // immediately before the title.
+        Project::query()->create(['name' => 'Visible Project', 'color' => '#123456']);
+
+        Livewire::test(ProjectHome::class)
+            ->assertSeeHtml('style="background: #123456"></span>')
+            ->assertSee('Visible Project');
+    }
+
     public function test_sidebar_project_entry_links_to_the_module_home(): void
     {
         Livewire::test(Sidebar::class, ['activeModule' => 'project'])

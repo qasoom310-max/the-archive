@@ -27,6 +27,103 @@ import './bootstrap';
  * reference unwrapped.
  */
 document.addEventListener('alpine:init', () => {
+    /**
+     * POS camera barcode scanner. Wired via `x-data="barcodeScanner($wire)"`
+     * on the search-bar wrapper in the POS terminal. The scan icon opens a
+     * camera overlay; ZXing decodes 1D/2D barcodes from the video stream and
+     * each hit calls the Livewire `scanBarcode(code)` action, which adds the
+     * matching product to the cart (Odoo-style continuous scanning).
+     *
+     * ZXing is loaded on-demand (`import()` → its own Vite chunk) so it never
+     * weighs on the initial terminal load — only the first time a cashier
+     * taps the scan icon. Works on iOS Safari / Android / desktop (a single
+     * decoder path, no reliance on the patchy native BarcodeDetector API).
+     *
+     * `wire` is closure-captured (NOT stored on `this`) — Alpine's reactive
+     * proxy would wrap it and break `$wire` method calls (see listColumnPicker).
+     */
+    window.Alpine.data('barcodeScanner', (wire) => ({
+        open: false,
+        starting: false,
+        error: '',          // '' | 'perm' | 'nocam' | 'other'
+        errorDetail: '',
+        lastMsg: '',
+        lastOk: true,
+        _controls: null,
+        _lastCode: '',
+        _lastAt: 0,
+
+        async openScanner() {
+            this.open = true;
+            this.starting = true;
+            this.error = '';
+            this.errorDetail = '';
+            this.lastMsg = '';
+            try {
+                const { BrowserMultiFormatReader } = await import('@zxing/browser');
+                const reader = new BrowserMultiFormatReader();
+                this._controls = await reader.decodeFromConstraints(
+                    { video: { facingMode: { ideal: 'environment' } } },
+                    this.$refs.video,
+                    (result) => { if (result) this.handle(result.getText()); },
+                );
+            } catch (e) {
+                const name = e && e.name ? e.name : '';
+                if (name === 'NotAllowedError' || name === 'SecurityError') {
+                    this.error = 'perm';
+                } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+                    this.error = 'nocam';
+                } else {
+                    this.error = 'other';
+                    this.errorDetail = (e && e.message) ? e.message : String(e);
+                }
+            } finally {
+                this.starting = false;
+            }
+        },
+
+        handle(code) {
+            const text = (code || '').trim();
+            if (text === '') return;
+            const now = Date.now();
+            // Continuous decode fires every frame the barcode is in view —
+            // ignore the same code seen again within 1.2s so one presentation
+            // adds the product once.
+            if (text === this._lastCode && (now - this._lastAt) < 1200) return;
+            this._lastCode = text;
+            this._lastAt = now;
+            this.beep();
+            wire.scanBarcode(text);
+        },
+
+        // Server feedback (Livewire dispatches after resolving the code).
+        onHit(name) { this.lastOk = true; this.lastMsg = name; },
+        onMiss(code) { this.lastOk = false; this.lastMsg = code; },
+
+        close() {
+            try { if (this._controls) this._controls.stop(); } catch (e) { /* already stopped */ }
+            this._controls = null;
+            this.open = false;
+        },
+
+        beep() {
+            try {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (!Ctx) return;
+                const ctx = new Ctx();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.frequency.value = 1320;
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                gain.gain.setValueAtTime(0.06, ctx.currentTime);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.08);
+                osc.onended = () => ctx.close();
+            } catch (e) { /* audio optional */ }
+        },
+    }));
+
     window.Alpine.data('listColumnPicker', () => ({
         init(el, wire) {
             let dragging = null;

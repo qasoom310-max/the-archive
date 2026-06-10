@@ -646,6 +646,26 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
     changed ⇒ `module:resync pos` (deploy runs it); migration auto-applied by
     deploy.yml's POS migrate step. AR keys: Category + the two help strings +
     empty-state.
+- **Camera barcode scanning in the terminal (shipped 2026-06-10)** — a
+  scan icon **inside the product search bar** (Odoo-style) opens a camera
+  overlay that decodes product barcodes and adds them to the cart. Frontend:
+  a `barcodeScanner($wire)` Alpine component in `resources/js/app.js` that
+  **lazy-`import()`s `@zxing/browser`** (ZXing — works on iOS Safari / Android
+  / desktop, unlike the patchy native `BarcodeDetector`; Vite code-splits it
+  into its own ~448 KB chunk loaded only on first scan, so the main bundle is
+  untouched). `decodeFromConstraints({facingMode:'environment'})` drives a
+  `<video>` in a `wire:ignore` overlay (so cart re-renders don't tear down the
+  stream); each decode is de-duped (same code within 1.2 s ignored) and calls
+  the Livewire action. Backend: `PosTerminal::scanBarcode(string $barcode)` —
+  Write-gated, resolves an **active** product by `barcode`, `addProduct()`s it,
+  and dispatches `scan-hit {name}` / `scan-miss {barcode}` for the overlay's
+  inline feedback (+ a WebAudio beep on the client). Physical USB scanners
+  still work unchanged (keyboard-wedge into the same search input). New npm
+  dependency `@zxing/browser` (in `package.json`/lock → deploy's `npm install`
+  + `npm run build` bundle it; `public/build` is gitignored, built fresh on
+  deploy). Test: `tests/Feature/PosBarcodeScanTest.php` (5 — hit adds + flashes,
+  double-scan increments one line, unknown/inactive → miss, blank no-op). AR
+  keys added for the overlay strings.
 - **POS Home KDS deep-link icons** ([Modules/Pos/resources/views/home.blade.php:38-58](Modules/Pos/resources/views/home.blade.php#L38-L58)) —
   Kitchen had a people-cluster glyph and Shisha had a thumbs-up — neither
   read as what the button does. Kitchen now uses Heroicons solid `fire`

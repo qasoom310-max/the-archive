@@ -199,6 +199,36 @@ final class PosTerminal extends Component
     }
 
     /**
+     * Resolve a scanned barcode to an active product and add it to the cart.
+     * Driven by the camera scanner overlay (Odoo-style): each successful scan
+     * adds one unit and the cashier keeps scanning. Dispatches `scan-hit` /
+     * `scan-miss` so the overlay can flash feedback without a full re-render.
+     */
+    public function scanBarcode(string $barcode): void
+    {
+        $this->guard(Permission::Write);
+
+        $code = trim($barcode);
+        if ($code === '') {
+            return;
+        }
+
+        $product = PosProduct::query()
+            ->where('active', true)
+            ->where('barcode', $code)
+            ->first();
+
+        if ($product === null) {
+            $this->dispatch('scan-miss', barcode: $code);
+
+            return;
+        }
+
+        $this->addProduct((int) $product->id);
+        $this->dispatch('scan-hit', name: (string) $product->name);
+    }
+
+    /**
      * Adjust a cart line's quantity by one step. `$increment` true = +1,
      * false = −1; reaching 0 removes the line (quantity never goes negative).
      *

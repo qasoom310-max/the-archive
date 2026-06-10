@@ -156,8 +156,63 @@
     <section class="flex flex-1 flex-col">
         <div class="border-b border-chrome-200 bg-white px-4 py-3">
             <div class="flex flex-wrap items-center gap-2">
-                <input wire:model.live.debounce.250ms="search" placeholder="{{ __('Search product or scan barcode…') }}"
-                    class="o-input max-w-sm text-sm">
+                {{-- Search + camera-scan. The scan icon opens a ZXing camera
+                     overlay; each decoded barcode calls scanBarcode() which
+                     adds the product. Physical USB scanners still work by
+                     typing straight into this input. --}}
+                <div x-data="barcodeScanner($wire)" class="relative w-full max-w-sm">
+                    <input wire:model.live.debounce.250ms="search" placeholder="{{ __('Search product or scan barcode…') }}"
+                        class="o-input w-full pe-10 text-sm">
+                    <button type="button" @click="openScanner()" title="{{ __('Scan with camera') }}"
+                        aria-label="{{ __('Scan with camera') }}"
+                        class="absolute inset-y-0 end-1.5 my-auto flex size-7 items-center justify-center rounded-md text-chrome-400 transition hover:bg-chrome-100 hover:text-primary-600">
+                        {{-- Viewfinder frame + barcode bars = "scan a barcode". --}}
+                        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/>
+                            <path d="M8 8.5v7M11 8.5v7M14 8.5v7M16.5 8.5v7"/>
+                        </svg>
+                    </button>
+
+                    {{-- Camera scanner overlay. wire:ignore so a Livewire
+                         re-render (cart updating as items are scanned) never
+                         tears down the live <video> stream. --}}
+                    <div wire:ignore x-show="open" x-cloak
+                        x-on:scan-hit.window="onHit($event.detail.name)"
+                        x-on:scan-miss.window="onMiss($event.detail.barcode)"
+                        @keydown.escape.window="close()"
+                        class="fixed inset-0 z-[60] flex items-center justify-center bg-chrome-900/70 p-4">
+                        <div class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-pop" @click.outside="close()">
+                            <div class="flex items-center justify-between border-b border-chrome-200 px-4 py-3">
+                                <h2 class="text-base font-semibold text-chrome-900">{{ __('Scan barcode') }}</h2>
+                                <button type="button" @click="close()" class="o-btn-primary text-sm">{{ __('Done') }}</button>
+                            </div>
+
+                            <div class="relative aspect-[4/3] bg-black">
+                                <video x-ref="video" class="size-full object-cover" muted autoplay playsinline></video>
+                                {{-- Aiming reticle; the big spread shadow dims everything outside it. --}}
+                                <div x-show="error === ''" class="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                    <div class="h-24 w-3/4 rounded-lg border-2 border-primary-400/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"></div>
+                                </div>
+                                <div x-show="starting" x-cloak class="absolute inset-0 flex items-center justify-center text-sm text-white/90">
+                                    {{ __('Starting camera…') }}
+                                </div>
+                            </div>
+
+                            <div class="px-4 py-3 text-sm">
+                                <p x-show="error === ''" class="text-chrome-500">{{ __('Point the camera at a product barcode.') }}</p>
+                                <p x-show="error === 'perm'" x-cloak class="text-red-600">{{ __('Camera permission denied. Allow camera access in your browser, then reopen.') }}</p>
+                                <p x-show="error === 'nocam'" x-cloak class="text-red-600">{{ __('No camera found on this device.') }}</p>
+                                <p x-show="error === 'other'" x-cloak class="text-red-600"><span x-text="errorDetail"></span></p>
+
+                                <p x-show="lastMsg !== ''" x-cloak class="mt-1.5 font-medium" :class="lastOk ? 'text-emerald-600' : 'text-red-600'">
+                                    <span x-show="lastOk">{{ __('Added') }}: <span x-text="lastMsg"></span></span>
+                                    <span x-show="!lastOk" x-cloak>{{ __('No product for barcode') }} <span class="tabular-nums" x-text="lastMsg"></span></span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <button wire:click="$set('categoryId', null)"
                     class="o-btn {{ $categoryId === null ? 'o-btn-primary' : 'o-btn-ghost' }}">{{ __('All') }}</button>
                 @foreach ($categories as $cat)

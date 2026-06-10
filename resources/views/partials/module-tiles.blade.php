@@ -19,22 +19,24 @@
 @endphp
 
 @if (! empty($tiles))
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    {{-- Capped at 3 columns (not 4) and rows share a height so the cards stay
+         wide enough for full labels to read — at 4-up the names truncated. --}}
+    <div class="grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         @foreach ($tiles as $tile)
-            <a href="{{ $tile['url'] }}" wire:navigate
-                class="group flex items-center gap-4 rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5 transition hover:-translate-y-0.5 hover:shadow-md hover:ring-primary-300">
-                <span class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-primary-700 transition group-hover:bg-primary-400 group-hover:text-chrome-900">
+            <a href="{{ $tile['url'] }}" wire:navigate title="{{ __($tile['label']) }}"
+                class="group flex items-center gap-4 rounded-xl border border-chrome-200/80 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md">
+                <span class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-primary-700 ring-1 ring-primary-400/20 transition group-hover:bg-primary-400 group-hover:text-chrome-900 group-hover:ring-primary-400">
                     @if (isset($tileIcons[$tile['model']]))
                         <svg class="size-6" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">{!! $tileIcons[$tile['model']] !!}</svg>
                     @else
                         <span class="text-lg font-bold">{{ \Illuminate\Support\Str::substr(__($tile['label']), 0, 1) }}</span>
                     @endif
                 </span>
-                <span class="min-w-0 flex-1">
-                    <span class="block truncate font-semibold text-chrome-800">{{ __($tile['label']) }}</span>
+                <span class="min-w-0 flex-1 text-sm font-semibold leading-snug text-chrome-900 line-clamp-2">
+                    {{ __($tile['label']) }}
                 </span>
                 {{-- Chevron points the reading direction; flips under dir="rtl". --}}
-                <svg class="size-5 shrink-0 text-chrome-300 transition group-hover:text-primary-500 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <svg class="size-5 shrink-0 text-chrome-300 transition group-hover:translate-x-0.5 group-hover:text-primary-500 rtl:rotate-180 rtl:group-hover:-translate-x-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/>
                 </svg>
             </a>

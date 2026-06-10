@@ -140,8 +140,10 @@ final class PosFloorTableTest extends TestCase
         $table = $this->table(seats: 4, name: '7');
         $product = PosProduct::query()->create(['name' => 'Latte', 'price' => 3.0, 'tax_rate' => 0.0, 'active' => true]);
 
-        // Empty floor first: the table shows and reads "0/4".
+        // Empty floor first: the table shows and reads "0/4". Select the
+        // table's floor explicitly so default-floor seeding can't shadow it.
         Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('selectFloor', $table->pos_floor_id)
             ->assertSee('7')
             ->assertSee('0/4');
 
@@ -151,6 +153,7 @@ final class PosFloorTableTest extends TestCase
             ->call('addProduct', $product->id);
 
         Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('selectFloor', $table->pos_floor_id)
             ->assertSee('2/4');
     }
 }

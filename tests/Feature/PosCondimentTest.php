@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
 use Modules\Pos\Enums\SessionState;
 use Modules\Pos\Livewire\PosTerminal;
+use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosOrderLine;
@@ -102,6 +103,35 @@ final class PosCondimentTest extends TestCase
         $line->refresh();
         $this->assertSame(5.0, (float) $line->total);
         $this->assertEmpty((array) $line->condiments);
+    }
+
+    public function test_picker_shows_only_the_product_category_condiments_plus_global(): void
+    {
+        $session = $this->openSession();
+
+        $burgers = PosCategory::query()->create(['name' => 'Burgers']);
+        $drinks = PosCategory::query()->create(['name' => 'Drinks']);
+
+        $burger = PosProduct::query()->create([
+            'name' => 'Burger', 'price' => 5.0, 'tax_rate' => 0.0,
+            'active' => true, 'pos_category_id' => $burgers->id,
+        ]);
+
+        // Matching category, other category, and a global (no category) add-on.
+        PosCondiment::query()->create(['name' => 'Bacon', 'price' => 0.5, 'pos_category_id' => $burgers->id]);
+        PosCondiment::query()->create(['name' => 'Lemonade', 'price' => 0.0, 'pos_category_id' => $drinks->id]);
+        PosCondiment::query()->create(['name' => 'Napkin', 'price' => 0.0]); // global
+
+        $component = Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('addProduct', $burger->id);
+
+        $line = PosOrder::query()->where('pos_session_id', $session->id)
+            ->firstOrFail()->lines()->firstOrFail();
+
+        $component->call('openCondiments', $line->id)
+            ->assertSee('Bacon')        // same category
+            ->assertSee('Napkin')       // global
+            ->assertDontSee('Lemonade'); // other category — hidden
     }
 
     public function test_re_adding_the_product_does_not_merge_into_a_condimented_line(): void

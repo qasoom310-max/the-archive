@@ -250,7 +250,7 @@
                         </button>
                     @empty
                         <p class="px-5 py-10 text-center text-sm text-chrome-400">
-                            {{ __('No condiments yet.') }}
+                            {{ __('No add-ons for this item.') }}
                             <a href="{{ url('/app/pos/condiment/new') }}" class="text-primary-600 hover:underline">{{ __('Add one') }}</a>.
                         </p>
                     @endforelse

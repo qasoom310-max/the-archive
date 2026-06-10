@@ -7,6 +7,7 @@ namespace Modules\Pos\Livewire;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -289,6 +290,35 @@ final class PosTerminal extends Component
     {
         $this->pickingCondiments = false;
         $this->condimentLineId = null;
+    }
+
+    /**
+     * Condiments offered for the line currently in the picker: those scoped
+     * to the line's product category, plus any global (category-less) ones.
+     * So ringing up a burger surfaces burger add-ons, not drink ones, while
+     * universal add-ons (a category-less "Extra napkin") still appear.
+     * Empty collection when the picker is closed.
+     *
+     * @return Collection<int, PosCondiment>
+     */
+    private function condimentOptions(): Collection
+    {
+        if (! $this->pickingCondiments || $this->condimentLineId === null) {
+            return new Collection();
+        }
+
+        $line = $this->order()->lines()->whereKey($this->condimentLineId)->first();
+        $categoryId = $line?->product?->pos_category_id;
+
+        return PosCondiment::query()
+            ->where('active', true)
+            ->where(function (Builder $q) use ($categoryId): void {
+                $q->whereNull('pos_category_id');
+                if ($categoryId !== null) {
+                    $q->orWhere('pos_category_id', $categoryId);
+                }
+            })
+            ->orderBy('sequence')->orderBy('name')->get();
     }
 
     /**
@@ -596,12 +626,10 @@ final class PosTerminal extends Component
                     ->orderBy('sequence')->orderBy('name')->get()
                 : new Collection(),
             'paymentMethods' => PosPaymentMethod::query()->where('active', true)->orderBy('sequence')->get(),
-            // Only query condiments while the picker is open. The line being
-            // edited carries its selection (rendered as ticked rows).
-            'condiments' => $this->pickingCondiments
-                ? PosCondiment::query()->where('active', true)
-                    ->orderBy('sequence')->orderBy('name')->get()
-                : new Collection(),
+            // Only query condiments while the picker is open. Scoped to the
+            // edited line's product category (+ global condiments). The line
+            // carries its own selection (rendered as ticked rows).
+            'condiments' => $this->condimentOptions(),
             'condimentLine' => $this->pickingCondiments && $this->condimentLineId !== null
                 ? $order->lines()->whereKey($this->condimentLineId)->first()
                 : null,

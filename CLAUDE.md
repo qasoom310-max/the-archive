@@ -605,9 +605,27 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
   `PosCondiment` added to the manifest `models[]` (needs `module:resync pos`).
   Demo set seeded by `PosSeeder::seedCondiments()` (Extra cheese 0.50, Extra
   sauce 0.30, Ice cubes free, No ice free, Extra shot 0.40 — idempotent,
-  independent of the products guard). Test:
-  `tests/Feature/PosCondimentTest.php` (3 — per-unit surcharge, live toggle
-  on/off, no-merge-into-condiment'd-line).
+  independent of the products guard; seeded category-less = global). Test:
+  `tests/Feature/PosCondimentTest.php` (4 — per-unit surcharge, live toggle
+  on/off, no-merge-into-condiment'd-line, category-scoped picker).
+  - **Category scoping + Active removed from the UI (shipped 2026-06-10)** —
+    a condiment can be scoped to a product **category** so the register only
+    offers relevant add-ons. New nullable+indexed logical ref
+    `pos_condiments.pos_category_id` (migration `2026_06_10_200001`; null =
+    **global**, shown for every product). `PosCondiment` gained a `category()`
+    belongsTo + `category_name` accessor; the engine **form** swaps the Active
+    checkbox for a category `optionsFrom` select (empty = all products) and the
+    **list** swaps the Active toggle column for a Category column. The `active`
+    **column stays** (defaults true, terminal/seeder still query
+    `where('active', true)`) — condiments are simply always active now; it's
+    just no longer user-editable. Picker filter:
+    `PosTerminal::condimentOptions()` returns condiments whose
+    `pos_category_id` = the edited line's product category **OR** is null
+    (global), so ringing a burger surfaces burger add-ons + universal ones, not
+    drink add-ons. Empty state reworded to "No add-ons for this item." Arch
+    changed ⇒ `module:resync pos` (deploy runs it); migration auto-applied by
+    deploy.yml's POS migrate step. AR keys: Category + the two help strings +
+    empty-state.
 - **POS Home KDS deep-link icons** ([Modules/Pos/resources/views/home.blade.php:38-58](Modules/Pos/resources/views/home.blade.php#L38-L58)) —
   Kitchen had a people-cluster glyph and Shisha had a thumbs-up — neither
   read as what the button does. Kitchen now uses Heroicons solid `fire`

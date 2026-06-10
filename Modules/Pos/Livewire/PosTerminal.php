@@ -24,6 +24,7 @@ use Modules\Pos\Models\PosOrderLine;
 use Modules\Pos\Models\PosPaymentMethod;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Models\PosSession;
+use Modules\Pos\Models\PosTable;
 use Modules\Pos\Services\PosSessionManager;
 use Modules\Pos\Support\PosWhatsAppCountries;
 
@@ -32,6 +33,9 @@ use Modules\Pos\Support\PosWhatsAppCountries;
 final class PosTerminal extends Component
 {
     public int $sessionId;
+
+    /** The table this terminal is serving — null = walk-in / quick sale. */
+    public ?int $tableId = null;
 
     public int $orderId;
 
@@ -79,7 +83,7 @@ final class PosTerminal extends Component
      */
     public string $localPhone = '';
 
-    public function mount(int $session): void
+    public function mount(int $session, ?int $table = null): void
     {
         $pos = PosSession::query()->findOrFail($session);
 
@@ -87,6 +91,12 @@ final class PosTerminal extends Component
         // open session — no per-user ownership gate.
         abort_unless($pos->state === SessionState::Opened, 403, 'The register is closed.');
         $this->guard(Permission::Create);
+
+        // Bind to a table when one is given (must exist). Null = walk-in.
+        if ($table !== null) {
+            abort_unless(PosTable::query()->whereKey($table)->exists(), 404);
+            $this->tableId = $table;
+        }
 
         $this->sessionId = $pos->id;
         $this->orderId = $this->resolveDraftOrder($pos)->id;
@@ -128,9 +138,16 @@ final class PosTerminal extends Component
         return DB::transaction(function () use ($session): PosOrder {
             PosSession::query()->whereKey($session->id)->lockForUpdate()->first();
 
+            // Scope the draft to THIS table (or the table-less walk-in lane)
+            // so every table keeps its own running order independently.
             $existing = PosOrder::query()
                 ->where('pos_session_id', $session->id)
                 ->where('state', OrderState::Draft)
+                ->when(
+                    $this->tableId === null,
+                    fn ($q) => $q->whereNull('pos_table_id'),
+                    fn ($q) => $q->where('pos_table_id', $this->tableId),
+                )
                 ->latest('id')
                 ->first();
 
@@ -153,6 +170,7 @@ final class PosTerminal extends Component
 
             return PosOrder::query()->create([
                 'pos_session_id' => $session->id,
+                'pos_table_id' => $this->tableId,
                 'user_id' => $this->currentUserId(),
                 'reference' => sprintf('POS/%d/%04d', $session->id, $maxSeq + 1),
                 'state' => OrderState::Draft,
@@ -226,6 +244,30 @@ final class PosTerminal extends Component
 
         $this->addProduct((int) $product->id);
         $this->dispatch('scan-hit', name: (string) $product->name);
+    }
+
+    /**
+     * Adjust the party size on the current order — the numerator of the
+     * floor plan's "guests/seats". Clamped to 0..table capacity; a no-op
+     * for the table-less walk-in lane.
+     */
+    public function setGuests(int $delta): void
+    {
+        $this->guard(Permission::Write);
+
+        if ($this->tableId === null) {
+            return;
+        }
+
+        $order = $this->order();
+        $seats = (int) (PosTable::query()->whereKey($this->tableId)->value('seats') ?? 0);
+        $next = max(0, (int) $order->guest_count + $delta);
+        if ($seats > 0) {
+            $next = min($next, $seats);
+        }
+
+        $order->guest_count = $next;
+        $order->save();
     }
 
     /**
@@ -645,6 +687,9 @@ final class PosTerminal extends Component
 
         return view('pos::terminal', [
             'order' => $order,
+            'table' => $this->tableId !== null
+                ? PosTable::query()->with('floor')->find($this->tableId)
+                : null,
             'session' => PosSession::query()->with('user')->findOrFail($this->sessionId),
             'cashier' => Auth::user(),
             'lines' => $order->lines()->latest('id')->get(),

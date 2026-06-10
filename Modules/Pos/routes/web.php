@@ -12,6 +12,9 @@ use Modules\Pos\Livewire\PosCondimentForm;
 use Modules\Pos\Livewire\PosCondiments;
 use Modules\Pos\Livewire\PosCustomerDiscountForm;
 use Modules\Pos\Livewire\PosCustomerDiscounts;
+use Modules\Pos\Livewire\PosFloorForm;
+use Modules\Pos\Livewire\PosFloorPlan;
+use Modules\Pos\Livewire\PosFloors;
 use Modules\Pos\Livewire\PosHome;
 use Modules\Pos\Livewire\PosOrders;
 use Modules\Pos\Livewire\PosProductForm;
@@ -19,6 +22,8 @@ use Modules\Pos\Livewire\PosProductImport;
 use Modules\Pos\Livewire\PosProducts;
 use Modules\Pos\Livewire\PosReporting;
 use Modules\Pos\Livewire\PosSessionPage;
+use Modules\Pos\Livewire\PosTableForm;
+use Modules\Pos\Livewire\PosTables;
 use Modules\Pos\Livewire\PosTerminal;
 
 Route::middleware('auth')->group(function (): void {
@@ -39,6 +44,14 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/pos/customer_discount', PosCustomerDiscounts::class)->name('pos.customer_discount.index');
     Route::get('/app/pos/session', PosHome::class)->name('pos.session.index');
 
+    // Restaurant floors + tables (admin-managed catalogue; deny-default ACL).
+    Route::get('/app/pos/floor', PosFloors::class)->name('pos.floor.index');
+    Route::get('/app/pos/floor/new', PosFloorForm::class)->name('pos.floor.create');
+    Route::get('/app/pos/floor/{id}', PosFloorForm::class)->whereNumber('id')->name('pos.floor.edit');
+    Route::get('/app/pos/table', PosTables::class)->name('pos.table.index');
+    Route::get('/app/pos/table/new', PosTableForm::class)->name('pos.table.create');
+    Route::get('/app/pos/table/{id}', PosTableForm::class)->whereNumber('id')->name('pos.table.edit');
+
     Route::get('/app/pos/category/new', PosCategoryForm::class)->name('pos.category.create');
     Route::get('/app/pos/category/{id}', PosCategoryForm::class)
         ->whereNumber('id')->name('pos.category.edit');
@@ -51,6 +64,15 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/pos/customer_discount/{id}', PosCustomerDiscountForm::class)
         ->whereNumber('id')->name('pos.customer_discount.edit');
 
+    // Floor plan — the table picker shown before the terminal.
+    Route::get('/app/pos/session/{session}/floor', PosFloorPlan::class)
+        ->whereNumber('session')->name('pos.floor');
+
+    // Terminal bound to a specific table (its own running order).
+    Route::get('/app/pos/session/{session}/table/{table}', PosTerminal::class)
+        ->whereNumber('session')->whereNumber('table')->name('pos.terminal.table');
+
+    // Terminal with no table — walk-in / quick sale.
     Route::get('/app/pos/session/{session}/terminal', PosTerminal::class)
         ->whereNumber('session')->name('pos.terminal');
 

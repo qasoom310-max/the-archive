@@ -19,7 +19,7 @@
                 <p class="mt-1 text-xs text-chrome-400">
                     {{ __('Opened by') }} {{ $active->user?->name ?? __('Unknown') }}
                 </p>
-                <a href="{{ url('/app/pos/session/' . $active->id . '/terminal') }}" wire:navigate
+                <a href="{{ $sellUrl }}" wire:navigate
                     class="o-btn-primary mt-4 w-full justify-center">{{ __('Resume selling') }}</a>
                 <a href="{{ url('/app/pos/session/' . $active->id) }}" wire:navigate
                     class="o-btn-ghost mt-2 w-full justify-center">{{ __('Manage register') }}</a>

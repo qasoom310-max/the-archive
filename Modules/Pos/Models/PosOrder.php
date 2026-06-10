@@ -24,6 +24,8 @@ use Modules\Pos\Events\PosOrderPaid;
  * @property int $id
  * @property string $reference
  * @property int $pos_session_id
+ * @property int|null $pos_table_id
+ * @property int|null $guest_count
  * @property int|null $partner_id
  * @property int|null $user_id
  * @property OrderState $state
@@ -37,6 +39,8 @@ use Modules\Pos\Events\PosOrderPaid;
  * @property bool $components_consumed
  * @property string|null $customer_phone International-format digits (no '+'), e.g. "97333123456"
  * @property Carbon|null $ordered_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  */
 final class PosOrder extends Model implements Chatterable, DefinesIrModel
 {
@@ -54,7 +58,8 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
 
     /** @var list<string> */
     protected $fillable = [
-        'reference', 'pos_session_id', 'partner_id', 'user_id', 'state',
+        'reference', 'pos_session_id', 'pos_table_id', 'guest_count',
+        'partner_id', 'user_id', 'state',
         'subtotal', 'tax_total', 'total', 'paid_total', 'change_due',
         'customer_discount_percent', 'customer_discount_total',
         'components_consumed', 'customer_phone', 'ordered_at',
@@ -76,6 +81,8 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
             'customer_discount_total' => 'float',
             'components_consumed' => 'boolean',
             'ordered_at' => 'datetime',
+            'pos_table_id' => 'integer',
+            'guest_count' => 'integer',
         ];
     }
 
@@ -85,6 +92,16 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
     public function session(): BelongsTo
     {
         return $this->belongsTo(PosSession::class, 'pos_session_id');
+    }
+
+    /**
+     * The table this order is seated at (null = walk-in / quick sale).
+     *
+     * @return BelongsTo<PosTable, $this>
+     */
+    public function table(): BelongsTo
+    {
+        return $this->belongsTo(PosTable::class, 'pos_table_id');
     }
 
     /**

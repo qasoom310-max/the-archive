@@ -12,8 +12,10 @@ use Illuminate\Support\Facades\Schema;
 use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosCustomerDiscount;
+use Modules\Pos\Models\PosFloor;
 use Modules\Pos\Models\PosPaymentMethod;
 use Modules\Pos\Models\PosProduct;
+use Modules\Pos\Models\PosTable;
 
 /**
  * Demo POS catalogue, payment methods and the "POS / User" group + ACLs.
@@ -28,6 +30,7 @@ final class PosSeeder extends Seeder
         // add-on list exists even on a DB that already has products.
         $this->seedCondiments();
         $this->seedCustomerDiscounts();
+        $this->seedFloorsAndTables();
 
         if (! Schema::hasTable('pos_products') || PosProduct::query()->exists()) {
             return;
@@ -140,5 +143,42 @@ final class PosSeeder extends Seeder
             'label' => 'VIP — demo customer',
             'active' => true,
         ]);
+    }
+
+    /**
+     * A demo restaurant layout so the floor plan isn't empty: a Main floor
+     * (tables 1–8) and a Patio (9, 10, and a round 11). Idempotent — skipped
+     * once any floor exists. Floors/tables are admin-managed (deny-default
+     * ACL like the product catalogue), so no cashier grant is needed: the
+     * floor-plan screen reads them directly behind the pos.order Read gate.
+     */
+    private function seedFloorsAndTables(): void
+    {
+        if (! Schema::hasTable('pos_floors') || PosFloor::query()->exists()) {
+            return;
+        }
+
+        $main = PosFloor::query()->create(['name' => 'Main floor', 'sequence' => 10]);
+        $patio = PosFloor::query()->create(['name' => 'Patio', 'sequence' => 20]);
+
+        foreach (range(1, 8) as $n) {
+            PosTable::query()->create([
+                'pos_floor_id' => $main->id,
+                'name' => (string) $n,
+                'seats' => 4,
+                'shape' => 'square',
+                'sequence' => $n,
+            ]);
+        }
+
+        foreach ([['9', 'square', 4], ['10', 'square', 4], ['11', 'round', 6]] as $i => [$name, $shape, $seats]) {
+            PosTable::query()->create([
+                'pos_floor_id' => $patio->id,
+                'name' => $name,
+                'seats' => $seats,
+                'shape' => $shape,
+                'sequence' => $i + 1,
+            ]);
+        }
     }
 }

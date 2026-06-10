@@ -16,6 +16,8 @@
         "Modules\\Pos\\Models\\PosCategory",
         "Modules\\Pos\\Models\\PosCondiment",
         "Modules\\Pos\\Models\\PosCustomerDiscount",
+        "Modules\\Pos\\Models\\PosFloor",
+        "Modules\\Pos\\Models\\PosTable",
         "Modules\\Pos\\Models\\PosSession",
         "Modules\\Pos\\Models\\PosOrder"
     ],

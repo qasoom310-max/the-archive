@@ -759,12 +759,28 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
 
 `report_recipients` is a **core** migration, so the deploy workflow's core `migrate --force` applies it automatically. The 6 AM email needs prod SMTP set **and** the minute cron running.
 
-**Phase 7 OUT-of-scope adjustment:** "restaurant floors/tables/kitchen" became
-"restaurant floors/tables" — the *Kitchen Display* slice now ships (Phase 15
-below). Floor / table layouts (restaurant POS) remain out.
+**Phase 7 OUT-of-scope adjustment:** "restaurant floors/tables/kitchen" — the
+*Kitchen Display* slice ships (Phase 15) AND **restaurant floors/tables now ship
+too** (table-first ordering, 2026-06-10 — see below). What's still out of the
+restaurant slice: a drag-to-position **custom floor-plan editor** (tables flow in
+a responsive grid, not free x/y), table merge/split/transfer, and course/firing.
+
+**Restaurant floors & tables — table-first ordering (shipped 2026-06-10):**
+
+| Concern | Location |
+|---|---|
+| Schema | `pos_floors` (name/sequence/active) + `pos_tables` (`pos_floor_id` logical ref, name, `seats`, `shape` string `square\|round`, sequence, active) + `pos_orders.{pos_table_id nullable, guest_count nullable}` (migrations `2026_06_10_500001/2/3`) |
+| Models | `Modules\Pos\Models\{PosFloor,PosTable}` (both `DefinesIrModel` → engine list/form + app-home tiles; **admin-managed, deny-default ACL like products** — no `pos_user` grant). `PosOrder` gained `pos_table_id`/`guest_count` + `table()` relation. `shape` is a **plain string, not an enum cast** (dodges the engine FormView enum-empty-string pitfall — see `[[livewire-backed-enum-in-array-prop]]`) |
+| Floor plan | `Modules\Pos\Livewire\PosFloorPlan` (`/app/pos/session/{id}/floor`) — floor tabs + table cards (number, `guests/seats` pill, status colour green=occupied / red=needs-attention (order untouched > `ATTENTION_MINUTES`=20) / grey=empty, order badge). Gated on `pos.order` Read (cashiers have it); reads PosFloor/PosTable directly (no per-model ACL). Responsive grid, NOT free x/y positions |
+| Terminal binding | `PosTerminal::mount(int $session, ?int $table = null)` — `tableId` scopes `resolveDraftOrder` to (session, table) so **every table keeps its own running draft**; null = the walk-in/quick-sale lane (`whereNull('pos_table_id')`). Header shows the table + floor + a **guest stepper** (`setGuests(±1)`, clamped 0..seats) and a "← Floor" link. Routes: `/app/pos/session/{s}/table/{t}` (bound) + the existing `/terminal` (walk-in) |
+| Entry flow | `PosHome::sellUrl()` — Open/Resume lands on the **floor plan when any active table exists**, else straight to the walk-in terminal (shops with no tables keep the original one-tap flow; an empty floor plan also offers "Sell without a table"). **Additive — never blocks selling** |
+| CRUD | `PosFloors`/`PosFloorForm` (`/app/pos/floor[...]`) + `PosTables`/`PosTableForm` (`/app/pos/table[...]`) — thin engine list/form wrappers. Manifest `models[]` += `PosFloor`,`PosTable` (needs `module:resync pos` — deploy runs it; the 3 migrations are applied by deploy's POS migrate step) |
+| Seed | `PosSeeder::seedFloorsAndTables()` — demo Main floor (1–8) + Patio (9, 10, round 11), idempotent. **NOT in the deploy chain** (only `SettingSeeder`/`PosStaffSeeder` run on deploy), so prod starts with no tables → walk-in flow until an admin adds them via **POS → POS Tables** |
+| Tests | `tests/Feature/PosFloorTableTest.php` (7 — open→floor-when-tables / →terminal-when-none, table binds order, per-table separate orders + walk-in, guest clamp, unknown table 404, floor lists + marks occupied). `PosModuleTest` registered-models list updated (+ pos.floor/pos.table) |
 
 **Deliberately OUT of scope** (say so if asked, offer as follow-ups): offline/PWA &
-hardware/IoT (scanners, cash drawer, customer display), restaurant floors/tables,
+hardware/IoT (cash drawer, customer display), a drag-to-position custom floor-plan
+editor / table merge-split-transfer,
 loyalty/gift cards/coupons, multi-currency *per-order* (the global default currency from
 Phase 11 IS now applied), advanced tax (price-included, multi-tax, fiscal positions),
 refunds/returns, and accounting/invoice posting. Known simplification: cash

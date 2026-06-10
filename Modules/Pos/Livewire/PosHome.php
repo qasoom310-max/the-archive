@@ -16,6 +16,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Pos\Enums\SessionState;
 use Modules\Pos\Models\PosSession;
+use Modules\Pos\Models\PosTable;
 use Modules\Pos\Services\PosSessionManager;
 
 /**
@@ -44,7 +45,19 @@ final class PosHome extends Component
             $userId,
         );
 
-        $this->redirect(url('/app/pos/session/' . $session->id . '/terminal'), navigate: true);
+        $this->redirect($this->sellUrl($session->id), navigate: true);
+    }
+
+    /**
+     * Where "Open" / "Resume selling" lands: the floor plan when any table is
+     * configured (pick a table first), else straight to the walk-in terminal
+     * so a shop with no tables keeps its original one-tap flow.
+     */
+    private function sellUrl(int $sessionId): string
+    {
+        return PosTable::query()->where('active', true)->exists()
+            ? url('/app/pos/session/' . $sessionId . '/floor')
+            : url('/app/pos/session/' . $sessionId . '/terminal');
     }
 
     public function render(): View
@@ -60,6 +73,7 @@ final class PosHome extends Component
 
         return view('pos::home', [
             'active' => $active,
+            'sellUrl' => $active !== null ? $this->sellUrl($active->id) : null,
             'participants' => $active !== null ? $manager->activeParticipants($active) : null,
             'recent' => PosSession::query()->with('user')
                 ->where('state', SessionState::Closed)

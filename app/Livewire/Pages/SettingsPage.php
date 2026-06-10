@@ -7,12 +7,16 @@ namespace App\Livewire\Pages;
 use App\Erp\Money\Currencies;
 use App\Erp\Settings\Setting;
 use App\Erp\Settings\SettingManager;
+use App\Models\ReportRecipient;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Validate;
 use Livewire\Component;
+use Modules\Pos\Services\DailyReport;
 
 /**
  * System configuration hub. Renders every `ir_config_parameter` grouped
@@ -85,6 +89,13 @@ final class SettingsPage extends Component
     public array $imagePaths = [];
 
     public bool $saved = false;
+
+    /**
+     * New recipient email being added in the admin-only "Daily Report" tab.
+     * The daily sales + stock PDF is mailed to every {@see ReportRecipient}.
+     */
+    #[Validate('required|email|max:200')]
+    public string $newRecipientEmail = '';
 
     public function mount(): void
     {
@@ -374,6 +385,61 @@ final class SettingsPage extends Component
         $this->saved = false;
     }
 
+    /**
+     * Whether the POS data the daily report reads from exists yet — the
+     * "Daily Report" tab is only meaningful once POS is installed.
+     */
+    private function posReady(): bool
+    {
+        return Schema::hasTable('pos_orders') && Schema::hasTable('pos_products');
+    }
+
+    private function guardAdmin(): void
+    {
+        abort_unless($this->isAdmin(), 403);
+    }
+
+    public function addRecipient(): void
+    {
+        $this->guardAdmin();
+        $this->validate();
+
+        ReportRecipient::query()->firstOrCreate(
+            ['email' => strtolower(trim($this->newRecipientEmail))],
+            ['active' => true],
+        );
+
+        $this->newRecipientEmail = '';
+    }
+
+    public function removeRecipient(int $id): void
+    {
+        $this->guardAdmin();
+        ReportRecipient::query()->whereKey($id)->delete();
+    }
+
+    /**
+     * Send the report for the night that just closed to the recipient list
+     * now — lets an admin verify delivery without waiting for 6 AM.
+     */
+    public function sendNow(): void
+    {
+        $this->guardAdmin();
+
+        if (! $this->posReady()) {
+            return;
+        }
+
+        $count = app(DailyReport::class)->sendLastClosedReport();
+
+        session()->flash(
+            'report_sent',
+            $count > 0
+                ? __('Report sent to :count recipient(s).', ['count' => $count])
+                : __('Add at least one recipient first.'),
+        );
+    }
+
     public function render(): View
     {
         /** @var array<string, list<int>> $tabs */
@@ -382,6 +448,17 @@ final class SettingsPage extends Component
             $tabs[$row['group']][] = $i;
         }
 
-        return view('livewire.pages.settings', ['tabs' => $tabs]);
+        // Admin-only "Daily Report" tab — recipient list for the automated
+        // 6:10 AM sales + stock PDF. Hidden for non-admins and until POS
+        // (the data source) is installed.
+        $reportTab = $this->isAdmin() && $this->posReady();
+
+        return view('livewire.pages.settings', [
+            'tabs' => $tabs,
+            'reportTab' => $reportTab,
+            'recipients' => $reportTab
+                ? ReportRecipient::query()->orderBy('email')->get()
+                : collect(),
+        ]);
     }
 }

@@ -167,6 +167,36 @@ stay (`done=true` → Done) and a `log` message is posted, so nothing vanishes.
   with no on-disk manifest, purely so the shell looks alive pre-Phase-5. Real modules
   are installed via `ModuleManager`; do not `module:uninstall` a seeded demo app.
 
+**Shell increment — Odoo-style app-home tile dashboards (shipped 2026-06-10):**
+
+- **Every app landing page is now a dashboard of clickable containers** —
+  one tile per registered `ir_model` the user may Read, navigating to that
+  model's List view (mirrors the contextual sidebar). New shared engine
+  piece `App\Erp\Navigation\ModuleMenu::items(IrModule, ?Authenticatable)`
+  returns the ACL-filtered, slug-resolved menu (the sidebar's logic was
+  **extracted into it**, so `Sidebar`, `ModuleHome` and `PosHome` all read
+  the same source and can't drift). Shared view: `resources/views/partials/
+  module-tiles.blade.php` — responsive grid of icon-badge + label + chevron
+  cards (per-model Heroicons map keyed by model id; coloured letter-badge
+  fallback; brand-yellow hover carries `text-chrome-900` per the rebrand
+  rule; chevron flips under `dir="rtl"`).
+  - `App\Livewire\Pages\ModuleHome` (`/app/{module}`) — was a bare grid of
+    raw dotted model ids with **no ACL filter**; now renders the partial,
+    ACL-filtered. Covers Contacts / Accounting / Project and any future app
+    whose home isn't custom-overridden.
+  - `Modules\Pos\Livewire\PosHome` keeps its register/KDS cards and gains a
+    **"Manage"** tile section below them (Customer Discount / POS Category /
+    Condiment / Order / Product / Session — each respecting the viewer's
+    Read ACL, so cashiers don't see the admin-only Customer Discount tile).
+  - Sidebar unchanged in behaviour (still the in-app quick-nav), just sources
+    its entries from `ModuleMenu` now. Apps with a custom non-`ModuleHome`
+    landing don't get tiles automatically: **Inventory** (custom Overview,
+    models not yet `DefinesIrModel`) and **Purchases** (`/app/purchases`
+    redirects straight to its single list) — offer as follow-ups if asked.
+  - Tests: `tests/Feature/ModuleMenuTest.php` (admin sees all + correct URLs,
+    non-admin only readable models, guest sees nothing, ModuleHome renders
+    tiles). AR keys added: `Manage`, `Application module`.
+
 **Shell & branding increments (shipped 2026-06-09):**
 
 - **Always-visible topbar app bar** (replaced the 9-square dropdown) —
@@ -660,13 +690,14 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
 
 | Concern | Location |
 |---|---|
-| Recipients | `report_recipients` table (`email` unique, `active`; core migration `2026_06_09_100001`) + `App\Models\ReportRecipient` (`activeEmails()` helper). Managed **admin-only** from the dashboard |
+| Recipients | `report_recipients` table (`email` unique, `active`; core migration `2026_06_09_100001`) + `App\Models\ReportRecipient` (`activeEmails()` helper). Managed **admin-only** from **Settings → Daily Report** tab (moved out of the Dashboard 2026-06-10 — see below) |
 | Report engine | `Modules\Pos\Services\DailyReport` — business day is **noon → 6 AM** (`OPEN_HOUR=12`, `CLOSE_HOUR=6`). `lastClosedWindow()` = yesterday 12:00 → today 06:00 (the night that just closed); `currentWindow()` drives the live dashboard card (open-now → up to now; closed → last night). Window bounds computed in the **company timezone** then converted to the app/DB timezone for the `ordered_at` query (timestamps store in `config('app.timezone')`). `sales()` = Done-only revenue/orders/AOV/tax/discount + payments-by-method + top-5 products; `stock()` = every active product's `stock_on_hand`, **out-of-stock then low (≤ `LOW_STOCK_THRESHOLD`=10) first**, each flagged. `LOW`/`OUT` highlighting |
 | PDF + email | `pos::daily-report-pdf` (professional inline-CSS A4, DomPDF — pure PHP, no Imagick) rendered by `DailyReport::renderPdf(['data'=>...])`; `Modules\Pos\Mail\DailyReportMail` attaches the PDF (`Attachment::fromData`) + `pos::daily-report-email` body. `sendForWindow()`/`sendLastClosedReport()` mail to `ReportRecipient::activeEmails()` (no-op + return 0 when none) |
-| Dashboard | `App\Livewire\Pages\Dashboard` (core) — **admin-only** "Daily sale" + "Daily stock report" cards (live `currentWindow()` figures) + email-list manager (`addRecipient`/`removeRecipient`/`sendNow`, all `guardAdmin()` → 403). Card data only computed when `Schema::hasTable('pos_orders')` (guarded core→POS coupling). `resources/views/livewire/pages/dashboard.blade.php`. **Blade uses FQN `\App\Erp\Money\Currencies::format(...)`** — a `@php use ... @endphp` inside the `@if` compiles to an illegal mid-block `use` |
+| Dashboard | `App\Livewire\Pages\Dashboard` (core) — **admin-only** "Daily sale" + "Daily stock report" cards (live `currentWindow()` figures). Card data only computed when `Schema::hasTable('pos_orders')` (guarded core→POS coupling). `resources/views/livewire/pages/dashboard.blade.php`. **Blade uses FQN `\App\Erp\Money\Currencies::format(...)`** — a `@php use ... @endphp` inside the `@if` compiles to an illegal mid-block `use`. **The email-list recipient manager moved to Settings on 2026-06-10** (below) — the dashboard now only shows the two read-only KPI cards |
+| Recipient manager (moved 2026-06-10) | `App\Livewire\Pages\SettingsPage` (core) — the `addRecipient`/`removeRecipient`/`sendNow` actions + `newRecipientEmail` prop (`#[Validate('required\|email\|max:200')]`) now live here, surfaced as an **admin-only "Daily Report" tab** (`$reportTab = isAdmin && posReady()`; ASCII Alpine tab key `__reports` so the localised label can't break tab state; General stays the default tab). Actions still `guardAdmin()` → 403 and fire immediately (independent of the page's top Save, which only persists `ir_config_parameter`). `resources/views/livewire/pages/settings.blade.php`. AR key `Daily Report` added |
 | Schedule | `routes/console.php` — `Schedule::call(... DailyReport::sendLastClosedReport())->dailyAt('06:10')->timezone($companyTz)->name('daily-pos-report')`. Company tz read once at build time (guarded by `Schema::hasTable('ir_config_parameter')`); closure re-guards POS + recipients tables and try/catches the send so a mail failure never breaks `schedule:run`. **Depends on the same hPanel `schedule:run` cron** as the WhatsApp queue + discount sweep — no cron ⇒ no 6 AM email (`[[hostinger-cron-needed-for-queue-worker]]`) |
 | Mail transport | Sending needs prod SMTP configured in `.env` (`[[prod-mail-transport-environment-specific]]` — Hostinger SMTP). Without it the 6 AM send + "Send now" silently fail (logged) |
-| Tests | `tests/Feature/PosDailyReportTest.php` (9 — window math via `Carbon::setTestNow`, Done-only-in-window sales, stock low/out flags + ordering, PDF emailed to active recipients only, no-recipients no-op, dashboard add/remove + invalid-email reject + non-admin 403 + send-now) |
+| Tests | `tests/Feature/PosDailyReportTest.php` (9 — window math via `Carbon::setTestNow`, Done-only-in-window sales, stock low/out flags + ordering, PDF emailed to active recipients only, no-recipients no-op, **Settings** add/remove + invalid-email reject + non-admin 403 + send-now — these 4 retarget `SettingsPage` after the 2026-06-10 move) |
 
 `report_recipients` is a **core** migration, so the deploy workflow's core `migrate --force` applies it automatically. The 6 AM email needs prod SMTP set **and** the minute cron running.
 

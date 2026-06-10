@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Erp\Modules\ModuleManager;
-use App\Livewire\Pages\Dashboard;
+use App\Livewire\Pages\SettingsPage;
 use App\Models\ReportRecipient;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
@@ -147,9 +147,9 @@ final class PosDailyReportTest extends TestCase
         Mail::assertNothingSent();
     }
 
-    public function test_admin_can_add_and_remove_recipients_from_the_dashboard(): void
+    public function test_admin_can_add_and_remove_recipients_from_settings(): void
     {
-        $component = Livewire::test(Dashboard::class)
+        $component = Livewire::test(SettingsPage::class)
             ->set('newRecipientEmail', 'New@Cafe.Test')
             ->call('addRecipient')
             ->assertHasNoErrors();
@@ -165,7 +165,7 @@ final class PosDailyReportTest extends TestCase
 
     public function test_invalid_recipient_email_is_rejected(): void
     {
-        Livewire::test(Dashboard::class)
+        Livewire::test(SettingsPage::class)
             ->set('newRecipientEmail', 'not-an-email')
             ->call('addRecipient')
             ->assertHasErrors('newRecipientEmail');
@@ -177,7 +177,7 @@ final class PosDailyReportTest extends TestCase
     {
         $this->actingAs(User::factory()->create(['is_admin' => false]));
 
-        Livewire::test(Dashboard::class)
+        Livewire::test(SettingsPage::class)
             ->set('newRecipientEmail', 'sneaky@cafe.test')
             ->call('addRecipient')
             ->assertForbidden();
@@ -190,7 +190,7 @@ final class PosDailyReportTest extends TestCase
         Mail::fake();
         ReportRecipient::query()->create(['email' => 'owner@cafe.test', 'active' => true]);
 
-        Livewire::test(Dashboard::class)->call('sendNow');
+        Livewire::test(SettingsPage::class)->call('sendNow');
 
         Mail::assertSent(DailyReportMail::class, 1);
     }

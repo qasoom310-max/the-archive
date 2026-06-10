@@ -102,4 +102,14 @@
             @endif
         </div>
     </div>
+
+    {{-- App-home dashboard: clickable containers for every POS area (orders,
+         products, categories, …). Mirrors the contextual sidebar so the
+         landing page is a launchpad, not just the register controls. --}}
+    @if (! empty($tiles))
+        <div class="mt-8">
+            <h2 class="mb-3 text-sm font-semibold text-chrome-800">{{ __('Manage') }}</h2>
+            @include('partials.module-tiles', ['tiles' => $tiles])
+        </div>
+    @endif
 </div>

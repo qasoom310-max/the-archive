@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Modules\Pos\Livewire;
 
+use App\Erp\Navigation\ModuleMenu;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
+use App\Models\Ir\IrModule;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
@@ -51,6 +53,11 @@ final class PosHome extends Component
         $manager = app(PosSessionManager::class);
         $active = $manager->getActiveSession();
 
+        // Odoo-style app-home tiles for every POS model the user may Read
+        // (same source as the contextual sidebar — see ModuleMenu).
+        $module = IrModule::query()->where('name', 'pos')->first();
+        $tiles = $module !== null ? app(ModuleMenu::class)->items($module, $user) : [];
+
         return view('pos::home', [
             'active' => $active,
             'participants' => $active !== null ? $manager->activeParticipants($active) : null,
@@ -58,6 +65,7 @@ final class PosHome extends Component
                 ->where('state', SessionState::Closed)
                 ->latest('closed_at')->limit(10)->get(),
             'isManager' => $user instanceof User && $user->isAdmin(),
+            'tiles' => $tiles,
         ]);
     }
 }

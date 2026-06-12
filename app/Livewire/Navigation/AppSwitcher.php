@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Livewire\Navigation;
 
 use App\Erp\Enums\ModuleState;
+use App\Erp\Navigation\ModuleMenu;
 use App\Models\Ir\IrModule;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 /**
@@ -30,8 +32,22 @@ final class AppSwitcher extends Component
             ->orderBy('sequence')
             ->get();
 
+        // Each app's dropdown = the same ACL-filtered model menu the app-home
+        // tile dashboard renders (one shared source — they can't drift). Apps
+        // that register no DefinesIrModel (Inventory, Settings, …) get an
+        // empty list and fall through to a plain home link in the view.
+        $menu = app(ModuleMenu::class);
+        $user = Auth::user();
+
+        /** @var array<string, list<array{label: string, model: string, slug: string, url: string}>> $menus */
+        $menus = [];
+        foreach ($apps as $app) {
+            $menus[$app->name] = $menu->items($app, $user);
+        }
+
         return view('livewire.navigation.app-switcher', [
             'apps' => $apps,
+            'menus' => $menus,
         ]);
     }
 }

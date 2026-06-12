@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Erp\Enums\ModuleState;
+use App\Erp\Modules\ModuleManager;
 use App\Livewire\Navigation\AppSwitcher;
 use App\Livewire\Navigation\CommandPalette;
 use App\Models\Demo\DemoTicket;
@@ -101,6 +102,17 @@ final class ShellNavigationTest extends TestCase
         Livewire::test(AppSwitcher::class)
             ->assertSee('CRM')
             ->assertDontSee('Hidden Lib');
+    }
+
+    public function test_app_dropdown_lists_an_apps_models(): void
+    {
+        // An installed app with registered models surfaces them as dropdown
+        // entries (same source as the app-home tiles) with their resource URLs.
+        app(ModuleManager::class)->install('pos');
+
+        Livewire::test(AppSwitcher::class)
+            ->assertSee('POS Category')
+            ->assertSeeHtml(url('/app/pos/category'));
     }
 
     public function test_command_palette_fuzzy_search(): void

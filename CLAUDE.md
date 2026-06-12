@@ -149,7 +149,7 @@ always satisfied (never resolved on disk).
 | Concern | Location |
 |---|---|
 | Master layout | `resources/views/components/layouts/app.blade.php` (Livewire full-page layout) |
-| App switcher | `App\Livewire\Navigation\AppSwitcher` → installed `application` modules. **As of 2026-06-09 this is an always-visible inline app BAR in the topbar, not a 9-square dropdown** (see Shell & branding increments below) |
+| App switcher | `App\Livewire\Navigation\AppSwitcher` → installed `application` modules. **As of 2026-06-09 this is an always-visible inline app BAR in the topbar, not a 9-square dropdown** (see Shell & branding increments below). **As of 2026-06-12 each app whose module registers readable models is a DROPDOWN of those models** (the same `ModuleMenu::items` entries as its app-home tiles — one shared source) so any list is one hop from the topbar; apps with no models stay a plain home link (see increment below) |
 | Command palette | `App\Livewire\Navigation\CommandPalette` (⌘K/Ctrl+K, fuzzy, `open-command-palette` event) |
 | Contextual sidebar | **REMOVED 2026-06-10.** Every app now lands on its own tile dashboard (see below); app-to-app nav is the topbar app bar. `App\Erp\Navigation\ModuleMenu` (the old sidebar's model-list logic) lives on and drives the tiles |
 | Chatter (`mail.thread`) | `App\Livewire\Chatter` + `App\Erp\Chatter\{HasChatter trait, Chatterable iface, ActivityBucket}` |
@@ -216,6 +216,27 @@ stay (`done=true` → Done) and a `log` message is posted, so nothing vanishes.
     `ModuleMenu` primary-model→home URL mapping directly. `ModuleMenu` doc +
     the §3 shell table row updated. Unused AR keys (`Toggle sidebar`, sidebar
     `Workspace`/`Pick an app to begin`) left in place (harmless).
+
+**Shell increment — app-bar dropdowns (shipped 2026-06-12):**
+
+- **Each app in the topbar app bar is now a DROPDOWN of its models** —
+  `AppSwitcher` loads, per installed `application` module, the same
+  `App\Erp\Navigation\ModuleMenu::items($module, $user)` list its app-home
+  tile dashboard uses (one shared, ACL-filtered source — they can't drift),
+  and renders each app as a click-to-open dropdown: a header link to the
+  app home + one row per readable model → its resource URL. Apps whose
+  module registers **no** `DefinesIrModel` (Inventory, Settings, WhatsApp)
+  have an empty list and stay a **plain home link** (prior behaviour).
+  Single shared `openApp` Alpine state so opening one app's menu closes any
+  other; `Esc` / outside-click close. **The panels are `x-teleport`'d to
+  `<body>` and positioned with fixed coords captured on open** — the app bar
+  is `overflow-x-auto`, which also clips vertical overflow, so an in-flow
+  absolute panel would be cut off; teleporting escapes the clip (RTL-aware:
+  anchors to the trigger's end edge under `dir="rtl"`). Test:
+  `ShellNavigationTest::test_app_dropdown_lists_an_apps_models` (POS dropdown
+  surfaces "POS Category" + its `/app/pos/category` URL). Reused the existing
+  per-module Heroicon set; no new `lang/ar.json` keys (model labels flow
+  through the existing `__()` entries).
 
 **Shell & branding increments (shipped 2026-06-09):**
 

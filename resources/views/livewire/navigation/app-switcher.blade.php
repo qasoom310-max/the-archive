@@ -36,8 +36,22 @@
      takes the space left between the brand and the right-hand controls
      and scrolls horizontally if more apps are installed than fit (so the
      bar never wraps and breaks the fixed-height header). The active app
-     is highlighted. Replaced the old 9-square dropdown trigger. --}}
-<nav class="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
+     is highlighted.
+
+     Each app whose module registers any readable model is a DROPDOWN of
+     those models (the same entries as its app-home tile dashboard, via
+     ModuleMenu) — so any list is one hop from the topbar, for every app.
+     Apps with no models (Inventory, Settings, …) stay a plain home link.
+
+     Single shared open-state (`openApp`) so opening one app's menu closes
+     any other. The panels are TELEPORTED to <body> and positioned with
+     fixed coords captured on open: the bar is `overflow-x-auto`, which
+     also clips vertical overflow, so an in-flow absolute panel would be
+     cut off — teleporting escapes the clip. --}}
+<nav x-data="{ openApp: null, coords: {} }"
+    @keydown.escape.window="openApp = null"
+    @click.window="openApp = null"
+    class="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
     aria-label="{{ __('Applications') }}">
     @foreach ($apps as $app)
         @php
@@ -51,19 +65,82 @@
 
             $iconBody = $moduleIcons[$app->name] ?? $defaultModuleIcon;
             $isActive = $activeModule === $app->name;
+            $items = $menus[$app->name] ?? [];
+            $homeUrl = url('/app/' . $app->name);
         @endphp
-        <a href="{{ url('/app/' . $app->name) }}"
-            @class([
-                'flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors',
-                'bg-black/10 font-medium text-chrome-900' => $isActive,
-                'text-chrome-800 hover:bg-black/10 hover:text-chrome-900' => ! $isActive,
-            ])
-            @if ($isActive) aria-current="page" @endif
-            title="{{ $label }}">
-            <svg class="size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                {!! $iconBody !!}
-            </svg>
-            <span class="hidden sm:inline">{{ $label }}</span>
-        </a>
+
+        @if (count($items) > 0)
+            {{-- App with a model menu → dropdown trigger. --}}
+            <div class="relative shrink-0">
+                <button type="button"
+                    @click.stop="
+                        if (openApp === '{{ $app->name }}') { openApp = null; }
+                        else {
+                            const r = $event.currentTarget.getBoundingClientRect();
+                            const rtl = document.documentElement.getAttribute('dir') === 'rtl';
+                            coords = { top: r.bottom + 4, left: r.left, right: window.innerWidth - r.right, rtl };
+                            openApp = '{{ $app->name }}';
+                        }
+                    "
+                    @class([
+                        'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors',
+                        'bg-black/10 font-medium text-chrome-900' => $isActive,
+                        'text-chrome-800 hover:bg-black/10 hover:text-chrome-900' => ! $isActive,
+                    ])
+                    :aria-expanded="openApp === '{{ $app->name }}'"
+                    aria-haspopup="true"
+                    title="{{ $label }}">
+                    <svg class="size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        {!! $iconBody !!}
+                    </svg>
+                    <span class="hidden sm:inline">{{ $label }}</span>
+                    <svg class="size-3.5 shrink-0 transition-transform" :class="openApp === '{{ $app->name }}' && 'rotate-180'"
+                        viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/>
+                    </svg>
+                </button>
+
+                <template x-teleport="body">
+                    <div x-show="openApp === '{{ $app->name }}'" x-cloak x-transition.opacity.duration.100ms
+                        @click.stop
+                        :style="`top:${coords.top}px; ${coords.rtl ? 'right:' + coords.right + 'px' : 'left:' + coords.left + 'px'}`"
+                        class="fixed z-50 max-h-[70vh] min-w-[13rem] overflow-y-auto rounded-lg border border-chrome-200 bg-white py-1.5 shadow-pop">
+                        {{-- Open the app's home dashboard. --}}
+                        <a href="{{ $homeUrl }}"
+                            class="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-chrome-900 hover:bg-chrome-100">
+                            <svg class="size-4 shrink-0 text-primary-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                {!! $iconBody !!}
+                            </svg>
+                            {{ $label }}
+                        </a>
+                        <div class="my-1 border-t border-chrome-100"></div>
+                        @foreach ($items as $item)
+                            <a href="{{ $item['url'] }}"
+                                class="flex items-center justify-between gap-3 px-3 py-1.5 text-sm text-chrome-700 hover:bg-chrome-100">
+                                <span>{{ __($item['label']) }}</span>
+                                <svg class="size-3.5 shrink-0 text-chrome-300 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/>
+                                </svg>
+                            </a>
+                        @endforeach
+                    </div>
+                </template>
+            </div>
+        @else
+            {{-- App with no model menu → plain home link (current behaviour). --}}
+            <a href="{{ $homeUrl }}"
+                @class([
+                    'flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors',
+                    'bg-black/10 font-medium text-chrome-900' => $isActive,
+                    'text-chrome-800 hover:bg-black/10 hover:text-chrome-900' => ! $isActive,
+                ])
+                @if ($isActive) aria-current="page" @endif
+                title="{{ $label }}">
+                <svg class="size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    {!! $iconBody !!}
+                </svg>
+                <span class="hidden sm:inline">{{ $label }}</span>
+            </a>
+        @endif
     @endforeach
 </nav>

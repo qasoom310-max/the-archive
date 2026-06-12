@@ -227,16 +227,20 @@ stay (`done=true` → Done) and a `log` message is posted, so nothing vanishes.
   app home + one row per readable model → its resource URL. Apps whose
   module registers **no** `DefinesIrModel` (Inventory, Settings, WhatsApp)
   have an empty list and stay a **plain home link** (prior behaviour).
-  Single shared `openApp` Alpine state so opening one app's menu closes any
-  other; `Esc` / outside-click close. **The panels use `position: fixed`
-  with viewport coords captured on open** — the app bar is `overflow-x-auto`,
-  which also clips vertical overflow, so an in-flow `absolute` panel would be
-  cut off; a `fixed` panel anchors to the viewport and escapes the clip (no
-  transformed ancestor exists to trap it). RTL-aware: anchors to the
-  trigger's end edge under `dir="rtl"`. **NOT `x-teleport`** — teleporting the
-  panel out of the Livewire component root stranded/duplicated panels on
-  re-render (all apps' menus stacked at once); keeping it in-tree + `fixed`
-  fixes that while still escaping the overflow clip. Test:
+  **Each app is its OWN isolated Alpine scope** (`x-data="{ open, coords }"`)
+  — the proven orders-3-dot-menu pattern — with `@click.outside` on the root
+  + `@keydown.escape.window` to close; clicking another app's trigger bubbles
+  a document click that closes the previous one. **The panels use
+  `position: fixed` with viewport coords captured on open** — the app bar is
+  `overflow-x-auto`, which also clips vertical overflow, so an in-flow
+  `absolute` panel would be cut off; a `fixed` panel anchors to the viewport
+  and escapes the clip (no transformed ancestor exists to trap it), while
+  staying a DOM child of its root so `@click.outside` still works. RTL-aware:
+  anchors to the trigger's end edge under `dir="rtl"`. **Avoid both a shared
+  open-state AND `x-teleport` here** — the first iteration teleported panels
+  to `<body>` and a shared `openApp`; across `wire:navigate` the panels
+  stranded/stacked (every app's menu showing at once). Isolated per-app
+  scope + in-tree `fixed` is what actually holds up. Test:
   `ShellNavigationTest::test_app_dropdown_lists_an_apps_models` (POS dropdown
   surfaces "POS Category" + its `/app/pos/category` URL). Reused the existing
   per-module Heroicon set; no new `lang/ar.json` keys (model labels flow

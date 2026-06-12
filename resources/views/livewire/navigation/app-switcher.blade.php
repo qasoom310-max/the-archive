@@ -43,15 +43,13 @@
      ModuleMenu) — so any list is one hop from the topbar, for every app.
      Apps with no models (Inventory, Settings, …) stay a plain home link.
 
-     Single shared open-state (`openApp`) so opening one app's menu closes
-     any other. The panels are TELEPORTED to <body> and positioned with
-     fixed coords captured on open: the bar is `overflow-x-auto`, which
-     also clips vertical overflow, so an in-flow absolute panel would be
-     cut off — teleporting escapes the clip. --}}
-<nav x-data="{ openApp: null, coords: {} }"
-    @keydown.escape.window="openApp = null"
-    @click.window="openApp = null"
-    class="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
+     Each app is its OWN isolated Alpine scope (`open`) — the proven orders
+     3-dot-menu pattern — so panels can't cross-talk or stack. Each panel is
+     a DOM child of its trigger's root (so `@click.outside` closes it and the
+     button click can't self-close) but positioned `fixed` at viewport coords
+     captured on open, so it escapes the bar's `overflow-x-auto` clip (no
+     transformed ancestor exists to trap a fixed element). --}}
+<nav class="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
     aria-label="{{ __('Applications') }}">
     @foreach ($apps as $app)
         @php
@@ -70,16 +68,18 @@
         @endphp
 
         @if (count($items) > 0)
-            {{-- App with a model menu → dropdown trigger. --}}
-            <div class="relative shrink-0">
+            {{-- App with a model menu → isolated dropdown scope. --}}
+            <div x-data="{ open: false, coords: {} }"
+                @click.outside="open = false"
+                @keydown.escape.window="open = false"
+                class="relative shrink-0">
                 <button type="button"
-                    @click.stop="
-                        if (openApp === '{{ $app->name }}') { openApp = null; }
-                        else {
+                    @click="
+                        open = ! open;
+                        if (open) {
                             const r = $event.currentTarget.getBoundingClientRect();
                             const rtl = document.documentElement.getAttribute('dir') === 'rtl';
                             coords = { top: r.bottom + 4, left: r.left, right: window.innerWidth - r.right, rtl };
-                            openApp = '{{ $app->name }}';
                         }
                     "
                     @class([
@@ -87,26 +87,23 @@
                         'bg-black/10 font-medium text-chrome-900' => $isActive,
                         'text-chrome-800 hover:bg-black/10 hover:text-chrome-900' => ! $isActive,
                     ])
-                    :aria-expanded="openApp === '{{ $app->name }}'"
+                    :aria-expanded="open"
                     aria-haspopup="true"
                     title="{{ $label }}">
                     <svg class="size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                         {!! $iconBody !!}
                     </svg>
                     <span class="hidden sm:inline">{{ $label }}</span>
-                    <svg class="size-3.5 shrink-0 transition-transform" :class="openApp === '{{ $app->name }}' && 'rotate-180'"
+                    <svg class="size-3.5 shrink-0 transition-transform" :class="open && 'rotate-180'"
                         viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                         <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/>
                     </svg>
                 </button>
 
                 {{-- `fixed` (not absolute) so the panel anchors to the viewport
-                     and escapes the bar's `overflow-x-auto` clip — no `x-teleport`
-                     (teleporting out of the Livewire root duplicated / stranded
-                     panels on re-render). No transformed ancestor exists, so a
-                     fixed element here is viewport-positioned as intended. --}}
-                <div x-show="openApp === '{{ $app->name }}'" x-cloak x-transition.opacity.duration.100ms
-                    @click.stop
+                     and escapes the bar's `overflow-x-auto` clip. Stays a DOM
+                     child of the root so @click.outside works. --}}
+                <div x-show="open" x-cloak x-transition.opacity.duration.100ms
                     :style="`top:${coords.top}px; ${coords.rtl ? 'right:' + coords.right + 'px' : 'left:' + coords.left + 'px'}`"
                     class="fixed z-50 max-h-[70vh] min-w-[13rem] overflow-y-auto rounded-lg border border-chrome-200 bg-white py-1.5 shadow-pop">
                     {{-- Open the app's home dashboard. --}}

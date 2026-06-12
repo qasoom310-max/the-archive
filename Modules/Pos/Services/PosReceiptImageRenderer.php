@@ -58,7 +58,7 @@ class PosReceiptImageRenderer
             throw new RuntimeException('Imagick PHP extension is required to render receipt images.');
         }
 
-        $data = $this->buildViewData($order);
+        $data = $this->receiptViewData($order);
         $pdfBinary = Pdf::loadView('pos::receipt-pdf', $data)->output();
 
         $disk = Storage::disk('public');
@@ -77,11 +77,13 @@ class PosReceiptImageRenderer
 
     /**
      * Pull the order into a plain-array shape the Blade can render
-     * without invoking model magic at PDF-render time.
+     * without invoking model magic at PDF-render time. Public so the
+     * printable-receipt route ({@see \Modules\Pos\Http\Controllers\PosReceiptPrintController})
+     * can reuse the exact same shape the WhatsApp PNG is built from.
      *
      * @return array<string, mixed>
      */
-    private function buildViewData(PosOrder $order): array
+    public function receiptViewData(PosOrder $order): array
     {
         $companyName = (string) Setting::get('company.name', 'OpenERP');
 

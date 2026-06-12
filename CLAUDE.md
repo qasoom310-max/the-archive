@@ -778,9 +778,28 @@ a responsive grid, not free x/y), table merge/split/transfer, and course/firing.
 | Seed | `PosSeeder::seedFloorsAndTables()` — demo Main floor (1–8) + Patio (9, 10, round 11), idempotent. **NOT in the deploy chain** (only `SettingSeeder`/`PosStaffSeeder` run on deploy). For prod, the default **floors** ship instead as a **data migration** `2026_06_10_500004_seed_default_pos_floors.php` — seeds **Patio / Ground floor / First floor** (no tables), per-name idempotent (inserts each only if a floor of that name is missing, so it never duplicates or clobbers a renamed floor; `down()` deletes those three). Runs via the deploy's POS `migrate --path` step because `PosSeeder` isn't in the deploy chain — so the table form's Floor picker is never empty on a fresh install. Tables are still admin-added via **POS → POS Tables** |
 | Tests | `tests/Feature/PosFloorTableTest.php` (7 — open→floor-when-tables / →terminal-when-none, table binds order, per-table separate orders + walk-in, guest clamp, unknown table 404, floor lists + marks occupied). `PosModuleTest` registered-models list updated (+ pos.floor/pos.table) |
 
+**Split order — move items off a bill into a new order (shipped 2026-06-12):**
+
+The SierraPOS / Odoo "split the bill" gesture: select a quantity of lines on an
+existing order and move them to a **new** order (optionally on a different table).
+Available from **two entry points** sharing one modal + one service.
+
+| Concern | Location |
+|---|---|
+| Domain service | `Modules\Pos\Services\PosOrderSplitter::split($source, $quantities, $destTableId, $notes)` — the **sole** entry point. `$quantities` = `lineId => unitsToMove`. Atomic (one session-locked `DB::transaction`; a validation throw moves nothing). Per line: a partial move shrinks the source line + creates a destination line; a whole move re-creates on the destination and deletes the source. Product/price/discount/tax/**condiments**/KDS prep-state all carry over. Guards: source must be Draft or Done; ≥1 unit moves AND ≥1 unit stays (can't empty the original ⇒ a single-unit order isn't splittable); a draft can't split back onto its own table |
+| Draft path | Moved lines land on the destination table's **open draft** (merged if one exists — preserves one-draft-per-table), else a fresh draft. No money involved |
+| Paid (Done) path | Spawns a **mirror Done order**. **Never re-fires `PosOrderPaid`** ⇒ stock is NOT re-consumed (new order inherits `components_consumed = true`), no second journal entry / KDS ticket / WhatsApp receipt. Combined revenue+tax+stock across the two orders is identical to the original; only **payment records** (greedy exact split, method breakdown preserved, change stays with the source) and the per-phone discount % are re-apportioned so each order balances alone |
+| Exception | `Modules\Pos\Exceptions\PosOrderSplitException` — friendly message rendered inline in the modal |
+| Schema | `pos_orders.notes` (nullable text; migration `2026_06_12_600001`, auto-applied by deploy's POS migrate step) — the modal's "Notes (Optional)" lands here on the new order. Added to `PosOrder` fillable + `@property` |
+| Shared modal | `Modules\Pos\Livewire\SplitOrderModal` + `pos::split-order-modal` — item table (checkbox + qty stepper), destination-table select, notes, **live** split summary (new vs remaining items + totals). Opened by dispatching `open-split-order` (orderId); on success dispatches `order-split` so the host re-renders. Registered as a Livewire alias in `PosServiceProvider::boot()`, but **embedded via `@livewire(\Modules\Pos\Livewire\SplitOrderModal::class)`** (FQCN, not the alias) on the terminal + orders views so it resolves in the test harness too (module `boot()` doesn't run after an in-test install — the same gap PurchaseConfirmTest works around) |
+| Entry 1 — terminal | A **"Split"** button in the cart header (shown when the cart has ≥2 units) opens the modal for the current order |
+| Entry 2 — Orders list | `PosOrders` was **rewritten** from the metadata engine-list wrapper into a **custom actionable list** (SierraPOS-style): search by reference, status filter, pagination, and per-row **split / cancel / print** icons. The Kanban tab still embeds the engine `kanban-view`. Cancel voids a **draft** only (sets `Cancelled`); print → the receipt route below; split → the shared modal. `/app/pos/order` (sidebar tile) now lands here |
+| Receipt print | `Modules\Pos\Http\Controllers\PosReceiptPrintController` (GET `/app/pos/order/{id}/receipt`, `pos.order.receipt`, Read-gated) renders `pos::receipt-print` — a browser-printable slip reusing `PosReceiptImageRenderer::receiptViewData()` (made **public**) so it matches the WhatsApp PNG. Auto-opens the print dialog |
+| Tests | `tests/Feature/PosOrderSplitTest.php` (9 — draft move, partial-qty shrink, merge-into-existing-table-draft, can't-empty-original, empty-selection rejected, **paid split keeps stock + reapportions payment + combined cash unchanged**, modal create+dispatch, orders-list render+cancel, receipt-print renders) |
+
 **Deliberately OUT of scope** (say so if asked, offer as follow-ups): offline/PWA &
 hardware/IoT (cash drawer, customer display), a drag-to-position custom floor-plan
-editor / table merge-split-transfer,
+editor / table merge-transfer (order **split** now ships; table merge/transfer don't),
 loyalty/gift cards/coupons, multi-currency *per-order* (the global default currency from
 Phase 11 IS now applied), advanced tax (price-included, multi-tax, fiscal positions),
 refunds/returns, and accounting/invoice posting. Known simplification: cash

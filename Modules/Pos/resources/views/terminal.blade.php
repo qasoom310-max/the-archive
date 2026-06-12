@@ -38,6 +38,9 @@
                     </div>
                 @endif
                 @include('pos::partials.user-chip', ['user' => $cashier, 'sub' => __('Cashier')])
+                @if ((int) $lines->sum('qty') >= 2)
+                    <button wire:click="openSplit" class="o-btn-ghost text-xs" title="{{ __('Split this order') }}">{{ __('Split') }}</button>
+                @endif
                 <button wire:click="newOrder" class="o-btn-ghost text-xs">{{ __('New order') }}</button>
             </div>
         </div>
@@ -535,4 +538,10 @@
             </div>
         </div>
     @endif
+
+    {{-- Shared split-order overlay (opened via the "Split" header button).
+         FQCN form (not the alias) so it resolves even in the test harness,
+         where the module provider's boot() — which registers the alias —
+         hasn't run after an in-test install. --}}
+    @livewire(\Modules\Pos\Livewire\SplitOrderModal::class)
 </div>

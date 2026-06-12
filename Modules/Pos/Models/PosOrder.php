@@ -38,6 +38,7 @@ use Modules\Pos\Events\PosOrderPaid;
  * @property float $customer_discount_total
  * @property bool $components_consumed
  * @property string|null $customer_phone International-format digits (no '+'), e.g. "97333123456"
+ * @property string|null $notes Order-level free-text note (e.g. set when split off another order)
  * @property Carbon|null $ordered_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -62,7 +63,7 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
         'partner_id', 'user_id', 'state',
         'subtotal', 'tax_total', 'total', 'paid_total', 'change_due',
         'customer_discount_percent', 'customer_discount_total',
-        'components_consumed', 'customer_phone', 'ordered_at',
+        'components_consumed', 'customer_phone', 'notes', 'ordered_at',
     ];
 
     /**

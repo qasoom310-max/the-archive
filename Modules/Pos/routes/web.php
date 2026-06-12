@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Modules\Pos\Http\Controllers\PosProductExportController;
 use Modules\Pos\Http\Controllers\PosProductImportTemplateController;
+use Modules\Pos\Http\Controllers\PosReceiptPrintController;
 use Modules\Pos\Livewire\KitchenDisplay;
 use Modules\Pos\Livewire\PosCategories;
 use Modules\Pos\Livewire\PosCategoryForm;
@@ -36,6 +37,9 @@ Route::middleware('auth')->group(function (): void {
     // Sidebar resource entries (driven by the registered ir_models):
     // pos.order / pos.product / pos.session → these index pages.
     Route::get('/app/pos/order', PosOrders::class)->name('pos.order.index');
+    // Browser-printable receipt for a finalised order (Orders list → print).
+    Route::get('/app/pos/order/{id}/receipt', PosReceiptPrintController::class)
+        ->whereNumber('id')->name('pos.order.receipt');
     Route::get('/app/pos/product', PosProducts::class)->name('pos.product.index');
     Route::get('/app/pos/category', PosCategories::class)->name('pos.category.index');
     Route::get('/app/pos/condiment', PosCondiments::class)->name('pos.condiment.index');

@@ -6,10 +6,12 @@ namespace Modules\Pos\Providers;
 
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 use Modules\Pos\Events\PosOrderPaid;
 use Modules\Pos\Listeners\QueueLinesForKitchen;
 use Modules\Pos\Listeners\RenewCustomerDiscount;
 use Modules\Pos\Listeners\SendPosOrderReceiptViaWhatsApp;
+use Modules\Pos\Livewire\SplitOrderModal;
 use Modules\Pos\Services\PosSessionManager;
 
 /**
@@ -25,6 +27,11 @@ final class PosServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // The split-order overlay is embedded (not routed) on both the
+        // terminal and the Orders list, so it needs an explicit Livewire
+        // alias — module components aren't auto-discovered like App\Livewire.
+        Livewire::component('pos.split-order-modal', SplitOrderModal::class);
+
         // Auto-receipt: every finalised POS order fires PosOrderPaid; the
         // listener queues a WhatsApp template message if the order has a
         // captured customer phone. Registered here (not in EventServiceProvider)

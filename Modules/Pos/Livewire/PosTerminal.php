@@ -13,6 +13,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Pos\Enums\OrderState;
@@ -632,6 +633,24 @@ final class PosTerminal extends Component
 
         $this->receiptOrderId = $order->id;
         $this->paying = false;
+    }
+
+    /**
+     * Hand the current order to the shared split-order modal.
+     */
+    public function openSplit(): void
+    {
+        $this->dispatch('open-split-order', orderId: $this->orderId);
+    }
+
+    /**
+     * The modal split lines off this draft — re-render so the cart reflects
+     * what's left. (Empty body: presence of the listener triggers Livewire's
+     * round-trip and the render() reload of the order.)
+     */
+    #[On('order-split')]
+    public function refreshAfterSplit(): void
+    {
     }
 
     public function newOrder(): void

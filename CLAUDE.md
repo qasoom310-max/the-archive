@@ -228,11 +228,15 @@ stay (`done=true` → Done) and a `log` message is posted, so nothing vanishes.
   module registers **no** `DefinesIrModel` (Inventory, Settings, WhatsApp)
   have an empty list and stay a **plain home link** (prior behaviour).
   Single shared `openApp` Alpine state so opening one app's menu closes any
-  other; `Esc` / outside-click close. **The panels are `x-teleport`'d to
-  `<body>` and positioned with fixed coords captured on open** — the app bar
-  is `overflow-x-auto`, which also clips vertical overflow, so an in-flow
-  absolute panel would be cut off; teleporting escapes the clip (RTL-aware:
-  anchors to the trigger's end edge under `dir="rtl"`). Test:
+  other; `Esc` / outside-click close. **The panels use `position: fixed`
+  with viewport coords captured on open** — the app bar is `overflow-x-auto`,
+  which also clips vertical overflow, so an in-flow `absolute` panel would be
+  cut off; a `fixed` panel anchors to the viewport and escapes the clip (no
+  transformed ancestor exists to trap it). RTL-aware: anchors to the
+  trigger's end edge under `dir="rtl"`. **NOT `x-teleport`** — teleporting the
+  panel out of the Livewire component root stranded/duplicated panels on
+  re-render (all apps' menus stacked at once); keeping it in-tree + `fixed`
+  fixes that while still escaping the overflow clip. Test:
   `ShellNavigationTest::test_app_dropdown_lists_an_apps_models` (POS dropdown
   surfaces "POS Category" + its `/app/pos/category` URL). Reused the existing
   per-module Heroicon set; no new `lang/ar.json` keys (model labels flow

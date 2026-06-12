@@ -100,31 +100,34 @@
                     </svg>
                 </button>
 
-                <template x-teleport="body">
-                    <div x-show="openApp === '{{ $app->name }}'" x-cloak x-transition.opacity.duration.100ms
-                        @click.stop
-                        :style="`top:${coords.top}px; ${coords.rtl ? 'right:' + coords.right + 'px' : 'left:' + coords.left + 'px'}`"
-                        class="fixed z-50 max-h-[70vh] min-w-[13rem] overflow-y-auto rounded-lg border border-chrome-200 bg-white py-1.5 shadow-pop">
-                        {{-- Open the app's home dashboard. --}}
-                        <a href="{{ $homeUrl }}"
-                            class="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-chrome-900 hover:bg-chrome-100">
-                            <svg class="size-4 shrink-0 text-primary-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                {!! $iconBody !!}
+                {{-- `fixed` (not absolute) so the panel anchors to the viewport
+                     and escapes the bar's `overflow-x-auto` clip — no `x-teleport`
+                     (teleporting out of the Livewire root duplicated / stranded
+                     panels on re-render). No transformed ancestor exists, so a
+                     fixed element here is viewport-positioned as intended. --}}
+                <div x-show="openApp === '{{ $app->name }}'" x-cloak x-transition.opacity.duration.100ms
+                    @click.stop
+                    :style="`top:${coords.top}px; ${coords.rtl ? 'right:' + coords.right + 'px' : 'left:' + coords.left + 'px'}`"
+                    class="fixed z-50 max-h-[70vh] min-w-[13rem] overflow-y-auto rounded-lg border border-chrome-200 bg-white py-1.5 shadow-pop">
+                    {{-- Open the app's home dashboard. --}}
+                    <a href="{{ $homeUrl }}"
+                        class="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-chrome-900 hover:bg-chrome-100">
+                        <svg class="size-4 shrink-0 text-primary-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            {!! $iconBody !!}
+                        </svg>
+                        {{ $label }}
+                    </a>
+                    <div class="my-1 border-t border-chrome-100"></div>
+                    @foreach ($items as $item)
+                        <a href="{{ $item['url'] }}"
+                            class="flex items-center justify-between gap-3 px-3 py-1.5 text-sm text-chrome-700 hover:bg-chrome-100">
+                            <span>{{ __($item['label']) }}</span>
+                            <svg class="size-3.5 shrink-0 text-chrome-300 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/>
                             </svg>
-                            {{ $label }}
                         </a>
-                        <div class="my-1 border-t border-chrome-100"></div>
-                        @foreach ($items as $item)
-                            <a href="{{ $item['url'] }}"
-                                class="flex items-center justify-between gap-3 px-3 py-1.5 text-sm text-chrome-700 hover:bg-chrome-100">
-                                <span>{{ __($item['label']) }}</span>
-                                <svg class="size-3.5 shrink-0 text-chrome-300 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                    <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/>
-                                </svg>
-                            </a>
-                        @endforeach
-                    </div>
-                </template>
+                    @endforeach
+                </div>
             </div>
         @else
             {{-- App with no model menu → plain home link (current behaviour). --}}

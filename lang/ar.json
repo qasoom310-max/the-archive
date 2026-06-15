@@ -522,5 +522,6 @@
     "Cancel order": "إلغاء الطلب",
     "Print receipt": "طباعة الإيصال",
     "No orders found.": "لا توجد طلبات.",
-    "Order :ref cancelled.": "تم إلغاء الطلب :ref."
+    "Order :ref cancelled.": "تم إلغاء الطلب :ref.",
+    "Unit": "الوحدة"
 }

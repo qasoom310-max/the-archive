@@ -8,17 +8,32 @@
     <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         @php
             $kpiCells = [
-                ['Open moves', $kpis['openMoves'], 'text-amber-600'],
-                ['Moves done', $kpis['movesDone'], 'text-emerald-600'],
-                ['Products in stock', $kpis['productsInStock'], 'text-primary-700'],
-                ['Internal locations', $kpis['internalLocations'], 'text-chrome-700'],
+                ['Open moves', $kpis['openMoves'], 'text-amber-600', null],
+                ['Moves done', $kpis['movesDone'], 'text-emerald-600', null],
+                // "Products in stock" is a button → opens the POS product list
+                // (your stock catalogue) when POS is installed.
+                ['Products in stock', $kpis['productsInStock'], 'text-primary-700', $productsUrl],
+                ['Internal locations', $kpis['internalLocations'], 'text-chrome-700', null],
             ];
         @endphp
-        @foreach ($kpiCells as [$label, $value, $tone])
-            <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
-                <p class="text-2xl font-bold {{ $tone }}">{{ $value }}</p>
-                <p class="text-xs uppercase tracking-wide text-chrome-400">{{ $label }}</p>
-            </div>
+        @foreach ($kpiCells as [$label, $value, $tone, $href])
+            @if ($href)
+                <a href="{{ $href }}" wire:navigate
+                    class="group rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5 transition hover:shadow-md hover:ring-primary-300">
+                    <p class="text-2xl font-bold {{ $tone }}">{{ $value }}</p>
+                    <p class="flex items-center gap-1 text-xs uppercase tracking-wide text-chrome-400">
+                        {{ $label }}
+                        <svg class="size-3.5 text-chrome-300 transition group-hover:text-primary-500 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/>
+                        </svg>
+                    </p>
+                </a>
+            @else
+                <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
+                    <p class="text-2xl font-bold {{ $tone }}">{{ $value }}</p>
+                    <p class="text-xs uppercase tracking-wide text-chrome-400">{{ $label }}</p>
+                </div>
+            @endif
         @endforeach
     </div>
 

@@ -31,6 +31,7 @@ use Spatie\Translatable\HasTranslations;
  * @property string|null $image_path
  * @property bool $active
  * @property float $stock_on_hand
+ * @property string|null $unit  Unit of measure code: qty|kg|g|l|ml|pcs|box|pack|dozen
  * @property-read int|null $available_servings
  * @property-read float $profit
  */
@@ -52,7 +53,26 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
     /** @var list<string> */
     protected $fillable = [
         'name', 'price', 'cost_price', 'tax_rate', 'barcode',
-        'pos_category_id', 'image_path', 'active', 'stock_on_hand',
+        'pos_category_id', 'image_path', 'active', 'stock_on_hand', 'unit',
+    ];
+
+    /**
+     * Unit-of-measure options for the product form's "Unit" select +
+     * anywhere stock is displayed. Codes are stored verbatim; labels are
+     * the human-facing text. `qty` = a plain count (the default).
+     *
+     * @var list<array{value: string, label: string}>
+     */
+    public const UNIT_OPTIONS = [
+        ['value' => 'qty', 'label' => 'Qty'],
+        ['value' => 'pcs', 'label' => 'Pieces (pcs)'],
+        ['value' => 'kg', 'label' => 'Kilogram (kg)'],
+        ['value' => 'g', 'label' => 'Gram (g)'],
+        ['value' => 'l', 'label' => 'Liter (L)'],
+        ['value' => 'ml', 'label' => 'Millilitre (mL)'],
+        ['value' => 'box', 'label' => 'Box'],
+        ['value' => 'pack', 'label' => 'Pack'],
+        ['value' => 'dozen', 'label' => 'Dozen'],
     ];
 
     /**
@@ -67,6 +87,7 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
      */
     protected $attributes = [
         'active' => true,
+        'unit' => 'qty',
     ];
 
     /**
@@ -186,6 +207,7 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
                 new FieldDefinition('tax_rate', 'Tax %', 'float', sequence: 30),
                 new FieldDefinition('barcode', 'Barcode', 'char', sequence: 40),
                 new FieldDefinition('stock_on_hand', 'Stock on hand', 'float', sequence: 50),
+                new FieldDefinition('unit', 'Unit', 'selection', sequence: 52),
                 new FieldDefinition('pos_category_id', 'Category', 'many2one', relation: 'pos.category', sequence: 55),
                 new FieldDefinition('active', 'Active', 'boolean', sequence: 60),
                 // Photo. Registry type `binary` → ViewResolver auto-defaults widget=`image`;
@@ -213,6 +235,7 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
                         ['field' => 'profit', 'label' => 'Margin', 'format' => 'money', 'align' => 'right', 'hidden_by_default' => true],
                         ['field' => 'tax_rate', 'label' => 'Tax %', 'format' => 'number', 'align' => 'right', 'hidden_by_default' => true],
                         ['field' => 'stock_on_hand', 'label' => 'Stock', 'format' => 'number', 'align' => 'right', 'sortable' => true, 'hidden_by_default' => true],
+                        ['field' => 'unit', 'label' => 'Unit', 'hidden_by_default' => true],
                         ['field' => 'available_servings', 'label' => 'Available Servings', 'align' => 'right'],
                         ['field' => 'barcode', 'label' => 'Barcode', 'hidden_by_default' => true],
                         // `toggle` makes the column an inline switch — one
@@ -281,6 +304,9 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
                         ['field' => 'cost_price', 'label' => 'Cost Price', 'widget' => 'number'],
                         ['field' => 'tax_rate', 'label' => 'Tax %', 'widget' => 'number'],
                         ['field' => 'stock_on_hand', 'label' => 'Stock on hand', 'widget' => 'number'],
+                        // Unit of measure shown right beside "Stock on hand" so
+                        // staff can stock by weight/volume (kg, L…) not just count.
+                        ['field' => 'unit', 'label' => 'Unit', 'widget' => 'select', 'options' => self::UNIT_OPTIONS],
                         ['field' => 'barcode', 'label' => 'Barcode', 'widget' => 'text'],
                         [
                             'field' => 'pos_category_id',

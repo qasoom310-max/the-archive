@@ -69,6 +69,10 @@ final class InventoryOverview extends Component
 
         return view('inventory::overview', [
             'cards' => $cards,
+            // "Products in stock" deep-links to the POS product list (the
+            // catalogue where staff manage stock) when POS is installed —
+            // null otherwise, so the card stays a plain tile.
+            'productsUrl' => Schema::hasTable('pos_products') ? url('/app/pos/product') : null,
             'kpis' => [
                 'internalLocations' => StockLocation::query()
                     ->where('type', LocationType::Internal->value)->count(),

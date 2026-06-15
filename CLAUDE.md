@@ -508,6 +508,21 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
   product hid itself from the terminal. Pinned by
   `test_new_product_form_defaults_active_to_true`.
 
+- **Product unit of measure (shipped 2026-06-15)** — `pos_products.unit`
+  (string(16), migration `2026_06_15_700001`, default `qty` which backfills
+  existing rows; **plain string, NOT an enum cast** — dodges the engine
+  FormView empty-option pitfall `[[livewire-backed-enum-in-array-prop]]`).
+  Codes: `qty|pcs|kg|g|l|ml|box|pack|dozen` (labels in
+  `PosProduct::UNIT_OPTIONS`). Surfaced as a **Unit `select` right beside
+  "Stock on hand"** on the product form (engine static-options select; the
+  engine prepends an empty `—` option but the column default + model
+  `$attributes['unit']='qty'` keep new products on `qty`). Also a
+  `hidden_by_default` list column (paired with the Stock column). Arch
+  changed ⇒ `module:resync pos` (deploy runs it automatically). AR key `Unit`
+  added; the option labels stay English (international units). Tests:
+  `PosModuleTest::test_product_form_has_unit_field_defaulting_to_qty_and_saves_it`
+  + the hidden-by-default set assertion updated (`+unit`).
+
 **Phase 7 increments shipped 2026-05-23 / 2026-05-24:**
 
 - **Direct image upload (Livewire pipeline bypassed)** —
@@ -882,7 +897,7 @@ Usage: `Setting::get('company.name')`, `Setting::set('currency.default', 'EUR')`
 | Schema | `Modules/Inventory/database/migrations/*` — `warehouses`, `stock_locations` (hierarchical `parent_id` + `type`), `stock_operation_types`, `stock_moves` (src→dest, state, `lot_name`/`barcode` scaffold), `stock_quants` (on-hand per location, unique loc+product+lot) |
 | Enums | `Modules\Inventory\Enums\{LocationType,MoveState}` — LocationType: Vendor/View/Internal/Customer/Inventory/Production/Transit |
 | Models | `Modules\Inventory\Models\{Warehouse,StockLocation,StockMove,StockOperationType,StockQuant}`. `StockMove::affectsValuation()` = the double-entry rule (value only changes crossing the Internal boundary to/from Customer/Vendor). `product_id` is a **logical** ref (Inventory decoupled — no FK to a catalogue) |
-| Dashboard | `Modules\Inventory\Livewire\InventoryOverview` (`/app/inventory`) → one Kanban card per `StockOperationType` with **live** `toProcessCount()`/`lateCount()` + KPI strip; New/View-All deep-link to the transfers pages. **"Products in stock" KPI counts `pos_products.stock_on_hand > 0`** when POS is installed (the catalogue staff actually stock — `stock_quants` only fills from purchase receipts/transfers since POS sales/stock edits don't post quant moves), guarded by `Schema::hasTable('pos_products')` with a `stock_quants` fallback (no hard POS dependency — same coupling style as the core Dashboard). NOTE: POS ↔ Inventory stock are still **separate ledgers** — only `PurchaseConfirmer` syncs both; a true POS→quant sync (POS sale posts a stock move / POS stock edit posts an adjustment) is an unbuilt follow-up |
+| Dashboard | `Modules\Inventory\Livewire\InventoryOverview` (`/app/inventory`) → one Kanban card per `StockOperationType` with **live** `toProcessCount()`/`lateCount()` + KPI strip; New/View-All deep-link to the transfers pages. **"Products in stock" KPI counts `pos_products.stock_on_hand > 0`** when POS is installed (the catalogue staff actually stock — `stock_quants` only fills from purchase receipts/transfers since POS sales/stock edits don't post quant moves), guarded by `Schema::hasTable('pos_products')` with a `stock_quants` fallback (no hard POS dependency — same coupling style as the core Dashboard). **That KPI card is also a button** — `wire:navigate` to `/app/pos/product` (the POS catalogue where staff manage stock) via the `productsUrl` view var; the other three KPI tiles stay static. NOTE: POS ↔ Inventory stock are still **separate ledgers** — only `PurchaseConfirmer` syncs both; a true POS→quant sync (POS sale posts a stock move / POS stock edit posts an adjustment) is an unbuilt follow-up |
 | Pickings flow | `StockMove::process()` = atomic validate (one `DB::transaction`: debit source quant, credit dest quant via `firstOrNew`, state→Done; idempotent). `StockTransfers` (`/app/inventory/transfers?type=`) list + Validate; `StockTransferForm` (`/app/inventory/transfers/new`) create (op-type defaults). Logical moves (`product_id` null) skip quant changes |
 | Seed | `InventorySeeder` (Main Warehouse, full location topology incl. WH/Stock/Aisle A/Shelf 1, 4 operation types, demo moves) — guarded/idempotent, in `DatabaseSeeder` |
 | Install | demo `inventory` was a placeholder; real install = reset its `ir_module` state then `module:install inventory` (runs migrations), then `db:seed --class=Database\Seeders\InventorySeeder` |

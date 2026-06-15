@@ -297,8 +297,8 @@ final class PosModuleTest extends TestCase
     public function test_pos_product_list_hides_default_hidden_columns_on_first_visit(): void
     {
         // Fresh user, no UserViewPreference row yet. The list arch marks
-        // profit / tax_rate / stock_on_hand / barcode as hidden_by_default —
-        // those should be off out of the box, while name / category / price
+        // profit / tax_rate / stock_on_hand / unit / barcode as hidden_by_default
+        // — those should be off out of the box, while name / category / price
         // / cost / available_servings / active stay visible.
         $this->installPos();
         $this->seed(PosSeeder::class);
@@ -311,7 +311,7 @@ final class PosModuleTest extends TestCase
         $hidden = $component->get('hiddenColumns');
         sort($hidden);
         $this->assertSame(
-            ['barcode', 'profit', 'stock_on_hand', 'tax_rate'],
+            ['barcode', 'profit', 'stock_on_hand', 'tax_rate', 'unit'],
             $hidden,
             'Default hidden set must match the arch hidden_by_default flags.',
         );
@@ -1020,6 +1020,24 @@ final class PosModuleTest extends TestCase
 
         $product = PosProduct::query()->where('name->en', 'Default-Active Widget')->sole();
         $this->assertTrue($product->active);
+    }
+
+    public function test_product_form_has_unit_field_defaulting_to_qty_and_saves_it(): void
+    {
+        $this->installPos();
+
+        $component = Livewire::test(FormView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+        ])
+            ->assertSee('Unit')
+            ->assertSet('form.unit', 'qty');
+
+        $component->set('form.name', 'Bananas')->set('form.unit', 'kg')->set('form.stock_on_hand', 1.5)->call('save');
+
+        $product = PosProduct::query()->where('name->en', 'Bananas')->sole();
+        $this->assertSame('kg', $product->unit);
+        $this->assertEqualsWithDelta(1.5, $product->stock_on_hand, 0.001);
     }
 
     public function test_home_offers_resume_when_the_register_is_open(): void

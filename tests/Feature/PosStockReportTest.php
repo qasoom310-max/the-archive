@@ -65,4 +65,65 @@ final class PosStockReportTest extends TestCase
 
         Livewire::test(PosStockReport::class)->assertForbidden();
     }
+
+    public function test_valuation_sums_on_hand_times_cost(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        app(ModuleManager::class)->install('pos');
+
+        PosProduct::query()->create(['name' => 'A', 'price' => 5, 'cost_price' => 2, 'tax_rate' => 0, 'active' => true, 'stock_on_hand' => 50]);
+        PosProduct::query()->create(['name' => 'B', 'price' => 5, 'cost_price' => 1, 'tax_rate' => 0, 'active' => true, 'stock_on_hand' => 5]);
+        PosProduct::query()->create(['name' => 'C', 'price' => 5, 'cost_price' => 3, 'tax_rate' => 0, 'active' => true, 'stock_on_hand' => 0]);
+
+        // 50*2 + 5*1 + 0*3 = 105
+        Livewire::test(PosStockReport::class)
+            ->assertViewHas('summary', fn (array $s): bool => abs($s['value'] - 105.0) < 0.001);
+    }
+
+    public function test_per_product_reorder_point_flags_low(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        app(ModuleManager::class)->install('pos');
+
+        // Stock 15 > global threshold (10) would normally be "in", but the
+        // product's own reorder point of 20 makes it "low".
+        PosProduct::query()->create(['name' => 'Custom', 'price' => 1, 'tax_rate' => 0, 'active' => true, 'stock_on_hand' => 15, 'reorder_point' => 20]);
+        PosProduct::query()->create(['name' => 'Normal', 'price' => 1, 'tax_rate' => 0, 'active' => true, 'stock_on_hand' => 15]);
+
+        Livewire::test(PosStockReport::class)
+            ->assertViewHas('summary', fn (array $s): bool => $s['low'] === 1 && $s['in'] === 2);
+    }
+
+    public function test_inactive_products_excluded_by_default_and_shown_on_toggle(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        app(ModuleManager::class)->install('pos');
+
+        PosProduct::query()->create(['name' => 'Live', 'price' => 1, 'tax_rate' => 0, 'active' => true, 'stock_on_hand' => 5]);
+        PosProduct::query()->create(['name' => 'Discontinued', 'price' => 1, 'tax_rate' => 0, 'active' => false, 'stock_on_hand' => 5]);
+
+        $component = Livewire::test(PosStockReport::class)
+            ->assertViewHas('summary', fn (array $s): bool => $s['total'] === 1)
+            ->assertSee('Live')
+            ->assertDontSee('Discontinued');
+
+        $component->set('includeInactive', true)
+            ->assertViewHas('summary', fn (array $s): bool => $s['total'] === 2)
+            ->assertSee('Discontinued');
+    }
+
+    public function test_adjust_sets_stock_on_hand(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        app(ModuleManager::class)->install('pos');
+
+        $product = PosProduct::query()->create(['name' => 'Restock me', 'price' => 1, 'tax_rate' => 0, 'active' => true, 'stock_on_hand' => 0]);
+
+        Livewire::test(PosStockReport::class)
+            ->call('openAdjust', $product->id)
+            ->set('adjustQty', '42')
+            ->call('saveAdjust');
+
+        $this->assertEqualsWithDelta(42.0, $product->fresh()?->stock_on_hand, 0.001);
+    }
 }

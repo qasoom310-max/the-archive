@@ -45,7 +45,12 @@ final class InventoryOverview extends Component
     private function productsInStock(): int
     {
         if (Schema::hasTable('pos_products')) {
-            return (int) DB::table('pos_products')->where('stock_on_hand', '>', 0)->count();
+            // Active (sellable) products with stock — matches the Stock
+            // Report's default scope so the count the user clicks lines up.
+            return (int) DB::table('pos_products')
+                ->where('active', true)
+                ->where('stock_on_hand', '>', 0)
+                ->count();
         }
 
         return StockQuant::query()->where('quantity', '>', 0)->distinct()->count('product_id');

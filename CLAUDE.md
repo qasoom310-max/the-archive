@@ -523,17 +523,46 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
   `PosModuleTest::test_product_form_has_unit_field_defaulting_to_qty_and_saves_it`
   + the hidden-by-default set assertion updated (`+unit`).
 
-- **Stock Report (shipped 2026-06-15)** — `Modules\Pos\Livewire\PosStockReport`
+- **Stock Report + 6 follow-ups (shipped 2026-06-15)** — `Modules\Pos\Livewire\PosStockReport`
   at `/app/pos/stock-report` (`pos.stock_report`, `pos.product` Read-gated):
   an Odoo-style report bucketing every product into **In stock** (`stock_on_hand
-  > 0`), **Low stock** (`0 < stock ≤ DailyReport::LOW_STOCK_THRESHOLD` = 10), and
-  **Out of stock** (`≤ 0`). Reuses the **daily-report threshold constant** so the
-  screen + the 6 AM emailed PDF always agree. Summary chips double as the status
-  filter; search by name/barcode; rows sorted out → low → in (lowest qty first)
-  with category + on-hand (+unit) + status badge; paginated. The Inventory
-  Overview's "Products in stock" KPI card links here (its "In stock" count = the
-  same `stock > 0` set the card shows). Tests: `tests/Feature/PosStockReportTest.php`
-  (3 — summary buckets, out-of-stock filter, Read gate). AR keys added.
+  > 0`), **Low stock** (`0 < stock ≤ reorder point`), and **Out of stock** (`≤ 0`).
+  Summary chips double as the status filter; search by name/barcode; rows sorted
+  out → low → in (lowest qty first); paginated. All query/summary/status logic
+  lives in one shared `Modules\Pos\Services\PosStockReportData` (used by the
+  screen + export + print so they can't drift). The Inventory "Products in stock"
+  KPI card links here. Six increments shipped together:
+  1. **Restock action** — inline **"Adjust"** per row opens a modal to set
+     on-hand (`openAdjust`/`saveAdjust`, Write-gated); out-of-stock rows also get
+     a **"Buy"** link to a new purchase (when Purchases installed).
+  2. **Export / print** — `PosStockReportExportController` (CSV, `pos.stock_report.export`)
+     + `PosStockReportPrintController` (`pos::stock-report-print`, auto-print,
+     `pos.stock_report.print`); both honour the current filter/search/inactive
+     scope via query params.
+  3. **Valuation** — per-row on-hand value (`PosProduct::stockValue()` = stock ×
+     cost) + a total **Inventory value** (`summary['value']` = `SUM(stock × cost)`).
+  4. **Per-product reorder point** — `pos_products.reorder_point` (nullable,
+     migration `2026_06_15_700002`); `PosProduct::stockStatus($global)` uses it,
+     falling back to `DailyReport::LOW_STOCK_THRESHOLD` (10). SQL bucketing uses
+     `COALESCE(reorder_point, ?)`. Added to the product form (blank = global).
+  5. **Inactive toggle** — `includeInactive` (default false = active only, which
+     keeps the report's "In stock" count equal to the **active-only** Inventory KPI).
+  6. **Real-time POS → Inventory sync** — `Modules\Pos\Services\PosInventoryBridge::sync()`
+     mirrors a product's on-hand onto the Inventory ledger's quant at the main
+     internal **Stock** location + records a Done adjustment `StockMove` for the
+     delta (counterpart = an `Inventory`-type location). Fully guarded by
+     `Schema::hasTable()` (no hard Inventory dependency; silent no-op when absent
+     or topology unseeded). Hooked two ways: `PosProduct::saved` in
+     `PosServiceProvider::boot()` (stock edits, incl. the Adjust modal), and
+     **explicitly inside `PosOrder::consumeComponents()`** because `decrement()`
+     bypasses model events — so a sale's ingredient consumption shows as a stock
+     movement on the Inventory dashboard. NOTE: finished goods without a recipe
+     still don't decrement their own stock on sale (existing design) — the sync
+     tracks ingredient consumption + manual stock changes.
+  Tests: `tests/Feature/PosStockReportTest.php` (7 — buckets, out filter, Read
+  gate, valuation, reorder point, inactive toggle, adjust) +
+  `tests/Feature/PosInventorySyncTest.php` (4 — bridge mirror+move, no-op on
+  unchanged, saved-hook edit, sale consumption sync). AR keys added.
 
 **Phase 7 increments shipped 2026-05-23 / 2026-05-24:**
 

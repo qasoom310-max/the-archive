@@ -12,6 +12,8 @@ use Modules\Pos\Listeners\QueueLinesForKitchen;
 use Modules\Pos\Listeners\RenewCustomerDiscount;
 use Modules\Pos\Listeners\SendPosOrderReceiptViaWhatsApp;
 use Modules\Pos\Livewire\SplitOrderModal;
+use Modules\Pos\Models\PosProduct;
+use Modules\Pos\Services\PosInventoryBridge;
 use Modules\Pos\Services\PosSessionManager;
 
 /**
@@ -47,5 +49,21 @@ final class PosServiceProvider extends ServiceProvider
         // Rolling discount renewal: a paid order that used a per-phone
         // customer discount pushes that discount's 90-day window forward.
         Event::listen(PosOrderPaid::class, [RenewCustomerDiscount::class, 'handle']);
+
+        // Real-time POS → Inventory stock sync: whenever a product's
+        // on-hand changes (form edit, Stock Report "Adjust", etc.), mirror it
+        // onto the Inventory ledger's quant. No-op when Inventory isn't
+        // installed (the bridge guards on the tables). Sale-time ingredient
+        // consumption uses decrement() (no model events), so PosOrder syncs
+        // those explicitly in consumeComponents().
+        PosProduct::saved(static function (PosProduct $product): void {
+            if ($product->wasChanged('stock_on_hand')) {
+                app(PosInventoryBridge::class)->sync(
+                    (int) $product->id,
+                    (float) $product->stock_on_hand,
+                    'POS/ADJ ' . $product->id,
+                );
+            }
+        });
     }
 }

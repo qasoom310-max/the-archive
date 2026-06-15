@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Route;
 use Modules\Pos\Http\Controllers\PosProductExportController;
 use Modules\Pos\Http\Controllers\PosProductImportTemplateController;
 use Modules\Pos\Http\Controllers\PosReceiptPrintController;
+use Modules\Pos\Http\Controllers\PosStockReportExportController;
+use Modules\Pos\Http\Controllers\PosStockReportPrintController;
 use Modules\Pos\Livewire\KitchenDisplay;
 use Modules\Pos\Livewire\PosCategories;
 use Modules\Pos\Livewire\PosCategoryForm;
@@ -36,7 +38,11 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/pos/reporting', PosReporting::class)->name('pos.reporting');
 
     // Stock health report (in / low / out of stock) — Odoo-style; the
-    // Inventory "Products in stock" KPI card links here.
+    // Inventory "Products in stock" KPI card links here. Export/print
+    // routes are registered BEFORE the bare report so the suffixes aren't
+    // swallowed.
+    Route::get('/app/pos/stock-report/export', PosStockReportExportController::class)->name('pos.stock_report.export');
+    Route::get('/app/pos/stock-report/print', PosStockReportPrintController::class)->name('pos.stock_report.print');
     Route::get('/app/pos/stock-report', PosStockReport::class)->name('pos.stock_report');
 
     // Sidebar resource entries (driven by the registered ir_models):

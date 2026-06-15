@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Contacts\Models\Partner;
 use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Events\PosOrderPaid;
+use Modules\Pos\Services\PosInventoryBridge;
 
 /**
  * @property int $id
@@ -295,6 +296,8 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
             return;
         }
 
+        $touchedComponents = [];
+
         foreach ($this->lines()->get() as $line) {
             if ($line->pos_product_id === null) {
                 continue;
@@ -314,11 +317,25 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
                 PosProduct::query()
                     ->whereKey($row->component_product_id)
                     ->decrement('stock_on_hand', $decrement);
+
+                $touchedComponents[$row->component_product_id] = true;
             }
         }
 
         $this->components_consumed = true;
         $this->save();
+
+        // `decrement()` bypasses model events, so the PosProduct::saved
+        // Inventory-sync hook never fires for consumed ingredients — mirror
+        // their new on-hand onto the Inventory ledger explicitly here so a
+        // sale shows as a stock movement on the Inventory dashboard.
+        $bridge = app(PosInventoryBridge::class);
+        foreach (array_keys($touchedComponents) as $componentId) {
+            $fresh = PosProduct::query()->find($componentId);
+            if ($fresh !== null) {
+                $bridge->sync((int) $fresh->id, (float) $fresh->stock_on_hand, "POS sale {$this->reference}");
+            }
+        }
     }
 
     public static function irModelDefinition(): ModelDefinition

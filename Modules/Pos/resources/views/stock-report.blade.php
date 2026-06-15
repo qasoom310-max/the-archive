@@ -1,25 +1,51 @@
 @php
-    $chips = [
-        ['' , __('All'),          $summary['total'], 'text-chrome-700',  'bg-chrome-100 text-chrome-700'],
-        ['in', __('In stock'),    $summary['in'],    'text-emerald-700', 'bg-emerald-100 text-emerald-700'],
-        ['low', __('Low stock'),  $summary['low'],   'text-amber-700',   'bg-amber-100 text-amber-700'],
-        ['out', __('Out of stock'), $summary['out'], 'text-red-700',     'bg-red-100 text-red-700'],
-    ];
+    $money = fn ($v) => \App\Erp\Money\Currencies::format((float) $v);
     $fmt = fn ($v) => rtrim(rtrim(number_format((float) $v, 3), '0'), '.');
+    $chips = [
+        ['' , __('All'),          $summary['total'], 'text-chrome-700'],
+        ['in', __('In stock'),    $summary['in'],    'text-emerald-700'],
+        ['low', __('Low stock'),  $summary['low'],   'text-amber-700'],
+        ['out', __('Out of stock'), $summary['out'], 'text-red-700'],
+    ];
+    // Export / print mirror the current view scope.
+    $params = http_build_query([
+        'filter' => $filter,
+        'search' => $search,
+        'inactive' => $includeInactive ? 1 : 0,
+    ]);
 @endphp
 
-<div class="mx-auto max-w-5xl p-4 sm:p-6">
-    <div class="mb-4 flex items-center justify-between gap-3">
+<div class="mx-auto max-w-6xl p-4 sm:p-6">
+    <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
             <h1 class="text-xl font-bold text-chrome-900">{{ __('Stock Report') }}</h1>
-            <p class="text-sm text-chrome-500">{{ __('Product stock health across the catalogue.') }} · {{ __('Low ≤ :n', ['n' => $fmt($threshold)]) }}</p>
+            <p class="text-sm text-chrome-500">
+                {{ __('Product stock health across the catalogue.') }} · {{ __('Low ≤ :n', ['n' => $fmt($threshold)]) }}
+            </p>
+            <p class="mt-1 text-sm font-semibold text-chrome-700">
+                {{ __('Inventory value') }}: <span class="text-primary-700">{{ $money($summary['value']) }}</span>
+            </p>
         </div>
-        <a href="{{ url('/app/inventory') }}" wire:navigate class="o-btn-ghost shrink-0">{{ __('Back to inventory') }}</a>
+        <div class="flex flex-wrap items-center gap-2">
+            <label class="flex items-center gap-1.5 text-sm text-chrome-600">
+                <input type="checkbox" wire:model.live="includeInactive"
+                    class="size-4 rounded border-chrome-300 text-primary-500 focus:ring-primary-400">
+                {{ __('Include inactive') }}
+            </label>
+            <a href="{{ url('/app/pos/stock-report/export?' . $params) }}" class="o-btn-ghost text-sm">
+                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                {{ __('Export') }}
+            </a>
+            <a href="{{ url('/app/pos/stock-report/print?' . $params) }}" target="_blank" rel="noopener" class="o-btn-ghost text-sm">
+                {{ __('Print') }}
+            </a>
+            <a href="{{ url('/app/inventory') }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Back to inventory') }}</a>
+        </div>
     </div>
 
     {{-- Summary chips — also the status filter. --}}
     <div class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        @foreach ($chips as [$value, $label, $count, $tone, $badge])
+        @foreach ($chips as [$value, $label, $count, $tone])
             <button type="button" wire:click="setFilter('{{ $value }}')"
                 @class([
                     'rounded-xl border bg-white p-4 text-start transition hover:shadow-sm',
@@ -50,14 +76,17 @@
                     <th class="px-4 py-2.5 text-start font-semibold">{{ __('Product') }}</th>
                     <th class="px-4 py-2.5 text-start font-semibold">{{ __('Category') }}</th>
                     <th class="px-4 py-2.5 text-end font-semibold">{{ __('On hand') }}</th>
+                    <th class="px-4 py-2.5 text-end font-semibold">{{ __('Value') }}</th>
                     <th class="px-4 py-2.5 text-end font-semibold">{{ __('Status') }}</th>
+                    <th class="px-4 py-2.5 text-end font-semibold">{{ __('Actions') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-chrome-100">
                 @forelse ($products as $product)
                     @php
                         $stock = (float) $product->stock_on_hand;
-                        $status = $stock <= 0 ? 'out' : ($stock <= $threshold ? 'low' : 'in');
+                        $rp = $product->reorder_point !== null ? (float) $product->reorder_point : $threshold;
+                        $status = $stock <= 0 ? 'out' : ($stock <= $rp ? 'low' : 'in');
                         $statusMeta = [
                             'in' => [__('In stock'), 'bg-emerald-100 text-emerald-700'],
                             'low' => [__('Low stock'), 'bg-amber-100 text-amber-700'],
@@ -65,20 +94,32 @@
                         ][$status];
                         $unit = $product->unit && $product->unit !== 'qty' ? ' ' . $product->unit : '';
                     @endphp
-                    <tr wire:key="stock-{{ $product->id }}" class="hover:bg-chrome-50">
+                    <tr wire:key="stock-{{ $product->id }}" class="hover:bg-chrome-50 {{ $product->active ? '' : 'opacity-60' }}">
                         <td class="px-4 py-2.5">
                             <a href="{{ url('/app/pos/product/' . $product->id) }}" wire:navigate
                                 class="font-medium text-chrome-800 hover:text-primary-700">{{ $product->name }}</a>
+                            @unless ($product->active)<span class="ms-1 text-xs text-chrome-400">({{ __('inactive') }})</span>@endunless
                         </td>
                         <td class="px-4 py-2.5 text-chrome-500">{{ $product->category_name ?? '—' }}</td>
                         <td class="px-4 py-2.5 text-end font-semibold tabular-nums text-chrome-900">{{ $fmt($stock) }}{{ $unit }}</td>
+                        <td class="px-4 py-2.5 text-end tabular-nums text-chrome-600">{{ $money($product->stockValue()) }}</td>
                         <td class="px-4 py-2.5 text-end">
                             <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ $statusMeta[1] }}">{{ $statusMeta[0] }}</span>
+                        </td>
+                        <td class="px-4 py-2.5">
+                            <div class="flex items-center justify-end gap-2">
+                                <button type="button" wire:click="openAdjust({{ $product->id }})"
+                                    class="text-xs font-medium text-primary-600 hover:underline">{{ __('Adjust') }}</button>
+                                @if ($status === 'out' && $purchasesInstalled)
+                                    <a href="{{ url('/app/purchases/purchase/new') }}" wire:navigate
+                                        class="text-xs font-medium text-chrome-500 hover:underline">{{ __('Buy') }}</a>
+                                @endif
+                            </div>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="4" class="px-4 py-12 text-center text-sm text-chrome-400">{{ __('No products found.') }}</td>
+                        <td colspan="6" class="px-4 py-12 text-center text-sm text-chrome-400">{{ __('No products found.') }}</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -86,4 +127,25 @@
     </div>
 
     <div class="mt-4">{{ $products->links('vendor.pagination.compact') }}</div>
+
+    {{-- Inline restock modal --}}
+    @if ($adjustProduct)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-chrome-900/40 p-4">
+            <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-pop">
+                <div class="mb-3 flex items-center justify-between">
+                    <h2 class="text-base font-bold text-chrome-900">{{ __('Set stock') }}</h2>
+                    <button type="button" wire:click="closeAdjust" class="text-sm text-chrome-400 hover:text-chrome-700">✕</button>
+                </div>
+                <p class="mb-3 truncate text-sm text-chrome-500">{{ $adjustProduct->name }}</p>
+                <label class="block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('On hand') }}</label>
+                <input type="number" step="any" min="0" autofocus
+                    wire:model="adjustQty" wire:keydown.enter="saveAdjust"
+                    class="o-input mt-1 w-full text-sm tabular-nums">
+                <div class="mt-4 flex gap-2">
+                    <button type="button" wire:click="closeAdjust" class="o-btn-ghost flex-1 justify-center">{{ __('Cancel') }}</button>
+                    <button type="button" wire:click="saveAdjust" class="o-btn-primary flex-1 justify-center">{{ __('Save') }}</button>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

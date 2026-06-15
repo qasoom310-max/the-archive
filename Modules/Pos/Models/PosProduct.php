@@ -32,6 +32,7 @@ use Spatie\Translatable\HasTranslations;
  * @property bool $active
  * @property float $stock_on_hand
  * @property string|null $unit  Unit of measure code: qty|kg|g|l|ml|pcs|box|pack|dozen
+ * @property float|null $reorder_point  Low-stock threshold; null = global default
  * @property-read int|null $available_servings
  * @property-read float $profit
  */
@@ -53,7 +54,7 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
     /** @var list<string> */
     protected $fillable = [
         'name', 'price', 'cost_price', 'tax_rate', 'barcode',
-        'pos_category_id', 'image_path', 'active', 'stock_on_hand', 'unit',
+        'pos_category_id', 'image_path', 'active', 'stock_on_hand', 'unit', 'reorder_point',
     ];
 
     /**
@@ -101,7 +102,39 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
             'tax_rate' => 'float',
             'active' => 'boolean',
             'stock_on_hand' => 'float',
+            'reorder_point' => 'float',
         ];
+    }
+
+    /**
+     * Stock health bucket for this product, reusing the global low-stock
+     * threshold unless the product sets its own {@see $reorder_point}.
+     * Returns 'out' (≤ 0), 'low' (≤ reorder point), or 'in'. Shared by the
+     * Stock Report screen and the daily report so they always agree.
+     */
+    public function stockStatus(float $globalThreshold): string
+    {
+        $stock = (float) $this->stock_on_hand;
+
+        if ($stock <= 0) {
+            return 'out';
+        }
+
+        return $stock <= $this->effectiveReorderPoint($globalThreshold) ? 'low' : 'in';
+    }
+
+    public function effectiveReorderPoint(float $globalThreshold): float
+    {
+        return $this->reorder_point !== null ? (float) $this->reorder_point : $globalThreshold;
+    }
+
+    /**
+     * On-hand value = stock × cost price. Drives the Stock Report valuation
+     * column + the total inventory value.
+     */
+    public function stockValue(): float
+    {
+        return round((float) $this->stock_on_hand * (float) $this->cost_price, 2);
     }
 
     /**
@@ -208,6 +241,7 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
                 new FieldDefinition('barcode', 'Barcode', 'char', sequence: 40),
                 new FieldDefinition('stock_on_hand', 'Stock on hand', 'float', sequence: 50),
                 new FieldDefinition('unit', 'Unit', 'selection', sequence: 52),
+                new FieldDefinition('reorder_point', 'Reorder point', 'float', sequence: 54),
                 new FieldDefinition('pos_category_id', 'Category', 'many2one', relation: 'pos.category', sequence: 55),
                 new FieldDefinition('active', 'Active', 'boolean', sequence: 60),
                 // Photo. Registry type `binary` → ViewResolver auto-defaults widget=`image`;
@@ -307,6 +341,8 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
                         // Unit of measure shown right beside "Stock on hand" so
                         // staff can stock by weight/volume (kg, L…) not just count.
                         ['field' => 'unit', 'label' => 'Unit', 'widget' => 'select', 'options' => self::UNIT_OPTIONS],
+                        // Optional per-product low-stock level; blank = global default.
+                        ['field' => 'reorder_point', 'label' => 'Reorder point', 'widget' => 'number', 'help' => 'Flag as low stock at or below this. Leave blank to use the global default.'],
                         ['field' => 'barcode', 'label' => 'Barcode', 'widget' => 'text'],
                         [
                             'field' => 'pos_category_id',

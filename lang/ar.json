@@ -532,5 +532,14 @@
     "Low stock": "مخزون منخفض",
     "Search products": "ابحث عن المنتجات",
     "Product": "المنتج",
-    "No products found.": "لا توجد منتجات."
+    "No products found.": "لا توجد منتجات.",
+    "Value": "القيمة",
+    "Adjust": "تعديل",
+    "Buy": "شراء",
+    "Include inactive": "إظهار غير النشطة",
+    "inactive": "غير نشط",
+    "Set stock": "تعيين المخزون",
+    "Inventory value": "قيمة المخزون",
+    "Reorder point": "حد إعادة الطلب",
+    "Export": "تصدير"
 }

@@ -23,6 +23,7 @@ use Modules\Pos\Livewire\PosProductImport;
 use Modules\Pos\Livewire\PosProducts;
 use Modules\Pos\Livewire\PosReporting;
 use Modules\Pos\Livewire\PosSessionPage;
+use Modules\Pos\Livewire\PosStockReport;
 use Modules\Pos\Livewire\PosTableForm;
 use Modules\Pos\Livewire\PosTables;
 use Modules\Pos\Livewire\PosTerminal;
@@ -33,6 +34,10 @@ Route::middleware('auth')->group(function (): void {
     // Reporting dashboard — KPI strip (revenue / orders / AOV) + a
     // preset-scoped orders list. Reached via the 3-dot menu on POS Orders.
     Route::get('/app/pos/reporting', PosReporting::class)->name('pos.reporting');
+
+    // Stock health report (in / low / out of stock) — Odoo-style; the
+    // Inventory "Products in stock" KPI card links here.
+    Route::get('/app/pos/stock-report', PosStockReport::class)->name('pos.stock_report');
 
     // Sidebar resource entries (driven by the registered ir_models):
     // pos.order / pos.product / pos.session → these index pages.

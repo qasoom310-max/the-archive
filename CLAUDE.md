@@ -523,6 +523,18 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
   `PosModuleTest::test_product_form_has_unit_field_defaulting_to_qty_and_saves_it`
   + the hidden-by-default set assertion updated (`+unit`).
 
+- **Stock Report (shipped 2026-06-15)** — `Modules\Pos\Livewire\PosStockReport`
+  at `/app/pos/stock-report` (`pos.stock_report`, `pos.product` Read-gated):
+  an Odoo-style report bucketing every product into **In stock** (`stock_on_hand
+  > 0`), **Low stock** (`0 < stock ≤ DailyReport::LOW_STOCK_THRESHOLD` = 10), and
+  **Out of stock** (`≤ 0`). Reuses the **daily-report threshold constant** so the
+  screen + the 6 AM emailed PDF always agree. Summary chips double as the status
+  filter; search by name/barcode; rows sorted out → low → in (lowest qty first)
+  with category + on-hand (+unit) + status badge; paginated. The Inventory
+  Overview's "Products in stock" KPI card links here (its "In stock" count = the
+  same `stock > 0` set the card shows). Tests: `tests/Feature/PosStockReportTest.php`
+  (3 — summary buckets, out-of-stock filter, Read gate). AR keys added.
+
 **Phase 7 increments shipped 2026-05-23 / 2026-05-24:**
 
 - **Direct image upload (Livewire pipeline bypassed)** —
@@ -897,7 +909,7 @@ Usage: `Setting::get('company.name')`, `Setting::set('currency.default', 'EUR')`
 | Schema | `Modules/Inventory/database/migrations/*` — `warehouses`, `stock_locations` (hierarchical `parent_id` + `type`), `stock_operation_types`, `stock_moves` (src→dest, state, `lot_name`/`barcode` scaffold), `stock_quants` (on-hand per location, unique loc+product+lot) |
 | Enums | `Modules\Inventory\Enums\{LocationType,MoveState}` — LocationType: Vendor/View/Internal/Customer/Inventory/Production/Transit |
 | Models | `Modules\Inventory\Models\{Warehouse,StockLocation,StockMove,StockOperationType,StockQuant}`. `StockMove::affectsValuation()` = the double-entry rule (value only changes crossing the Internal boundary to/from Customer/Vendor). `product_id` is a **logical** ref (Inventory decoupled — no FK to a catalogue) |
-| Dashboard | `Modules\Inventory\Livewire\InventoryOverview` (`/app/inventory`) → one Kanban card per `StockOperationType` with **live** `toProcessCount()`/`lateCount()` + KPI strip; New/View-All deep-link to the transfers pages. **"Products in stock" KPI counts `pos_products.stock_on_hand > 0`** when POS is installed (the catalogue staff actually stock — `stock_quants` only fills from purchase receipts/transfers since POS sales/stock edits don't post quant moves), guarded by `Schema::hasTable('pos_products')` with a `stock_quants` fallback (no hard POS dependency — same coupling style as the core Dashboard). **That KPI card is also a button** — `wire:navigate` to `/app/pos/product` (the POS catalogue where staff manage stock) via the `productsUrl` view var; the other three KPI tiles stay static. NOTE: POS ↔ Inventory stock are still **separate ledgers** — only `PurchaseConfirmer` syncs both; a true POS→quant sync (POS sale posts a stock move / POS stock edit posts an adjustment) is an unbuilt follow-up |
+| Dashboard | `Modules\Inventory\Livewire\InventoryOverview` (`/app/inventory`) → one Kanban card per `StockOperationType` with **live** `toProcessCount()`/`lateCount()` + KPI strip; New/View-All deep-link to the transfers pages. **"Products in stock" KPI counts `pos_products.stock_on_hand > 0`** when POS is installed (the catalogue staff actually stock — `stock_quants` only fills from purchase receipts/transfers since POS sales/stock edits don't post quant moves), guarded by `Schema::hasTable('pos_products')` with a `stock_quants` fallback (no hard POS dependency — same coupling style as the core Dashboard). **That KPI card is also a button** — `wire:navigate` to `/app/pos/stock-report` (the Stock Report below) via the `productsUrl` view var; the other three KPI tiles stay static. NOTE: POS ↔ Inventory stock are still **separate ledgers** — only `PurchaseConfirmer` syncs both; a true POS→quant sync (POS sale posts a stock move / POS stock edit posts an adjustment) is an unbuilt follow-up |
 | Pickings flow | `StockMove::process()` = atomic validate (one `DB::transaction`: debit source quant, credit dest quant via `firstOrNew`, state→Done; idempotent). `StockTransfers` (`/app/inventory/transfers?type=`) list + Validate; `StockTransferForm` (`/app/inventory/transfers/new`) create (op-type defaults). Logical moves (`product_id` null) skip quant changes |
 | Seed | `InventorySeeder` (Main Warehouse, full location topology incl. WH/Stock/Aisle A/Shelf 1, 4 operation types, demo moves) — guarded/idempotent, in `DatabaseSeeder` |
 | Install | demo `inventory` was a placeholder; real install = reset its `ir_module` state then `module:install inventory` (runs migrations), then `db:seed --class=Database\Seeders\InventorySeeder` |

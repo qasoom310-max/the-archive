@@ -523,5 +523,14 @@
     "Print receipt": "طباعة الإيصال",
     "No orders found.": "لا توجد طلبات.",
     "Order :ref cancelled.": "تم إلغاء الطلب :ref.",
-    "Unit": "الوحدة"
+    "Unit": "الوحدة",
+    "Stock Report": "تقرير المخزون",
+    "Product stock health across the catalogue.": "حالة مخزون المنتجات عبر الكتالوج.",
+    "Low ≤ :n": "منخفض ≤ :n",
+    "Back to inventory": "العودة إلى المخزون",
+    "In stock": "متوفر",
+    "Low stock": "مخزون منخفض",
+    "Search products": "ابحث عن المنتجات",
+    "Product": "المنتج",
+    "No products found.": "لا توجد منتجات."
 }

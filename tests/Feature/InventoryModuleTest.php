@@ -22,6 +22,7 @@ use Modules\Inventory\Models\StockMove;
 use Modules\Inventory\Models\StockOperationType;
 use Modules\Inventory\Models\StockQuant;
 use Modules\Inventory\Models\Warehouse;
+use Modules\Pos\Models\PosProduct;
 use Tests\TestCase;
 
 final class InventoryModuleTest extends TestCase
@@ -37,6 +38,19 @@ final class InventoryModuleTest extends TestCase
     private function installInventory(): void
     {
         app(ModuleManager::class)->install('inventory');
+    }
+
+    public function test_products_in_stock_kpi_counts_pos_products_with_stock(): void
+    {
+        $this->installInventory();
+        app(ModuleManager::class)->install('pos');
+
+        PosProduct::query()->create(['name' => 'In stock A', 'price' => 1, 'tax_rate' => 0, 'active' => true, 'stock_on_hand' => 5]);
+        PosProduct::query()->create(['name' => 'Empty', 'price' => 1, 'tax_rate' => 0, 'active' => true, 'stock_on_hand' => 0]);
+        PosProduct::query()->create(['name' => 'In stock B', 'price' => 1, 'tax_rate' => 0, 'active' => true, 'stock_on_hand' => 2]);
+
+        Livewire::test(InventoryOverview::class)
+            ->assertViewHas('kpis', fn (array $kpis): bool => $kpis['productsInStock'] === 2);
     }
 
     public function test_install_creates_double_entry_schema(): void

@@ -1216,8 +1216,12 @@ the credit sits in Accounts Payable, no payment/bank reconciliation yet).
   every combobox dropdown (shown to users with purchase Create/Write). Opens a
   modal mirroring the existing "New vendor" one (`openProductModal(index, name)` /
   `closeProductModal` / `saveProduct`): name (required, prefilled from the search
-  text) + Sale Price + Unit cost, gated by `purchases.purchase` Create. Saving
-  creates a `PosProduct` (active, stock 0, tax 0) and selects it on the line that
+  text) + the **full POS product field set** (Sale Price, Cost Price, Tax %,
+  Barcode, Stock on hand, Unit select, Reorder point, Category select, Active,
+  and a Photo upload routed through `FormImageUploadController` bucket
+  `pos_products` — same Alpine fetch-POST as the engine image widget), gated by
+  `purchases.purchase` Create. Saving creates a `PosProduct` (defaults: active,
+  stock 0, tax 0, unit qty) and selects it on the line that
   opened the modal (prefilling description + unit cost). `saveProduct` dispatches
   `product-created {id, name, lineIndex}`; the root appends it to the Alpine
   `products` list and the target row updates its display — so the new product is

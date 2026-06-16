@@ -236,6 +236,32 @@ final class PurchaseConfirmTest extends TestCase
         $this->assertSame(0.0, (float) $product->stock_on_hand);
     }
 
+    public function test_inline_product_persists_the_full_pos_field_set(): void
+    {
+        Livewire::test(PurchaseForm::class)
+            ->call('openProductModal', 0, 'Full Beans')
+            ->set('newProduct.price', '4')
+            ->set('newProduct.cost_price', '2')
+            ->set('newProduct.tax_rate', '10')
+            ->set('newProduct.stock_on_hand', '25')
+            ->set('newProduct.unit', 'kg')
+            ->set('newProduct.reorder_point', '8')
+            ->set('newProduct.barcode', 'BEAN-001')
+            ->set('newProduct.active', false)
+            ->call('saveProduct')
+            ->assertHasNoErrors();
+
+        $product = PosProduct::query()->where('name->en', 'Full Beans')->firstOrFail();
+        $this->assertSame(4.0, (float) $product->price);
+        $this->assertSame(2.0, (float) $product->cost_price);
+        $this->assertSame(10.0, (float) $product->tax_rate);
+        $this->assertSame(25.0, (float) $product->stock_on_hand);
+        $this->assertSame('kg', $product->unit);
+        $this->assertSame(8.0, (float) $product->reorder_point);
+        $this->assertSame('BEAN-001', $product->barcode);
+        $this->assertFalse((bool) $product->active);
+    }
+
     public function test_inline_product_requires_a_name(): void
     {
         Livewire::test(PurchaseForm::class)

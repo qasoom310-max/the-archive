@@ -13,6 +13,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Contacts\Models\Partner;
+use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosProduct;
 use Modules\Purchases\Enums\PurchaseState;
 use Modules\Purchases\Models\Purchase;
@@ -61,8 +62,25 @@ final class PurchaseForm extends Component
     /** Which line index the freshly-created product is assigned to. */
     public ?int $productLineIndex = null;
 
-    /** @var array<string, string> */
-    public array $newProduct = ['name' => '', 'price' => '', 'cost_price' => ''];
+    /**
+     * Full POS-product field set for the inline create modal (mirrors the
+     * engine PosProduct form arch).
+     *
+     * @var array<string, mixed>
+     */
+    public array $newProduct = [
+        'name' => '',
+        'price' => '',
+        'cost_price' => '',
+        'tax_rate' => '',
+        'stock_on_hand' => '',
+        'unit' => 'qty',
+        'reorder_point' => '',
+        'barcode' => '',
+        'pos_category_id' => '',
+        'active' => true,
+        'image_path' => '',
+    ];
 
     public function mount(?int $id = null): void
     {
@@ -219,7 +237,8 @@ final class PurchaseForm extends Component
         }
 
         $this->productLineIndex = $index;
-        $this->newProduct = ['name' => trim((string) $name), 'price' => '', 'cost_price' => ''];
+        $this->newProduct = $this->blankProduct();
+        $this->newProduct['name'] = trim((string) $name);
         $this->resetValidation();
         $this->addingProduct = true;
     }
@@ -231,9 +250,30 @@ final class PurchaseForm extends Component
     }
 
     /**
-     * Persist the inline product as a PosProduct and select it on the target
-     * line (prefilling its description + unit cost, like picking an existing
-     * one). Gated by the same purchase-create permission as the form.
+     * @return array<string, mixed>
+     */
+    private function blankProduct(): array
+    {
+        return [
+            'name' => '',
+            'price' => '',
+            'cost_price' => '',
+            'tax_rate' => '',
+            'stock_on_hand' => '',
+            'unit' => 'qty',
+            'reorder_point' => '',
+            'barcode' => '',
+            'pos_category_id' => '',
+            'active' => true,
+            'image_path' => '',
+        ];
+    }
+
+    /**
+     * Persist the inline product as a PosProduct (full POS field set) and
+     * select it on the target line (prefilling its description + unit cost,
+     * like picking an existing one). Gated by the same purchase-create
+     * permission as the form.
      */
     public function saveProduct(): void
     {
@@ -250,18 +290,35 @@ final class PurchaseForm extends Component
             'newProduct.name' => ['required', 'string', 'max:255'],
             'newProduct.price' => ['nullable', 'numeric', 'min:0'],
             'newProduct.cost_price' => ['nullable', 'numeric', 'min:0'],
+            'newProduct.tax_rate' => ['nullable', 'numeric', 'min:0'],
+            'newProduct.stock_on_hand' => ['nullable', 'numeric', 'min:0'],
+            'newProduct.reorder_point' => ['nullable', 'numeric', 'min:0'],
+            'newProduct.barcode' => ['nullable', 'string', 'max:255'],
+            'newProduct.unit' => ['nullable', 'string', 'max:16'],
+            'newProduct.pos_category_id' => ['nullable'],
         ]);
 
-        $price = (float) ($this->newProduct['price'] === '' ? 0 : $this->newProduct['price']);
-        $cost = (float) ($this->newProduct['cost_price'] === '' ? 0 : $this->newProduct['cost_price']);
+        $num = fn (string $key): float => (float) (($this->newProduct[$key] ?? '') === '' ? 0 : $this->newProduct[$key]);
+        $cost = $num('cost_price');
+
+        $barcode = trim((string) ($this->newProduct['barcode'] ?? ''));
+        $image = trim((string) ($this->newProduct['image_path'] ?? ''));
+        $unit = ($this->newProduct['unit'] ?? '') === '' ? 'qty' : (string) $this->newProduct['unit'];
+        $categoryId = ($this->newProduct['pos_category_id'] ?? '') === '' ? null : (int) $this->newProduct['pos_category_id'];
+        $reorder = ($this->newProduct['reorder_point'] ?? '') === '' ? null : (float) $this->newProduct['reorder_point'];
 
         $product = PosProduct::query()->create([
             'name' => $name,
-            'price' => $price,
+            'price' => $num('price'),
             'cost_price' => $cost,
-            'tax_rate' => 0,
-            'active' => true,
-            'stock_on_hand' => 0,
+            'tax_rate' => $num('tax_rate'),
+            'stock_on_hand' => $num('stock_on_hand'),
+            'unit' => $unit,
+            'reorder_point' => $reorder,
+            'barcode' => $barcode === '' ? null : $barcode,
+            'pos_category_id' => $categoryId,
+            'active' => (bool) ($this->newProduct['active'] ?? true),
+            'image_path' => $image === '' ? null : $image,
         ]);
 
         $index = $this->productLineIndex;
@@ -277,7 +334,7 @@ final class PurchaseForm extends Component
         // and which line now displays it.
         $this->dispatch('product-created', id: (int) $product->getKey(), name: $name, lineIndex: $index);
 
-        $this->newProduct = ['name' => '', 'price' => '', 'cost_price' => ''];
+        $this->newProduct = $this->blankProduct();
         $this->addingProduct = false;
         $this->productLineIndex = null;
     }
@@ -448,6 +505,8 @@ final class PurchaseForm extends Component
         return view('purchases::purchase-form', [
             'vendors' => Partner::query()->orderBy('name')->get(['id', 'name']),
             'products' => PosProduct::query()->orderBy('name')->get(['id', 'name', 'cost_price']),
+            'categories' => PosCategory::query()->orderBy('name')->get(['id', 'name']),
+            'unitOptions' => PosProduct::UNIT_OPTIONS,
             'total' => $this->currentTotal(),
             'isConfirmed' => $this->state === PurchaseState::Confirmed->value,
             'canWrite' => $access->allows($user, 'purchases.purchase', Permission::Write),

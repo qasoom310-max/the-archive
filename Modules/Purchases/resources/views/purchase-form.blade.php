@@ -143,8 +143,14 @@
                                              Odoo-style "Create" footer that opens the new-product modal. --}}
                                         <div x-data="{
                                                 open: false,
+                                                coords: { top: 0, left: 0, width: 0 },
                                                 selectedName: @js($selName),
                                                 search: @js($selName),
+                                                place() {
+                                                    const r = this.$refs.input.getBoundingClientRect();
+                                                    this.coords = { top: r.bottom + 4, left: r.left, width: r.width };
+                                                },
+                                                openPanel() { this.place(); this.open = true; },
                                                 choose(p) {
                                                     this.selectedName = p ? p.name : '';
                                                     this.search = this.selectedName;
@@ -154,14 +160,20 @@
                                             }"
                                             @product-created.window="if ($event.detail.lineIndex === {{ $i }}) { selectedName = $event.detail.name; search = $event.detail.name; }"
                                             @click.outside="open = false; search = selectedName"
+                                            @scroll.window.passive="if (open) place()"
+                                            @resize.window="if (open) place()"
                                             class="relative">
-                                            <input type="text" x-model="search"
-                                                @focus="open = true" @click="open = true"
+                                            <input type="text" x-ref="input" x-model="search"
+                                                @focus="openPanel()" @click="openPanel()"
                                                 @keydown.escape.stop="open = false; search = selectedName"
                                                 placeholder="{{ __('Search a product…') }}"
                                                 autocomplete="off" class="o-input">
+                                            {{-- Fixed panel (not absolute): the lines table sits inside an
+                                                 `overflow-hidden` wrapper that would clip an in-flow dropdown.
+                                                 Coords are captured from the input on open. --}}
                                             <div x-show="open" x-cloak
-                                                class="absolute start-0 z-30 mt-1 max-h-64 w-72 overflow-auto rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
+                                                :style="`top:${coords.top}px; left:${coords.left}px; width:${coords.width}px;`"
+                                                class="fixed z-50 max-h-64 overflow-auto rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
                                                 <button type="button" @click="choose(null)"
                                                     class="flex w-full items-center px-3 py-1.5 text-start text-sm text-chrome-400 hover:bg-chrome-50">—</button>
                                                 <template x-for="p in filterProducts(search)" :key="p.id">

@@ -1351,3 +1351,4 @@ supported (SQLite files only, per the chosen architecture).
 2. `composer analyse` green (PHPStan level 6).
 3. `composer test` green.
 4. Phase status table in §5 updated if a phase milestone was reached.
+

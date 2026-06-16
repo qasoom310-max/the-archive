@@ -55,6 +55,15 @@ final class PurchaseForm extends Component
     /** @var array<string, string> */
     public array $newVendor = ['name' => '', 'phone' => '', 'email' => ''];
 
+    /** Inline "new product" modal toggle. */
+    public bool $addingProduct = false;
+
+    /** Which line index the freshly-created product is assigned to. */
+    public ?int $productLineIndex = null;
+
+    /** @var array<string, string> */
+    public array $newProduct = ['name' => '', 'price' => '', 'cost_price' => ''];
+
     public function mount(?int $id = null): void
     {
         $this->id = $id;
@@ -196,6 +205,81 @@ final class PurchaseForm extends Component
         $this->form['partner_id'] = (string) $vendor->getKey();
         $this->newVendor = ['name' => '', 'phone' => '', 'email' => ''];
         $this->addingVendor = false;
+    }
+
+    /**
+     * Open the inline "new product" modal for a given line. The current
+     * combobox search text is passed through as the suggested name so
+     * "Create 'Arabica beans'" lands pre-filled.
+     */
+    public function openProductModal(int $index, ?string $name = null): void
+    {
+        if ($this->state === PurchaseState::Confirmed->value) {
+            return;
+        }
+
+        $this->productLineIndex = $index;
+        $this->newProduct = ['name' => trim((string) $name), 'price' => '', 'cost_price' => ''];
+        $this->resetValidation();
+        $this->addingProduct = true;
+    }
+
+    public function closeProductModal(): void
+    {
+        $this->addingProduct = false;
+        $this->productLineIndex = null;
+    }
+
+    /**
+     * Persist the inline product as a PosProduct and select it on the target
+     * line (prefilling its description + unit cost, like picking an existing
+     * one). Gated by the same purchase-create permission as the form.
+     */
+    public function saveProduct(): void
+    {
+        if ($this->state === PurchaseState::Confirmed->value) {
+            return;
+        }
+
+        app(AccessControl::class)->authorize(Auth::user(), 'purchases.purchase', Permission::Create);
+
+        $name = trim((string) ($this->newProduct['name'] ?? ''));
+        $this->newProduct['name'] = $name;
+
+        $this->validate([
+            'newProduct.name' => ['required', 'string', 'max:255'],
+            'newProduct.price' => ['nullable', 'numeric', 'min:0'],
+            'newProduct.cost_price' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $price = (float) ($this->newProduct['price'] === '' ? 0 : $this->newProduct['price']);
+        $cost = (float) ($this->newProduct['cost_price'] === '' ? 0 : $this->newProduct['cost_price']);
+
+        $product = PosProduct::query()->create([
+            'name' => $name,
+            'price' => $price,
+            'cost_price' => $cost,
+            'tax_rate' => 0,
+            'active' => true,
+            'stock_on_hand' => 0,
+        ]);
+
+        $index = $this->productLineIndex;
+        if ($index !== null && isset($this->lines[$index])) {
+            $this->lines[$index]['pos_product_id'] = (string) $product->getKey();
+            $this->lines[$index]['description'] = $name;
+            if ((float) ($this->lines[$index]['unit_cost'] ?? 0) <= 0.0) {
+                $this->lines[$index]['unit_cost'] = $cost;
+            }
+        }
+
+        // Tell the comboboxes (client-side Alpine list) about the new product
+        // and which line now displays it.
+        $this->dispatch('product-created', id: (int) $product->getKey(), name: $name, lineIndex: $index);
+
+        $this->newProduct = ['name' => '', 'price' => '', 'cost_price' => ''];
+        $this->addingProduct = false;
+        $this->productLineIndex = null;
     }
 
     /**

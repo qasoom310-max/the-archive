@@ -1200,6 +1200,35 @@ the credit sits in Accounts Payable, no payment/bank reconciliation yet).
   test_inline_vendor_requires_a_name_and_validates_email}`. AR keys added
   (مورد جديد / إضافة مورد / اسم المورد / إغلاق).
 
+**Phase 16 increment shipped 2026-06-16 — searchable product picker + inline product create:**
+
+- **Each bill line's Product field is now a searchable combobox** (was a plain
+  `<select>`). Type two letters and it filters the product list live, client-side
+  — an Alpine combobox: the page root holds one shared `products` array (mapped
+  `{id, name}` in the view) + a `filterProducts(q)` helper (substring, capped 50);
+  each line is its own isolated `x-data` scope (`open` / `search` / `selectedName`)
+  reading the parent list via Alpine scope inheritance. Picking calls
+  `$wire.set('lines.{i}.pos_product_id', id)` (still fires `updatedLines` →
+  description + unit-cost prefill); `@click.outside` resets the box to the
+  selected name. RTL-aware panel (`start-0`). A confirmed bill renders the product
+  name as read-only text (no combobox).
+- **"+ New product" inline create** — Odoo-style "Create '<typed text>'" footer in
+  every combobox dropdown (shown to users with purchase Create/Write). Opens a
+  modal mirroring the existing "New vendor" one (`openProductModal(index, name)` /
+  `closeProductModal` / `saveProduct`): name (required, prefilled from the search
+  text) + Sale Price + Unit cost, gated by `purchases.purchase` Create. Saving
+  creates a `PosProduct` (active, stock 0, tax 0) and selects it on the line that
+  opened the modal (prefilling description + unit cost). `saveProduct` dispatches
+  `product-created {id, name, lineIndex}`; the root appends it to the Alpine
+  `products` list and the target row updates its display — so the new product is
+  immediately pickable without a page reload. Modal lives OUTSIDE the bill `<form>`
+  (same pattern as the vendor modal). Tests:
+  `PurchaseConfirmTest::{test_inline_product_create_makes_a_pos_product_and_selects_it_on_the_line,
+  test_inline_product_requires_a_name}`. AR keys: Search a product… / No products
+  found / Product name / Add product (New product, Create, Sale Price, Unit cost
+  already existed). NOTE: product lookups use `where('name->en', …)` — `name` is
+  translatable JSON.
+
 **Profile self-service (shipped 2026-05-21):**
 
 | Concern | Location |

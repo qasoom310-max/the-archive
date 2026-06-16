@@ -214,6 +214,39 @@ final class PurchaseConfirmTest extends TestCase
         $this->assertSame(0, Partner::query()->where('name', 'Has Bad Email')->count());
     }
 
+    public function test_inline_product_create_makes_a_pos_product_and_selects_it_on_the_line(): void
+    {
+        Livewire::test(PurchaseForm::class)
+            ->call('openProductModal', 0, 'Arabica Beans')
+            ->assertSet('addingProduct', true)
+            ->assertSet('newProduct.name', 'Arabica Beans') // typed search prefills the name
+            ->set('newProduct.price', '3.5')
+            ->set('newProduct.cost_price', '1.25')
+            ->call('saveProduct')
+            ->assertHasNoErrors()
+            ->assertSet('addingProduct', false)
+            // `name` is translatable JSON, so look it up via the locale path.
+            ->assertSet('lines.0.pos_product_id', (string) PosProduct::query()->where('name->en', 'Arabica Beans')->value('id'))
+            ->assertSet('lines.0.description', 'Arabica Beans')
+            ->assertSet('lines.0.unit_cost', 1.25); // cost prefilled from the new product
+
+        $product = PosProduct::query()->where('name->en', 'Arabica Beans')->firstOrFail();
+        $this->assertTrue((bool) $product->active);
+        $this->assertSame(1.25, (float) $product->cost_price);
+        $this->assertSame(0.0, (float) $product->stock_on_hand);
+    }
+
+    public function test_inline_product_requires_a_name(): void
+    {
+        Livewire::test(PurchaseForm::class)
+            ->call('openProductModal', 0, '')
+            ->set('newProduct.name', '')
+            ->call('saveProduct')
+            ->assertHasErrors(['newProduct.name' => 'required']);
+
+        $this->assertSame(0, PosProduct::query()->count());
+    }
+
     public function test_purchases_app_lands_on_its_tile_dashboard(): void
     {
         // The sidebar is gone: /app/purchases now renders the engine tile

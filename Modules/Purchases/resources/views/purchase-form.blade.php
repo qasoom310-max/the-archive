@@ -1,5 +1,21 @@
-@php use App\Erp\Money\Currencies; @endphp
-<div class="mx-auto max-w-4xl p-4 sm:p-6">
+@php
+    use App\Erp\Money\Currencies;
+    // Client-side product list for the per-line searchable comboboxes.
+    $productsJs = $products->map(static fn ($p): array => [
+        'id' => (int) $p->id,
+        'name' => (string) $p->name,
+    ])->values();
+@endphp
+<div class="mx-auto max-w-4xl p-4 sm:p-6"
+    x-data="{
+        products: @js($productsJs),
+        filterProducts(q) {
+            const s = (q || '').trim().toLowerCase();
+            const list = s === '' ? this.products : this.products.filter(p => p.name.toLowerCase().includes(s));
+            return list.slice(0, 50);
+        },
+    }"
+    @product-created.window="products.push({ id: $event.detail.id, name: $event.detail.name })">
     <div class="mb-4 flex items-center gap-2 text-sm text-chrome-500">
         <a href="{{ url('/app/purchases/purchase') }}" wire:navigate class="hover:text-primary-700">{{ __('Purchases') }}</a>
         <span>/</span>
@@ -111,14 +127,64 @@
                     </thead>
                     <tbody class="divide-y divide-chrome-100">
                         @foreach ($lines as $i => $line)
+                            @php
+                                $selName = '';
+                                if (($line['pos_product_id'] ?? '') !== '') {
+                                    $sel = $products->firstWhere('id', (int) $line['pos_product_id']);
+                                    $selName = $sel ? (string) $sel->name : '';
+                                }
+                            @endphp
                             <tr wire:key="line-{{ $i }}">
                                 <td class="px-3 py-2">
-                                    <select wire:model.live="lines.{{ $i }}.pos_product_id" @disabled($isConfirmed) class="o-input">
-                                        <option value="">—</option>
-                                        @foreach ($products as $product)
-                                            <option value="{{ $product->id }}">{{ $product->name }}</option>
-                                        @endforeach
-                                    </select>
+                                    @if ($isConfirmed)
+                                        <div class="o-input bg-chrome-50 text-chrome-700">{{ $selName !== '' ? $selName : '—' }}</div>
+                                    @else
+                                        {{-- Searchable product picker (type to filter) with an
+                                             Odoo-style "Create" footer that opens the new-product modal. --}}
+                                        <div x-data="{
+                                                open: false,
+                                                selectedName: @js($selName),
+                                                search: @js($selName),
+                                                choose(p) {
+                                                    this.selectedName = p ? p.name : '';
+                                                    this.search = this.selectedName;
+                                                    this.open = false;
+                                                    $wire.set('lines.{{ $i }}.pos_product_id', p ? p.id : '');
+                                                },
+                                            }"
+                                            @product-created.window="if ($event.detail.lineIndex === {{ $i }}) { selectedName = $event.detail.name; search = $event.detail.name; }"
+                                            @click.outside="open = false; search = selectedName"
+                                            class="relative">
+                                            <input type="text" x-model="search"
+                                                @focus="open = true" @click="open = true"
+                                                @keydown.escape.stop="open = false; search = selectedName"
+                                                placeholder="{{ __('Search a product…') }}"
+                                                autocomplete="off" class="o-input">
+                                            <div x-show="open" x-cloak
+                                                class="absolute start-0 z-30 mt-1 max-h-64 w-72 overflow-auto rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
+                                                <button type="button" @click="choose(null)"
+                                                    class="flex w-full items-center px-3 py-1.5 text-start text-sm text-chrome-400 hover:bg-chrome-50">—</button>
+                                                <template x-for="p in filterProducts(search)" :key="p.id">
+                                                    <button type="button" @click="choose(p)"
+                                                        class="flex w-full items-center px-3 py-1.5 text-start text-sm text-chrome-700 hover:bg-primary-50"
+                                                        x-text="p.name"></button>
+                                                </template>
+                                                <template x-if="filterProducts(search).length === 0">
+                                                    <p class="px-3 py-1.5 text-sm text-chrome-400">{{ __('No products found') }}</p>
+                                                </template>
+                                                @if ($canWrite || $canCreate)
+                                                    <div class="mt-1 border-t border-chrome-100 pt-1">
+                                                        <button type="button" @click="$wire.openProductModal({{ $i }}, search)"
+                                                            class="flex w-full items-center gap-1 px-3 py-1.5 text-start text-sm font-medium text-primary-700 hover:bg-primary-50">
+                                                            <svg class="size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
+                                                            <span x-show="search.trim() === ''">{{ __('New product') }}</span>
+                                                            <span x-show="search.trim() !== ''" x-cloak>{{ __('Create') }} "<span x-text="search"></span>"</span>
+                                                        </button>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endif
                                 </td>
                                 <td class="px-3 py-2 text-end">
                                     <input type="number" step="any" min="0" wire:model.live.debounce.400ms="lines.{{ $i }}.quantity"
@@ -199,6 +265,52 @@
                             {{ __('Cancel') }}
                         </button>
                         <button type="submit" class="o-btn-primary">{{ __('Add vendor') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
+
+    {{-- Inline "new product" modal. Like the vendor one, it lives OUTSIDE the
+         bill <form>. Saving creates a PosProduct and selects it on the line
+         that opened the modal. --}}
+    @if ($addingProduct)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4"
+            x-data x-on:keydown.escape.window="$wire.closeProductModal()"
+            x-init="$nextTick(() => $refs.productName && $refs.productName.focus())">
+            <div class="absolute inset-0 bg-chrome-900/40" wire:click="closeProductModal"></div>
+            <div class="relative w-full max-w-md rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5">
+                <div class="mb-4 flex items-center justify-between">
+                    <h3 class="text-sm font-semibold text-chrome-800">{{ __('New product') }}</h3>
+                    <button type="button" wire:click="closeProductModal" class="text-chrome-400 transition hover:text-chrome-700" title="{{ __('Close') }}">
+                        <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                    </button>
+                </div>
+                <form wire:submit.prevent="saveProduct" class="space-y-3">
+                    <div>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Name') }} <span class="text-red-500">*</span></label>
+                        <input type="text" wire:model="newProduct.name" x-ref="productName"
+                            placeholder="{{ __('Product name') }}" class="o-input">
+                        @error('newProduct.name') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Sale Price') }}</label>
+                            <input type="number" step="any" min="0" wire:model="newProduct.price" class="o-input">
+                            @error('newProduct.price') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Unit cost') }}</label>
+                            <input type="number" step="any" min="0" wire:model="newProduct.cost_price" class="o-input">
+                            @error('newProduct.cost_price') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2 pt-2">
+                        <button type="button" wire:click="closeProductModal"
+                            class="rounded-md px-3 py-1.5 text-sm font-medium text-chrome-600 ring-1 ring-chrome-300 hover:bg-chrome-50">
+                            {{ __('Cancel') }}
+                        </button>
+                        <button type="submit" class="o-btn-primary">{{ __('Add product') }}</button>
                     </div>
                 </form>
             </div>

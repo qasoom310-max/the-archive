@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Auth\Group;
+use App\Models\Workspace;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 /**
  * @property int $id
@@ -84,16 +87,52 @@ final class User extends Authenticatable
      */
     public function avatarUrl(): ?string
     {
-        if ($this->avatar_path === null || $this->avatar_path === '') {
+        $path = $this->avatar_path;
+
+        // Avatars sit on one shared disk, but every database has its own
+        // `users` row. A workspace copy of this account (matched by email) is
+        // created without the avatar_path the user set on Main — so fall back
+        // to the Main (landlord) record, keeping the same profile image in
+        // every workspace instead of showing a broken/empty avatar there.
+        if (($path === null || $path === '') && is_string($this->email) && $this->email !== '') {
+            $path = $this->landlordAvatarPath();
+        }
+
+        if ($path === null || $path === '') {
             return null;
         }
 
         $disk = Storage::disk('public');
-        if (! $disk->exists($this->avatar_path)) {
+        if (! $disk->exists($path)) {
             return null;
         }
 
-        return $disk->url($this->avatar_path);
+        return $disk->url($path);
+    }
+
+    /**
+     * The avatar path stored on the Main (landlord) copy of this account,
+     * used only when the active workspace's row has none. Returns null when
+     * already on Main (nothing to fall back to) or if the lookup fails.
+     */
+    private function landlordAvatarPath(): ?string
+    {
+        $landlord = Workspace::$landlordConnection;
+
+        // On Main, the landlord IS the active default connection — no fallback.
+        if (DB::getDefaultConnection() === $landlord) {
+            return null;
+        }
+
+        try {
+            $main = self::on($landlord)->where('email', $this->email)->first();
+        } catch (Throwable) {
+            return null; // landlord/workspaces unavailable → no fallback
+        }
+
+        $path = $main?->getAttribute('avatar_path');
+
+        return is_string($path) && $path !== '' ? $path : null;
     }
 
     /**

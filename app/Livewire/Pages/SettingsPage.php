@@ -453,9 +453,14 @@ final class SettingsPage extends Component
         // (the data source) is installed.
         $reportTab = $this->isAdmin() && $this->posReady();
 
+        // Admin-only "Users" tab — create staff accounts + grant view-only
+        // app/database access. The tab embeds the UserManager component.
+        $userTab = $this->isAdmin();
+
         return view('livewire.pages.settings', [
             'tabs' => $tabs,
             'reportTab' => $reportTab,
+            'userTab' => $userTab,
             'recipients' => $reportTab
                 ? ReportRecipient::query()->orderBy('email')->get()
                 : collect(),

@@ -18,7 +18,7 @@
         </div>
     @endif
 
-    @if (count($tabs) === 0 && ! $reportTab)
+    @if (count($tabs) === 0 && ! $reportTab && ! $userTab)
         <p class="rounded-xl border border-dashed border-chrome-300 bg-white p-10 text-center text-sm text-chrome-400">
             {{ __('No configurable settings yet.') }}
         </p>
@@ -44,6 +44,18 @@
                         : 'border-transparent text-chrome-500 hover:text-chrome-800'"
                     class="-mb-px border-b-2 px-4 py-2 text-sm font-medium">
                     {{ __('Daily Report') }}
+                </button>
+            @endif
+
+            {{-- Users — admin-only account creation + view-only access grants.
+                 Stable ASCII tab key so the localised label can't break state. --}}
+            @if ($userTab)
+                <button type="button" @click="tab = '__users'"
+                    :class="tab === '__users'
+                        ? 'border-primary-600 text-primary-700'
+                        : 'border-transparent text-chrome-500 hover:text-chrome-800'"
+                    class="-mb-px border-b-2 px-4 py-2 text-sm font-medium">
+                    {{ __('Users') }}
                 </button>
             @endif
         </div>
@@ -286,6 +298,15 @@
                         <li class="px-3 py-4 text-center text-sm text-chrome-400">{{ __('No recipients yet — add one above.') }}</li>
                     @endforelse
                 </ul>
+            </div>
+        @endif
+
+        {{-- Users tab panel — embeds the admin-only UserManager component
+             (staff account creation + view-only app/database access). --}}
+        @if ($userTab)
+            <div x-show="tab === '__users'" x-cloak
+                class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-chrome-900/5">
+                @livewire(\App\Livewire\Settings\UserManager::class)
             </div>
         @endif
     @endif

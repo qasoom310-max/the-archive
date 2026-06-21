@@ -1233,6 +1233,22 @@ the credit sits in Accounts Payable, no payment/bank reconciliation yet).
   already existed). NOTE: product lookups use `where('name->en', …)` — `name` is
   translatable JSON.
 
+**Settings increment shipped 2026-06-21 — "Users" tab (admin-only staff accounts):**
+
+A new **admin-only "Users" tab** in Settings (alongside General / Daily Report)
+to create a staff account (username + email + password) and grant it
+**view-only** access to a chosen set of apps and databases.
+
+| Concern | Location |
+|---|---|
+| Tab wiring | `App\Livewire\Pages\SettingsPage::render()` exposes `$userTab = isAdmin()`; `resources/views/livewire/pages/settings.blade.php` renders a `__users` tab button + panel that `@livewire(\App\Livewire\Settings\UserManager::class)`. Stable ASCII tab key (like `__reports`) so the localised label can't break Alpine tab state |
+| UI component | `App\Livewire\Settings\UserManager` (+ `resources/views/livewire/settings/user-manager.blade.php`) — **admin-only** (`mount()` + every action re-`abort_unless(isAdmin)`). Create form (name/email/password) + an apps multi-checkbox (installed `application` modules from `ir_module`) + a databases multi-checkbox (non-Main workspaces) + a list of existing non-admin "staff users" with a remove action. **Gotcha:** the public `$apps`/`$workspaces` props (selected values, for `wire:model`) would shadow same-named view vars — render() passes the option lists as `appModules`/`workspaceList` to avoid the collision (Livewire injects public props into the view) |
+| Provisioning | `App\Erp\Admin\UserProvisioner` — the sole creator. `provision(name,email,password,appNames[],workspaceIds[])`: hashes once, then `upsertWithAccess()` in **Main** AND (guarded by `Schema::hasTable('workspaces')`, via `WorkspaceManager::withTenant()`) inside each selected tenant SQLite file — matched by **email**, the same way the tenancy matches identities across DBs. `upsertWithAccess()` (one DB transaction on the CURRENT connection): `updateOrCreate` the user (`is_admin=false`), a **dedicated per-user group** (`code = user:{id}`), attach it, then **rebuild** that group's `ir_model_access` rules — one **Read-only** rule (`perm_read=true`, write/create/unlink=false) per registered `ir_model` of every granted app. Re-running for the same email edits in place. `deleteUser()` removes the Main user + their per-user group + its ACL rules (tenant copies left in place, harmless) |
+| Access model | App access = the existing ACL system: per-user group + `ir_model_access` Read rules. So a granted user can **open** the app's screens and read records but cannot add/edit/delete (engine List/Form gate mutations). Apps with **no** `DefinesIrModel` (Inventory custom screens, Settings, WhatsApp) have no models, so a grant on them creates no rules — view access there isn't ACL-expressible (note if asked). DB access is **provision-only**: the account is created in the chosen databases; **switching is unchanged (still admin-only)** — the tenancy security model (SetActiveWorkspace / SwitchWorkspaceController) was deliberately NOT touched |
+| Tests | `tests/Feature/UserManagerTest.php` (8 — view-only grants on selected apps, granted-apps-only (denies a non-granted installed app), non-admin 403, name/email/password validation, duplicate email rejected, delete removes user+group+rules, admins never deletable, provision into a selected workspace creates the account there with the same Read grant) |
+
+Decisions (chosen by the user): app access = **View only**; database access = **provision only** (no self-switching). To widen later: change the `perm_*` flags in `UserProvisioner::upsertWithAccess()` (e.g. add Write/Create), or lift the admin-only switch gate for granted users (would need a `workspace_user_access` grant table + relaxed `SwitchWorkspaceController`/`SetActiveWorkspace` + a non-admin switcher UI — out of scope here).
+
 **Profile self-service (shipped 2026-05-21):**
 
 | Concern | Location |

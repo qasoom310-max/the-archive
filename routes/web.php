@@ -7,6 +7,7 @@ use App\Http\Controllers\FormImageUploadController;
 use App\Http\Controllers\ProfileEmailVerificationController;
 use App\Http\Controllers\SwitchWorkspaceController;
 use App\Livewire\Auth\Login;
+use App\Livewire\Pages\ActivityLog;
 use App\Livewire\Pages\Dashboard;
 use App\Livewire\Pages\ModuleHome;
 use App\Livewire\Pages\Playground;
@@ -69,6 +70,9 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/workspaces', WorkspacesPage::class)->name('workspaces');
     Route::get('/workspaces/switch/{workspace}', SwitchWorkspaceController::class)
         ->whereNumber('workspace')->name('workspaces.switch');
+
+    // Admin-only audit trail (topbar activity icon). Component gates on admin.
+    Route::get('/activity', ActivityLog::class)->name('activity');
 
     // Explicit before the /app/{module} wildcard so it wins.
     Route::get('/app/settings', SettingsPage::class)->name('settings');

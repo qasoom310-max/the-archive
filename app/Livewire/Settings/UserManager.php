@@ -150,13 +150,17 @@ final class UserManager extends Component
             return;
         }
 
+        $email = strtolower(trim($this->email));
+
         app(UserProvisioner::class)->provision(
             trim($this->name),
-            strtolower(trim($this->email)),
+            $email,
             $this->password,
             array_values($this->apps),
             array_map('intval', array_values($this->workspaces)),
         );
+
+        app(\App\Erp\Activity\ActivityLogger::class)->log('user_created', $email, __('Created :name', ['name' => trim($this->name)]));
 
         $this->reset(['name', 'email', 'password', 'apps', 'workspaces']);
         session()->flash('user_saved', __('User created.'));
@@ -185,6 +189,8 @@ final class UserManager extends Component
             app(UserProvisioner::class)->grantApps($user, array_values($this->apps));
         }
 
+        app(\App\Erp\Activity\ActivityLogger::class)->log('user_updated', (string) $user->email, __('Updated :name', ['name' => (string) $user->name]));
+
         $this->reset(['editingId', 'name', 'email', 'password', 'apps', 'workspaces']);
         session()->flash('user_saved', __('User updated.'));
     }
@@ -206,7 +212,11 @@ final class UserManager extends Component
             return;
         }
 
+        $email = (string) $target->email;
+        $name = (string) $target->name;
         app(UserProvisioner::class)->deleteUser($target);
+
+        app(\App\Erp\Activity\ActivityLogger::class)->log('user_deleted', $email, __('Deleted :name', ['name' => $name]));
 
         if ($this->editingId === $id) {
             $this->cancelEdit();

@@ -80,10 +80,18 @@
                 <kbd class="hidden rounded border border-black/20 px-1 text-[10px] sm:inline">⌘K</kbd>
             </button>
 
-            {{-- Activities --}}
-            <button type="button" class="relative flex size-9 items-center justify-center rounded-md text-chrome-800 hover:bg-black/10" title="{{ __('Activities') }}">
-                <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a6 6 0 0 0-6 6v3.6l-1.3 2.6A1 1 0 0 0 3.6 16h12.8a1 1 0 0 0 .9-1.4L16 11.6V8a6 6 0 0 0-6-6Zm0 16a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 10 18Z"/></svg>
-            </button>
+            {{-- Activity log — admin-only audit trail of everything users do. --}}
+            @if (auth()->user()?->isAdmin())
+                <a href="{{ route('activity') }}" wire:navigate
+                    class="relative flex size-9 items-center justify-center rounded-md text-chrome-800 hover:bg-black/10"
+                    title="{{ __('Activity log') }}" aria-label="{{ __('Activity log') }}">
+                    {{-- Heroicons outline clipboard-document-list --}}
+                    <svg class="size-5" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6.75M9 15.75h6.75M9 8.25h6.75M5.25 6.75h.008v.008H5.25V6.75Zm0 3.75h.008v.008H5.25V10.5Zm0 3.75h.008v.008H5.25v-.008Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75h.008M9 6.75H5.25A1.5 1.5 0 0 0 3.75 8.25v10.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V8.25a1.5 1.5 0 0 0-1.5-1.5H9Z" />
+                    </svg>
+                </a>
+            @endif
 
             {{-- User menu — avatar URL goes through User::avatarUrl() so
                  a stale `avatar_path` pointing at a missing file falls

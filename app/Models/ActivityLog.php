@@ -1,0 +1,90 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+/**
+ * One immutable audit-trail entry. Written only through
+ * {@see \App\Erp\Activity\ActivityLogger}; never updated.
+ *
+ * @property int $id
+ * @property int|null $user_id
+ * @property string $user_name
+ * @property bool $user_is_admin
+ * @property string $action
+ * @property string|null $subject
+ * @property string|null $description
+ * @property string|null $ip_address
+ * @property \Illuminate\Support\Carbon|null $created_at
+ */
+final class ActivityLog extends Model
+{
+    public $timestamps = false;
+
+    /** @var list<string> */
+    protected $fillable = [
+        'user_id', 'user_name', 'user_is_admin',
+        'action', 'subject', 'description', 'ip_address', 'created_at',
+    ];
+
+    /**
+     * Action → user-facing label. Keys are the stored `action` codes; the
+     * label is wrapped in `__()` at the call site so it localises.
+     *
+     * @var array<string, string>
+     */
+    public const LABELS = [
+        'login' => 'Signed in',
+        'logout' => 'Signed out',
+        'login_failed' => 'Failed sign-in',
+        'created' => 'Created',
+        'updated' => 'Updated',
+        'deleted' => 'Deleted',
+        'user_created' => 'Created user',
+        'user_updated' => 'Updated user',
+        'user_deleted' => 'Deleted user',
+        'settings_updated' => 'Updated settings',
+    ];
+
+    /**
+     * Action → Tailwind tone tokens for the badge (bg + text).
+     *
+     * @var array<string, string>
+     */
+    public const COLORS = [
+        'login' => 'bg-emerald-100 text-emerald-700',
+        'logout' => 'bg-chrome-100 text-chrome-600',
+        'login_failed' => 'bg-red-100 text-red-700',
+        'created' => 'bg-sky-100 text-sky-700',
+        'updated' => 'bg-amber-100 text-amber-700',
+        'deleted' => 'bg-red-100 text-red-700',
+        'user_created' => 'bg-indigo-100 text-indigo-700',
+        'user_updated' => 'bg-amber-100 text-amber-700',
+        'user_deleted' => 'bg-red-100 text-red-700',
+        'settings_updated' => 'bg-violet-100 text-violet-700',
+    ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'user_is_admin' => 'boolean',
+            'created_at' => 'datetime',
+        ];
+    }
+
+    public function actionLabel(): string
+    {
+        return __(self::LABELS[$this->action] ?? ucfirst(str_replace('_', ' ', $this->action)));
+    }
+
+    public function actionColor(): string
+    {
+        return self::COLORS[$this->action] ?? 'bg-chrome-100 text-chrome-600';
+    }
+}

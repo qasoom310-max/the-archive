@@ -247,6 +247,7 @@ jobs:
             "cd ${{ secrets.DEPLOY_PATH }} && \
              ln -sfn ${{ secrets.DEPLOY_PATH }}/storage/app/public ${{ secrets.DEPLOY_PATH }}/public/storage && \
              php artisan migrate --force && \
+             php artisan workspaces:migrate && \
              php artisan migrate --path=Modules/Pos/database/migrations --force && \
              php artisan migrate --path=Modules/WhatsApp/database/migrations --force && \
              php artisan migrate --path=Modules/Accounting/database/migrations --force && \

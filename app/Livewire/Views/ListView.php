@@ -349,8 +349,17 @@ final class ListView extends Component
             $this->access()->authorize(Auth::user(), $this->modelKey, Permission::Unlink);
         }
 
+        $count = count($this->selected);
         $this->model::query()->whereKey($this->selected)->delete();
-        $this->dispatch('records-deleted', count: count($this->selected));
+
+        $label = \Illuminate\Support\Str::headline(\Illuminate\Support\Str::afterLast($this->modelKey, '.'));
+        app(\App\Erp\Activity\ActivityLogger::class)->log(
+            'deleted',
+            $label,
+            __(':count record(s)', ['count' => $count]),
+        );
+
+        $this->dispatch('records-deleted', count: $count);
         $this->clearSelection();
         $this->resetPage();
     }

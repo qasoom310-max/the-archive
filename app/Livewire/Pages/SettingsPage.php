@@ -328,6 +328,11 @@ final class SettingsPage extends Component
 
         if ($systemValues !== []) {
             app(SettingManager::class)->setMany($systemValues);
+            app(\App\Erp\Activity\ActivityLogger::class)->log(
+                'settings_updated',
+                null,
+                implode(', ', array_keys($systemValues)),
+            );
         }
 
         // Reflect the persisted+re-cast values back into the form (the

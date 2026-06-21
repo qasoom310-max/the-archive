@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Erp\Activity\ActivityLogger;
 use App\Erp\Settings\Setting;
 use App\Erp\Settings\SettingManager;
+use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Spatie\Translatable\Translatable;
@@ -19,6 +24,7 @@ final class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(SettingManager::class);
+        $this->app->singleton(ActivityLogger::class);
     }
 
     /**
@@ -38,6 +44,31 @@ final class AppServiceProvider extends ServiceProvider
         $translatable->fallbackAny = true;
 
         $this->applyConfiguredTimezone();
+        $this->registerActivityListeners();
+    }
+
+    /**
+     * Audit-trail the authentication lifecycle. The Login/Logout events carry
+     * the user explicitly (Auth::user() may already be cleared on logout), so
+     * we pass it through. Failed sign-ins record the attempted identifier.
+     */
+    private function registerActivityListeners(): void
+    {
+        $logger = $this->app->make(ActivityLogger::class);
+
+        Event::listen(Login::class, static function (Login $event) use ($logger): void {
+            $logger->log('login', actor: $event->user);
+        });
+
+        Event::listen(Logout::class, static function (Logout $event) use ($logger): void {
+            $logger->log('logout', actor: $event->user);
+        });
+
+        Event::listen(Failed::class, static function (Failed $event) use ($logger): void {
+            $credentials = $event->credentials;
+            $identifier = $credentials['email'] ?? $credentials['name'] ?? 'unknown';
+            $logger->log('login_failed', is_string($identifier) ? $identifier : 'unknown');
+        });
     }
 
     /**

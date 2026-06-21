@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Views;
 
+use App\Erp\Activity\ActivityLogger;
 use App\Erp\Chatter\Chatterable;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
@@ -40,6 +41,13 @@ final class FormView extends Component
     public string $title = '';
 
     public string $redirectTo = '';
+
+    /**
+     * Guards the audit log against per-keystroke spam: an existing record
+     * auto-saves on every change, so we log "Updated" at most once per
+     * editing session. Persists across the auto-save round-trips (public).
+     */
+    public bool $activityLogged = false;
 
     /**
      * Page URL captured at mount, used by `navUrl()` to build prev/next
@@ -414,6 +422,8 @@ final class FormView extends Component
             $record->logChange($isNew ? 'Record created.' : 'Record updated.');
         }
 
+        $this->recordActivity($record, $isNew);
+
         $this->dispatch('record-saved', id: $record->getKey());
 
         // Auto-save fires on every keystroke — flashing "Saved." every
@@ -449,6 +459,30 @@ final class FormView extends Component
             if ($editUrl !== null) {
                 $this->redirect($editUrl, navigate: true);
             }
+        }
+    }
+
+    /**
+     * Audit-trail a create/update. Creates log every time (they happen once,
+     * on an explicit Save). Updates log at most once per editing session —
+     * the auto-save path calls save() on every keystroke, which would
+     * otherwise flood the log with "Updated" rows.
+     */
+    private function recordActivity(Model $record, bool $isNew): void
+    {
+        $label = \Illuminate\Support\Str::headline(\Illuminate\Support\Str::afterLast($this->modelKey, '.'));
+        $subject = trim($label . ' #' . $record->getKey());
+
+        if ($isNew) {
+            app(ActivityLogger::class)->log('created', $subject);
+            $this->activityLogged = true;
+
+            return;
+        }
+
+        if (! $this->activityLogged) {
+            app(ActivityLogger::class)->log('updated', $subject);
+            $this->activityLogged = true;
         }
     }
 

@@ -1249,6 +1249,22 @@ to create a staff account (username + email + password) and grant it
 
 Decisions (chosen by the user): app access = **View only**; database access = **provision only** (no self-switching); Main is a normal pickable database (not auto-included); the list shows all users + admins and supports edit/delete. To widen later: change the `perm_*` flags in `UserProvisioner::grantApps()` (e.g. add Write/Create), or lift the admin-only switch gate for granted users (would need a `workspace_user_access` grant table + relaxed `SwitchWorkspaceController`/`SetActiveWorkspace` + a non-admin switcher UI — out of scope here).
 
+**Activity log — audit trail (shipped 2026-06-21):**
+
+Admin-only system audit trail. The topbar **bell was replaced by a
+clipboard-list "Activity log" icon** (admin-only; `route('activity')`) opening
+a professional table of who did what, when.
+
+| Concern | Location |
+|---|---|
+| Schema | `activity_logs` (core migration `2026_06_21_100001`) — `user_id` (logical ref, survives user deletion), `user_name` + `user_is_admin` (**snapshots** so the row reads right after rename/delete), `action`(40), `subject`, `description`, `ip_address`, `created_at` (immutable — `$timestamps=false`). Core table ⇒ per-database (each workspace has its own; logs scoped to the DB they happened in) |
+| Model | `App\Models\ActivityLog` — `LABELS` + `COLORS` maps keyed by action code; `actionLabel()` (localised) / `actionColor()` (Tailwind tones) |
+| Logger | `App\Erp\Activity\ActivityLogger` (singleton) — `log(action, subject?, description?, actor?)`. Snapshots `Auth::user()` (or an explicit actor) + `request()->ip()`. **Guarded by `Schema::hasTable` + try/catch** so auditing NEVER breaks the audited action (or a tenant DB lacking the table) |
+| Captured | Auth login/logout/failed (`Event::listen` in `AppServiceProvider::registerActivityListeners()`); engine `FormView` create (`created`) + update (`updated`, **once per editing session** via `public bool $activityLogged` — auto-save fires per keystroke); engine `ListView::bulkDelete` (`deleted`, N records); `UserManager` create/update/delete (`user_*`); `SettingsPage::save` (`settings_updated`, changed keys). POS-sale / purchase-confirm events are a possible follow-up |
+| Page | `App\Livewire\Pages\ActivityLog` (`/activity`, admin-only `mount`) + `resources/views/livewire/pages/activity-log.blade.php` — search (user/subject/description/IP) + action filter + pagination (`vendor.pagination.compact`); columns Date&time (12-hour + relative) / User (role badge) / Action (colour badge) / Details / IP. `render()` degrades to an empty state if `activity_logs` is missing (a tenant DB not yet migrated) instead of 500ing |
+| Tenant backfill | `App\Console\Commands\MigrateWorkspaces` (`workspaces:migrate`) runs core `migrate --force` against every tenant SQLite file (resilient per-workspace try/catch). **Added to `deploy.yml`** right after the Main `migrate` so a later CORE migration (like `activity_logs`) reaches existing workspaces — fixes the general "tenants miss core migrations added after provisioning" gap |
+| Tests | `tests/Feature/ActivityLogTest.php` (6 — logger snapshot, login event audited, page admin-only, list + action filter, user-create audited, settings-save audited) |
+
 **Profile self-service (shipped 2026-05-21):**
 
 | Concern | Location |

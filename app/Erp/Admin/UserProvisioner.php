@@ -34,8 +34,12 @@ final class UserProvisioner
     public function __construct(private readonly WorkspaceManager $workspaces) {}
 
     /**
+     * Create the user (matched by email) in EACH selected database — Main only
+     * if its workspace is among the selections (no longer implicit). Returns
+     * the Main user when Main was selected, else null.
+     *
      * @param  list<string>  $appNames      installed application module names to grant Read on
-     * @param  list<int>     $workspaceIds  tenant workspace ids to also create the account in
+     * @param  list<int>     $workspaceIds  workspace ids (Main + tenants) to create the account in
      */
     public function provision(
         string $name,
@@ -43,40 +47,48 @@ final class UserProvisioner
         string $plainPassword,
         array $appNames,
         array $workspaceIds,
-    ): User {
+    ): ?User {
         $hashed = Hash::make($plainPassword);
 
-        // Main database — the canonical account.
-        $user = $this->upsertWithAccess($name, $email, $hashed, $appNames);
-
-        // Each selected workspace gets the same account + grants, matched by
-        // email (so it lines up with how SetActiveWorkspace rebinds identity).
-        if (Schema::hasTable('workspaces')) {
-            foreach ($workspaceIds as $workspaceId) {
-                $workspace = Workspace::query()->find($workspaceId);
-
-                if ($workspace === null || $workspace->is_main) {
-                    continue;
-                }
-
-                $path = $workspace->databasePath();
-                if ($path === null || ! is_file($path)) {
-                    continue;
-                }
-
-                $this->workspaces->withTenant(
-                    $path,
-                    fn (): User => $this->upsertWithAccess($name, $email, $hashed, $appNames),
-                );
-            }
+        // No workspace feature on disk → just create on the current connection.
+        if (! Schema::hasTable('workspaces')) {
+            return $this->upsertWithAccess($name, $email, $hashed, $appNames);
         }
 
-        return $user;
+        $mainUser = null;
+
+        foreach ($workspaceIds as $workspaceId) {
+            $workspace = Workspace::query()->find($workspaceId);
+            if ($workspace === null) {
+                continue;
+            }
+
+            // Main = the current (default) connection.
+            if ($workspace->is_main) {
+                $mainUser = $this->upsertWithAccess($name, $email, $hashed, $appNames);
+
+                continue;
+            }
+
+            // Tenant = its own SQLite file. Matched by email, the same way
+            // SetActiveWorkspace rebinds identity across databases.
+            $path = $workspace->databasePath();
+            if ($path === null || ! is_file($path)) {
+                continue;
+            }
+
+            $this->workspaces->withTenant(
+                $path,
+                fn (): User => $this->upsertWithAccess($name, $email, $hashed, $appNames),
+            );
+        }
+
+        return $mainUser;
     }
 
     /**
-     * Create/update the user, their per-user group, and the group's Read rules
-     * for the selected apps — all on the CURRENT default connection.
+     * Create/update the user, then (re)grant the apps — all on the CURRENT
+     * default connection.
      *
      * @param  list<string>  $appNames
      */
@@ -88,19 +100,35 @@ final class UserProvisioner
                 ['name' => $name, 'is_admin' => false, 'password' => $hashedPassword],
             );
 
+            $this->grantApps($user, $appNames);
+
+            return $user;
+        });
+    }
+
+    /**
+     * Rebuild a user's per-user group + view-only Read rules to exactly match
+     * the given app selection (on the current connection). Used by both the
+     * create path and the edit path. Idempotent.
+     *
+     * @param  list<string>  $appNames
+     */
+    public function grantApps(User $user, array $appNames): void
+    {
+        DB::transaction(function () use ($user, $appNames): void {
             $group = Group::query()->updateOrCreate(
                 ['code' => 'user:' . $user->getKey()],
-                ['name' => $name . ' — access', 'description' => 'Per-user app access (view only)'],
+                ['name' => $user->name . ' — access', 'description' => 'Per-user app access (view only)'],
             );
 
             $user->groups()->syncWithoutDetaching([$group->id]);
 
-            // Rebuild this group's rules from scratch so editing the app
-            // selection can only ever match the current choice.
+            // Rebuild from scratch so editing the app selection can only ever
+            // match the current choice.
             ModelAccess::query()->where('group_id', $group->id)->delete();
 
             if ($appNames === []) {
-                return $user;
+                return;
             }
 
             $models = IrModel::query()
@@ -110,7 +138,7 @@ final class UserProvisioner
 
             foreach ($models as $model) {
                 ModelAccess::query()->create([
-                    'name' => $name . ': view ' . $model,
+                    'name' => $user->name . ': view ' . $model,
                     'model' => $model,
                     'group_id' => $group->id,
                     'perm_read' => true,
@@ -119,8 +147,6 @@ final class UserProvisioner
                     'perm_unlink' => false,
                 ]);
             }
-
-            return $user;
         });
     }
 

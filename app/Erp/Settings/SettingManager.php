@@ -6,6 +6,7 @@ namespace App\Erp\Settings;
 
 use App\Models\Ir\IrConfigParameter;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Central, cached accessor for `ir_config_parameter`. The whole parameter
@@ -17,6 +18,26 @@ final class SettingManager
     private const CACHE_KEY = 'erp.settings.all';
 
     /**
+     * Cache key for the settings map, **namespaced by the active database**.
+     *
+     * Workspaces (the multi-database feature) each have their own
+     * `ir_config_parameter` table in a separate SQLite file. The cache must
+     * not be shared between them, or one workspace serves another's company
+     * name / logo / currency. Relying on the runtime `cache.prefix` swap is
+     * not enough — Laravel resolves the cache store once and memoises its
+     * prefix, so a prefix change after the store is first touched is ignored
+     * (the cause of the "kaleem reverts to Main settings after deploy" bug:
+     * after the deploy clears the cache, Main is read first and populates the
+     * shared key, then every workspace serves Main's values). Tying the key
+     * to the active connection's database name guarantees isolation
+     * regardless of when the store was resolved.
+     */
+    private function cacheKey(): string
+    {
+        return self::CACHE_KEY . ':' . md5((string) DB::connection()->getDatabaseName());
+    }
+
+    /**
      * Cached key → {value,type} map.
      *
      * @return array<string, array{value: string|null, type: string}>
@@ -24,7 +45,7 @@ final class SettingManager
     private function map(): array
     {
         /** @var array<string, array{value: string|null, type: string}> $map */
-        $map = Cache::rememberForever(self::CACHE_KEY, static function (): array {
+        $map = Cache::rememberForever($this->cacheKey(), static function (): array {
             $out = [];
 
             foreach (IrConfigParameter::query()->get(['key', 'value', 'type']) as $param) {
@@ -98,7 +119,7 @@ final class SettingManager
 
     public function flush(): void
     {
-        Cache::forget(self::CACHE_KEY);
+        Cache::forget($this->cacheKey());
     }
 
     private function persist(string $key, mixed $value): void

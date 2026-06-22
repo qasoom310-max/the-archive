@@ -42,10 +42,24 @@ final class PosFloorPlan extends Component
     /** A table whose order has sat untouched this long reads as "needs attention". */
     private const ATTENTION_MINUTES = 20;
 
-    /** Canvas grid: cell pitch in px and number of columns wide. Shared with the Blade/Alpine drag math. */
+    /** Background-grid + divider-boundary pitch (px). */
     public const CELL = 96;
 
-    public const COLS = 12;
+    /** Table-position snap (px). Fine — so tables can sit right beneath/beside each other. */
+    public const SNAP = 24;
+
+    /** Table card size on the canvas (px). */
+    public const TABLE = 84;
+
+    /** Upper bound on a saved coordinate (defensive — stops a runaway drag). */
+    private const MAX_POS = 8000;
+
+    /** Minimum canvas size (px) + breathing room past the furthest table. */
+    private const MIN_W = 960;
+
+    private const MIN_H = 560;
+
+    private const PAD = 200;
 
     public int $sessionId;
 
@@ -86,9 +100,9 @@ final class PosFloorPlan extends Component
     }
 
     /**
-     * Persist a table's new grid cell on its floor (drag-drop on the canvas).
-     * Write-gated and scoped to the active floor so a crafted id can't move a
-     * table the user isn't looking at.
+     * Persist a table's new pixel position on its floor (free drag on the
+     * canvas — already snapped client-side). Write-gated and scoped to the
+     * active floor so a crafted id can't move a table the user isn't looking at.
      */
     public function moveTable(int $tableId, int $x, int $y): void
     {
@@ -102,8 +116,8 @@ final class PosFloorPlan extends Component
             return;
         }
 
-        $table->pos_x = max(0, min(self::COLS - 1, $x));
-        $table->pos_y = max(0, $y);
+        $table->pos_x = max(0, min(self::MAX_POS, $x));
+        $table->pos_y = max(0, min(self::MAX_POS, $y));
         $table->save();
     }
 
@@ -159,7 +173,8 @@ final class PosFloorPlan extends Component
 
         $placed = [];
         $unplaced = [];
-        $maxRow = 0;
+        $maxX = 0;
+        $maxY = 0;
 
         foreach ($tables as $table) {
             $order = $orders->get($table->id);
@@ -173,8 +188,8 @@ final class PosFloorPlan extends Component
                 'name' => $table->name,
                 'seats' => $table->seats,
                 'shape' => $table->shape,
-                'x' => $table->pos_x,
-                'y' => $table->pos_y,
+                'x' => (int) $table->pos_x,
+                'y' => (int) $table->pos_y,
                 'guests' => $order !== null ? (int) $order->guest_count : 0,
                 'hasOrder' => $order !== null,
                 'status' => $order === null ? 'empty' : ($attention ? 'attention' : 'occupied'),
@@ -182,11 +197,17 @@ final class PosFloorPlan extends Component
 
             if ($table->pos_x !== null && $table->pos_y !== null) {
                 $placed[] = $card;
-                $maxRow = max($maxRow, $table->pos_y);
+                $maxX = max($maxX, (int) $table->pos_x);
+                $maxY = max($maxY, (int) $table->pos_y);
             } else {
                 $unplaced[] = $card;
             }
         }
+
+        // Canvas grows to fit the furthest table (+ breathing room) so nothing
+        // is ever clipped; cols/rows drive the divider boundaries + bg grid.
+        $width = max(self::MIN_W, $maxX + self::TABLE + self::PAD);
+        $height = max(self::MIN_H, $maxY + self::TABLE + self::PAD);
 
         $lines = $this->floorId !== null
             ? PosFloorLine::query()->where('pos_floor_id', $this->floorId)->get()
@@ -198,9 +219,13 @@ final class PosFloorPlan extends Component
             'floorId' => $this->floorId,
             'placed' => $placed,
             'unplaced' => $unplaced,
-            'rows' => max(5, $maxRow + 2),
+            'width' => $width,
+            'height' => $height,
+            'cols' => (int) ceil($width / self::CELL),
+            'rows' => (int) ceil($height / self::CELL),
             'cell' => self::CELL,
-            'cols' => self::COLS,
+            'snap' => self::SNAP,
+            'table' => self::TABLE,
             'vLines' => $lines->where('orientation', 'v')->pluck('position')->map(fn ($p): int => (int) $p)->all(),
             'hLines' => $lines->where('orientation', 'h')->pluck('position')->map(fn ($p): int => (int) $p)->all(),
             'hasTables' => PosTable::query()->where('active', true)->exists(),

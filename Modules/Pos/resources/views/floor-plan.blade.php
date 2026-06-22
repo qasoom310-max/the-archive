@@ -65,32 +65,59 @@
                     'bg-emerald-500 text-white' => $card['status'] === 'occupied',
                     'bg-red-400 text-white' => $card['status'] === 'attention',
                     'bg-white text-chrome-700 ring-1 ring-chrome-200' => $card['status'] === 'empty',
-                    'cursor-move select-none ring-2 ring-primary-400' => $editing,
+                    'cursor-grab touch-none select-none ring-2 ring-primary-400 active:cursor-grabbing' => $editing,
                     'hover:-translate-y-0.5 hover:shadow-md' => ! $editing,
                 ];
             };
         @endphp
 
-        {{-- Wrap canvas + tray in one Alpine scope so a tray table can be
-             dragged onto the canvas (shared dragId). dir=ltr: the plan is a
-             physical room, never mirrored under RTL. --}}
-        <div x-data="{ dragId: null }" dir="ltr" wire:key="floor-canvas-{{ $floorId }}">
-            <div class="overflow-x-auto rounded-2xl border border-chrome-200 bg-chrome-50 p-3">
-                <div x-ref="canvas"
-                    @if ($editing)
-                        @dragover.prevent
-                        @drop.prevent="
-                            if (dragId === null) return;
-                            const rect = $refs.canvas.getBoundingClientRect();
-                            const cx = Math.floor(($event.clientX - rect.left) / {{ $cell }});
-                            const cy = Math.floor(($event.clientY - rect.top) / {{ $cell }});
-                            $wire.moveTable(dragId, cx, cy);
-                            dragId = null;
-                        "
-                    @endif
-                    class="relative mx-auto rounded-xl bg-white"
-                    style="width: {{ $cols * $cell }}px; height: {{ $rows * $cell }}px;
-                        @if ($editing) background-image: linear-gradient(rgb(0 0 0/.05) 1px, transparent 1px), linear-gradient(90deg, rgb(0 0 0/.05) 1px, transparent 1px); background-size: {{ $cell }}px {{ $cell }}px; @endif">
+        {{-- One Alpine scope drives a smooth, free-position drag for BOTH the
+             placed tables and the tray (so a tray table can be dragged straight
+             onto the plan). Pointer events follow the cursor live with no server
+             round-trip; the position is snapped + saved only on release. dir=ltr:
+             a physical room is never mirrored under RTL. --}}
+        <div
+            x-data="{
+                id: null, fromTray: false, dragging: false, moved: false,
+                sx: 0, sy: 0, dx: 0, dy: 0, gx: 0, gy: 0, grabX: 0, grabY: 0, label: '',
+                snap: {{ $snap }},
+                begin(e, id, fromTray, label, el) {
+                    if (e.button) return;
+                    this.id = id; this.fromTray = fromTray; this.label = label;
+                    this.dragging = true; this.moved = false;
+                    this.sx = e.clientX; this.sy = e.clientY; this.dx = 0; this.dy = 0;
+                    const r = el.getBoundingClientRect();
+                    this.grabX = e.clientX - r.left; this.grabY = e.clientY - r.top;
+                    this.gx = r.left; this.gy = r.top;
+                    try { el.setPointerCapture(e.pointerId); } catch (_) {}
+                },
+                moveTo(e) {
+                    if (!this.dragging) return;
+                    this.dx = e.clientX - this.sx; this.dy = e.clientY - this.sy;
+                    this.gx = e.clientX - this.grabX; this.gy = e.clientY - this.grabY;
+                    if (Math.abs(this.dx) > 3 || Math.abs(this.dy) > 3) this.moved = true;
+                },
+                finish(e) {
+                    if (!this.dragging) return;
+                    const id = this.id; this.dragging = false;
+                    const c = this.$refs.canvas.getBoundingClientRect();
+                    const inside = e.clientX >= c.left && e.clientX <= c.right && e.clientY >= c.top && e.clientY <= c.bottom;
+                    if (id !== null && this.moved && inside) {
+                        let x = Math.round((e.clientX - c.left - this.grabX) / this.snap) * this.snap;
+                        let y = Math.round((e.clientY - c.top - this.grabY) / this.snap) * this.snap;
+                        this.$wire.moveTable(id, Math.max(0, x), Math.max(0, y));
+                    }
+                    this.id = null; this.fromTray = false; this.moved = false; this.dx = 0; this.dy = 0;
+                }
+            }"
+            @pointermove.window="moveTo($event)"
+            @pointerup.window="finish($event)"
+            dir="ltr" wire:key="floor-canvas-{{ $floorId }}"
+        >
+            <div class="overflow-auto rounded-2xl border border-chrome-200 bg-chrome-50 p-3" style="max-height: 72vh;">
+                <div x-ref="canvas" class="relative rounded-xl bg-white"
+                    style="width: {{ $width }}px; height: {{ $height }}px;
+                        @if ($editing) background-image: linear-gradient(rgb(0 0 0/.04) 1px, transparent 1px), linear-gradient(90deg, rgb(0 0 0/.04) 1px, transparent 1px); background-size: {{ $cell }}px {{ $cell }}px; @endif">
 
                     {{-- Divider "walls": full-span lines an admin dropped
                          between rows/columns. Always shown (sell + edit);
@@ -106,9 +133,8 @@
                     @endforeach
 
                     @if ($editing)
-                        {{-- Clickable gutters: a thin strip in each channel
-                             between columns / rows. Sits in the gap so it never
-                             overlaps a table. Click to add/remove a divider. --}}
+                        {{-- Clickable gutters: a thin strip on each column / row
+                             boundary. Click to add/remove a divider. --}}
                         @for ($p = 1; $p < $cols; $p++)
                             <button type="button" wire:click="toggleLine('v', {{ $p }})" wire:key="vgut-{{ $p }}"
                                 class="group absolute bottom-0 top-0 z-20 flex w-3 justify-center"
@@ -134,17 +160,18 @@
                     @endif
 
                     @forelse ($placed as $card)
-                        @php $style = 'left: ' . ($card['x'] * $cell + 6) . 'px; top: ' . ($card['y'] * $cell + 6) . 'px; width: ' . ($cell - 12) . 'px; height: ' . ($cell - 12) . 'px;'; @endphp
+                        @php $base = 'left:' . $card['x'] . 'px; top:' . $card['y'] . 'px; width:' . $table . 'px; height:' . $table . 'px;'; @endphp
                         @if ($editing)
-                            <div wire:key="placed-{{ $card['id'] }}" draggable="true"
-                                x-on:dragstart="dragId = {{ $card['id'] }}" x-on:dragend="dragId = null"
-                                @class(array_merge(['absolute z-30'], $cardClasses($card, true))) style="{{ $style }}">
+                            <div wire:key="placed-{{ $card['id'] }}"
+                                @pointerdown.prevent="begin($event, {{ $card['id'] }}, false, @js((string) $card['name']), $el)"
+                                @class(array_merge(['absolute z-30'], $cardClasses($card, true)))
+                                :style="'{{ $base }}' + (id === {{ $card['id'] }} && !fromTray ? ' transform: translate(' + dx + 'px,' + dy + 'px); z-index:50; box-shadow:0 12px 28px rgba(0,0,0,.22);' : '')">
                                 @include('pos::partials.table-card-inner', ['card' => $card])
                             </div>
                         @else
                             <a wire:key="placed-{{ $card['id'] }}"
                                 href="{{ url('/app/pos/session/' . $sessionId . '/table/' . $card['id']) }}" wire:navigate
-                                @class(array_merge(['absolute z-30'], $cardClasses($card, false))) style="{{ $style }}">
+                                @class(array_merge(['absolute z-30'], $cardClasses($card, false))) style="{{ $base }}">
                                 @include('pos::partials.table-card-inner', ['card' => $card])
                             </a>
                         @endif
@@ -166,9 +193,10 @@
                     <div class="flex flex-wrap gap-3">
                         @foreach ($unplaced as $card)
                             @if ($editing)
-                                <div wire:key="unplaced-{{ $card['id'] }}" draggable="true"
-                                    x-on:dragstart="dragId = {{ $card['id'] }}" x-on:dragend="dragId = null"
-                                    @class(array_merge(['size-20'], $cardClasses($card, true)))>
+                                <div wire:key="unplaced-{{ $card['id'] }}"
+                                    @pointerdown.prevent="begin($event, {{ $card['id'] }}, true, @js((string) $card['name']), $el)"
+                                    @class(array_merge(['size-20'], $cardClasses($card, true)))
+                                    :class="id === {{ $card['id'] }} && fromTray ? 'opacity-30' : ''">
                                     @include('pos::partials.table-card-inner', ['card' => $card])
                                 </div>
                             @else
@@ -182,6 +210,13 @@
                     </div>
                 </div>
             @endif
+
+            {{-- Floating preview that follows the cursor while dragging a tray
+                 table onto the plan (placed tables move in-place instead). --}}
+            <div x-show="dragging && fromTray" x-cloak
+                class="pointer-events-none fixed z-[60] flex items-center justify-center rounded-xl bg-emerald-500 text-lg font-bold text-white shadow-2xl ring-2 ring-primary-400"
+                :style="`left:${gx}px; top:${gy}px; width:{{ $table }}px; height:{{ $table }}px;`"
+                x-text="label"></div>
         </div>
     @endif
 </div>

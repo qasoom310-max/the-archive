@@ -176,17 +176,17 @@ final class PosFloorTableTest extends TestCase
         $this->assertSame(2, $fresh?->pos_y);
     }
 
-    public function test_move_table_clamps_to_the_grid(): void
+    public function test_move_table_clamps_coordinates(): void
     {
         $session = $this->openSession();
         $table = $this->table(name: '6');
 
         Livewire::test(PosFloorPlan::class, ['session' => $session->id])
             ->call('selectFloor', $table->pos_floor_id)
-            ->call('moveTable', $table->id, 999, -5);
+            ->call('moveTable', $table->id, 999999, -5);
 
         $fresh = $table->fresh();
-        $this->assertSame(PosFloorPlan::COLS - 1, $fresh?->pos_x); // clamped to last column
+        $this->assertSame(8000, $fresh?->pos_x); // capped at MAX_POS
         $this->assertSame(0, $fresh?->pos_y); // never negative
     }
 

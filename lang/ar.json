@@ -178,6 +178,8 @@
     "Arrange tables": "ترتيب الطاولات",
     "Done arranging": "تم الترتيب",
     "Drag tables to arrange them. Positions save automatically.": "اسحب الطاولات لترتيبها. تُحفظ المواضع تلقائيًا.",
+    "Drag tables to arrange them, or click between rows/columns to add a divider. Changes save automatically.": "اسحب الطاولات لترتيبها، أو انقر بين الصفوف/الأعمدة لإضافة فاصل. تُحفظ التغييرات تلقائيًا.",
+    "Add / remove divider": "إضافة / إزالة فاصل",
     "Drag these onto the plan": "اسحب هذه إلى المخطط",
     "Not placed yet": "غير موضوعة بعد",
     "Table": "طاولة",

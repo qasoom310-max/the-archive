@@ -14,6 +14,7 @@ use Modules\Pos\Livewire\PosFloorPlan;
 use Modules\Pos\Livewire\PosHome;
 use Modules\Pos\Livewire\PosTerminal;
 use Modules\Pos\Models\PosFloor;
+use Modules\Pos\Models\PosFloorLine;
 use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Models\PosSession;
@@ -206,6 +207,56 @@ final class PosFloorTableTest extends TestCase
             ->assertForbidden();
 
         $this->assertNull($table->fresh()?->pos_x);
+    }
+
+    public function test_toggle_line_adds_then_removes_a_divider(): void
+    {
+        $session = $this->openSession();
+        $table = $this->table(name: '8');
+        $floorId = $table->pos_floor_id;
+
+        $component = Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('selectFloor', $floorId)
+            ->call('toggleLine', 'v', 3);
+
+        $this->assertDatabaseHas('pos_floor_lines', [
+            'pos_floor_id' => $floorId,
+            'orientation' => 'v',
+            'position' => 3,
+        ]);
+
+        // Clicking the same gutter again removes it.
+        $component->call('toggleLine', 'v', 3);
+        $this->assertSame(0, PosFloorLine::query()->where('pos_floor_id', $floorId)->count());
+    }
+
+    public function test_toggle_line_ignores_a_bad_orientation_or_position(): void
+    {
+        $session = $this->openSession();
+        $table = $this->table(name: '9');
+
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('selectFloor', $table->pos_floor_id)
+            ->call('toggleLine', 'diagonal', 2)
+            ->call('toggleLine', 'h', 0);
+
+        $this->assertSame(0, PosFloorLine::query()->count());
+    }
+
+    public function test_toggle_line_is_write_gated_for_non_managers(): void
+    {
+        $session = $this->openSession();
+        $table = $this->table(name: '10');
+
+        ModelAccess::query()->create(['name' => 'order-read', 'model' => 'pos.order', 'perm_read' => true]);
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('selectFloor', $table->pos_floor_id)
+            ->call('toggleLine', 'v', 2)
+            ->assertForbidden();
+
+        $this->assertSame(0, PosFloorLine::query()->count());
     }
 
     public function test_floor_name_is_translatable_per_locale(): void

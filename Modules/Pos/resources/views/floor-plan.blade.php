@@ -50,7 +50,7 @@
         @if ($editing)
             <div class="mb-3 flex items-center gap-2 rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-800 ring-1 ring-amber-200">
                 <svg class="size-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a1 1 0 0 0 0 2v3a1 1 0 0 0 1 1h1a1 1 0 1 0 0-2v-3a1 1 0 0 0-1-1H9Z" clip-rule="evenodd" /></svg>
-                {{ __('Drag tables to arrange them. Positions save automatically.') }}
+                {{ __('Drag tables to arrange them, or click between rows/columns to add a divider. Changes save automatically.') }}
             </div>
         @endif
 
@@ -92,18 +92,59 @@
                     style="width: {{ $cols * $cell }}px; height: {{ $rows * $cell }}px;
                         @if ($editing) background-image: linear-gradient(rgb(0 0 0/.05) 1px, transparent 1px), linear-gradient(90deg, rgb(0 0 0/.05) 1px, transparent 1px); background-size: {{ $cell }}px {{ $cell }}px; @endif">
 
+                    {{-- Divider "walls": full-span lines an admin dropped
+                         between rows/columns. Always shown (sell + edit);
+                         pointer-events-none so only the gutters below catch
+                         clicks. --}}
+                    @foreach ($vLines as $vp)
+                        <div wire:key="vline-{{ $vp }}" class="pointer-events-none absolute bottom-0 top-0 z-10 w-0.5 bg-chrome-400"
+                            style="left: {{ $vp * $cell - 1 }}px;"></div>
+                    @endforeach
+                    @foreach ($hLines as $hp)
+                        <div wire:key="hline-{{ $hp }}" class="pointer-events-none absolute left-0 right-0 z-10 h-0.5 bg-chrome-400"
+                            style="top: {{ $hp * $cell - 1 }}px;"></div>
+                    @endforeach
+
+                    @if ($editing)
+                        {{-- Clickable gutters: a thin strip in each channel
+                             between columns / rows. Sits in the gap so it never
+                             overlaps a table. Click to add/remove a divider. --}}
+                        @for ($p = 1; $p < $cols; $p++)
+                            <button type="button" wire:click="toggleLine('v', {{ $p }})" wire:key="vgut-{{ $p }}"
+                                class="group absolute bottom-0 top-0 z-20 flex w-3 justify-center"
+                                style="left: {{ $p * $cell - 6 }}px;" title="{{ __('Add / remove divider') }}">
+                                <span @class([
+                                    'h-full w-0.5 rounded transition',
+                                    'bg-primary-500' => in_array($p, $vLines, true),
+                                    'bg-transparent group-hover:bg-primary-400/60' => ! in_array($p, $vLines, true),
+                                ])></span>
+                            </button>
+                        @endfor
+                        @for ($p = 1; $p < $rows; $p++)
+                            <button type="button" wire:click="toggleLine('h', {{ $p }})" wire:key="hgut-{{ $p }}"
+                                class="group absolute left-0 right-0 z-20 flex h-3 items-center"
+                                style="top: {{ $p * $cell - 6 }}px;" title="{{ __('Add / remove divider') }}">
+                                <span @class([
+                                    'h-0.5 w-full rounded transition',
+                                    'bg-primary-500' => in_array($p, $hLines, true),
+                                    'bg-transparent group-hover:bg-primary-400/60' => ! in_array($p, $hLines, true),
+                                ])></span>
+                            </button>
+                        @endfor
+                    @endif
+
                     @forelse ($placed as $card)
                         @php $style = 'left: ' . ($card['x'] * $cell + 6) . 'px; top: ' . ($card['y'] * $cell + 6) . 'px; width: ' . ($cell - 12) . 'px; height: ' . ($cell - 12) . 'px;'; @endphp
                         @if ($editing)
                             <div wire:key="placed-{{ $card['id'] }}" draggable="true"
                                 x-on:dragstart="dragId = {{ $card['id'] }}" x-on:dragend="dragId = null"
-                                @class(array_merge(['absolute'], $cardClasses($card, true))) style="{{ $style }}">
+                                @class(array_merge(['absolute z-30'], $cardClasses($card, true))) style="{{ $style }}">
                                 @include('pos::partials.table-card-inner', ['card' => $card])
                             </div>
                         @else
                             <a wire:key="placed-{{ $card['id'] }}"
                                 href="{{ url('/app/pos/session/' . $sessionId . '/table/' . $card['id']) }}" wire:navigate
-                                @class(array_merge(['absolute'], $cardClasses($card, false))) style="{{ $style }}">
+                                @class(array_merge(['absolute z-30'], $cardClasses($card, false))) style="{{ $style }}">
                                 @include('pos::partials.table-card-inner', ['card' => $card])
                             </a>
                         @endif

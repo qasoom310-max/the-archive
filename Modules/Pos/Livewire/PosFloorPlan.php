@@ -16,6 +16,7 @@ use Livewire\Component;
 use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Enums\SessionState;
 use Modules\Pos\Models\PosFloor;
+use Modules\Pos\Models\PosFloorLine;
 use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosSession;
 use Modules\Pos\Models\PosTable;
@@ -106,6 +107,38 @@ final class PosFloorPlan extends Component
         $table->save();
     }
 
+    /**
+     * Toggle a divider line on the active floor: click an empty gutter to add
+     * a "wall", click an existing one to remove it. Write-gated and
+     * floor-scoped. `$orientation` = 'v' (column boundary) | 'h' (row boundary).
+     */
+    public function toggleLine(string $orientation, int $position): void
+    {
+        app(AccessControl::class)->authorize(Auth::user(), 'pos.table', Permission::Write);
+
+        if (! in_array($orientation, ['v', 'h'], true) || $position < 1 || $this->floorId === null) {
+            return;
+        }
+
+        $existing = PosFloorLine::query()
+            ->where('pos_floor_id', $this->floorId)
+            ->where('orientation', $orientation)
+            ->where('position', $position)
+            ->first();
+
+        if ($existing !== null) {
+            $existing->delete();
+
+            return;
+        }
+
+        PosFloorLine::query()->create([
+            'pos_floor_id' => $this->floorId,
+            'orientation' => $orientation,
+            'position' => $position,
+        ]);
+    }
+
     public function render(): View
     {
         $floors = PosFloor::query()->where('active', true)
@@ -155,6 +188,10 @@ final class PosFloorPlan extends Component
             }
         }
 
+        $lines = $this->floorId !== null
+            ? PosFloorLine::query()->where('pos_floor_id', $this->floorId)->get()
+            : new Collection();
+
         return view('pos::floor-plan', [
             'sessionId' => $this->sessionId,
             'floors' => $floors,
@@ -164,6 +201,8 @@ final class PosFloorPlan extends Component
             'rows' => max(5, $maxRow + 2),
             'cell' => self::CELL,
             'cols' => self::COLS,
+            'vLines' => $lines->where('orientation', 'v')->pluck('position')->map(fn ($p): int => (int) $p)->all(),
+            'hLines' => $lines->where('orientation', 'h')->pluck('position')->map(fn ($p): int => (int) $p)->all(),
             'hasTables' => PosTable::query()->where('active', true)->exists(),
         ]);
     }

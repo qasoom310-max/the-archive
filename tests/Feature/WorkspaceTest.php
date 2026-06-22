@@ -12,7 +12,9 @@ use App\Models\Ir\IrModule;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Modules\Pos\Models\PosProduct;
@@ -84,6 +86,33 @@ final class WorkspaceTest extends TestCase
 
         // Main is untouched.
         $this->assertSame(1, PosProduct::query()->count());
+    }
+
+    public function test_workspaces_migrate_backfills_later_module_migrations(): void
+    {
+        app(ModuleManager::class)->install('pos');
+        $owner = Auth::user();
+        $this->assertInstanceOf(User::class, $owner);
+        $workspace = app(WorkspaceManager::class)->provision('Backfill', $owner, ['pos']);
+        $path = $workspace->databasePath();
+        $this->assertNotNull($path);
+
+        // Simulate a tenant provisioned BEFORE a recent POS migration: drop the
+        // columns and forget the migration record so `migrate` re-runs it.
+        app(WorkspaceManager::class)->withTenant($path, function (): void {
+            Schema::table('pos_tables', function ($t): void {
+                $t->dropColumn(['pos_x', 'pos_y']);
+            });
+            DB::table('migrations')->where('migration', 'like', '%add_position_to_pos_tables')->delete();
+            $this->assertFalse(Schema::hasColumn('pos_tables', 'pos_x'));
+        });
+
+        // The deploy's per-tenant step backfills installed-module migrations.
+        Artisan::call('workspaces:migrate');
+
+        app(WorkspaceManager::class)->withTenant($path, function (): void {
+            $this->assertTrue(Schema::hasColumn('pos_tables', 'pos_x'));
+        });
     }
 
     public function test_delete_removes_the_file_and_the_row(): void

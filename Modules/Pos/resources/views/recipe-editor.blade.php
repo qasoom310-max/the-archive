@@ -47,20 +47,80 @@
         </table>
     @endif
 
+    @php
+        $componentsJs = $components->map(fn ($c): array => ['id' => (int) $c->id, 'name' => (string) $c->name])->values();
+    @endphp
     <div class="mt-4 flex flex-wrap items-end gap-2 border-t border-chrome-100 pt-4">
         <div class="min-w-48 flex-1">
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">Component</label>
-            <select wire:model="componentId" class="o-input">
-                <option value="">Select a product…</option>
-                @foreach ($components as $c)
-                    <option value="{{ $c->id }}">{{ $c->name }}</option>
-                @endforeach
-            </select>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Component') }}</label>
+            {{-- Searchable combobox bound to componentId, with an Odoo-style
+                 "Create" footer that opens the shared new-product modal. The
+                 panel is position:fixed so it escapes any overflow clipping. --}}
+            <div x-data="{
+                    open: false,
+                    coords: { top: 0, left: 0, width: 0 },
+                    products: @js($componentsJs),
+                    selected: $wire.entangle('componentId'),
+                    search: '',
+                    place() {
+                        const r = $refs.input.getBoundingClientRect();
+                        this.coords = { top: r.bottom + 4, left: r.left, width: r.width };
+                    },
+                    openPanel() { this.search = ''; this.place(); this.open = true; },
+                    filtered() {
+                        const s = this.search.trim().toLowerCase();
+                        const list = s === '' ? this.products : this.products.filter(p => p.name.toLowerCase().includes(s));
+                        return list.slice(0, 50);
+                    },
+                    displayName() {
+                        const m = this.products.find(p => p.id === this.selected);
+                        return m ? m.name : '';
+                    },
+                    choose(p) { this.selected = p ? p.id : null; this.search = ''; this.open = false; },
+                }"
+                @product-created.window="products.push({ id: $event.detail.id, name: $event.detail.name }); selected = $event.detail.id"
+                @click.outside="open = false"
+                @scroll.window.passive="if (open) place()"
+                @resize.window="if (open) place()"
+                class="relative">
+                <input type="text" x-ref="input"
+                    :value="open ? search : displayName()"
+                    @focus="openPanel()" @click="openPanel()"
+                    @input="search = $event.target.value; open = true"
+                    @keydown.escape.stop="open = false"
+                    placeholder="{{ __('Search a product…') }}"
+                    autocomplete="off" class="o-input">
+                <div x-show="open" x-cloak
+                    :style="`top:${coords.top}px; left:${coords.left}px; width:${coords.width}px;`"
+                    class="fixed z-50 max-h-64 overflow-auto rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
+                    <template x-for="p in filtered()" :key="p.id">
+                        <button type="button" @click="choose(p)"
+                            class="flex w-full items-center px-3 py-1.5 text-start text-sm text-chrome-700 hover:bg-primary-50"
+                            x-text="p.name"></button>
+                    </template>
+                    <template x-if="filtered().length === 0">
+                        <p class="px-3 py-1.5 text-sm text-chrome-400">{{ __('No products found') }}</p>
+                    </template>
+                    @if ($canCreateProduct)
+                        <div class="mt-1 border-t border-chrome-100 pt-1">
+                            <button type="button" @click="$wire.openProductModal(search)"
+                                class="flex w-full items-center gap-1 px-3 py-1.5 text-start text-sm font-medium text-primary-700 hover:bg-primary-50">
+                                <svg class="size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
+                                <span x-show="search.trim() === ''">{{ __('New product') }}</span>
+                                <span x-show="search.trim() !== ''" x-cloak>{{ __('Create') }} "<span x-text="search"></span>"</span>
+                            </button>
+                        </div>
+                    @endif
+                </div>
+            </div>
         </div>
         <div class="w-32">
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">Qty / unit</label>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Qty / unit') }}</label>
             <input type="number" step="0.001" min="0" wire:model="quantity" class="o-input">
         </div>
-        <button wire:click="addLine" class="o-btn-primary">Add component</button>
+        <button wire:click="addLine" class="o-btn-primary">{{ __('Add component') }}</button>
     </div>
+
+    {{-- Inline "new product" modal — shared with the Purchases bill editor. --}}
+    @include('pos::partials.new-product-modal')
 </div>

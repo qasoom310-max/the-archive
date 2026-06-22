@@ -1232,6 +1232,21 @@ the credit sits in Accounts Payable, no payment/bank reconciliation yet).
   found / Product name / Add product (New product, Create, Sale Price, Unit cost
   already existed). NOTE: product lookups use `where('name->en', …)` — `name` is
   translatable JSON.
+  - **Extracted + reused (shipped 2026-06-22).** The inline-create modal + its
+    logic were factored into a **shared trait** `Modules\Pos\Livewire\Concerns\CreatesProductInline`
+    (`$addingProduct` / `$newProduct` props, `blankProduct()`, `inlineProductRules()`,
+    `persistInlineProduct(): PosProduct`, `closeProductModal()`) and a **shared
+    Blade partial** `pos::partials.new-product-modal` (expects `$addingProduct`,
+    `$newProduct.*`, `$unitOptions`, `$categories` + the host's `saveProduct` /
+    `closeProductModal`). `PurchaseForm` now `use`s the trait + `@include`s the
+    partial (host keeps only `$productLineIndex` + its line-assignment `saveProduct`).
+    The **POS recipe editor** (`PosRecipeEditor`, the product page's "Recipe"
+    card) reuses the same trait + partial: its component `<select>` became the
+    same searchable combobox (bound to `componentId` via `$wire.entangle`, `fixed`
+    panel to escape overflow, "Create '<text>'" footer → `openProductModal`),
+    gated by `pos.product` Create. Tests: `tests/Feature/PosRecipeEditorTest.php`
+    (3 — inline create selects the component, name required, created component
+    adds to the recipe). AR keys: Component / Qty / unit / Add component.
 
 **Settings increment shipped 2026-06-21 — "Users" tab (admin-only staff accounts):**
 

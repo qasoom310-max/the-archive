@@ -58,13 +58,21 @@
                  panel is position:fixed so it escapes any overflow clipping. --}}
             <div x-data="{
                     open: false,
-                    coords: { top: 0, left: 0, width: 0 },
+                    coords: { top: 'auto', bottom: 'auto', left: 0, width: 0, maxH: 256 },
                     products: @js($componentsJs),
                     selected: $wire.entangle('componentId'),
                     search: '',
                     place() {
                         const r = $refs.input.getBoundingClientRect();
-                        this.coords = { top: r.bottom + 4, left: r.left, width: r.width };
+                        const vh = window.innerHeight;
+                        const spaceBelow = vh - r.bottom;
+                        // Flip up when there's more room above (input near the
+                        // page bottom) so the panel never opens off-screen.
+                        const below = spaceBelow >= 280 || spaceBelow >= r.top;
+                        const maxH = Math.max(120, Math.min(256, (below ? spaceBelow : r.top) - 12));
+                        this.coords = below
+                            ? { left: r.left, width: r.width, top: (r.bottom + 4) + 'px', bottom: 'auto', maxH }
+                            : { left: r.left, width: r.width, top: 'auto', bottom: (vh - r.top + 4) + 'px', maxH };
                     },
                     openPanel() { this.search = ''; this.place(); this.open = true; },
                     filtered() {
@@ -91,8 +99,8 @@
                     placeholder="{{ __('Search a product…') }}"
                     autocomplete="off" class="o-input">
                 <div x-show="open" x-cloak
-                    :style="`top:${coords.top}px; left:${coords.left}px; width:${coords.width}px;`"
-                    class="fixed z-50 max-h-64 overflow-auto rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
+                    :style="`left:${coords.left}px; width:${coords.width}px; top:${coords.top}; bottom:${coords.bottom}; max-height:${coords.maxH}px;`"
+                    class="fixed z-50 overflow-auto rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
                     <template x-for="p in filtered()" :key="p.id">
                         <button type="button" @click="choose(p)"
                             class="flex w-full items-center px-3 py-1.5 text-start text-sm text-chrome-700 hover:bg-primary-50"

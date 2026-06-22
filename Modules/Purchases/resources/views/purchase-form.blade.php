@@ -143,12 +143,18 @@
                                              Odoo-style "Create" footer that opens the new-product modal. --}}
                                         <div x-data="{
                                                 open: false,
-                                                coords: { top: 0, left: 0, width: 0 },
+                                                coords: { top: 'auto', bottom: 'auto', left: 0, width: 0, maxH: 256 },
                                                 selectedName: @js($selName),
                                                 search: @js($selName),
                                                 place() {
                                                     const r = this.$refs.input.getBoundingClientRect();
-                                                    this.coords = { top: r.bottom + 4, left: r.left, width: r.width };
+                                                    const vh = window.innerHeight;
+                                                    const spaceBelow = vh - r.bottom;
+                                                    const below = spaceBelow >= 280 || spaceBelow >= r.top;
+                                                    const maxH = Math.max(120, Math.min(256, (below ? spaceBelow : r.top) - 12));
+                                                    this.coords = below
+                                                        ? { left: r.left, width: r.width, top: (r.bottom + 4) + 'px', bottom: 'auto', maxH }
+                                                        : { left: r.left, width: r.width, top: 'auto', bottom: (vh - r.top + 4) + 'px', maxH };
                                                 },
                                                 openPanel() { this.place(); this.open = true; },
                                                 choose(p) {
@@ -172,8 +178,8 @@
                                                  `overflow-hidden` wrapper that would clip an in-flow dropdown.
                                                  Coords are captured from the input on open. --}}
                                             <div x-show="open" x-cloak
-                                                :style="`top:${coords.top}px; left:${coords.left}px; width:${coords.width}px;`"
-                                                class="fixed z-50 max-h-64 overflow-auto rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
+                                                :style="`left:${coords.left}px; width:${coords.width}px; top:${coords.top}; bottom:${coords.bottom}; max-height:${coords.maxH}px;`"
+                                                class="fixed z-50 overflow-auto rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
                                                 <button type="button" @click="choose(null)"
                                                     class="flex w-full items-center px-3 py-1.5 text-start text-sm text-chrome-400 hover:bg-chrome-50">—</button>
                                                 <template x-for="p in filterProducts(search)" :key="p.id">

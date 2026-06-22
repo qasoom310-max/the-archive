@@ -17,6 +17,7 @@ use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Pos\Enums\OrderState;
+use Modules\Pos\Enums\PrepStatus;
 use Modules\Pos\Enums\SessionState;
 use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosCondiment;
@@ -497,11 +498,40 @@ final class PosTerminal extends Component
         $this->syncCustomerDiscount();
     }
 
+    /**
+     * Is this order "green" — kitchen finished, or it has no kitchen items at
+     * all? Green = no line is still pending or preparing (mirrors the floor
+     * plan's `kitchenStatus()` ready bucket). Drives the dine-in payment gate.
+     */
+    private function orderKitchenReady(PosOrder $order): bool
+    {
+        $statuses = $order->lines()->get()->pluck('prep_status')->filter();
+
+        return ! $statuses->contains(PrepStatus::Pending)
+            && ! $statuses->contains(PrepStatus::Preparing);
+    }
+
+    /**
+     * May the cashier take payment right now? Always needs items + a positive
+     * total. For a DINE-IN table it additionally requires the kitchen to be
+     * done (green) — "Pay now" stays locked while the order is red (sent) or
+     * yellow (preparing). Walk-in / quick sale is ungated so counter service
+     * still pays immediately.
+     */
+    private function canPay(PosOrder $order): bool
+    {
+        if ($order->lines->isEmpty() || $order->total <= 0) {
+            return false;
+        }
+
+        return $this->tableId === null || $this->orderKitchenReady($order);
+    }
+
     public function startPayment(): void
     {
         $order = $this->order();
 
-        if ($order->lines()->count() === 0 || $order->total <= 0) {
+        if (! $this->canPay($order)) {
             return;
         }
 
@@ -687,8 +717,18 @@ final class PosTerminal extends Component
     {
         $order = $this->order();
 
+        $canPay = $this->canPay($order);
+        // Dine-in table with items but the kitchen still working — drives the
+        // "waiting for the kitchen" hint under the locked Pay now button.
+        $kitchenBusy = ! $canPay
+            && $this->tableId !== null
+            && $order->lines->isNotEmpty()
+            && $order->total > 0;
+
         return view('pos::terminal', [
             'order' => $order,
+            'canPay' => $canPay,
+            'kitchenBusy' => $kitchenBusy,
             'table' => $this->tableId !== null
                 ? PosTable::query()->with('floor')->find($this->tableId)
                 : null,

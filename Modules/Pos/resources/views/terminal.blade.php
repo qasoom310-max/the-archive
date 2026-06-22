@@ -157,10 +157,16 @@
                 <span>{{ __('Total') }}</span><span>{{ $money($order->total) }}</span>
             </div>
             <button wire:click="startPayment"
-                @disabled($lines->isEmpty())
+                @disabled(! $canPay)
                 class="o-btn-primary mt-3 w-full justify-center py-2.5 text-base disabled:opacity-40">
-                {{ __('Payment') }} · {{ $money($order->total) }}
+                {{ __('Pay now') }} · {{ $money($order->total) }}
             </button>
+            @if ($kitchenBusy)
+                <p class="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-chrome-400">
+                    <svg class="size-3.5 shrink-0 text-amber-500" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z" clip-rule="evenodd" /></svg>
+                    {{ __('Pay now unlocks when the kitchen marks this order ready.') }}
+                </p>
+            @endif
         </div>
     </section>
 

@@ -185,6 +185,47 @@ final class PosFloorTableTest extends TestCase
         $floor()->assertSee('bg-emerald-500 text-white');
     }
 
+    public function test_dine_in_payment_is_gated_until_the_kitchen_is_ready(): void
+    {
+        $session = $this->openSession();
+        $table = $this->table();
+        $cat = PosCategory::query()->create(['name' => 'Kitchen', 'station' => 'kitchen']);
+        $burger = PosProduct::query()->create([
+            'name' => 'Burger', 'price' => 5.0, 'tax_rate' => 0.0,
+            'active' => true, 'pos_category_id' => $cat->id,
+        ]);
+
+        // Add a kitchen item → auto-sent, pending. "Pay now" must stay locked.
+        $term = Livewire::test(PosTerminal::class, ['session' => $session->id, 'table' => $table->id])
+            ->call('addProduct', $burger->id)
+            ->call('startPayment')
+            ->assertSet('paying', false);
+
+        // Cook marks it ready → green → payment unlocks.
+        $line = PosOrderLine::query()->firstOrFail();
+        $line->prep_status = PrepStatus::Ready;
+        $line->save();
+
+        $term->call('startPayment')->assertSet('paying', true);
+    }
+
+    public function test_walk_in_payment_is_not_gated_by_the_kitchen(): void
+    {
+        $session = $this->openSession();
+        $cat = PosCategory::query()->create(['name' => 'Kitchen', 'station' => 'kitchen']);
+        $burger = PosProduct::query()->create([
+            'name' => 'Burger', 'price' => 5.0, 'tax_rate' => 0.0,
+            'active' => true, 'pos_category_id' => $cat->id,
+        ]);
+
+        // Walk-in / quick sale (no table) pays immediately — counter service,
+        // even though the item is pending in the kitchen.
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('addProduct', $burger->id)
+            ->call('startPayment')
+            ->assertSet('paying', true);
+    }
+
     public function test_unknown_table_404s(): void
     {
         $session = $this->openSession();

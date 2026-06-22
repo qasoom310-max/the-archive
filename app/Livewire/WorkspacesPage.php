@@ -29,6 +29,11 @@ final class WorkspacesPage extends Component
     #[Validate('required|string|max:80')]
     public string $newName = '';
 
+    /** Workspace currently being renamed inline (null = none). */
+    public ?int $editingId = null;
+
+    public string $editName = '';
+
     public function mount(): void
     {
         abort_unless($this->isAdmin(), 403);
@@ -55,6 +60,48 @@ final class WorkspacesPage extends Component
 
         $this->newName = '';
         session()->flash('workspace_status', __('Database created. Switch to it from the list.'));
+    }
+
+    public function startRename(int $id): void
+    {
+        abort_unless($this->isAdmin(), 403);
+
+        $workspace = app(WorkspaceManager::class)->find($id);
+        if ($workspace === null) {
+            return;
+        }
+
+        $this->editingId = $id;
+        $this->editName = $workspace->name;
+        $this->resetErrorBag('editName');
+    }
+
+    public function cancelRename(): void
+    {
+        $this->editingId = null;
+        $this->editName = '';
+        $this->resetErrorBag('editName');
+    }
+
+    public function rename(): void
+    {
+        abort_unless($this->isAdmin(), 403);
+
+        if ($this->editingId === null) {
+            return;
+        }
+
+        $this->validate(['editName' => 'required|string|max:80']);
+
+        $workspace = app(WorkspaceManager::class)->find($this->editingId);
+        if ($workspace !== null) {
+            $workspace->name = trim($this->editName);
+            $workspace->save();
+        }
+
+        $this->editingId = null;
+        $this->editName = '';
+        session()->flash('workspace_status', __('Database renamed.'));
     }
 
     public function deleteWorkspace(int $id): void

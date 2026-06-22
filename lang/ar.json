@@ -383,6 +383,8 @@
     "Create database": "إنشاء قاعدة البيانات",
     "Building…": "جارٍ الإنشاء…",
     "Database created. Switch to it from the list.": "تم إنشاء قاعدة البيانات. بدّل إليها من القائمة.",
+    "Database renamed.": "تمت إعادة تسمية قاعدة البيانات.",
+    "rename": "إعادة تسمية",
     "Main": "الرئيسية",
     "Your current data": "بياناتك الحالية",
     "Separate database": "قاعدة بيانات منفصلة",

@@ -130,6 +130,37 @@ final class WorkspaceTest extends TestCase
         $this->assertNull(Workspace::query()->find($workspace->id));
     }
 
+    public function test_rename_updates_a_workspace_name(): void
+    {
+        $owner = Auth::user();
+        $this->assertInstanceOf(User::class, $owner);
+        $workspace = app(WorkspaceManager::class)->provision('Old name', $owner, ['pos']);
+
+        Livewire::test(WorkspacesPage::class)
+            ->call('startRename', $workspace->id)
+            ->assertSet('editName', 'Old name')
+            ->set('editName', 'New name')
+            ->call('rename')
+            ->assertSet('editingId', null);
+
+        $this->assertSame('New name', Workspace::query()->find($workspace->id)?->name);
+    }
+
+    public function test_rename_requires_a_name(): void
+    {
+        $owner = Auth::user();
+        $this->assertInstanceOf(User::class, $owner);
+        $workspace = app(WorkspaceManager::class)->provision('Keep', $owner, ['pos']);
+
+        Livewire::test(WorkspacesPage::class)
+            ->call('startRename', $workspace->id)
+            ->set('editName', '')
+            ->call('rename')
+            ->assertHasErrors(['editName' => 'required']);
+
+        $this->assertSame('Keep', Workspace::query()->find($workspace->id)?->name);
+    }
+
     public function test_main_workspace_cannot_be_deleted(): void
     {
         $manager = app(WorkspaceManager::class);

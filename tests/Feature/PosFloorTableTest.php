@@ -9,13 +9,16 @@ use App\Models\Auth\ModelAccess;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
+use Modules\Pos\Enums\PrepStatus;
 use Modules\Pos\Enums\SessionState;
 use Modules\Pos\Livewire\PosFloorPlan;
 use Modules\Pos\Livewire\PosHome;
 use Modules\Pos\Livewire\PosTerminal;
+use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosFloor;
 use Modules\Pos\Models\PosFloorLine;
 use Modules\Pos\Models\PosOrder;
+use Modules\Pos\Models\PosOrderLine;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Models\PosSession;
 use Modules\Pos\Models\PosTable;
@@ -119,19 +122,67 @@ final class PosFloorTableTest extends TestCase
         $this->assertSame(1, PosOrder::query()->whereNull('pos_table_id')->count());
     }
 
-    public function test_set_guests_clamps_between_zero_and_capacity(): void
+    public function test_adding_a_kitchen_item_auto_sends_it_to_the_kitchen(): void
     {
         $session = $this->openSession();
-        $table = $this->table(seats: 4);
+        $table = $this->table();
+        $cat = PosCategory::query()->create(['name' => 'Kitchen', 'station' => 'kitchen']);
+        $burger = PosProduct::query()->create([
+            'name' => 'Burger', 'price' => 5.0, 'tax_rate' => 0.0,
+            'active' => true, 'pos_category_id' => $cat->id,
+        ]);
+        // A category with no station is NOT routed.
+        $drinks = PosCategory::query()->create(['name' => 'Drinks', 'station' => null]);
+        $water = PosProduct::query()->create([
+            'name' => 'Water', 'price' => 1.0, 'tax_rate' => 0.0,
+            'active' => true, 'pos_category_id' => $drinks->id,
+        ]);
 
-        $component = Livewire::test(PosTerminal::class, ['session' => $session->id, 'table' => $table->id])
-            ->call('setGuests', 10);
+        Livewire::test(PosTerminal::class, ['session' => $session->id, 'table' => $table->id])
+            ->call('addProduct', $burger->id)
+            ->call('addProduct', $water->id);
 
-        $order = PosOrder::query()->where('pos_table_id', $table->id)->firstOrFail();
-        $this->assertSame(4, (int) $order->guest_count); // clamped to seats
+        $burgerLine = PosOrderLine::query()->where('pos_product_id', $burger->id)->firstOrFail();
+        $waterLine = PosOrderLine::query()->where('pos_product_id', $water->id)->firstOrFail();
 
-        $component->call('setGuests', -100);
-        $this->assertSame(0, (int) $order->fresh()?->guest_count); // never negative
+        // Kitchen item went to the KDS immediately — no payment needed.
+        $this->assertSame(PrepStatus::Pending, $burgerLine->prep_status);
+        $this->assertNotNull($burgerLine->prep_sent_at);
+        // No-station item is never routed.
+        $this->assertNull($waterLine->prep_status);
+    }
+
+    public function test_floor_plan_colours_a_table_by_its_kitchen_status(): void
+    {
+        $session = $this->openSession();
+        $table = $this->table(name: '7');
+        $cat = PosCategory::query()->create(['name' => 'Kitchen', 'station' => 'kitchen']);
+        $burger = PosProduct::query()->create([
+            'name' => 'Burger', 'price' => 5.0, 'tax_rate' => 0.0,
+            'active' => true, 'pos_category_id' => $cat->id,
+        ]);
+
+        // Add a kitchen item → auto-sent, pending → red.
+        Livewire::test(PosTerminal::class, ['session' => $session->id, 'table' => $table->id])
+            ->call('addProduct', $burger->id);
+
+        $floor = fn () => Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('selectFloor', $table->pos_floor_id);
+
+        // Card-specific class (bg + text colour) so the colour legend's bare
+        // swatch classes can't satisfy the assertion.
+        $floor()->assertSee('bg-red-500 text-white');
+
+        // Cook starts it → preparing → yellow.
+        $line = PosOrderLine::query()->firstOrFail();
+        $line->prep_status = PrepStatus::Preparing;
+        $line->save();
+        $floor()->assertSee('bg-amber-400 text-chrome-900');
+
+        // Cook finishes → ready → green (awaiting payment).
+        $line->prep_status = PrepStatus::Ready;
+        $line->save();
+        $floor()->assertSee('bg-emerald-500 text-white');
     }
 
     public function test_unknown_table_404s(): void
@@ -146,23 +197,27 @@ final class PosFloorTableTest extends TestCase
     {
         $session = $this->openSession();
         $table = $this->table(seats: 4, name: '7');
+        // A drinks-only product (no station) — added items occupy the table
+        // but route nothing to the kitchen, so the table reads green (ready /
+        // awaiting payment), not red.
         $product = PosProduct::query()->create(['name' => 'Latte', 'price' => 3.0, 'tax_rate' => 0.0, 'active' => true]);
 
-        // Empty floor first: the table shows and reads "0/4". Select the
-        // table's floor explicitly so default-floor seeding can't shadow it.
+        // Empty floor first: the table shows by name and is free (white).
+        // Select the table's floor explicitly so default-floor seeding can't
+        // shadow it.
         Livewire::test(PosFloorPlan::class, ['session' => $session->id])
             ->call('selectFloor', $table->pos_floor_id)
             ->assertSee('7')
-            ->assertSee('0/4');
+            ->assertDontSee('bg-emerald-500 text-white'); // no occupied card yet
 
-        // Seat 2 guests + add a product → the table is now occupied.
+        // Add a product → the table is now occupied. No kitchen routing, so
+        // it's green (awaiting payment).
         Livewire::test(PosTerminal::class, ['session' => $session->id, 'table' => $table->id])
-            ->call('setGuests', 2)
             ->call('addProduct', $product->id);
 
         Livewire::test(PosFloorPlan::class, ['session' => $session->id])
             ->call('selectFloor', $table->pos_floor_id)
-            ->assertSee('2/4');
+            ->assertSee('bg-emerald-500 text-white');
     }
 
     public function test_arranging_saves_a_table_position(): void

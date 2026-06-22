@@ -7,13 +7,13 @@ namespace Modules\Pos\Livewire;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Pos\Enums\OrderState;
+use Modules\Pos\Enums\PrepStatus;
 use Modules\Pos\Enums\SessionState;
 use Modules\Pos\Models\PosFloor;
 use Modules\Pos\Models\PosFloorLine;
@@ -25,9 +25,10 @@ use Modules\Pos\Models\PosTable;
  * Restaurant floor plan — the table picker shown before the terminal. Floor
  * tabs across the top, then a free-position canvas: each table sits at its own
  * grid cell (`pos_x`/`pos_y`) so the layout mirrors the real room. A table card
- * shows the party size vs capacity ("2/4"), a colour by status (empty /
- * occupied / needs attention) and an order badge. Tapping a table opens the
- * terminal bound to that table's running order.
+ * is coloured by its order's KITCHEN status — white (free), red (sent, the cook
+ * hasn't started), yellow (preparing) or green (ready / no kitchen work,
+ * awaiting payment) — plus an order badge. Tapping a table opens the terminal
+ * bound to that table's running order.
  *
  * Admins (pos.table Write) get an "Arrange" mode: drag tables across the canvas
  * and the position saves automatically ({@see moveTable}). Tables with no
@@ -39,9 +40,6 @@ use Modules\Pos\Models\PosTable;
 #[Title('Floor plan')]
 final class PosFloorPlan extends Component
 {
-    /** A table whose order has sat untouched this long reads as "needs attention". */
-    private const ATTENTION_MINUTES = 20;
-
     /** Grid-cell pitch (px) — one table per cell; also the divider-boundary + bg-grid pitch. */
     public const CELL = 96;
 
@@ -214,6 +212,32 @@ final class PosFloorPlan extends Component
         ]);
     }
 
+    /**
+     * Map a table's running order to a colour bucket from its KITCHEN state
+     * (the least-progressed routed line wins, mirroring the KDS ticket rollup):
+     *
+     *   pending   → red    — sent, the cook hasn't started.
+     *   preparing → yellow — under preparation at a station.
+     *   ready     → green  — kitchen finished, OR the order has no kitchen
+     *                        items at all; either way it's just awaiting payment.
+     *
+     * An empty table (no order) is handled by the caller as 'empty' (white).
+     */
+    private function kitchenStatus(PosOrder $order): string
+    {
+        $statuses = $order->lines->pluck('prep_status')->filter();
+
+        if ($statuses->contains(PrepStatus::Pending)) {
+            return 'pending';
+        }
+
+        if ($statuses->contains(PrepStatus::Preparing)) {
+            return 'preparing';
+        }
+
+        return 'ready';
+    }
+
     public function render(): View
     {
         $floors = PosFloor::query()->where('active', true)
@@ -224,11 +248,13 @@ final class PosFloorPlan extends Component
                 ->orderBy('sequence')->orderBy('name')->get()
             : new Collection();
 
-        // One active draft order per occupied table in THIS session.
+        // One active draft order per occupied table in THIS session. Eager-load
+        // each order's line prep-statuses — they drive the table colour.
         $orders = PosOrder::query()
             ->where('pos_session_id', $this->sessionId)
             ->where('state', OrderState::Draft)
             ->whereIn('pos_table_id', $tables->pluck('id'))
+            ->with('lines:id,pos_order_id,prep_status')
             ->get()
             ->keyBy('pos_table_id');
 
@@ -244,19 +270,13 @@ final class PosFloorPlan extends Component
 
         foreach ($tables as $table) {
             $order = $orders->get($table->id);
-            $updatedAt = $order?->updated_at;
-            $attention = $order !== null
-                && $updatedAt instanceof Carbon
-                && $updatedAt->lt(Carbon::now()->subMinutes(self::ATTENTION_MINUTES));
 
             $card = [
                 'id' => $table->id,
                 'name' => $table->name,
-                'seats' => $table->seats,
                 'shape' => $table->shape,
-                'guests' => $order !== null ? (int) $order->guest_count : 0,
                 'hasOrder' => $order !== null,
-                'status' => $order === null ? 'empty' : ($attention ? 'attention' : 'occupied'),
+                'status' => $order === null ? 'empty' : $this->kitchenStatus($order),
             ];
 
             if ($table->pos_x === null || $table->pos_y === null) {

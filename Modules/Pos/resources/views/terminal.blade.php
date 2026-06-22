@@ -24,19 +24,6 @@
                 @endif
             </div>
             <div class="flex items-center gap-3">
-                @if ($table)
-                    {{-- Guest count — the floor-plan "guests/seats" numerator. --}}
-                    <div class="flex items-center gap-1">
-                        <button type="button" wire:click="setGuests(-1)" aria-label="{{ __('Fewer guests') }}"
-                            class="flex size-6 items-center justify-center rounded-md bg-chrome-100 text-base leading-none text-chrome-700 hover:bg-chrome-200">&minus;</button>
-                        <span class="min-w-[3.25rem] text-center text-xs font-medium tabular-nums text-chrome-600">
-                            <svg class="-mt-0.5 me-0.5 inline size-3.5 text-chrome-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-7 8a7 7 0 0 1 14 0H3Z"/></svg>
-                            {{ (int) $order->guest_count }}/{{ $table->seats }}
-                        </span>
-                        <button type="button" wire:click="setGuests(1)" aria-label="{{ __('More guests') }}"
-                            class="flex size-6 items-center justify-center rounded-md bg-chrome-100 text-base leading-none text-chrome-700 hover:bg-chrome-200">+</button>
-                    </div>
-                @endif
                 @include('pos::partials.user-chip', ['user' => $cashier, 'sub' => __('Cashier')])
                 @if ((int) $lines->sum('qty') >= 2)
                     <button wire:click="openSplit" class="o-btn-ghost text-xs" title="{{ __('Split this order') }}">{{ __('Split') }}</button>

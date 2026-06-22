@@ -26,6 +26,7 @@ use Modules\Pos\Models\PosPaymentMethod;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Models\PosSession;
 use Modules\Pos\Models\PosTable;
+use Modules\Pos\Services\KitchenRouter;
 use Modules\Pos\Services\PosSessionManager;
 use Modules\Pos\Support\PosWhatsAppCountries;
 
@@ -215,6 +216,12 @@ final class PosTerminal extends Component
         $line->recompute();
         $line->save();
         $order->recalculate();
+
+        // Auto-send to the kitchen / shisha screens the moment an item is
+        // added (postpaid dine-in flow): a kitchen-routed line goes straight
+        // to the KDS — no payment required first. No-op for products whose
+        // category has no station, and idempotent for lines already sent.
+        app(KitchenRouter::class)->route($order);
     }
 
     /**
@@ -245,30 +252,6 @@ final class PosTerminal extends Component
 
         $this->addProduct((int) $product->id);
         $this->dispatch('scan-hit', name: (string) $product->name);
-    }
-
-    /**
-     * Adjust the party size on the current order — the numerator of the
-     * floor plan's "guests/seats". Clamped to 0..table capacity; a no-op
-     * for the table-less walk-in lane.
-     */
-    public function setGuests(int $delta): void
-    {
-        $this->guard(Permission::Write);
-
-        if ($this->tableId === null) {
-            return;
-        }
-
-        $order = $this->order();
-        $seats = (int) (PosTable::query()->whereKey($this->tableId)->value('seats') ?? 0);
-        $next = max(0, (int) $order->guest_count + $delta);
-        if ($seats > 0) {
-            $next = min($next, $seats);
-        }
-
-        $order->guest_count = $next;
-        $order->save();
     }
 
     /**

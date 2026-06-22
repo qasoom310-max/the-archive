@@ -1,4 +1,7 @@
-<div class="mx-auto max-w-6xl p-4 sm:p-6">
+{{-- Poll for live colour changes as the kitchen advances tickets (red →
+     yellow → green). Paused while arranging so a re-render can't disrupt a
+     pick-up / placement in progress. --}}
+<div class="mx-auto max-w-6xl p-4 sm:p-6" {{ $editing ? '' : 'wire:poll.15s' }}>
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
             <h1 class="text-xl font-bold text-chrome-900">{{ __('Floor plan') }}</h1>
@@ -47,6 +50,16 @@
             @endforeach
         </div>
 
+        {{-- Colour legend: what each table colour means. --}}
+        @unless ($editing)
+            <div class="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-chrome-500">
+                <span class="inline-flex items-center gap-1.5"><span class="size-3 rounded-full bg-red-500"></span>{{ __('Sent — not started') }}</span>
+                <span class="inline-flex items-center gap-1.5"><span class="size-3 rounded-full bg-amber-400"></span>{{ __('Preparing') }}</span>
+                <span class="inline-flex items-center gap-1.5"><span class="size-3 rounded-full bg-emerald-500"></span>{{ __('Ready — awaiting payment') }}</span>
+                <span class="inline-flex items-center gap-1.5"><span class="size-3 rounded-full bg-white ring-1 ring-chrome-300"></span>{{ __('Available') }}</span>
+            </div>
+        @endunless
+
         @if ($editing)
             <div class="mb-3 flex items-center gap-2 rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-800 ring-1 ring-amber-200">
                 <svg class="size-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a1 1 0 0 0 0 2v3a1 1 0 0 0 1 1h1a1 1 0 1 0 0-2v-3a1 1 0 0 0-1-1H9Z" clip-rule="evenodd" /></svg>
@@ -59,15 +72,17 @@
         @endif
 
         @php
-            // Status colour: green = occupied, red = needs attention (order
-            // sitting untouched), white = empty. Shared by canvas + tray.
+            // Status colour by KITCHEN state: red = sent (cook not started),
+            // yellow = preparing, green = ready / no kitchen work (awaiting
+            // payment), white = free. Shared by canvas + tray.
             $cardClasses = function (array $card, bool $editing): array {
                 return [
                     'relative flex flex-col items-center justify-center p-2 text-center shadow-sm transition',
                     'rounded-full' => $card['shape'] === 'round',
                     'rounded-xl' => $card['shape'] !== 'round',
-                    'bg-emerald-500 text-white' => $card['status'] === 'occupied',
-                    'bg-red-400 text-white' => $card['status'] === 'attention',
+                    'bg-red-500 text-white' => $card['status'] === 'pending',
+                    'bg-amber-400 text-chrome-900' => $card['status'] === 'preparing',
+                    'bg-emerald-500 text-white' => $card['status'] === 'ready',
                     'bg-white text-chrome-700 ring-1 ring-chrome-200' => $card['status'] === 'empty',
                     'cursor-pointer select-none ring-2 ring-primary-400' => $editing,
                     'hover:-translate-y-0.5 hover:shadow-md' => ! $editing,

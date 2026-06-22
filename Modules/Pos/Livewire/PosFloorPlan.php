@@ -123,6 +123,31 @@ final class PosFloorPlan extends Component
     }
 
     /**
+     * Take a table off the plan (double-click) — clears its position so it
+     * returns to the "unplaced" tray. Write-gated and floor-scoped.
+     */
+    public function unplaceTable(int $tableId): void
+    {
+        app(AccessControl::class)->authorize(Auth::user(), 'pos.table', Permission::Write);
+
+        $table = PosTable::query()
+            ->where('pos_floor_id', $this->floorId)
+            ->find($tableId);
+
+        if ($table === null) {
+            return;
+        }
+
+        $table->pos_x = null;
+        $table->pos_y = null;
+        $table->save();
+
+        if ($this->selectedId === $tableId) {
+            $this->selectedId = null;
+        }
+    }
+
+    /**
      * Place the picked-up table onto grid cell (col, row) — the circle the
      * user clicked. Seats it centred in the cell, then clears the selection.
      */
@@ -209,8 +234,10 @@ final class PosFloorPlan extends Component
             ->get()
             ->keyBy('pos_table_id');
 
+        $offset = $this->cellOffset();
         $placed = [];
         $unplaced = [];
+        $occupied = [];
         $maxX = 0;
         $maxY = 0;
 
@@ -226,34 +253,43 @@ final class PosFloorPlan extends Component
                 'name' => $table->name,
                 'seats' => $table->seats,
                 'shape' => $table->shape,
-                'x' => (int) $table->pos_x,
-                'y' => (int) $table->pos_y,
+                'x' => 0,
+                'y' => 0,
                 'guests' => $order !== null ? (int) $order->guest_count : 0,
                 'hasOrder' => $order !== null,
                 'status' => $order === null ? 'empty' : ($attention ? 'attention' : 'occupied'),
             ];
 
-            if ($table->pos_x !== null && $table->pos_y !== null) {
-                $placed[] = $card;
-                $maxX = max($maxX, (int) $table->pos_x);
-                $maxY = max($maxY, (int) $table->pos_y);
-            } else {
+            if ($table->pos_x === null || $table->pos_y === null) {
                 $unplaced[] = $card;
+
+                continue;
             }
+
+            // Snap the stored position to its nearest grid cell at RENDER time
+            // so a table always sits squarely in a square — robust even if the
+            // stored pixels are off-grid (old free-drag data, un-run migration).
+            $col = max(0, (int) round(((int) $table->pos_x - $offset) / self::CELL));
+            $row = max(0, (int) round(((int) $table->pos_y - $offset) / self::CELL));
+
+            // Resolve a collision (two tables landing on the same cell) by
+            // pushing the later one down to the next free cell — no overlap.
+            while (isset($occupied[$col . '-' . $row])) {
+                $row++;
+            }
+            $occupied[$col . '-' . $row] = true;
+
+            $card['x'] = $col * self::CELL + $offset;
+            $card['y'] = $row * self::CELL + $offset;
+            $placed[] = $card;
+            $maxX = max($maxX, $card['x']);
+            $maxY = max($maxY, $card['y']);
         }
 
         // Canvas grows to fit the furthest table (+ breathing room) so nothing
         // is ever clipped; cols/rows drive the divider boundaries + bg grid.
         $width = max(self::MIN_W, $maxX + self::TABLE + self::PAD);
         $height = max(self::MIN_H, $maxY + self::TABLE + self::PAD);
-        $offset = $this->cellOffset();
-
-        // Cells already holding a table → their placement circle is hidden
-        // (the table sits on it), which also blocks dropping two in one cell.
-        $occupied = [];
-        foreach ($placed as $card) {
-            $occupied[(int) round(($card['x'] - $offset) / self::CELL) . '-' . (int) round(($card['y'] - $offset) / self::CELL)] = true;
-        }
 
         $lines = $this->floorId !== null
             ? PosFloorLine::query()->where('pos_floor_id', $this->floorId)->get()

@@ -53,7 +53,7 @@
                 @if ($selectedId !== null)
                     {{ __('Now click a circle in an empty square to place the table. Click the table again to cancel.') }}
                 @else
-                    {{ __('Click a table to pick it up, then click a circle to place it. Click between cells to add a divider.') }}
+                    {{ __('Click a table to pick it up, then click a circle to place it. Double-click a placed table to remove it. Click between cells to add a divider.') }}
                 @endif
             </div>
         @endif
@@ -150,7 +150,14 @@
                     @forelse ($placed as $card)
                         @php $base = 'left:' . $card['x'] . 'px; top:' . $card['y'] . 'px; width:' . $table . 'px; height:' . $table . 'px;'; @endphp
                         @if ($editing)
-                            <button type="button" wire:key="placed-{{ $card['id'] }}" wire:click="selectTable({{ $card['id'] }})"
+                            {{-- Single click picks the table up; double click
+                                 takes it off the plan (back to the tray). The
+                                 timer distinguishes the two so a dbl-click
+                                 doesn't also fire select. --}}
+                            <button type="button" wire:key="placed-{{ $card['id'] }}" x-data="{ t: null }"
+                                @click="clearTimeout(t); t = setTimeout(() => $wire.selectTable({{ $card['id'] }}), 220)"
+                                @dblclick="clearTimeout(t); $wire.unplaceTable({{ $card['id'] }})"
+                                title="{{ __('Double-click to take off the plan') }}"
                                 @class(array_merge(['absolute z-30'], $pickClasses($card))) style="{{ $base }}">
                                 @include('pos::partials.table-card-inner', ['card' => $card])
                             </button>

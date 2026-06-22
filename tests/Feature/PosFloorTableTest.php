@@ -195,6 +195,34 @@ final class PosFloorTableTest extends TestCase
         $this->assertSame(1 * 96 + 6, $fresh?->pos_y);
     }
 
+    public function test_render_snaps_an_off_grid_table_to_its_cell(): void
+    {
+        $session = $this->openSession();
+        $table = $this->table(name: '8');
+        // Off-grid stored pixels (e.g. old free-drag / un-run snap migration):
+        // x 875 → col 9 → 9*96+6 = 870; y 40 → row 0 → 0*96+6 = 6.
+        $table->update(['pos_x' => 875, 'pos_y' => 40]);
+
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('selectFloor', $table->pos_floor_id)
+            ->assertSee('left:870px; top:6px'); // rendered aligned to the cell
+    }
+
+    public function test_double_click_unplaces_a_table_back_to_the_tray(): void
+    {
+        $session = $this->openSession();
+        $table = $this->table(name: '9');
+        $table->update(['pos_x' => 6, 'pos_y' => 6]);
+
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('selectFloor', $table->pos_floor_id)
+            ->call('unplaceTable', $table->id);
+
+        $fresh = $table->fresh();
+        $this->assertNull($fresh?->pos_x);
+        $this->assertNull($fresh?->pos_y);
+    }
+
     public function test_place_does_nothing_without_a_picked_up_table(): void
     {
         $session = $this->openSession();

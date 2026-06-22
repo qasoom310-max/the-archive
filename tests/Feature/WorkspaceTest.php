@@ -161,6 +161,65 @@ final class WorkspaceTest extends TestCase
         $this->assertSame('Keep', Workspace::query()->find($workspace->id)?->name);
     }
 
+    public function test_delete_requires_the_password_then_moves_to_trash(): void
+    {
+        $owner = Auth::user();
+        $this->assertInstanceOf(User::class, $owner);
+        $workspace = app(WorkspaceManager::class)->provision('Trash me', $owner, ['pos']);
+        $path = $workspace->databasePath();
+
+        // Wrong password → error, still active.
+        Livewire::test(WorkspacesPage::class)
+            ->call('confirmDelete', $workspace->id)
+            ->set('deletePassword', 'not-it')
+            ->call('deleteWorkspace')
+            ->assertHasErrors('deletePassword');
+        $this->assertFalse(Workspace::withTrashed()->find($workspace->id)?->trashed());
+
+        // Correct password (factory default 'password') → trashed, file KEPT.
+        Livewire::test(WorkspacesPage::class)
+            ->call('confirmDelete', $workspace->id)
+            ->set('deletePassword', 'password')
+            ->call('deleteWorkspace')
+            ->assertHasNoErrors();
+
+        $this->assertTrue(Workspace::withTrashed()->find($workspace->id)?->trashed());
+        $this->assertNull(app(WorkspaceManager::class)->find($workspace->id)); // not switchable
+        $this->assertFileExists($path); // restorable — file retained
+    }
+
+    public function test_restore_brings_a_trashed_workspace_back(): void
+    {
+        $owner = Auth::user();
+        $this->assertInstanceOf(User::class, $owner);
+        $workspace = app(WorkspaceManager::class)->provision('Bring back', $owner, ['pos']);
+        app(WorkspaceManager::class)->trash($workspace);
+
+        Livewire::test(WorkspacesPage::class)->call('restoreWorkspace', $workspace->id);
+
+        $this->assertFalse(Workspace::withTrashed()->find($workspace->id)?->trashed());
+        $this->assertNotNull(app(WorkspaceManager::class)->find($workspace->id));
+    }
+
+    public function test_purge_permanently_deletes_after_the_retention_window(): void
+    {
+        $owner = Auth::user();
+        $this->assertInstanceOf(User::class, $owner);
+        $workspace = app(WorkspaceManager::class)->provision('Old trash', $owner, ['pos']);
+        $path = $workspace->databasePath();
+        app(WorkspaceManager::class)->trash($workspace);
+
+        // Age the deletion just past the retention window.
+        Workspace::withTrashed()->where('id', $workspace->id)
+            ->update(['deleted_at' => now()->subDays(WorkspaceManager::RETENTION_DAYS + 1)]);
+
+        $purged = app(WorkspaceManager::class)->purgeExpired();
+
+        $this->assertSame(1, $purged);
+        $this->assertNull(Workspace::withTrashed()->find($workspace->id)); // gone for good
+        $this->assertFileDoesNotExist($path);
+    }
+
     public function test_main_workspace_cannot_be_deleted(): void
     {
         $manager = app(WorkspaceManager::class);

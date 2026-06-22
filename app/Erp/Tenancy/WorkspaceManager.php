@@ -24,6 +24,9 @@ use Illuminate\Support\Str;
  */
 final class WorkspaceManager
 {
+    /** Days a trashed (deleted) workspace is kept before it is purged for good. */
+    public const RETENTION_DAYS = 14;
+
     /** Where tenant SQLite files live (relative to the public storage disk root). */
     private function directory(): string
     {
@@ -54,6 +57,22 @@ final class WorkspaceManager
     public function find(int $id): ?Workspace
     {
         return Workspace::query()->find($id);
+    }
+
+    /** Find a workspace including trashed ones (for restore / purge). */
+    public function findAny(int $id): ?Workspace
+    {
+        return Workspace::withTrashed()->find($id);
+    }
+
+    /**
+     * Trashed (soft-deleted) workspaces awaiting restore or purge.
+     *
+     * @return Collection<int, Workspace> Most recently deleted first.
+     */
+    public function trashed(): Collection
+    {
+        return Workspace::onlyTrashed()->orderByDesc('deleted_at')->get();
     }
 
     /**
@@ -179,7 +198,28 @@ final class WorkspaceManager
     }
 
     /**
-     * Delete a workspace and its SQLite file. Main is never deletable.
+     * Move a workspace to trash (soft delete). The SQLite file is KEPT so the
+     * database can be restored within the retention window. Main is never
+     * deletable.
+     */
+    public function trash(Workspace $workspace): void
+    {
+        if ($workspace->is_main) {
+            return;
+        }
+
+        $workspace->delete(); // soft delete — file retained for restore
+    }
+
+    /** Bring a trashed workspace back. */
+    public function restore(Workspace $workspace): void
+    {
+        $workspace->restore();
+    }
+
+    /**
+     * Permanently delete a workspace and its SQLite file (no restore). Main is
+     * never deletable. Used by the retention sweep and any "delete forever".
      */
     public function delete(Workspace $workspace): void
     {
@@ -192,7 +232,24 @@ final class WorkspaceManager
             @unlink($path);
         }
 
-        $workspace->delete();
+        $workspace->forceDelete();
+    }
+
+    /**
+     * Purge every trashed workspace whose retention window has elapsed (file +
+     * row gone for good). Returns the number purged. Driven by a daily schedule.
+     */
+    public function purgeExpired(): int
+    {
+        $cutoff = now()->subDays(self::RETENTION_DAYS);
+        $count = 0;
+
+        foreach (Workspace::onlyTrashed()->where('deleted_at', '<=', $cutoff)->get() as $workspace) {
+            $this->delete($workspace);
+            $count++;
+        }
+
+        return $count;
     }
 
     /**
@@ -228,7 +285,7 @@ final class WorkspaceManager
         $slug = $base;
         $n = 1;
 
-        while (Workspace::query()->where('slug', $slug)->exists()) {
+        while (Workspace::withTrashed()->where('slug', $slug)->exists()) {
             $slug = $base . '-' . (++$n);
         }
 

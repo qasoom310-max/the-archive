@@ -102,3 +102,20 @@ Schedule::call(function (): void {
         \Illuminate\Support\Facades\Log::error('Daily report send failed: ' . $e->getMessage());
     }
 })->dailyAt('06:10')->timezone($reportTimezone)->name('daily-pos-report')->withoutOverlapping();
+
+// Daily: permanently purge trashed (soft-deleted) workspaces whose 14-day
+// retention window has elapsed — removes the SQLite file + the registry row.
+// A deleted database is restorable until this runs. Guarded so it no-ops when
+// the workspaces table is absent (e.g. pre-migration). Runs in-process, so
+// withoutOverlapping() is safe here (unlike the runInBackground queue:work).
+Schedule::call(function (): void {
+    if (! \Illuminate\Support\Facades\Schema::hasTable('workspaces')) {
+        return;
+    }
+
+    try {
+        app(\App\Erp\Tenancy\WorkspaceManager::class)->purgeExpired();
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::error('Workspace purge failed: ' . $e->getMessage());
+    }
+})->dailyAt('03:30')->name('purge-expired-workspaces')->withoutOverlapping();

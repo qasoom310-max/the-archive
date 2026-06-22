@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 /**
  * A switchable database ("workspace"). The Main workspace ({@see $is_main})
@@ -12,7 +14,9 @@ use Illuminate\Database\Eloquent\Model;
  * an isolated SQLite file at {@see $database}.
  *
  * Pinned to the `landlord` connection so the registry is always read from the
- * Main DB even while a tenant connection is the active default.
+ * Main DB even while a tenant connection is the active default. Soft-deletable:
+ * a deleted workspace is trashed (file kept) and restorable for a retention
+ * window, then permanently purged — see {@see \App\Erp\Tenancy\WorkspaceManager}.
  *
  * @property int $id
  * @property string $name
@@ -20,9 +24,12 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $database
  * @property bool $is_main
  * @property int|null $owner_user_id
+ * @property Carbon|null $deleted_at
  */
 final class Workspace extends Model
 {
+    use SoftDeletes;
+
     /**
      * Name of the boot-time default connection (the Main DB). Set once by
      * {@see \App\Providers\WorkspaceServiceProvider} before any tenant swap,

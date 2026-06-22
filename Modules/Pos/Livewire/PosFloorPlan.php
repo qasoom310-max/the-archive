@@ -45,8 +45,8 @@ final class PosFloorPlan extends Component
     /** Background-grid + divider-boundary pitch (px). */
     public const CELL = 96;
 
-    /** Table-position snap (px). Fine — so tables can sit right beneath/beside each other. */
-    public const SNAP = 24;
+    /** Table-position snap (px). 1 = free/manual — the table lands exactly where released. */
+    public const SNAP = 1;
 
     /** Table card size on the canvas (px). */
     public const TABLE = 84;

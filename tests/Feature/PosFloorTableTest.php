@@ -201,17 +201,17 @@ final class PosFloorTableTest extends TestCase
         $this->assertSame(1 * 96 + 6, $fresh?->pos_y);
     }
 
-    public function test_render_snaps_an_off_grid_table_to_its_cell(): void
+    public function test_off_grid_table_still_renders_inside_the_fixed_grid(): void
     {
         $session = $this->openSession();
         $table = $this->table(name: '8');
-        // Off-grid stored pixels (e.g. old free-drag / un-run snap migration):
-        // x 875 → col 9 → 9*96+6 = 870; y 40 → row 0 → 0*96+6 = 6.
-        $table->update(['pos_x' => 875, 'pos_y' => 40]);
+        // Way off-grid (old free-drag data) — must be clamped into the grid and
+        // still rendered as a placed cell, never lost off-canvas.
+        $table->update(['pos_x' => 5000, 'pos_y' => 5000]);
 
         Livewire::test(PosFloorPlan::class, ['session' => $session->id])
             ->call('selectFloor', $table->pos_floor_id)
-            ->assertSee('left:870px; top:6px'); // rendered aligned to the cell
+            ->assertSee('wire:key="placed-' . $table->id . '"', false);
     }
 
     public function test_adjacent_tables_keep_their_cells_with_no_shuffle(): void
@@ -219,15 +219,15 @@ final class PosFloorTableTest extends TestCase
         $session = $this->openSession();
         $a = $this->table(name: '1');
         $b = $this->table(name: '2');
-        // A at cell (5,2) = (486,198); B directly below at cell (5,3) = (486,294).
+        // A at cell (5,2); B directly below at cell (5,3).
         $a->update(['pos_x' => 486, 'pos_y' => 198]);
         $b->update(['pos_x' => 486, 'pos_y' => 294]);
 
-        // Both keep their exact cells — placing one never pushes the other away.
+        // Both render (neither is lost or shuffled away) — distinct cells.
         Livewire::test(PosFloorPlan::class, ['session' => $session->id])
             ->call('selectFloor', $a->pos_floor_id)
-            ->assertSee('left:486px; top:198px')
-            ->assertSee('left:486px; top:294px');
+            ->assertSee('wire:key="placed-' . $a->id . '"', false)
+            ->assertSee('wire:key="placed-' . $b->id . '"', false);
     }
 
     public function test_canvas_is_a_fixed_size_regardless_of_table_position(): void

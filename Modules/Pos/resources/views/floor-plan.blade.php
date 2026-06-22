@@ -80,18 +80,63 @@
             );
         @endphp
 
-        {{-- Click-to-place: pick a table, then click a square's circle. No drag.
-             dir=ltr: a physical room is never mirrored under RTL. x-data enables
-             Escape-to-cancel. --}}
+        {{-- Click-to-place on a REAL CSS grid of cells: every table IS a grid
+             cell, so it can never escape the canvas or land between cells. Pick
+             a table, then click a square's circle. dir=ltr: a physical room is
+             never mirrored under RTL. x-data enables Escape-to-cancel. --}}
         <div x-data="{}" @keydown.escape.window="$wire.clearSelection()"
             dir="ltr" wire:key="floor-canvas-{{ $floorId }}">
             <div class="overflow-auto rounded-2xl border border-chrome-200 bg-chrome-50 p-3" style="max-height: 72vh;">
-                <div class="relative rounded-xl bg-white"
-                    style="width: {{ $width }}px; height: {{ $height }}px;
-                        @if ($editing) background-image: linear-gradient(rgb(0 0 0/.05) 1px, transparent 1px), linear-gradient(90deg, rgb(0 0 0/.05) 1px, transparent 1px); background-size: {{ $cell }}px {{ $cell }}px; @endif">
+                <div class="relative rounded-xl bg-white" style="width: {{ $width }}px; height: {{ $height }}px;">
 
-                    {{-- Divider "walls": full-span lines. Always shown (sell +
-                         edit); pointer-events-none so only the gutters catch clicks. --}}
+                    {{-- The grid: COLS×ROWS fixed cells, row-major. Each cell is
+                         either a table (occupied) or a placement circle (empty,
+                         edit mode). Tables physically live in the grid — they
+                         cannot overflow or misalign. --}}
+                    <div class="grid" style="grid-template-columns: repeat({{ $cols }}, {{ $cell }}px); grid-auto-rows: {{ $cell }}px;">
+                        @for ($r = 0; $r < $rows; $r++)
+                            @for ($c = 0; $c < $cols; $c++)
+                                @php $card = $cells[$c . '-' . $r] ?? null; @endphp
+                                <div wire:key="cell-{{ $c }}-{{ $r }}"
+                                    @class(['flex items-center justify-center', 'ring-1 ring-chrome-100' => $editing])>
+                                    @if ($card)
+                                        @if ($editing)
+                                            {{-- Single click picks up; double-click removes (back to tray).
+                                                 A 220ms timer keeps the two from colliding. --}}
+                                            <button type="button" wire:key="placed-{{ $card['id'] }}" x-data="{ t: null }"
+                                                @click="clearTimeout(t); t = setTimeout(() => $wire.selectTable({{ $card['id'] }}), 220)"
+                                                @dblclick="clearTimeout(t); $wire.unplaceTable({{ $card['id'] }})"
+                                                title="{{ __('Double-click to take off the plan') }}"
+                                                style="width: {{ $table }}px; height: {{ $table }}px;"
+                                                @class($pickClasses($card))>
+                                                @include('pos::partials.table-card-inner', ['card' => $card])
+                                            </button>
+                                        @else
+                                            <a wire:key="placed-{{ $card['id'] }}"
+                                                href="{{ url('/app/pos/session/' . $sessionId . '/table/' . $card['id']) }}" wire:navigate
+                                                style="width: {{ $table }}px; height: {{ $table }}px;"
+                                                @class($cardClasses($card, false))>
+                                                @include('pos::partials.table-card-inner', ['card' => $card])
+                                            </a>
+                                        @endif
+                                    @elseif ($editing)
+                                        <button type="button" wire:click="placeAt({{ $c }}, {{ $r }})"
+                                            class="group flex size-8 items-center justify-center" title="{{ __('Place table here') }}">
+                                            <span @class([
+                                                'rounded-full transition-all',
+                                                'size-3.5 bg-primary-500 ring-4 ring-primary-500/25 group-hover:size-5' => $selectedId !== null,
+                                                'size-2 bg-chrome-300 group-hover:size-3 group-hover:bg-primary-400' => $selectedId === null,
+                                            ])></span>
+                                        </button>
+                                    @endif
+                                </div>
+                            @endfor
+                        @endfor
+                    </div>
+
+                    {{-- Divider "walls" overlay the grid (absolute on the relative
+                         container). Solid lines are pointer-events-none; only the
+                         gutter strips (edit mode) catch clicks. --}}
                     @foreach ($vLines as $vp)
                         <div wire:key="vline-{{ $vp }}" class="pointer-events-none absolute bottom-0 top-0 z-10 w-0.5 bg-chrome-400"
                             style="left: {{ $vp * $cell - 1 }}px;"></div>
@@ -102,27 +147,6 @@
                     @endforeach
 
                     @if ($editing)
-                        {{-- A placement circle in the centre of every empty
-                             square. Click one (after picking a table) to seat
-                             the table there. Brightens while a table is held. --}}
-                        @for ($r = 0; $r < $rows; $r++)
-                            @for ($c = 0; $c < $cols; $c++)
-                                @continue(isset($occupied[$c . '-' . $r]))
-                                <button type="button" wire:click="placeAt({{ $c }}, {{ $r }})" wire:key="dot-{{ $c }}-{{ $r }}"
-                                    class="group absolute z-20 flex items-center justify-center"
-                                    style="left: {{ $c * $cell + intdiv($cell, 2) - 16 }}px; top: {{ $r * $cell + intdiv($cell, 2) - 16 }}px; width: 32px; height: 32px;"
-                                    title="{{ __('Place table here') }}">
-                                    <span @class([
-                                        'rounded-full transition-all',
-                                        'size-3.5 bg-primary-500 ring-4 ring-primary-500/25 group-hover:size-5' => $selectedId !== null,
-                                        'size-2 bg-chrome-300 group-hover:size-3 group-hover:bg-primary-400' => $selectedId === null,
-                                    ])></span>
-                                </button>
-                            @endfor
-                        @endfor
-
-                        {{-- Clickable gutters: a thin strip on each column / row
-                             boundary. Click to add/remove a divider. --}}
                         @for ($p = 1; $p < $cols; $p++)
                             <button type="button" wire:click="toggleLine('v', {{ $p }})" wire:key="vgut-{{ $p }}"
                                 class="group absolute bottom-0 top-0 z-20 flex w-3 justify-center"
@@ -147,34 +171,11 @@
                         @endfor
                     @endif
 
-                    @forelse ($placed as $card)
-                        @php $base = 'left:' . $card['x'] . 'px; top:' . $card['y'] . 'px; width:' . $table . 'px; height:' . $table . 'px;'; @endphp
-                        @if ($editing)
-                            {{-- Single click picks the table up; double click
-                                 takes it off the plan (back to the tray). The
-                                 timer distinguishes the two so a dbl-click
-                                 doesn't also fire select. --}}
-                            <button type="button" wire:key="placed-{{ $card['id'] }}" x-data="{ t: null }"
-                                @click="clearTimeout(t); t = setTimeout(() => $wire.selectTable({{ $card['id'] }}), 220)"
-                                @dblclick="clearTimeout(t); $wire.unplaceTable({{ $card['id'] }})"
-                                title="{{ __('Double-click to take off the plan') }}"
-                                @class(array_merge(['absolute z-30'], $pickClasses($card))) style="{{ $base }}">
-                                @include('pos::partials.table-card-inner', ['card' => $card])
-                            </button>
-                        @else
-                            <a wire:key="placed-{{ $card['id'] }}"
-                                href="{{ url('/app/pos/session/' . $sessionId . '/table/' . $card['id']) }}" wire:navigate
-                                @class(array_merge(['absolute z-30'], $cardClasses($card, false))) style="{{ $base }}">
-                                @include('pos::partials.table-card-inner', ['card' => $card])
-                            </a>
-                        @endif
-                    @empty
-                        @if (empty($unplaced))
-                            <p class="absolute inset-0 flex items-center justify-center text-sm text-chrome-400">
-                                {{ __('No tables on this floor.') }}
-                            </p>
-                        @endif
-                    @endforelse
+                    @if (empty($cells) && empty($unplaced))
+                        <p class="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-chrome-400">
+                            {{ __('No tables on this floor.') }}
+                        </p>
+                    @endif
                 </div>
             </div>
 

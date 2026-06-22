@@ -235,9 +235,12 @@ final class PosFloorPlan extends Component
         $offset = $this->cellOffset();
         $cols = self::GRID_COLS;
         $rows = self::GRID_ROWS;
-        $placed = [];
+
+        // Map of grid cell "col-row" => table card. Each placed table occupies
+        // exactly one cell of a FIXED CSS grid (rendered as a real grid in the
+        // view), so a table can NEVER escape the canvas or land between cells.
+        $cells = [];
         $unplaced = [];
-        $occupied = [];
 
         foreach ($tables as $table) {
             $order = $orders->get($table->id);
@@ -251,8 +254,6 @@ final class PosFloorPlan extends Component
                 'name' => $table->name,
                 'seats' => $table->seats,
                 'shape' => $table->shape,
-                'x' => 0,
-                'y' => 0,
                 'guests' => $order !== null ? (int) $order->guest_count : 0,
                 'hasOrder' => $order !== null,
                 'status' => $order === null ? 'empty' : ($attention ? 'attention' : 'occupied'),
@@ -264,23 +265,26 @@ final class PosFloorPlan extends Component
                 continue;
             }
 
-            // Snap the stored position to its nearest grid cell at RENDER time
-            // so a table always sits squarely in a square (robust even if the
-            // stored pixels are off-grid), clamped to the FIXED grid. We do NOT
-            // shuffle a table off its own cell — placing one table never moves
-            // another (placement onto an occupied cell is already blocked by
-            // hiding that cell's circle).
+            // Snap the stored pixels to a grid cell, clamped to the fixed grid.
             $col = max(0, min($cols - 1, (int) round(((int) $table->pos_x - $offset) / self::CELL)));
             $row = max(0, min($rows - 1, (int) round(((int) $table->pos_y - $offset) / self::CELL)));
-            $occupied[$col . '-' . $row] = true;
 
-            $card['x'] = $col * self::CELL + $offset;
-            $card['y'] = $row * self::CELL + $offset;
-            $placed[] = $card;
+            // If that cell is already taken (only happens with old overlapping
+            // data — placement hides occupied cells), fall to the next free
+            // cell so every table stays visible and in-grid. Normal distinct
+            // placements never collide, so a neighbour is never shuffled.
+            $start = $row * $cols + $col;
+            for ($i = $start; $i < $cols * $rows; $i++) {
+                $key = ($i % $cols) . '-' . intdiv($i, $cols);
+                if (! isset($cells[$key])) {
+                    $cells[$key] = $card;
+
+                    break;
+                }
+            }
         }
 
-        // FIXED canvas — does not grow/shrink as tables are placed, so the plan
-        // never reflows or scroll-jumps mid-arrange.
+        // FIXED canvas — does not grow/shrink as tables are placed.
         $width = $cols * self::CELL;
         $height = $rows * self::CELL;
 
@@ -292,7 +296,7 @@ final class PosFloorPlan extends Component
             'sessionId' => $this->sessionId,
             'floors' => $floors,
             'floorId' => $this->floorId,
-            'placed' => $placed,
+            'cells' => $cells,
             'unplaced' => $unplaced,
             'selectedId' => $this->selectedId,
             'width' => $width,
@@ -300,9 +304,7 @@ final class PosFloorPlan extends Component
             'cols' => $cols,
             'rows' => $rows,
             'cell' => self::CELL,
-            'offset' => $offset,
             'table' => self::TABLE,
-            'occupied' => $occupied,
             'vLines' => $lines->where('orientation', 'v')->pluck('position')->map(fn ($p): int => (int) $p)->all(),
             'hLines' => $lines->where('orientation', 'h')->pluck('position')->map(fn ($p): int => (int) $p)->all(),
             'hasTables' => PosTable::query()->where('active', true)->exists(),

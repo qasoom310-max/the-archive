@@ -12,6 +12,7 @@ use Livewire\Component;
 use Modules\Pos\Enums\PrepStation;
 use Modules\Pos\Enums\PrepStatus;
 use Modules\Pos\Models\PosOrderLine;
+use Modules\Pos\Models\PosTable;
 use Modules\Pos\Support\KitchenTicket;
 
 /**
@@ -176,7 +177,7 @@ final class KitchenDisplay extends Component
     {
         $lines = PosOrderLine::query()
             ->with([
-                'order:id,reference,ordered_at',
+                'order:id,reference,ordered_at,pos_table_id',
                 'product:id,pos_category_id',
             ])
             ->whereIn('prep_status', array_map(static fn (PrepStatus $s): string => $s->value, PrepStatus::active()))
@@ -185,6 +186,15 @@ final class KitchenDisplay extends Component
             })
             ->orderBy('prep_sent_at')
             ->get();
+
+        // Table + floor per order, looked up by id (NOT via $order->table — the
+        // PosOrder `table()` relation name collides with Eloquent's $table
+        // property, which trips static analysis).
+        $tableIds = $lines
+            ->map(static fn (PosOrderLine $l): ?int => $l->order?->pos_table_id)
+            ->filter()->unique()->values()->all();
+        $tableMap = PosTable::query()->with('floor:id,name')
+            ->whereIn('id', $tableIds)->get()->keyBy('id');
 
         // Status priority for the ticket-level rollup: Pending < Preparing
         // < Ready, so the ticket sits in the LEAST-progressed line's
@@ -195,10 +205,13 @@ final class KitchenDisplay extends Component
         /** @var Collection<int, KitchenTicket> $tickets */
         $tickets = $lines
             ->groupBy('pos_order_id')
-            ->map(static function (Collection $orderLines) use ($statusOrder): KitchenTicket {
+            ->map(static function (Collection $orderLines) use ($statusOrder, $tableMap): KitchenTicket {
                 /** @var PosOrderLine $first */
                 $first = $orderLines->first();
-                $orderRef = $first->order !== null ? $first->order->reference : '';
+                $order = $first->order;
+                $orderRef = $order !== null ? $order->reference : '';
+                $tableId = $order?->pos_table_id;
+                $table = $tableId !== null ? $tableMap->get($tableId) : null;
                 $sentAt = $first->prep_sent_at ?? \Illuminate\Support\Carbon::now();
 
                 $earliestStatus = PrepStatus::Pending;
@@ -221,6 +234,8 @@ final class KitchenDisplay extends Component
                     sentAt: $sentAt,
                     status: $earliestStatus,
                     lines: $orderLines->values(),
+                    tableName: $table?->name,
+                    floorName: $table?->floor?->name,
                 );
             })
             ->values();

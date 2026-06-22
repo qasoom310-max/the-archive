@@ -86,6 +86,18 @@ final class PosModuleTest extends TestCase
         );
     }
 
+    public function test_payment_methods_are_ordered_benefit_card_cash(): void
+    {
+        $this->installPos();
+        $this->seed(PosSeeder::class);
+
+        $names = PosPaymentMethod::query()->where('active', true)->orderBy('sequence')->pluck('name')->all();
+
+        $this->assertSame(['Benefit', 'Card', 'Cash'], $names);
+        // Benefit behaves like Card — not a cash method, no special handling.
+        $this->assertFalse((bool) PosPaymentMethod::query()->where('name', 'Benefit')->value('is_cash'));
+    }
+
     public function test_line_totals_apply_discount_then_tax(): void
     {
         $this->installPos();

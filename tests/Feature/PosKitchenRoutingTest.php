@@ -15,10 +15,12 @@ use Modules\Pos\Events\PosOrderPaid;
 use Modules\Pos\Listeners\QueueLinesForKitchen;
 use Modules\Pos\Livewire\KitchenDisplay;
 use Modules\Pos\Models\PosCategory;
+use Modules\Pos\Models\PosFloor;
 use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosOrderLine;
 use Modules\Pos\Models\PosPaymentMethod;
 use Modules\Pos\Models\PosProduct;
+use Modules\Pos\Models\PosTable;
 use Modules\Pos\Services\PosSessionManager;
 use Tests\TestCase;
 
@@ -171,6 +173,55 @@ final class PosKitchenRoutingTest extends TestCase
         $this->assertSame(PrepStatus::Preparing, $line->prep_status);
         $this->assertNotNull($line->prep_started_at);
         $this->assertNull($line->prep_ready_at);
+    }
+
+    public function test_kitchen_ticket_shows_the_table_number_and_floor(): void
+    {
+        $this->installPos();
+        $admin = User::query()->where('is_admin', true)->sole();
+
+        $floor = PosFloor::query()->create(['name' => 'Ground floor', 'sequence' => 10]);
+        $table = PosTable::query()->create(['pos_floor_id' => $floor->id, 'name' => '7', 'seats' => 4, 'shape' => 'square']);
+
+        $cat = PosCategory::query()->create(['name' => 'Hot Drinks', 'station' => 'kitchen']);
+        $product = PosProduct::query()->create([
+            'name' => 'Espresso', 'price' => 3.0, 'tax_rate' => 0.0,
+            'cost_price' => 1.0, 'pos_category_id' => $cat->id, 'active' => true,
+        ]);
+        $cash = PosPaymentMethod::query()->create(['name' => 'Cash', 'active' => true]);
+
+        $session = app(PosSessionManager::class)->openOrResume(0.0, $admin->id);
+        $order = PosOrder::query()->create([
+            'pos_session_id' => $session->id,
+            'reference' => 'POS/' . $session->id . '/0001',
+            'state' => OrderState::Draft,
+            'user_id' => $admin->id,
+            'pos_table_id' => $table->id,
+            'subtotal' => 3.0, 'tax_total' => 0.0, 'total' => 3.0,
+        ]);
+        PosOrderLine::query()->create([
+            'pos_order_id' => $order->id,
+            'pos_product_id' => $product->id,
+            'name' => 'Espresso',
+            'qty' => 1,
+            'unit_price' => 3.0, 'tax_rate' => 0.0, 'discount_pct' => 0.0,
+            'subtotal' => 3.0, 'tax_amount' => 0.0, 'total' => 3.0,
+        ]);
+        $order->payments()->create(['pos_payment_method_id' => $cash->id, 'amount' => 3.0]);
+        $order->finalizeSale();
+
+        // The ticket carries the table number + floor name (the card displays them).
+        $kds = new KitchenDisplay();
+        $kds->station = PrepStation::Kitchen;
+        $loadTickets = new \ReflectionMethod($kds, 'loadTickets');
+        $loadTickets->setAccessible(true);
+        /** @var \Illuminate\Support\Collection<int, \Modules\Pos\Support\KitchenTicket> $tickets */
+        $tickets = $loadTickets->invoke($kds);
+
+        $ticket = $tickets->firstWhere('orderId', $order->id);
+        $this->assertNotNull($ticket);
+        $this->assertSame('7', $ticket->tableName);
+        $this->assertSame('Ground floor', $ticket->floorName);
     }
 
     public function test_listener_is_idempotent_on_double_dispatch(): void

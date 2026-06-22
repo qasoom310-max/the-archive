@@ -63,8 +63,11 @@ final class PosSeeder extends Seeder
             ]);
         }
 
-        PosPaymentMethod::query()->create(['name' => 'Cash', 'is_cash' => true, 'sequence' => 10]);
-        PosPaymentMethod::query()->create(['name' => 'Card', 'is_cash' => false, 'sequence' => 20]);
+        // firstOrCreate so this is idempotent with the migration that also adds
+        // Benefit (avoids a duplicate when both run on a fresh install).
+        PosPaymentMethod::query()->firstOrCreate(['name' => 'Benefit'], ['is_cash' => false, 'sequence' => 10]);
+        PosPaymentMethod::query()->firstOrCreate(['name' => 'Card'], ['is_cash' => false, 'sequence' => 20]);
+        PosPaymentMethod::query()->firstOrCreate(['name' => 'Cash'], ['is_cash' => true, 'sequence' => 30]);
 
         $posGroup = Group::query()->updateOrCreate(
             ['code' => 'pos_user'],

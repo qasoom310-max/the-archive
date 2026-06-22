@@ -32,5 +32,7 @@ final readonly class KitchenTicket
         public Carbon $sentAt,
         public PrepStatus $status,
         public Collection $lines,
+        public ?string $tableName = null,
+        public ?string $floorName = null,
     ) {}
 }

@@ -107,6 +107,12 @@
                                         #{{ \Illuminate\Support\Str::afterLast($ticket->reference, '/') }}
                                     </p>
                                     <p class="text-xs text-chrome-500">{{ $ticket->reference }}</p>
+                                    @if ($ticket->tableName !== null)
+                                        <p class="mt-1 inline-flex items-center gap-1 rounded-md bg-chrome-900 px-2 py-0.5 text-xs font-bold text-white">
+                                            <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2H3V5Zm14 4H3v1a1 1 0 0 0 1 1v4a1 1 0 1 0 2 0v-4h8v4a1 1 0 1 0 2 0v-4a1 1 0 0 0 1-1V9Z" /></svg>
+                                            {{ __('Table') }} {{ $ticket->tableName }}@if ($ticket->floorName !== null) <span class="font-normal text-white/80">· {{ $ticket->floorName }}</span>@endif
+                                        </p>
+                                    @endif
                                 </div>
                                 <div class="text-end">
                                     <p class="text-sm font-semibold {{ $isLate ? 'text-red-600' : 'text-chrome-700' }}">

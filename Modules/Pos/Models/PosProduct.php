@@ -194,7 +194,7 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
     {
         $lines = $this->relationLoaded('recipeLines')
             ? $this->recipeLines
-            : $this->recipeLines()->with('component')->get();
+            : $this->recipeLines()->with(['component', 'condiment'])->get();
 
         if ($lines->isEmpty()) {
             return null;
@@ -203,13 +203,13 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
         $yield = null;
 
         foreach ($lines as $line) {
-            $component = $line->component;
+            $stock = $line->componentStock();
 
-            if ($component === null || $line->quantity_consumed <= 0) {
+            if ($stock === null || $line->quantity_consumed <= 0) {
                 continue;
             }
 
-            $possible = (int) floor($component->stock_on_hand / $line->quantity_consumed);
+            $possible = (int) floor($stock / $line->quantity_consumed);
             $yield = $yield === null ? $possible : min($yield, $possible);
         }
 

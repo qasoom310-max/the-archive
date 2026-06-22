@@ -23,23 +23,28 @@
         <table class="min-w-full divide-y divide-chrome-100 text-sm">
             <thead class="text-xs uppercase tracking-wide text-chrome-400">
                 <tr>
-                    <th class="py-1 text-left">Component</th>
-                    <th class="py-1 text-right">Qty / unit</th>
-                    <th class="py-1 text-right">Component stock</th>
+                    <th class="py-1 text-start">{{ __('Component') }}</th>
+                    <th class="py-1 text-end">{{ __('Qty / unit') }}</th>
+                    <th class="py-1 text-end">{{ __('Component stock') }}</th>
                     <th class="py-1"></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-chrome-100">
                 @foreach ($lines as $line)
                     <tr wire:key="recipe-{{ $line->id }}">
-                        <td class="py-1.5 text-chrome-800">{{ $line->component?->name ?? '—' }}</td>
-                        <td class="py-1.5 text-right text-chrome-600">{{ rtrim(rtrim(number_format($line->quantity_consumed, 3), '0'), '.') }}</td>
-                        <td class="py-1.5 text-right text-chrome-500">
-                            {{ rtrim(rtrim(number_format($line->component?->stock_on_hand ?? 0, 3), '0'), '.') }}
+                        <td class="py-1.5 text-chrome-800">
+                            {{ $line->componentName() ?? '—' }}
+                            @if ($line->isCondiment())
+                                <span class="ms-1 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-700">{{ __('Condiment') }}</span>
+                            @endif
                         </td>
-                        <td class="py-1.5 text-right">
+                        <td class="py-1.5 text-end text-chrome-600">{{ rtrim(rtrim(number_format($line->quantity_consumed, 3), '0'), '.') }}</td>
+                        <td class="py-1.5 text-end text-chrome-500">
+                            {{ rtrim(rtrim(number_format($line->componentStock() ?? 0, 3), '0'), '.') }}
+                        </td>
+                        <td class="py-1.5 text-end">
                             <button wire:click="removeLine({{ $line->id }})"
-                                class="text-xs text-red-500 hover:underline">remove</button>
+                                class="text-xs text-red-500 hover:underline">{{ __('remove') }}</button>
                         </td>
                     </tr>
                 @endforeach
@@ -48,26 +53,25 @@
     @endif
 
     @php
-        $componentsJs = $components->map(fn ($c): array => ['id' => (int) $c->id, 'name' => (string) $c->name])->values();
+        $componentsJs = $componentOptions->map(fn (array $o): array => ['key' => $o['key'], 'name' => $o['name'], 'type' => $o['type']])->values();
     @endphp
     <div class="mt-4 flex flex-wrap items-end gap-2 border-t border-chrome-100 pt-4">
         <div class="min-w-48 flex-1">
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Component') }}</label>
-            {{-- Searchable combobox bound to componentId, with an Odoo-style
-                 "Create" footer that opens the shared new-product modal. The
-                 panel is position:fixed so it escapes any overflow clipping. --}}
+            {{-- Searchable combobox over products + condiments (composite key
+                 p:{id} / c:{id}), with an Odoo-style "Create" footer that opens
+                 the shared new-product modal. Panel is position:fixed (flips up
+                 near the page bottom) so it escapes overflow clipping. --}}
             <div x-data="{
                     open: false,
                     coords: { top: 'auto', bottom: 'auto', left: 0, width: 0, maxH: 256 },
-                    products: @js($componentsJs),
-                    selected: $wire.entangle('componentId'),
+                    items: @js($componentsJs),
+                    selected: $wire.entangle('componentKey'),
                     search: '',
                     place() {
                         const r = $refs.input.getBoundingClientRect();
                         const vh = window.innerHeight;
                         const spaceBelow = vh - r.bottom;
-                        // Flip up when there's more room above (input near the
-                        // page bottom) so the panel never opens off-screen.
                         const below = spaceBelow >= 280 || spaceBelow >= r.top;
                         const maxH = Math.max(120, Math.min(256, (below ? spaceBelow : r.top) - 12));
                         this.coords = below
@@ -77,16 +81,16 @@
                     openPanel() { this.search = ''; this.place(); this.open = true; },
                     filtered() {
                         const s = this.search.trim().toLowerCase();
-                        const list = s === '' ? this.products : this.products.filter(p => p.name.toLowerCase().includes(s));
+                        const list = s === '' ? this.items : this.items.filter(p => p.name.toLowerCase().includes(s));
                         return list.slice(0, 50);
                     },
                     displayName() {
-                        const m = this.products.find(p => p.id === this.selected);
+                        const m = this.items.find(p => p.key === this.selected);
                         return m ? m.name : '';
                     },
-                    choose(p) { this.selected = p ? p.id : null; this.search = ''; this.open = false; },
+                    choose(p) { this.selected = p ? p.key : null; this.search = ''; this.open = false; },
                 }"
-                @product-created.window="products.push({ id: $event.detail.id, name: $event.detail.name }); selected = $event.detail.id"
+                @product-created.window="items.push({ key: 'p:' + $event.detail.id, name: $event.detail.name, type: 'product' }); selected = 'p:' + $event.detail.id"
                 @click.outside="open = false"
                 @scroll.window.passive="if (open) place()"
                 @resize.window="if (open) place()"
@@ -96,15 +100,18 @@
                     @focus="openPanel()" @click="openPanel()"
                     @input="search = $event.target.value; open = true"
                     @keydown.escape.stop="open = false"
-                    placeholder="{{ __('Search a product…') }}"
+                    placeholder="{{ __('Search a product or condiment…') }}"
                     autocomplete="off" class="o-input">
                 <div x-show="open" x-cloak
                     :style="`left:${coords.left}px; width:${coords.width}px; top:${coords.top}; bottom:${coords.bottom}; max-height:${coords.maxH}px;`"
                     class="fixed z-50 overflow-auto rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
-                    <template x-for="p in filtered()" :key="p.id">
+                    <template x-for="p in filtered()" :key="p.key">
                         <button type="button" @click="choose(p)"
-                            class="flex w-full items-center px-3 py-1.5 text-start text-sm text-chrome-700 hover:bg-primary-50"
-                            x-text="p.name"></button>
+                            class="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-start text-sm text-chrome-700 hover:bg-primary-50">
+                            <span x-text="p.name"></span>
+                            <span x-show="p.type === 'condiment'"
+                                class="shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-700">{{ __('Condiment') }}</span>
+                        </button>
                     </template>
                     <template x-if="filtered().length === 0">
                         <p class="px-3 py-1.5 text-sm text-chrome-400">{{ __('No products found') }}</p>

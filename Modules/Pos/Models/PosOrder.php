@@ -314,11 +314,22 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
                     continue;
                 }
 
-                PosProduct::query()
-                    ->whereKey($row->component_product_id)
-                    ->decrement('stock_on_hand', $decrement);
+                // A line consumes EITHER a product or a condiment.
+                if ($row->component_condiment_id !== null) {
+                    PosCondiment::query()
+                        ->whereKey($row->component_condiment_id)
+                        ->decrement('stock_on_hand', $decrement);
 
-                $touchedComponents[$row->component_product_id] = true;
+                    continue; // condiments aren't on the Inventory ledger
+                }
+
+                if ($row->component_product_id !== null) {
+                    PosProduct::query()
+                        ->whereKey($row->component_product_id)
+                        ->decrement('stock_on_hand', $decrement);
+
+                    $touchedComponents[$row->component_product_id] = true;
+                }
             }
         }
 

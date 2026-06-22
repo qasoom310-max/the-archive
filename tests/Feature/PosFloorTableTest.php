@@ -156,4 +156,26 @@ final class PosFloorTableTest extends TestCase
             ->call('selectFloor', $table->pos_floor_id)
             ->assertSee('2/4');
     }
+
+    public function test_floor_name_is_translatable_per_locale(): void
+    {
+        $floor = PosFloor::query()->create(['name' => 'Patio', 'sequence' => 10, 'active' => true]);
+        $floor->setTranslation('name', 'ar', 'الفناء');
+        $floor->save();
+
+        $fresh = PosFloor::query()->findOrFail($floor->id);
+        $this->assertSame('Patio', $fresh->getTranslation('name', 'en'));
+        $this->assertSame('الفناء', $fresh->getTranslation('name', 'ar'));
+
+        // Active-locale read follows app()->getLocale().
+        app()->setLocale('ar');
+        $this->assertSame('الفناء', PosFloor::query()->findOrFail($floor->id)->name);
+        app()->setLocale('en');
+
+        // The form arch marks the name field translatable (EN/AR pills).
+        $form = collect(PosFloor::irModelDefinition()->views)
+            ->first(fn ($v): bool => $v->type === 'form');
+        $nameField = collect($form->arch['fields'] ?? [])->firstWhere('field', 'name');
+        $this->assertTrue((bool) ($nameField['translatable'] ?? false));
+    }
 }

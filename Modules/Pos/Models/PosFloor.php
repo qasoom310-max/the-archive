@@ -8,21 +8,28 @@ use App\Erp\Contracts\DefinesIrModel;
 use App\Erp\Registry\FieldDefinition;
 use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
+use App\Erp\Translation\TranslatableModel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\Translatable\HasTranslations;
 
 /**
  * A restaurant floor (Main floor, Patio, …) — a tab above the table picker
  * holding a set of {@see PosTable}s.
  *
  * @property int $id
- * @property string $name
+ * @property string $name   Translatable JSON envelope ({"en":…,"ar":…}).
  * @property int $sequence
  * @property bool $active
  */
-final class PosFloor extends Model implements DefinesIrModel
+final class PosFloor extends Model implements DefinesIrModel, TranslatableModel
 {
+    use HasTranslations;
+
     protected $table = 'pos_floors';
+
+    /** @var list<string> */
+    public array $translatable = ['name'];
 
     /** @var list<string> */
     protected $fillable = ['name', 'sequence', 'active'];
@@ -80,7 +87,7 @@ final class PosFloor extends Model implements DefinesIrModel
                 new ViewDefinition('POS Floor', 'form', [
                     'cols' => 2,
                     'fields' => [
-                        ['field' => 'name', 'label' => 'Name', 'widget' => 'text', 'required' => true],
+                        ['field' => 'name', 'label' => 'Name', 'widget' => 'text', 'required' => true, 'translatable' => true],
                         ['field' => 'sequence', 'label' => 'Sequence', 'widget' => 'number', 'help' => 'Lower numbers show first.'],
                         ['field' => 'active', 'label' => 'Active', 'widget' => 'checkbox'],
                     ],

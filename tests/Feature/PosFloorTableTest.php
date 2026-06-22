@@ -176,6 +176,51 @@ final class PosFloorTableTest extends TestCase
         $this->assertSame(2, $fresh?->pos_y);
     }
 
+    public function test_select_then_place_seats_a_table_in_a_cell(): void
+    {
+        $session = $this->openSession();
+        $table = $this->table(name: '5');
+
+        // Pick up the table, then click cell (2, 1)'s circle.
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('selectFloor', $table->pos_floor_id)
+            ->call('selectTable', $table->id)
+            ->assertSet('selectedId', $table->id)
+            ->call('placeAt', 2, 1)
+            ->assertSet('selectedId', null); // selection cleared after placing
+
+        // CELL 96, centred offset (96-84)/2 = 6 → col*96+6, row*96+6.
+        $fresh = $table->fresh();
+        $this->assertSame(2 * 96 + 6, $fresh?->pos_x);
+        $this->assertSame(1 * 96 + 6, $fresh?->pos_y);
+    }
+
+    public function test_place_does_nothing_without_a_picked_up_table(): void
+    {
+        $session = $this->openSession();
+        $table = $this->table(name: '6');
+
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('selectFloor', $table->pos_floor_id)
+            ->call('placeAt', 3, 3); // nothing selected → no-op
+
+        $this->assertNull($table->fresh()?->pos_x);
+    }
+
+    public function test_select_table_is_write_gated_for_non_managers(): void
+    {
+        $session = $this->openSession();
+        $table = $this->table(name: '7');
+
+        ModelAccess::query()->create(['name' => 'order-read', 'model' => 'pos.order', 'perm_read' => true]);
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('selectFloor', $table->pos_floor_id)
+            ->call('selectTable', $table->id)
+            ->assertForbidden();
+    }
+
     public function test_move_table_clamps_coordinates(): void
     {
         $session = $this->openSession();

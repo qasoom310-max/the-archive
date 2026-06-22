@@ -42,11 +42,8 @@ final class PosFloorPlan extends Component
     /** A table whose order has sat untouched this long reads as "needs attention". */
     private const ATTENTION_MINUTES = 20;
 
-    /** Background-grid + divider-boundary pitch (px). */
+    /** Grid-cell pitch (px) — one table per cell; also the divider-boundary + bg-grid pitch. */
     public const CELL = 96;
-
-    /** Table-position snap (px). 1 = free/manual — the table lands exactly where released. */
-    public const SNAP = 1;
 
     /** Table card size on the canvas (px). */
     public const TABLE = 84;
@@ -68,8 +65,11 @@ final class PosFloorPlan extends Component
     /** Whether the current user may rearrange tables (pos.table Write). */
     public bool $canEdit = false;
 
-    /** Arrange mode: tables become draggable instead of tappable. */
+    /** Arrange mode: pick a table, then click a square's circle to place it. */
     public bool $editing = false;
+
+    /** Table currently picked up for placement (null = none). */
+    public ?int $selectedId = null;
 
     public function mount(int $session): void
     {
@@ -97,12 +97,50 @@ final class PosFloorPlan extends Component
         }
 
         $this->editing = ! $this->editing;
+        $this->selectedId = null;
+    }
+
+    /** Centring offset that seats an 84px table inside a 96px cell. */
+    private function cellOffset(): int
+    {
+        return intdiv(self::CELL - self::TABLE, 2);
     }
 
     /**
-     * Persist a table's new pixel position on its floor (free drag on the
-     * canvas — already snapped client-side). Write-gated and scoped to the
-     * active floor so a crafted id can't move a table the user isn't looking at.
+     * Pick up / put down a table for placement (click the card in arrange
+     * mode). Write-gated; clicking the same table again cancels.
+     */
+    public function selectTable(int $tableId): void
+    {
+        app(AccessControl::class)->authorize(Auth::user(), 'pos.table', Permission::Write);
+
+        $this->selectedId = $this->selectedId === $tableId ? null : $tableId;
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selectedId = null;
+    }
+
+    /**
+     * Place the picked-up table onto grid cell (col, row) — the circle the
+     * user clicked. Seats it centred in the cell, then clears the selection.
+     */
+    public function placeAt(int $col, int $row): void
+    {
+        if ($this->selectedId === null) {
+            return;
+        }
+
+        $offset = $this->cellOffset();
+        $this->moveTable($this->selectedId, $col * self::CELL + $offset, $row * self::CELL + $offset);
+        $this->selectedId = null;
+    }
+
+    /**
+     * Persist a table's new pixel position on its floor. Write-gated and
+     * scoped to the active floor so a crafted id can't move a table the user
+     * isn't looking at.
      */
     public function moveTable(int $tableId, int $x, int $y): void
     {
@@ -208,6 +246,14 @@ final class PosFloorPlan extends Component
         // is ever clipped; cols/rows drive the divider boundaries + bg grid.
         $width = max(self::MIN_W, $maxX + self::TABLE + self::PAD);
         $height = max(self::MIN_H, $maxY + self::TABLE + self::PAD);
+        $offset = $this->cellOffset();
+
+        // Cells already holding a table → their placement circle is hidden
+        // (the table sits on it), which also blocks dropping two in one cell.
+        $occupied = [];
+        foreach ($placed as $card) {
+            $occupied[(int) round(($card['x'] - $offset) / self::CELL) . '-' . (int) round(($card['y'] - $offset) / self::CELL)] = true;
+        }
 
         $lines = $this->floorId !== null
             ? PosFloorLine::query()->where('pos_floor_id', $this->floorId)->get()
@@ -219,13 +265,15 @@ final class PosFloorPlan extends Component
             'floorId' => $this->floorId,
             'placed' => $placed,
             'unplaced' => $unplaced,
+            'selectedId' => $this->selectedId,
             'width' => $width,
             'height' => $height,
             'cols' => (int) ceil($width / self::CELL),
             'rows' => (int) ceil($height / self::CELL),
             'cell' => self::CELL,
-            'snap' => self::SNAP,
+            'offset' => $offset,
             'table' => self::TABLE,
+            'occupied' => $occupied,
             'vLines' => $lines->where('orientation', 'v')->pluck('position')->map(fn ($p): int => (int) $p)->all(),
             'hLines' => $lines->where('orientation', 'h')->pluck('position')->map(fn ($p): int => (int) $p)->all(),
             'hasTables' => PosTable::query()->where('active', true)->exists(),

@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Modules\Pos\Livewire;
 
+use App\Erp\Security\AccessControl;
+use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -28,6 +31,8 @@ final class PosTableForm extends Component
     {
         return view('pos::table-form', [
             'table' => $this->id !== null ? PosTable::query()->find($this->id) : null,
+            'canCreate' => app(AccessControl::class)
+                ->allows(Auth::user(), 'pos.table', Permission::Create),
         ]);
     }
 }

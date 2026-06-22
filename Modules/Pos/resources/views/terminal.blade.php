@@ -450,7 +450,7 @@
 
                 <div class="mt-3 flex gap-2">
                     <input type="number" step="0.01" wire:model="tendered" class="o-input" placeholder="{{ __('Amount tendered') }}">
-                    <button wire:click="addPayment" class="o-btn-primary shrink-0">{{ __('Add') }}</button>
+                    <button wire:click="addPayment" class="o-btn-primary shrink-0">{{ __('Paid amount') }}</button>
                 </div>
 
                 @if ($order->payments->isNotEmpty())

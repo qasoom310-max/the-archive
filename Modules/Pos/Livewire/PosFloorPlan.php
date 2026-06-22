@@ -48,15 +48,13 @@ final class PosFloorPlan extends Component
     /** Table card size on the canvas (px). */
     public const TABLE = 84;
 
-    /** Upper bound on a saved coordinate (defensive — stops a runaway drag). */
+    /** FIXED canvas size in cells (does NOT grow as tables are placed). */
+    public const GRID_COLS = 12;
+
+    public const GRID_ROWS = 8;
+
+    /** Upper bound on a saved coordinate (defensive). */
     private const MAX_POS = 8000;
-
-    /** Minimum canvas size (px) + breathing room past the furthest table. */
-    private const MIN_W = 960;
-
-    private const MIN_H = 560;
-
-    private const PAD = 200;
 
     public int $sessionId;
 
@@ -235,11 +233,11 @@ final class PosFloorPlan extends Component
             ->keyBy('pos_table_id');
 
         $offset = $this->cellOffset();
+        $cols = self::GRID_COLS;
+        $rows = self::GRID_ROWS;
         $placed = [];
         $unplaced = [];
         $occupied = [];
-        $maxX = 0;
-        $maxY = 0;
 
         foreach ($tables as $table) {
             $order = $orders->get($table->id);
@@ -267,29 +265,24 @@ final class PosFloorPlan extends Component
             }
 
             // Snap the stored position to its nearest grid cell at RENDER time
-            // so a table always sits squarely in a square — robust even if the
-            // stored pixels are off-grid (old free-drag data, un-run migration).
-            $col = max(0, (int) round(((int) $table->pos_x - $offset) / self::CELL));
-            $row = max(0, (int) round(((int) $table->pos_y - $offset) / self::CELL));
-
-            // Resolve a collision (two tables landing on the same cell) by
-            // pushing the later one down to the next free cell — no overlap.
-            while (isset($occupied[$col . '-' . $row])) {
-                $row++;
-            }
+            // so a table always sits squarely in a square (robust even if the
+            // stored pixels are off-grid), clamped to the FIXED grid. We do NOT
+            // shuffle a table off its own cell — placing one table never moves
+            // another (placement onto an occupied cell is already blocked by
+            // hiding that cell's circle).
+            $col = max(0, min($cols - 1, (int) round(((int) $table->pos_x - $offset) / self::CELL)));
+            $row = max(0, min($rows - 1, (int) round(((int) $table->pos_y - $offset) / self::CELL)));
             $occupied[$col . '-' . $row] = true;
 
             $card['x'] = $col * self::CELL + $offset;
             $card['y'] = $row * self::CELL + $offset;
             $placed[] = $card;
-            $maxX = max($maxX, $card['x']);
-            $maxY = max($maxY, $card['y']);
         }
 
-        // Canvas grows to fit the furthest table (+ breathing room) so nothing
-        // is ever clipped; cols/rows drive the divider boundaries + bg grid.
-        $width = max(self::MIN_W, $maxX + self::TABLE + self::PAD);
-        $height = max(self::MIN_H, $maxY + self::TABLE + self::PAD);
+        // FIXED canvas — does not grow/shrink as tables are placed, so the plan
+        // never reflows or scroll-jumps mid-arrange.
+        $width = $cols * self::CELL;
+        $height = $rows * self::CELL;
 
         $lines = $this->floorId !== null
             ? PosFloorLine::query()->where('pos_floor_id', $this->floorId)->get()
@@ -304,8 +297,8 @@ final class PosFloorPlan extends Component
             'selectedId' => $this->selectedId,
             'width' => $width,
             'height' => $height,
-            'cols' => (int) ceil($width / self::CELL),
-            'rows' => (int) ceil($height / self::CELL),
+            'cols' => $cols,
+            'rows' => $rows,
             'cell' => self::CELL,
             'offset' => $offset,
             'table' => self::TABLE,

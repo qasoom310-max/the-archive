@@ -47,12 +47,18 @@ final class PosFloorTableTest extends TestCase
         ]);
     }
 
+    /** Reused across calls so multiple tables share ONE floor. (firstOrCreate
+     *  by `name` can't be used — it's a translatable JSON column, so a plain
+     *  where('name', 'Main floor') never matches the {"en":…} envelope and would
+     *  silently create a fresh floor every call.) */
+    private ?int $mainFloorId = null;
+
     private function table(int $seats = 4, string $name = '1'): PosTable
     {
-        $floor = PosFloor::query()->firstOrCreate(['name' => 'Main floor'], ['sequence' => 10]);
+        $this->mainFloorId ??= (int) PosFloor::query()->create(['name' => 'Main floor', 'sequence' => 10])->id;
 
         return PosTable::query()->create([
-            'pos_floor_id' => $floor->id,
+            'pos_floor_id' => $this->mainFloorId,
             'name' => $name,
             'seats' => $seats,
             'shape' => 'square',
@@ -206,6 +212,35 @@ final class PosFloorTableTest extends TestCase
         Livewire::test(PosFloorPlan::class, ['session' => $session->id])
             ->call('selectFloor', $table->pos_floor_id)
             ->assertSee('left:870px; top:6px'); // rendered aligned to the cell
+    }
+
+    public function test_adjacent_tables_keep_their_cells_with_no_shuffle(): void
+    {
+        $session = $this->openSession();
+        $a = $this->table(name: '1');
+        $b = $this->table(name: '2');
+        // A at cell (5,2) = (486,198); B directly below at cell (5,3) = (486,294).
+        $a->update(['pos_x' => 486, 'pos_y' => 198]);
+        $b->update(['pos_x' => 486, 'pos_y' => 294]);
+
+        // Both keep their exact cells — placing one never pushes the other away.
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('selectFloor', $a->pos_floor_id)
+            ->assertSee('left:486px; top:198px')
+            ->assertSee('left:486px; top:294px');
+    }
+
+    public function test_canvas_is_a_fixed_size_regardless_of_table_position(): void
+    {
+        $session = $this->openSession();
+        $t = $this->table(name: '3');
+        // A position far outside the grid would have grown the old canvas; the
+        // fixed canvas stays 12×8 cells = 1152×768 and clamps the table inside.
+        $t->update(['pos_x' => 5000, 'pos_y' => 5000]);
+
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('selectFloor', $t->pos_floor_id)
+            ->assertSee('width: 1152px; height: 768px');
     }
 
     public function test_double_click_unplaces_a_table_back_to_the_tray(): void

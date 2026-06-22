@@ -22,11 +22,17 @@ use Modules\Pos\Models\PosTable;
 
 /**
  * Restaurant floor plan — the table picker shown before the terminal. Floor
- * tabs across the top, table cards below: each card shows the party size vs
- * capacity ("2/4"), a colour by status (empty / occupied / needs attention)
- * and an order badge. Tapping a table opens the terminal bound to that
- * table's running order. A "quick sale" path keeps walk-in (table-less)
- * selling available, and an empty configuration falls straight through to it.
+ * tabs across the top, then a free-position canvas: each table sits at its own
+ * grid cell (`pos_x`/`pos_y`) so the layout mirrors the real room. A table card
+ * shows the party size vs capacity ("2/4"), a colour by status (empty /
+ * occupied / needs attention) and an order badge. Tapping a table opens the
+ * terminal bound to that table's running order.
+ *
+ * Admins (pos.table Write) get an "Arrange" mode: drag tables across the canvas
+ * and the position saves automatically ({@see moveTable}). Tables with no
+ * position yet (newly added) wait in an "unplaced" tray below the canvas until
+ * dragged on. A "quick sale" path keeps walk-in (table-less) selling available,
+ * and an empty configuration falls straight through to it.
  */
 #[Layout('components.layouts.app')]
 #[Title('Floor plan')]
@@ -35,9 +41,20 @@ final class PosFloorPlan extends Component
     /** A table whose order has sat untouched this long reads as "needs attention". */
     private const ATTENTION_MINUTES = 20;
 
+    /** Canvas grid: cell pitch in px and number of columns wide. Shared with the Blade/Alpine drag math. */
+    public const CELL = 96;
+
+    public const COLS = 12;
+
     public int $sessionId;
 
     public ?int $floorId = null;
+
+    /** Whether the current user may rearrange tables (pos.table Write). */
+    public bool $canEdit = false;
+
+    /** Arrange mode: tables become draggable instead of tappable. */
+    public bool $editing = false;
 
     public function mount(int $session): void
     {
@@ -46,6 +63,7 @@ final class PosFloorPlan extends Component
         app(AccessControl::class)->authorize(Auth::user(), 'pos.order', Permission::Read);
 
         $this->sessionId = $pos->id;
+        $this->canEdit = app(AccessControl::class)->allows(Auth::user(), 'pos.table', Permission::Write);
 
         $first = PosFloor::query()->where('active', true)
             ->orderBy('sequence')->orderBy('name')->value('id');
@@ -55,6 +73,37 @@ final class PosFloorPlan extends Component
     public function selectFloor(int $floorId): void
     {
         $this->floorId = $floorId;
+    }
+
+    public function toggleEditing(): void
+    {
+        if (! $this->canEdit) {
+            return;
+        }
+
+        $this->editing = ! $this->editing;
+    }
+
+    /**
+     * Persist a table's new grid cell on its floor (drag-drop on the canvas).
+     * Write-gated and scoped to the active floor so a crafted id can't move a
+     * table the user isn't looking at.
+     */
+    public function moveTable(int $tableId, int $x, int $y): void
+    {
+        app(AccessControl::class)->authorize(Auth::user(), 'pos.table', Permission::Write);
+
+        $table = PosTable::query()
+            ->where('pos_floor_id', $this->floorId)
+            ->find($tableId);
+
+        if ($table === null) {
+            return;
+        }
+
+        $table->pos_x = max(0, min(self::COLS - 1, $x));
+        $table->pos_y = max(0, $y);
+        $table->save();
     }
 
     public function render(): View
@@ -75,7 +124,10 @@ final class PosFloorPlan extends Component
             ->get()
             ->keyBy('pos_table_id');
 
-        $cards = [];
+        $placed = [];
+        $unplaced = [];
+        $maxRow = 0;
+
         foreach ($tables as $table) {
             $order = $orders->get($table->id);
             $updatedAt = $order?->updated_at;
@@ -83,22 +135,35 @@ final class PosFloorPlan extends Component
                 && $updatedAt instanceof Carbon
                 && $updatedAt->lt(Carbon::now()->subMinutes(self::ATTENTION_MINUTES));
 
-            $cards[] = [
+            $card = [
                 'id' => $table->id,
                 'name' => $table->name,
                 'seats' => $table->seats,
                 'shape' => $table->shape,
+                'x' => $table->pos_x,
+                'y' => $table->pos_y,
                 'guests' => $order !== null ? (int) $order->guest_count : 0,
                 'hasOrder' => $order !== null,
                 'status' => $order === null ? 'empty' : ($attention ? 'attention' : 'occupied'),
             ];
+
+            if ($table->pos_x !== null && $table->pos_y !== null) {
+                $placed[] = $card;
+                $maxRow = max($maxRow, $table->pos_y);
+            } else {
+                $unplaced[] = $card;
+            }
         }
 
         return view('pos::floor-plan', [
             'sessionId' => $this->sessionId,
             'floors' => $floors,
             'floorId' => $this->floorId,
-            'cards' => $cards,
+            'placed' => $placed,
+            'unplaced' => $unplaced,
+            'rows' => max(5, $maxRow + 2),
+            'cell' => self::CELL,
+            'cols' => self::COLS,
             'hasTables' => PosTable::query()->where('active', true)->exists(),
         ]);
     }

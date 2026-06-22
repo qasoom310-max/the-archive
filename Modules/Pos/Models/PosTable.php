@@ -22,6 +22,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $name
  * @property int $seats
  * @property string $shape
+ * @property int|null $pos_x   Grid-cell column on the floor canvas (null = unplaced).
+ * @property int|null $pos_y   Grid-cell row on the floor canvas (null = unplaced).
  * @property int $sequence
  * @property bool $active
  */
@@ -30,7 +32,7 @@ final class PosTable extends Model implements DefinesIrModel
     protected $table = 'pos_tables';
 
     /** @var list<string> */
-    protected $fillable = ['pos_floor_id', 'name', 'seats', 'shape', 'sequence', 'active'];
+    protected $fillable = ['pos_floor_id', 'name', 'seats', 'shape', 'pos_x', 'pos_y', 'sequence', 'active'];
 
     /** @var array<string, mixed> */
     protected $attributes = [
@@ -48,6 +50,8 @@ final class PosTable extends Model implements DefinesIrModel
         return [
             'pos_floor_id' => 'integer',
             'seats' => 'integer',
+            'pos_x' => 'integer',
+            'pos_y' => 'integer',
             'sequence' => 'integer',
             'active' => 'boolean',
         ];

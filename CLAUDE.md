@@ -846,9 +846,9 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
 
 **Phase 7 OUT-of-scope adjustment:** "restaurant floors/tables/kitchen" — the
 *Kitchen Display* slice ships (Phase 15) AND **restaurant floors/tables now ship
-too** (table-first ordering, 2026-06-10 — see below). What's still out of the
-restaurant slice: a drag-to-position **custom floor-plan editor** (tables flow in
-a responsive grid, not free x/y), table merge/split/transfer, and course/firing.
+too** (table-first ordering, 2026-06-10 — see below), AND the **free-position
+floor-plan editor** ships too (drag-to-arrange, 2026-06-22 — see below). What's
+still out of the restaurant slice: table merge/transfer, and course/firing.
 
 **Restaurant floors & tables — table-first ordering (shipped 2026-06-10):**
 
@@ -856,12 +856,13 @@ a responsive grid, not free x/y), table merge/split/transfer, and course/firing.
 |---|---|
 | Schema | `pos_floors` (name/sequence/active) + `pos_tables` (`pos_floor_id` logical ref, name, `seats`, `shape` string `square\|round`, sequence, active) + `pos_orders.{pos_table_id nullable, guest_count nullable}` (migrations `2026_06_10_500001/2/3`) |
 | Models | `Modules\Pos\Models\{PosFloor,PosTable}` (both `DefinesIrModel` → engine list/form + app-home tiles; **admin-managed, deny-default ACL like products** — no `pos_user` grant). `PosOrder` gained `pos_table_id`/`guest_count` + `table()` relation. `shape` is a **plain string, not an enum cast** (dodges the engine FormView enum-empty-string pitfall — see `[[livewire-backed-enum-in-array-prop]]`). **`PosFloor.name` is translatable** (Spatie `HasTranslations` + `TranslatableModel`; migration `2026_06_22_700003` wraps to `{"en":…}` JSON; form arch field `translatable: true` → EN/AR pills, like product/category names; needs `module:resync pos` which deploy runs) |
-| Floor plan | `Modules\Pos\Livewire\PosFloorPlan` (`/app/pos/session/{id}/floor`) — floor tabs + table cards (number, `guests/seats` pill, status colour green=occupied / red=needs-attention (order untouched > `ATTENTION_MINUTES`=20) / grey=empty, order badge). Gated on `pos.order` Read (cashiers have it); reads PosFloor/PosTable directly (no per-model ACL). Responsive grid, NOT free x/y positions |
+| Floor plan | `Modules\Pos\Livewire\PosFloorPlan` (`/app/pos/session/{id}/floor`) — floor tabs + a **free-position canvas** (each table at its own grid cell `pos_x`/`pos_y`, so the layout mirrors the real room): table cards (number, `guests/seats` pill, status colour green=occupied / red=needs-attention (order untouched > `ATTENTION_MINUTES`=20) / white=empty, order badge). Gated on `pos.order` Read (cashiers have it); reads PosFloor/PosTable directly (no per-model ACL). **`dir="ltr"` on the canvas** — the plan is a physical room, never mirrored under RTL. See the editor row below |
+| Floor-plan editor (shipped 2026-06-22) | Admins (`pos.table` **Write**) get an **"Arrange tables"** toggle: tables become draggable, dropping on the canvas calls `PosFloorPlan::moveTable(id, x, y)` (Write-gated, clamps `x` to `0..COLS-1` & `y≥0`, scoped to the active floor) which saves the cell — **drag-drop via one shared Alpine `dragId` scope** wrapping canvas + tray (native HTML5 DnD, `@drop` computes the cell from cursor-vs-canvas rect with `Math.floor`). Canvas grid: `PosFloorPlan::CELL`=96px pitch, `COLS`=12 wide, height grows with the lowest placed row. Tables with **null `pos_x`/`pos_y`** (newly added — coords are NOT in the form arch, only set by dragging) render in an **"unplaced" tray below the canvas** (still tappable to sell; draggable onto the plan in edit mode). Columns `pos_x`/`pos_y` via migration `2026_06_22_700004` (POS, deploy auto-applies). Shared inner-card partial `pos::partials.table-card-inner` (canvas + tray can't drift) |
 | Terminal binding | `PosTerminal::mount(int $session, ?int $table = null)` — `tableId` scopes `resolveDraftOrder` to (session, table) so **every table keeps its own running draft**; null = the walk-in/quick-sale lane (`whereNull('pos_table_id')`). Header shows the table + floor + a **guest stepper** (`setGuests(±1)`, clamped 0..seats) and a "← Floor" link. Routes: `/app/pos/session/{s}/table/{t}` (bound) + the existing `/terminal` (walk-in) |
 | Entry flow | `PosHome::sellUrl()` — Open/Resume lands on the **floor plan when any active table exists**, else straight to the walk-in terminal (shops with no tables keep the original one-tap flow; an empty floor plan also offers "Sell without a table"). **Additive — never blocks selling** |
 | CRUD | `PosFloors`/`PosFloorForm` (`/app/pos/floor[...]`) + `PosTables`/`PosTableForm` (`/app/pos/table[...]`) — thin engine list/form wrappers. Manifest `models[]` += `PosFloor`,`PosTable` (needs `module:resync pos` — deploy runs it; the 3 migrations are applied by deploy's POS migrate step) |
 | Seed | `PosSeeder::seedFloorsAndTables()` — demo Main floor (1–8) + Patio (9, 10, round 11), idempotent. **NOT in the deploy chain** (only `SettingSeeder`/`PosStaffSeeder` run on deploy). For prod, the default **floors** ship instead as a **data migration** `2026_06_10_500004_seed_default_pos_floors.php` — seeds **Patio / Ground floor / First floor** (no tables), per-name idempotent (inserts each only if a floor of that name is missing, so it never duplicates or clobbers a renamed floor; `down()` deletes those three). Runs via the deploy's POS `migrate --path` step because `PosSeeder` isn't in the deploy chain — so the table form's Floor picker is never empty on a fresh install. Tables are still admin-added via **POS → POS Tables** |
-| Tests | `tests/Feature/PosFloorTableTest.php` (7 — open→floor-when-tables / →terminal-when-none, table binds order, per-table separate orders + walk-in, guest clamp, unknown table 404, floor lists + marks occupied). `PosModuleTest` registered-models list updated (+ pos.floor/pos.table) |
+| Tests | `tests/Feature/PosFloorTableTest.php` (11 — open→floor-when-tables / →terminal-when-none, table binds order, per-table separate orders + walk-in, guest clamp, unknown table 404, floor lists + marks occupied, **arrange saves position**, **moveTable clamps to grid**, **moveTable Write-gated for non-managers**, floor name translatable). `PosModuleTest` registered-models list updated (+ pos.floor/pos.table) |
 
 **Split order — move items off a bill into a new order (shipped 2026-06-12):**
 
@@ -883,8 +884,8 @@ Available from **two entry points** sharing one modal + one service.
 | Tests | `tests/Feature/PosOrderSplitTest.php` (9 — draft move, partial-qty shrink, merge-into-existing-table-draft, can't-empty-original, empty-selection rejected, **paid split keeps stock + reapportions payment + combined cash unchanged**, modal create+dispatch, orders-list render+cancel, receipt-print renders) |
 
 **Deliberately OUT of scope** (say so if asked, offer as follow-ups): offline/PWA &
-hardware/IoT (cash drawer, customer display), a drag-to-position custom floor-plan
-editor / table merge-transfer (order **split** now ships; table merge/transfer don't),
+hardware/IoT (cash drawer, customer display), table merge-transfer (order **split**
+and the **free-position floor-plan editor** now ship; table merge/transfer don't),
 loyalty/gift cards/coupons, multi-currency *per-order* (the global default currency from
 Phase 11 IS now applied), advanced tax (price-included, multi-tax, fiscal positions),
 refunds/returns, and accounting/invoice posting. Known simplification: cash

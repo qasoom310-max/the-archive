@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Erp\Modules\ModuleManager;
+use App\Models\Auth\ModelAccess;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
@@ -155,6 +156,56 @@ final class PosFloorTableTest extends TestCase
         Livewire::test(PosFloorPlan::class, ['session' => $session->id])
             ->call('selectFloor', $table->pos_floor_id)
             ->assertSee('2/4');
+    }
+
+    public function test_arranging_saves_a_table_position(): void
+    {
+        $session = $this->openSession();
+        $table = $this->table(name: '5');
+
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('selectFloor', $table->pos_floor_id)
+            ->assertSet('canEdit', true) // acting admin
+            ->call('toggleEditing')
+            ->assertSet('editing', true)
+            ->call('moveTable', $table->id, 3, 2);
+
+        $fresh = $table->fresh();
+        $this->assertSame(3, $fresh?->pos_x);
+        $this->assertSame(2, $fresh?->pos_y);
+    }
+
+    public function test_move_table_clamps_to_the_grid(): void
+    {
+        $session = $this->openSession();
+        $table = $this->table(name: '6');
+
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('selectFloor', $table->pos_floor_id)
+            ->call('moveTable', $table->id, 999, -5);
+
+        $fresh = $table->fresh();
+        $this->assertSame(PosFloorPlan::COLS - 1, $fresh?->pos_x); // clamped to last column
+        $this->assertSame(0, $fresh?->pos_y); // never negative
+    }
+
+    public function test_move_table_is_write_gated_for_non_managers(): void
+    {
+        $session = $this->openSession();
+        $table = $this->table(name: '7');
+
+        // A cashier-style user: may Read pos.order (so the plan opens) but has
+        // no pos.table Write — arranging must be forbidden.
+        ModelAccess::query()->create(['name' => 'order-read', 'model' => 'pos.order', 'perm_read' => true]);
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('selectFloor', $table->pos_floor_id)
+            ->assertSet('canEdit', false)
+            ->call('moveTable', $table->id, 1, 1)
+            ->assertForbidden();
+
+        $this->assertNull($table->fresh()?->pos_x);
     }
 
     public function test_floor_name_is_translatable_per_locale(): void

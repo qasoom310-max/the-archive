@@ -248,6 +248,25 @@ final class PosFloorTableTest extends TestCase
             ->assertDontSee('bg-emerald-500 text-white'); // empty draft = white
     }
 
+    public function test_new_order_from_a_table_receipt_returns_to_the_floor(): void
+    {
+        $session = $this->openSession();
+        $table = $this->table();
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id, 'table' => $table->id])
+            ->call('finishToFloor')
+            ->assertRedirect(url('/app/pos/session/' . $session->id . '/floor'));
+    }
+
+    public function test_new_order_from_a_walk_in_receipt_stays_in_place(): void
+    {
+        $session = $this->openSession();
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('finishToFloor')
+            ->assertNoRedirect();
+    }
+
     public function test_unknown_table_404s(): void
     {
         $session = $this->openSession();

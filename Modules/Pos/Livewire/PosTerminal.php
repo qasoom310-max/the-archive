@@ -664,6 +664,24 @@ final class PosTerminal extends Component
     {
     }
 
+    /**
+     * "New order" from the receipt: a dine-in table sends the cashier back to
+     * the floor plan to pick the next table (the just-paid table is now free —
+     * starting another order should go through table selection, NOT silently
+     * reopen the same one). Walk-in / quick sale has no table, so it just
+     * starts a fresh order in place to keep counter service flowing.
+     */
+    public function finishToFloor(): void
+    {
+        if ($this->tableId !== null) {
+            $this->redirect(url('/app/pos/session/' . $this->sessionId . '/floor'), navigate: true);
+
+            return;
+        }
+
+        $this->newOrder();
+    }
+
     public function newOrder(): void
     {
         $session = PosSession::query()->findOrFail($this->sessionId);

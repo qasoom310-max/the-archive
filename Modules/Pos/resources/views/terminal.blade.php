@@ -471,7 +471,14 @@
     {{-- ───────────── Receipt overlay ───────────── --}}
     @if ($receipt)
         <div class="fixed inset-0 z-40 flex items-center justify-center bg-chrome-900/40 p-4">
-            <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-pop">
+            <div class="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-pop">
+                {{-- Close: dismiss the receipt and reset this terminal to a
+                     fresh empty order (no Done-order limbo). --}}
+                <button type="button" wire:click="newOrder"
+                    class="absolute end-3 top-3 flex size-7 items-center justify-center rounded-full text-chrome-400 transition hover:bg-chrome-100 hover:text-chrome-700"
+                    title="{{ __('Close') }}" aria-label="{{ __('Close') }}">
+                    <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                </button>
                 <div class="text-center">
                     {{-- Custom company logo when uploaded; falls back to
                          the company name text + "OpenERP POS". The logo
@@ -531,7 +538,7 @@
                 <p class="mt-3 text-center text-xs text-chrome-400">{{ __('Thank you!') }}</p>
                 <div class="mt-4 flex gap-2">
                     <button onclick="window.print()" class="o-btn-ghost flex-1 justify-center">{{ __('Print') }}</button>
-                    <button wire:click="newOrder" class="o-btn-primary flex-1 justify-center">{{ __('New order') }}</button>
+                    <button wire:click="finishToFloor" class="o-btn-primary flex-1 justify-center">{{ __('New order') }}</button>
                 </div>
             </div>
         </div>

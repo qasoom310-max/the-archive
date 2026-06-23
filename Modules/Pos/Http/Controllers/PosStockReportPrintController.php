@@ -13,8 +13,8 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
-use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Services\PosStockReportData;
+use Modules\Pos\Support\StockRow;
 
 /**
  * Browser-printable Stock Report (auto-opens the print dialog), honouring
@@ -32,16 +32,17 @@ final class PosStockReportPrintController extends Controller
 
         $labels = ['in' => 'In stock', 'low' => 'Low stock', 'out' => 'Out of stock'];
 
-        $rows = $data->query($filter, $search, $includeInactive)->get()
-            ->map(function (PosProduct $product) use ($data, $labels): array {
-                $unit = $product->unit && $product->unit !== 'qty' ? ' ' . $product->unit : '';
+        $rows = $data->rows($filter, $search, $includeInactive)
+            ->map(function (StockRow $row) use ($labels): array {
+                $unit = $row->unit !== '' ? ' ' . $row->unit : '';
 
                 return [
-                    'name' => (string) $product->name,
-                    'category' => $product->category_name ?? '—',
-                    'stock' => rtrim(rtrim(number_format((float) $product->stock_on_hand, 3), '0'), '.') . $unit,
-                    'value' => Currencies::format($product->stockValue()),
-                    'status' => $labels[$data->status($product)] ?? '',
+                    'name' => $row->name,
+                    'type' => $row->isCondiment() ? __('Add-on') : __('Product'),
+                    'category' => $row->category ?? '—',
+                    'stock' => rtrim(rtrim(number_format($row->stock, 3), '0'), '.') . $unit,
+                    'value' => Currencies::format($row->value),
+                    'status' => $labels[$row->status] ?? '',
                 ];
             })
             ->all();

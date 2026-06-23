@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
 use Modules\Pos\Livewire\PosStockReport;
+use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosProduct;
 use Tests\TestCase;
 
@@ -125,5 +126,53 @@ final class PosStockReportTest extends TestCase
             ->call('saveAdjust');
 
         $this->assertEqualsWithDelta(42.0, $product->fresh()?->stock_on_hand, 0.001);
+    }
+
+    public function test_condiments_appear_and_count_in_the_summary(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        app(ModuleManager::class)->install('pos');
+
+        PosProduct::query()->create(['name' => 'Burger', 'price' => 1, 'tax_rate' => 0, 'active' => true, 'stock_on_hand' => 50]);
+        PosCondiment::query()->create(['name' => 'Extra cheese', 'price' => 0.5, 'active' => true, 'stock_on_hand' => 3]);  // low
+        PosCondiment::query()->create(['name' => 'No ice', 'price' => 0, 'active' => true, 'stock_on_hand' => 0]);          // out
+
+        Livewire::test(PosStockReport::class)
+            ->assertViewHas('summary', fn (array $s): bool => $s['total'] === 3 // 1 product + 2 condiments
+                && $s['in'] === 2   // Burger (50) + Extra cheese (3) both have stock; low ⊂ in
+                && $s['low'] === 1  // Extra cheese (≤ 10)
+                && $s['out'] === 1) // No ice (0)
+            ->assertSee('Extra cheese')
+            ->assertSee('No ice')
+            ->assertSee('Add-on');
+    }
+
+    public function test_out_filter_includes_out_of_stock_condiments(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        app(ModuleManager::class)->install('pos');
+
+        PosProduct::query()->create(['name' => 'In Stock Product', 'price' => 1, 'tax_rate' => 0, 'active' => true, 'stock_on_hand' => 50]);
+        PosCondiment::query()->create(['name' => 'Empty Add-on', 'price' => 0, 'active' => true, 'stock_on_hand' => 0]);
+
+        Livewire::test(PosStockReport::class)
+            ->call('setFilter', 'out')
+            ->assertSee('Empty Add-on')
+            ->assertDontSee('In Stock Product');
+    }
+
+    public function test_adjust_sets_a_condiment_stock(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        app(ModuleManager::class)->install('pos');
+
+        $condiment = PosCondiment::query()->create(['name' => 'Sauce', 'price' => 0, 'active' => true, 'stock_on_hand' => 0]);
+
+        Livewire::test(PosStockReport::class)
+            ->call('openAdjust', $condiment->id, 'condiment')
+            ->set('adjustQty', '25')
+            ->call('saveAdjust');
+
+        $this->assertEqualsWithDelta(25.0, $condiment->fresh()?->stock_on_hand, 0.001);
     }
 }

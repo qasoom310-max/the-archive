@@ -40,6 +40,7 @@
         <thead>
             <tr>
                 <th>{{ __('Product') }}</th>
+                <th>{{ __('Type') }}</th>
                 <th>{{ __('Category') }}</th>
                 <th class="r">{{ __('On hand') }}</th>
                 <th class="r">{{ __('Value') }}</th>
@@ -51,13 +52,14 @@
                 @php $cls = ['In stock' => 'in', 'Low stock' => 'low', 'Out of stock' => 'out'][$row['status']] ?? 'in'; @endphp
                 <tr>
                     <td>{{ $row['name'] }}</td>
+                    <td>{{ $row['type'] }}</td>
                     <td>{{ $row['category'] }}</td>
                     <td class="r">{{ $row['stock'] }}</td>
                     <td class="r">{{ $row['value'] }}</td>
                     <td class="r"><span class="badge {{ $cls }}">{{ __($row['status']) }}</span></td>
                 </tr>
             @empty
-                <tr><td colspan="5" class="muted" style="text-align:center;padding:24px;">{{ __('No products found.') }}</td></tr>
+                <tr><td colspan="6" class="muted" style="text-align:center;padding:24px;">{{ __('No products found.') }}</td></tr>
             @endforelse
         </tbody>
     </table>

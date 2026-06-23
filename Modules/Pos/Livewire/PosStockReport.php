@@ -7,6 +7,8 @@ namespace Modules\Pos\Livewire;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
@@ -14,6 +16,7 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Services\PosStockReportData;
 
@@ -44,10 +47,15 @@ final class PosStockReport extends Component
     #[Url(except: false)]
     public bool $includeInactive = false;
 
-    /** Inline restock modal: the product being adjusted + its new on-hand. */
+    /** Inline restock modal: the item being adjusted + its new on-hand. */
     public ?int $adjustId = null;
 
+    /** 'product' | 'condiment' — which catalogue the adjusted row belongs to. */
+    public string $adjustType = 'product';
+
     public string $adjustQty = '';
+
+    private const PER_PAGE = 30;
 
     public function mount(): void
     {
@@ -75,26 +83,29 @@ final class PosStockReport extends Component
         $this->resetPage();
     }
 
-    public function openAdjust(int $productId): void
+    public function openAdjust(int $id, string $type = 'product'): void
     {
-        $product = PosProduct::query()->find($productId);
-        if ($product === null) {
+        $type = $type === 'condiment' ? 'condiment' : 'product';
+        $model = $this->findStockModel($id, $type);
+        if ($model === null) {
             return;
         }
 
-        $this->adjustId = $productId;
-        $this->adjustQty = rtrim(rtrim(number_format((float) $product->stock_on_hand, 3, '.', ''), '0'), '.');
+        $this->adjustId = $id;
+        $this->adjustType = $type;
+        $this->adjustQty = rtrim(rtrim(number_format((float) $model->stock_on_hand, 3, '.', ''), '0'), '.');
     }
 
     public function closeAdjust(): void
     {
         $this->adjustId = null;
+        $this->adjustType = 'product';
         $this->adjustQty = '';
     }
 
     /**
-     * Set a product's on-hand to the typed value. Write-gated; the saved
-     * model fires the Inventory-sync hook so the ledger tracks the change.
+     * Set the item's on-hand to the typed value. Write-gated; a saved product
+     * fires the Inventory-sync hook so the ledger tracks the change.
      */
     public function saveAdjust(): void
     {
@@ -104,29 +115,52 @@ final class PosStockReport extends Component
             return;
         }
 
-        $product = PosProduct::query()->find($this->adjustId);
-        if ($product === null) {
+        $model = $this->findStockModel($this->adjustId, $this->adjustType);
+        if ($model === null) {
             $this->closeAdjust();
 
             return;
         }
 
-        $product->stock_on_hand = max(0.0, round((float) $this->adjustQty, 3));
-        $product->save();
+        $model->stock_on_hand = max(0.0, round((float) $this->adjustQty, 3));
+        $model->save();
 
         $this->closeAdjust();
+    }
+
+    /** Resolve the adjusted row's underlying model (product or condiment). */
+    private function findStockModel(int $id, string $type): PosProduct|PosCondiment|null
+    {
+        return $type === 'condiment'
+            ? PosCondiment::query()->find($id)
+            : PosProduct::query()->find($id);
     }
 
     public function render(): View
     {
         $data = app(PosStockReportData::class);
 
+        // Products + condiments are merged in PHP, so paginate the resulting
+        // collection by hand into a LengthAwarePaginator the compact links
+        // partial understands.
+        $rows = $data->rows($this->filter, $this->search, $this->includeInactive);
+        $page = Paginator::resolveCurrentPage();
+        $paginator = new LengthAwarePaginator(
+            $rows->forPage($page, self::PER_PAGE)->values(),
+            $rows->count(),
+            self::PER_PAGE,
+            $page,
+            ['path' => Paginator::resolveCurrentPath()],
+        );
+
+        $adjust = $this->adjustId !== null ? $this->findStockModel($this->adjustId, $this->adjustType) : null;
+
         return view('pos::stock-report', [
-            'products' => $data->query($this->filter, $this->search, $this->includeInactive)->paginate(30),
+            'rows' => $paginator,
             'summary' => $data->summary($this->includeInactive),
             'threshold' => $data->threshold(),
             'purchasesInstalled' => Schema::hasTable('purchases'),
-            'adjustProduct' => $this->adjustId !== null ? PosProduct::query()->find($this->adjustId) : null,
+            'adjustName' => $adjust !== null ? (string) $adjust->name : null,
         ]);
     }
 }

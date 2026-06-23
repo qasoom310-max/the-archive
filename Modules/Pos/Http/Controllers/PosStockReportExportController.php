@@ -10,8 +10,8 @@ use App\Erp\Security\Permission;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
-use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Services\PosStockReportData;
+use Modules\Pos\Support\StockRow;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -36,25 +36,23 @@ final class PosStockReportExportController extends Controller
                 return;
             }
 
-            fputcsv($out, ['Product', 'Category', 'Unit', 'On hand', 'Cost', 'Value', 'Reorder point', 'Status', 'Active']);
+            fputcsv($out, ['Item', 'Type', 'Category', 'Unit', 'On hand', 'Cost', 'Value', 'Reorder point', 'Status', 'Active']);
 
-            $data->query($filter, $search, $includeInactive)
-                ->chunk(200, function ($products) use ($out, $data, $labels): void {
-                    foreach ($products as $product) {
-                        /** @var PosProduct $product */
-                        fputcsv($out, [
-                            $product->name,
-                            $product->category_name ?? '',
-                            $product->unit ?? 'qty',
-                            $this->num((float) $product->stock_on_hand),
-                            Currencies::format((float) $product->cost_price),
-                            Currencies::format($product->stockValue()),
-                            $product->reorder_point !== null ? $this->num((float) $product->reorder_point) : '',
-                            $labels[$data->status($product)] ?? '',
-                            $product->active ? 'Yes' : 'No',
-                        ]);
-                    }
-                });
+            foreach ($data->rows($filter, $search, $includeInactive) as $row) {
+                /** @var StockRow $row */
+                fputcsv($out, [
+                    $row->name,
+                    $row->isCondiment() ? 'Add-on' : 'Product',
+                    $row->category ?? '',
+                    $row->unit !== '' ? $row->unit : 'qty',
+                    $this->num($row->stock),
+                    Currencies::format($row->cost),
+                    Currencies::format($row->value),
+                    $row->reorderPoint !== null ? $this->num($row->reorderPoint) : '',
+                    $labels[$row->status] ?? '',
+                    $row->active ? 'Yes' : 'No',
+                ]);
+            }
 
             fclose($out);
         });

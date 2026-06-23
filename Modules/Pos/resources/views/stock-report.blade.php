@@ -82,36 +82,36 @@
                 </tr>
             </thead>
             <tbody class="divide-y divide-chrome-100">
-                @forelse ($products as $product)
+                @forelse ($rows as $row)
                     @php
-                        $stock = (float) $product->stock_on_hand;
-                        $rp = $product->reorder_point !== null ? (float) $product->reorder_point : $threshold;
-                        $status = $stock <= 0 ? 'out' : ($stock <= $rp ? 'low' : 'in');
                         $statusMeta = [
                             'in' => [__('In stock'), 'bg-emerald-100 text-emerald-700'],
                             'low' => [__('Low stock'), 'bg-amber-100 text-amber-700'],
                             'out' => [__('Out of stock'), 'bg-red-100 text-red-700'],
-                        ][$status];
-                        $unit = $product->unit && $product->unit !== 'qty' ? ' ' . $product->unit : '';
+                        ][$row->status];
+                        $unit = $row->unit !== '' ? ' ' . $row->unit : '';
                     @endphp
-                    <tr wire:key="stock-{{ $product->id }}" class="hover:bg-chrome-50 {{ $product->active ? '' : 'opacity-60' }}">
+                    <tr wire:key="stock-{{ $row->type }}-{{ $row->id }}" class="hover:bg-chrome-50 {{ $row->active ? '' : 'opacity-60' }}">
                         <td class="px-4 py-2.5">
-                            <a href="{{ url('/app/pos/product/' . $product->id) }}" wire:navigate
-                                class="font-medium text-chrome-800 hover:text-primary-700">{{ $product->name }}</a>
-                            @unless ($product->active)<span class="ms-1 text-xs text-chrome-400">({{ __('inactive') }})</span>@endunless
+                            <a href="{{ url($row->url()) }}" wire:navigate
+                                class="font-medium text-chrome-800 hover:text-primary-700">{{ $row->name }}</a>
+                            @if ($row->isCondiment())
+                                <span class="ms-1.5 inline-flex rounded-full bg-chrome-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-chrome-500">{{ __('Add-on') }}</span>
+                            @endif
+                            @unless ($row->active)<span class="ms-1 text-xs text-chrome-400">({{ __('inactive') }})</span>@endunless
                         </td>
-                        <td class="px-4 py-2.5 text-chrome-500">{{ $product->category_name ?? '—' }}</td>
-                        <td class="px-4 py-2.5 text-end font-semibold tabular-nums text-chrome-900">{{ $fmt($stock) }}{{ $unit }}</td>
-                        <td class="px-4 py-2.5 text-end tabular-nums text-chrome-600">{{ $money($product->stockValue()) }}</td>
+                        <td class="px-4 py-2.5 text-chrome-500">{{ $row->category ?? '—' }}</td>
+                        <td class="px-4 py-2.5 text-end font-semibold tabular-nums text-chrome-900">{{ $fmt($row->stock) }}{{ $unit }}</td>
+                        <td class="px-4 py-2.5 text-end tabular-nums text-chrome-600">{{ $money($row->value) }}</td>
                         <td class="px-4 py-2.5 text-end">
                             <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ $statusMeta[1] }}">{{ $statusMeta[0] }}</span>
                         </td>
                         <td class="px-4 py-2.5">
                             <div class="flex items-center justify-end gap-2">
-                                <button type="button" wire:click="openAdjust({{ $product->id }})"
+                                <button type="button" wire:click="openAdjust({{ $row->id }}, '{{ $row->type }}')"
                                     class="text-xs font-medium text-primary-600 hover:underline">{{ __('Adjust') }}</button>
-                                @if ($status === 'out' && $purchasesInstalled)
-                                    <a href="{{ url('/app/purchases/purchase/new?product=' . $product->id) }}" wire:navigate
+                                @if ($row->status === 'out' && $row->isProduct() && $purchasesInstalled)
+                                    <a href="{{ url('/app/purchases/purchase/new?product=' . $row->id) }}" wire:navigate
                                         class="text-xs font-medium text-chrome-500 hover:underline">{{ __('Buy') }}</a>
                                 @endif
                             </div>
@@ -126,17 +126,17 @@
         </table>
     </div>
 
-    <div class="mt-4">{{ $products->links('vendor.pagination.compact') }}</div>
+    <div class="mt-4">{{ $rows->links('vendor.pagination.compact') }}</div>
 
     {{-- Inline restock modal --}}
-    @if ($adjustProduct)
+    @if ($adjustName !== null)
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-chrome-900/40 p-4">
             <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-pop">
                 <div class="mb-3 flex items-center justify-between">
                     <h2 class="text-base font-bold text-chrome-900">{{ __('Set stock') }}</h2>
                     <button type="button" wire:click="closeAdjust" class="text-sm text-chrome-400 hover:text-chrome-700">✕</button>
                 </div>
-                <p class="mb-3 truncate text-sm text-chrome-500">{{ $adjustProduct->name }}</p>
+                <p class="mb-3 truncate text-sm text-chrome-500">{{ $adjustName }}</p>
                 <label class="block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('On hand') }}</label>
                 <input type="number" step="any" min="0" autofocus
                     wire:model="adjustQty" wire:keydown.enter="saveAdjust"

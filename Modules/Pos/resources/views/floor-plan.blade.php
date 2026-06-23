@@ -22,7 +22,7 @@
                 </button>
             @endif
             <a href="{{ url('/app/pos/session/' . $sessionId . '/terminal') }}" wire:navigate
-                class="o-btn-ghost text-sm">{{ __('Quick sale (no table)') }}</a>
+                class="o-btn-ghost text-sm">{{ __('Dine-out') }}</a>
             <a href="{{ url('/app/pos/session/' . $sessionId) }}" wire:navigate
                 class="o-btn-ghost text-sm">{{ __('Manage register') }}</a>
         </div>

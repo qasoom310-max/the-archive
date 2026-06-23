@@ -18,7 +18,7 @@
      the topbar stays pinned. --}}
 <div wire:poll.5s
      x-data="kitchenDisplay({{ \Illuminate\Support\Js::from($activeTicketIds) }})"
-     class="flex h-[calc(100vh-3rem)] flex-col bg-chrome-100">
+     class="flex h-full flex-col overflow-hidden bg-chrome-100">
 
     {{-- Toolbar --}}
     <div class="flex shrink-0 items-center justify-between gap-3 border-b border-chrome-200 bg-white px-4 py-3 sm:px-6">
@@ -67,10 +67,13 @@
         </div>
     @endif
 
-    {{-- 3-column kanban. Mobile-first stack; sm+ side-by-side. Each column
-         scrolls vertically. Large gaps + bold colour bands per status so a
-         distracted cook can read state at a glance. --}}
-    <div class="grid min-h-0 flex-1 grid-cols-1 gap-2 overflow-y-auto p-2 sm:grid-cols-3 sm:gap-3 sm:overflow-hidden sm:p-3">
+    {{-- 3-column kanban that FILLS the remaining height and never scrolls the
+         page. On phones the 3 columns split the height into equal thirds
+         (`grid-rows-3`); on sm+ they sit side-by-side. Either way the grid
+         itself is `overflow-hidden` and each column's ticket list scrolls
+         internally — so the only scrollbars are inside NEW / PREPARING / READY,
+         never the whole page (no more frustrating page scroll on tablet/phone). --}}
+    <div class="grid min-h-0 flex-1 grid-cols-1 grid-rows-3 gap-2 overflow-hidden p-2 sm:grid-cols-3 sm:grid-rows-1 sm:gap-3 sm:p-3">
         @foreach ($columns as $column)
             @php
                 $tone = $columnTone[$column->color()];
@@ -91,7 +94,7 @@
                     </span>
                 </div>
 
-                <div class="flex-1 space-y-3 overflow-y-auto p-3">
+                <div class="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
                     @forelse ($columnTickets as $ticket)
                         @php
                             $elapsed = $ticket->sentAt->diffInMinutes(now());

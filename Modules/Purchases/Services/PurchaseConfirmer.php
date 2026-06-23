@@ -14,6 +14,7 @@ use Modules\Inventory\Models\StockLocation;
 use Modules\Inventory\Models\StockMove;
 use Modules\Inventory\Models\StockOperationType;
 use Modules\Pos\Models\PosCondiment;
+use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosProduct;
 use Modules\Purchases\Enums\PurchaseState;
 use Modules\Purchases\Events\PurchaseInvoiceConfirmed;
@@ -65,15 +66,17 @@ final class PurchaseConfirmer
                     continue;
                 }
 
-                // A line buys EITHER a product or a condiment. A product also
-                // posts a warehouse receipt; a condiment only raises its own
-                // on-hand (condiments aren't on the Inventory ledger — same as
-                // recipe consumption).
+                // A line buys EITHER a product, a condiment or an ingredient. A
+                // product also posts a warehouse receipt; condiments and
+                // ingredients only raise their own on-hand (neither is on the
+                // Inventory ledger — same as recipe consumption).
                 if ($line->pos_product_id !== null) {
                     $this->raisePosStock($line);
                     $this->receiveIntoWarehouse($purchase, $line);
                 } elseif ($line->pos_condiment_id !== null) {
                     $this->raiseCondimentStock($line);
+                } elseif ($line->pos_ingredient_id !== null) {
+                    $this->raiseIngredientStock($line);
                 }
             }
         });
@@ -124,6 +127,24 @@ final class PurchaseConfirmer
 
         $condiment->stock_on_hand = round((float) $condiment->stock_on_hand + (float) $line->quantity, 3);
         $condiment->save();
+    }
+
+    /**
+     * Increase an ingredient's on-hand count. Like condiments, ingredients are
+     * stock-tracked (so they can be recipe components) but are NOT on the
+     * Inventory warehouse ledger, so there's no receipt move — only the
+     * POS-side figure.
+     */
+    private function raiseIngredientStock(PurchaseLine $line): void
+    {
+        $ingredient = PosIngredient::query()->find($line->pos_ingredient_id);
+
+        if ($ingredient === null) {
+            return;
+        }
+
+        $ingredient->stock_on_hand = round((float) $ingredient->stock_on_hand + (float) $line->quantity, 3);
+        $ingredient->save();
     }
 
     /**

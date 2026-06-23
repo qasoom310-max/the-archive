@@ -19,6 +19,8 @@ use Modules\Pos\Livewire\PosFloorForm;
 use Modules\Pos\Livewire\PosFloorPlan;
 use Modules\Pos\Livewire\PosFloors;
 use Modules\Pos\Livewire\PosHome;
+use Modules\Pos\Livewire\PosIngredientForm;
+use Modules\Pos\Livewire\PosIngredients;
 use Modules\Pos\Livewire\PosOrders;
 use Modules\Pos\Livewire\PosProductForm;
 use Modules\Pos\Livewire\PosProductImport;
@@ -54,6 +56,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/pos/product', PosProducts::class)->name('pos.product.index');
     Route::get('/app/pos/category', PosCategories::class)->name('pos.category.index');
     Route::get('/app/pos/condiment', PosCondiments::class)->name('pos.condiment.index');
+    Route::get('/app/pos/ingredient', PosIngredients::class)->name('pos.ingredient.index');
     // Sidebar builds the slug with an underscore (pos.customer_discount →
     // /app/pos/customer_discount), so the route path matches that exactly.
     Route::get('/app/pos/customer_discount', PosCustomerDiscounts::class)->name('pos.customer_discount.index');
@@ -74,6 +77,10 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/pos/condiment/new', PosCondimentForm::class)->name('pos.condiment.create');
     Route::get('/app/pos/condiment/{id}', PosCondimentForm::class)
         ->whereNumber('id')->name('pos.condiment.edit');
+
+    Route::get('/app/pos/ingredient/new', PosIngredientForm::class)->name('pos.ingredient.create');
+    Route::get('/app/pos/ingredient/{id}', PosIngredientForm::class)
+        ->whereNumber('id')->name('pos.ingredient.edit');
 
     Route::get('/app/pos/customer_discount/new', PosCustomerDiscountForm::class)->name('pos.customer_discount.create');
     Route::get('/app/pos/customer_discount/{id}', PosCustomerDiscountForm::class)

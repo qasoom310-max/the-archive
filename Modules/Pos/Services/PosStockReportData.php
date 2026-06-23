@@ -7,6 +7,7 @@ namespace Modules\Pos\Services;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Modules\Pos\Models\PosCondiment;
+use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Support\StockRow;
 
@@ -16,9 +17,11 @@ use Modules\Pos\Support\StockRow;
  * bucket items identically (in / low / out, per-product reorder point falling
  * back to the global threshold).
  *
- * Covers BOTH catalogues — POS products and condiments / add-ons — since both
- * are stock-tracked. Condiments have no reorder point / cost / barcode, so
- * they bucket against the global threshold and contribute 0 to valuation.
+ * Covers ALL stock-tracked catalogues — POS products, condiments / add-ons and
+ * raw-material ingredients. Condiments have no reorder point / cost / barcode,
+ * so they bucket against the global threshold and contribute 0 to valuation.
+ * Ingredients carry a tracked cost (so they contribute to valuation) and a
+ * unit, but no reorder point / barcode.
  */
 final class PosStockReportData
 {
@@ -138,6 +141,30 @@ final class PosStockReportData
                 );
             });
 
-        return $products->concat($condiments)->values();
+        $ingredients = PosIngredient::query()
+            ->when(! $includeInactive, static fn (Builder $q) => $q->where('active', true))
+            ->get()
+            ->map(static function (PosIngredient $i) use ($t): StockRow {
+                $stock = (float) $i->stock_on_hand;
+                $cost = (float) $i->cost_price;
+                $status = $stock <= 0 ? 'out' : ($stock <= $t ? 'low' : 'in');
+
+                return new StockRow(
+                    type: 'ingredient',
+                    id: (int) $i->id,
+                    name: (string) $i->name,
+                    category: null,    // ingredients aren't category-scoped
+                    stock: $stock,
+                    unit: ($i->unit && $i->unit !== 'qty') ? (string) $i->unit : '',
+                    cost: $cost,
+                    value: $stock * $cost,
+                    reorderPoint: null,
+                    status: $status,
+                    active: (bool) $i->active,
+                    barcode: null,
+                );
+            });
+
+        return $products->concat($condiments)->concat($ingredients)->values();
     }
 }

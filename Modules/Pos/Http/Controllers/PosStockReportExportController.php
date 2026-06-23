@@ -42,7 +42,11 @@ final class PosStockReportExportController extends Controller
                 /** @var StockRow $row */
                 fputcsv($out, [
                     $row->name,
-                    $row->isCondiment() ? 'Add-on' : 'Product',
+                    match (true) {
+                        $row->isCondiment() => 'Add-on',
+                        $row->isIngredient() => 'Ingredient',
+                        default => 'Product',
+                    },
                     $row->category ?? '',
                     $row->unit !== '' ? $row->unit : 'qty',
                     $this->num($row->stock),

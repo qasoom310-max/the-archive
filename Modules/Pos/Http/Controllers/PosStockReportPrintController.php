@@ -38,7 +38,11 @@ final class PosStockReportPrintController extends Controller
 
                 return [
                     'name' => $row->name,
-                    'type' => $row->isCondiment() ? __('Add-on') : __('Product'),
+                    'type' => match (true) {
+                        $row->isCondiment() => __('Add-on'),
+                        $row->isIngredient() => __('Ingredient'),
+                        default => __('Product'),
+                    },
                     'category' => $row->category ?? '—',
                     'stock' => rtrim(rtrim(number_format($row->stock, 3), '0'), '.') . $unit,
                     'value' => Currencies::format($row->value),

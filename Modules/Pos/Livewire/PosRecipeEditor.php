@@ -12,19 +12,21 @@ use Livewire\Component;
 use Modules\Pos\Livewire\Concerns\CreatesProductInline;
 use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosCondiment;
+use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Models\PosProductRecipe;
 
 /**
  * Static recipe editor for a finished product: add/remove component lines with
- * a fixed quantity consumed per unit sold. A component is EITHER a product
- * (raw material) OR a condiment — both are stock-tracked and decremented on
- * sale. Strictly static — no per-sale overrides.
+ * a fixed quantity consumed per unit sold. A component is a product, a
+ * condiment OR an ingredient (raw material) — all stock-tracked and decremented
+ * on sale. Strictly static — no per-sale overrides.
  *
- * The component picker is a searchable combobox over products + condiments,
- * with an inline "New product" create (shared {@see CreatesProductInline}
- * trait + `pos::partials.new-product-modal`). The selected value is a composite
- * key `p:{id}` (product) or `c:{id}` (condiment).
+ * The component picker is a searchable combobox over products + condiments +
+ * ingredients, with an inline "New product" create (shared
+ * {@see CreatesProductInline} trait + `pos::partials.new-product-modal`). The
+ * selected value is a composite key `p:{id}` (product), `c:{id}` (condiment)
+ * or `i:{id}` (ingredient).
  */
 final class PosRecipeEditor extends Component
 {
@@ -32,7 +34,7 @@ final class PosRecipeEditor extends Component
 
     public int $productId;
 
-    /** Composite component key: "p:{id}" (product) or "c:{id}" (condiment). */
+    /** Composite key: "p:{id}" (product), "c:{id}" (condiment) or "i:{id}" (ingredient). */
     public ?string $componentKey = null;
 
     public string $quantity = '1';
@@ -77,7 +79,12 @@ final class PosRecipeEditor extends Component
             );
         } elseif ($type === 'c') {
             PosProductRecipe::query()->updateOrCreate(
-                ['parent_product_id' => $this->productId, 'component_condiment_id' => $id, 'component_product_id' => null],
+                ['parent_product_id' => $this->productId, 'component_condiment_id' => $id, 'component_product_id' => null, 'component_ingredient_id' => null],
+                ['quantity_consumed' => $qty],
+            );
+        } elseif ($type === 'i') {
+            PosProductRecipe::query()->updateOrCreate(
+                ['parent_product_id' => $this->productId, 'component_ingredient_id' => $id, 'component_product_id' => null, 'component_condiment_id' => null],
                 ['quantity_consumed' => $qty],
             );
         } else {
@@ -135,7 +142,7 @@ final class PosRecipeEditor extends Component
     public function render(): View
     {
         $lines = PosProductRecipe::query()
-            ->with(['component', 'condiment'])
+            ->with(['component', 'condiment', 'ingredient'])
             ->where('parent_product_id', $this->productId)
             ->get();
 
@@ -143,9 +150,12 @@ final class PosRecipeEditor extends Component
             ->pluck('component_product_id')->push($this->productId)->all();
         $usedCondimentIds = $lines->whereNotNull('component_condiment_id')
             ->pluck('component_condiment_id')->all();
+        $usedIngredientIds = $lines->whereNotNull('component_ingredient_id')
+            ->pluck('component_ingredient_id')->all();
 
-        // The picker offers products AND condiments (both stock-tracked). Each
-        // option carries a composite key so addLine knows which it is.
+        // The picker offers products AND condiments AND ingredients (all
+        // stock-tracked). Each option carries a composite key so addLine knows
+        // which it is.
         $productOptions = PosProduct::query()
             ->whereNotIn('id', $usedProductIds)
             ->orderBy('name')
@@ -158,7 +168,13 @@ final class PosRecipeEditor extends Component
             ->get(['id', 'name'])
             ->map(fn (PosCondiment $c): array => ['key' => 'c:' . $c->id, 'name' => (string) $c->name, 'type' => 'condiment']);
 
-        $componentOptions = $productOptions->concat($condimentOptions)->values();
+        $ingredientOptions = PosIngredient::query()
+            ->whereNotIn('id', $usedIngredientIds)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (PosIngredient $i): array => ['key' => 'i:' . $i->id, 'name' => (string) $i->name, 'type' => 'ingredient']);
+
+        $componentOptions = $productOptions->concat($condimentOptions)->concat($ingredientOptions)->values();
 
         return view('pos::recipe-editor', [
             'lines' => $lines,

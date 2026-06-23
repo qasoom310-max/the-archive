@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $purchase_id
  * @property int|null $pos_product_id
  * @property int|null $pos_condiment_id
+ * @property int|null $pos_ingredient_id
  * @property string $description
  * @property float $quantity
  * @property float $unit_cost
@@ -27,7 +28,7 @@ final class PurchaseLine extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'purchase_id', 'pos_product_id', 'pos_condiment_id', 'description', 'quantity', 'unit_cost', 'subtotal',
+        'purchase_id', 'pos_product_id', 'pos_condiment_id', 'pos_ingredient_id', 'description', 'quantity', 'unit_cost', 'subtotal',
     ];
 
     /**

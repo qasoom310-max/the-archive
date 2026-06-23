@@ -97,6 +97,8 @@
                                 class="font-medium text-chrome-800 hover:text-primary-700">{{ $row->name }}</a>
                             @if ($row->isCondiment())
                                 <span class="ms-1.5 inline-flex rounded-full bg-chrome-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-chrome-500">{{ __('Add-on') }}</span>
+                            @elseif ($row->isIngredient())
+                                <span class="ms-1.5 inline-flex rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-700">{{ __('Ingredient') }}</span>
                             @endif
                             @unless ($row->active)<span class="ms-1 text-xs text-chrome-400">({{ __('inactive') }})</span>@endunless
                         </td>

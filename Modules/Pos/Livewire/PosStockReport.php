@@ -17,6 +17,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Modules\Pos\Models\PosCondiment;
+use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Services\PosStockReportData;
 
@@ -50,7 +51,7 @@ final class PosStockReport extends Component
     /** Inline restock modal: the item being adjusted + its new on-hand. */
     public ?int $adjustId = null;
 
-    /** 'product' | 'condiment' — which catalogue the adjusted row belongs to. */
+    /** 'product' | 'condiment' | 'ingredient' — which catalogue the adjusted row belongs to. */
     public string $adjustType = 'product';
 
     public string $adjustQty = '';
@@ -85,7 +86,7 @@ final class PosStockReport extends Component
 
     public function openAdjust(int $id, string $type = 'product'): void
     {
-        $type = $type === 'condiment' ? 'condiment' : 'product';
+        $type = in_array($type, ['condiment', 'ingredient'], true) ? $type : 'product';
         $model = $this->findStockModel($id, $type);
         if ($model === null) {
             return;
@@ -128,12 +129,14 @@ final class PosStockReport extends Component
         $this->closeAdjust();
     }
 
-    /** Resolve the adjusted row's underlying model (product or condiment). */
-    private function findStockModel(int $id, string $type): PosProduct|PosCondiment|null
+    /** Resolve the adjusted row's underlying model (product, condiment or ingredient). */
+    private function findStockModel(int $id, string $type): PosProduct|PosCondiment|PosIngredient|null
     {
-        return $type === 'condiment'
-            ? PosCondiment::query()->find($id)
-            : PosProduct::query()->find($id);
+        return match ($type) {
+            'condiment' => PosCondiment::query()->find($id),
+            'ingredient' => PosIngredient::query()->find($id),
+            default => PosProduct::query()->find($id),
+        };
     }
 
     public function render(): View

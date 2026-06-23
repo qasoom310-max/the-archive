@@ -5,18 +5,20 @@ declare(strict_types=1);
 namespace Modules\Pos\Support;
 
 /**
- * One row of the Stock Report — a stock-tracked item (a product OR a
- * condiment / add-on) already bucketed into its stock-health status. Lets the
- * report treat both catalogues uniformly across the on-screen view, the CSV
- * export and the printable slip.
+ * One row of the Stock Report — a stock-tracked item (a product, a condiment /
+ * add-on, or a raw-material ingredient) already bucketed into its stock-health
+ * status. Lets the report treat all catalogues uniformly across the on-screen
+ * view, the CSV export and the printable slip.
  *
  * Condiments carry no cost / reorder-point / barcode, so those are null/0 for
  * them (value is therefore always 0 — condiment cost isn't tracked).
+ * Ingredients carry a tracked cost (so they contribute to valuation) and a
+ * unit, but no reorder point / barcode.
  */
 final class StockRow
 {
     public function __construct(
-        /** 'product' | 'condiment'. */
+        /** 'product' | 'condiment' | 'ingredient'. */
         public readonly string $type,
         public readonly int $id,
         public readonly string $name,
@@ -44,11 +46,18 @@ final class StockRow
         return $this->type === 'condiment';
     }
 
+    public function isIngredient(): bool
+    {
+        return $this->type === 'ingredient';
+    }
+
     /** Edit-page URL for the underlying record. */
     public function url(): string
     {
-        return $this->isCondiment()
-            ? '/app/pos/condiment/' . $this->id
-            : '/app/pos/product/' . $this->id;
+        return match ($this->type) {
+            'condiment' => '/app/pos/condiment/' . $this->id,
+            'ingredient' => '/app/pos/ingredient/' . $this->id,
+            default => '/app/pos/product/' . $this->id,
+        };
     }
 }

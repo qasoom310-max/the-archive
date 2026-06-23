@@ -314,13 +314,21 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
                     continue;
                 }
 
-                // A line consumes EITHER a product or a condiment.
+                // A line consumes EITHER a product, a condiment or an ingredient.
                 if ($row->component_condiment_id !== null) {
                     PosCondiment::query()
                         ->whereKey($row->component_condiment_id)
                         ->decrement('stock_on_hand', $decrement);
 
                     continue; // condiments aren't on the Inventory ledger
+                }
+
+                if ($row->component_ingredient_id !== null) {
+                    PosIngredient::query()
+                        ->whereKey($row->component_ingredient_id)
+                        ->decrement('stock_on_hand', $decrement);
+
+                    continue; // ingredients aren't on the Inventory ledger
                 }
 
                 if ($row->component_product_id !== null) {

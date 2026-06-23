@@ -17,6 +17,7 @@ use Modules\Contacts\Models\Partner;
 use Modules\Pos\Livewire\Concerns\CreatesProductInline;
 use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosCondiment;
+use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosProduct;
 use Modules\Purchases\Enums\PurchaseState;
 use Modules\Purchases\Models\Purchase;
@@ -108,7 +109,9 @@ final class PurchaseForm extends Component
             ->map(static fn (PurchaseLine $l): array => [
                 'component' => $l->pos_product_id !== null
                     ? 'p:' . $l->pos_product_id
-                    : ($l->pos_condiment_id !== null ? 'c:' . $l->pos_condiment_id : ''),
+                    : ($l->pos_condiment_id !== null
+                        ? 'c:' . $l->pos_condiment_id
+                        : ($l->pos_ingredient_id !== null ? 'i:' . $l->pos_ingredient_id : '')),
                 'description' => $l->description,
                 'quantity' => $l->quantity,
                 'unit_cost' => $l->unit_cost,
@@ -317,9 +320,10 @@ final class PurchaseForm extends Component
     }
 
     /**
-     * When a line's component (product OR condiment) is picked, prefill the
-     * description; for a product also default the unit cost to its recorded
-     * cost price (condiments have no cost price — left for the buyer to enter).
+     * When a line's component (product, condiment OR ingredient) is picked,
+     * prefill the description; for a product or ingredient also default the
+     * unit cost to its recorded cost price (condiments have no cost price —
+     * left for the buyer to enter).
      */
     public function updatedLines(mixed $value, string $key): void
     {
@@ -358,6 +362,17 @@ final class PurchaseForm extends Component
             }
             if (($this->lines[$index]['description'] ?? '') === '') {
                 $this->lines[$index]['description'] = (string) $condiment->name;
+            }
+        } elseif ($type === 'i') {
+            $ingredient = PosIngredient::query()->find($id);
+            if ($ingredient === null) {
+                return;
+            }
+            if (($this->lines[$index]['description'] ?? '') === '') {
+                $this->lines[$index]['description'] = (string) $ingredient->name;
+            }
+            if ((float) $this->lines[$index]['unit_cost'] <= 0.0) {
+                $this->lines[$index]['unit_cost'] = (float) $ingredient->cost_price;
             }
         }
     }
@@ -462,17 +477,18 @@ final class PurchaseForm extends Component
         $purchase->lines()->delete();
 
         foreach ($this->lines as $line) {
-            // A line's component is a composite key: "p:{id}" (product) or
-            // "c:{id}" (condiment).
+            // A line's component is a composite key: "p:{id}" (product),
+            // "c:{id}" (condiment) or "i:{id}" (ingredient).
             [$type, $idStr] = array_pad(explode(':', (string) ($line['component'] ?? ''), 2), 2, null);
             $refId = (int) $idStr;
             $productId = ($type === 'p' && $refId > 0) ? $refId : null;
             $condimentId = ($type === 'c' && $refId > 0) ? $refId : null;
+            $ingredientId = ($type === 'i' && $refId > 0) ? $refId : null;
             $quantity = (float) ($line['quantity'] ?? 0);
 
             // Skip rows that have neither a component nor a quantity — empty
             // editor rows shouldn't persist.
-            if ($productId === null && $condimentId === null && $quantity <= 0.0) {
+            if ($productId === null && $condimentId === null && $ingredientId === null && $quantity <= 0.0) {
                 continue;
             }
 
@@ -484,12 +500,16 @@ final class PurchaseForm extends Component
                 } elseif ($condimentId !== null) {
                     $condiment = PosCondiment::query()->find($condimentId);
                     $description = $condiment !== null ? (string) $condiment->name : $description;
+                } elseif ($ingredientId !== null) {
+                    $ingredient = PosIngredient::query()->find($ingredientId);
+                    $description = $ingredient !== null ? (string) $ingredient->name : $description;
                 }
             }
 
             $purchase->lines()->create([
                 'pos_product_id' => $productId,
                 'pos_condiment_id' => $condimentId,
+                'pos_ingredient_id' => $ingredientId,
                 'description' => $description,
                 'quantity' => $quantity,
                 'unit_cost' => (float) ($line['unit_cost'] ?? 0),
@@ -507,13 +527,18 @@ final class PurchaseForm extends Component
         $access = app(AccessControl::class);
         $user = Auth::user();
 
-        // The line picker offers products AND condiments, each carrying a
-        // composite key ("p:{id}" / "c:{id}") so persist knows which it is.
+        // The line picker offers products AND condiments AND ingredients, each
+        // carrying a composite key ("p:{id}" / "c:{id}" / "i:{id}") so persist
+        // knows which it is.
         $components = PosProduct::query()->orderBy('name')->get(['id', 'name'])
             ->map(static fn (PosProduct $p): array => ['key' => 'p:' . $p->id, 'name' => (string) $p->name])
             ->concat(
                 PosCondiment::query()->where('active', true)->orderBy('name')->get(['id', 'name'])
                     ->map(static fn (PosCondiment $c): array => ['key' => 'c:' . $c->id, 'name' => (string) $c->name]),
+            )
+            ->concat(
+                PosIngredient::query()->where('active', true)->orderBy('name')->get(['id', 'name'])
+                    ->map(static fn (PosIngredient $i): array => ['key' => 'i:' . $i->id, 'name' => (string) $i->name]),
             )
             ->values();
 

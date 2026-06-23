@@ -212,7 +212,7 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
     {
         $lines = $this->relationLoaded('recipeLines')
             ? $this->recipeLines
-            : $this->recipeLines()->with(['component', 'condiment'])->get();
+            : $this->recipeLines()->with(['component', 'condiment', 'ingredient'])->get();
 
         if ($lines->isEmpty()) {
             return null;

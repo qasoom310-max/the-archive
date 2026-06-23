@@ -36,6 +36,8 @@
                             {{ $line->componentName() ?? '—' }}
                             @if ($line->isCondiment())
                                 <span class="ms-1 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-700">{{ __('Condiment') }}</span>
+                            @elseif ($line->isIngredient())
+                                <span class="ms-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">{{ __('Ingredient') }}</span>
                             @endif
                         </td>
                         <td class="py-1.5 text-end text-chrome-600">{{ rtrim(rtrim(number_format($line->quantity_consumed, 3), '0'), '.') }}</td>
@@ -100,7 +102,7 @@
                     @focus="openPanel()" @click="openPanel()"
                     @input="search = $event.target.value; open = true"
                     @keydown.escape.stop="open = false"
-                    placeholder="{{ __('Search a product or condiment…') }}"
+                    placeholder="{{ __('Search a product, condiment or ingredient…') }}"
                     autocomplete="off" class="o-input">
                 <div x-show="open" x-cloak
                     :style="`left:${coords.left}px; width:${coords.width}px; top:${coords.top}; bottom:${coords.bottom}; max-height:${coords.maxH}px;`"
@@ -111,6 +113,8 @@
                             <span x-text="p.name"></span>
                             <span x-show="p.type === 'condiment'"
                                 class="shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-700">{{ __('Condiment') }}</span>
+                            <span x-show="p.type === 'ingredient'"
+                                class="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">{{ __('Ingredient') }}</span>
                         </button>
                     </template>
                     <template x-if="filtered().length === 0">

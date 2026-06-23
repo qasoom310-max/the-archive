@@ -13,6 +13,7 @@ use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosCustomerDiscount;
 use Modules\Pos\Models\PosFloor;
+use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosPaymentMethod;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Models\PosTable;
@@ -29,6 +30,7 @@ final class PosSeeder extends Seeder
         // Condiments seed independently of the products guard below so a demo
         // add-on list exists even on a DB that already has products.
         $this->seedCondiments();
+        $this->seedIngredients();
         $this->seedCustomerDiscounts();
         $this->seedFloorsAndTables();
 
@@ -123,6 +125,39 @@ final class PosSeeder extends Seeder
             PosCondiment::query()->create([
                 'name' => $name,
                 'price' => $price,
+                'sequence' => $sequence,
+                'active' => true,
+            ]);
+        }
+    }
+
+    /**
+     * A small raw-material list (with cost + stock) so the recipe editor's
+     * component picker isn't empty. Idempotent — skipped once any ingredient
+     * exists. Seeded independently of the products guard so it runs on an
+     * existing DB too.
+     */
+    private function seedIngredients(): void
+    {
+        if (! Schema::hasTable('pos_ingredients') || PosIngredient::query()->exists()) {
+            return;
+        }
+
+        // [name, cost_price, stock_on_hand, unit, sequence]
+        $ingredients = [
+            ['Flour', 0.80, 50.0, 'kg', 10],
+            ['Sugar', 0.90, 40.0, 'kg', 20],
+            ['Coffee beans', 12.00, 20.0, 'kg', 30],
+            ['Milk', 0.70, 60.0, 'l', 40],
+            ['Olive oil', 5.50, 15.0, 'l', 50],
+        ];
+
+        foreach ($ingredients as [$name, $cost, $stock, $unit, $sequence]) {
+            PosIngredient::query()->create([
+                'name' => $name,
+                'cost_price' => $cost,
+                'stock_on_hand' => $stock,
+                'unit' => $unit,
                 'sequence' => $sequence,
                 'active' => true,
             ]);

@@ -9,6 +9,7 @@ use App\Models\Auth\ModelAccess;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
+use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Enums\PrepStatus;
 use Modules\Pos\Enums\SessionState;
 use Modules\Pos\Livewire\PosFloorPlan;
@@ -224,6 +225,27 @@ final class PosFloorTableTest extends TestCase
             ->call('addProduct', $burger->id)
             ->call('startPayment')
             ->assertSet('paying', true);
+    }
+
+    public function test_an_empty_draft_leaves_the_table_white(): void
+    {
+        $session = $this->openSession();
+        $table = $this->table(name: '7');
+
+        // A draft with NO lines — the state a table is left in after its order
+        // was paid and a fresh (empty) order was opened. It must read as free
+        // (white), not green, so a paid table visibly clears.
+        PosOrder::query()->create([
+            'pos_session_id' => $session->id,
+            'pos_table_id' => $table->id,
+            'reference' => 'POS/' . $session->id . '/0001',
+            'state' => OrderState::Draft,
+        ]);
+
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('selectFloor', $table->pos_floor_id)
+            ->assertSee('7')
+            ->assertDontSee('bg-emerald-500 text-white'); // empty draft = white
     }
 
     public function test_unknown_table_404s(): void

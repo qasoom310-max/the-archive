@@ -271,12 +271,21 @@ final class PosFloorPlan extends Component
         foreach ($tables as $table) {
             $order = $orders->get($table->id);
 
+            // A table is only "occupied" when its draft actually has items.
+            // An EMPTY draft (e.g. left behind after the previous order was
+            // paid and a fresh one was opened) reads as free/white, not green —
+            // otherwise a paid table never visibly clears.
+            $status = 'empty';
+            if ($order !== null && $order->lines->isNotEmpty()) {
+                $status = $this->kitchenStatus($order);
+            }
+
             $card = [
                 'id' => $table->id,
                 'name' => $table->name,
                 'shape' => $table->shape,
-                'hasOrder' => $order !== null,
-                'status' => $order === null ? 'empty' : $this->kitchenStatus($order),
+                'hasOrder' => $status !== 'empty',
+                'status' => $status,
             ];
 
             if ($table->pos_x === null || $table->pos_y === null) {

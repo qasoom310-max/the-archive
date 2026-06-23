@@ -329,7 +329,7 @@
     "Payment": "الدفع",
     "Pay now": "ادفع الآن",
     "Add-ons / Condiments": "الإضافات / التوابل",
-    "Tick the add-ons the register should offer for this product. Category-scoped and global condiments still apply too.": "حدّد الإضافات التي يعرضها الكاشير لهذا المنتج. تبقى إضافات الفئة والإضافات العامة سارية أيضًا.",
+    "Tick the add-ons the register should offer for this product. Only the ticked ones appear in the register.": "حدّد الإضافات التي يعرضها الكاشير لهذا المنتج. تظهر الإضافات المحددة فقط في الكاشير.",
     "No condiments yet. Create them under POS → POS Condiments.": "لا توجد إضافات بعد. أنشئها من نقطة البيع ← إضافات نقطة البيع.",
     "Pay now unlocks when the kitchen marks this order ready.": "يُفتح الدفع عندما يضع المطبخ علامة جاهز على هذا الطلب.",
     "Search product or scan barcode…": "ابحث عن منتج أو امسح الباركود…",

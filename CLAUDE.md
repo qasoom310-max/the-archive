@@ -740,12 +740,15 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
     (`pos::product-condiments`) embedded on the **product page** beneath the
     recipe editor (`product-form.blade.php`) — a checklist of every active
     condiment; `toggle($id)` attaches/detaches (Write-gated `pos.product`, so
-    admin-only — cashiers have no product access). `PosTerminal::condimentOptions()`
-    now **unions** the product's directly-assigned condiments with the
-    category-scoped + global ones (`orWhereIn('id', $assignedIds)`), so a product's
-    own add-ons appear in the register regardless of category. **Additive** — no
-    existing category/global behaviour changes; a product with no assignment
-    behaves exactly as before. No `irModelDefinition()` change ⇒ no resync; the
+    admin-only — cashiers have no product access). **As of 2026-06-23 the
+    register picker is driven EXCLUSIVELY by this assignment** —
+    `PosTerminal::condimentOptions()` returns ONLY the product's assigned
+    condiments (`whereIn('id', $assignedIds)`); category-scoped / global
+    condiments no longer auto-appear, and a product with no assignment shows an
+    empty picker. (The earlier union-with-category/global behaviour was dropped
+    per user request — the `pos_condiments.pos_category_id` column still exists
+    but no longer scopes the terminal picker; it's now purely an organisational
+    label.) No `irModelDefinition()` change ⇒ no resync; the
     new migration auto-applies via deploy.yml's POS migrate step (+ tenants via
     `workspaces:migrate`). Test: `PosCondimentTest::test_a_condiment_assigned_to_a_product_appears_in_the_register_picker`.
     AR keys: Add-ons / Condiments + the help + empty-state strings.

@@ -106,22 +106,25 @@ final class PosCondimentTest extends TestCase
         $this->assertEmpty((array) $line->condiments);
     }
 
-    public function test_picker_shows_only_the_product_category_condiments_plus_global(): void
+    public function test_picker_shows_only_the_products_assigned_condiments(): void
     {
         $session = $this->openSession();
 
         $burgers = PosCategory::query()->create(['name' => 'Burgers']);
-        $drinks = PosCategory::query()->create(['name' => 'Drinks']);
 
         $burger = PosProduct::query()->create([
             'name' => 'Burger', 'price' => 5.0, 'tax_rate' => 0.0,
             'active' => true, 'pos_category_id' => $burgers->id,
         ]);
 
-        // Matching category, other category, and a global (no category) add-on.
-        PosCondiment::query()->create(['name' => 'Bacon', 'price' => 0.5, 'pos_category_id' => $burgers->id]);
-        PosCondiment::query()->create(['name' => 'Lemonade', 'price' => 0.0, 'pos_category_id' => $drinks->id]);
+        // Same-category and global add-ons exist, but the picker is now driven
+        // EXCLUSIVELY by the product's own assignment — category/global no
+        // longer auto-appear.
+        $bacon = PosCondiment::query()->create(['name' => 'Bacon', 'price' => 0.5, 'pos_category_id' => $burgers->id]);
         PosCondiment::query()->create(['name' => 'Napkin', 'price' => 0.0]); // global
+
+        // Assign ONLY bacon to the product.
+        $burger->condiments()->attach($bacon->id);
 
         $component = Livewire::test(PosTerminal::class, ['session' => $session->id])
             ->call('addProduct', $burger->id);
@@ -130,9 +133,8 @@ final class PosCondimentTest extends TestCase
             ->firstOrFail()->lines()->firstOrFail();
 
         $component->call('openCondiments', $line->id)
-            ->assertSee('Bacon')        // same category
-            ->assertSee('Napkin')       // global
-            ->assertDontSee('Lemonade'); // other category — hidden
+            ->assertSee('Bacon')         // assigned to the product
+            ->assertDontSee('Napkin');   // global no longer auto-shows
     }
 
     public function test_a_condiment_assigned_to_a_product_appears_in_the_register_picker(): void

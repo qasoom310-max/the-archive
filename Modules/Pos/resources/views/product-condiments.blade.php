@@ -1,7 +1,7 @@
 <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
     <div class="mb-3">
         <h2 class="text-sm font-semibold text-chrome-800">{{ __('Add-ons / Condiments') }}</h2>
-        <p class="text-xs text-chrome-500">{{ __('Tick the add-ons the register should offer for this product. Category-scoped and global condiments still apply too.') }}</p>
+        <p class="text-xs text-chrome-500">{{ __('Tick the add-ons the register should offer for this product. Only the ticked ones appear in the register.') }}</p>
     </div>
 
     @if ($condiments->isEmpty())

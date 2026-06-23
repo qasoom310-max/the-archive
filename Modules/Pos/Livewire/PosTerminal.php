@@ -7,7 +7,6 @@ namespace Modules\Pos\Livewire;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -350,13 +349,11 @@ final class PosTerminal extends Component
     }
 
     /**
-     * Condiments offered for the line currently in the picker. The union of:
-     *  - add-ons assigned directly to the product (per-product, set on the
-     *    product page) — the most specific list;
-     *  - condiments scoped to the product's category;
-     *  - global (category-less) condiments.
-     * So ringing up a burger surfaces its own add-ons + burger-category ones +
-     * universal ones, never drink add-ons. Empty when the picker is closed.
+     * Condiments offered for the line currently in the picker: ONLY the add-ons
+     * assigned to the product on its product page (the per-product condiment
+     * field). Category-scoped / global condiments do NOT auto-appear — the
+     * picker is driven exclusively by the product's own assignment. A product
+     * with no assignment shows an empty picker. Empty when the picker is closed.
      *
      * @return Collection<int, PosCondiment>
      */
@@ -367,21 +364,15 @@ final class PosTerminal extends Component
         }
 
         $line = $this->order()->lines()->whereKey($this->condimentLineId)->first();
-        $product = $line?->product;
-        $categoryId = $product?->pos_category_id;
-        $assignedIds = $product !== null ? $product->condiments->pluck('id')->all() : [];
+        $assignedIds = $line?->product?->condiments->pluck('id')->all() ?? [];
+
+        if ($assignedIds === []) {
+            return new Collection();
+        }
 
         return PosCondiment::query()
             ->where('active', true)
-            ->where(function (Builder $q) use ($categoryId, $assignedIds): void {
-                $q->whereNull('pos_category_id');
-                if ($categoryId !== null) {
-                    $q->orWhere('pos_category_id', $categoryId);
-                }
-                if ($assignedIds !== []) {
-                    $q->orWhereIn('id', $assignedIds);
-                }
-            })
+            ->whereIn('id', $assignedIds)
             ->orderBy('sequence')->orderBy('name')->get();
     }
 

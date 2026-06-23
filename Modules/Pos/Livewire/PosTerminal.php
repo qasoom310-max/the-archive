@@ -350,11 +350,13 @@ final class PosTerminal extends Component
     }
 
     /**
-     * Condiments offered for the line currently in the picker: those scoped
-     * to the line's product category, plus any global (category-less) ones.
-     * So ringing up a burger surfaces burger add-ons, not drink ones, while
-     * universal add-ons (a category-less "Extra napkin") still appear.
-     * Empty collection when the picker is closed.
+     * Condiments offered for the line currently in the picker. The union of:
+     *  - add-ons assigned directly to the product (per-product, set on the
+     *    product page) — the most specific list;
+     *  - condiments scoped to the product's category;
+     *  - global (category-less) condiments.
+     * So ringing up a burger surfaces its own add-ons + burger-category ones +
+     * universal ones, never drink add-ons. Empty when the picker is closed.
      *
      * @return Collection<int, PosCondiment>
      */
@@ -365,14 +367,19 @@ final class PosTerminal extends Component
         }
 
         $line = $this->order()->lines()->whereKey($this->condimentLineId)->first();
-        $categoryId = $line?->product?->pos_category_id;
+        $product = $line?->product;
+        $categoryId = $product?->pos_category_id;
+        $assignedIds = $product !== null ? $product->condiments->pluck('id')->all() : [];
 
         return PosCondiment::query()
             ->where('active', true)
-            ->where(function (Builder $q) use ($categoryId): void {
+            ->where(function (Builder $q) use ($categoryId, $assignedIds): void {
                 $q->whereNull('pos_category_id');
                 if ($categoryId !== null) {
                     $q->orWhere('pos_category_id', $categoryId);
+                }
+                if ($assignedIds !== []) {
+                    $q->orWhereIn('id', $assignedIds);
                 }
             })
             ->orderBy('sequence')->orderBy('name')->get();

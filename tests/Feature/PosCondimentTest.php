@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
 use Modules\Pos\Enums\SessionState;
+use Modules\Pos\Livewire\PosProductCondiments;
 use Modules\Pos\Livewire\PosTerminal;
 use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosCondiment;
@@ -132,6 +133,49 @@ final class PosCondimentTest extends TestCase
             ->assertSee('Bacon')        // same category
             ->assertSee('Napkin')       // global
             ->assertDontSee('Lemonade'); // other category — hidden
+    }
+
+    public function test_a_condiment_assigned_to_a_product_appears_in_the_register_picker(): void
+    {
+        $session = $this->openSession();
+
+        $burgers = PosCategory::query()->create(['name' => 'Burgers']);
+        $drinks = PosCategory::query()->create(['name' => 'Drinks']);
+
+        $burger = PosProduct::query()->create([
+            'name' => 'Burger', 'price' => 5.0, 'tax_rate' => 0.0,
+            'active' => true, 'pos_category_id' => $burgers->id,
+        ]);
+
+        // Scoped to a DIFFERENT category — would NOT show for the burger by the
+        // category rules. Per-product assignment is the only thing that surfaces it.
+        $syrup = PosCondiment::query()->create(['name' => 'Vanilla syrup', 'price' => 0.3, 'pos_category_id' => $drinks->id]);
+
+        $term = Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('addProduct', $burger->id);
+
+        $line = PosOrder::query()->where('pos_session_id', $session->id)
+            ->firstOrFail()->lines()->firstOrFail();
+
+        // Not assigned yet → hidden in the picker.
+        $term->call('openCondiments', $line->id)->assertDontSee('Vanilla syrup');
+
+        // Assign it to the product via the product-page editor.
+        Livewire::test(PosProductCondiments::class, ['productId' => $burger->id])
+            ->call('toggle', $syrup->id);
+
+        $this->assertTrue($burger->condiments()->where('pos_condiments.id', $syrup->id)->exists());
+
+        // Now the register offers it for this product.
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('openCondiments', $line->id)
+            ->assertSee('Vanilla syrup');
+
+        // Toggling again detaches it.
+        Livewire::test(PosProductCondiments::class, ['productId' => $burger->id])
+            ->call('toggle', $syrup->id);
+
+        $this->assertFalse($burger->condiments()->where('pos_condiments.id', $syrup->id)->exists());
     }
 
     public function test_re_adding_the_product_does_not_merge_into_a_condimented_line(): void

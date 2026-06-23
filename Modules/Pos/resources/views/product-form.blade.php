@@ -16,5 +16,8 @@
         <div class="mt-6">
             @livewire(\Modules\Pos\Livewire\PosRecipeEditor::class, ['productId' => $product->id], 'recipe-' . $product->id)
         </div>
+        <div class="mt-6">
+            @livewire(\Modules\Pos\Livewire\PosProductCondiments::class, ['productId' => $product->id], 'condiments-' . $product->id)
+        </div>
     @endif
 </div>

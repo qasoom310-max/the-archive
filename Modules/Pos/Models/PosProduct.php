@@ -11,6 +11,7 @@ use App\Erp\Registry\ViewDefinition;
 use App\Erp\Translation\TranslatableModel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Translatable\HasTranslations;
 
@@ -168,6 +169,23 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
         $cat = $this->category;
 
         return $cat?->name;
+    }
+
+    /**
+     * Condiments / add-ons explicitly offered for this product at the register
+     * (on top of any category-scoped or global condiments). Managed on the
+     * product page; surfaced by the terminal's condiment picker.
+     *
+     * @return BelongsToMany<PosCondiment, $this>
+     */
+    public function condiments(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            PosCondiment::class,
+            'pos_condiment_product',
+            'pos_product_id',
+            'pos_condiment_id',
+        );
     }
 
     /**

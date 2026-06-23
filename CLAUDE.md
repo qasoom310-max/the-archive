@@ -731,6 +731,24 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
     changed ⇒ `module:resync pos` (deploy runs it); migration auto-applied by
     deploy.yml's POS migrate step. AR keys: Category + the two help strings +
     empty-state.
+  - **Per-product condiment assignment (shipped 2026-06-23)** — on top of the
+    category/global scoping, a condiment can be assigned to a **specific
+    product**. Many-to-many pivot `pos_condiment_product`
+    (migration `2026_06_23_700009`, FK cascade both sides, unique
+    `pos_cond_prod_unique`) + `PosProduct::condiments()` BelongsToMany. Managed
+    by a new Livewire editor `Modules\Pos\Livewire\PosProductCondiments`
+    (`pos::product-condiments`) embedded on the **product page** beneath the
+    recipe editor (`product-form.blade.php`) — a checklist of every active
+    condiment; `toggle($id)` attaches/detaches (Write-gated `pos.product`, so
+    admin-only — cashiers have no product access). `PosTerminal::condimentOptions()`
+    now **unions** the product's directly-assigned condiments with the
+    category-scoped + global ones (`orWhereIn('id', $assignedIds)`), so a product's
+    own add-ons appear in the register regardless of category. **Additive** — no
+    existing category/global behaviour changes; a product with no assignment
+    behaves exactly as before. No `irModelDefinition()` change ⇒ no resync; the
+    new migration auto-applies via deploy.yml's POS migrate step (+ tenants via
+    `workspaces:migrate`). Test: `PosCondimentTest::test_a_condiment_assigned_to_a_product_appears_in_the_register_picker`.
+    AR keys: Add-ons / Condiments + the help + empty-state strings.
 - **Camera barcode scanning in the terminal (shipped 2026-06-10)** — a
   scan icon **inside the product search bar** (Odoo-style) opens a camera
   overlay that decodes product barcodes and adds them to the cart. Frontend:

@@ -174,7 +174,6 @@
                                 @elseif ($column === \Modules\Pos\Enums\PrepStatus::Ready)
                                     <button type="button"
                                             wire:click="completeOrder({{ $ticket->orderId }})"
-                                            wire:confirm="{{ __('Runner picked up #') . \Illuminate\Support\Str::afterLast($ticket->reference, '/') . '?' }}"
                                             class="flex min-h-12 flex-1 items-center justify-center rounded-lg bg-chrome-800 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-chrome-900 active:scale-[0.98]">
                                         {{ __('Complete & dismiss') }}
                                     </button>

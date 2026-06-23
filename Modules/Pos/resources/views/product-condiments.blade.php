@@ -4,9 +4,29 @@
         <p class="text-xs text-chrome-500">{{ __('Tick the add-ons the register should offer for this product. Only the ticked ones appear in the register.') }}</p>
     </div>
 
+    {{-- Category filter pills (All + every category, active and inactive) —
+         narrows the checklist by the condiment's category, like the register's
+         product category filter. --}}
+    @if ($categories->isNotEmpty())
+        <div class="mb-3 flex flex-wrap items-center gap-1.5">
+            <button type="button" wire:click="$set('filterCategoryId', null)"
+                class="o-btn {{ $filterCategoryId === null ? 'o-btn-primary' : 'o-btn-ghost' }} text-xs">{{ __('All') }}</button>
+            @foreach ($categories as $cat)
+                <button type="button" wire:click="$set('filterCategoryId', {{ $cat->id }})" wire:key="catpill-{{ $cat->id }}"
+                    @class([
+                        'o-btn text-xs',
+                        'o-btn-primary' => $filterCategoryId === $cat->id,
+                        'o-btn-ghost' => $filterCategoryId !== $cat->id,
+                        'opacity-50' => ! $cat->active,
+                    ])
+                    @unless ($cat->active) title="{{ __('Inactive category') }}" @endunless>{{ $cat->name }}</button>
+            @endforeach
+        </div>
+    @endif
+
     @if ($condiments->isEmpty())
         <p class="rounded-lg border border-dashed border-chrome-300 p-4 text-center text-xs text-chrome-400">
-            {{ __('No condiments yet. Create them under POS → POS Condiments.') }}
+            {{ $hasAnyCondiment ? __('No add-ons in this category.') : __('No condiments yet. Create them under POS → POS Condiments.') }}
         </p>
     @else
         <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">

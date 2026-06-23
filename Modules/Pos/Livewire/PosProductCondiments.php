@@ -9,6 +9,7 @@ use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
+use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosProduct;
 
@@ -25,6 +26,9 @@ use Modules\Pos\Models\PosProduct;
 final class PosProductCondiments extends Component
 {
     public int $productId;
+
+    /** Category filter pill (null = All) — narrows the condiment checklist. */
+    public ?int $filterCategoryId = null;
 
     public function mount(int $productId): void
     {
@@ -59,11 +63,20 @@ final class PosProductCondiments extends Component
     {
         $product = PosProduct::query()->with('condiments:id')->findOrFail($this->productId);
 
+        $condiments = PosCondiment::query()
+            ->where('active', true)
+            ->when($this->filterCategoryId !== null, fn ($q) => $q->where('pos_category_id', $this->filterCategoryId))
+            ->orderBy('sequence')->orderBy('name')
+            ->get();
+
         return view('pos::product-condiments', [
-            'condiments' => PosCondiment::query()
-                ->where('active', true)
-                ->orderBy('sequence')->orderBy('name')
-                ->get(),
+            'condiments' => $condiments,
+            // All categories — active AND inactive — as filter pills (a
+            // condiment may sit under a now-inactive category and the admin
+            // still needs to reach it).
+            'categories' => PosCategory::query()->orderBy('sequence')->orderBy('name')->get(),
+            'filterCategoryId' => $this->filterCategoryId,
+            'hasAnyCondiment' => PosCondiment::query()->where('active', true)->exists(),
             'assignedIds' => $product->condiments->pluck('id')->all(),
             'canManage' => app(AccessControl::class)->allows(Auth::user(), 'pos.product', Permission::Write),
         ]);

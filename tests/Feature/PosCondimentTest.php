@@ -180,6 +180,27 @@ final class PosCondimentTest extends TestCase
         $this->assertFalse($burger->condiments()->where('pos_condiments.id', $syrup->id)->exists());
     }
 
+    public function test_condiment_editor_filters_the_checklist_by_category_pill(): void
+    {
+        $burgers = PosCategory::query()->create(['name' => 'Burgers']);
+        $drinks = PosCategory::query()->create(['name' => 'Drinks', 'active' => false]); // inactive still a pill
+        $product = $this->product();
+
+        PosCondiment::query()->create(['name' => 'Bacon', 'pos_category_id' => $burgers->id, 'active' => true]);
+        PosCondiment::query()->create(['name' => 'Lemon', 'pos_category_id' => $drinks->id, 'active' => true]);
+
+        // "All" shows both; both category pills render (active + inactive).
+        Livewire::test(PosProductCondiments::class, ['productId' => $product->id])
+            ->assertSee('Bacon')
+            ->assertSee('Lemon')
+            ->assertSee('Burgers')
+            ->assertSee('Drinks')
+            // Filter to Burgers → only its condiment.
+            ->set('filterCategoryId', $burgers->id)
+            ->assertSee('Bacon')
+            ->assertDontSee('Lemon');
+    }
+
     public function test_re_adding_the_product_does_not_merge_into_a_condimented_line(): void
     {
         $session = $this->openSession();

@@ -752,6 +752,12 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
     new migration auto-applies via deploy.yml's POS migrate step (+ tenants via
     `workspaces:migrate`). Test: `PosCondimentTest::test_a_condiment_assigned_to_a_product_appears_in_the_register_picker`.
     AR keys: Add-ons / Condiments + the help + empty-state strings.
+    **Category filter pills (2026-06-23):** the editor renders a pill row (All +
+    every category, **active AND inactive** — inactive dimmed, since a condiment
+    may sit under a now-inactive category) that filters the checklist by the
+    condiment's `pos_category_id` (server-side `PosProductCondiments::$filterCategoryId`
+    + `$set` per pill, mirroring the register's product-category filter). Test:
+    `PosCondimentTest::test_condiment_editor_filters_the_checklist_by_category_pill`.
 - **Camera barcode scanning in the terminal (shipped 2026-06-10)** — a
   scan icon **inside the product search bar** (Odoo-style) opens a camera
   overlay that decodes product barcodes and adds them to the cart. Frontend:

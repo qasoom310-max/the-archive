@@ -32,6 +32,7 @@ use Spatie\Translatable\HasTranslations;
  * @property int|null $parent_id
  * @property string|null $slug
  * @property string|null $image
+ * @property bool $active
  * @property int $sequence
  * @property PrepStation|null $station Kitchen Display routing key — when a
  *                                     sale finalises, each line's product →
@@ -45,7 +46,17 @@ final class PosCategory extends Model implements DefinesIrModel, TranslatableMod
     protected $table = 'pos_categories';
 
     /** @var list<string> */
-    protected $fillable = ['name', 'parent_id', 'slug', 'image', 'sequence', 'station'];
+    protected $fillable = ['name', 'parent_id', 'slug', 'image', 'active', 'sequence', 'station'];
+
+    /**
+     * Default a fresh category to active. The DB column already defaults true
+     * on insert, but the engine FormView coerces an unticked checkbox to false
+     * on save — without this in-memory default a new category would hide itself
+     * unless the admin remembered to tick Active (same pitfall PosProduct fixes).
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = ['active' => true];
 
     /**
      * Translatable attributes — Spatie's trait intercepts reads/writes on
@@ -66,6 +77,7 @@ final class PosCategory extends Model implements DefinesIrModel, TranslatableMod
         return [
             'sequence' => 'integer',
             'parent_id' => 'integer',
+            'active' => 'boolean',
             // `station` is intentionally NOT cast here — the Attribute
             // mutator below handles both directions, including the engine
             // FormView's empty-string "None" choice which the standard
@@ -228,6 +240,9 @@ final class PosCategory extends Model implements DefinesIrModel, TranslatableMod
                         // colored badge otherwise. Sortable so admin can
                         // group all "Unrouted" rows together with a click.
                         ['field' => 'station', 'label' => 'Station', 'format' => 'badge', 'sortable' => true],
+                        // Inline iOS-style toggle — flip a category active/inactive
+                        // straight from the list (Write-gated via the engine).
+                        ['field' => 'active', 'label' => 'Active', 'format' => 'toggle', 'sortable' => true],
                         ['field' => 'sequence', 'label' => 'Sequence', 'format' => 'number', 'align' => 'right', 'sortable' => true],
                     ],
                     'default_sort' => [['field' => 'sequence', 'dir' => 'asc']],
@@ -251,7 +266,7 @@ final class PosCategory extends Model implements DefinesIrModel, TranslatableMod
                             ],
                             'help' => 'Leave blank for a top-level category.',
                         ],
-                        ['field' => 'image', 'label' => 'Icon / image', 'widget' => 'text', 'placeholder' => 'emoji or image path', 'help' => 'Shown on the POS category button.'],
+                        ['field' => 'image', 'label' => 'Image', 'widget' => 'image', 'help' => 'Upload an image shown on the POS category button.'],
                         [
                             'field' => 'station',
                             'label' => 'Kitchen station',
@@ -264,6 +279,7 @@ final class PosCategory extends Model implements DefinesIrModel, TranslatableMod
                             'help' => 'Sales of products in this category get queued to the matching KDS screen.',
                         ],
                         ['field' => 'sequence', 'label' => 'Sequence', 'widget' => 'number'],
+                        ['field' => 'active', 'label' => 'Active', 'widget' => 'checkbox', 'help' => 'Inactive categories are hidden from the register.'],
                     ],
                 ]),
             ],

@@ -734,10 +734,10 @@ final class PosTerminal extends Component
             'cashier' => Auth::user(),
             'lines' => $order->lines()->latest('id')->get(),
             'products' => $this->products(),
-            'categories' => PosCategory::query()->whereNull('parent_id')
+            'categories' => PosCategory::query()->where('active', true)->whereNull('parent_id')
                 ->orderBy('sequence')->orderBy('name')->get(),
             'subCategories' => $this->categoryId !== null
-                ? PosCategory::query()->where('parent_id', $this->categoryId)
+                ? PosCategory::query()->where('active', true)->where('parent_id', $this->categoryId)
                     ->orderBy('sequence')->orderBy('name')->get()
                 : new Collection(),
             'paymentMethods' => PosPaymentMethod::query()->where('active', true)->orderBy('sequence')->get(),

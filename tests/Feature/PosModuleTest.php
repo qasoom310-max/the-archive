@@ -597,6 +597,46 @@ final class PosModuleTest extends TestCase
         $this->assertFalse((bool) $product->fresh()->active);
     }
 
+    public function test_new_category_form_defaults_active_to_true(): void
+    {
+        // A fresh category form must default Active on so the admin doesn't
+        // have to remember to tick it (same pitfall as the product form).
+        $this->installPos();
+
+        Livewire::test(FormView::class, [
+            'model' => PosCategory::class,
+            'modelKey' => 'pos.category',
+        ])->assertSet('form.active', true);
+    }
+
+    public function test_inactive_category_is_hidden_from_the_register(): void
+    {
+        $this->installPos();
+        $session = $this->openSession();
+
+        PosCategory::query()->create(['name' => 'Hot Drinks', 'active' => true]);
+        PosCategory::query()->create(['name' => 'Retired', 'active' => false]);
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->assertSee('Hot Drinks')
+            ->assertDontSee('Retired');
+    }
+
+    public function test_category_list_toggle_active_flips_and_persists(): void
+    {
+        // The category list's `active` column is format=toggle (parity with
+        // products) — one inline click flips it.
+        $this->installPos();
+        $category = PosCategory::query()->create(['name' => 'Hot Drinks', 'active' => true]);
+
+        Livewire::test(ListView::class, [
+            'model' => PosCategory::class,
+            'modelKey' => 'pos.category',
+        ])->call('toggleBoolean', $category->id, 'active');
+
+        $this->assertFalse((bool) $category->fresh()->active);
+    }
+
     public function test_pos_product_list_toggle_boolean_rejects_non_toggle_columns(): void
     {
         // Arch whitelist: only columns declared with format='toggle' are

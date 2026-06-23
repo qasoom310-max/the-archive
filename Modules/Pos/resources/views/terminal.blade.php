@@ -1,4 +1,9 @@
-@php $money = fn ($v) => \App\Erp\Money\Currencies::format($v); @endphp
+@php
+    $money = fn ($v) => \App\Erp\Money\Currencies::format($v);
+    // A category icon is either an emoji (rendered as text) or an uploaded
+    // image path (a '/'-bearing relative path on the public disk → <img>).
+    $catIsImage = fn ($v) => is_string($v) && str_contains($v, '/');
+@endphp
 
 <div class="flex h-[calc(100vh-3rem)] flex-col bg-chrome-100 lg:flex-row" wire:poll.30s="heartbeat">
     {{-- ───────────── Order / cart panel ─────────────
@@ -236,7 +241,7 @@
                 @foreach ($categories as $cat)
                     <button wire:click="$set('categoryId', {{ $cat->id }})"
                         class="o-btn {{ $categoryId === $cat->id ? 'o-btn-primary' : 'o-btn-ghost' }}">
-                        @if ($cat->image)<span class="me-1">{{ $cat->image }}</span>@endif{{ $cat->name }}
+                        @if ($cat->image)@if ($catIsImage($cat->image))<img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($cat->image) }}" class="me-1 inline-block size-4 rounded object-cover align-text-bottom" alt="">@else<span class="me-1">{{ $cat->image }}</span>@endif @endif{{ $cat->name }}
                     </button>
                 @endforeach
             </div>
@@ -247,7 +252,7 @@
                     @foreach ($subCategories as $sub)
                         <button wire:click="$set('categoryId', {{ $sub->id }})"
                             class="o-btn o-btn-ghost text-xs {{ $categoryId === $sub->id ? 'ring-1 ring-primary-400' : '' }}">
-                            @if ($sub->image)<span class="me-1">{{ $sub->image }}</span>@endif{{ $sub->name }}
+                            @if ($sub->image)@if ($catIsImage($sub->image))<img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($sub->image) }}" class="me-1 inline-block size-4 rounded object-cover align-text-bottom" alt="">@else<span class="me-1">{{ $sub->image }}</span>@endif @endif{{ $sub->name }}
                         </button>
                     @endforeach
                 </div>

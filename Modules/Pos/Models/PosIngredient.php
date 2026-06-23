@@ -24,6 +24,7 @@ use Spatie\Translatable\HasTranslations;
  * @property string $name   Translatable JSON envelope.
  * @property float $cost_price
  * @property float $stock_on_hand  On-hand quantity (so an ingredient can be a recipe component)
+ * @property float|null $reorder_point  Low-stock threshold; null = global default
  * @property string|null $unit  Unit of measure code: qty|kg|g|l|ml|pcs|box|pack|dozen
  * @property bool $active
  * @property int $sequence
@@ -38,7 +39,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
     public array $translatable = ['name'];
 
     /** @var list<string> */
-    protected $fillable = ['name', 'cost_price', 'stock_on_hand', 'unit', 'active', 'sequence'];
+    protected $fillable = ['name', 'cost_price', 'stock_on_hand', 'reorder_point', 'unit', 'active', 'sequence'];
 
     /** @var array<string, mixed> */
     protected $attributes = [
@@ -57,6 +58,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
         return [
             'cost_price' => 'float',
             'stock_on_hand' => 'float',
+            'reorder_point' => 'float',
             'active' => 'boolean',
             'sequence' => 'integer',
         ];
@@ -84,6 +86,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
                 new FieldDefinition('name', 'Name', 'char', required: true, sequence: 10),
                 new FieldDefinition('cost_price', 'Cost Price', 'float', sequence: 20),
                 new FieldDefinition('stock_on_hand', 'Stock on hand', 'float', sequence: 25),
+                new FieldDefinition('reorder_point', 'Reorder point', 'float', sequence: 28),
                 new FieldDefinition('unit', 'Unit', 'selection', sequence: 30),
                 new FieldDefinition('sequence', 'Sequence', 'integer', sequence: 40),
             ],
@@ -93,6 +96,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
                         ['field' => 'name', 'label' => 'Name', 'sortable' => true],
                         ['field' => 'cost_price', 'label' => 'Cost', 'format' => 'money', 'align' => 'right', 'sortable' => true],
                         ['field' => 'stock_on_hand', 'label' => 'Stock', 'format' => 'number', 'align' => 'right', 'sortable' => true],
+                        ['field' => 'reorder_point', 'label' => 'Reorder point', 'format' => 'number', 'align' => 'right', 'sortable' => true, 'hidden_by_default' => true],
                         ['field' => 'unit', 'label' => 'Unit', 'hidden_by_default' => true],
                         ['field' => 'sequence', 'label' => 'Sequence', 'align' => 'right', 'sortable' => true, 'hidden_by_default' => true],
                     ],
@@ -107,6 +111,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
                         ['field' => 'name', 'label' => 'Name', 'widget' => 'text', 'required' => true, 'translatable' => true],
                         ['field' => 'cost_price', 'label' => 'Cost Price', 'widget' => 'number', 'help' => 'Procurement cost per unit. Drives stock valuation.'],
                         ['field' => 'stock_on_hand', 'label' => 'Stock on hand', 'widget' => 'number', 'help' => 'On-hand quantity, decremented when a product using this ingredient is sold.'],
+                        ['field' => 'reorder_point', 'label' => 'Reorder point', 'widget' => 'number', 'help' => 'Flag as low stock at or below this. Leave blank to use the global default.'],
                         ['field' => 'unit', 'label' => 'Unit', 'widget' => 'select', 'options' => PosProduct::UNIT_OPTIONS],
                         ['field' => 'sequence', 'label' => 'Sequence', 'widget' => 'number', 'help' => 'Lower numbers show first in the recipe picker.'],
                     ],

@@ -671,5 +671,6 @@
     "Set stock": "تعيين المخزون",
     "Inventory value": "قيمة المخزون",
     "Reorder point": "حد إعادة الطلب",
+    "Flag as low stock at or below this. Leave blank to use the global default.": "اعتبره مخزونًا منخفضًا عند هذا الحد أو دونه. اتركه فارغًا لاستخدام الإعداد العام الافتراضي.",
     "Export": "تصدير"
 }

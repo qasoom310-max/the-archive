@@ -123,7 +123,8 @@ final class PosStockReportData
             ->get()
             ->map(static function (PosCondiment $c) use ($t): StockRow {
                 $stock = (float) $c->stock_on_hand;
-                $status = $stock <= 0 ? 'out' : ($stock <= $t ? 'low' : 'in');
+                $min = $c->reorder_point !== null ? (float) $c->reorder_point : $t;
+                $status = $stock <= 0 ? 'out' : ($stock <= $min ? 'low' : 'in');
 
                 return new StockRow(
                     type: 'condiment',
@@ -134,7 +135,7 @@ final class PosStockReportData
                     unit: '',
                     cost: 0.0,         // condiment cost isn't tracked
                     value: 0.0,
-                    reorderPoint: null,
+                    reorderPoint: $c->reorder_point !== null ? (float) $c->reorder_point : null,
                     status: $status,
                     active: (bool) $c->active,
                     barcode: null,
@@ -147,7 +148,8 @@ final class PosStockReportData
             ->map(static function (PosIngredient $i) use ($t): StockRow {
                 $stock = (float) $i->stock_on_hand;
                 $cost = (float) $i->cost_price;
-                $status = $stock <= 0 ? 'out' : ($stock <= $t ? 'low' : 'in');
+                $min = $i->reorder_point !== null ? (float) $i->reorder_point : $t;
+                $status = $stock <= 0 ? 'out' : ($stock <= $min ? 'low' : 'in');
 
                 return new StockRow(
                     type: 'ingredient',
@@ -158,7 +160,7 @@ final class PosStockReportData
                     unit: ($i->unit && $i->unit !== 'qty') ? (string) $i->unit : '',
                     cost: $cost,
                     value: $stock * $cost,
-                    reorderPoint: null,
+                    reorderPoint: $i->reorder_point !== null ? (float) $i->reorder_point : null,
                     status: $status,
                     active: (bool) $i->active,
                     barcode: null,

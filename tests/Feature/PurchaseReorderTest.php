@@ -97,6 +97,25 @@ final class PurchaseReorderTest extends TestCase
             ->assertDontSee('Pepsi');
     }
 
+    public function test_per_item_reorder_point_flags_otherwise_in_stock_items(): void
+    {
+        // 50 on hand is well above the global threshold (10), so by the global
+        // rule both would read "in stock"…
+        $flour = PosIngredient::query()->create(['name' => 'Flour', 'cost_price' => 0.8, 'stock_on_hand' => 50, 'reorder_point' => 80]);
+        $cheese = PosCondiment::query()->create(['name' => 'Cheese', 'price' => 0.3, 'stock_on_hand' => 50, 'reorder_point' => 80, 'active' => true]);
+
+        // …but each sets its own minimum of 80, so both are flagged Low.
+        $rows = app(PurchaseReorderData::class)->rows()->keyBy('name');
+
+        $this->assertTrue($rows->has('Flour'));
+        $this->assertSame('low', $rows->get('Flour')->status);
+        $this->assertSame(80.0, $rows->get('Flour')->reorderPoint);
+
+        $this->assertTrue($rows->has('Cheese'));
+        $this->assertSame('low', $rows->get('Cheese')->status);
+        $this->assertSame(80.0, $rows->get('Cheese')->reorderPoint);
+    }
+
     public function test_csv_export_streams_the_rows(): void
     {
         $this->seedCatalogue();

@@ -28,6 +28,7 @@ use Spatie\Translatable\HasTranslations;
  * @property string $name   Translatable JSON envelope.
  * @property float $price
  * @property float $stock_on_hand  On-hand quantity (so a condiment can be a recipe component)
+ * @property float|null $reorder_point  Low-stock threshold; null = global default
  * @property int|null $pos_category_id
  * @property bool $active
  * @property int $sequence
@@ -42,7 +43,7 @@ final class PosCondiment extends Model implements DefinesIrModel, TranslatableMo
     public array $translatable = ['name'];
 
     /** @var list<string> */
-    protected $fillable = ['name', 'price', 'stock_on_hand', 'pos_category_id', 'active', 'sequence'];
+    protected $fillable = ['name', 'price', 'stock_on_hand', 'reorder_point', 'pos_category_id', 'active', 'sequence'];
 
     /** @var array<string, mixed> */
     protected $attributes = [
@@ -60,6 +61,7 @@ final class PosCondiment extends Model implements DefinesIrModel, TranslatableMo
         return [
             'price' => 'float',
             'stock_on_hand' => 'float',
+            'reorder_point' => 'float',
             'pos_category_id' => 'integer',
             'active' => 'boolean',
             'sequence' => 'integer',
@@ -95,6 +97,7 @@ final class PosCondiment extends Model implements DefinesIrModel, TranslatableMo
                 new FieldDefinition('name', 'Name', 'char', required: true, sequence: 10),
                 new FieldDefinition('price', 'Price', 'float', sequence: 20),
                 new FieldDefinition('stock_on_hand', 'Stock on hand', 'float', sequence: 25),
+                new FieldDefinition('reorder_point', 'Reorder point', 'float', sequence: 28),
                 new FieldDefinition('pos_category_id', 'Category', 'many2one', relation: 'pos.category', sequence: 30),
                 new FieldDefinition('sequence', 'Sequence', 'integer', sequence: 40),
             ],
@@ -104,6 +107,7 @@ final class PosCondiment extends Model implements DefinesIrModel, TranslatableMo
                         ['field' => 'name', 'label' => 'Name', 'sortable' => true],
                         ['field' => 'price', 'label' => 'Price', 'format' => 'money', 'align' => 'right', 'sortable' => true],
                         ['field' => 'stock_on_hand', 'label' => 'Stock', 'format' => 'number', 'align' => 'right', 'sortable' => true],
+                        ['field' => 'reorder_point', 'label' => 'Reorder point', 'format' => 'number', 'align' => 'right', 'sortable' => true, 'hidden_by_default' => true],
                         // `category_name` is an accessor reading through the
                         // category relation; sorts by the underlying FK (the
                         // engine can't ORDER BY a computed column).
@@ -121,6 +125,7 @@ final class PosCondiment extends Model implements DefinesIrModel, TranslatableMo
                         ['field' => 'name', 'label' => 'Name', 'widget' => 'text', 'required' => true, 'translatable' => true],
                         ['field' => 'price', 'label' => 'Price', 'widget' => 'number', 'help' => 'Per-unit surcharge. Leave 0 for a free add-on / instruction.'],
                         ['field' => 'stock_on_hand', 'label' => 'Stock on hand', 'widget' => 'number', 'help' => 'On-hand quantity, used when this condiment is a recipe component.'],
+                        ['field' => 'reorder_point', 'label' => 'Reorder point', 'widget' => 'number', 'help' => 'Flag as low stock at or below this. Leave blank to use the global default.'],
                         [
                             'field' => 'pos_category_id',
                             'label' => 'Category',

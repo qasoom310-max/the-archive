@@ -1,7 +1,9 @@
 @php
     use App\Erp\Money\Currencies;
-    // Client-side component list (products + condiments) for the per-line
-    // searchable comboboxes. Each carries a composite key: "p:{id}" / "c:{id}".
+    // Client-side component list (products + condiments + ingredients) for the
+    // per-line searchable comboboxes. Each carries a composite key
+    // ("p:{id}" / "c:{id}" / "i:{id}") and a `type` so the dropdown can badge
+    // condiments / ingredients (so two same-named rows are distinguishable).
     $componentsJs = $components->values();
 @endphp
 <div class="mx-auto max-w-4xl p-4 sm:p-6"
@@ -13,7 +15,7 @@
             return list.slice(0, 50);
         },
     }"
-    @product-created.window="components.push({ key: 'p:' + $event.detail.id, name: $event.detail.name })">
+    @product-created.window="components.push({ key: 'p:' + $event.detail.id, name: $event.detail.name, type: 'product' })">
     <div class="mb-4 flex items-center gap-2 text-sm text-chrome-500">
         <a href="{{ url('/app/purchases/purchase') }}" wire:navigate class="hover:text-primary-700">{{ __('Purchases') }}</a>
         <span>/</span>
@@ -183,7 +185,7 @@
                                             <input type="text" x-ref="input" x-model="search"
                                                 @focus="openPanel()" @click="openPanel()"
                                                 @keydown.escape.stop="open = false; search = selectedName"
-                                                placeholder="{{ __('Search a product…') }}"
+                                                placeholder="{{ __('Search a product, condiment or ingredient…') }}"
                                                 autocomplete="off" class="o-input">
                                             {{-- Fixed panel (not absolute): the lines table sits inside an
                                                  `overflow-hidden` wrapper that would clip an in-flow dropdown.
@@ -195,8 +197,13 @@
                                                     class="flex w-full items-center px-3 py-1.5 text-start text-sm text-chrome-400 hover:bg-chrome-50">—</button>
                                                 <template x-for="c in filterComponents(search)" :key="c.key">
                                                     <button type="button" @click="choose(c)"
-                                                        class="flex w-full items-center px-3 py-1.5 text-start text-sm text-chrome-700 hover:bg-primary-50"
-                                                        x-text="c.name"></button>
+                                                        class="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-start text-sm text-chrome-700 hover:bg-primary-50">
+                                                        <span x-text="c.name"></span>
+                                                        <span x-show="c.type === 'condiment'"
+                                                            class="shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-700">{{ __('Condiment') }}</span>
+                                                        <span x-show="c.type === 'ingredient'"
+                                                            class="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">{{ __('Ingredient') }}</span>
+                                                    </button>
                                                 </template>
                                                 <template x-if="filterComponents(search).length === 0">
                                                     <p class="px-3 py-1.5 text-sm text-chrome-400">{{ __('No products found') }}</p>

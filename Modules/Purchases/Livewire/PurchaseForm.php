@@ -531,14 +531,14 @@ final class PurchaseForm extends Component
         // carrying a composite key ("p:{id}" / "c:{id}" / "i:{id}") so persist
         // knows which it is.
         $components = PosProduct::query()->orderBy('name')->get(['id', 'name'])
-            ->map(static fn (PosProduct $p): array => ['key' => 'p:' . $p->id, 'name' => (string) $p->name])
+            ->map(static fn (PosProduct $p): array => ['key' => 'p:' . $p->id, 'name' => (string) $p->name, 'type' => 'product'])
             ->concat(
                 PosCondiment::query()->where('active', true)->orderBy('name')->get(['id', 'name'])
-                    ->map(static fn (PosCondiment $c): array => ['key' => 'c:' . $c->id, 'name' => (string) $c->name]),
+                    ->map(static fn (PosCondiment $c): array => ['key' => 'c:' . $c->id, 'name' => (string) $c->name, 'type' => 'condiment']),
             )
             ->concat(
                 PosIngredient::query()->where('active', true)->orderBy('name')->get(['id', 'name'])
-                    ->map(static fn (PosIngredient $i): array => ['key' => 'i:' . $i->id, 'name' => (string) $i->name]),
+                    ->map(static fn (PosIngredient $i): array => ['key' => 'i:' . $i->id, 'name' => (string) $i->name, 'type' => 'ingredient']),
             )
             ->values();
 

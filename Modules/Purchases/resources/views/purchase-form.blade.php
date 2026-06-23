@@ -199,6 +199,8 @@
                                                     <button type="button" @click="choose(c)"
                                                         class="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-start text-sm text-chrome-700 hover:bg-primary-50">
                                                         <span x-text="c.name"></span>
+                                                        <span x-show="c.type === 'product'"
+                                                            class="shrink-0 rounded-full bg-chrome-100 px-2 py-0.5 text-[10px] font-medium text-chrome-600">{{ __('Product') }}</span>
                                                         <span x-show="c.type === 'condiment'"
                                                             class="shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-700">{{ __('Condiment') }}</span>
                                                         <span x-show="c.type === 'ingredient'"

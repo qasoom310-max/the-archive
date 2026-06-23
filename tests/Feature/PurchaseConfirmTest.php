@@ -17,7 +17,9 @@ use Modules\Contacts\Models\Partner;
 use Modules\Inventory\Models\StockOperationType;
 use Modules\Inventory\Models\StockQuant;
 use Modules\Pos\Models\PosCondiment;
+use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosProduct;
+use Modules\Pos\Models\PosProductRecipe;
 use Modules\Purchases\Enums\PurchaseState;
 use Modules\Purchases\Livewire\PurchaseForm;
 use Modules\Purchases\Models\Purchase;
@@ -187,6 +189,28 @@ final class PurchaseConfirmTest extends TestCase
 
         // The condiment's on-hand went up; it's NOT on the warehouse ledger.
         $this->assertSame(15.0, (float) $cheese->fresh()?->stock_on_hand);
+    }
+
+    public function test_crafted_products_are_hidden_from_the_purchase_picker(): void
+    {
+        // Pepsi: a resale product (no recipe) — bought from a vendor.
+        $pepsi = PosProduct::query()->create(['name' => 'Pepsi', 'price' => 1, 'tax_rate' => 0, 'active' => true]);
+        // Egg Sandwich: a crafted product (has a recipe) — assembled, not bought.
+        $sandwich = PosProduct::query()->create(['name' => 'Egg Sandwich', 'price' => 3, 'tax_rate' => 0, 'active' => true]);
+        $bread = PosIngredient::query()->create(['name' => 'Bread', 'cost_price' => 0.2, 'stock_on_hand' => 10]);
+        PosProductRecipe::query()->create([
+            'parent_product_id' => $sandwich->id,
+            'component_ingredient_id' => $bread->id,
+            'quantity_consumed' => 1,
+        ]);
+
+        Livewire::test(PurchaseForm::class)->assertViewHas('components', function ($components) use ($pepsi, $sandwich, $bread): bool {
+            $keys = collect($components)->pluck('key')->all();
+
+            return in_array('p:' . $pepsi->id, $keys, true)       // resale product stays
+                && ! in_array('p:' . $sandwich->id, $keys, true)  // crafted product hidden
+                && in_array('i:' . $bread->id, $keys, true);      // its ingredient is buyable
+        });
     }
 
     public function test_purchase_name_and_expiry_date_persist(): void

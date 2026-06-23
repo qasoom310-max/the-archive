@@ -530,7 +530,16 @@ final class PurchaseForm extends Component
         // The line picker offers products AND condiments AND ingredients, each
         // carrying a composite key ("p:{id}" / "c:{id}" / "i:{id}") so persist
         // knows which it is.
-        $components = PosProduct::query()->orderBy('name')->get(['id', 'name'])
+        //
+        // Crafted products (those WITH a recipe — e.g. a sandwich) are EXCLUDED:
+        // they're assembled from their components at sale time, not bought from
+        // a vendor. Only recipe-less "resale" products (e.g. Pepsi) remain
+        // purchasable, alongside the raw materials (ingredients) + condiments
+        // that the crafted ones are actually built from.
+        $components = PosProduct::query()
+            ->whereDoesntHave('recipeLines')
+            ->orderBy('name')
+            ->get(['id', 'name'])
             ->map(static fn (PosProduct $p): array => ['key' => 'p:' . $p->id, 'name' => (string) $p->name, 'type' => 'product'])
             ->concat(
                 PosCondiment::query()->where('active', true)->orderBy('name')->get(['id', 'name'])

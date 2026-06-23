@@ -297,6 +297,8 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
         }
 
         $touchedComponents = [];
+        /** @var array<int, float> $touchedIngredients id => total qty consumed this sale */
+        $touchedIngredients = [];
 
         foreach ($this->lines()->get() as $line) {
             if ($line->pos_product_id === null) {
@@ -328,7 +330,13 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
                         ->whereKey($row->component_ingredient_id)
                         ->decrement('stock_on_hand', $decrement);
 
-                    continue; // ingredients aren't on the Inventory ledger
+                    // Ingredients aren't on the product-keyed quant ledger, but
+                    // the usage IS posted as a Done audit move below so the
+                    // Inventory dashboard reflects the consumption.
+                    $id = (int) $row->component_ingredient_id;
+                    $touchedIngredients[$id] = round(($touchedIngredients[$id] ?? 0.0) + $decrement, 3);
+
+                    continue;
                 }
 
                 if ($row->component_product_id !== null) {
@@ -354,6 +362,13 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
             if ($fresh !== null) {
                 $bridge->sync((int) $fresh->id, (float) $fresh->stock_on_hand, "POS sale {$this->reference}");
             }
+        }
+
+        // Ingredient usage → a Done consumption move per ingredient (audit only,
+        // never touches the product-keyed quants), so raw-material draw-down is
+        // visible on the Inventory dashboard alongside product moves.
+        foreach ($touchedIngredients as $ingredientId => $qty) {
+            $bridge->recordIngredientConsumption($ingredientId, $qty, "POS sale {$this->reference}");
         }
     }
 

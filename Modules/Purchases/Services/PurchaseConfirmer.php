@@ -16,6 +16,7 @@ use Modules\Inventory\Models\StockOperationType;
 use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosProduct;
+use Modules\Pos\Services\PosInventoryBridge;
 use Modules\Purchases\Enums\PurchaseState;
 use Modules\Purchases\Events\PurchaseInvoiceConfirmed;
 use Modules\Purchases\Models\Purchase;
@@ -67,9 +68,11 @@ final class PurchaseConfirmer
                 }
 
                 // A line buys EITHER a product, a condiment or an ingredient. A
-                // product also posts a warehouse receipt; condiments and
-                // ingredients only raise their own on-hand (neither is on the
-                // Inventory ledger — same as recipe consumption).
+                // product posts a warehouse receipt that updates the quant
+                // ledger; an ingredient raises its own on-hand AND posts a Done
+                // ingredient receipt move for the Inventory dashboard (audit
+                // only — it never touches the product-keyed quants). A condiment
+                // just raises its on-hand (not surfaced in Inventory).
                 if ($line->pos_product_id !== null) {
                     $this->raisePosStock($line);
                     $this->receiveIntoWarehouse($purchase, $line);
@@ -77,6 +80,11 @@ final class PurchaseConfirmer
                     $this->raiseCondimentStock($line);
                 } elseif ($line->pos_ingredient_id !== null) {
                     $this->raiseIngredientStock($line);
+                    app(PosInventoryBridge::class)->recordIngredientReceipt(
+                        (int) $line->pos_ingredient_id,
+                        (float) $line->quantity,
+                        (string) $purchase->reference,
+                    );
                 }
             }
         });

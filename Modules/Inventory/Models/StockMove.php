@@ -19,6 +19,7 @@ use Modules\Inventory\Enums\MoveState;
  * @property string $reference
  * @property int|null $stock_operation_type_id
  * @property int|null $product_id
+ * @property string $item_type  'product' (default) | 'ingredient' — what product_id references.
  * @property float $product_qty
  * @property int $source_location_id
  * @property int $dest_location_id
@@ -34,10 +35,23 @@ final class StockMove extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'reference', 'stock_operation_type_id', 'product_id', 'product_qty',
+        'reference', 'stock_operation_type_id', 'product_id', 'item_type', 'product_qty',
         'source_location_id', 'dest_location_id', 'state',
         'lot_name', 'barcode', 'scheduled_at', 'done_at',
     ];
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'item_type' => 'product',
+    ];
+
+    /** A raw-material (ingredient) move — an audit-only entry, never process()ed. */
+    public function isIngredient(): bool
+    {
+        return $this->item_type === 'ingredient';
+    }
 
     /**
      * @return array<string, string>

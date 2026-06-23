@@ -251,6 +251,7 @@ jobs:
              php artisan migrate --path=Modules/Pos/database/migrations --force && \
              php artisan migrate --path=Modules/WhatsApp/database/migrations --force && \
              php artisan migrate --path=Modules/Accounting/database/migrations --force && \
+             php artisan migrate --path=Modules/Purchases/database/migrations --force && \
              php artisan db:seed --class='Database\\Seeders\\SettingSeeder' --force && \
              php artisan db:seed --class='Database\\Seeders\\PosStaffSeeder' --force && \
              php artisan module:resync pos && \

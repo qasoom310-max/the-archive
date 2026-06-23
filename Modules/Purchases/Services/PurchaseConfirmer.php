@@ -13,6 +13,7 @@ use Modules\Inventory\Enums\MoveState;
 use Modules\Inventory\Models\StockLocation;
 use Modules\Inventory\Models\StockMove;
 use Modules\Inventory\Models\StockOperationType;
+use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosProduct;
 use Modules\Purchases\Enums\PurchaseState;
 use Modules\Purchases\Events\PurchaseInvoiceConfirmed;
@@ -60,12 +61,20 @@ final class PurchaseConfirmer
             $purchase->save();
 
             foreach ($purchase->lines as $line) {
-                if ($line->pos_product_id === null || $line->quantity <= 0) {
+                if ($line->quantity <= 0) {
                     continue;
                 }
 
-                $this->raisePosStock($line);
-                $this->receiveIntoWarehouse($purchase, $line);
+                // A line buys EITHER a product or a condiment. A product also
+                // posts a warehouse receipt; a condiment only raises its own
+                // on-hand (condiments aren't on the Inventory ledger — same as
+                // recipe consumption).
+                if ($line->pos_product_id !== null) {
+                    $this->raisePosStock($line);
+                    $this->receiveIntoWarehouse($purchase, $line);
+                } elseif ($line->pos_condiment_id !== null) {
+                    $this->raiseCondimentStock($line);
+                }
             }
         });
 
@@ -98,6 +107,23 @@ final class PurchaseConfirmer
 
         $product->stock_on_hand = round((float) $product->stock_on_hand + (float) $line->quantity, 3);
         $product->save();
+    }
+
+    /**
+     * Increase a condiment's on-hand count. Condiments are stock-tracked (so
+     * they can be recipe components) but are NOT on the Inventory warehouse
+     * ledger, so there's no receipt move — only the POS-side figure.
+     */
+    private function raiseCondimentStock(PurchaseLine $line): void
+    {
+        $condiment = PosCondiment::query()->find($line->pos_condiment_id);
+
+        if ($condiment === null) {
+            return;
+        }
+
+        $condiment->stock_on_hand = round((float) $condiment->stock_on_hand + (float) $line->quantity, 3);
+        $condiment->save();
     }
 
     /**

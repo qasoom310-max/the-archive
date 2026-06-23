@@ -28,9 +28,11 @@ use Modules\Purchases\Enums\PurchaseState;
  *
  * @property int $id
  * @property string|null $reference
+ * @property string|null $name
  * @property int|null $partner_id
  * @property int|null $user_id
  * @property Carbon $date
+ * @property Carbon|null $expiry_date
  * @property PurchaseState $state
  * @property bool $is_stock_purchase
  * @property float $total
@@ -46,7 +48,7 @@ final class Purchase extends Model implements Chatterable, DefinesIrModel
 
     /** @var list<string> */
     protected $fillable = [
-        'reference', 'partner_id', 'user_id', 'date', 'state',
+        'reference', 'name', 'partner_id', 'user_id', 'date', 'expiry_date', 'state',
         'is_stock_purchase', 'total', 'notes', 'confirmed_at',
     ];
 
@@ -64,6 +66,7 @@ final class Purchase extends Model implements Chatterable, DefinesIrModel
     {
         return [
             'date' => 'date',
+            'expiry_date' => 'date',
             'state' => PurchaseState::class,
             'is_stock_purchase' => 'boolean',
             'total' => 'float',

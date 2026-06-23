@@ -1,21 +1,19 @@
 @php
     use App\Erp\Money\Currencies;
-    // Client-side product list for the per-line searchable comboboxes.
-    $productsJs = $products->map(static fn ($p): array => [
-        'id' => (int) $p->id,
-        'name' => (string) $p->name,
-    ])->values();
+    // Client-side component list (products + condiments) for the per-line
+    // searchable comboboxes. Each carries a composite key: "p:{id}" / "c:{id}".
+    $componentsJs = $components->values();
 @endphp
 <div class="mx-auto max-w-4xl p-4 sm:p-6"
     x-data="{
-        products: @js($productsJs),
-        filterProducts(q) {
+        components: @js($componentsJs),
+        filterComponents(q) {
             const s = (q || '').trim().toLowerCase();
-            const list = s === '' ? this.products : this.products.filter(p => p.name.toLowerCase().includes(s));
+            const list = s === '' ? this.components : this.components.filter(c => c.name.toLowerCase().includes(s));
             return list.slice(0, 50);
         },
     }"
-    @product-created.window="products.push({ id: $event.detail.id, name: $event.detail.name })">
+    @product-created.window="components.push({ key: 'p:' + $event.detail.id, name: $event.detail.name })">
     <div class="mb-4 flex items-center gap-2 text-sm text-chrome-500">
         <a href="{{ url('/app/purchases/purchase') }}" wire:navigate class="hover:text-primary-700">{{ __('Purchases') }}</a>
         <span>/</span>
@@ -85,6 +83,19 @@
             </div>
 
             <div>
+                <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Purchase name') }}</label>
+                <input type="text" wire:model="form.name" @disabled($isConfirmed)
+                    placeholder="{{ __('e.g. Weekly coffee restock') }}" class="o-input">
+                @error('form.name') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+            </div>
+
+            <div>
+                <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Expiry date') }}</label>
+                <input type="date" wire:model="form.expiry_date" @disabled($isConfirmed) class="o-input">
+                @error('form.expiry_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+            </div>
+
+            <div>
                 <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Reference') }}</label>
                 <input type="text" wire:model="form.reference" @disabled($isConfirmed)
                     placeholder="{{ __('Auto (or vendor invoice no.)') }}" class="o-input">
@@ -129,9 +140,9 @@
                         @foreach ($lines as $i => $line)
                             @php
                                 $selName = '';
-                                if (($line['pos_product_id'] ?? '') !== '') {
-                                    $sel = $products->firstWhere('id', (int) $line['pos_product_id']);
-                                    $selName = $sel ? (string) $sel->name : '';
+                                if (($line['component'] ?? '') !== '') {
+                                    $sel = $components->firstWhere('key', $line['component']);
+                                    $selName = $sel ? (string) $sel['name'] : '';
                                 }
                             @endphp
                             <tr wire:key="line-{{ $i }}">
@@ -157,11 +168,11 @@
                                                         : { left: r.left, width: r.width, top: 'auto', bottom: (vh - r.top + 4) + 'px', maxH };
                                                 },
                                                 openPanel() { this.place(); this.open = true; },
-                                                choose(p) {
-                                                    this.selectedName = p ? p.name : '';
+                                                choose(c) {
+                                                    this.selectedName = c ? c.name : '';
                                                     this.search = this.selectedName;
                                                     this.open = false;
-                                                    $wire.set('lines.{{ $i }}.pos_product_id', p ? p.id : '');
+                                                    $wire.set('lines.{{ $i }}.component', c ? c.key : '');
                                                 },
                                             }"
                                             @product-created.window="if ($event.detail.lineIndex === {{ $i }}) { selectedName = $event.detail.name; search = $event.detail.name; }"
@@ -182,12 +193,12 @@
                                                 class="fixed z-50 overflow-auto rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
                                                 <button type="button" @click="choose(null)"
                                                     class="flex w-full items-center px-3 py-1.5 text-start text-sm text-chrome-400 hover:bg-chrome-50">—</button>
-                                                <template x-for="p in filterProducts(search)" :key="p.id">
-                                                    <button type="button" @click="choose(p)"
+                                                <template x-for="c in filterComponents(search)" :key="c.key">
+                                                    <button type="button" @click="choose(c)"
                                                         class="flex w-full items-center px-3 py-1.5 text-start text-sm text-chrome-700 hover:bg-primary-50"
-                                                        x-text="p.name"></button>
+                                                        x-text="c.name"></button>
                                                 </template>
-                                                <template x-if="filterProducts(search).length === 0">
+                                                <template x-if="filterComponents(search).length === 0">
                                                     <p class="px-3 py-1.5 text-sm text-chrome-400">{{ __('No products found') }}</p>
                                                 </template>
                                                 @if ($canWrite || $canCreate)
@@ -276,6 +287,11 @@
                             <input type="email" wire:model="newVendor.email" class="o-input">
                             @error('newVendor.email') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Location') }}</label>
+                        <input type="text" wire:model="newVendor.location" placeholder="{{ __('City / area') }}" class="o-input">
+                        @error('newVendor.location') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div class="flex justify-end gap-2 pt-2">
                         <button type="button" wire:click="closeVendorModal"

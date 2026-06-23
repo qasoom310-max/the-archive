@@ -16,6 +16,7 @@ use Modules\Accounting\Providers\AccountingServiceProvider;
 use Modules\Contacts\Models\Partner;
 use Modules\Inventory\Models\StockOperationType;
 use Modules\Inventory\Models\StockQuant;
+use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosProduct;
 use Modules\Purchases\Enums\PurchaseState;
 use Modules\Purchases\Livewire\PurchaseForm;
@@ -162,7 +163,7 @@ final class PurchaseConfirmTest extends TestCase
 
         Livewire::test(PurchaseForm::class)
             ->set('form.date', '2026-06-08')
-            ->set('lines.0.pos_product_id', (int) $coal->id)
+            ->set('lines.0.component', 'p:' . $coal->id)
             ->set('lines.0.quantity', 7)
             ->set('lines.0.unit_cost', 0.5)
             ->call('confirm')
@@ -170,6 +171,57 @@ final class PurchaseConfirmTest extends TestCase
 
         $this->assertSame(9.0, (float) $coal->fresh()?->stock_on_hand);
         $this->assertSame(1, Purchase::query()->where('state', 'confirmed')->count());
+    }
+
+    public function test_confirming_a_condiment_line_raises_the_condiment_stock(): void
+    {
+        $cheese = PosCondiment::query()->create(['name' => 'Extra cheese', 'price' => 0.5, 'stock_on_hand' => 3.0, 'active' => true]);
+
+        Livewire::test(PurchaseForm::class)
+            ->set('form.date', '2026-06-23')
+            ->set('lines.0.component', 'c:' . $cheese->id)
+            ->set('lines.0.quantity', 12)
+            ->set('lines.0.unit_cost', 0.2)
+            ->call('confirm')
+            ->assertSet('state', 'confirmed');
+
+        // The condiment's on-hand went up; it's NOT on the warehouse ledger.
+        $this->assertSame(15.0, (float) $cheese->fresh()?->stock_on_hand);
+    }
+
+    public function test_purchase_name_and_expiry_date_persist(): void
+    {
+        $coal = $this->coal(stock: 0.0);
+
+        // confirm() persists the record (name/expiry) without the new-bill
+        // redirect that save() would trigger (the module's named route isn't
+        // registered in the test harness — the known module-boot gap).
+        Livewire::test(PurchaseForm::class)
+            ->set('form.date', '2026-06-23')
+            ->set('form.name', 'Weekly coffee restock')
+            ->set('form.expiry_date', '2026-12-31')
+            ->set('lines.0.component', 'p:' . $coal->id)
+            ->set('lines.0.quantity', 2)
+            ->set('lines.0.unit_cost', 1.0)
+            ->call('confirm')
+            ->assertSet('state', 'confirmed');
+
+        $purchase = Purchase::query()->latest('id')->firstOrFail();
+        $this->assertSame('Weekly coffee restock', $purchase->name);
+        $this->assertSame('2026-12-31', $purchase->expiry_date?->toDateString());
+    }
+
+    public function test_inline_vendor_saves_the_location_to_the_partner(): void
+    {
+        Livewire::test(PurchaseForm::class)
+            ->call('openVendorModal')
+            ->set('newVendor.name', 'Najaf Bakery')
+            ->set('newVendor.location', 'Manama')
+            ->call('saveVendor')
+            ->assertHasNoErrors();
+
+        $vendor = Partner::query()->where('name', 'Najaf Bakery')->firstOrFail();
+        $this->assertSame('Manama', $vendor->city);
     }
 
     public function test_inline_vendor_create_makes_a_partner_and_selects_it(): void
@@ -226,7 +278,7 @@ final class PurchaseConfirmTest extends TestCase
             ->assertHasNoErrors()
             ->assertSet('addingProduct', false)
             // `name` is translatable JSON, so look it up via the locale path.
-            ->assertSet('lines.0.pos_product_id', (string) PosProduct::query()->where('name->en', 'Arabica Beans')->value('id'))
+            ->assertSet('lines.0.component', 'p:' . PosProduct::query()->where('name->en', 'Arabica Beans')->value('id'))
             ->assertSet('lines.0.description', 'Arabica Beans')
             ->assertSet('lines.0.unit_cost', 1.25); // cost prefilled from the new product
 

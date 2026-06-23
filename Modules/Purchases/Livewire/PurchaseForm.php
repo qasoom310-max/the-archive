@@ -15,6 +15,7 @@ use Livewire\Component;
 use Modules\Contacts\Models\Partner;
 use Modules\Pos\Livewire\Concerns\CreatesProductInline;
 use Modules\Pos\Models\PosCategory;
+use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosProduct;
 use Modules\Purchases\Enums\PurchaseState;
 use Modules\Purchases\Models\Purchase;
@@ -38,8 +39,10 @@ final class PurchaseForm extends Component
     /** @var array<string, mixed> */
     public array $form = [
         'reference' => '',
+        'name' => '',
         'partner_id' => '',
         'date' => '',
+        'expiry_date' => '',
         'is_stock_purchase' => true,
         'notes' => '',
     ];
@@ -57,7 +60,7 @@ final class PurchaseForm extends Component
     public bool $addingVendor = false;
 
     /** @var array<string, string> */
-    public array $newVendor = ['name' => '', 'phone' => '', 'email' => ''];
+    public array $newVendor = ['name' => '', 'phone' => '', 'email' => '', 'location' => ''];
 
     /**
      * Which line index the freshly-created product is assigned to. (The
@@ -83,15 +86,19 @@ final class PurchaseForm extends Component
         $this->reference = $purchase->reference;
         $this->form = [
             'reference' => (string) ($purchase->reference ?? ''),
+            'name' => (string) ($purchase->name ?? ''),
             'partner_id' => $purchase->partner_id ?? '',
             'date' => $purchase->date->toDateString(),
+            'expiry_date' => $purchase->expiry_date?->toDateString() ?? '',
             'is_stock_purchase' => (bool) $purchase->is_stock_purchase,
             'notes' => (string) ($purchase->notes ?? ''),
         ];
 
         $this->lines = $purchase->lines
             ->map(static fn (PurchaseLine $l): array => [
-                'pos_product_id' => $l->pos_product_id ?? '',
+                'component' => $l->pos_product_id !== null
+                    ? 'p:' . $l->pos_product_id
+                    : ($l->pos_condiment_id !== null ? 'c:' . $l->pos_condiment_id : ''),
                 'description' => $l->description,
                 'quantity' => $l->quantity,
                 'unit_cost' => $l->unit_cost,
@@ -108,7 +115,7 @@ final class PurchaseForm extends Component
      */
     private function emptyLine(): array
     {
-        return ['pos_product_id' => '', 'description' => '', 'quantity' => 1, 'unit_cost' => 0];
+        return ['component' => '', 'description' => '', 'quantity' => 1, 'unit_cost' => 0];
     }
 
     /**
@@ -118,11 +125,13 @@ final class PurchaseForm extends Component
     {
         return [
             'form.partner_id' => ['nullable'],
+            'form.name' => ['nullable', 'string', 'max:255'],
             'form.date' => ['required', 'date'],
+            'form.expiry_date' => ['nullable', 'date'],
             'form.reference' => ['nullable', 'string', 'max:255'],
             'form.notes' => ['nullable', 'string'],
             'lines' => ['array'],
-            'lines.*.pos_product_id' => ['nullable'],
+            'lines.*.component' => ['nullable', 'string'],
             'lines.*.quantity' => ['numeric', 'min:0'],
             'lines.*.unit_cost' => ['numeric', 'min:0'],
         ];
@@ -161,7 +170,7 @@ final class PurchaseForm extends Component
             return;
         }
 
-        $this->newVendor = ['name' => '', 'phone' => '', 'email' => ''];
+        $this->newVendor = ['name' => '', 'phone' => '', 'email' => '', 'location' => ''];
         $this->resetValidation();
         $this->addingVendor = true;
     }
@@ -187,7 +196,8 @@ final class PurchaseForm extends Component
         $name = trim((string) ($this->newVendor['name'] ?? ''));
         $phone = trim((string) ($this->newVendor['phone'] ?? ''));
         $email = trim((string) ($this->newVendor['email'] ?? ''));
-        $this->newVendor = ['name' => $name, 'phone' => $phone, 'email' => $email];
+        $location = trim((string) ($this->newVendor['location'] ?? ''));
+        $this->newVendor = ['name' => $name, 'phone' => $phone, 'email' => $email, 'location' => $location];
 
         // `email` only fires when one was typed — an empty box stays optional
         // (the rule on '' would otherwise reject a blank email).
@@ -195,17 +205,21 @@ final class PurchaseForm extends Component
             'newVendor.name' => ['required', 'string', 'max:255'],
             'newVendor.phone' => ['nullable', 'string', 'max:50'],
             'newVendor.email' => [$email === '' ? 'nullable' : 'email', 'max:255'],
+            'newVendor.location' => ['nullable', 'string', 'max:255'],
         ]);
 
+        // Location is stored in the Partner's `city` column — the single
+        // "where" field already surfaced in Contacts (list + kanban).
         $vendor = Partner::query()->create([
             'name' => $name,
             'phone' => $phone === '' ? null : $phone,
             'email' => $email === '' ? null : $email,
+            'city' => $location === '' ? null : $location,
             'is_company' => true,
         ]);
 
         $this->form['partner_id'] = (string) $vendor->getKey();
-        $this->newVendor = ['name' => '', 'phone' => '', 'email' => ''];
+        $this->newVendor = ['name' => '', 'phone' => '', 'email' => '', 'location' => ''];
         $this->addingVendor = false;
     }
 
@@ -249,7 +263,7 @@ final class PurchaseForm extends Component
 
         $index = $this->productLineIndex;
         if ($index !== null && isset($this->lines[$index])) {
-            $this->lines[$index]['pos_product_id'] = (string) $product->getKey();
+            $this->lines[$index]['component'] = 'p:' . $product->getKey();
             $this->lines[$index]['description'] = $name;
             if ((float) ($this->lines[$index]['unit_cost'] ?? 0) <= 0.0) {
                 $this->lines[$index]['unit_cost'] = $cost;
@@ -265,35 +279,48 @@ final class PurchaseForm extends Component
     }
 
     /**
-     * When a product is picked, prefill the description and default the unit
-     * cost to the product's recorded cost price (the user can still override).
+     * When a line's component (product OR condiment) is picked, prefill the
+     * description; for a product also default the unit cost to its recorded
+     * cost price (condiments have no cost price — left for the buyer to enter).
      */
     public function updatedLines(mixed $value, string $key): void
     {
-        if (! str_ends_with($key, '.pos_product_id')) {
+        if (! str_ends_with($key, '.component')) {
             return;
         }
 
         $index = (int) explode('.', $key)[0];
-        $productId = ($value === '' || $value === null) ? null : (int) $value;
 
-        if ($productId === null || ! isset($this->lines[$index])) {
+        if (! isset($this->lines[$index])) {
             return;
         }
 
-        $product = PosProduct::query()->find($productId);
+        [$type, $idStr] = array_pad(explode(':', (string) $value, 2), 2, null);
+        $id = (int) $idStr;
 
-        if ($product === null) {
+        if ($id <= 0) {
             return;
         }
 
-        if (($this->lines[$index]['description'] ?? '') === '') {
-            $this->lines[$index]['description'] = (string) $product->name;
-        }
-
-        $cost = (float) $this->lines[$index]['unit_cost'];
-        if ($cost <= 0.0) {
-            $this->lines[$index]['unit_cost'] = (float) $product->cost_price;
+        if ($type === 'p') {
+            $product = PosProduct::query()->find($id);
+            if ($product === null) {
+                return;
+            }
+            if (($this->lines[$index]['description'] ?? '') === '') {
+                $this->lines[$index]['description'] = (string) $product->name;
+            }
+            if ((float) $this->lines[$index]['unit_cost'] <= 0.0) {
+                $this->lines[$index]['unit_cost'] = (float) $product->cost_price;
+            }
+        } elseif ($type === 'c') {
+            $condiment = PosCondiment::query()->find($id);
+            if ($condiment === null) {
+                return;
+            }
+            if (($this->lines[$index]['description'] ?? '') === '') {
+                $this->lines[$index]['description'] = (string) $condiment->name;
+            }
         }
     }
 
@@ -340,7 +367,7 @@ final class PurchaseForm extends Component
         $this->validate();
 
         $hasUsableLine = collect($this->lines)->contains(
-            static fn (array $l): bool => ($l['pos_product_id'] ?? '') !== '' && (float) ($l['quantity'] ?? 0) > 0,
+            static fn (array $l): bool => ($l['component'] ?? '') !== '' && (float) ($l['quantity'] ?? 0) > 0,
         );
 
         if (! $hasUsableLine) {
@@ -376,10 +403,16 @@ final class PurchaseForm extends Component
 
         $reference = trim((string) ($this->form['reference'] ?? ''));
 
+        $expiry = ($this->form['expiry_date'] === '' || $this->form['expiry_date'] === null)
+            ? null
+            : (string) $this->form['expiry_date'];
+
         $purchase->fill([
             'reference' => $reference === '' ? $purchase->reference : $reference,
+            'name' => ($this->form['name'] === '') ? null : (string) $this->form['name'],
             'partner_id' => $partnerId,
             'date' => (string) $this->form['date'],
+            'expiry_date' => $expiry,
             'is_stock_purchase' => (bool) ($this->form['is_stock_purchase'] ?? true),
             'notes' => ($this->form['notes'] === '') ? null : (string) $this->form['notes'],
         ]);
@@ -391,25 +424,34 @@ final class PurchaseForm extends Component
         $purchase->lines()->delete();
 
         foreach ($this->lines as $line) {
-            $productId = ($line['pos_product_id'] ?? '') === '' ? null : (int) $line['pos_product_id'];
+            // A line's component is a composite key: "p:{id}" (product) or
+            // "c:{id}" (condiment).
+            [$type, $idStr] = array_pad(explode(':', (string) ($line['component'] ?? ''), 2), 2, null);
+            $refId = (int) $idStr;
+            $productId = ($type === 'p' && $refId > 0) ? $refId : null;
+            $condimentId = ($type === 'c' && $refId > 0) ? $refId : null;
             $quantity = (float) ($line['quantity'] ?? 0);
 
-            // Skip rows that have neither a product nor a quantity — empty
+            // Skip rows that have neither a component nor a quantity — empty
             // editor rows shouldn't persist.
-            if ($productId === null && $quantity <= 0.0) {
+            if ($productId === null && $condimentId === null && $quantity <= 0.0) {
                 continue;
             }
 
             $description = trim((string) ($line['description'] ?? ''));
-            if ($description === '' && $productId !== null) {
-                $product = PosProduct::query()->find($productId);
-                if ($product !== null) {
-                    $description = (string) $product->name;
+            if ($description === '') {
+                if ($productId !== null) {
+                    $product = PosProduct::query()->find($productId);
+                    $description = $product !== null ? (string) $product->name : $description;
+                } elseif ($condimentId !== null) {
+                    $condiment = PosCondiment::query()->find($condimentId);
+                    $description = $condiment !== null ? (string) $condiment->name : $description;
                 }
             }
 
             $purchase->lines()->create([
                 'pos_product_id' => $productId,
+                'pos_condiment_id' => $condimentId,
                 'description' => $description,
                 'quantity' => $quantity,
                 'unit_cost' => (float) ($line['unit_cost'] ?? 0),
@@ -427,9 +469,19 @@ final class PurchaseForm extends Component
         $access = app(AccessControl::class);
         $user = Auth::user();
 
+        // The line picker offers products AND condiments, each carrying a
+        // composite key ("p:{id}" / "c:{id}") so persist knows which it is.
+        $components = PosProduct::query()->orderBy('name')->get(['id', 'name'])
+            ->map(static fn (PosProduct $p): array => ['key' => 'p:' . $p->id, 'name' => (string) $p->name])
+            ->concat(
+                PosCondiment::query()->where('active', true)->orderBy('name')->get(['id', 'name'])
+                    ->map(static fn (PosCondiment $c): array => ['key' => 'c:' . $c->id, 'name' => (string) $c->name]),
+            )
+            ->values();
+
         return view('purchases::purchase-form', [
             'vendors' => Partner::query()->orderBy('name')->get(['id', 'name']),
-            'products' => PosProduct::query()->orderBy('name')->get(['id', 'name', 'cost_price']),
+            'components' => $components,
             'categories' => PosCategory::query()->orderBy('name')->get(['id', 'name']),
             'unitOptions' => PosProduct::UNIT_OPTIONS,
             'total' => $this->currentTotal(),

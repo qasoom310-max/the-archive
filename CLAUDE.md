@@ -1272,6 +1272,34 @@ the credit sits in Accounts Payable, no payment/bank reconciliation yet).
     (3 — inline create selects the component, name required, created component
     adds to the recipe). AR keys: Component / Qty / unit / Add component.
 
+**Phase 16 increment shipped 2026-06-23 — vendor location, purchase name/expiry, condiment lines:**
+
+- **Vendor "Location" field** — the inline New-vendor modal gained a Location
+  text input; `PurchaseForm::saveVendor()` stores it into the Partner's **`city`**
+  column (the single "where" field already surfaced in Contacts list/kanban — no
+  new column). Validated `nullable|string|max:255`.
+- **Purchase name + expiry date** — two new `purchases` columns (migration
+  `2026_06_23_100003`): `name` (string, optional label) + `expiry_date` (date,
+  e.g. shelf-life of perishables). Both **descriptive only** — no stock/accounting
+  effect. Added to `Purchase` fillable/casts/@property, the `PurchaseForm` header
+  (Purchase name + Expiry date inputs), `rules()`, mount/persist.
+- **Condiment purchase lines** — a bill line can now buy a **condiment** as well
+  as a product. `purchase_lines.pos_condiment_id` (nullable logical ref, migration
+  `2026_06_23_100004`). The per-line picker became a **products + condiments**
+  combobox using composite keys `p:{id}` / `c:{id}` (the line's editor field is now
+  `component`, split into `pos_product_id`/`pos_condiment_id` on persist — mirrors
+  the recipe editor + `product_recipes`). `PurchaseConfirmer` raises the matching
+  stock: a product → `raisePosStock()` + warehouse receipt (as before); a condiment
+  → `raiseCondimentStock()` (`pos_condiments.stock_on_hand += qty`, **no** warehouse
+  move — condiments aren't on the Inventory ledger). Accounting total includes both.
+- **Deploy**: `deploy.yml` now runs `migrate --path=Modules/Purchases/database/migrations`
+  for Main (Purchases was previously absent from the auto-migrate list); tenants get
+  it via `workspaces:migrate`'s installed-module backfill.
+- Tests: `PurchaseConfirmTest` (`test_confirming_a_condiment_line_raises_the_condiment_stock`,
+  `test_purchase_name_and_expiry_date_persist`, `test_inline_vendor_saves_the_location_to_the_partner`;
+  the two existing form tests retargeted from `lines.*.pos_product_id` → `lines.*.component`).
+  AR keys: Purchase name / Expiry date / Location / City / area / the name placeholder.
+
 **Settings increment shipped 2026-06-21 — "Users" tab (admin-only staff accounts):**
 
 A new **admin-only "Users" tab** in Settings (alongside General / Daily Report)

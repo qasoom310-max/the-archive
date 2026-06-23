@@ -331,12 +331,14 @@ final class PosFloorTableTest extends TestCase
         $session = $this->openSession();
         $t = $this->table(name: '3');
         // A position far outside the grid would have grown the old canvas; the
-        // fixed canvas stays 12×8 cells = 1152×768 and clamps the table inside.
+        // fixed canvas stays 12×8 cells and clamps the table inside. Cell size
+        // is a responsive CSS var (smaller on phone/tablet), so the canvas is
+        // sized in cell counts, not raw px.
         $t->update(['pos_x' => 5000, 'pos_y' => 5000]);
 
         Livewire::test(PosFloorPlan::class, ['session' => $session->id])
             ->call('selectFloor', $t->pos_floor_id)
-            ->assertSee('width: 1152px; height: 768px');
+            ->assertSee('width: calc(var(--cell) * 12); height: calc(var(--cell) * 8)');
     }
 
     public function test_double_click_unplaces_a_table_back_to_the_tray(): void

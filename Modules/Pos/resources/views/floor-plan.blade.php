@@ -99,16 +99,21 @@
              cell, so it can never escape the canvas or land between cells. Pick
              a table, then click a square's circle. dir=ltr: a physical room is
              never mirrored under RTL. x-data enables Escape-to-cancel. --}}
+        {{-- Cell / table pixel size is a CSS var set per breakpoint, so the
+             whole plan scales DOWN on phone + tablet (smaller cells, tables and
+             divider spacing) while the grid coordinates stored server-side stay
+             in the fixed 96px space — display size is purely cosmetic. --}}
         <div x-data="{}" @keydown.escape.window="$wire.clearSelection()"
-            dir="ltr" wire:key="floor-canvas-{{ $floorId }}">
+            dir="ltr" wire:key="floor-canvas-{{ $floorId }}"
+            class="[--cell:58px] [--tbl:50px] md:[--cell:74px] md:[--tbl:64px] lg:[--cell:96px] lg:[--tbl:84px]">
             <div class="overflow-auto rounded-2xl border border-chrome-200 bg-chrome-50 p-3" style="max-height: 72vh;">
-                <div class="relative rounded-xl bg-white" style="width: {{ $width }}px; height: {{ $height }}px;">
+                <div class="relative rounded-xl bg-white" style="width: calc(var(--cell) * {{ $cols }}); height: calc(var(--cell) * {{ $rows }});">
 
                     {{-- The grid: COLS×ROWS fixed cells, row-major. Each cell is
                          either a table (occupied) or a placement circle (empty,
                          edit mode). Tables physically live in the grid — they
                          cannot overflow or misalign. --}}
-                    <div class="grid" style="grid-template-columns: repeat({{ $cols }}, {{ $cell }}px); grid-auto-rows: {{ $cell }}px;">
+                    <div class="grid" style="grid-template-columns: repeat({{ $cols }}, var(--cell)); grid-auto-rows: var(--cell);">
                         @for ($r = 0; $r < $rows; $r++)
                             @for ($c = 0; $c < $cols; $c++)
                                 @php $card = $cells[$c . '-' . $r] ?? null; @endphp
@@ -122,14 +127,14 @@
                                                 @click="clearTimeout(t); t = setTimeout(() => $wire.selectTable({{ $card['id'] }}), 220)"
                                                 @dblclick="clearTimeout(t); $wire.unplaceTable({{ $card['id'] }})"
                                                 title="{{ __('Double-click to take off the plan') }}"
-                                                style="width: {{ $table }}px; height: {{ $table }}px;"
+                                                style="width: var(--tbl); height: var(--tbl);"
                                                 @class($pickClasses($card))>
                                                 @include('pos::partials.table-card-inner', ['card' => $card])
                                             </button>
                                         @else
                                             <a wire:key="placed-{{ $card['id'] }}"
                                                 href="{{ url('/app/pos/session/' . $sessionId . '/table/' . $card['id']) }}" wire:navigate
-                                                style="width: {{ $table }}px; height: {{ $table }}px;"
+                                                style="width: var(--tbl); height: var(--tbl);"
                                                 @class($cardClasses($card, false))>
                                                 @include('pos::partials.table-card-inner', ['card' => $card])
                                             </a>
@@ -154,18 +159,18 @@
                          gutter strips (edit mode) catch clicks. --}}
                     @foreach ($vLines as $vp)
                         <div wire:key="vline-{{ $vp }}" class="pointer-events-none absolute bottom-0 top-0 z-10 w-0.5 bg-chrome-400"
-                            style="left: {{ $vp * $cell - 1 }}px;"></div>
+                            style="left: calc(var(--cell) * {{ $vp }} - 1px);"></div>
                     @endforeach
                     @foreach ($hLines as $hp)
                         <div wire:key="hline-{{ $hp }}" class="pointer-events-none absolute left-0 right-0 z-10 h-0.5 bg-chrome-400"
-                            style="top: {{ $hp * $cell - 1 }}px;"></div>
+                            style="top: calc(var(--cell) * {{ $hp }} - 1px);"></div>
                     @endforeach
 
                     @if ($editing)
                         @for ($p = 1; $p < $cols; $p++)
                             <button type="button" wire:click="toggleLine('v', {{ $p }})" wire:key="vgut-{{ $p }}"
                                 class="group absolute bottom-0 top-0 z-20 flex w-3 justify-center"
-                                style="left: {{ $p * $cell - 6 }}px;" title="{{ __('Add / remove divider') }}">
+                                style="left: calc(var(--cell) * {{ $p }} - 6px);" title="{{ __('Add / remove divider') }}">
                                 <span @class([
                                     'h-full w-0.5 rounded transition',
                                     'bg-primary-500' => in_array($p, $vLines, true),
@@ -176,7 +181,7 @@
                         @for ($p = 1; $p < $rows; $p++)
                             <button type="button" wire:click="toggleLine('h', {{ $p }})" wire:key="hgut-{{ $p }}"
                                 class="group absolute left-0 right-0 z-20 flex h-3 items-center"
-                                style="top: {{ $p * $cell - 6 }}px;" title="{{ __('Add / remove divider') }}">
+                                style="top: calc(var(--cell) * {{ $p }} - 6px);" title="{{ __('Add / remove divider') }}">
                                 <span @class([
                                     'h-0.5 w-full rounded transition',
                                     'bg-primary-500' => in_array($p, $hLines, true),
@@ -203,13 +208,13 @@
                         @foreach ($unplaced as $card)
                             @if ($editing)
                                 <button type="button" wire:key="unplaced-{{ $card['id'] }}" wire:click="selectTable({{ $card['id'] }})"
-                                    @class(array_merge(['size-20'], $pickClasses($card)))>
+                                    @class(array_merge(['size-14 md:size-16 lg:size-20'], $pickClasses($card)))>
                                     @include('pos::partials.table-card-inner', ['card' => $card])
                                 </button>
                             @else
                                 <a wire:key="unplaced-{{ $card['id'] }}"
                                     href="{{ url('/app/pos/session/' . $sessionId . '/table/' . $card['id']) }}" wire:navigate
-                                    @class(array_merge(['size-20'], $cardClasses($card, false)))>
+                                    @class(array_merge(['size-14 md:size-16 lg:size-20'], $cardClasses($card, false)))>
                                     @include('pos::partials.table-card-inner', ['card' => $card])
                                 </a>
                             @endif

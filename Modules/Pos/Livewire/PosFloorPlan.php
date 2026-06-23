@@ -49,7 +49,7 @@ final class PosFloorPlan extends Component
     /** FIXED canvas size in cells (does NOT grow as tables are placed). */
     public const GRID_COLS = 12;
 
-    public const GRID_ROWS = 8;
+    public const GRID_ROWS = 5;
 
     /** Upper bound on a saved coordinate (defensive). */
     private const MAX_POS = 8000;

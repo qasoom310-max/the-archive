@@ -111,7 +111,7 @@
                                 <button type="button" wire:click="openAdjust({{ $product->id }})"
                                     class="text-xs font-medium text-primary-600 hover:underline">{{ __('Adjust') }}</button>
                                 @if ($status === 'out' && $purchasesInstalled)
-                                    <a href="{{ url('/app/purchases/purchase/new') }}" wire:navigate
+                                    <a href="{{ url('/app/purchases/purchase/new?product=' . $product->id) }}" wire:navigate
                                         class="text-xs font-medium text-chrome-500 hover:underline">{{ __('Buy') }}</a>
                                 @endif
                             </div>

@@ -11,6 +11,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Modules\Contacts\Models\Partner;
 use Modules\Pos\Livewire\Concerns\CreatesProductInline;
@@ -35,6 +36,14 @@ final class PurchaseForm extends Component
     use CreatesProductInline;
 
     public ?int $id = null;
+
+    /**
+     * Deep-link prefill: the Stock Report "Buy" shortcut opens
+     * `/app/purchases/purchase/new?product={id}`. Read once in mount() to
+     * pre-pick the product on a new bill.
+     */
+    #[Url(as: 'product', except: 0)]
+    public int $prefillProduct = 0;
 
     /** @var array<string, mixed> */
     public array $form = [
@@ -76,6 +85,7 @@ final class PurchaseForm extends Component
         if ($id === null) {
             $this->form['date'] = Carbon::now()->toDateString();
             $this->lines = [$this->emptyLine()];
+            $this->prefillFromProduct();
 
             return;
         }
@@ -116,6 +126,34 @@ final class PurchaseForm extends Component
     private function emptyLine(): array
     {
         return ['component' => '', 'description' => '', 'quantity' => 1, 'unit_cost' => 0];
+    }
+
+    /**
+     * Deep-link prefill: opening "New purchase" with a `?product={id}` query
+     * (the Stock Report "Buy" shortcut) pre-fills the purchase name and a first
+     * product line — pre-picked, with its description + recorded cost — so the
+     * buyer doesn't retype the item they came to restock.
+     */
+    private function prefillFromProduct(): void
+    {
+        if ($this->prefillProduct <= 0) {
+            return;
+        }
+
+        $product = PosProduct::query()->find($this->prefillProduct);
+
+        if ($product === null) {
+            return;
+        }
+
+        $name = (string) $product->name;
+        $this->form['name'] = $name;
+        $this->lines = [[
+            'component' => 'p:' . $product->getKey(),
+            'description' => $name,
+            'quantity' => 1,
+            'unit_cost' => (float) $product->cost_price,
+        ]];
     }
 
     /**

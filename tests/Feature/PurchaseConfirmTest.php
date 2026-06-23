@@ -325,6 +325,27 @@ final class PurchaseConfirmTest extends TestCase
         $this->assertSame(0, PosProduct::query()->count());
     }
 
+    public function test_buy_shortcut_prefills_the_purchase_name_and_product_line(): void
+    {
+        $coal = $this->coal(stock: 0.0);
+
+        // The Stock Report "Buy" link opens the new bill with ?product={id};
+        // the form pre-picks the product, its name + recorded cost.
+        Livewire::withQueryParams(['product' => $coal->id])
+            ->test(PurchaseForm::class)
+            ->assertSet('form.name', 'Coal')
+            ->assertSet('lines.0.component', 'p:' . $coal->id)
+            ->assertSet('lines.0.description', 'Coal')
+            ->assertSet('lines.0.unit_cost', 0.5);
+    }
+
+    public function test_new_bill_without_a_product_query_starts_blank(): void
+    {
+        Livewire::test(PurchaseForm::class)
+            ->assertSet('form.name', '')
+            ->assertSet('lines.0.component', '');
+    }
+
     public function test_purchases_app_lands_on_its_tile_dashboard(): void
     {
         // The sidebar is gone: /app/purchases now renders the engine tile

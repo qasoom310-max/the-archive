@@ -17,7 +17,8 @@
         "Modules\\Limousine\\Models\\LimoBooking",
         "Modules\\Limousine\\Models\\LimoQuotation",
         "Modules\\Limousine\\Models\\LimoInvoice",
-        "Modules\\Limousine\\Models\\LimoReceipt"
+        "Modules\\Limousine\\Models\\LimoReceipt",
+        "Modules\\Limousine\\Models\\LimoExpense"
     ],
     "sequence": 75
 }

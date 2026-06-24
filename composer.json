@@ -61,7 +61,7 @@
             "@php -d memory_limit=512M vendor/bin/phpstan analyse --no-progress"
         ],
         "test": [
-            "@php artisan test"
+            "@php -d memory_limit=1G artisan test"
         ],
         "check": [
             "@composer analyse",

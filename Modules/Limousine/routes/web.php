@@ -3,10 +3,13 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use Modules\Limousine\Http\Controllers\LimoReportExportController;
 use Modules\Limousine\Livewire\Bookings;
 use Modules\Limousine\Livewire\BookingForm;
 use Modules\Limousine\Livewire\CustomerForm;
 use Modules\Limousine\Livewire\Customers;
+use Modules\Limousine\Livewire\ExpenseForm;
+use Modules\Limousine\Livewire\Expenses;
 use Modules\Limousine\Livewire\InvoiceForm;
 use Modules\Limousine\Livewire\Invoices;
 use Modules\Limousine\Livewire\LimoHome;
@@ -16,6 +19,7 @@ use Modules\Limousine\Livewire\QuotationForm;
 use Modules\Limousine\Livewire\Quotations;
 use Modules\Limousine\Livewire\ReceiptForm;
 use Modules\Limousine\Livewire\Receipts;
+use Modules\Limousine\Livewire\Reports;
 
 Route::middleware('auth')->group(function (): void {
     // App landing — bookings dashboard.
@@ -49,4 +53,13 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/receipt', Receipts::class)->name('limousine.receipt.index');
     Route::get('/app/limousine/receipt/new', ReceiptForm::class)->name('limousine.receipt.create');
     Route::get('/app/limousine/receipt/{id}', ReceiptForm::class)->whereNumber('id')->name('limousine.receipt.edit');
+
+    // Expenses.
+    Route::get('/app/limousine/expense', Expenses::class)->name('limousine.expense.index');
+    Route::get('/app/limousine/expense/new', ExpenseForm::class)->name('limousine.expense.create');
+    Route::get('/app/limousine/expense/{id}', ExpenseForm::class)->whereNumber('id')->name('limousine.expense.edit');
+
+    // Reports (+ CSV export declared before the page so it isn't shadowed).
+    Route::get('/app/limousine/reports/bookings/export', LimoReportExportController::class)->name('limousine.reports.export');
+    Route::get('/app/limousine/reports', Reports::class)->name('limousine.reports');
 });

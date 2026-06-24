@@ -9,6 +9,8 @@
             <a href="{{ url('/app/limousine/quotation') }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Quotations') }}</a>
             <a href="{{ url('/app/limousine/invoice') }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Invoices') }}</a>
             <a href="{{ url('/app/limousine/receipt') }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Receipts') }}</a>
+            <a href="{{ url('/app/limousine/expense') }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Expenses') }}</a>
+            <a href="{{ url('/app/limousine/reports') }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Reports') }}</a>
             <a href="{{ url('/app/limousine/booking/new') }}" wire:navigate class="o-btn-primary text-sm">{{ __('New booking') }}</a>
         </div>
     </div>

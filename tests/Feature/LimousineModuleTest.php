@@ -14,12 +14,16 @@ use App\Models\Ir\IrModule;
 use App\Models\User;
 use Database\Seeders\SettingSeeder;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
+use Modules\Limousine\Http\Controllers\LimoReportExportController;
 use Modules\Limousine\Livewire\BookingForm;
 use Modules\Limousine\Livewire\LimoHome;
+use Modules\Limousine\Livewire\Reports;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
+use Modules\Limousine\Models\LimoExpense;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoLocation;
 use Modules\Limousine\Models\LimoQuotation;
@@ -53,12 +57,43 @@ final class LimousineModuleTest extends TestCase
         }
 
         $this->assertEqualsCanonicalizing(
-            ['limousine.customer', 'limousine.location', 'limousine.booking', 'limousine.quotation', 'limousine.invoice', 'limousine.receipt'],
+            ['limousine.customer', 'limousine.location', 'limousine.booking', 'limousine.quotation', 'limousine.invoice', 'limousine.receipt', 'limousine.expense'],
             IrModel::query()->where('module', 'limousine')->pluck('model')->all(),
         );
-        foreach (['limo_quotations', 'limo_invoices', 'limo_receipts'] as $table) {
+        foreach (['limo_quotations', 'limo_invoices', 'limo_receipts', 'limo_expenses'] as $table) {
             $this->assertTrue(Schema::hasTable($table), "missing {$table}");
         }
+    }
+
+    public function test_reports_net_collected_against_expenses_and_export(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Zain']);
+        LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'status' => LimoBooking::STATUS_COMPLETED,
+            'pickup_at' => '2026-06-10 09:00:00', 'fare' => 30,
+        ]);
+        $invoice = LimoInvoice::query()->create(['customer_id' => $customer->id, 'issue_date' => '2026-06-10', 'total' => 30]);
+        LimoReceipt::query()->create(['invoice_id' => $invoice->id, 'customer_id' => $customer->id, 'date' => '2026-06-10', 'amount' => 30, 'method' => 'cash']);
+        LimoExpense::query()->create(['date' => '2026-06-11', 'category' => 'fuel', 'amount' => 12]);
+
+        // Summary nets collected (30) minus expenses (12) = 18.
+        Livewire::test(Reports::class)
+            ->set('from', '2026-06-01')
+            ->set('to', '2026-06-30')
+            ->assertOk()
+            ->assertSee('Net')
+            ->set('tab', 'customers')->assertSee('Zain');
+
+        // CSV export streams the in-range booking (routes aren't mounted in the
+        // test harness — invoke the controller directly).
+        $response = (new LimoReportExportController())(
+            Request::create('/x', 'GET', ['from' => '2026-06-01', 'to' => '2026-06-30']),
+        );
+        ob_start();
+        $response->sendContent();
+        $csv = (string) ob_get_clean();
+        $this->assertStringContainsString('Zain', $csv);
     }
 
     public function test_quotation_converts_then_booking_invoices_and_settles(): void

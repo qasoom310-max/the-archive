@@ -118,6 +118,57 @@ final class WorkspaceTest extends TestCase
         });
     }
 
+    public function test_install_modules_backfills_a_later_module_into_existing_tenants(): void
+    {
+        $owner = Auth::user();
+        $this->assertInstanceOf(User::class, $owner);
+
+        // A tenant provisioned with only POS — as if Limousine didn't exist yet.
+        $workspace = app(WorkspaceManager::class)->provision('Old branch', $owner, ['pos']);
+        $path = $workspace->databasePath();
+        $this->assertNotNull($path);
+
+        // Limousine is NOT in this tenant's registry → app bar can't show it.
+        app(WorkspaceManager::class)->withTenant($path, function (): void {
+            $this->assertFalse(
+                IrModule::query()->where('name', 'limousine')->where('state', ModuleState::Installed)->exists(),
+            );
+        });
+
+        // The deploy's backfill step installs every discovered module everywhere.
+        Artisan::call('workspaces:install-modules');
+
+        app(WorkspaceManager::class)->withTenant($path, function (): void {
+            $this->assertTrue(
+                IrModule::query()->where('name', 'limousine')->where('state', ModuleState::Installed)->exists(),
+            );
+            $this->assertTrue(
+                IrModule::query()->where('name', 'rental')->where('state', ModuleState::Installed)->exists(),
+            );
+        });
+    }
+
+    public function test_install_modules_can_target_a_single_module(): void
+    {
+        $owner = Auth::user();
+        $this->assertInstanceOf(User::class, $owner);
+        $workspace = app(WorkspaceManager::class)->provision('Targeted', $owner, ['pos']);
+        $path = $workspace->databasePath();
+        $this->assertNotNull($path);
+
+        Artisan::call('workspaces:install-modules', ['name' => 'limousine']);
+
+        app(WorkspaceManager::class)->withTenant($path, function (): void {
+            $this->assertTrue(
+                IrModule::query()->where('name', 'limousine')->where('state', ModuleState::Installed)->exists(),
+            );
+            // Rental was not requested → still absent.
+            $this->assertFalse(
+                IrModule::query()->where('name', 'rental')->where('state', ModuleState::Installed)->exists(),
+            );
+        });
+    }
+
     public function test_delete_removes_the_file_and_the_row(): void
     {
         $owner = Auth::user();

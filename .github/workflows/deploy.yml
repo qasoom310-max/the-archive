@@ -284,6 +284,7 @@ jobs:
              php artisan module:resync rental && \
              php artisan module:install limousine && \
              php artisan module:resync limousine && \
+             php artisan workspaces:install-modules && \
              php artisan optimize:clear && \
              php artisan config:cache && \
              php artisan route:cache && \

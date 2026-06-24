@@ -23,6 +23,27 @@ enum Feature: string
     case Projects = 'projects';
     case Restaurant = 'restaurant';
 
+    // POS sub-features (toggled from POS → Settings).
+    case Condiments = 'condiments';
+    case CustomerDiscounts = 'customer_discounts';
+    case Damage = 'damage';
+    case BarcodeScanning = 'barcode_scanning';
+
+    // Accounting sub-features.
+    case ChartOfAccounts = 'chart_of_accounts';
+    case JournalEntries = 'journal_entries';
+
+    // Rent A Car sub-features.
+    case RentalMaintenance = 'rental_maintenance';
+    case RentalDrivers = 'rental_drivers';
+    case RentalQuotations = 'rental_quotations';
+    case RentalReplacements = 'rental_replacements';
+
+    // Limousine sub-features.
+    case LimoExpenses = 'limo_expenses';
+    case LimoQuotations = 'limo_quotations';
+    case LimoLocations = 'limo_locations';
+
     public function label(): string
     {
         return match ($this) {
@@ -36,6 +57,19 @@ enum Feature: string
             self::Limousine => 'Limousine',
             self::Projects => 'Projects',
             self::Restaurant => 'Dine-in (tables, kitchen, shisha)',
+            self::Condiments => 'Condiments & add-ons',
+            self::CustomerDiscounts => 'Customer discounts',
+            self::Damage => 'Damage / waste log',
+            self::BarcodeScanning => 'Barcode scanning (camera)',
+            self::ChartOfAccounts => 'Chart of accounts',
+            self::JournalEntries => 'Journal entries',
+            self::RentalMaintenance => 'Vehicle maintenance',
+            self::RentalDrivers => 'Drivers',
+            self::RentalQuotations => 'Rental quotations',
+            self::RentalReplacements => 'Replacement vehicles',
+            self::LimoExpenses => 'Trip expenses',
+            self::LimoQuotations => 'Limousine quotations',
+            self::LimoLocations => 'Saved locations',
         };
     }
 }

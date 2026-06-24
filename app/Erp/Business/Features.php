@@ -46,14 +46,29 @@ final class Features
      */
     private const MODEL_FEATURE = [
         'pos.ingredient' => Feature::Recipes,
-        // The damage / waste log is stock-keeping, so it follows Inventory —
-        // visible in Café, Retail and Retail+Crafting, hidden everywhere with
-        // no stock (Rental / Limousine / Services).
-        'pos.damage' => Feature::Inventory,
+        // The damage / waste log is its own POS sub-feature (toggle in POS →
+        // Settings). Its preset matches Inventory's old reach (Café / Retail /
+        // Retail+Crafting) so configured databases keep it.
+        'pos.damage' => Feature::Damage,
         // Floors & tables are dine-in only — a retail / crafting shop has no
         // table service, so they follow the Restaurant feature (Café only).
         'pos.floor' => Feature::Restaurant,
         'pos.table' => Feature::Restaurant,
+        // POS sub-features (catalogue screens for these models).
+        'pos.condiment' => Feature::Condiments,
+        'pos.customer_discount' => Feature::CustomerDiscounts,
+        // Accounting sub-features.
+        'accounting.account' => Feature::ChartOfAccounts,
+        'accounting.journal_entry' => Feature::JournalEntries,
+        // Rent A Car sub-features.
+        'rental.maintenance' => Feature::RentalMaintenance,
+        'rental.driver' => Feature::RentalDrivers,
+        'rental.quotation' => Feature::RentalQuotations,
+        'rental.replacement' => Feature::RentalReplacements,
+        // Limousine sub-features.
+        'limousine.expense' => Feature::LimoExpenses,
+        'limousine.quotation' => Feature::LimoQuotations,
+        'limousine.location' => Feature::LimoLocations,
     ];
 
     /**
@@ -65,7 +80,18 @@ final class Features
      * @var array<string, list<Feature>>
      */
     private const APP_FEATURES = [
-        'pos' => [Feature::Restaurant, Feature::Recipes],
+        'pos' => [
+            Feature::Restaurant, Feature::Recipes, Feature::Condiments,
+            Feature::CustomerDiscounts, Feature::Damage, Feature::BarcodeScanning,
+        ],
+        'accounting' => [Feature::ChartOfAccounts, Feature::JournalEntries],
+        'rental' => [
+            Feature::RentalMaintenance, Feature::RentalDrivers,
+            Feature::RentalQuotations, Feature::RentalReplacements,
+        ],
+        'limousine' => [
+            Feature::LimoExpenses, Feature::LimoQuotations, Feature::LimoLocations,
+        ],
     ];
 
     /** The settings key holding manual per-feature overrides (JSON object). */

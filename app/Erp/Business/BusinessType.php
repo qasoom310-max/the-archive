@@ -56,12 +56,18 @@ enum BusinessType: string
                 Feature::Pos, Feature::Recipes, Feature::Inventory,
                 Feature::Purchases, Feature::Hr, Feature::Accounting,
                 Feature::Restaurant,
+                Feature::Condiments, Feature::CustomerDiscounts,
+                Feature::Damage, Feature::BarcodeScanning,
+                Feature::ChartOfAccounts, Feature::JournalEntries,
             ],
             // A shop sells finished goods — same POS/stock chain, but no
             // recipes (nothing is assembled from components on sale).
             self::Retail => [
                 Feature::Pos, Feature::Inventory,
                 Feature::Purchases, Feature::Hr, Feature::Accounting,
+                Feature::Condiments, Feature::CustomerDiscounts,
+                Feature::Damage, Feature::BarcodeScanning,
+                Feature::ChartOfAccounts, Feature::JournalEntries,
             ],
             // A shop that BOTH resells bought goods AND crafts its own from
             // ingredients (e.g. a perfume house: some bottles bought-in, some
@@ -70,26 +76,39 @@ enum BusinessType: string
             self::RetailCraft => [
                 Feature::Pos, Feature::Recipes, Feature::Inventory,
                 Feature::Purchases, Feature::Hr, Feature::Accounting,
+                Feature::Condiments, Feature::CustomerDiscounts,
+                Feature::Damage, Feature::BarcodeScanning,
+                Feature::ChartOfAccounts, Feature::JournalEntries,
             ],
             // Rentals revolve around bookings of assets, not a sales counter.
             self::Rental => [
                 Feature::Bookings, Feature::Purchases,
                 Feature::Hr, Feature::Accounting,
+                Feature::RentalMaintenance, Feature::RentalDrivers,
+                Feature::RentalQuotations, Feature::RentalReplacements,
+                Feature::ChartOfAccounts, Feature::JournalEntries,
             ],
             // A limousine service runs on trip bookings, with its own app.
             self::Limousine => [
                 Feature::Limousine, Feature::Purchases,
                 Feature::Hr, Feature::Accounting,
+                Feature::LimoExpenses, Feature::LimoQuotations, Feature::LimoLocations,
+                Feature::ChartOfAccounts, Feature::JournalEntries,
             ],
             // A business running BOTH a car-rental book and a limousine
             // service — both apps visible side by side in the same database.
             self::RentalLimousine => [
                 Feature::Bookings, Feature::Limousine, Feature::Purchases,
                 Feature::Hr, Feature::Accounting,
+                Feature::RentalMaintenance, Feature::RentalDrivers,
+                Feature::RentalQuotations, Feature::RentalReplacements,
+                Feature::LimoExpenses, Feature::LimoQuotations, Feature::LimoLocations,
+                Feature::ChartOfAccounts, Feature::JournalEntries,
             ],
             // A service business runs on projects, people and the ledger.
             self::Services => [
                 Feature::Projects, Feature::Hr, Feature::Accounting,
+                Feature::ChartOfAccounts, Feature::JournalEntries,
             ],
             // Everything — the safe default for a mixed / undecided business.
             self::General => Feature::cases(),

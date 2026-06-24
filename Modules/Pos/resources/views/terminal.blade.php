@@ -42,6 +42,7 @@
              customer; the same number is reused for the WhatsApp receipt at
              checkout. Shows the entered phone + applied discount, or a
              "+ Customer discount" button that opens the phone-entry modal. --}}
+        @if (\App\Erp\Business\Features::enabled(\App\Erp\Business\Feature::CustomerDiscounts))
         <div class="border-b border-chrome-200 px-4 py-2">
             @if ($localPhone !== '')
                 <div class="flex items-center justify-between">
@@ -69,6 +70,7 @@
                 </button>
             @endif
         </div>
+        @endif
 
         {{-- Lines --}}
         <div class="flex-1 overflow-y-auto">
@@ -114,9 +116,11 @@
                         <div class="w-28 shrink-0 text-end">
                             <p class="text-sm font-semibold text-chrome-900">{{ $money($line->total) }}</p>
                             <div class="flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5">
+                                @if (\App\Erp\Business\Features::enabled(\App\Erp\Business\Feature::Condiments))
                                 <button type="button" wire:click="openCondiments({{ $line->id }})"
                                     class="text-xs {{ !empty($line->condiments) ? 'font-semibold text-primary-600' : 'text-chrome-400 hover:text-primary-600' }}"
                                     title="{{ __('Add-ons') }}">{{ __('add-ons') }}</button>
+                                @endif
                                 <button type="button" @click="noteOpen = !noteOpen"
                                     :class="noteOpen || @js((bool) $line->notes) ? 'text-amber-600' : 'text-chrome-400 hover:text-amber-600'"
                                     class="text-xs"
@@ -186,6 +190,7 @@
                 <div x-data="barcodeScanner($wire)" class="relative w-full max-w-sm">
                     <input wire:model.live.debounce.250ms="search" placeholder="{{ __('Search product or scan barcode…') }}"
                         class="o-input w-full pe-10 text-sm">
+                    @if (\App\Erp\Business\Features::enabled(\App\Erp\Business\Feature::BarcodeScanning))
                     <button type="button" @click="openScanner()" title="{{ __('Scan with camera') }}"
                         aria-label="{{ __('Scan with camera') }}"
                         class="absolute inset-y-0 end-1.5 my-auto flex size-7 items-center justify-center rounded-md text-chrome-400 transition hover:bg-chrome-100 hover:text-primary-600">
@@ -195,6 +200,7 @@
                             <path d="M8 8.5v7M11 8.5v7M14 8.5v7M16.5 8.5v7"/>
                         </svg>
                     </button>
+                    @endif
 
                     {{-- Camera scanner overlay. wire:ignore so a Livewire
                          re-render (cart updating as items are scanned) never

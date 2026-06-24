@@ -92,6 +92,80 @@ final class AppFeatureSettingsTest extends TestCase
         $this->assertTrue(Features::modelAllowed('pos.floor'));
     }
 
+    public function test_condiments_can_be_toggled_off_from_pos_settings(): void
+    {
+        $this->actingAs($this->admin());
+        $this->bootPos();
+
+        Setting::set('company.business_type', 'cafe');
+        app(SettingManager::class)->flush();
+        $this->assertTrue(Features::enabled(Feature::Condiments));
+        $this->assertTrue(Features::modelAllowed('pos.condiment'));
+
+        Livewire::test(AppFeatureSettings::class, ['module' => 'pos'])
+            ->assertSee('Condiments')
+            ->assertSee('Customer discounts')
+            ->assertSee('Damage')
+            ->assertSee('Barcode')
+            ->set('toggles.condiments', false)
+            ->call('save')
+            ->assertSet('saved', true);
+
+        app(SettingManager::class)->flush();
+        $this->assertFalse(Features::enabled(Feature::Condiments));
+        $this->assertFalse(Features::modelAllowed('pos.condiment'));
+        // A sibling POS sub-feature is unaffected.
+        $this->assertTrue(Features::enabled(Feature::CustomerDiscounts));
+    }
+
+    public function test_other_apps_expose_their_own_settings_tab(): void
+    {
+        // Accounting, Rent A Car and Limousine each gained a Settings tab...
+        $this->assertNotEmpty(Features::appFeatures('accounting'));
+        $this->assertNotEmpty(Features::appFeatures('rental'));
+        $this->assertNotEmpty(Features::appFeatures('limousine'));
+        // ...while single-purpose apps stay tab-less (no independent sub-feature).
+        $this->assertSame([], Features::appFeatures('inventory'));
+        $this->assertSame([], Features::appFeatures('purchases'));
+        $this->assertSame([], Features::appFeatures('contacts'));
+    }
+
+    public function test_accounting_journal_entries_toggle_hides_only_that_model(): void
+    {
+        (new SettingSeeder())->run();
+        Setting::set('company.business_type', 'cafe');
+        app(SettingManager::class)->flush();
+
+        $this->assertTrue(Features::modelAllowed('accounting.journal_entry'));
+        $this->assertTrue(Features::modelAllowed('accounting.account'));
+
+        Features::setOverrides(['journal_entries' => false]);
+        app(SettingManager::class)->flush();
+
+        $this->assertFalse(Features::modelAllowed('accounting.journal_entry'));
+        // The chart of accounts stays visible.
+        $this->assertTrue(Features::modelAllowed('accounting.account'));
+    }
+
+    public function test_rental_and_limousine_subfeatures_gate_their_models(): void
+    {
+        (new SettingSeeder())->run();
+        Setting::set('company.business_type', 'rental_limousine');
+        app(SettingManager::class)->flush();
+
+        $this->assertTrue(Features::modelAllowed('rental.maintenance'));
+        $this->assertTrue(Features::modelAllowed('limousine.expense'));
+
+        Features::setOverrides(['rental_maintenance' => false, 'limo_expenses' => false]);
+        app(SettingManager::class)->flush();
+
+        $this->assertFalse(Features::modelAllowed('rental.maintenance'));
+        $this->assertFalse(Features::modelAllowed('limousine.expense'));
+        // Siblings unaffected by another sub-feature's override.
+        $this->assertTrue(Features::modelAllowed('rental.driver'));
+        $this->assertTrue(Features::modelAllowed('limousine.quotation'));
+    }
+
     public function test_non_admin_is_forbidden(): void
     {
         $this->actingAs($this->admin());

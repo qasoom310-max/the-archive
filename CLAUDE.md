@@ -1348,14 +1348,47 @@ the active database — a **manual override layer on top of the business-type
 preset** (the override wins). E.g. POS → toggle **Dine-in** (floors/tables/
 kitchen/shisha) and **Recipes** independent of the chosen business type.
 
+**Toggle set (expanded 2026-06-24):**
+- **POS** (`pos`): **Dine-in** (`Restaurant` → `pos.floor`/`pos.table`),
+  **Recipes & ingredients** (`Recipes` → `pos.ingredient` + the product-form
+  recipe editor), **Condiments & add-ons** (`Condiments` → `pos.condiment` +
+  the terminal cart "add-ons" button + the product-form condiment editor),
+  **Customer discounts** (`CustomerDiscounts` → `pos.customer_discount` + the
+  terminal "+ Customer discount" entry), **Damage / waste log** (`Damage` →
+  `pos.damage`; **moved off the `Inventory` feature to its own** so it's
+  independently toggleable — preset reach unchanged: Café/Retail/RetailCraft),
+  **Barcode scanning (camera)** (`BarcodeScanning` → the terminal camera-scan
+  button only; the search box + USB keyboard-wedge scanners are never gated).
+- **Accounting** (`accounting`): **Chart of accounts** (`ChartOfAccounts` →
+  `accounting.account`), **Journal entries** (`JournalEntries` →
+  `accounting.journal_entry`).
+- **Rent A Car** (`rental`): **Vehicle maintenance** (`rental.maintenance`),
+  **Drivers** (`rental.driver`), **Rental quotations** (`rental.quotation`),
+  **Replacement vehicles** (`rental.replacement`).
+- **Limousine** (`limousine`): **Trip expenses** (`limousine.expense`),
+  **Limousine quotations** (`limousine.quotation`), **Saved locations**
+  (`limousine.location`).
+- Single-purpose apps (**Inventory, Purchases, Contacts, WhatsApp, Projects**)
+  have **no** `APP_FEATURES` entry → no Settings tab (they're on/off as a whole
+  via the business type). Each terminal/product-form UI gate is a plain
+  `@if (Features::enabled(Feature::X))` in the Blade; menu/tile/app-bar
+  visibility flows through the existing `MODEL_FEATURE` map + `ModuleMenu`.
+- **Each new sub-feature was added to every `BusinessType` preset where its
+  parent app is on** (POS sub-features → Café/Retail/RetailCraft; Accounting →
+  every type with `Accounting`; Rental → Rental/RentalLimousine; Limousine →
+  Limousine/RentalLimousine; `General` = all cases). Without this a *configured*
+  database would default the new feature OFF (presets are exact lists; only an
+  unconfigured database fails open) — so a café would have silently lost
+  condiments. The manual override then lets an admin turn any of them off.
+
 | Concern | Location |
 |---|---|
 | Override store | `Features::overrides()` reads the per-workspace `features.overrides` setting (a JSON object `featureValue => bool`, written by `Features::setOverrides()` via `Setting::set`, cached + flushed). `Features::enabled()` now checks the override FIRST, then falls back to `presetEnabled()` (the business-type preset, fail-open when no type). So everything already gated by `Features::{enabled,moduleAllowed,modelAllowed}` (AppSwitcher, ModuleMenu, PosHome stations, product-form recipe editor) honours the toggle automatically — no new gates needed |
-| Which toggles per app | `Features::APP_FEATURES` (module → list of sub-`Feature`s; the app-level master feature is intentionally excluded so you can't disable the app you're inside). Currently `pos => [Restaurant, Recipes]`; extend the const to surface more. An app absent here has no Settings tab |
+| Which toggles per app | `Features::APP_FEATURES` (module → list of sub-`Feature`s; the app-level master feature is intentionally excluded so you can't disable the app you're inside). `pos`/`accounting`/`rental`/`limousine` are populated (see toggle set above); extend the const to surface more. An app absent here has no Settings tab |
 | UI | `App\Livewire\Pages\AppFeatureSettings` (`/app/{module}/settings`, route `app.feature-settings`, registered in core `routes/web.php` **before** `/app/{module}` — two-segment, no module defines it) + `resources/views/livewire/pages/app-feature-settings.blade.php` (iOS switches). **Admin-gated (any admin)** — `mount`/`save` re-`abort_unless(isAdmin)`. Feature-less / unknown slug → 404. `save()` writes all shown toggles as explicit overrides + logs `settings_updated` |
 | Entry point | `AppSwitcher` adds a **"Settings"** row at the bottom of each app's dropdown when that app has feature toggles AND the viewer is an admin (`$settingsUrls[$module]`); the app-switcher view also opens a dropdown for a toggle-having app even if it has no model menu |
 | Central settings exclusion | `SettingsPage::canSee()` returns false for any `features.*` key, so the internal `features.overrides` row (which `SettingManager::persist` would otherwise drop into the General group) never shows on the central settings page |
-| Tests | `tests/Feature/AppFeatureSettingsTest.php` (7 — admin sees POS toggles, dine-in OFF hides floor/table even in a café, dine-in ON shows it in retail, non-admin 403, feature-less app 404s, app-switcher links Settings for admins only, overrides key hidden from central settings). `BusinessTypeTest` still covers the preset layer |
+| Tests | `tests/Feature/AppFeatureSettingsTest.php` (11 — admin sees POS toggles, dine-in OFF hides floor/table even in a café, dine-in ON shows it in retail, **condiments OFF hides `pos.condiment` (sibling unaffected)**, **other apps (accounting/rental/limousine) expose a tab while single-purpose apps don't**, **journal-entries OFF hides only that model**, **rental/limousine sub-features gate their own models**, non-admin 403, feature-less app 404s, app-switcher links Settings for admins only, overrides key hidden from central settings). `BusinessTypeTest` still covers the preset layer; `PosDamageTest` pins damage's preset reach after the `Inventory`→`Damage` re-route |
 
 Decisions (chosen by the user): toggles live **in each app** (per-app tab), **feature-level** granularity, editable by **any admin**, and they **override** the business-type preset. To add a toggle to another app: add its `Feature`(s) to `Features::APP_FEATURES[<module>]` (mapping the feature to its models/menus in `MODULE_FEATURE`/`MODEL_FEATURE` as needed). NOTE: an override, once saved, pins that feature regardless of a later business-type change — there's no "revert to preset" button yet (a possible follow-up).
 

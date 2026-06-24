@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use Modules\Pos\Http\Controllers\PosDamageReportExportController;
 use Modules\Pos\Http\Controllers\PosProductExportController;
 use Modules\Pos\Http\Controllers\PosProductImportTemplateController;
 use Modules\Pos\Http\Controllers\PosReceiptPrintController;
@@ -15,6 +16,8 @@ use Modules\Pos\Livewire\PosCondimentForm;
 use Modules\Pos\Livewire\PosCondiments;
 use Modules\Pos\Livewire\PosCustomerDiscountForm;
 use Modules\Pos\Livewire\PosCustomerDiscounts;
+use Modules\Pos\Livewire\PosDamageForm;
+use Modules\Pos\Livewire\PosDamages;
 use Modules\Pos\Livewire\PosFloorForm;
 use Modules\Pos\Livewire\PosFloorPlan;
 use Modules\Pos\Livewire\PosFloors;
@@ -57,6 +60,12 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/pos/category', PosCategories::class)->name('pos.category.index');
     Route::get('/app/pos/condiment', PosCondiments::class)->name('pos.condiment.index');
     Route::get('/app/pos/ingredient', PosIngredients::class)->name('pos.ingredient.index');
+    // Damage / waste log — the bespoke Damage Report (date range + loss totals).
+    // Export + new are registered before the bare index so the suffixes aren't
+    // swallowed by it.
+    Route::get('/app/pos/damage/export', PosDamageReportExportController::class)->name('pos.damage.export');
+    Route::get('/app/pos/damage/new', PosDamageForm::class)->name('pos.damage.create');
+    Route::get('/app/pos/damage', PosDamages::class)->name('pos.damage.index');
     // Sidebar builds the slug with an underscore (pos.customer_discount →
     // /app/pos/customer_discount), so the route path matches that exactly.
     Route::get('/app/pos/customer_discount', PosCustomerDiscounts::class)->name('pos.customer_discount.index');

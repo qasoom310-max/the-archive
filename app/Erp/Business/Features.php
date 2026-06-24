@@ -46,6 +46,10 @@ final class Features
      */
     private const MODEL_FEATURE = [
         'pos.ingredient' => Feature::Recipes,
+        // The damage / waste log is stock-keeping, so it follows Inventory —
+        // visible in Café, Retail and Retail+Crafting, hidden everywhere with
+        // no stock (Rental / Limousine / Services).
+        'pos.damage' => Feature::Inventory,
     ];
 
     /**

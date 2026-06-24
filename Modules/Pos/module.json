@@ -20,7 +20,8 @@
         "Modules\\Pos\\Models\\PosFloor",
         "Modules\\Pos\\Models\\PosTable",
         "Modules\\Pos\\Models\\PosSession",
-        "Modules\\Pos\\Models\\PosOrder"
+        "Modules\\Pos\\Models\\PosOrder",
+        "Modules\\Pos\\Models\\PosDamage"
     ],
     "sequence": 30
 }

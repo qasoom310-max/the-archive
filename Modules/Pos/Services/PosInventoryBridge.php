@@ -77,7 +77,7 @@ final class PosInventoryBridge
      */
     public function recordIngredientReceipt(int $ingredientId, float $qty, string $reference): void
     {
-        if ($qty <= 0) {
+        if ($qty <= 0 || ! Schema::hasTable('stock_locations')) {
             return;
         }
 
@@ -108,7 +108,7 @@ final class PosInventoryBridge
      */
     public function recordIngredientConsumption(int $ingredientId, float $qty, string $reference): void
     {
-        if ($qty <= 0) {
+        if ($qty <= 0 || ! Schema::hasTable('stock_locations')) {
             return;
         }
 

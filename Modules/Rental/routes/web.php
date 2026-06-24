@@ -9,6 +9,8 @@ use Modules\Rental\Livewire\CustomerForm;
 use Modules\Rental\Livewire\Customers;
 use Modules\Rental\Livewire\DriverForm;
 use Modules\Rental\Livewire\Drivers;
+use Modules\Rental\Livewire\OrderForm;
+use Modules\Rental\Livewire\Orders;
 use Modules\Rental\Livewire\RentalHome;
 use Modules\Rental\Livewire\VehicleForm;
 use Modules\Rental\Livewire\Vehicles;
@@ -16,6 +18,11 @@ use Modules\Rental\Livewire\Vehicles;
 Route::middleware('auth')->group(function (): void {
     // App landing — the operations dashboard (fleet availability KPIs).
     Route::get('/app/rental', RentalHome::class)->name('rental.home');
+
+    // Orders — bespoke list (status tabs + date search) and contract form.
+    Route::get('/app/rental/order', Orders::class)->name('rental.order.index');
+    Route::get('/app/rental/order/new', OrderForm::class)->name('rental.order.create');
+    Route::get('/app/rental/order/{id}', OrderForm::class)->whereNumber('id')->name('rental.order.edit');
 
     // Masters. `new` is declared before the numeric {id} so it isn't
     // captured as an id (same convention as the other modules).

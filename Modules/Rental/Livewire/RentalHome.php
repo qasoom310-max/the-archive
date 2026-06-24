@@ -12,6 +12,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Rental\Models\Branch;
+use Modules\Rental\Models\RentalOrder;
 use Modules\Rental\Models\Vehicle;
 
 /**
@@ -51,6 +52,21 @@ final class RentalHome extends Component
             ])
             ->get();
 
+        // Order KPIs (now that orders exist).
+        $activeOrders = RentalOrder::query()->where('state', RentalOrder::STATE_ACTIVE)->count();
+        $draftOrders = RentalOrder::query()->where('state', RentalOrder::STATE_DRAFT)->count();
+        $unpaidOrders = RentalOrder::query()
+            ->where('payment_status', RentalOrder::PAYMENT_UNPAID)
+            ->whereIn('state', [RentalOrder::STATE_ACTIVE, RentalOrder::STATE_CLOSED])
+            ->count();
+        $returnsDue = RentalOrder::query()
+            ->where('state', RentalOrder::STATE_ACTIVE)
+            ->whereDate('end_date', '<=', now())
+            ->count();
+        $revenue = (float) RentalOrder::query()
+            ->where('payment_status', RentalOrder::PAYMENT_PAID)
+            ->sum('total');
+
         // Masters tiles — ACL-filtered, same source as the app-bar dropdown.
         $module = IrModule::query()->where('name', 'rental')->first();
         $tiles = $module !== null ? app(ModuleMenu::class)->items($module, Auth::user()) : [];
@@ -62,6 +78,11 @@ final class RentalHome extends Component
             'maintenance' => $maintenance,
             'reserved' => $reserved,
             'branches' => $branches,
+            'activeOrders' => $activeOrders,
+            'draftOrders' => $draftOrders,
+            'unpaidOrders' => $unpaidOrders,
+            'returnsDue' => $returnsDue,
+            'revenue' => $revenue,
             'tiles' => $tiles,
         ]);
     }

@@ -4,15 +4,45 @@
             <h1 class="text-xl font-bold text-chrome-900">{{ __('Rent A Car') }}</h1>
             <p class="text-sm text-chrome-500">{{ __('Fleet overview & operations.') }}</p>
         </div>
-        <a href="{{ url('/app/rental/vehicle/new') }}" wire:navigate class="o-btn-primary shrink-0 text-sm">
-            {{ __('New vehicle') }}
-        </a>
+        <div class="flex shrink-0 gap-2">
+            <a href="{{ url('/app/rental/order') }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Orders') }}</a>
+            <a href="{{ url('/app/rental/order/new') }}" wire:navigate class="o-btn-primary text-sm">{{ __('New order') }}</a>
+        </div>
     </div>
 
     {{-- Reusable car glyph for the cards. --}}
     @php
         $carIcon = '<path d="M3 9.5 4.2 6.6A2 2 0 0 1 6 5.5h8a2 2 0 0 1 1.8 1.1L17 9.5a2 2 0 0 1 1 1.7V13a1 1 0 0 1-1 1h-1a2 2 0 1 1-4 0H8a2 2 0 1 1-4 0H3a1 1 0 0 1-1-1v-1.8a2 2 0 0 1 1-1.7Z"/><circle cx="6.5" cy="14" r="1.5"/><circle cx="13.5" cy="14" r="1.5"/>';
     @endphp
+
+    {{-- Order KPIs --}}
+    <h2 class="mb-3 text-sm font-semibold text-chrome-800">{{ __('Orders') }}</h2>
+    <div class="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        @php
+            $orderCards = [
+                ['label' => __('Active Orders'), 'value' => $activeOrders, 'href' => url('/app/rental/order?tab=active'), 'badge' => __('Active'), 'badgeClass' => 'bg-sky-100 text-sky-700'],
+                ['label' => __('Pending (Draft)'), 'value' => $draftOrders, 'href' => url('/app/rental/order?tab=draft'), 'badge' => __('Draft'), 'badgeClass' => 'bg-chrome-200 text-chrome-700'],
+                ['label' => __('Returns Due'), 'value' => $returnsDue, 'href' => url('/app/rental/order?tab=active'), 'badge' => __('Due'), 'badgeClass' => 'bg-amber-100 text-amber-700'],
+                ['label' => __('Unpaid Orders'), 'value' => $unpaidOrders, 'href' => url('/app/rental/order'), 'badge' => __('Unpaid'), 'badgeClass' => 'bg-red-100 text-red-700'],
+            ];
+        @endphp
+        @foreach ($orderCards as $card)
+            <a href="{{ $card['href'] }}" wire:navigate class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5 transition hover:ring-primary-400">
+                <div class="flex items-start justify-between gap-2">
+                    <h3 class="text-sm font-medium text-chrome-700">{{ $card['label'] }}</h3>
+                    <span class="shrink-0 rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide {{ $card['badgeClass'] }}">{{ $card['badge'] }}</span>
+                </div>
+                <div class="mt-3 text-3xl font-bold text-chrome-800">{{ $card['value'] }}</div>
+            </a>
+        @endforeach
+        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
+            <div class="flex items-start justify-between gap-2">
+                <h3 class="text-sm font-medium text-chrome-700">{{ __('Revenue') }}</h3>
+                <span class="shrink-0 rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">{{ __('Collected') }}</span>
+            </div>
+            <div class="mt-3 text-2xl font-bold text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($revenue) }}</div>
+        </div>
+    </div>
 
     {{-- Per-branch availability --}}
     @if ($branches->isNotEmpty())

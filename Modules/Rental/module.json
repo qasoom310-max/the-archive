@@ -15,7 +15,8 @@
         "Modules\\Rental\\Models\\Branch",
         "Modules\\Rental\\Models\\RentalCustomer",
         "Modules\\Rental\\Models\\Vehicle",
-        "Modules\\Rental\\Models\\Driver"
+        "Modules\\Rental\\Models\\Driver",
+        "Modules\\Rental\\Models\\RentalOrder"
     ],
     "sequence": 70
 }

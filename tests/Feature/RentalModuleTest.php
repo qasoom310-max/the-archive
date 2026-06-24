@@ -17,8 +17,12 @@ use Database\Seeders\SettingSeeder;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
+use Modules\Rental\Livewire\OrderForm;
+use Modules\Rental\Livewire\Orders;
 use Modules\Rental\Livewire\RentalHome;
 use Modules\Rental\Models\Branch;
+use Modules\Rental\Models\RentalCustomer;
+use Modules\Rental\Models\RentalOrder;
 use Modules\Rental\Models\Vehicle;
 use Tests\TestCase;
 
@@ -49,9 +53,10 @@ final class RentalModuleTest extends TestCase
         }
 
         $this->assertEqualsCanonicalizing(
-            ['rental.branch', 'rental.customer', 'rental.vehicle', 'rental.driver'],
+            ['rental.branch', 'rental.customer', 'rental.vehicle', 'rental.driver', 'rental.order'],
             IrModel::query()->where('module', 'rental')->pluck('model')->all(),
         );
+        $this->assertTrue(Schema::hasTable('rental_orders'));
     }
 
     public function test_dashboard_renders_fleet_kpis_and_branches(): void
@@ -89,6 +94,64 @@ final class RentalModuleTest extends TestCase
         $this->assertEqualsWithDelta(50.0, $vehicle->deposit, 0.001);
         $this->assertSame($branch->id, $vehicle->branch_id);
         $this->assertSame(Vehicle::STATUS_AVAILABLE, $vehicle->status);
+    }
+
+    public function test_order_form_creates_a_draft_with_computed_totals(): void
+    {
+        $this->install();
+        $customer = RentalCustomer::query()->create(['name' => 'Ali']);
+        $branch = Branch::query()->create(['name' => 'Salihiya']);
+        $vehicle = Vehicle::query()->create([
+            'name' => 'Yaris', 'branch_id' => $branch->id,
+            'daily_rate' => 10, 'deposit' => 50, 'status' => Vehicle::STATUS_AVAILABLE,
+        ]);
+
+        Livewire::test(OrderForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('vehicle_id', $vehicle->id)   // auto-fills rate (10) + deposit (50)
+            ->assertSet('rate', '10')
+            ->assertSet('deposit', '50')
+            ->set('start_date', '2026-07-01')
+            ->set('end_date', '2026-07-04')     // 3 days
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $order = RentalOrder::query()->sole();
+        $this->assertSame(RentalOrder::STATE_DRAFT, $order->state);
+        $this->assertSame(3, $order->days);
+        $this->assertEqualsWithDelta(30.0, $order->total, 0.001); // 10 × 3
+        $this->assertEqualsWithDelta(50.0, $order->deposit, 0.001);
+        $this->assertNotNull($order->reference);
+    }
+
+    public function test_order_lifecycle_keeps_vehicle_status_in_sync(): void
+    {
+        $this->install();
+        $vehicle = Vehicle::query()->create(['name' => 'Camry', 'daily_rate' => 12, 'status' => Vehicle::STATUS_AVAILABLE]);
+        $order = RentalOrder::query()->create([
+            'vehicle_id' => $vehicle->id, 'start_date' => '2026-07-01', 'end_date' => '2026-07-03',
+            'rate_type' => 'daily', 'rate' => 12,
+        ]);
+
+        $order->startRental();
+        $this->assertSame(RentalOrder::STATE_ACTIVE, $order->fresh()->state);
+        $this->assertSame(Vehicle::STATUS_RENTED, $vehicle->fresh()->status);
+
+        $order->closeRental();
+        $this->assertSame(RentalOrder::STATE_CLOSED, $order->fresh()->state);
+        $this->assertSame(Vehicle::STATUS_AVAILABLE, $vehicle->fresh()->status);
+    }
+
+    public function test_orders_list_filters_by_state(): void
+    {
+        $this->install();
+        $active = RentalOrder::query()->create(['state' => RentalOrder::STATE_ACTIVE, 'start_date' => '2026-07-01', 'end_date' => '2026-07-02']);
+        $draft = RentalOrder::query()->create(['state' => RentalOrder::STATE_DRAFT, 'start_date' => '2026-07-01', 'end_date' => '2026-07-02']);
+
+        Livewire::test(Orders::class)
+            ->set('tab', 'active')
+            ->assertSee($active->fresh()->reference)
+            ->assertDontSee($draft->fresh()->reference);
     }
 
     public function test_rental_app_is_gated_by_the_bookings_feature(): void

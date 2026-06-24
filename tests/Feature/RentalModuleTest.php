@@ -23,6 +23,7 @@ use Modules\Rental\Livewire\RentalHome;
 use Modules\Rental\Models\Branch;
 use Modules\Rental\Models\RentalCustomer;
 use Modules\Rental\Models\RentalOrder;
+use Modules\Rental\Models\RentalQuotation;
 use Modules\Rental\Models\Vehicle;
 use Tests\TestCase;
 
@@ -53,10 +54,40 @@ final class RentalModuleTest extends TestCase
         }
 
         $this->assertEqualsCanonicalizing(
-            ['rental.branch', 'rental.customer', 'rental.vehicle', 'rental.driver', 'rental.order'],
+            ['rental.branch', 'rental.customer', 'rental.vehicle', 'rental.driver', 'rental.order', 'rental.quotation'],
             IrModel::query()->where('module', 'rental')->pluck('model')->all(),
         );
         $this->assertTrue(Schema::hasTable('rental_orders'));
+        $this->assertTrue(Schema::hasTable('rental_quotations'));
+    }
+
+    public function test_quotation_converts_to_a_draft_order(): void
+    {
+        $this->install();
+        $customer = RentalCustomer::query()->create(['name' => 'Sara']);
+        $vehicle = Vehicle::query()->create(['name' => 'Sunny', 'daily_rate' => 8, 'deposit' => 40]);
+
+        $quote = RentalQuotation::query()->create([
+            'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id,
+            'start_date' => '2026-07-01', 'end_date' => '2026-07-03',
+            'rate_type' => 'daily', 'rate' => 8, 'deposit' => 40,
+        ]);
+        $quote->recalcTotals();
+        $quote->save();
+
+        $order = $quote->convertToOrder();
+
+        $this->assertSame(RentalQuotation::STATUS_CONVERTED, $quote->fresh()->status);
+        $this->assertSame($order->id, $quote->fresh()->order_id);
+        $this->assertSame($customer->id, $order->customer_id);
+        $this->assertSame($vehicle->id, $order->vehicle_id);
+        $this->assertEqualsWithDelta(16.0, $order->total, 0.001); // 8 × 2 days
+        $this->assertSame(RentalOrder::STATE_DRAFT, $order->state);
+
+        // Converting again is idempotent — same order, no duplicate.
+        $again = $quote->fresh()->convertToOrder();
+        $this->assertSame($order->id, $again->id);
+        $this->assertSame(1, RentalOrder::query()->count());
     }
 
     public function test_dashboard_renders_fleet_kpis_and_branches(): void

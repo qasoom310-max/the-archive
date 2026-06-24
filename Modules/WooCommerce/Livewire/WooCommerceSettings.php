@@ -1,0 +1,129 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Modules\WooCommerce\Livewire;
+
+use App\Models\User;
+use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
+use Livewire\Component;
+use Modules\WooCommerce\Models\WooCommerceConfiguration;
+use Modules\WooCommerce\Services\WooCommerceService;
+
+/**
+ * Admin-only editor for the WooCommerce store connection, surfaced as the
+ * "WooCommerce" tab of Settings. The consumer key/secret are write-only —
+ * stored values are never echoed back; a blank field on save means "keep the
+ * existing value". A "Sync all now" button backfills the store with every
+ * active product.
+ */
+#[Layout('components.layouts.app')]
+#[Title('WooCommerce settings')]
+final class WooCommerceSettings extends Component
+{
+    public string $storeUrl = '';
+
+    public string $apiVersion = 'wc/v3';
+
+    public bool $enabled = false;
+
+    // Write-only: never pre-filled with the stored secret.
+    public string $consumerKey = '';
+
+    public string $consumerSecret = '';
+
+    public bool $hasConsumerKey = false;
+
+    public bool $hasConsumerSecret = false;
+
+    public bool $saved = false;
+
+    public string $syncMessage = '';
+
+    public function mount(): void
+    {
+        $this->authorizeAdmin();
+
+        $config = WooCommerceConfiguration::current();
+
+        $this->storeUrl = (string) $config->store_url;
+        $this->apiVersion = (string) $config->api_version !== '' ? (string) $config->api_version : 'wc/v3';
+        $this->enabled = (bool) $config->enabled;
+        $this->hasConsumerKey = (string) $config->consumer_key !== '';
+        $this->hasConsumerSecret = (string) $config->consumer_secret !== '';
+    }
+
+    private function authorizeAdmin(): void
+    {
+        $user = Auth::user();
+
+        abort_unless($user instanceof User && $user->isAdmin(), 403, 'Settings are administrator-only.');
+    }
+
+    public function save(): void
+    {
+        $this->authorizeAdmin();
+
+        $this->validate([
+            'storeUrl' => ['nullable', 'url', 'max:255'],
+            'apiVersion' => ['required', 'string', 'max:20'],
+        ]);
+
+        $config = WooCommerceConfiguration::current();
+
+        $config->store_url = trim($this->storeUrl) ?: null;
+        $config->api_version = trim($this->apiVersion) ?: 'wc/v3';
+        $config->enabled = $this->enabled;
+
+        // Blank = keep the stored secret untouched.
+        if (trim($this->consumerKey) !== '') {
+            $config->consumer_key = trim($this->consumerKey);
+        }
+
+        if (trim($this->consumerSecret) !== '') {
+            $config->consumer_secret = trim($this->consumerSecret);
+        }
+
+        if ($config->enabled && ($config->store_url === null || (string) $config->consumer_key === '' || (string) $config->consumer_secret === '')) {
+            $this->addError('enabled', __('A store URL, consumer key and secret are required before enabling sync.'));
+
+            return;
+        }
+
+        $config->save();
+
+        $this->consumerKey = '';
+        $this->consumerSecret = '';
+        $this->hasConsumerKey = (string) $config->consumer_key !== '';
+        $this->hasConsumerSecret = (string) $config->consumer_secret !== '';
+        $this->saved = true;
+    }
+
+    /** Queue a push of every active product to the store. */
+    public function syncAllNow(): void
+    {
+        $this->authorizeAdmin();
+
+        $count = app(WooCommerceService::class)->syncAllActive();
+
+        $this->syncMessage = $count > 0
+            ? __(':count products queued for syncing.', ['count' => $count])
+            : __('Nothing to sync — configure and enable the store first.');
+    }
+
+    public function updated(): void
+    {
+        $this->saved = false;
+        $this->syncMessage = '';
+    }
+
+    public function render(): View
+    {
+        return view('woocommerce::settings', [
+            'configured' => WooCommerceConfiguration::current()->isConfigured(),
+        ]);
+    }
+}

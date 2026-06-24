@@ -3,8 +3,8 @@
     $authUser = \Illuminate\Support\Facades\Auth::user();
     $isAdmin = $authUser instanceof \App\Models\User && $authUser->isAdmin();
 
-    $whatsappInstalled = \App\Models\Ir\IrModule::query()
-        ->where('name', 'whatsapp')
+    $installedModule = fn (string $name): bool => \App\Models\Ir\IrModule::query()
+        ->where('name', $name)
         ->where('state', \App\Erp\Enums\ModuleState::Installed)
         ->exists();
 
@@ -12,10 +12,14 @@
         ['key' => 'general', 'label' => 'General', 'url' => route('settings')],
     ];
 
-    // WhatsApp tab is admin-only — the inner page also `abort 403`s, but
+    // Integration tabs are admin-only — the inner pages also `abort 403`, but
     // hiding the pill avoids a misleading entry point for cashiers.
-    if ($whatsappInstalled && $isAdmin) {
+    if ($isAdmin && $installedModule('whatsapp')) {
         $sections[] = ['key' => 'whatsapp', 'label' => 'WhatsApp', 'url' => url('/app/settings/whatsapp')];
+    }
+
+    if ($isAdmin && $installedModule('woocommerce')) {
+        $sections[] = ['key' => 'woocommerce', 'label' => 'WooCommerce', 'url' => url('/app/settings/woocommerce')];
     }
 @endphp
 

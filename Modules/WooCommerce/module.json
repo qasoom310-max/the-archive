@@ -1,0 +1,13 @@
+{
+    "name": "woocommerce",
+    "display_name": "WooCommerce",
+    "summary": "Sync POS products to a WooCommerce store (queued REST API push).",
+    "version": "1.0.0",
+    "author": "OpenERP",
+    "category": "Integration",
+    "depends": ["base", "pos"],
+    "providers": ["Modules\\WooCommerce\\Providers\\WooCommerceServiceProvider"],
+    "models": [],
+    "application": false,
+    "sequence": 30
+}

@@ -276,6 +276,7 @@ jobs:
              php artisan migrate --path=Modules/Inventory/database/migrations --force && \
              php artisan migrate --path=Modules/Rental/database/migrations --force && \
              php artisan migrate --path=Modules/Limousine/database/migrations --force && \
+             php artisan migrate --path=Modules/WooCommerce/database/migrations --force && \
              php artisan db:seed --class='Database\\Seeders\\SettingSeeder' --force && \
              php artisan db:seed --class='Database\\Seeders\\PosStaffSeeder' --force && \
              php artisan module:resync pos && \
@@ -284,6 +285,7 @@ jobs:
              php artisan module:resync rental && \
              php artisan module:install limousine && \
              php artisan module:resync limousine && \
+             php artisan module:install woocommerce && \
              php artisan workspaces:install-modules && \
              php artisan optimize:clear && \
              php artisan config:cache && \

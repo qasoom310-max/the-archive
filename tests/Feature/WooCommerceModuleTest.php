@@ -1,0 +1,237 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature;
+
+use App\Erp\Modules\ModuleManager;
+use App\Models\User;
+use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
+use Livewire\Livewire;
+use Modules\Pos\Models\PosProduct;
+use Modules\WooCommerce\Jobs\SyncProductToWooCommerce;
+use Modules\WooCommerce\Livewire\WooCommerceSettings;
+use Modules\WooCommerce\Models\WooCommerceConfiguration;
+use Modules\WooCommerce\Models\WooCommerceProductLink;
+use Modules\WooCommerce\Providers\WooCommerceServiceProvider;
+use Modules\WooCommerce\Services\WooCommerceService;
+use Tests\TestCase;
+
+/**
+ * Phase A — ERP → WooCommerce product push: per-database encrypted config, a
+ * queued upsert job, the product save/delete hooks, and the admin Settings tab.
+ */
+final class WooCommerceModuleTest extends TestCase
+{
+    use DatabaseMigrations;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+    }
+
+    private function install(): void
+    {
+        // Pulls pos (its dependency) too.
+        app(ModuleManager::class)->install('woocommerce');
+    }
+
+    private function configure(): WooCommerceConfiguration
+    {
+        return WooCommerceConfiguration::query()->create([
+            'store_url' => 'https://shop.example.com',
+            'consumer_key' => 'ck_live_secret',
+            'consumer_secret' => 'cs_live_secret',
+            'api_version' => 'wc/v3',
+            'enabled' => true,
+        ]);
+    }
+
+    private function product(array $attributes = []): PosProduct
+    {
+        return PosProduct::query()->create(array_merge([
+            'name' => 'Oud Perfume',
+            'price' => 25.0,
+            'tax_rate' => 0.0,
+            'active' => true,
+            'stock_on_hand' => 7,
+            'barcode' => 'OUD-001',
+        ], $attributes));
+    }
+
+    public function test_install_creates_the_config_and_link_tables(): void
+    {
+        $this->install();
+
+        $this->assertTrue(Schema::hasTable('woocommerce_configuration'));
+        $this->assertTrue(Schema::hasTable('woocommerce_product_links'));
+    }
+
+    public function test_credentials_are_encrypted_at_rest(): void
+    {
+        $this->install();
+
+        Livewire::test(WooCommerceSettings::class)
+            ->set('storeUrl', 'https://shop.example.com')
+            ->set('consumerKey', 'ck_SUPER_SECRET')
+            ->set('consumerSecret', 'cs_SUPER_SECRET')
+            ->set('enabled', true)
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertSet('saved', true)
+            ->assertSet('consumerKey', ''); // cleared after save
+
+        $config = WooCommerceConfiguration::current();
+        $this->assertTrue($config->isConfigured());
+        $this->assertSame('ck_SUPER_SECRET', $config->consumer_key);
+
+        $raw = DB::table('woocommerce_configuration')->value('consumer_key');
+        $this->assertIsString($raw);
+        $this->assertNotSame('ck_SUPER_SECRET', $raw);
+    }
+
+    public function test_enabling_without_credentials_is_rejected(): void
+    {
+        $this->install();
+
+        Livewire::test(WooCommerceSettings::class)
+            ->set('enabled', true)
+            ->set('storeUrl', '')
+            ->call('save')
+            ->assertHasErrors('enabled')
+            ->assertSet('saved', false);
+    }
+
+    public function test_non_admin_cannot_open_the_settings_tab(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+
+        Livewire::test(WooCommerceSettings::class)->assertForbidden();
+    }
+
+    public function test_service_queues_a_sync_and_creates_a_link(): void
+    {
+        $this->install();
+        $this->configure();
+        $product = $this->product();
+        Bus::fake();
+
+        app(WooCommerceService::class)->syncProduct($product);
+
+        Bus::assertDispatched(SyncProductToWooCommerce::class, function (SyncProductToWooCommerce $job) use ($product): bool {
+            return $job->posProductId === (int) $product->id && $job->action === 'sync';
+        });
+
+        $link = WooCommerceProductLink::query()->where('pos_product_id', $product->id)->first();
+        $this->assertNotNull($link);
+        $this->assertSame('queued', $link->last_status);
+    }
+
+    public function test_service_no_ops_when_not_configured(): void
+    {
+        $this->install();
+        $product = $this->product();
+        Bus::fake();
+
+        // No config row → unconfigured.
+        app(WooCommerceService::class)->syncProduct($product);
+
+        Bus::assertNothingDispatched();
+        $this->assertSame(0, WooCommerceProductLink::query()->count());
+    }
+
+    public function test_job_creates_a_remote_product_then_updates_it(): void
+    {
+        $this->install();
+        $this->configure();
+        $product = $this->product();
+
+        Http::fake([
+            '*/wp-json/wc/v3/products' => Http::response(['id' => 555], 201),
+            '*/wp-json/wc/v3/products/555' => Http::response(['id' => 555], 200),
+        ]);
+
+        // First run → POST, stores the remote id.
+        (new SyncProductToWooCommerce((int) $product->id))->handle(app(HttpFactory::class));
+
+        $link = WooCommerceProductLink::query()->where('pos_product_id', $product->id)->firstOrFail();
+        $this->assertSame(555, $link->woo_id);
+        $this->assertSame('synced', $link->last_status);
+
+        Http::assertSent(function ($request): bool {
+            return $request->method() === 'POST'
+                && str_contains($request->url(), '/wp-json/wc/v3/products')
+                && $request['sku'] === 'OUD-001'
+                && $request['status'] === 'publish'
+                && $request['stock_quantity'] === 7;
+        });
+
+        // Second run → PUT to the same remote id (update, not duplicate).
+        (new SyncProductToWooCommerce((int) $product->id))->handle(app(HttpFactory::class));
+
+        Http::assertSent(fn ($request): bool => $request->method() === 'PUT'
+            && str_contains($request->url(), '/wp-json/wc/v3/products/555'));
+    }
+
+    public function test_job_unpublish_sets_the_remote_listing_to_draft(): void
+    {
+        $this->install();
+        $this->configure();
+        $product = $this->product();
+
+        WooCommerceProductLink::query()->create([
+            'pos_product_id' => $product->id,
+            'woo_id' => 900,
+        ]);
+
+        Http::fake(['*/wp-json/wc/v3/products/900' => Http::response(['id' => 900], 200)]);
+
+        (new SyncProductToWooCommerce((int) $product->id, 'unpublish'))->handle(app(HttpFactory::class));
+
+        Http::assertSent(fn ($request): bool => $request->method() === 'PUT'
+            && str_contains($request->url(), '/products/900')
+            && $request['status'] === 'draft');
+
+        $this->assertSame('unpublished', WooCommerceProductLink::query()
+            ->where('pos_product_id', $product->id)->value('last_status'));
+    }
+
+    public function test_a_failed_push_marks_the_link_and_throws(): void
+    {
+        $this->install();
+        $this->configure();
+        $product = $this->product();
+
+        Http::fake(['*' => Http::response('bad request', 400)]);
+
+        try {
+            (new SyncProductToWooCommerce((int) $product->id))->handle(app(HttpFactory::class));
+            $this->fail('Expected a WooCommerceException.');
+        } catch (\Modules\WooCommerce\Exceptions\WooCommerceException) {
+            // expected
+        }
+
+        $this->assertSame('failed', WooCommerceProductLink::query()
+            ->where('pos_product_id', $product->id)->value('last_status'));
+    }
+
+    public function test_saving_an_active_product_queues_a_push_when_enabled(): void
+    {
+        $this->install();
+        $this->configure();
+        // The module's boot() (and its model hooks) doesn't run after an in-test
+        // install — register it explicitly, like PurchaseConfirmTest does.
+        $this->app->register(WooCommerceServiceProvider::class);
+        Bus::fake();
+
+        $this->product();
+
+        Bus::assertDispatched(SyncProductToWooCommerce::class);
+    }
+}

@@ -947,6 +947,7 @@ Keep this table current — it is how state survives across sessions.
 | 14 | **Accounting**: double-entry COA + balanced journal entries (draft→posted) + sequence-generated numbers + auto-post on POS sale & purchase invoice + Trial Balance / P&L / Balance Sheet | ✅ Backend (schema/models/services/listeners/seeder). Follow-ups: Livewire screens (statements pages, journal-line inline editor), bank reconciliation, taxes module, manual-entry form, fixed-asset depreciation |
 | 15 | **Kitchen Display System (KDS)**: per-category station routing (`kitchen` / `shisha`), `PosOrderPaid` listener stamps `prep_status=pending` on routed lines, 3-column kanban screen polling every 5s (`/app/pos/kitchen/{station}`), single-tap state machine (Pending → Preparing → Ready → Completed), late-ticket flash, Web Audio ping + green-flash on new arrivals | ✅ DONE |
 | 16 | **Purchases** (`Modules/Purchases/`): vendor bills with line items; **Confirm** atomically raises POS `stock_on_hand`, posts an Inventory receipt move (Vendor → Stock, updating `stock_quants` keyed by the same product id) AND books the accounting entry (Dr Inventory/Expense · Cr A/P) via `PurchaseInvoiceConfirmed` → the pre-existing `RecordPurchaseInJournal` listener. Custom master/detail Livewire editor; engine list | ✅ DONE |
+| 17 | **WooCommerce** (`Modules/WooCommerce/`): one-way ERP → store product sync (queued REST push on product save/delete + POS-sale stock). Phase A (push) DONE; Phase B (online orders + stock back via webhooks) = next | ✅ Phase A |
 
 **Phase 8 — Settings (where things live):**
 
@@ -1306,6 +1307,36 @@ the credit sits in Accounts Payable, no payment/bank reconciliation yet).
   `test_purchase_name_and_expiry_date_persist`, `test_inline_vendor_saves_the_location_to_the_partner`;
   the two existing form tests retargeted from `lines.*.pos_product_id` → `lines.*.component`).
   AR keys: Purchase name / Expiry date / Location / City / area / the name placeholder.
+
+**Phase 17 — WooCommerce sync (`Modules/WooCommerce/`, Phase A shipped 2026-06-24):**
+
+One-way **ERP → WooCommerce** product push, mirroring the WhatsApp module's
+shape (per-database encrypted config + queued job + admin Settings tab). A
+product added/edited in the ERP appears on the WordPress/WooCommerce store.
+Chosen by the user (2026-06-24): two-way eventually, push everything
+(new/edits/stock/unpublish), all active products — **Phase A** below is the
+ERP→store push; **Phase B** (online orders + stock back via webhooks) is the
+next increment.
+
+| Concern | Location |
+|---|---|
+| Manifest | `Modules/WooCommerce/module.json` (`depends:[base,pos]`, `application:false`, `models:[]`, sequence 30) — surface is a Settings tab, not an app screen |
+| Config | `woocommerce_configuration` (single row: `store_url`, `consumer_key`/`consumer_secret` = **TEXT holding APP_KEY-encrypted ciphertext**, `api_version` default `wc/v3`, `enabled`). `WooCommerceConfiguration::current()` firstOrNew, `isConfigured()`, `apiBase()` = `{store_url}/wp-json/wc/v3`. **Per-database** (each workspace its own row) so it's effectively Kaleem-only — the module installs everywhere but stays **dormant until store keys are entered**, and only that DB syncs |
+| Mapping | `woocommerce_product_links` (`pos_product_id` unique logical ref, `woo_id` nullable, `last_status`/`last_error`/`last_synced_at`). `woo_id` null until first push → POST creates; thereafter PUT `/products/{woo_id}` updates the SAME remote product (no duplicates). Row survives a product delete so the listing can still be unpublished |
+| Service | `WooCommerceService` — `syncProduct()` (queue an upsert + mark link `queued`), `unpublishProduct()` (no-op if never pushed), `syncAllActive()` (the "Sync all now" button). Every method no-ops when `! isConfigured()` so callers fire unconditionally |
+| Queued job | `SyncProductToWooCommerce(posProductId, action='sync'|'unpublish')` (`ShouldQueue`, tries=3, backoff 30). Re-reads config + product at run time (so a per-keystroke auto-save sends the FINAL state). Auth = HTTP Basic (consumer key/secret over HTTPS). Field map: `name` (EN translation), `type=simple`, `status` = active?publish:draft, `regular_price`, `manage_stock=true` + `stock_quantity` (int round), `sku`=barcode, `images[].src` = `Storage::disk('public')->url(image_path)` (store fetches it). Non-2xx → mark link `failed` + throw (retry → `failed_jobs`). **Needs the same hPanel `schedule:run` cron** as the WhatsApp queue (`[[hostinger-cron-needed-for-queue-worker]]`) |
+| Triggers | `WooCommerceServiceProvider::boot()` (loaded only while installed): `PosProduct::saved` → upsert (or unpublish if just deactivated), **guarded by `wasChanged(SYNCED_FIELDS)`** so per-keystroke autosaves don't spam; `PosProduct::deleted` → unpublish; `PosOrderPaid` → re-push each sold product's stock (sale-time `decrement()` bypasses model events). All gated by `storeReady()` = `Schema::hasTable(...) && isConfigured()` (defensive: a stray hook on a DB without the table no-ops) |
+| Settings UI | `Modules\WooCommerce\Livewire\WooCommerceSettings` (**admin-only** `abort 403`) + `woocommerce::settings`; secrets write-only (blank = keep). Surfaced as a **"WooCommerce" tab** via `resources/views/partials/settings-nav.blade.php` (now generic `installedModule()` helper; shows the pill only when installed + admin). Tab content stays **English by design** (same integration carve-out as the WhatsApp tab). A "Sync all active products now" button calls `syncAllActive()` |
+| Routes | `Modules/WooCommerce/routes/web.php` → `/app/settings/woocommerce` (`auth`, two-segment so the `/app/{module}` wildcard doesn't shadow it). Phase B webhook routes not built yet |
+| Deploy | `deploy.yml` runs `migrate --path=Modules/WooCommerce/database/migrations --force` + `module:install woocommerce` (Main) + the existing `workspaces:install-modules` backfills tenants; `workspaces:migrate` keeps its migrations applied per tenant. Image-bucket note: it pushes existing `pos_products` image URLs (already deploy-excluded) — no new bucket |
+| Tests | `tests/Feature/WooCommerceModuleTest.php` (10 — install schema, encrypted-at-rest, settings admin-gate + enable-needs-creds, service queues + no-op-when-unconfigured, job POST-then-PUT (create→update, asserts payload sku/status/stock), unpublish→draft, non-2xx marks failed + throws, saved-hook dispatches). HTTP mocked via `Http::fake` (mirrors `WhatsAppModuleTest`) — proves payload shape/auth/endpoints, not the live store |
+
+To enable for a store: install the module on that database, then **Settings →
+WooCommerce** (admin) → paste the store URL + REST consumer key/secret
+(WordPress: WooCommerce → Settings → Advanced → REST API → Add key, Read/Write)
+→ enable → "Sync all active products now". **Phase B (next, NOT built):** a
+public `/woocommerce/webhook` endpoint (HMAC-verified) to import online orders
++ pull stock changes back into the ERP (the user picked two-way).
 
 **Settings increment shipped 2026-06-21 — "Users" tab (admin-only staff accounts):**
 

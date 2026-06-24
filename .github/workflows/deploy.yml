@@ -225,8 +225,10 @@ jobs:
       #
       # Per project memory `post-install-module-migrations-not-auto-applied`,
       # module migrations live outside Laravel's default migrate path — we
-      # opt the POS module in explicitly here so a future column add
-      # (e.g. pos_orders.customer_phone) doesn't sit Pending on prod.
+      # opt EACH installed module in explicitly here so a future column add
+      # doesn't sit Pending on prod. (Inventory was missing — a later
+      # stock_moves.item_type add never ran, 500-ing recipe sales — fixed
+      # 2026-06-24 by adding its --path below.)
       #
       # `db:seed --class=PosStaffSeeder --force` creates the three real
       # POS cashier accounts (ramadan / faraj / osama, pos_user group,
@@ -252,6 +254,7 @@ jobs:
              php artisan migrate --path=Modules/WhatsApp/database/migrations --force && \
              php artisan migrate --path=Modules/Accounting/database/migrations --force && \
              php artisan migrate --path=Modules/Purchases/database/migrations --force && \
+             php artisan migrate --path=Modules/Inventory/database/migrations --force && \
              php artisan db:seed --class='Database\\Seeders\\SettingSeeder' --force && \
              php artisan db:seed --class='Database\\Seeders\\PosStaffSeeder' --force && \
              php artisan module:resync pos && \

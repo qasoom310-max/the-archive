@@ -57,7 +57,7 @@ final class DailySummaryTest extends TestCase
 
         Livewire::test(DailySummary::class)
             ->assertViewHas('today', fn (array $t): bool => $t['sales'] === 25.0 && $t['purchases'] === 12.0 && $t['net'] === 13.0)
-            ->assertSee('In profit');
+            ->assertSee('Cash positive');
     }
 
     public function test_flags_a_loss_day_in_red(): void

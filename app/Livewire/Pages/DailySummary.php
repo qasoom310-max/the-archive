@@ -19,14 +19,16 @@ use Modules\Purchases\Enums\PurchaseState;
 use Modules\Purchases\Models\Purchase;
 
 /**
- * Daily Summary — a one-glance owner's P&L for a day: money IN (POS sales),
- * money OUT (confirmed purchases), and the Net (sales − purchases). Net is
- * shown red when negative so a loss day is obvious. A date picker scopes the
- * figures and a 7-day table gives the trend. Admin-only (financial data).
+ * Daily Summary — a one-glance owner's CASH-FLOW view for a day: money IN
+ * (POS sales), money OUT (confirmed purchases), and the Net Cash Flow
+ * (sales − purchases). Net is shown red when negative so a cash-out day is
+ * obvious. A date picker scopes the figures and a 7-day table gives the trend.
+ * Admin-only (financial data).
  *
- * "Net" here is **cash in vs cash out** for the day (sales total − purchase
- * total), not an accrual P&L — buying a month of stock in one day shows as a
- * minus on that day by design.
+ * This is deliberately **cash in vs cash out**, NOT accounting profit: a
+ * purchase converts cash into inventory (an asset), it isn't an expense until
+ * the goods are sold (COGS). So buying a month of stock in one day shows as a
+ * minus here by design — that's cash flow, not a loss.
  */
 #[Layout('components.layouts.app')]
 #[Title('Daily Summary')]

@@ -8,6 +8,7 @@
         <div>
             <h1 class="text-xl font-bold text-chrome-900">{{ __('Daily Summary') }}</h1>
             <p class="text-sm text-chrome-500">{{ __('Money in (sales) vs money out (purchases) for the day.') }}</p>
+            <p class="text-xs text-chrome-400">{{ __('Cash flow, not accounting profit — buying stock shows as money out, not a loss.') }}</p>
         </div>
         <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Date') }}</label>
@@ -31,10 +32,10 @@
         </div>
         @php $neg = $today['net'] < 0; @endphp
         <div class="rounded-xl p-5 shadow-sm ring-1 {{ $neg ? 'bg-red-50 ring-red-200' : 'bg-emerald-50 ring-emerald-200' }}">
-            <p class="text-xs font-semibold uppercase tracking-wide {{ $neg ? 'text-red-600' : 'text-emerald-700' }}">{{ __('Net Profit') }}</p>
+            <p class="text-xs font-semibold uppercase tracking-wide {{ $neg ? 'text-red-600' : 'text-emerald-700' }}">{{ __('Net Cash Flow') }}</p>
             <p class="mt-1 text-2xl font-bold {{ $neg ? 'text-red-600' : 'text-emerald-700' }}">{{ $money($today['net']) }}</p>
             <p class="mt-1 text-xs {{ $neg ? 'text-red-500' : 'text-emerald-600' }}">
-                {{ $neg ? __('In the red — spent more than earned') : __('In profit') }}
+                {{ $neg ? __('In the red — spent more than earned') : __('Cash positive — more in than out') }}
             </p>
         </div>
     </div>
@@ -47,7 +48,7 @@
                     <th class="px-4 py-2.5 text-start font-semibold">{{ __('Day') }}</th>
                     <th class="px-4 py-2.5 text-end font-semibold">{{ __('Daily Sales') }}</th>
                     <th class="px-4 py-2.5 text-end font-semibold">{{ __('Daily Purchases') }}</th>
-                    <th class="px-4 py-2.5 text-end font-semibold">{{ __('Net Profit') }}</th>
+                    <th class="px-4 py-2.5 text-end font-semibold">{{ __('Net Cash Flow') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-chrome-100">

@@ -60,7 +60,7 @@
                 </p>
                 <a href="{{ url('/reports/daily-summary') }}" wire:navigate
                     class="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:underline">
-                    {{ __('Daily Summary') }} ({{ __('Sales vs purchases, net profit') }}) →
+                    {{ __('Daily Summary') }} ({{ __('Sales vs purchases, net cash flow') }}) →
                 </a>
             </div>
 

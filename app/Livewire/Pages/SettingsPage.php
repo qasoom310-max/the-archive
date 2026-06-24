@@ -141,28 +141,18 @@ final class SettingsPage extends Component
                 fn ($c): array => ['value' => $c->code, 'label' => $c->label()],
                 array_values(Currencies::all()),
             );
+        }
 
-            // Business-type picker — drives which apps/menus/features this
-            // database exposes (the new "Business" tab). Admin-only.
+        // Business-type picker — drives which apps/menus/features this database
+        // exposes (the "Business" tab). SUPER-ADMIN ONLY: reshaping the whole
+        // app surface is an owner-level decision, so it's gated by
+        // SUPER_ADMIN_KEYS (canSee hides the row + tab from regular admins).
+        // Uses the BusinessType enum so values stay valid for Features.
+        if ($this->isSuperAdmin()) {
             $this->selects['company.business_type'] = array_map(
                 fn (BusinessType $t): array => ['value' => $t->value, 'label' => __($t->label())],
                 BusinessType::all(),
             );
-        }
-
-        // Business type picker — super-admin only (the only one who can see
-        // the row). A fixed enumerated list rendered as the same combobox.
-        if ($this->isSuperAdmin()) {
-            $this->selects['company.business_type'] = [
-                ['value' => 'general', 'label' => __('General')],
-                ['value' => 'restaurant', 'label' => __('Restaurant')],
-                ['value' => 'cafe', 'label' => __('Café')],
-                ['value' => 'retail', 'label' => __('Retail')],
-                ['value' => 'grocery', 'label' => __('Grocery')],
-                ['value' => 'services', 'label' => __('Services')],
-                ['value' => 'wholesale', 'label' => __('Wholesale')],
-                ['value' => 'other', 'label' => __('Other')],
-            ];
         }
 
         // Language picker — the supported set is whitelisted in the

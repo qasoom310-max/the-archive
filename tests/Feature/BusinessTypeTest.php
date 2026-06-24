@@ -131,10 +131,12 @@ final class BusinessTypeTest extends TestCase
         $this->assertTrue(Features::enabled(Feature::Recipes));
     }
 
-    public function test_settings_page_exposes_business_picker_to_admin(): void
+    public function test_settings_page_exposes_business_picker_to_super_admin(): void
     {
+        // Business type reshapes the whole app surface, so it's an owner-level
+        // (super-admin) decision — see SettingsPage::SUPER_ADMIN_KEYS.
         $this->seed(SettingSeeder::class);
-        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
 
         $component = Livewire::test(SettingsPage::class)->assertOk()->assertSee('Business Type');
 
@@ -147,16 +149,24 @@ final class BusinessTypeTest extends TestCase
         $this->assertContains('retail', $values);
     }
 
-    public function test_business_picker_is_hidden_from_non_admins(): void
+    public function test_business_picker_is_super_admin_only(): void
     {
         $this->seed(SettingSeeder::class);
+
+        // A regular admin no longer sees it (moved up to the super admin).
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => false]));
+        $admin = Livewire::test(SettingsPage::class)->assertOk();
+        /** @var array<string, list<array{value: string, label: string}>> $adminSelects */
+        $adminSelects = $admin->get('selects');
+        $this->assertArrayNotHasKey('company.business_type', $adminSelects);
+        $admin->assertDontSee('Business Type');
+
+        // Neither does a plain staff user.
         $this->actingAs(User::factory()->create(['is_admin' => false]));
-
-        $component = Livewire::test(SettingsPage::class)->assertOk();
-
-        /** @var array<string, list<array{value: string, label: string}>> $selects */
-        $selects = $component->get('selects');
-        $this->assertArrayNotHasKey('company.business_type', $selects);
-        $component->assertDontSee('Business Type');
+        $staff = Livewire::test(SettingsPage::class)->assertOk();
+        /** @var array<string, list<array{value: string, label: string}>> $staffSelects */
+        $staffSelects = $staff->get('selects');
+        $this->assertArrayNotHasKey('company.business_type', $staffSelects);
+        $staff->assertDontSee('Business Type');
     }
 }

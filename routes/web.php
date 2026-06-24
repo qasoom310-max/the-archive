@@ -8,6 +8,7 @@ use App\Http\Controllers\ProfileEmailVerificationController;
 use App\Http\Controllers\SwitchWorkspaceController;
 use App\Livewire\Auth\Login;
 use App\Livewire\Pages\ActivityLog;
+use App\Livewire\Pages\DailySummary;
 use App\Livewire\Pages\Dashboard;
 use App\Livewire\Pages\ModuleHome;
 use App\Livewire\Pages\Playground;
@@ -43,6 +44,9 @@ Route::get('/profile/email/verify/{id}/{hash}', ProfileEmailVerificationControll
 Route::middleware('auth')->group(function (): void {
     Route::get('/', Dashboard::class)->name('dashboard');
     Route::get('/playground', Playground::class)->name('playground');
+
+    // Owner's daily P&L: sales vs purchases vs net (admin-gated in the component).
+    Route::get('/reports/daily-summary', DailySummary::class)->name('reports.daily_summary');
 
     // Direct synchronous image upload for FormView image fields. Bypasses
     // Livewire's two-phase async upload mechanism (unreliable on shared

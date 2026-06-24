@@ -261,6 +261,8 @@ jobs:
              php artisan db:seed --class='Database\\Seeders\\PosStaffSeeder' --force && \
              php artisan module:resync pos && \
              php artisan module:resync accounting && \
+             php artisan module:install rental && \
+             php artisan module:resync rental && \
              php artisan optimize:clear && \
              php artisan config:cache && \
              php artisan route:cache && \

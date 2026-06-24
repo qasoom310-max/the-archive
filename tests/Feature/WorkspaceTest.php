@@ -7,17 +7,20 @@ namespace Tests\Feature;
 use App\Erp\Enums\ModuleState;
 use App\Erp\Modules\ModuleManager;
 use App\Erp\Tenancy\WorkspaceManager;
+use App\Http\Middleware\SetActiveWorkspace;
 use App\Livewire\WorkspacesPage;
 use App\Models\Ir\IrModule;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Modules\Pos\Models\PosProduct;
+use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
 /**
@@ -262,6 +265,71 @@ final class WorkspaceTest extends TestCase
         $this->withUnencryptedCookie(Workspace::COOKIE, (string) $workspace->id)
             ->get('/')
             ->assertOk();
+    }
+
+    public function test_guest_request_with_a_stale_cookie_stays_on_main(): void
+    {
+        // Regression: a not-yet-authenticated request carrying a leftover
+        // workspace cookie must NOT swap to the tenant DB. Otherwise the login
+        // form authenticates against the tenant and persists a tenant-local id
+        // that, read back on Main, belongs to a different person ("log in as
+        // qassim, land as ramadan"). Guests always operate on Main.
+        $owner = Auth::user();
+        $this->assertInstanceOf(User::class, $owner);
+        $workspace = app(WorkspaceManager::class)->provision('Tenant', $owner, ['pos']);
+
+        Auth::logout();
+        $this->assertFalse(Auth::check());
+
+        $default = DB::getDefaultConnection();
+
+        $request = Request::create('/login', 'GET');
+        $request->cookies->set(Workspace::COOKIE, (string) $workspace->id);
+
+        $captured = null;
+        app(SetActiveWorkspace::class)->handle($request, function () use (&$captured): Response {
+            $captured = DB::getDefaultConnection();
+
+            return new Response('ok');
+        });
+
+        // The tenant was never activated — the request ran on the default
+        // (Main) connection, so login authenticates against Main.
+        $this->assertSame($default, $captured);
+        $this->assertNotSame('tenant', $captured);
+    }
+
+    public function test_authenticated_request_is_rebound_to_the_tenant_account_by_email(): void
+    {
+        // The happy path still works: a signed-in admin with the cookie is
+        // routed to the tenant DB and rebound to the matching tenant account.
+        $owner = Auth::user();
+        $this->assertInstanceOf(User::class, $owner);
+        $workspace = app(WorkspaceManager::class)->provision('Tenant', $owner, ['pos']);
+
+        $request = Request::create('/', 'GET');
+        $request->cookies->set(Workspace::COOKIE, (string) $workspace->id);
+
+        $mainConnection = DB::getDefaultConnection();
+
+        $capturedConnection = null;
+        $capturedEmail = null;
+        app(SetActiveWorkspace::class)->handle($request, function () use (&$capturedConnection, &$capturedEmail): Response {
+            $capturedConnection = DB::getDefaultConnection();
+            $capturedEmail = Auth::user()?->email;
+
+            return new Response('ok');
+        });
+
+        $this->assertSame('tenant', $capturedConnection);
+        $this->assertSame($owner->email, $capturedEmail);
+
+        // Restore the default connection: a real request ends after the swap,
+        // but here the test process continues into tearDown (which deletes the
+        // tenant file, then rolls back migrations on the default connection).
+        config(['database.default' => $mainConnection]);
+        DB::setDefaultConnection($mainConnection);
+        DB::purge('tenant');
     }
 
     public function test_switch_requires_admin_and_sets_the_cookie(): void

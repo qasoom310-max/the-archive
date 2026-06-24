@@ -37,6 +37,22 @@ final class SetActiveWorkspace
 {
     public function handle(Request $request, Closure $next): Response
     {
+        // Guests ALWAYS operate on Main — the canonical identity store.
+        //
+        // Logging in must authenticate against Main so the session stores a
+        // *Main* user id. Each tenant database has its own, unrelated
+        // auto-increment ids; a tenant-local id read back on Main resolves to
+        // a DIFFERENT person. If we let a not-yet-authenticated request with a
+        // stale workspace cookie swap to the tenant, the login form would
+        // authenticate against the tenant and persist a tenant id — then the
+        // next request reads that id on Main and silently logs the visitor in
+        // as whoever owns it there (the "log in as qassim, land as ramadan"
+        // bug). Short-circuiting guests here keeps login on Main and makes a
+        // leftover cookie harmless until an admin is actually signed in.
+        if (! Auth::check()) {
+            return $next($request);
+        }
+
         $cookie = $request->cookie(Workspace::COOKIE);
 
         // No cookie → Main. Return before touching the DB at all.
@@ -56,22 +72,28 @@ final class SetActiveWorkspace
             }
 
             // Capture the logged-in identity from Main BEFORE the swap.
-            $email = Auth::check() ? Auth::user()?->email : null;
+            $email = Auth::user()?->email;
 
             $previous = DB::getDefaultConnection();
+            $previousCachePrefix = config('cache.prefix');
             app(WorkspaceManager::class)->activate($workspace);
 
-            if ($email !== null) {
-                $tenantUser = User::query()->where('email', $email)->first();
+            // Rebind to the SAME identity inside the tenant, matched by email
+            // (how provisioning aligns accounts across databases). We must
+            // ALWAYS either positively rebind or revert to Main — never leave
+            // the request on the tenant with the guard free to resolve Main's
+            // session id against the tenant's unrelated ids. So a user with no
+            // email to match on, or no account in this workspace, fails safe
+            // back to Main rather than impersonating a tenant row.
+            $tenantUser = (is_string($email) && $email !== '')
+                ? User::query()->where('email', $email)->first()
+                : null;
 
-                if ($tenantUser !== null) {
-                    Auth::setUser($tenantUser);
-                } else {
-                    // This admin has no account in the workspace — fail safe
-                    // back to Main rather than locking them out.
-                    config(['database.default' => $previous]);
-                    DB::setDefaultConnection($previous);
-                }
+            if ($tenantUser !== null) {
+                Auth::setUser($tenantUser);
+            } else {
+                config(['database.default' => $previous, 'cache.prefix' => $previousCachePrefix]);
+                DB::setDefaultConnection($previous);
             }
         } catch (Throwable $e) {
             // The workspace layer must never break a request — log and serve

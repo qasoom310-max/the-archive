@@ -10,9 +10,15 @@
             <p class="text-sm text-chrome-500">{{ __('Money in (sales) vs money out (purchases) for the day.') }}</p>
             <p class="text-xs text-chrome-400">{{ __('Cash flow, not accounting profit — buying stock shows as money out, not a loss.') }}</p>
         </div>
-        <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Date') }}</label>
-            <input type="date" wire:model.live="date" class="o-input">
+        <div class="flex items-end gap-3">
+            <a href="{{ url('/reports/profit') }}" wire:navigate
+                class="mb-1 inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:underline">
+                {{ __('Profit & Expenses') }} →
+            </a>
+            <div>
+                <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Date') }}</label>
+                <input type="date" wire:model.live="date" class="o-input">
+            </div>
         </div>
     </div>
 

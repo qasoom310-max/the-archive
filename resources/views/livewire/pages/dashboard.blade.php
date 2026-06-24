@@ -58,10 +58,16 @@
                     {{ __('Tax') }} {{ \App\Erp\Money\Currencies::format((float) $dailySales['tax_total']) }}
                     · {{ __('Discounts') }} {{ \App\Erp\Money\Currencies::format((float) $dailySales['discount_total']) }}
                 </p>
-                <a href="{{ url('/reports/daily-summary') }}" wire:navigate
-                    class="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:underline">
-                    {{ __('Daily Summary') }} ({{ __('Sales vs purchases, net cash flow') }}) →
-                </a>
+                <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+                    <a href="{{ url('/reports/daily-summary') }}" wire:navigate
+                        class="inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:underline">
+                        {{ __('Daily Summary') }} ({{ __('Sales vs purchases, net cash flow') }}) →
+                    </a>
+                    <a href="{{ url('/reports/profit') }}" wire:navigate
+                        class="inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:underline">
+                        {{ __('Profit & Expenses') }} →
+                    </a>
+                </div>
             </div>
 
             {{-- Daily stock report --}}

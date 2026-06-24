@@ -11,6 +11,7 @@ use App\Livewire\Pages\ActivityLog;
 use App\Livewire\Pages\DailySummary;
 use App\Livewire\Pages\Dashboard;
 use App\Livewire\Pages\ModuleHome;
+use App\Livewire\Pages\MonthlyProfit;
 use App\Livewire\Pages\Playground;
 use App\Livewire\Pages\SettingsPage;
 use App\Livewire\ProfilePage;
@@ -45,8 +46,11 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/', Dashboard::class)->name('dashboard');
     Route::get('/playground', Playground::class)->name('playground');
 
-    // Owner's daily P&L: sales vs purchases vs net (admin-gated in the component).
+    // Owner's daily cash flow: sales vs purchases (admin-gated in the component).
     Route::get('/reports/daily-summary', DailySummary::class)->name('reports.daily_summary');
+
+    // Owner's monthly P&L: sales − COGS − expenses, with recurring-bill tracking.
+    Route::get('/reports/profit', MonthlyProfit::class)->name('reports.profit');
 
     // Direct synchronous image upload for FormView image fields. Bypasses
     // Livewire's two-phase async upload mechanism (unreliable on shared

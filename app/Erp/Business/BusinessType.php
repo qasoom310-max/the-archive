@@ -19,6 +19,7 @@ enum BusinessType: string
 {
     case Cafe = 'cafe';
     case Retail = 'retail';
+    case RetailCraft = 'retail_craft';
     case Rental = 'rental';
     case Services = 'services';
     case General = 'general';
@@ -29,6 +30,7 @@ enum BusinessType: string
         return match ($this) {
             self::Cafe => 'Café / Restaurant',
             self::Retail => 'Retail / Shop',
+            self::RetailCraft => 'Retail + Crafting (resell & make your own)',
             self::Rental => 'Rental (cars, equipment)',
             self::Services => 'Services / Agency',
             self::General => 'General (all features)',
@@ -53,6 +55,14 @@ enum BusinessType: string
             // recipes (nothing is assembled from components on sale).
             self::Retail => [
                 Feature::Pos, Feature::Inventory,
+                Feature::Purchases, Feature::Hr, Feature::Accounting,
+            ],
+            // A shop that BOTH resells bought goods AND crafts its own from
+            // ingredients (e.g. a perfume house: some bottles bought-in, some
+            // blended in-house). Retail plus recipes — recipes stay optional
+            // per product, so resale items simply have no recipe.
+            self::RetailCraft => [
+                Feature::Pos, Feature::Recipes, Feature::Inventory,
                 Feature::Purchases, Feature::Hr, Feature::Accounting,
             ],
             // Rentals revolve around bookings of assets, not a sales counter.

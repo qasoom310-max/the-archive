@@ -33,6 +33,9 @@ final class BusinessTypeTest extends TestCase
         // A shop sells finished goods → POS yes, recipes no.
         $this->assertNotContains(Feature::Recipes, BusinessType::Retail->features());
         $this->assertContains(Feature::Pos, BusinessType::Retail->features());
+        // A hybrid shop (perfume house) resells AND crafts → POS + recipes.
+        $this->assertContains(Feature::Pos, BusinessType::RetailCraft->features());
+        $this->assertContains(Feature::Recipes, BusinessType::RetailCraft->features());
         // A services business has no sales counter at all.
         $this->assertNotContains(Feature::Pos, BusinessType::Services->features());
         // General is the everything-on superset.

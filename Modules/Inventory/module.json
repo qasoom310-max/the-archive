@@ -9,5 +9,5 @@
     "providers": ["Modules\\Inventory\\Providers\\InventoryServiceProvider"],
     "models": [],
     "application": true,
-    "sequence": 12
+    "sequence": 20
 }

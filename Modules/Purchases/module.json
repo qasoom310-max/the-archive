@@ -14,5 +14,5 @@
     "models": [
         "Modules\\Purchases\\Models\\Purchase"
     ],
-    "sequence": 25
+    "sequence": 40
 }

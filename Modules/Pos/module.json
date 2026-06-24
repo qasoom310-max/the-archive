@@ -22,5 +22,5 @@
         "Modules\\Pos\\Models\\PosSession",
         "Modules\\Pos\\Models\\PosOrder"
     ],
-    "sequence": 15
+    "sequence": 30
 }

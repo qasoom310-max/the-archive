@@ -1,5 +1,13 @@
 {
     "OpenERP": "OpenERP",
+    "Business": "النشاط التجاري",
+    "Business Type": "نوع النشاط",
+    "Tailors which apps, menus, and features appear for this database (e.g. a perfume shop hides café recipes).": "يحدّد التطبيقات والقوائم والميزات التي تظهر لهذه القاعدة (مثلاً متجر العطور يُخفي وصفات المقهى).",
+    "Café / Restaurant": "مقهى / مطعم",
+    "Retail / Shop": "بيع بالتجزئة / متجر",
+    "Rental (cars, equipment)": "تأجير (سيارات، معدات)",
+    "Services / Agency": "خدمات / وكالة",
+    "General (all features)": "عام (كل الميزات)",
     "Home": "الرئيسية",
     "Breadcrumb": "مسار التنقل",
     "Profile": "الملف الشخصي",

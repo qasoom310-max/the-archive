@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Erp\Navigation;
 
+use App\Erp\Business\Features;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use App\Models\Ir\IrModel;
@@ -31,6 +32,9 @@ final class ModuleMenu
             ->where('module', $module->name)
             ->orderBy('name')
             ->get()
+            // Hide menu entries the active database's business type switches
+            // off (e.g. POS Ingredients vanish in a retail/perfume database).
+            ->filter(fn (IrModel $m): bool => Features::modelAllowed($m->model))
             ->filter(fn (IrModel $m): bool => $this->access->allows($user, $m->model, Permission::Read))
             ->map(function (IrModel $m) use ($module): array {
                 $slug = $this->resourceSlug($module->name, $m->model);

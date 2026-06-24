@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Pages;
 
+use App\Erp\Business\BusinessType;
 use App\Erp\Money\Currencies;
 use App\Erp\Settings\Setting;
 use App\Erp\Settings\SettingManager;
@@ -131,6 +132,13 @@ final class SettingsPage extends Component
             $this->selects['currency.default'] = array_map(
                 fn ($c): array => ['value' => $c->code, 'label' => $c->label()],
                 array_values(Currencies::all()),
+            );
+
+            // Business-type picker — drives which apps/menus/features this
+            // database exposes (the new "Business" tab). Admin-only.
+            $this->selects['company.business_type'] = array_map(
+                fn (BusinessType $t): array => ['value' => $t->value, 'label' => __($t->label())],
+                BusinessType::all(),
             );
         }
 

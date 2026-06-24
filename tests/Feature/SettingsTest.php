@@ -70,10 +70,23 @@ final class SettingsTest extends TestCase
         // Warm the cache with the old value.
         $this->assertSame('OpenERP', Setting::get('company.name'));
 
-        Livewire::test(SettingsPage::class)
-            ->assertOk()
-            ->assertSee('Company Name')
-            ->set('form.0.value', 'My ERP') // company.name (sort 10 → index 0)
+        $component = Livewire::test(SettingsPage::class)->assertOk()->assertSee('Company Name');
+
+        // Locate company.name by key rather than a hard-coded index — new
+        // setting groups (e.g. Business) sort ahead of General and shift it.
+        /** @var list<array{key: string}> $form */
+        $form = $component->get('form');
+        $nameIndex = null;
+        foreach ($form as $i => $row) {
+            if ($row['key'] === 'company.name') {
+                $nameIndex = $i;
+                break;
+            }
+        }
+        $this->assertNotNull($nameIndex, 'company.name row must be present in the seeded form');
+
+        $component
+            ->set("form.{$nameIndex}.value", 'My ERP')
             ->call('save')
             ->assertSet('saved', true);
 

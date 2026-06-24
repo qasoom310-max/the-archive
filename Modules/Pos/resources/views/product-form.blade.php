@@ -13,9 +13,14 @@
         :key="'pos-product-form-' . ($product?->id ?? 'new')" />
 
     @if ($product)
-        <div class="mt-6">
-            @livewire(\Modules\Pos\Livewire\PosRecipeEditor::class, ['productId' => $product->id], 'recipe-' . $product->id)
-        </div>
+        {{-- The recipe (bill of materials consumed on sale) is a café /
+             kitchen concept. A retail or perfume database has no recipes,
+             so its Business Type hides this editor. --}}
+        @if (\App\Erp\Business\Features::enabled(\App\Erp\Business\Feature::Recipes))
+            <div class="mt-6">
+                @livewire(\Modules\Pos\Livewire\PosRecipeEditor::class, ['productId' => $product->id], 'recipe-' . $product->id)
+            </div>
+        @endif
         <div class="mt-6">
             @livewire(\Modules\Pos\Livewire\PosProductCondiments::class, ['productId' => $product->id], 'condiments-' . $product->id)
         </div>

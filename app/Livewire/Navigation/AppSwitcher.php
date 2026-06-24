@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Navigation;
 
+use App\Erp\Business\Features;
 use App\Erp\Enums\ModuleState;
 use App\Erp\Navigation\ModuleMenu;
 use App\Models\Ir\IrModule;
@@ -30,7 +31,11 @@ final class AppSwitcher extends Component
             ->where('application', true)
             ->where('state', ModuleState::Installed)
             ->orderBy('sequence')
-            ->get();
+            ->get()
+            // Drop apps the active database's business type switches off
+            // (e.g. a services business shows no Point of Sale).
+            ->filter(fn (IrModule $app): bool => Features::moduleAllowed($app->name))
+            ->values();
 
         // Each app's dropdown = the same ACL-filtered model menu the app-home
         // tile dashboard renders (one shared source — they can't drift). Apps

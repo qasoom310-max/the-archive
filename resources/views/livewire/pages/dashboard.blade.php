@@ -58,24 +58,6 @@
                     {{ __('Tax') }} {{ \App\Erp\Money\Currencies::format((float) $dailySales['tax_total']) }}
                     · {{ __('Discounts') }} {{ \App\Erp\Money\Currencies::format((float) $dailySales['discount_total']) }}
                 </p>
-                <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1">
-                    <a href="{{ url('/reports/daily-summary') }}" wire:navigate
-                        class="inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:underline">
-                        {{ __('Daily Summary') }} ({{ __('Sales vs purchases, net cash flow') }}) →
-                    </a>
-                    <a href="{{ url('/reports/profit') }}" wire:navigate
-                        class="inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:underline">
-                        {{ __('Profit & Expenses') }} →
-                    </a>
-                    <a href="{{ url('/hr/employees') }}" wire:navigate
-                        class="inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:underline">
-                        {{ __('Employees') }} →
-                    </a>
-                    <a href="{{ url('/hr/payroll') }}" wire:navigate
-                        class="inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:underline">
-                        {{ __('Payroll') }} →
-                    </a>
-                </div>
             </div>
 
             {{-- Daily stock report --}}
@@ -112,6 +94,45 @@
                     </div>
                 @endif
                 <p class="mt-3 text-xs text-chrome-400">{{ __('On-hand × cost. Full breakdown in the Stock Report.') }}</p>
+            </div>
+        </div>
+    @endif
+
+    {{-- Owner's reports & team — quick-access tiles --}}
+    @if ($isAdmin)
+        @php
+            $ownerTiles = [
+                ['url' => '/reports/daily-summary', 'label' => __('Daily Summary'), 'sub' => __('Cash in vs out'),
+                 'icon' => 'M13.2 2.24a.75.75 0 0 0 .04 1.06l2.1 1.95H6.75a.75.75 0 0 0 0 1.5h8.59l-2.1 1.95a.75.75 0 1 0 1.02 1.1l3.5-3.25a.75.75 0 0 0 0-1.1l-3.5-3.25a.75.75 0 0 0-1.06.04Zm-6.4 8a.75.75 0 0 0-1.06-.04l-3.5 3.25a.75.75 0 0 0 0 1.1l3.5 3.25a.75.75 0 1 0 1.02-1.1l-2.1-1.95h8.59a.75.75 0 0 0 0-1.5H4.66l2.1-1.95a.75.75 0 0 0 .04-1.06Z'],
+                ['url' => '/reports/profit', 'label' => __('Profit & Expenses'), 'sub' => __('Real monthly profit'),
+                 'icon' => 'M15.5 2A1.5 1.5 0 0 0 14 3.5v13a1.5 1.5 0 0 0 1.5 1.5h.5a1.5 1.5 0 0 0 1.5-1.5v-13A1.5 1.5 0 0 0 16 2h-.5ZM9.5 6A1.5 1.5 0 0 0 8 7.5v9A1.5 1.5 0 0 0 9.5 18h.5a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 10 6h-.5ZM3.5 10A1.5 1.5 0 0 0 2 11.5v5A1.5 1.5 0 0 0 3.5 18h.5a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 4 10h-.5Z'],
+                ['url' => '/hr/employees', 'label' => __('Employees'), 'sub' => __('Staff & contracts'),
+                 'icon' => 'M7 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm5.5 1a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM1.6 16.5a5.4 5.4 0 0 1 10.8 0 .5.5 0 0 1-.5.5H2.1a.5.5 0 0 1-.5-.5Zm11.9.5a6.9 6.9 0 0 0-1.2-3.9 4 4 0 0 1 5.1 3.4.5.5 0 0 1-.5.5h-3.4Z'],
+                ['url' => '/hr/payroll', 'label' => __('Payroll'), 'sub' => __('Salaries & overtime'),
+                 'icon' => 'M1 5.5A1.5 1.5 0 0 1 2.5 4h15A1.5 1.5 0 0 1 19 5.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 1 14.5v-9ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM4.5 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm13 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z'],
+            ];
+        @endphp
+        <div class="mb-6 rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
+            <h2 class="mb-4 flex items-center gap-2 text-sm font-semibold text-chrome-800">
+                <span class="flex size-7 items-center justify-center rounded-lg bg-primary-400 text-chrome-900">
+                    <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M4.25 2A2.25 2.25 0 0 0 2 4.25v2.5A2.25 2.25 0 0 0 4.25 9h2.5A2.25 2.25 0 0 0 9 6.75v-2.5A2.25 2.25 0 0 0 6.75 2h-2.5Zm0 9A2.25 2.25 0 0 0 2 13.25v2.5A2.25 2.25 0 0 0 4.25 18h2.5A2.25 2.25 0 0 0 9 15.75v-2.5A2.25 2.25 0 0 0 6.75 11h-2.5Zm9-9A2.25 2.25 0 0 0 11 4.25v2.5A2.25 2.25 0 0 0 13.25 9h2.5A2.25 2.25 0 0 0 18 6.75v-2.5A2.25 2.25 0 0 0 15.75 2h-2.5Zm0 9A2.25 2.25 0 0 0 11 13.25v2.5A2.25 2.25 0 0 0 13.25 18h2.5A2.25 2.25 0 0 0 18 15.75v-2.5A2.25 2.25 0 0 0 15.75 11h-2.5Z"/></svg>
+                </span>
+                {{ __('Reports & Team') }}
+            </h2>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                @foreach ($ownerTiles as $t)
+                    <a href="{{ url($t['url']) }}" wire:navigate
+                        class="group flex items-center gap-3 rounded-xl border border-chrome-200 bg-white p-4 transition hover:border-primary-400 hover:bg-primary-50/40 hover:shadow-sm">
+                        <span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-400 text-chrome-900">
+                            <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path d="{{ $t['icon'] }}"/></svg>
+                        </span>
+                        <span class="min-w-0">
+                            <span class="block text-sm font-semibold text-chrome-800">{{ $t['label'] }}</span>
+                            <span class="block truncate text-xs text-chrome-400">{{ $t['sub'] }}</span>
+                        </span>
+                        <svg class="ms-auto size-4 shrink-0 text-chrome-300 transition group-hover:text-primary-600 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/></svg>
+                    </a>
+                @endforeach
             </div>
         </div>
     @endif

@@ -192,33 +192,51 @@ jobs:
       # uploaded photos and prod-only files survive.
       - name: Rsync to Hostinger
         run: |
-          rsync -avz --delete \
-            --exclude='.git/' \
-            --exclude='.github/' \
-            --exclude='node_modules/' \
-            --exclude='tests/' \
-            --exclude='.env' \
-            --exclude='.env.*' \
-            --exclude='database/database.sqlite' \
-            --exclude='database/*.sqlite-journal' \
-            --exclude='storage/app/public/avatars/' \
-            --exclude='storage/app/public/pos_products/' \
-            --exclude='storage/app/public/pos_categories/' \
-            --exclude='storage/app/public/partners/' \
-            --exclude='storage/app/public/company/' \
-            --exclude='storage/app/public/whatsapp-receipts/' \
-            --exclude='storage/app/public/accounts/' \
-            --exclude='storage/app/public/employee_agreements/' \
-            --exclude='storage/app/workspaces/' \
-            --exclude='storage/logs/' \
-            --exclude='storage/framework/cache/data/' \
-            --exclude='storage/framework/sessions/' \
-            --exclude='storage/framework/views/' \
-            --exclude='storage/framework/testing/' \
-            --exclude='public/storage' \
-            --exclude='public/hot' \
-            -e "ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new" \
-            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/
+          # Hostinger's SSH ingress occasionally drops the initial handshake
+          # (intermittent "Connection timed out"), failing an otherwise-good
+          # deploy. Retry up to 3 times with SSH keepalives + a connect
+          # timeout so a transient blip self-heals instead of needing a manual
+          # re-run. Only a genuine 3x failure fails the step.
+          ok=0
+          for attempt in 1 2 3; do
+            echo "Rsync attempt $attempt of 3…"
+            if rsync -avz --delete \
+              --exclude='.git/' \
+              --exclude='.github/' \
+              --exclude='node_modules/' \
+              --exclude='tests/' \
+              --exclude='.env' \
+              --exclude='.env.*' \
+              --exclude='database/database.sqlite' \
+              --exclude='database/*.sqlite-journal' \
+              --exclude='storage/app/public/avatars/' \
+              --exclude='storage/app/public/pos_products/' \
+              --exclude='storage/app/public/pos_categories/' \
+              --exclude='storage/app/public/partners/' \
+              --exclude='storage/app/public/company/' \
+              --exclude='storage/app/public/whatsapp-receipts/' \
+              --exclude='storage/app/public/accounts/' \
+              --exclude='storage/app/public/employee_agreements/' \
+              --exclude='storage/app/workspaces/' \
+              --exclude='storage/logs/' \
+              --exclude='storage/framework/cache/data/' \
+              --exclude='storage/framework/sessions/' \
+              --exclude='storage/framework/views/' \
+              --exclude='storage/framework/testing/' \
+              --exclude='public/storage' \
+              --exclude='public/hot' \
+              -e "ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
+              ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/; then
+              ok=1
+              break
+            fi
+            echo "Rsync attempt $attempt failed; retrying in 20s…"
+            sleep 20
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "Rsync failed after 3 attempts (Hostinger SSH unreachable)."
+            exit 1
+          fi
 
       # Remote post-deploy: link storage, run pending migrations (core +
       # POS module), seed real cashier accounts, re-sync POS view arch,

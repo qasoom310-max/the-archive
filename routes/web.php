@@ -9,6 +9,7 @@ use App\Http\Controllers\ProfileEmailVerificationController;
 use App\Http\Controllers\SwitchWorkspaceController;
 use App\Livewire\Auth\Login;
 use App\Livewire\Pages\ActivityLog;
+use App\Livewire\Pages\AppFeatureSettings;
 use App\Livewire\Pages\DailySummary;
 use App\Livewire\Pages\Dashboard;
 use App\Livewire\Pages\EmployeeForm;
@@ -98,6 +99,13 @@ Route::middleware('auth')->group(function (): void {
 
     // Explicit before the /app/{module} wildcard so it wins.
     Route::get('/app/settings', SettingsPage::class)->name('settings');
+
+    // Per-app feature toggles (the app's own "Settings" tab). Two-segment and
+    // more specific than the /app/{module} home below; no module defines an
+    // `/app/{module}/settings` route, so this owns the path.
+    Route::get('/app/{module}/settings', AppFeatureSettings::class)
+        ->where('module', '[A-Za-z0-9_-]+')
+        ->name('app.feature-settings');
 
     Route::get('/app/{module}', ModuleHome::class)->name('module.home');
 });

@@ -1341,6 +1341,24 @@ now require an **emailed 2FA code** for them (super admins are exempt).
 
 The 2FA email needs prod SMTP configured (same `[[prod-mail-transport-environment-specific]]` as the daily report) — without it the code can't be delivered and a regular admin can't complete a gated action; the super admin (exempt) always can. To retune: change the channel in `AdminActionOtp::via()` (e.g. add WhatsApp), the TTL in `TwoFactorGate::TTL_MINUTES`, or the gated set by adding `requireOtp()` calls. To move a power between tiers: add/remove a key in `SettingsPage::SUPER_ADMIN_KEYS`, or wrap/unwrap a view block in `@if($isSuperAdmin)`.
 
+**Per-app feature toggles (shipped 2026-06-24):**
+
+Each app gets its own **"Settings" tab** to switch its sub-features on/off for
+the active database — a **manual override layer on top of the business-type
+preset** (the override wins). E.g. POS → toggle **Dine-in** (floors/tables/
+kitchen/shisha) and **Recipes** independent of the chosen business type.
+
+| Concern | Location |
+|---|---|
+| Override store | `Features::overrides()` reads the per-workspace `features.overrides` setting (a JSON object `featureValue => bool`, written by `Features::setOverrides()` via `Setting::set`, cached + flushed). `Features::enabled()` now checks the override FIRST, then falls back to `presetEnabled()` (the business-type preset, fail-open when no type). So everything already gated by `Features::{enabled,moduleAllowed,modelAllowed}` (AppSwitcher, ModuleMenu, PosHome stations, product-form recipe editor) honours the toggle automatically — no new gates needed |
+| Which toggles per app | `Features::APP_FEATURES` (module → list of sub-`Feature`s; the app-level master feature is intentionally excluded so you can't disable the app you're inside). Currently `pos => [Restaurant, Recipes]`; extend the const to surface more. An app absent here has no Settings tab |
+| UI | `App\Livewire\Pages\AppFeatureSettings` (`/app/{module}/settings`, route `app.feature-settings`, registered in core `routes/web.php` **before** `/app/{module}` — two-segment, no module defines it) + `resources/views/livewire/pages/app-feature-settings.blade.php` (iOS switches). **Admin-gated (any admin)** — `mount`/`save` re-`abort_unless(isAdmin)`. Feature-less / unknown slug → 404. `save()` writes all shown toggles as explicit overrides + logs `settings_updated` |
+| Entry point | `AppSwitcher` adds a **"Settings"** row at the bottom of each app's dropdown when that app has feature toggles AND the viewer is an admin (`$settingsUrls[$module]`); the app-switcher view also opens a dropdown for a toggle-having app even if it has no model menu |
+| Central settings exclusion | `SettingsPage::canSee()` returns false for any `features.*` key, so the internal `features.overrides` row (which `SettingManager::persist` would otherwise drop into the General group) never shows on the central settings page |
+| Tests | `tests/Feature/AppFeatureSettingsTest.php` (7 — admin sees POS toggles, dine-in OFF hides floor/table even in a café, dine-in ON shows it in retail, non-admin 403, feature-less app 404s, app-switcher links Settings for admins only, overrides key hidden from central settings). `BusinessTypeTest` still covers the preset layer |
+
+Decisions (chosen by the user): toggles live **in each app** (per-app tab), **feature-level** granularity, editable by **any admin**, and they **override** the business-type preset. To add a toggle to another app: add its `Feature`(s) to `Features::APP_FEATURES[<module>]` (mapping the feature to its models/menus in `MODULE_FEATURE`/`MODEL_FEATURE` as needed). NOTE: an override, once saved, pins that feature regardless of a later business-type change — there's no "revert to preset" button yet (a possible follow-up).
+
 **Activity log — audit trail (shipped 2026-06-21):**
 
 Admin-only system audit trail. The topbar **bell was replaced by a

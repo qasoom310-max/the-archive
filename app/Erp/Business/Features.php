@@ -57,6 +57,21 @@ final class Features
     ];
 
     /**
+     * Per-app feature toggles surfaced in that app's own "Settings" tab
+     * (`/app/{module}/settings`). Only the SUB-features of an app appear — the
+     * app-level master feature is intentionally absent (you can't disable the
+     * very app you're inside). An app with no entry here has no Settings tab.
+     *
+     * @var array<string, list<Feature>>
+     */
+    private const APP_FEATURES = [
+        'pos' => [Feature::Restaurant, Feature::Recipes],
+    ];
+
+    /** The settings key holding manual per-feature overrides (JSON object). */
+    private const OVERRIDES_KEY = 'features.overrides';
+
+    /**
      * The configured type for the active database, or null when none has
      * been chosen (→ treat everything as enabled).
      */
@@ -69,7 +84,23 @@ final class Features
             : null;
     }
 
+    /**
+     * Whether a feature is on RIGHT NOW: a manual override (set in an app's
+     * Settings tab) wins; otherwise the business-type preset decides; a
+     * database with neither configured fails open (legacy-safe).
+     */
     public static function enabled(Feature $feature): bool
+    {
+        $overrides = self::overrides();
+        if (array_key_exists($feature->value, $overrides)) {
+            return $overrides[$feature->value];
+        }
+
+        return self::presetEnabled($feature);
+    }
+
+    /** The business-type preset value for a feature, ignoring manual overrides. */
+    public static function presetEnabled(Feature $feature): bool
     {
         $type = self::configuredType();
 
@@ -79,6 +110,62 @@ final class Features
         }
 
         return in_array($feature, $type->features(), true);
+    }
+
+    /**
+     * The sub-features an app exposes in its own Settings tab (empty = the app
+     * has no toggles, so no Settings tab).
+     *
+     * @return list<Feature>
+     */
+    public static function appFeatures(string $module): array
+    {
+        return self::APP_FEATURES[$module] ?? [];
+    }
+
+    /**
+     * Manual overrides: feature value → forced on/off. Read from the
+     * per-workspace `features.overrides` setting (a JSON object).
+     *
+     * @return array<string, bool>
+     */
+    public static function overrides(): array
+    {
+        $raw = Setting::get(self::OVERRIDES_KEY);
+        if (! is_string($raw) || $raw === '') {
+            return [];
+        }
+
+        $decoded = json_decode($raw, true);
+        if (! is_array($decoded)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($decoded as $key => $value) {
+            if (is_string($key)) {
+                $out[$key] = (bool) $value;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Persist manual overrides for the given features (merged with any
+     * existing ones), flushing the settings cache so the new state takes
+     * effect immediately.
+     *
+     * @param array<string, bool> $values feature value => enabled
+     */
+    public static function setOverrides(array $values): void
+    {
+        $merged = self::overrides();
+        foreach ($values as $key => $enabled) {
+            $merged[$key] = (bool) $enabled;
+        }
+
+        Setting::set(self::OVERRIDES_KEY, json_encode($merged, JSON_THROW_ON_ERROR));
     }
 
     /** Whether an application module should appear in the top app bar. */

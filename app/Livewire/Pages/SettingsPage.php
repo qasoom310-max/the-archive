@@ -288,6 +288,12 @@ final class SettingsPage extends Component
      */
     private function canSee(string $key): bool
     {
+        // Internal feature-override store — managed per-app (the app's own
+        // Settings tab), never shown as a row in the central settings page.
+        if (str_starts_with($key, 'features.')) {
+            return false;
+        }
+
         if ($this->isSuperAdmin()) {
             return true;
         }

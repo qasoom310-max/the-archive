@@ -8,6 +8,7 @@ use App\Erp\Business\Features;
 use App\Erp\Enums\ModuleState;
 use App\Erp\Navigation\ModuleMenu;
 use App\Models\Ir\IrModule;
+use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -43,16 +44,26 @@ final class AppSwitcher extends Component
         // empty list and fall through to a plain home link in the view.
         $menu = app(ModuleMenu::class);
         $user = Auth::user();
+        $isAdmin = $user instanceof User && $user->isAdmin();
 
         /** @var array<string, list<array{label: string, model: string, slug: string, url: string}>> $menus */
         $menus = [];
+        // Per-app "Settings" deep-link — only for apps that expose feature
+        // toggles AND only for admins (the page itself re-gates). Lets an admin
+        // turn parts of an app on/off (e.g. POS dine-in) from the app's dropdown.
+        /** @var array<string, string|null> $settingsUrls */
+        $settingsUrls = [];
         foreach ($apps as $app) {
             $menus[$app->name] = $menu->items($app, $user);
+            $settingsUrls[$app->name] = ($isAdmin && Features::appFeatures($app->name) !== [])
+                ? url('/app/' . $app->name . '/settings')
+                : null;
         }
 
         return view('livewire.navigation.app-switcher', [
             'apps' => $apps,
             'menus' => $menus,
+            'settingsUrls' => $settingsUrls,
         ]);
     }
 }

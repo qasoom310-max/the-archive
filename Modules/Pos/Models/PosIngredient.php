@@ -10,6 +10,8 @@ use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
 use App\Erp\Translation\TranslatableModel;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Contacts\Models\Partner;
 use Spatie\Translatable\HasTranslations;
 
 /**
@@ -26,6 +28,7 @@ use Spatie\Translatable\HasTranslations;
  * @property float $stock_on_hand  On-hand quantity (so an ingredient can be a recipe component)
  * @property float|null $reorder_point  Low-stock threshold; null = global default
  * @property string|null $unit  Unit of measure code: qty|kg|g|l|ml|pcs|box|pack|dozen
+ * @property int|null $supplier_id  Preferred vendor (logical ref to partners)
  * @property bool $active
  * @property int $sequence
  */
@@ -39,7 +42,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
     public array $translatable = ['name'];
 
     /** @var list<string> */
-    protected $fillable = ['name', 'cost_price', 'stock_on_hand', 'reorder_point', 'unit', 'active', 'sequence'];
+    protected $fillable = ['name', 'cost_price', 'stock_on_hand', 'reorder_point', 'unit', 'supplier_id', 'active', 'sequence'];
 
     /** @var array<string, mixed> */
     protected $attributes = [
@@ -59,6 +62,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
             'cost_price' => 'float',
             'stock_on_hand' => 'float',
             'reorder_point' => 'float',
+            'supplier_id' => 'integer',
             'active' => 'boolean',
             'sequence' => 'integer',
         ];
@@ -72,6 +76,16 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
     public function stockValue(): float
     {
         return round((float) $this->stock_on_hand * (float) $this->cost_price, 2);
+    }
+
+    /**
+     * Preferred vendor for restocking this ingredient.
+     *
+     * @return BelongsTo<Partner, $this>
+     */
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Partner::class, 'supplier_id');
     }
 
     public static function irModelDefinition(): ModelDefinition
@@ -88,6 +102,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
                 new FieldDefinition('stock_on_hand', 'Stock on hand', 'float', sequence: 25),
                 new FieldDefinition('reorder_point', 'Reorder point', 'float', sequence: 28),
                 new FieldDefinition('unit', 'Unit', 'selection', sequence: 30),
+                new FieldDefinition('supplier_id', 'Preferred vendor', 'many2one', relation: 'contacts.partner', sequence: 35),
                 new FieldDefinition('sequence', 'Sequence', 'integer', sequence: 40),
             ],
             views: [
@@ -113,6 +128,18 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
                         ['field' => 'stock_on_hand', 'label' => 'Stock on hand', 'widget' => 'number', 'help' => 'On-hand quantity, decremented when a product using this ingredient is sold.'],
                         ['field' => 'reorder_point', 'label' => 'Reorder point', 'widget' => 'number', 'help' => 'Flag as low stock at or below this. Leave blank to use the global default.'],
                         ['field' => 'unit', 'label' => 'Unit', 'widget' => 'select', 'options' => PosProduct::UNIT_OPTIONS],
+                        [
+                            'field' => 'supplier_id',
+                            'label' => 'Preferred vendor',
+                            'widget' => 'select',
+                            'help' => 'Default supplier shown on the Reorder Report. Leave empty to use the last vendor it was bought from.',
+                            'optionsFrom' => [
+                                'model' => Partner::class,
+                                'value' => 'id',
+                                'label' => 'name',
+                                'orderBy' => 'name',
+                            ],
+                        ],
                         ['field' => 'sequence', 'label' => 'Sequence', 'widget' => 'number', 'help' => 'Lower numbers show first in the recipe picker.'],
                     ],
                 ]),

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Modules\Purchases\Http\Controllers\PurchaseReorderExportController;
+use Modules\Purchases\Http\Controllers\PurchaseReorderPdfController;
 use Modules\Purchases\Livewire\PurchaseForm;
 use Modules\Purchases\Livewire\PurchaseReorder;
 use Modules\Purchases\Livewire\Purchases;
@@ -23,6 +24,8 @@ Route::middleware('auth')->group(function (): void {
     // registered before the report so its suffix isn't swallowed.
     Route::get('/app/purchases/reorder/export', PurchaseReorderExportController::class)
         ->name('purchases.reorder.export');
+    Route::get('/app/purchases/reorder/pdf', PurchaseReorderPdfController::class)
+        ->name('purchases.reorder.pdf');
     Route::get('/app/purchases/reorder', PurchaseReorder::class)
         ->name('purchases.reorder');
 

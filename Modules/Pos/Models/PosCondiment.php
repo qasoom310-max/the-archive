@@ -11,6 +11,7 @@ use App\Erp\Registry\ViewDefinition;
 use App\Erp\Translation\TranslatableModel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Contacts\Models\Partner;
 use Spatie\Translatable\HasTranslations;
 
 /**
@@ -30,6 +31,7 @@ use Spatie\Translatable\HasTranslations;
  * @property float $stock_on_hand  On-hand quantity (so a condiment can be a recipe component)
  * @property float|null $reorder_point  Low-stock threshold; null = global default
  * @property int|null $pos_category_id
+ * @property int|null $supplier_id  Preferred vendor (logical ref to partners)
  * @property bool $active
  * @property int $sequence
  */
@@ -43,7 +45,7 @@ final class PosCondiment extends Model implements DefinesIrModel, TranslatableMo
     public array $translatable = ['name'];
 
     /** @var list<string> */
-    protected $fillable = ['name', 'price', 'stock_on_hand', 'reorder_point', 'pos_category_id', 'active', 'sequence'];
+    protected $fillable = ['name', 'price', 'stock_on_hand', 'reorder_point', 'pos_category_id', 'supplier_id', 'active', 'sequence'];
 
     /** @var array<string, mixed> */
     protected $attributes = [
@@ -63,6 +65,7 @@ final class PosCondiment extends Model implements DefinesIrModel, TranslatableMo
             'stock_on_hand' => 'float',
             'reorder_point' => 'float',
             'pos_category_id' => 'integer',
+            'supplier_id' => 'integer',
             'active' => 'boolean',
             'sequence' => 'integer',
         ];
@@ -74,6 +77,16 @@ final class PosCondiment extends Model implements DefinesIrModel, TranslatableMo
     public function category(): BelongsTo
     {
         return $this->belongsTo(PosCategory::class, 'pos_category_id');
+    }
+
+    /**
+     * Preferred vendor for restocking this condiment.
+     *
+     * @return BelongsTo<Partner, $this>
+     */
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Partner::class, 'supplier_id');
     }
 
     /**
@@ -99,6 +112,7 @@ final class PosCondiment extends Model implements DefinesIrModel, TranslatableMo
                 new FieldDefinition('stock_on_hand', 'Stock on hand', 'float', sequence: 25),
                 new FieldDefinition('reorder_point', 'Reorder point', 'float', sequence: 28),
                 new FieldDefinition('pos_category_id', 'Category', 'many2one', relation: 'pos.category', sequence: 30),
+                new FieldDefinition('supplier_id', 'Preferred vendor', 'many2one', relation: 'contacts.partner', sequence: 35),
                 new FieldDefinition('sequence', 'Sequence', 'integer', sequence: 40),
             ],
             views: [
@@ -133,6 +147,18 @@ final class PosCondiment extends Model implements DefinesIrModel, TranslatableMo
                             'help' => 'Only offered for products in this category. Leave empty to show for every product.',
                             'optionsFrom' => [
                                 'model' => PosCategory::class,
+                                'value' => 'id',
+                                'label' => 'name',
+                                'orderBy' => 'name',
+                            ],
+                        ],
+                        [
+                            'field' => 'supplier_id',
+                            'label' => 'Preferred vendor',
+                            'widget' => 'select',
+                            'help' => 'Default supplier shown on the Reorder Report. Leave empty to use the last vendor it was bought from.',
+                            'optionsFrom' => [
+                                'model' => Partner::class,
                                 'value' => 'id',
                                 'label' => 'name',
                                 'orderBy' => 'name',

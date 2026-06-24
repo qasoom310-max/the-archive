@@ -9,8 +9,8 @@ use App\Erp\Security\Permission;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
-use Modules\Pos\Support\StockRow;
 use Modules\Purchases\Services\PurchaseReorderData;
+use Modules\Purchases\Support\ReorderRow;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -35,20 +35,23 @@ final class PurchaseReorderExportController extends Controller
                 return;
             }
 
-            fputcsv($out, ['Item', 'Type', 'Category', 'Unit', 'Current stock', 'Minimum', 'Status']);
+            fputcsv($out, ['Item', 'Type', 'Category', 'Unit', 'Current stock', 'Minimum', 'Vendor', 'Phone', 'Status']);
 
             foreach ($data->rows($search) as $row) {
-                /** @var StockRow $row */
-                $min = $row->reorderPoint ?? $threshold;
+                /** @var ReorderRow $row */
+                $item = $row->item;
+                $min = $item->reorderPoint ?? $threshold;
 
                 fputcsv($out, [
-                    $row->name,
-                    $typeLabels[$row->type] ?? 'Product',
-                    $row->category ?? '',
-                    $row->unit !== '' ? $row->unit : 'qty',
-                    $this->num($row->stock),
+                    $item->name,
+                    $typeLabels[$item->type] ?? 'Product',
+                    $item->category ?? '',
+                    $item->unit !== '' ? $item->unit : 'qty',
+                    $this->num($item->stock),
                     $this->num($min),
-                    $statusLabels[$row->status] ?? '',
+                    $row->vendorName ?? '',
+                    $row->vendorPhone ?? '',
+                    $statusLabels[$item->status] ?? '',
                 ]);
             }
 

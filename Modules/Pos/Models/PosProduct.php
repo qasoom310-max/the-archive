@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Modules\Contacts\Models\Partner;
 use Spatie\Translatable\HasTranslations;
 
 /**
@@ -34,6 +35,7 @@ use Spatie\Translatable\HasTranslations;
  * @property float $stock_on_hand
  * @property string|null $unit  Unit of measure code: qty|kg|g|l|ml|pcs|box|pack|dozen
  * @property float|null $reorder_point  Low-stock threshold; null = global default
+ * @property int|null $supplier_id  Preferred vendor (logical ref to partners)
  * @property-read int|null $available_servings
  * @property-read float $profit
  */
@@ -55,7 +57,7 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
     /** @var list<string> */
     protected $fillable = [
         'name', 'price', 'cost_price', 'tax_rate', 'barcode',
-        'pos_category_id', 'image_path', 'active', 'stock_on_hand', 'unit', 'reorder_point',
+        'pos_category_id', 'image_path', 'active', 'stock_on_hand', 'unit', 'reorder_point', 'supplier_id',
     ];
 
     /**
@@ -104,6 +106,7 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
             'active' => 'boolean',
             'stock_on_hand' => 'float',
             'reorder_point' => 'float',
+            'supplier_id' => 'integer',
         ];
     }
 
@@ -155,6 +158,16 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
     public function category(): BelongsTo
     {
         return $this->belongsTo(PosCategory::class, 'pos_category_id');
+    }
+
+    /**
+     * Preferred vendor for restocking this product.
+     *
+     * @return BelongsTo<Partner, $this>
+     */
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Partner::class, 'supplier_id');
     }
 
     /**
@@ -261,6 +274,7 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
                 new FieldDefinition('unit', 'Unit', 'selection', sequence: 52),
                 new FieldDefinition('reorder_point', 'Reorder point', 'float', sequence: 54),
                 new FieldDefinition('pos_category_id', 'Category', 'many2one', relation: 'pos.category', sequence: 55),
+                new FieldDefinition('supplier_id', 'Preferred vendor', 'many2one', relation: 'contacts.partner', sequence: 57),
                 new FieldDefinition('active', 'Active', 'boolean', sequence: 60),
                 // Photo. Registry type `binary` → ViewResolver auto-defaults widget=`image`;
                 // the form arch below makes it explicit. Column stays a nullable string path.
@@ -368,6 +382,18 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
                             'widget' => 'select',
                             'optionsFrom' => [
                                 'model' => PosCategory::class,
+                                'value' => 'id',
+                                'label' => 'name',
+                                'orderBy' => 'name',
+                            ],
+                        ],
+                        [
+                            'field' => 'supplier_id',
+                            'label' => 'Preferred vendor',
+                            'widget' => 'select',
+                            'help' => 'Default supplier shown on the Reorder Report. Leave empty to use the last vendor it was bought from.',
+                            'optionsFrom' => [
+                                'model' => Partner::class,
                                 'value' => 'id',
                                 'label' => 'name',
                                 'orderBy' => 'name',

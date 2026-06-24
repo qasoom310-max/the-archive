@@ -12,7 +12,12 @@
             </p>
         </div>
         <div class="flex items-center gap-2">
-            <a href="{{ url('/app/purchases/reorder/export' . ($search !== '' ? '?search=' . urlencode($search) : '')) }}"
+            @php $q = $search !== '' ? '?search=' . urlencode($search) : ''; @endphp
+            <a href="{{ url('/app/purchases/reorder/pdf' . $q) }}" target="_blank"
+                class="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium text-chrome-600 ring-1 ring-chrome-300 hover:bg-chrome-50">
+                {{ __('Export PDF') }}
+            </a>
+            <a href="{{ url('/app/purchases/reorder/export' . $q) }}"
                 class="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium text-chrome-600 ring-1 ring-chrome-300 hover:bg-chrome-50">
                 {{ __('Export CSV') }}
             </a>
@@ -46,40 +51,45 @@
                     <th class="px-4 py-2.5 text-start font-semibold">{{ __('Type') }}</th>
                     <th class="px-4 py-2.5 text-end font-semibold">{{ __('Current stock') }}</th>
                     <th class="px-4 py-2.5 text-end font-semibold">{{ __('Minimum') }}</th>
+                    <th class="px-4 py-2.5 text-start font-semibold">{{ __('Vendor') }}</th>
+                    <th class="px-4 py-2.5 text-start font-semibold">{{ __('Phone') }}</th>
                     <th class="px-4 py-2.5 text-end font-semibold">{{ __('Status') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-chrome-100">
                 @forelse ($rows as $row)
                     @php
-                        $unit = $row->unit !== '' ? ' ' . $row->unit : '';
-                        $min = $row->reorderPoint ?? $threshold;
-                        [$badgeText, $badgeClass] = $row->isCondiment()
+                        $item = $row->item;
+                        $unit = $item->unit !== '' ? ' ' . $item->unit : '';
+                        $min = $item->reorderPoint ?? $threshold;
+                        [$badgeText, $badgeClass] = $item->isCondiment()
                             ? [__('Condiment'), 'bg-primary-100 text-primary-700']
-                            : ($row->isIngredient()
+                            : ($item->isIngredient()
                                 ? [__('Ingredient'), 'bg-emerald-100 text-emerald-700']
                                 : [__('Product'), 'bg-chrome-100 text-chrome-600']);
-                        [$statusText, $statusClass] = $row->status === 'out'
+                        [$statusText, $statusClass] = $item->status === 'out'
                             ? [__('Out of stock'), 'bg-red-100 text-red-700']
                             : [__('Low stock'), 'bg-amber-100 text-amber-700'];
                     @endphp
-                    <tr wire:key="reorder-{{ $row->type }}-{{ $row->id }}" class="hover:bg-chrome-50">
+                    <tr wire:key="reorder-{{ $item->type }}-{{ $item->id }}" class="hover:bg-chrome-50">
                         <td class="px-4 py-2.5">
-                            <a href="{{ url($row->url()) }}" wire:navigate
-                                class="font-medium text-chrome-800 hover:text-primary-700">{{ $row->name }}</a>
+                            <a href="{{ url($item->url()) }}" wire:navigate
+                                class="font-medium text-chrome-800 hover:text-primary-700">{{ $item->name }}</a>
                         </td>
                         <td class="px-4 py-2.5">
                             <span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium {{ $badgeClass }}">{{ $badgeText }}</span>
                         </td>
-                        <td class="px-4 py-2.5 text-end font-semibold tabular-nums text-chrome-900">{{ $num($row->stock) }}{{ $unit }}</td>
+                        <td class="px-4 py-2.5 text-end font-semibold tabular-nums text-chrome-900">{{ $num($item->stock) }}{{ $unit }}</td>
                         <td class="px-4 py-2.5 text-end tabular-nums text-chrome-500">{{ $num($min) }}{{ $unit }}</td>
+                        <td class="px-4 py-2.5 text-chrome-700">{{ $row->vendorName ?? '—' }}</td>
+                        <td class="px-4 py-2.5 text-chrome-500" dir="ltr">{{ $row->vendorPhone ?? '—' }}</td>
                         <td class="px-4 py-2.5 text-end">
                             <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ $statusClass }}">{{ $statusText }}</span>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="5" class="px-4 py-12 text-center text-sm text-chrome-400">
+                        <td colspan="7" class="px-4 py-12 text-center text-sm text-chrome-400">
                             {{ __('Nothing to reorder — every purchasable item is above its minimum.') }}
                         </td>
                     </tr>

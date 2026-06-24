@@ -77,4 +77,31 @@ enum Feature: string
             self::LimoLocations => 'Saved locations',
         };
     }
+
+    /**
+     * One-line explanation shown under the label in an app's Settings tab.
+     * Empty for app-level master features (never listed in a Settings tab).
+     */
+    public function description(): string
+    {
+        return match ($this) {
+            self::Restaurant => 'Floor plan, tables, and the kitchen & shisha display screens.',
+            self::Recipes => "Build products from ingredients and consume their stock on each sale.",
+            self::Condiments => 'Let cashiers attach paid or free add-ons (extra cheese, no ice) to a cart line.',
+            self::CustomerDiscounts => "Apply a percentage discount to an order from the customer's phone number.",
+            self::Damage => 'Record damaged or wasted stock so on-hand counts stay accurate.',
+            self::BarcodeScanning => 'Show the camera scan button in the terminal search bar (USB scanners always work).',
+            self::Postpaid => 'Send items to the kitchen as they are added and take payment at the end. Off = pay first, then the order fires to the kitchen.',
+            self::ChartOfAccounts => 'The list of ledger accounts (assets, income, expenses…).',
+            self::JournalEntries => 'Manual and automatic double-entry journal postings.',
+            self::RentalMaintenance => 'Log and schedule vehicle servicing and repairs.',
+            self::RentalDrivers => 'Manage drivers that can be assigned to rentals.',
+            self::RentalQuotations => 'Draft rental price quotes before they become orders.',
+            self::RentalReplacements => 'Track replacement vehicles issued during a rental.',
+            self::LimoExpenses => 'Record per-trip costs (fuel, tolls, driver…).',
+            self::LimoQuotations => 'Draft limousine price quotes before booking.',
+            self::LimoLocations => 'Saved pickup / drop-off locations for quick selection.',
+            default => '',
+        };
+    }
 }

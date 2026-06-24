@@ -23,7 +23,12 @@
             @forelse ($features as $feature)
                 <label wire:key="feat-{{ $feature->value }}"
                     class="flex cursor-pointer items-center justify-between gap-4 py-3">
-                    <span class="text-sm font-medium text-chrome-800">{{ __($feature->label()) }}</span>
+                    <span class="min-w-0">
+                        <span class="block text-sm font-medium text-chrome-800">{{ __($feature->label()) }}</span>
+                        @if ($feature->description() !== '')
+                            <span class="mt-0.5 block text-xs text-chrome-500">{{ __($feature->description()) }}</span>
+                        @endif
+                    </span>
                     {{-- iOS-style switch --}}
                     <span class="relative inline-flex shrink-0">
                         <input type="checkbox" wire:model="toggles.{{ $feature->value }}" class="peer sr-only">

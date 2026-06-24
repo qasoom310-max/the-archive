@@ -17,7 +17,9 @@
         "Modules\\Rental\\Models\\Vehicle",
         "Modules\\Rental\\Models\\Driver",
         "Modules\\Rental\\Models\\RentalOrder",
-        "Modules\\Rental\\Models\\RentalQuotation"
+        "Modules\\Rental\\Models\\RentalQuotation",
+        "Modules\\Rental\\Models\\RentalInvoice",
+        "Modules\\Rental\\Models\\RentalReceipt"
     ],
     "sequence": 70
 }

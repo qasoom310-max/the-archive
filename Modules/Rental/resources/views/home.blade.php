@@ -7,6 +7,8 @@
         <div class="flex shrink-0 flex-wrap gap-2">
             <a href="{{ url('/app/rental/quotation') }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Quotations') }}</a>
             <a href="{{ url('/app/rental/order') }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Orders') }}</a>
+            <a href="{{ url('/app/rental/invoice') }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Invoices') }}</a>
+            <a href="{{ url('/app/rental/receipt') }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Receipts') }}</a>
             <a href="{{ url('/app/rental/order/new') }}" wire:navigate class="o-btn-primary text-sm">{{ __('New order') }}</a>
         </div>
     </div>

@@ -9,10 +9,14 @@ use Modules\Rental\Livewire\CustomerForm;
 use Modules\Rental\Livewire\Customers;
 use Modules\Rental\Livewire\DriverForm;
 use Modules\Rental\Livewire\Drivers;
+use Modules\Rental\Livewire\InvoiceForm;
+use Modules\Rental\Livewire\Invoices;
 use Modules\Rental\Livewire\OrderForm;
 use Modules\Rental\Livewire\Orders;
 use Modules\Rental\Livewire\QuotationForm;
 use Modules\Rental\Livewire\Quotations;
+use Modules\Rental\Livewire\ReceiptForm;
+use Modules\Rental\Livewire\Receipts;
 use Modules\Rental\Livewire\RentalHome;
 use Modules\Rental\Livewire\VehicleForm;
 use Modules\Rental\Livewire\Vehicles;
@@ -30,6 +34,16 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/rental/quotation', Quotations::class)->name('rental.quotation.index');
     Route::get('/app/rental/quotation/new', QuotationForm::class)->name('rental.quotation.create');
     Route::get('/app/rental/quotation/{id}', QuotationForm::class)->whereNumber('id')->name('rental.quotation.edit');
+
+    // Invoices — bills (one-click from an order, or standalone).
+    Route::get('/app/rental/invoice', Invoices::class)->name('rental.invoice.index');
+    Route::get('/app/rental/invoice/new', InvoiceForm::class)->name('rental.invoice.create');
+    Route::get('/app/rental/invoice/{id}', InvoiceForm::class)->whereNumber('id')->name('rental.invoice.edit');
+
+    // Receipts — payments against invoices.
+    Route::get('/app/rental/receipt', Receipts::class)->name('rental.receipt.index');
+    Route::get('/app/rental/receipt/new', ReceiptForm::class)->name('rental.receipt.create');
+    Route::get('/app/rental/receipt/{id}', ReceiptForm::class)->whereNumber('id')->name('rental.receipt.edit');
 
     // Masters. `new` is declared before the numeric {id} so it isn't
     // captured as an id (same convention as the other modules).

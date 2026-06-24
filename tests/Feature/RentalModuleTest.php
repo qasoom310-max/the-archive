@@ -22,8 +22,10 @@ use Modules\Rental\Livewire\Orders;
 use Modules\Rental\Livewire\RentalHome;
 use Modules\Rental\Models\Branch;
 use Modules\Rental\Models\RentalCustomer;
+use Modules\Rental\Models\RentalInvoice;
 use Modules\Rental\Models\RentalOrder;
 use Modules\Rental\Models\RentalQuotation;
+use Modules\Rental\Models\RentalReceipt;
 use Modules\Rental\Models\Vehicle;
 use Tests\TestCase;
 
@@ -54,11 +56,53 @@ final class RentalModuleTest extends TestCase
         }
 
         $this->assertEqualsCanonicalizing(
-            ['rental.branch', 'rental.customer', 'rental.vehicle', 'rental.driver', 'rental.order', 'rental.quotation'],
+            ['rental.branch', 'rental.customer', 'rental.vehicle', 'rental.driver', 'rental.order', 'rental.quotation', 'rental.invoice', 'rental.receipt'],
             IrModel::query()->where('module', 'rental')->pluck('model')->all(),
         );
         $this->assertTrue(Schema::hasTable('rental_orders'));
         $this->assertTrue(Schema::hasTable('rental_quotations'));
+        $this->assertTrue(Schema::hasTable('rental_invoices'));
+        $this->assertTrue(Schema::hasTable('rental_receipts'));
+    }
+
+    public function test_invoice_from_order_settles_via_receipts(): void
+    {
+        $this->install();
+        $customer = RentalCustomer::query()->create(['name' => 'Mona']);
+        $vehicle = Vehicle::query()->create(['name' => 'Patrol', 'daily_rate' => 25]);
+        $order = RentalOrder::query()->create([
+            'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id,
+            'start_date' => '2026-07-01', 'end_date' => '2026-07-05', // 4 days
+            'rate_type' => 'daily', 'rate' => 25,
+        ]);
+        $order->recalcTotals();
+        $order->save();
+
+        $invoice = $order->createInvoice();
+        $this->assertEqualsWithDelta(100.0, $invoice->total, 0.001); // 25 × 4
+        $this->assertSame(RentalInvoice::STATUS_UNPAID, $invoice->status);
+
+        // Creating an invoice again is idempotent (same invoice).
+        $this->assertSame($invoice->id, $order->createInvoice()->id);
+
+        // Partial payment → partial status.
+        RentalReceipt::query()->create([
+            'invoice_id' => $invoice->id, 'customer_id' => $customer->id,
+            'date' => '2026-07-01', 'amount' => 40, 'method' => 'cash',
+        ]);
+        $invoice->refresh();
+        $this->assertSame(RentalInvoice::STATUS_PARTIAL, $invoice->status);
+        $this->assertEqualsWithDelta(40.0, $invoice->amount_paid, 0.001);
+        $this->assertEqualsWithDelta(60.0, $invoice->balance(), 0.001);
+
+        // Settle the balance → paid, and the order is flagged paid.
+        RentalReceipt::query()->create([
+            'invoice_id' => $invoice->id, 'customer_id' => $customer->id,
+            'date' => '2026-07-02', 'amount' => 60, 'method' => 'benefit',
+        ]);
+        $invoice->refresh();
+        $this->assertSame(RentalInvoice::STATUS_PAID, $invoice->status);
+        $this->assertSame(RentalOrder::PAYMENT_PAID, $order->fresh()->payment_status);
     }
 
     public function test_quotation_converts_to_a_draft_order(): void

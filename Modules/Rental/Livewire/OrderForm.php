@@ -189,6 +189,23 @@ final class OrderForm extends Component
         });
     }
 
+    /** Raise an invoice from this order and jump to it. */
+    public function createInvoice(): void
+    {
+        if ($this->id === null) {
+            return;
+        }
+
+        $order = RentalOrder::query()->find($this->id);
+        if ($order === null) {
+            return;
+        }
+
+        $invoice = $order->createInvoice();
+        session()->flash('toast', __('Invoice created.'));
+        $this->redirect('/app/rental/invoice/' . $invoice->id, navigate: true);
+    }
+
     public function markPaid(): void
     {
         $this->withOrder(function (RentalOrder $o): void {

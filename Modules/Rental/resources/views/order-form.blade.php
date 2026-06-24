@@ -29,6 +29,10 @@
                     <button wire:click="closeRental" class="o-btn-primary text-sm">{{ __('Close rental') }}</button>
                 @endif
 
+                @if ($state !== 'cancelled')
+                    <button wire:click="createInvoice" class="o-btn-ghost text-sm">{{ __('Create invoice') }}</button>
+                @endif
+
                 @if ($payment_status === 'unpaid')
                     <button wire:click="markPaid" class="o-btn-ghost text-sm">{{ __('Mark paid') }}</button>
                 @else

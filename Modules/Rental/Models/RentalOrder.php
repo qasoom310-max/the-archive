@@ -194,6 +194,30 @@ final class RentalOrder extends Model implements DefinesIrModel
         $this->vehicle?->update(['status' => Vehicle::STATUS_AVAILABLE]);
     }
 
+    /**
+     * Generate an invoice from this order (idempotent — returns the existing
+     * invoice if one was already raised for it).
+     */
+    public function createInvoice(): RentalInvoice
+    {
+        $existing = RentalInvoice::query()->where('order_id', $this->id)->first();
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $invoice = new RentalInvoice();
+        $invoice->customer_id = $this->customer_id;
+        $invoice->order_id = $this->id;
+        $invoice->issue_date = Carbon::now();
+        $invoice->due_date = Carbon::now()->addWeek();
+        $invoice->subtotal = $this->subtotal;
+        $invoice->discount = $this->discount;
+        $invoice->total = $this->total;
+        $invoice->save();
+
+        return $invoice;
+    }
+
     /** Cancel an order; free the vehicle if it had been handed over. */
     public function cancelOrder(): void
     {

@@ -1,17 +1,17 @@
 <div class="mx-auto max-w-4xl p-4 sm:p-6">
     <div class="mb-4 flex items-center gap-2 text-sm text-chrome-500">
-        <a href="{{ url('/app/limousine/booking') }}" wire:navigate class="hover:text-primary-700">{{ __('Bookings') }}</a>
+        <a href="{{ url('/app/limousine/quotation') }}" wire:navigate class="hover:text-primary-700">{{ __('Quotations') }}</a>
         <span>/</span>
-        <span class="font-medium text-chrome-700">{{ $isEditing ? ($reference ?: __('Booking')) : __('New booking') }}</span>
+        <span class="font-medium text-chrome-700">{{ $isEditing ? ($reference ?: __('Quotation')) : __('New quotation') }}</span>
     </div>
 
     @php
         $statusBadge = [
-            'queue' => 'bg-amber-100 text-amber-700',
-            'confirmed' => 'bg-sky-100 text-sky-700',
-            'active' => 'bg-indigo-100 text-indigo-700',
-            'completed' => 'bg-emerald-100 text-emerald-700',
-            'cancelled' => 'bg-red-100 text-red-700',
+            'draft' => 'bg-chrome-200 text-chrome-700',
+            'sent' => 'bg-sky-100 text-sky-700',
+            'accepted' => 'bg-emerald-100 text-emerald-700',
+            'declined' => 'bg-red-100 text-red-700',
+            'converted' => 'bg-violet-100 text-violet-700',
         ][$status] ?? 'bg-chrome-200 text-chrome-700';
     @endphp
 
@@ -20,36 +20,26 @@
             <div class="flex items-center gap-3">
                 <span class="text-sm font-semibold text-chrome-800">{{ $reference }}</span>
                 <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $statusBadge }}">{{ __(ucfirst($status)) }}</span>
-                <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($payment_status)) }}</span>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                @if ($status === 'queue')
-                    <button wire:click="confirm" class="o-btn-primary text-sm">{{ __('Confirm') }}</button>
-                @elseif ($status === 'confirmed')
-                    <button wire:click="start" class="o-btn-primary text-sm">{{ __('Start trip') }}</button>
-                @elseif ($status === 'active')
-                    <button wire:click="complete" class="o-btn-primary text-sm">{{ __('Complete trip') }}</button>
+                @if ($status === 'draft')
+                    <button wire:click="markSent" class="o-btn-ghost text-sm">{{ __('Mark sent') }}</button>
                 @endif
-
-                @if ($status !== 'cancelled')
-                    <button wire:click="createInvoice" class="o-btn-ghost text-sm">{{ __('Create invoice') }}</button>
+                @if (in_array($status, ['draft', 'sent'], true))
+                    <button wire:click="markAccepted" class="o-btn-ghost text-sm">{{ __('Mark accepted') }}</button>
+                    <button wire:click="markDeclined" class="text-sm font-medium text-red-600 hover:underline">{{ __('Decline') }}</button>
                 @endif
-
-                @if ($payment_status === 'unpaid')
-                    <button wire:click="markPaid" class="o-btn-ghost text-sm">{{ __('Mark paid') }}</button>
-                @else
-                    <button wire:click="markUnpaid" class="o-btn-ghost text-sm">{{ __('Mark unpaid') }}</button>
-                @endif
-
-                @if (! in_array($status, ['completed', 'cancelled'], true))
-                    <button wire:click="cancelBooking" wire:confirm="{{ __('Cancel this booking?') }}" class="text-sm font-medium text-red-600 hover:underline">{{ __('Cancel') }}</button>
+                @if ($status !== 'converted')
+                    <button wire:click="convert" class="o-btn-primary text-sm">{{ __('Convert to booking') }}</button>
+                @elseif ($booking_id)
+                    <a href="{{ url('/app/limousine/booking/' . $booking_id) }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Open booking') }}</a>
                 @endif
             </div>
         </div>
     @endif
 
     <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
-        <h2 class="mb-4 text-sm font-semibold text-chrome-800">{{ __('Trip details') }}</h2>
+        <h2 class="mb-4 text-sm font-semibold text-chrome-800">{{ __('Quotation details') }}</h2>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
                 <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Customer') }} *</label>
@@ -93,12 +83,8 @@
                 </select>
             </div>
             <div>
-                <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Passengers') }}</label>
-                <input type="number" min="0" wire:model="passengers" class="o-input w-full">
-            </div>
-            <div>
-                <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Driver') }}</label>
-                <input type="text" wire:model="driver_name" class="o-input w-full">
+                <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Valid until') }}</label>
+                <input type="date" wire:model="valid_until" class="o-input w-full">
             </div>
             <div>
                 <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Fare (BHD)') }} *</label>
@@ -112,7 +98,7 @@
         </div>
 
         <button wire:click="save" class="o-btn-primary mt-4 w-full justify-center">
-            <span wire:loading.remove wire:target="save">{{ $isEditing ? __('Save booking') : __('Create booking') }}</span>
+            <span wire:loading.remove wire:target="save">{{ $isEditing ? __('Save quotation') : __('Create quotation') }}</span>
             <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
         </button>
     </div>

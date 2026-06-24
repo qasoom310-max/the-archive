@@ -122,6 +122,29 @@ final class LimoBooking extends Model implements DefinesIrModel
     }
 
     /**
+     * Generate an invoice from this booking (idempotent — returns the existing
+     * one if already raised).
+     */
+    public function createInvoice(): LimoInvoice
+    {
+        $existing = LimoInvoice::query()->where('booking_id', $this->id)->first();
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $invoice = new LimoInvoice();
+        $invoice->customer_id = $this->customer_id;
+        $invoice->booking_id = $this->id;
+        $invoice->issue_date = Carbon::now();
+        $invoice->due_date = Carbon::now()->addWeek();
+        $invoice->subtotal = $this->fare;
+        $invoice->total = $this->fare;
+        $invoice->save();
+
+        return $invoice;
+    }
+
+    /**
      * @return list<array{value: string, label: string}>
      */
     public static function statusOptions(): array

@@ -143,6 +143,22 @@ final class BookingForm extends Component
         });
     }
 
+    public function createInvoice(): void
+    {
+        if ($this->id === null) {
+            return;
+        }
+
+        $booking = LimoBooking::query()->find($this->id);
+        if ($booking === null) {
+            return;
+        }
+
+        $invoice = $booking->createInvoice();
+        session()->flash('toast', __('Invoice created.'));
+        $this->redirect('/app/limousine/invoice/' . $invoice->id, navigate: true);
+    }
+
     public function markPaid(): void
     {
         $this->withBooking(function (LimoBooking $b): void {

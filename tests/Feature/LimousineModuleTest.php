@@ -20,7 +20,10 @@ use Modules\Limousine\Livewire\BookingForm;
 use Modules\Limousine\Livewire\LimoHome;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
+use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoLocation;
+use Modules\Limousine\Models\LimoQuotation;
+use Modules\Limousine\Models\LimoReceipt;
 use Tests\TestCase;
 
 final class LimousineModuleTest extends TestCase
@@ -50,9 +53,41 @@ final class LimousineModuleTest extends TestCase
         }
 
         $this->assertEqualsCanonicalizing(
-            ['limousine.customer', 'limousine.location', 'limousine.booking'],
+            ['limousine.customer', 'limousine.location', 'limousine.booking', 'limousine.quotation', 'limousine.invoice', 'limousine.receipt'],
             IrModel::query()->where('module', 'limousine')->pluck('model')->all(),
         );
+        foreach (['limo_quotations', 'limo_invoices', 'limo_receipts'] as $table) {
+            $this->assertTrue(Schema::hasTable($table), "missing {$table}");
+        }
+    }
+
+    public function test_quotation_converts_then_booking_invoices_and_settles(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Noor']);
+
+        // Quotation → booking.
+        $quote = LimoQuotation::query()->create([
+            'customer_id' => $customer->id, 'pickup_at' => now()->addDay(), 'fare' => 25,
+        ]);
+        $booking = $quote->convertToBooking();
+        $this->assertSame(LimoQuotation::STATUS_CONVERTED, $quote->fresh()->status);
+        $this->assertSame($booking->id, $quote->fresh()->booking_id);
+        $this->assertEqualsWithDelta(25.0, $booking->fare, 0.001);
+
+        // Booking → invoice (idempotent).
+        $invoice = $booking->createInvoice();
+        $this->assertEqualsWithDelta(25.0, $invoice->total, 0.001);
+        $this->assertSame($invoice->id, $booking->createInvoice()->id);
+        $this->assertSame(LimoInvoice::STATUS_UNPAID, $invoice->status);
+
+        // Receipt settles it and flags the booking paid.
+        LimoReceipt::query()->create([
+            'invoice_id' => $invoice->id, 'customer_id' => $customer->id,
+            'date' => now(), 'amount' => 25, 'method' => 'cash',
+        ]);
+        $this->assertSame(LimoInvoice::STATUS_PAID, $invoice->fresh()->status);
+        $this->assertSame(LimoBooking::PAYMENT_PAID, $booking->fresh()->payment_status);
     }
 
     public function test_booking_form_creates_and_transitions_status(): void

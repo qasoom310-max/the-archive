@@ -7,9 +7,15 @@ use Modules\Limousine\Livewire\Bookings;
 use Modules\Limousine\Livewire\BookingForm;
 use Modules\Limousine\Livewire\CustomerForm;
 use Modules\Limousine\Livewire\Customers;
+use Modules\Limousine\Livewire\InvoiceForm;
+use Modules\Limousine\Livewire\Invoices;
 use Modules\Limousine\Livewire\LimoHome;
 use Modules\Limousine\Livewire\LocationForm;
 use Modules\Limousine\Livewire\Locations;
+use Modules\Limousine\Livewire\QuotationForm;
+use Modules\Limousine\Livewire\Quotations;
+use Modules\Limousine\Livewire\ReceiptForm;
+use Modules\Limousine\Livewire\Receipts;
 
 Route::middleware('auth')->group(function (): void {
     // App landing — bookings dashboard.
@@ -28,4 +34,19 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/booking', Bookings::class)->name('limousine.booking.index');
     Route::get('/app/limousine/booking/new', BookingForm::class)->name('limousine.booking.create');
     Route::get('/app/limousine/booking/{id}', BookingForm::class)->whereNumber('id')->name('limousine.booking.edit');
+
+    // Quotations.
+    Route::get('/app/limousine/quotation', Quotations::class)->name('limousine.quotation.index');
+    Route::get('/app/limousine/quotation/new', QuotationForm::class)->name('limousine.quotation.create');
+    Route::get('/app/limousine/quotation/{id}', QuotationForm::class)->whereNumber('id')->name('limousine.quotation.edit');
+
+    // Invoices.
+    Route::get('/app/limousine/invoice', Invoices::class)->name('limousine.invoice.index');
+    Route::get('/app/limousine/invoice/new', InvoiceForm::class)->name('limousine.invoice.create');
+    Route::get('/app/limousine/invoice/{id}', InvoiceForm::class)->whereNumber('id')->name('limousine.invoice.edit');
+
+    // Receipts.
+    Route::get('/app/limousine/receipt', Receipts::class)->name('limousine.receipt.index');
+    Route::get('/app/limousine/receipt/new', ReceiptForm::class)->name('limousine.receipt.create');
+    Route::get('/app/limousine/receipt/{id}', ReceiptForm::class)->whereNumber('id')->name('limousine.receipt.edit');
 });

@@ -31,6 +31,7 @@
             </thead>
             <tbody class="divide-y divide-chrome-100">
                 @foreach ($lines as $line)
+                    @php $u = $line->componentUnit(); @endphp
                     <tr wire:key="recipe-{{ $line->id }}">
                         <td class="py-1.5 text-chrome-800">
                             {{ $line->componentName() ?? '—' }}
@@ -40,9 +41,19 @@
                                 <span class="ms-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">{{ __('Ingredient') }}</span>
                             @endif
                         </td>
-                        <td class="py-1.5 text-end text-chrome-600">{{ rtrim(rtrim(number_format($line->quantity_consumed, 3), '0'), '.') }}</td>
+                        {{-- Editable per-unit quantity (fractional), in the component's
+                             own unit — e.g. 0.25 L of milk per cup. Saves on change. --}}
+                        <td class="py-1.5 text-end">
+                            <span class="inline-flex items-center justify-end gap-1">
+                                <input type="number" step="0.001" min="0"
+                                    value="{{ rtrim(rtrim(number_format($line->quantity_consumed, 3), '0'), '.') }}"
+                                    @change="$wire.updateLineQuantity({{ $line->id }}, $event.target.value)"
+                                    class="o-input w-24 text-end">
+                                @if ($u !== '')<span class="text-xs text-chrome-400">{{ $u }}</span>@endif
+                            </span>
+                        </td>
                         <td class="py-1.5 text-end text-chrome-500">
-                            {{ rtrim(rtrim(number_format($line->componentStock() ?? 0, 3), '0'), '.') }}
+                            {{ rtrim(rtrim(number_format($line->componentStock() ?? 0, 3), '0'), '.') }}{{ $u !== '' ? ' ' . $u : '' }}
                         </td>
                         <td class="py-1.5 text-end">
                             <button wire:click="removeLine({{ $line->id }})"
@@ -55,7 +66,7 @@
     @endif
 
     @php
-        $componentsJs = $componentOptions->map(fn (array $o): array => ['key' => $o['key'], 'name' => $o['name'], 'type' => $o['type']])->values();
+        $componentsJs = $componentOptions->map(fn (array $o): array => ['key' => $o['key'], 'name' => $o['name'], 'type' => $o['type'], 'unit' => $o['unit'] ?? ''])->values();
     @endphp
     <div class="mt-4 flex flex-wrap items-end gap-2 border-t border-chrome-100 pt-4">
         <div class="min-w-48 flex-1">
@@ -110,7 +121,10 @@
                     <template x-for="p in filtered()" :key="p.key">
                         <button type="button" @click="choose(p)"
                             class="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-start text-sm text-chrome-700 hover:bg-primary-50">
-                            <span x-text="p.name"></span>
+                            <span class="flex items-center gap-1">
+                                <span x-text="p.name"></span>
+                                <span x-show="p.unit" class="text-[10px] text-chrome-400" x-text="p.unit"></span>
+                            </span>
                             <span x-show="p.type === 'product'"
                                 class="shrink-0 rounded-full bg-chrome-100 px-2 py-0.5 text-[10px] font-medium text-chrome-600">{{ __('Product') }}</span>
                             <span x-show="p.type === 'condiment'"
@@ -136,7 +150,9 @@
             </div>
         </div>
         <div class="w-32">
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Qty / unit') }}</label>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">
+                {{ __('Qty / unit') }}@if ($selectedUnit !== '') <span class="text-chrome-400">({{ $selectedUnit }})</span>@endif
+            </label>
             <input type="number" step="0.001" min="0" wire:model="quantity" class="o-input">
         </div>
         <button wire:click="addLine" class="o-btn-primary">{{ __('Add component') }}</button>

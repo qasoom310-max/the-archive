@@ -123,4 +123,22 @@ final class PosProductRecipe extends Model
 
         return $component !== null ? (float) $component->stock_on_hand : null;
     }
+
+    /**
+     * The component's unit-of-measure suffix for display (e.g. 'L', 'kg') so a
+     * recipe quantity reads in the component's own unit. Empty for a plain
+     * count (`qty`), a condiment (untyped), or a missing component. Products
+     * and ingredients carry a `unit`; condiments do not.
+     */
+    public function componentUnit(): string
+    {
+        if ($this->isCondiment()) {
+            return '';
+        }
+
+        $component = $this->isIngredient() ? $this->ingredient : $this->component;
+        $unit = $component?->unit;
+
+        return ($unit !== null && $unit !== '' && $unit !== 'qty') ? $unit : '';
+    }
 }

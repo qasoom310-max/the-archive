@@ -12,6 +12,7 @@ use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Enums\SessionState;
 use Modules\Pos\Livewire\PosRecipeEditor;
 use Modules\Pos\Models\PosCondiment;
+use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosPaymentMethod;
 use Modules\Pos\Models\PosProduct;
@@ -37,6 +38,31 @@ final class PosRecipeEditorTest extends TestCase
     private function parent(): PosProduct
     {
         return PosProduct::query()->create(['name' => 'Burger', 'price' => 2, 'tax_rate' => 0, 'active' => true]);
+    }
+
+    public function test_line_quantity_is_editable_inline_and_unit_aware(): void
+    {
+        $cup = $this->parent();
+        // Milk is stocked in litres; 4 L on hand.
+        $milk = PosIngredient::query()->create(['name' => 'Milk', 'cost_price' => 0, 'stock_on_hand' => 4, 'unit' => 'l']);
+        $recipe = PosProductRecipe::query()->create([
+            'parent_product_id' => $cup->id,
+            'component_ingredient_id' => $milk->id,
+            'quantity_consumed' => 1,
+        ]);
+
+        // The line carries the component's unit, and 4 / 1 = 4 servings.
+        $this->assertSame('l', $recipe->componentUnit());
+        $this->assertSame(4, $cup->fresh()?->theoreticalYield());
+
+        // Edit the per-cup consumption to 0.25 L inline.
+        Livewire::test(PosRecipeEditor::class, ['productId' => $cup->id])
+            ->call('updateLineQuantity', $recipe->id, '0.25')
+            ->assertHasNoErrors();
+
+        $this->assertSame(0.25, (float) $recipe->fresh()?->quantity_consumed);
+        // 4 L / 0.25 L = 16 servings.
+        $this->assertSame(16, $cup->fresh()?->theoreticalYield());
     }
 
     public function test_inline_create_makes_a_product_and_selects_it_as_the_component(): void

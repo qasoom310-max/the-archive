@@ -139,6 +139,27 @@ final class PosRecipeEditor extends Component
             ->delete();
     }
 
+    /**
+     * Edit how much of a component one unit of the product consumes, in the
+     * component's own unit (e.g. 0.25 litre of milk per cup). Fractional;
+     * ignored if non-positive.
+     */
+    public function updateLineQuantity(int $recipeId, string $qty): void
+    {
+        $this->guard(Permission::Write);
+
+        $value = round((float) $qty, 3);
+
+        if ($value <= 0) {
+            return;
+        }
+
+        PosProductRecipe::query()
+            ->where('id', $recipeId)
+            ->where('parent_product_id', $this->productId)
+            ->update(['quantity_consumed' => $value]);
+    }
+
     public function render(): View
     {
         $lines = PosProductRecipe::query()
@@ -156,29 +177,39 @@ final class PosRecipeEditor extends Component
         // The picker offers products AND condiments AND ingredients (all
         // stock-tracked). Each option carries a composite key so addLine knows
         // which it is.
+        // Each option carries the component's unit suffix ('' for a plain
+        // count / a condiment) so the "Qty / unit" input can show it.
+        $unit = static fn (?string $u): string => ($u !== null && $u !== '' && $u !== 'qty') ? $u : '';
+
         $productOptions = PosProduct::query()
             ->whereNotIn('id', $usedProductIds)
             ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn (PosProduct $p): array => ['key' => 'p:' . $p->id, 'name' => (string) $p->name, 'type' => 'product']);
+            ->get(['id', 'name', 'unit'])
+            ->map(fn (PosProduct $p): array => ['key' => 'p:' . $p->id, 'name' => (string) $p->name, 'type' => 'product', 'unit' => $unit($p->unit)]);
 
         $condimentOptions = PosCondiment::query()
             ->whereNotIn('id', $usedCondimentIds)
             ->orderBy('name')
             ->get(['id', 'name'])
-            ->map(fn (PosCondiment $c): array => ['key' => 'c:' . $c->id, 'name' => (string) $c->name, 'type' => 'condiment']);
+            ->map(fn (PosCondiment $c): array => ['key' => 'c:' . $c->id, 'name' => (string) $c->name, 'type' => 'condiment', 'unit' => '']);
 
         $ingredientOptions = PosIngredient::query()
             ->whereNotIn('id', $usedIngredientIds)
             ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn (PosIngredient $i): array => ['key' => 'i:' . $i->id, 'name' => (string) $i->name, 'type' => 'ingredient']);
+            ->get(['id', 'name', 'unit'])
+            ->map(fn (PosIngredient $i): array => ['key' => 'i:' . $i->id, 'name' => (string) $i->name, 'type' => 'ingredient', 'unit' => $unit($i->unit)]);
 
         $componentOptions = $productOptions->concat($condimentOptions)->concat($ingredientOptions)->values();
+
+        // Unit of the currently-picked component, so the "Qty / unit" input can
+        // hint the unit you're entering (e.g. enter 0.25 for litres).
+        $selected = $this->componentKey !== null ? $componentOptions->firstWhere('key', $this->componentKey) : null;
+        $selectedUnit = is_array($selected) ? (string) ($selected['unit'] ?? '') : '';
 
         return view('pos::recipe-editor', [
             'lines' => $lines,
             'componentOptions' => $componentOptions,
+            'selectedUnit' => $selectedUnit,
             'product' => PosProduct::query()->find($this->productId),
             // Inline "New product" modal data (shared partial).
             'categories' => PosCategory::query()->orderBy('name')->get(['id', 'name']),

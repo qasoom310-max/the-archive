@@ -18,6 +18,12 @@ final readonly class FormFieldDef
      *                            textarea widgets honour this — other widgets
      *                            ignore the flag (a translatable number makes
      *                            no sense).
+     * @param bool $unique        When true the value must be unique across the
+     *                            model's table — saving a duplicate is blocked
+     *                            with an inline "already exists" error. Honoured
+     *                            for translatable fields too (compared across
+     *                            every locale envelope), so two ingredients can't
+     *                            both be named "Qahwa". {@see FormView::rules()}.
      */
     public function __construct(
         public string $field,
@@ -29,6 +35,7 @@ final readonly class FormFieldDef
         public ?string $help = null,
         public ?DynamicOptions $optionsSource = null,
         public bool $translatable = false,
+        public bool $unique = false,
     ) {}
 
     public function isImage(): bool

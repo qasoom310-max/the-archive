@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Erp\Modules\ModuleManager;
+use App\Livewire\Views\FormView;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
@@ -157,5 +158,61 @@ final class PosIngredientTest extends TestCase
 
         Livewire::test(PosIngredients::class)->assertOk();
         Livewire::test(PosIngredientForm::class, ['id' => $flour->id])->assertOk();
+    }
+
+    public function test_creating_a_duplicate_ingredient_name_is_blocked(): void
+    {
+        PosIngredient::query()->create(['name' => 'Qahwa', 'cost_price' => 1, 'stock_on_hand' => 0]);
+
+        // Same name (and case-insensitively / with stray spaces) is refused —
+        // the engine surfaces an inline "already in the list" error instead of
+        // creating a second row.
+        Livewire::test(FormView::class, [
+            'model' => PosIngredient::class,
+            'modelKey' => 'pos.ingredient',
+            'recordId' => null,
+            'title' => 'New ingredient',
+        ])
+            ->set('form.name', '  qahwa ')
+            ->call('save')
+            ->assertHasErrors(['form.name']);
+
+        $this->assertSame(1, PosIngredient::query()->count());
+    }
+
+    public function test_a_distinct_ingredient_name_saves(): void
+    {
+        PosIngredient::query()->create(['name' => 'Qahwa', 'cost_price' => 1, 'stock_on_hand' => 0]);
+
+        Livewire::test(FormView::class, [
+            'model' => PosIngredient::class,
+            'modelKey' => 'pos.ingredient',
+            'recordId' => null,
+            'title' => 'New ingredient',
+        ])
+            ->set('form.name', 'Sukkar')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame(2, PosIngredient::query()->count());
+    }
+
+    public function test_resaving_an_ingredient_under_its_own_name_is_allowed(): void
+    {
+        $halib = PosIngredient::query()->create(['name' => 'Halib', 'cost_price' => 1, 'stock_on_hand' => 0]);
+
+        // Editing the record and keeping its own name must NOT trip the
+        // uniqueness rule (the record excludes itself).
+        Livewire::test(FormView::class, [
+            'model' => PosIngredient::class,
+            'modelKey' => 'pos.ingredient',
+            'recordId' => $halib->id,
+            'title' => 'Edit ingredient',
+        ])
+            ->set('form.cost_price', 2)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame(2.0, (float) $halib->fresh()?->cost_price);
     }
 }

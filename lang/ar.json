@@ -1,5 +1,6 @@
 {
     "OpenERP": "OpenERP",
+    "“:name” is already in the list.": "«:name» موجود بالفعل في القائمة.",
     "Business": "النشاط التجاري",
     "Business Type": "نوع النشاط",
     "Tailors which apps, menus, and features appear for this database (e.g. a perfume shop hides café recipes).": "يحدّد التطبيقات والقوائم والميزات التي تظهر لهذه القاعدة (مثلاً متجر العطور يُخفي وصفات المقهى).",

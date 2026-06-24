@@ -487,7 +487,7 @@ final class FormView extends Component
     }
 
     /**
-     * @return array<string, list<string>>
+     * @return array<string, list<mixed>>
      */
     private function rules(): array
     {
@@ -546,10 +546,73 @@ final class FormView extends Component
                 }
             }
 
+            // Uniqueness: a master-data name that must not repeat (e.g. an
+            // ingredient called "Qahwa"). Appended as a closure so it works
+            // for translatable fields too — those store a JSON locale envelope
+            // (`{"en":"Qahwa"}`), which a plain DB `unique` rule never matches
+            // against the raw typed value.
+            if ($field->unique) {
+                $set[] = $this->uniqueRule($field);
+            }
+
             $rules[$key] = $set;
         }
 
         return $rules;
+    }
+
+    /**
+     * A closure validation rule rejecting a value already used by ANOTHER
+     * record of this model. Case-insensitive and whitespace-trimmed. For a
+     * translatable field every locale's value is checked, so naming a second
+     * ingredient "Qahwa" (or "qahwa ") in any language is blocked. The record
+     * being edited is excluded, so re-saving an unchanged name is fine.
+     */
+    private function uniqueRule(FormFieldDef $field): \Closure
+    {
+        $model = $this->model;
+        $column = $field->field;
+        $ignoreId = $this->recordId;
+        $translatable = $field->isTranslatable();
+
+        return function (string $attribute, mixed $value, \Closure $fail) use ($model, $column, $ignoreId, $translatable): void {
+            $needle = mb_strtolower(trim(is_scalar($value) ? (string) $value : ''));
+            if ($needle === '') {
+                return; // emptiness is the required/nullable rule's job
+            }
+
+            $query = $model::query();
+            if ($ignoreId !== null) {
+                $query->whereKeyNot($ignoreId);
+            }
+
+            if ($translatable) {
+                // Compare against every stored locale envelope.
+                foreach ($query->get() as $row) {
+                    if (! $row instanceof TranslatableModel) {
+                        continue;
+                    }
+
+                    foreach ($row->getTranslations($column) as $stored) {
+                        if (mb_strtolower(trim((string) $stored)) === $needle) {
+                            $fail(__('“:name” is already in the list.', ['name' => trim((string) $value)]));
+
+                            return;
+                        }
+                    }
+                }
+
+                return;
+            }
+
+            $exists = $query
+                ->whereRaw('LOWER(' . $column . ') = ?', [$needle])
+                ->exists();
+
+            if ($exists) {
+                $fail(__('“:name” is already in the list.', ['name' => trim((string) $value)]));
+            }
+        };
     }
 
     /**

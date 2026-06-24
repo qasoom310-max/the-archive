@@ -19,6 +19,7 @@ enum Feature: string
     case Hr = 'hr';
     case Accounting = 'accounting';
     case Bookings = 'bookings';
+    case Limousine = 'limousine';
     case Projects = 'projects';
 
     public function label(): string
@@ -31,6 +32,7 @@ enum Feature: string
             self::Hr => 'HR & payroll',
             self::Accounting => 'Accounting',
             self::Bookings => 'Bookings & rentals',
+            self::Limousine => 'Limousine',
             self::Projects => 'Projects',
         };
     }

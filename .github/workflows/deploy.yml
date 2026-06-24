@@ -257,12 +257,15 @@ jobs:
              php artisan migrate --path=Modules/Purchases/database/migrations --force && \
              php artisan migrate --path=Modules/Inventory/database/migrations --force && \
              php artisan migrate --path=Modules/Rental/database/migrations --force && \
+             php artisan migrate --path=Modules/Limousine/database/migrations --force && \
              php artisan db:seed --class='Database\\Seeders\\SettingSeeder' --force && \
              php artisan db:seed --class='Database\\Seeders\\PosStaffSeeder' --force && \
              php artisan module:resync pos && \
              php artisan module:resync accounting && \
              php artisan module:install rental && \
              php artisan module:resync rental && \
+             php artisan module:install limousine && \
+             php artisan module:resync limousine && \
              php artisan optimize:clear && \
              php artisan config:cache && \
              php artisan route:cache && \

@@ -11,6 +11,8 @@ use Modules\Rental\Livewire\DriverForm;
 use Modules\Rental\Livewire\Drivers;
 use Modules\Rental\Livewire\InvoiceForm;
 use Modules\Rental\Livewire\Invoices;
+use Modules\Rental\Livewire\MaintenanceForm;
+use Modules\Rental\Livewire\MaintenanceRecords;
 use Modules\Rental\Livewire\OrderForm;
 use Modules\Rental\Livewire\Orders;
 use Modules\Rental\Livewire\QuotationForm;
@@ -18,6 +20,8 @@ use Modules\Rental\Livewire\Quotations;
 use Modules\Rental\Livewire\ReceiptForm;
 use Modules\Rental\Livewire\Receipts;
 use Modules\Rental\Livewire\RentalHome;
+use Modules\Rental\Livewire\ReplacementForm;
+use Modules\Rental\Livewire\Replacements;
 use Modules\Rental\Livewire\VehicleForm;
 use Modules\Rental\Livewire\Vehicles;
 
@@ -44,6 +48,16 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/rental/receipt', Receipts::class)->name('rental.receipt.index');
     Route::get('/app/rental/receipt/new', ReceiptForm::class)->name('rental.receipt.create');
     Route::get('/app/rental/receipt/{id}', ReceiptForm::class)->whereNumber('id')->name('rental.receipt.edit');
+
+    // Replacements — swap a customer's car for another.
+    Route::get('/app/rental/replacement', Replacements::class)->name('rental.replacement.index');
+    Route::get('/app/rental/replacement/new', ReplacementForm::class)->name('rental.replacement.create');
+    Route::get('/app/rental/replacement/{id}', ReplacementForm::class)->whereNumber('id')->name('rental.replacement.edit');
+
+    // Maintenance — service / repair records.
+    Route::get('/app/rental/maintenance', MaintenanceRecords::class)->name('rental.maintenance.index');
+    Route::get('/app/rental/maintenance/new', MaintenanceForm::class)->name('rental.maintenance.create');
+    Route::get('/app/rental/maintenance/{id}', MaintenanceForm::class)->whereNumber('id')->name('rental.maintenance.edit');
 
     // Masters. `new` is declared before the numeric {id} so it isn't
     // captured as an id (same convention as the other modules).

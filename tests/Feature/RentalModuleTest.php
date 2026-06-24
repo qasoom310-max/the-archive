@@ -23,9 +23,11 @@ use Modules\Rental\Livewire\RentalHome;
 use Modules\Rental\Models\Branch;
 use Modules\Rental\Models\RentalCustomer;
 use Modules\Rental\Models\RentalInvoice;
+use Modules\Rental\Models\RentalMaintenance;
 use Modules\Rental\Models\RentalOrder;
 use Modules\Rental\Models\RentalQuotation;
 use Modules\Rental\Models\RentalReceipt;
+use Modules\Rental\Models\RentalReplacement;
 use Modules\Rental\Models\Vehicle;
 use Tests\TestCase;
 
@@ -56,13 +58,52 @@ final class RentalModuleTest extends TestCase
         }
 
         $this->assertEqualsCanonicalizing(
-            ['rental.branch', 'rental.customer', 'rental.vehicle', 'rental.driver', 'rental.order', 'rental.quotation', 'rental.invoice', 'rental.receipt'],
+            ['rental.branch', 'rental.customer', 'rental.vehicle', 'rental.driver', 'rental.order', 'rental.quotation', 'rental.invoice', 'rental.receipt', 'rental.replacement', 'rental.maintenance'],
             IrModel::query()->where('module', 'rental')->pluck('model')->all(),
         );
-        $this->assertTrue(Schema::hasTable('rental_orders'));
-        $this->assertTrue(Schema::hasTable('rental_quotations'));
-        $this->assertTrue(Schema::hasTable('rental_invoices'));
-        $this->assertTrue(Schema::hasTable('rental_receipts'));
+        foreach (['rental_orders', 'rental_quotations', 'rental_invoices', 'rental_receipts', 'rental_replacements', 'rental_maintenance'] as $table) {
+            $this->assertTrue(Schema::hasTable($table), "missing {$table}");
+        }
+    }
+
+    public function test_replacement_swaps_vehicle_availability(): void
+    {
+        $this->install();
+        $original = Vehicle::query()->create(['name' => 'Civic', 'status' => Vehicle::STATUS_RENTED]);
+        $spare = Vehicle::query()->create(['name' => 'Corolla', 'status' => Vehicle::STATUS_AVAILABLE]);
+
+        $replacement = RentalReplacement::query()->create([
+            'original_vehicle_id' => $original->id,
+            'replacement_vehicle_id' => $spare->id,
+            'date' => '2026-07-02', 'reason' => 'breakdown',
+        ]);
+        $replacement->applyStatuses();
+
+        $this->assertSame(Vehicle::STATUS_RENTED, $spare->fresh()->status);
+        $this->assertSame(Vehicle::STATUS_MAINTENANCE, $original->fresh()->status);
+
+        $replacement->close();
+        $this->assertSame(RentalReplacement::STATUS_CLOSED, $replacement->fresh()->status);
+        $this->assertSame(Vehicle::STATUS_AVAILABLE, $spare->fresh()->status);
+        $this->assertSame(Vehicle::STATUS_AVAILABLE, $original->fresh()->status);
+    }
+
+    public function test_maintenance_status_reflects_on_the_vehicle(): void
+    {
+        $this->install();
+        $vehicle = Vehicle::query()->create(['name' => 'Sonata', 'status' => Vehicle::STATUS_AVAILABLE]);
+
+        $record = RentalMaintenance::query()->create([
+            'vehicle_id' => $vehicle->id, 'date' => '2026-07-02',
+            'type' => 'repair', 'cost' => 35, 'status' => RentalMaintenance::STATUS_IN_PROGRESS,
+        ]);
+        $record->syncVehicleStatus();
+        $this->assertSame(Vehicle::STATUS_MAINTENANCE, $vehicle->fresh()->status);
+
+        $record->status = RentalMaintenance::STATUS_DONE;
+        $record->save();
+        $record->syncVehicleStatus();
+        $this->assertSame(Vehicle::STATUS_AVAILABLE, $vehicle->fresh()->status);
     }
 
     public function test_invoice_from_order_settles_via_receipts(): void

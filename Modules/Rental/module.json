@@ -19,7 +19,9 @@
         "Modules\\Rental\\Models\\RentalOrder",
         "Modules\\Rental\\Models\\RentalQuotation",
         "Modules\\Rental\\Models\\RentalInvoice",
-        "Modules\\Rental\\Models\\RentalReceipt"
+        "Modules\\Rental\\Models\\RentalReceipt",
+        "Modules\\Rental\\Models\\RentalReplacement",
+        "Modules\\Rental\\Models\\RentalMaintenance"
     ],
     "sequence": 70
 }

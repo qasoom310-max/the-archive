@@ -9,6 +9,8 @@
             <a href="{{ url('/app/rental/order') }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Orders') }}</a>
             <a href="{{ url('/app/rental/invoice') }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Invoices') }}</a>
             <a href="{{ url('/app/rental/receipt') }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Receipts') }}</a>
+            <a href="{{ url('/app/rental/replacement') }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Replacements') }}</a>
+            <a href="{{ url('/app/rental/maintenance') }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Maintenance') }}</a>
             <a href="{{ url('/app/rental/order/new') }}" wire:navigate class="o-btn-primary text-sm">{{ __('New order') }}</a>
         </div>
     </div>

@@ -22,6 +22,7 @@ enum BusinessType: string
     case RetailCraft = 'retail_craft';
     case Rental = 'rental';
     case Limousine = 'limousine';
+    case RentalLimousine = 'rental_limousine';
     case Services = 'services';
     case General = 'general';
 
@@ -34,6 +35,7 @@ enum BusinessType: string
             self::RetailCraft => 'Retail + Crafting (resell & make your own)',
             self::Rental => 'Rental (cars, equipment)',
             self::Limousine => 'Limousine service',
+            self::RentalLimousine => 'Rental Car + Limousine',
             self::Services => 'Services / Agency',
             self::General => 'General (all features)',
         };
@@ -75,6 +77,12 @@ enum BusinessType: string
             // A limousine service runs on trip bookings, with its own app.
             self::Limousine => [
                 Feature::Limousine, Feature::Purchases,
+                Feature::Hr, Feature::Accounting,
+            ],
+            // A business running BOTH a car-rental book and a limousine
+            // service — both apps visible side by side in the same database.
+            self::RentalLimousine => [
+                Feature::Bookings, Feature::Limousine, Feature::Purchases,
                 Feature::Hr, Feature::Accounting,
             ],
             // A service business runs on projects, people and the ledger.

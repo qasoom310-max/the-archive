@@ -42,6 +42,25 @@ final class BusinessTypeTest extends TestCase
         $this->assertSame(Feature::cases(), BusinessType::General->features());
     }
 
+    public function test_rental_limousine_shows_both_apps_together(): void
+    {
+        // A business running BOTH books in one database: the rental app and
+        // the limousine app must both survive the app-bar filter, while a
+        // single-purpose type still hides the other.
+        $this->seed(SettingSeeder::class);
+        Setting::set('company.business_type', 'rental_limousine');
+
+        $this->assertSame(BusinessType::RentalLimousine, Features::configuredType());
+        $this->assertTrue(Features::moduleAllowed('rental'));
+        $this->assertTrue(Features::moduleAllowed('limousine'));
+
+        // A plain limousine database still hides the rental app.
+        app(SettingManager::class)->flush();
+        Setting::set('company.business_type', 'limousine');
+        $this->assertFalse(Features::moduleAllowed('rental'));
+        $this->assertTrue(Features::moduleAllowed('limousine'));
+    }
+
     public function test_unconfigured_database_enables_everything(): void
     {
         // Legacy / freshly-seeded install: business_type is empty. Nothing

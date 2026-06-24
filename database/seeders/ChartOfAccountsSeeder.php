@@ -66,6 +66,8 @@ final class ChartOfAccountsSeeder extends Seeder
             // Expense (5xxx)
             ['code' => '5000', 'name' => ['en' => 'Expenses', 'ar' => 'المصروفات'], 'type' => AccountType::Expense, 'parent' => null, 'reconcilable' => false],
             ['code' => '5010', 'name' => ['en' => 'Purchases / COGS', 'ar' => 'المشتريات / تكلفة البضاعة'], 'type' => AccountType::Expense, 'parent' => '5000', 'reconcilable' => false],
+            ['code' => '5020', 'name' => ['en' => 'Salaries & Wages', 'ar' => 'الرواتب والأجور'], 'type' => AccountType::Expense, 'parent' => '5000', 'reconcilable' => false],
+            ['code' => '5030', 'name' => ['en' => 'Operating Expenses', 'ar' => 'المصروفات التشغيلية'], 'type' => AccountType::Expense, 'parent' => '5000', 'reconcilable' => false],
         ];
 
         // First pass: insert/update without parent links so a child can't

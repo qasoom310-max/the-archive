@@ -43,6 +43,13 @@ return [
         // Expense — generic purchase / cost-of-goods bucket used when a
         // purchase isn't tied to an inventory item.
         'purchase_expense' => '5010',
+
+        // Expense — payroll. Debited when a salary slip is paid.
+        'salaries' => '5020',
+
+        // Expense — operating costs (rent, EWA, SIO, LMRA…). Debited when a
+        // recurring expense is paid.
+        'operating_expense' => '5030',
     ],
 
     // Default journal-number prefix used by SequenceGenerator. Miscellaneous
@@ -51,5 +58,7 @@ return [
         'misc' => 'MISC',
         'sales' => 'SALE',
         'purchase' => 'PURC',
+        'salary' => 'SAL',
+        'expense' => 'EXP',
     ],
 ];

@@ -6,6 +6,7 @@ namespace App\Livewire\Pages;
 
 use App\Erp\Hr\OvertimeCalculator;
 use App\Erp\Hr\PayrollCalculator;
+use App\Events\SalaryPaid;
 use App\Models\Employee;
 use App\Models\EmployeeAbsence;
 use App\Models\EmployeeOvertime;
@@ -126,11 +127,31 @@ final class EmployeePayroll extends Component
                 'paid_on' => Carbon::now()->toDateString(),
             ],
         );
+
+        // Book it in the accounting ledger (Dr Salaries / Cr Bank), if the
+        // Accounting module is installed.
+        event(new SalaryPaid(
+            employeeId: (int) $employee->id,
+            employeeName: (string) $employee->name,
+            period: $this->month,
+            net: (float) $c['net'],
+            paidOn: Carbon::now()->toDateString(),
+        ));
     }
 
     public function unmarkPaid(): void
     {
+        $employee = Employee::query()->find($this->id);
         Payslip::query()->where('employee_id', $this->id)->where('period', $this->month)->delete();
+
+        // Reverse the journal entry (net 0 = clear).
+        event(new SalaryPaid(
+            employeeId: $this->id,
+            employeeName: $employee !== null ? (string) $employee->name : '',
+            period: $this->month,
+            net: 0.0,
+            paidOn: Carbon::now()->toDateString(),
+        ));
     }
 
     public function render(): View

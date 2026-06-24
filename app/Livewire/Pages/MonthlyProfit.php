@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Pages;
 
 use App\Erp\Reports\MonthlyFinancials;
+use App\Events\ExpensePaid;
 use App\Models\Expense;
 use App\Models\ExpensePayment;
 use App\Models\User;
@@ -125,14 +126,25 @@ final class MonthlyProfit extends Component
             return;
         }
 
+        $amount = round((float) $this->payAmount, 3);
+
         ExpensePayment::query()->updateOrCreate(
             ['expense_id' => $expense->id, 'period' => $this->month],
             [
                 'name' => $expense->name,
-                'amount' => round((float) $this->payAmount, 3),
+                'amount' => $amount,
                 'paid_on' => $this->payDate,
             ],
         );
+
+        // Book it (Dr Operating Expenses / Cr Bank) if Accounting is installed.
+        event(new ExpensePaid(
+            expenseId: (int) $expense->id,
+            name: (string) $expense->name,
+            period: $this->month,
+            amount: $amount,
+            paidOn: (string) $this->payDate,
+        ));
 
         $this->closePay();
     }

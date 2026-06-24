@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Modules\Accounting\Providers;
 
+use App\Events\ExpensePaid;
+use App\Events\SalaryPaid;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Modules\Accounting\Listeners\RecordExpenseInJournal;
 use Modules\Accounting\Listeners\RecordPosSaleInJournal;
 use Modules\Accounting\Listeners\RecordPurchaseInJournal;
+use Modules\Accounting\Listeners\RecordSalaryInJournal;
 use Modules\Accounting\Services\FinancialReports;
 use Modules\Accounting\Services\JournalPoster;
 use Modules\Accounting\Services\SequenceGenerator;
@@ -55,5 +59,12 @@ final class AccountingServiceProvider extends ServiceProvider
             'Modules\Purchases\Events\PurchaseInvoiceConfirmed',
             [RecordPurchaseInJournal::class, 'handle'],
         );
+
+        // HR / Expenses → Accounting. Core fires these when a salary slip or a
+        // recurring expense is paid; we book Dr Salaries|Operating Expenses /
+        // Cr Bank. Best-effort in the listener, so a COA gap never blocks
+        // paying staff or bills.
+        Event::listen(SalaryPaid::class, [RecordSalaryInJournal::class, 'handle']);
+        Event::listen(ExpensePaid::class, [RecordExpenseInJournal::class, 'handle']);
     }
 }

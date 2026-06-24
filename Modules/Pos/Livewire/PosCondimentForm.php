@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Modules\Pos\Livewire;
 
+use App\Erp\Security\AccessControl;
+use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -31,6 +34,8 @@ final class PosCondimentForm extends Component
 
         return view('pos::condiment-form', [
             'condiment' => $condiment,
+            'canCreate' => app(AccessControl::class)
+                ->allows(Auth::user(), 'pos.condiment', Permission::Create),
         ]);
     }
 }

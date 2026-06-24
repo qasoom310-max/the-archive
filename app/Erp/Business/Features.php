@@ -34,6 +34,7 @@ final class Features
         'purchases' => Feature::Purchases,
         'accounting' => Feature::Accounting,
         'project' => Feature::Projects,
+        'rental' => Feature::Bookings,
     ];
 
     /**

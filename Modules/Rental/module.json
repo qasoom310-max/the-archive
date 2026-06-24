@@ -1,0 +1,21 @@
+{
+    "name": "rental",
+    "display_name": "Rent A Car",
+    "summary": "Car-rental operations: fleet, customers, drivers and branches",
+    "description": "Manage a vehicle-rental business: a fleet tracked per branch with daily/weekly/monthly rates and deposits, a customer register (CPR, driving licence), drivers, and a live operations dashboard (available / rented / under maintenance, per branch). Orders, quotations, invoices, receipts, replacements and maintenance build on this foundation.",
+    "version": "1.0.0",
+    "author": "OpenERP",
+    "category": "Operations",
+    "icon": "rental",
+    "application": true,
+    "auto_install": false,
+    "depends": ["base"],
+    "providers": ["Modules\\Rental\\Providers\\RentalServiceProvider"],
+    "models": [
+        "Modules\\Rental\\Models\\Branch",
+        "Modules\\Rental\\Models\\RentalCustomer",
+        "Modules\\Rental\\Models\\Vehicle",
+        "Modules\\Rental\\Models\\Driver"
+    ],
+    "sequence": 70
+}

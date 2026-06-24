@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use Modules\Rental\Http\Controllers\RentalReportExportController;
 use Modules\Rental\Livewire\BranchForm;
 use Modules\Rental\Livewire\Branches;
 use Modules\Rental\Livewire\CustomerForm;
@@ -22,6 +23,7 @@ use Modules\Rental\Livewire\Receipts;
 use Modules\Rental\Livewire\RentalHome;
 use Modules\Rental\Livewire\ReplacementForm;
 use Modules\Rental\Livewire\Replacements;
+use Modules\Rental\Livewire\Reports;
 use Modules\Rental\Livewire\VehicleForm;
 use Modules\Rental\Livewire\Vehicles;
 
@@ -58,6 +60,11 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/rental/maintenance', MaintenanceRecords::class)->name('rental.maintenance.index');
     Route::get('/app/rental/maintenance/new', MaintenanceForm::class)->name('rental.maintenance.create');
     Route::get('/app/rental/maintenance/{id}', MaintenanceForm::class)->whereNumber('id')->name('rental.maintenance.edit');
+
+    // Reports — summary / orders / vehicles / customers (+ CSV export). The
+    // export route is declared before the page so it isn't shadowed.
+    Route::get('/app/rental/reports/orders/export', RentalReportExportController::class)->name('rental.reports.export');
+    Route::get('/app/rental/reports', Reports::class)->name('rental.reports');
 
     // Masters. `new` is declared before the numeric {id} so it isn't
     // captured as an id (same convention as the other modules).

@@ -15,11 +15,14 @@ use App\Models\Ir\IrModule;
 use App\Models\User;
 use Database\Seeders\SettingSeeder;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
+use Modules\Rental\Http\Controllers\RentalReportExportController;
 use Modules\Rental\Livewire\OrderForm;
 use Modules\Rental\Livewire\Orders;
 use Modules\Rental\Livewire\RentalHome;
+use Modules\Rental\Livewire\Reports;
 use Modules\Rental\Models\Branch;
 use Modules\Rental\Models\RentalCustomer;
 use Modules\Rental\Models\RentalInvoice;
@@ -268,6 +271,53 @@ final class RentalModuleTest extends TestCase
             ->set('tab', 'active')
             ->assertSee($active->fresh()->reference)
             ->assertDontSee($draft->fresh()->reference);
+    }
+
+    public function test_reports_aggregate_orders_by_vehicle_and_customer(): void
+    {
+        $this->install();
+        $customer = RentalCustomer::query()->create(['name' => 'Reem']);
+        $vehicle = Vehicle::query()->create(['name' => 'Accent', 'daily_rate' => 10]);
+        $order = RentalOrder::query()->create([
+            'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id,
+            'start_date' => '2026-06-10', 'end_date' => '2026-06-12',
+            'rate_type' => 'daily', 'rate' => 10,
+        ]);
+        $order->recalcTotals();
+        $order->save();
+
+        Livewire::test(Reports::class)
+            ->set('from', '2026-06-01')
+            ->set('to', '2026-06-30')
+            ->assertOk()
+            ->assertSee('Rental report')
+            ->set('tab', 'orders')->assertSee($order->fresh()->reference)
+            ->set('tab', 'vehicles')->assertSee('Accent')
+            ->set('tab', 'customers')->assertSee('Reem');
+    }
+
+    public function test_orders_csv_export_streams_rows(): void
+    {
+        $this->install();
+        $vehicle = Vehicle::query()->create(['name' => 'Yaris', 'daily_rate' => 10]);
+        $order = RentalOrder::query()->create([
+            'vehicle_id' => $vehicle->id, 'start_date' => '2026-06-10', 'end_date' => '2026-06-12',
+            'rate_type' => 'daily', 'rate' => 10,
+        ]);
+        $order->recalcTotals();
+        $order->save();
+
+        // Module routes aren't mounted in the test harness — invoke directly.
+        $response = (new RentalReportExportController())(
+            Request::create('/x', 'GET', ['from' => '2026-06-01', 'to' => '2026-06-30']),
+        );
+
+        ob_start();
+        $response->sendContent();
+        $csv = (string) ob_get_clean();
+
+        $this->assertStringContainsString((string) $order->fresh()->reference, $csv);
+        $this->assertStringContainsString('Yaris', $csv);
     }
 
     public function test_rental_app_is_gated_by_the_bookings_feature(): void

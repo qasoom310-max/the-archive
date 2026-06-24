@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 use App\Http\Controllers\FormFileUploadController;
 use App\Http\Controllers\FormImageUploadController;
+use App\Http\Controllers\PayslipPdfController;
 use App\Http\Controllers\ProfileEmailVerificationController;
 use App\Http\Controllers\SwitchWorkspaceController;
 use App\Livewire\Auth\Login;
 use App\Livewire\Pages\ActivityLog;
 use App\Livewire\Pages\DailySummary;
 use App\Livewire\Pages\Dashboard;
+use App\Livewire\Pages\EmployeeForm;
+use App\Livewire\Pages\EmployeePayroll;
+use App\Livewire\Pages\Employees;
 use App\Livewire\Pages\ModuleHome;
 use App\Livewire\Pages\MonthlyProfit;
+use App\Livewire\Pages\Payroll;
 use App\Livewire\Pages\Playground;
 use App\Livewire\Pages\SettingsPage;
 use App\Livewire\ProfilePage;
@@ -51,6 +56,15 @@ Route::middleware('auth')->group(function (): void {
 
     // Owner's monthly P&L: sales − COGS − expenses, with recurring-bill tracking.
     Route::get('/reports/profit', MonthlyProfit::class)->name('reports.profit');
+
+    // HR / payroll (each page is admin-gated in its component). More specific
+    // suffix routes are declared before the bare /{id} so they aren't swallowed.
+    Route::get('/hr/employees', Employees::class)->name('hr.employees');
+    Route::get('/hr/payroll', Payroll::class)->name('hr.payroll');
+    Route::get('/hr/employee/new', EmployeeForm::class)->name('hr.employee.create');
+    Route::get('/hr/employee/{id}/payslip', PayslipPdfController::class)->whereNumber('id')->name('hr.employee.payslip');
+    Route::get('/hr/employee/{id}/payroll', EmployeePayroll::class)->whereNumber('id')->name('hr.employee.payroll');
+    Route::get('/hr/employee/{id}', EmployeeForm::class)->whereNumber('id')->name('hr.employee.edit');
 
     // Direct synchronous image upload for FormView image fields. Bypasses
     // Livewire's two-phase async upload mechanism (unreliable on shared

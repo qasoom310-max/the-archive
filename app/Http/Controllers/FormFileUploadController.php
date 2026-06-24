@@ -60,6 +60,9 @@ final class FormFileUploadController
             // derives the bucket from the model's table (same as the image
             // widget), so a model opting into a file field adds its table here.
             'accounts',
+            // Employee signed-agreement uploads (HR). Also excluded from the
+            // deploy rsync --delete so they survive deploys.
+            'employee_agreements',
         ];
     }
 }

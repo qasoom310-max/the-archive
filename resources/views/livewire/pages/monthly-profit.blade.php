@@ -20,7 +20,7 @@
     <p class="mb-3 text-sm font-medium text-chrome-600">{{ $monthLabel }}</p>
 
     {{-- P&L cards --}}
-    <div class="grid grid-cols-2 gap-3 lg:grid-cols-5">
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
             <p class="text-[11px] font-semibold uppercase tracking-wide text-chrome-500">{{ __('Sales') }}</p>
             <p class="mt-1 text-lg font-bold text-emerald-600">{{ $money($financials['sales']) }}</p>
@@ -37,13 +37,17 @@
             <p class="text-[11px] font-semibold uppercase tracking-wide text-chrome-500">{{ __('Expenses') }}</p>
             <p class="mt-1 text-lg font-bold text-chrome-700">−{{ $money($financials['expenses']) }}</p>
         </div>
-        <div class="col-span-2 rounded-xl p-4 shadow-sm ring-1 lg:col-span-1 {{ $netNeg ? 'bg-red-50 ring-red-200' : 'bg-emerald-50 ring-emerald-200' }}">
+        <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-chrome-500">{{ __('Payroll') }}</p>
+            <p class="mt-1 text-lg font-bold text-chrome-700">−{{ $money($financials['payroll']) }}</p>
+        </div>
+        <div class="rounded-xl p-4 shadow-sm ring-1 {{ $netNeg ? 'bg-red-50 ring-red-200' : 'bg-emerald-50 ring-emerald-200' }}">
             <p class="text-[11px] font-semibold uppercase tracking-wide {{ $netNeg ? 'text-red-600' : 'text-emerald-700' }}">{{ __('Net Profit') }}</p>
             <p class="mt-1 text-lg font-bold {{ $netNeg ? 'text-red-600' : 'text-emerald-700' }}">{{ $money($financials['net']) }}</p>
         </div>
     </div>
     <p class="mt-2 text-xs text-chrome-400">
-        {{ __('Net Profit = Sales − Cost of goods sold − Expenses.') }}
+        {{ __('Net Profit = Sales − Cost of goods sold − Expenses − Payroll.') }}
     </p>
 
     {{-- Recurring bills --}}

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Erp\Reports;
 
 use App\Models\ExpensePayment;
+use App\Models\Payslip;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Modules\Pos\Models\PosIngredient;
@@ -32,7 +33,7 @@ use Modules\Pos\Models\PosProductRecipe;
 final class MonthlyFinancials
 {
     /**
-     * @return array{sales: float, cogs: float, gross: float, expenses: float, net: float}
+     * @return array{sales: float, cogs: float, gross: float, expenses: float, payroll: float, net: float}
      */
     public function forMonth(string $period): array
     {
@@ -56,6 +57,12 @@ final class MonthlyFinancials
             $expenses = round((float) ExpensePayment::query()->where('period', $period)->sum('amount'), 3);
         }
 
+        // Payroll = paid salary slips for the month (an operating cost).
+        $payroll = 0.0;
+        if (Schema::hasTable('payslips')) {
+            $payroll = round((float) Payslip::query()->where('period', $period)->sum('net'), 3);
+        }
+
         $gross = round($sales - $cogs, 3);
 
         return [
@@ -63,7 +70,8 @@ final class MonthlyFinancials
             'cogs' => $cogs,
             'gross' => $gross,
             'expenses' => $expenses,
-            'net' => round($gross - $expenses, 3),
+            'payroll' => $payroll,
+            'net' => round($gross - $expenses - $payroll, 3),
         ];
     }
 

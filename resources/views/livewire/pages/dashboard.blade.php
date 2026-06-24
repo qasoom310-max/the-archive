@@ -67,6 +67,14 @@
                         class="inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:underline">
                         {{ __('Profit & Expenses') }} →
                     </a>
+                    <a href="{{ url('/hr/employees') }}" wire:navigate
+                        class="inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:underline">
+                        {{ __('Employees') }} →
+                    </a>
+                    <a href="{{ url('/hr/payroll') }}" wire:navigate
+                        class="inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:underline">
+                        {{ __('Payroll') }} →
+                    </a>
                 </div>
             </div>
 

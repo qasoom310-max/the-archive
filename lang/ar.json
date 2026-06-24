@@ -717,6 +717,8 @@
     "inactive": "غير نشط",
     "Set stock": "تعيين المخزون",
     "Inventory value": "قيمة المخزون",
+    "Open Stock Report": "فتح تقرير المخزون",
+    "On-hand × cost. Full breakdown in the Stock Report.": "المتوفر × التكلفة. التفصيل الكامل في تقرير المخزون.",
     "Reorder point": "حد إعادة الطلب",
     "Flag as low stock at or below this. Leave blank to use the global default.": "اعتبره مخزونًا منخفضًا عند هذا الحد أو دونه. اتركه فارغًا لاستخدام الإعداد العام الافتراضي.",
     "Export": "تصدير",

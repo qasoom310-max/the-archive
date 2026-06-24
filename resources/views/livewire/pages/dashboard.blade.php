@@ -100,7 +100,18 @@
                         <p class="mt-0.5 text-xl font-bold {{ $stockSummary['out_count'] > 0 ? 'text-red-600' : 'text-chrome-900' }}">{{ $stockSummary['out_count'] }}</p>
                     </div>
                 </div>
-                <p class="mt-3 text-xs text-chrome-400">{{ __('Full breakdown is in the emailed PDF.') }}</p>
+                @if ($inventoryValue !== null)
+                    <div class="mt-4 flex items-center justify-between border-t border-chrome-100 pt-3">
+                        <div>
+                            <p class="text-xs uppercase tracking-wide text-chrome-400">{{ __('Inventory value') }}</p>
+                            <p class="mt-0.5 text-xl font-bold text-primary-700">{{ \App\Erp\Money\Currencies::format((float) $inventoryValue) }}</p>
+                        </div>
+                        <a href="{{ url('/app/pos/stock-report') }}" wire:navigate class="o-btn-primary shrink-0">
+                            {{ __('Open Stock Report') }} →
+                        </a>
+                    </div>
+                @endif
+                <p class="mt-3 text-xs text-chrome-400">{{ __('On-hand × cost. Full breakdown in the Stock Report.') }}</p>
             </div>
         </div>
     @endif

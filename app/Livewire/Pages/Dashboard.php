@@ -16,6 +16,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Pos\Services\DailyReport;
+use Modules\Pos\Services\PosStockReportData;
 
 #[Layout('components.layouts.app')]
 #[Title('Dashboard')]
@@ -43,6 +44,7 @@ final class Dashboard extends Component
         $dailySales = null;
         $stockSummary = null;
         $periodLabel = null;
+        $inventoryValue = null;
 
         if ($isAdmin && $this->posReady()) {
             $report = app(DailyReport::class);
@@ -50,6 +52,8 @@ final class Dashboard extends Component
             $dailySales = $report->sales($start, $end);
             $stockSummary = $report->stock();
             $periodLabel = $start->isoFormat('MMM D, h:mm A') . ' – ' . $end->isoFormat('MMM D, h:mm A');
+            // Total money tied up in stock (on-hand × cost), active items only.
+            $inventoryValue = app(PosStockReportData::class)->summary(false)['value'];
         }
 
         return view('livewire.pages.dashboard', [
@@ -66,6 +70,7 @@ final class Dashboard extends Component
             'dailySales' => $dailySales,
             'stockSummary' => $stockSummary,
             'reportPeriod' => $periodLabel,
+            'inventoryValue' => $inventoryValue,
         ]);
     }
 }

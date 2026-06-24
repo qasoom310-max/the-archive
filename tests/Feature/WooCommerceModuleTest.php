@@ -221,6 +221,22 @@ final class WooCommerceModuleTest extends TestCase
             ->where('pos_product_id', $product->id)->value('last_status'));
     }
 
+    public function test_sync_all_now_distinguishes_empty_catalogue_from_unconfigured(): void
+    {
+        $this->install();
+        $this->configure();
+        Bus::fake();
+
+        // Configured but the database has no products → clear, accurate message.
+        $empty = Livewire::test(WooCommerceSettings::class)->call('syncAllNow');
+        $this->assertStringContainsString('No active products', (string) $empty->get('syncMessage'));
+
+        // Add one → it reports the queued count instead.
+        $this->product();
+        $withProduct = Livewire::test(WooCommerceSettings::class)->call('syncAllNow');
+        $this->assertStringContainsString('queued', (string) $withProduct->get('syncMessage'));
+    }
+
     public function test_saving_an_active_product_queues_a_push_when_enabled(): void
     {
         $this->install();

@@ -107,11 +107,17 @@ final class WooCommerceSettings extends Component
     {
         $this->authorizeAdmin();
 
+        if (! WooCommerceConfiguration::current()->isConfigured()) {
+            $this->syncMessage = __('Configure and enable the store, then Save first.');
+
+            return;
+        }
+
         $count = app(WooCommerceService::class)->syncAllActive();
 
         $this->syncMessage = $count > 0
             ? __(':count products queued for syncing.', ['count' => $count])
-            : __('Nothing to sync — configure and enable the store first.');
+            : __('No active products in THIS database to sync — switch to the right database (My database) or add products here first.');
     }
 
     public function updated(): void

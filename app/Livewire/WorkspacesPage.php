@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Erp\Tenancy\WorkspaceManager;
+use App\Livewire\Concerns\ConfirmsWithEmailOtp;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
@@ -27,6 +28,8 @@ use Livewire\Component;
 #[Title('My databases')]
 final class WorkspacesPage extends Component
 {
+    use ConfirmsWithEmailOtp;
+
     #[Validate('required|string|max:80')]
     public string $newName = '';
 
@@ -99,9 +102,20 @@ final class WorkspacesPage extends Component
 
         $this->validate(['editName' => 'required|string|max:80']);
 
-        $workspace = app(WorkspaceManager::class)->find($this->editingId);
+        // Editing a database is sensitive — a regular admin confirms an emailed
+        // code first (super admin is exempt).
+        if (! $this->requireOtp('workspace.rename', ['id' => $this->editingId, 'name' => trim($this->editName)])) {
+            return;
+        }
+
+        $this->performRename($this->editingId, trim($this->editName));
+    }
+
+    private function performRename(int $id, string $name): void
+    {
+        $workspace = app(WorkspaceManager::class)->find($id);
         if ($workspace !== null) {
-            $workspace->name = trim($this->editName);
+            $workspace->name = $name;
             $workspace->save();
         }
 
@@ -150,16 +164,45 @@ final class WorkspacesPage extends Component
             return;
         }
 
+        // Close the password dialog and, for a regular admin, require the
+        // emailed code on top of the password (super admin is exempt).
+        $id = $this->deletingId;
+        $this->deletingId = null;
+        $this->deletePassword = '';
+
+        if (! $this->requireOtp('workspace.delete', ['id' => $id])) {
+            return;
+        }
+
+        $this->performTrash($id);
+    }
+
+    private function performTrash(int $id): void
+    {
         $manager = app(WorkspaceManager::class);
-        $workspace = $manager->find($this->deletingId);
+        $workspace = $manager->find($id);
 
         if ($workspace !== null && ! $workspace->is_main) {
             $manager->trash($workspace);
         }
 
-        $this->deletingId = null;
-        $this->deletePassword = '';
         session()->flash('workspace_status', __('Database moved to trash. You can restore it within :days days.', ['days' => WorkspaceManager::RETENTION_DAYS]));
+    }
+
+    /**
+     * Run the action the email-OTP just confirmed (regular-admin path).
+     *
+     * @param array<string, mixed> $args
+     */
+    protected function runConfirmedAction(string $action, array $args): void
+    {
+        abort_unless($this->isAdmin(), 403);
+
+        match ($action) {
+            'workspace.rename' => $this->performRename((int) ($args['id'] ?? 0), (string) ($args['name'] ?? '')),
+            'workspace.delete' => $this->performTrash((int) ($args['id'] ?? 0)),
+            default => null,
+        };
     }
 
     public function restoreWorkspace(int $id): void

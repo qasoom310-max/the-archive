@@ -23,6 +23,7 @@ use Throwable;
  * @property string|null $language      Personal language preference (`en`|`ar`); null = follow company.language
  * @property float|null $hourly_cost    Labour rate per hour (Project module); null = use project.default_hourly_cost
  * @property bool $is_admin
+ * @property bool $is_super_admin   Owner tier above admin (a strict superset of is_admin)
  * @property string $password
  */
 final class User extends Authenticatable
@@ -40,6 +41,7 @@ final class User extends Authenticatable
         'language',
         'hourly_cost',
         'is_admin',
+        'is_super_admin',
         'password',
     ];
 
@@ -58,6 +60,7 @@ final class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_admin' => 'boolean',
+            'is_super_admin' => 'boolean',
             // Project module: the column is added by that module's migration,
             // so it's simply absent (reads null) until Project is installed.
             'hourly_cost' => 'float',
@@ -75,6 +78,20 @@ final class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->is_admin === true;
+    }
+
+    /**
+     * The owner tier above admin. A super admin is a strict superset — its
+     * row also carries `is_admin = true`, so `isAdmin()` is true too — but
+     * `is_super_admin` gates owner-only powers (the dashboard system cards,
+     * the company business type, promoting other super admins) and exempts
+     * them from the regular-admin 2FA step.
+     */
+    public function isSuperAdmin(): bool
+    {
+        // The column is added by a core migration; guard so a not-yet-migrated
+        // DB (or an old session payload) reads false rather than throwing.
+        return ($this->getAttribute('is_super_admin') ?? false) === true;
     }
 
     /**
@@ -144,6 +161,10 @@ final class User extends Authenticatable
      */
     public function roleLabel(): string
     {
+        if ($this->isSuperAdmin()) {
+            return 'Super administrator';
+        }
+
         if ($this->isAdmin()) {
             return 'Administrator';
         }

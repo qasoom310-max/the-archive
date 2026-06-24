@@ -1323,6 +1323,24 @@ to create a staff account (username + email + password) and grant it
 
 Decisions (chosen by the user): app access = **View only**; database access = **provision only** (no self-switching); Main is a normal pickable database (not auto-included); the list shows all users + admins and supports edit/delete. To widen later: change the `perm_*` flags in `UserProvisioner::grantApps()` (e.g. add Write/Create), or lift the admin-only switch gate for granted users (would need a `workspace_user_access` grant table + relaxed `SwitchWorkspaceController`/`SetActiveWorkspace` + a non-admin switcher UI — out of scope here).
 
+**Super-admin tier + admin 2FA (shipped 2026-06-24):**
+
+An owner role **above** admin. A super admin is a **strict superset** — its
+row also carries `is_admin = true`, so every existing `is_admin` gate keeps
+passing — and the extra `users.is_super_admin` flag gates owner-only powers.
+Regular admins keep everything else, but destructive identity/tenancy actions
+now require an **emailed 2FA code** for them (super admins are exempt).
+
+| Concern | Location |
+|---|---|
+| Schema | `users.is_super_admin` (bool, core migration `2026_06_24_100001`, after `is_admin`) · data migration `2026_06_24_100002` flips `is_admin`+`is_super_admin` on email **`qasoom310@gmail.com`** (the owner) — **idempotent + password-safe** (never touches the password), no-op when the account is absent (tenants / tests) · `admin_otp_challenges` (`2026_06_24_100003`: user_id, action, `code_hash` SHA-256, `expires_at`, unique `(user_id,action)`). All **core** ⇒ deploy's core `migrate --force` applies them to Main automatically, and `workspaces:migrate` backfills every tenant |
+| User model | `User::isSuperAdmin()` (guarded `getAttribute ?? false` so a not-yet-migrated DB reads false) + `is_super_admin` cast/fillable; `roleLabel()` → "Super administrator". `isAdmin()` unchanged (super admins pass it since their row has `is_admin=true`) |
+| Owner-only powers | (1) **Dashboard system cards** (Installed apps / modules / Registered models) — wrapped in `@if($isSuperAdmin)` in `dashboard.blade.php` (`Dashboard::render` passes `isSuperAdmin`). (2) **Company "business type"** setting (`company.business_type`, seeded by `SettingSeeder`, default `general`) — `SettingsPage::SUPER_ADMIN_KEYS` + the new `canSee($key)` (super admin: all; regular admin: all **except** super-admin keys; non-admin: `NON_ADMIN_KEYS`) hide it from regular admins in BOTH mount + save; rendered as a fixed-option combobox (General/Restaurant/Café/Retail/Grocery/Services/Wholesale/Other) built only `isSuperAdmin()`. **Descriptive only** for now (no downstream behaviour). (3) **Promote/demote super admin** — `UserManager::toggleSuperAdmin()` is `abort_unless(actorIsSuperAdmin)`; promoting raises `is_admin` too; can't demote yourself or the **last** super admin. Buttons shown only to super admins in the user list |
+| Admin 2FA (email OTP) | `App\Erp\Security\TwoFactorGate` (`required(User)` = admin AND not super admin; `challenge()` stores a 6-digit SHA-256 code + emails it **synchronously** via `App\Notifications\AdminActionOtp`; `verify()` checks + consumes, 10-min TTL) + `App\Models\AdminOtpChallenge`. Reusable Livewire trait `App\Livewire\Concerns\ConfirmsWithEmailOtp` (`requireOtp(action,args)` → true to run now (exempt) / false + opens modal; `submitOtp()` verifies then calls the host's `runConfirmedAction()`; shared `resources/views/partials/otp-modal.blade.php`). Gated actions (regular admin only): **UserManager** edit (`save` on existing) + `deleteUser`; **WorkspacesPage** `rename` + `deleteWorkspace` (OTP **after** the existing password check). Super admin runs all immediately. **Escalation guard:** a regular admin can't edit/delete a super admin (`UserManager::actorCanManage`), nor delete the last admin/super admin |
+| Tests | `tests/Feature/SuperAdminTest.php` (10 — superset+OTP-exempt, dashboard cards SA-only, business-type SA-only + can't-be-written-by-regular-admin, regular-admin delete needs OTP, wrong OTP no-op, super admin deletes without OTP, regular admin can't manage a super admin, owner-only promote/demote, regular-admin DB rename needs OTP) |
+
+The 2FA email needs prod SMTP configured (same `[[prod-mail-transport-environment-specific]]` as the daily report) — without it the code can't be delivered and a regular admin can't complete a gated action; the super admin (exempt) always can. To retune: change the channel in `AdminActionOtp::via()` (e.g. add WhatsApp), the TTL in `TwoFactorGate::TTL_MINUTES`, or the gated set by adding `requireOtp()` calls. To move a power between tiers: add/remove a key in `SettingsPage::SUPER_ADMIN_KEYS`, or wrap/unwrap a view block in `@if($isSuperAdmin)`.
+
 **Activity log — audit trail (shipped 2026-06-21):**
 
 Admin-only system audit trail. The topbar **bell was replaced by a

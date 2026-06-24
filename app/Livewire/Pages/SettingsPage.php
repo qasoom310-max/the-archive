@@ -56,6 +56,16 @@ final class SettingsPage extends Component
     public const NON_ADMIN_KEYS = ['company.language'];
 
     /**
+     * Setting keys only the SUPER admin may view/edit. Regular admins see
+     * everything else but never these (the company "business type" is an
+     * owner-level decision). Enforced in both mount() and save() via
+     * {@see self::canSee()}.
+     *
+     * @var list<string>
+     */
+    public const SUPER_ADMIN_KEYS = ['company.business_type'];
+
+    /**
      * The one key that's actually a per-user preference. mount() and
      * save() route it to `users.language` instead of the system
      * settings table.
@@ -104,11 +114,9 @@ final class SettingsPage extends Component
         // middleware before we ever reach here.
         abort_unless(Auth::check(), 403);
 
-        $allowed = $this->allowedKeysOrNull();
-
         foreach (app(SettingManager::class)->grouped() as $params) {
             foreach ($params as $param) {
-                if ($allowed !== null && ! in_array($param->key, $allowed, true)) {
+                if (! $this->canSee($param->key)) {
                     continue;
                 }
 
@@ -140,6 +148,21 @@ final class SettingsPage extends Component
                 fn (BusinessType $t): array => ['value' => $t->value, 'label' => __($t->label())],
                 BusinessType::all(),
             );
+        }
+
+        // Business type picker — super-admin only (the only one who can see
+        // the row). A fixed enumerated list rendered as the same combobox.
+        if ($this->isSuperAdmin()) {
+            $this->selects['company.business_type'] = [
+                ['value' => 'general', 'label' => __('General')],
+                ['value' => 'restaurant', 'label' => __('Restaurant')],
+                ['value' => 'cafe', 'label' => __('Café')],
+                ['value' => 'retail', 'label' => __('Retail')],
+                ['value' => 'grocery', 'label' => __('Grocery')],
+                ['value' => 'services', 'label' => __('Services')],
+                ['value' => 'wholesale', 'label' => __('Wholesale')],
+                ['value' => 'other', 'label' => __('Other')],
+            ];
         }
 
         // Language picker — the supported set is whitelisted in the
@@ -269,13 +292,25 @@ final class SettingsPage extends Component
     }
 
     /**
-     * @return list<string>|null returns null when the user is admin
-     *                            (meaning "no filter"), otherwise the
-     *                            whitelist a non-admin may view/edit.
+     * Whether the current user may view/edit a given setting key.
+     * Super admin: everything. Regular admin: everything EXCEPT the
+     * super-admin-only keys. Non-admin: only the explicit allow-list.
      */
-    private function allowedKeysOrNull(): ?array
+    private function canSee(string $key): bool
     {
-        return $this->isAdmin() ? null : self::NON_ADMIN_KEYS;
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        if (in_array($key, self::SUPER_ADMIN_KEYS, true)) {
+            return false;
+        }
+
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        return in_array($key, self::NON_ADMIN_KEYS, true);
     }
 
     private function isAdmin(): bool
@@ -283,6 +318,13 @@ final class SettingsPage extends Component
         $user = Auth::user();
 
         return $user instanceof User && $user->isAdmin();
+    }
+
+    private function isSuperAdmin(): bool
+    {
+        $user = Auth::user();
+
+        return $user instanceof User && $user->isSuperAdmin();
     }
 
     public function save(): void
@@ -298,15 +340,13 @@ final class SettingsPage extends Component
         // triggers a reload.
         $previousLanguage = $this->effectiveLanguage();
 
-        $allowed = $this->allowedKeysOrNull();
-
         /** @var array<string, mixed> $systemValues */
         $systemValues = [];
         foreach ($this->form as $i => $row) {
             // Re-filter here even though mount() already trimmed the
             // form: defence in depth against a crafted `$set` payload
             // that injects a forbidden key into the array.
-            if ($allowed !== null && ! in_array($row['key'], $allowed, true)) {
+            if (! $this->canSee($row['key'])) {
                 continue;
             }
 

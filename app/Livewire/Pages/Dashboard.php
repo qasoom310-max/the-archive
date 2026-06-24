@@ -29,6 +29,13 @@ final class Dashboard extends Component
         return $user instanceof User && $user->isAdmin();
     }
 
+    private function isSuperAdmin(): bool
+    {
+        $user = Auth::user();
+
+        return $user instanceof User && $user->isSuperAdmin();
+    }
+
     /**
      * Whether the POS data the report cards read from exists yet.
      */
@@ -67,6 +74,7 @@ final class Dashboard extends Component
                 ->count(),
             'modelCount' => IrModel::query()->count(),
             'isAdmin' => $isAdmin,
+            'isSuperAdmin' => $this->isSuperAdmin(),
             'dailySales' => $dailySales,
             'stockSummary' => $stockSummary,
             'reportPeriod' => $periodLabel,

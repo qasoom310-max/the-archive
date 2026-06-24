@@ -158,4 +158,7 @@
             </div>
         </div>
     @endif
+
+    {{-- 2FA: regular admins confirm an emailed code before rename/delete. --}}
+    @include('partials.otp-modal')
 </div>

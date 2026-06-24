@@ -33,6 +33,10 @@ final class SettingSeeder extends Seeder
             // `App\Erp\Branding\Logo::url()` so a missing-file path
             // falls back to text branding (same guard as User::avatarUrl).
             ['key' => 'company.logo', 'label' => 'Company Logo', 'type' => 'image', 'group' => 'General', 'default' => '', 'sort' => 15, 'description' => 'Shown on receipts, the login page, and the topbar.'],
+            // Super-admin-only (the Settings page hides it from regular admins
+            // via SettingsPage::SUPER_ADMIN_KEYS). Descriptive for now; can
+            // later drive module suggestions / defaults.
+            ['key' => 'company.business_type', 'label' => 'Business Type', 'type' => 'string', 'group' => 'General', 'default' => 'general', 'sort' => 18, 'description' => 'The kind of business this database runs (super admin only).'],
             ['key' => 'currency.default', 'label' => 'Default Currency', 'type' => 'string', 'group' => 'General', 'default' => 'USD', 'sort' => 20, 'description' => 'ISO code, e.g. USD, EUR.'],
             ['key' => 'company.timezone', 'label' => 'Timezone', 'type' => 'string', 'group' => 'General', 'default' => 'UTC', 'sort' => 30, 'description' => null],
             ['key' => 'company.language', 'label' => 'Language', 'type' => 'string', 'group' => 'General', 'default' => 'en', 'sort' => 40, 'description' => 'Default language for the system.'],

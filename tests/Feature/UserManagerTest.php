@@ -139,7 +139,9 @@ final class UserManagerTest extends TestCase
 
     public function test_edit_updates_name_and_rewrites_app_grants(): void
     {
-        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        // Super admin actor: editing is OTP-gated only for regular admins
+        // (that path is covered by SuperAdminTest); here we test the edit logic.
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
         $this->installPos();
 
         Livewire::test(UserManager::class)
@@ -172,7 +174,7 @@ final class UserManagerTest extends TestCase
 
     public function test_edit_keeps_password_when_left_blank(): void
     {
-        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
 
         Livewire::test(UserManager::class)
             ->set('name', 'Keeper')
@@ -196,7 +198,7 @@ final class UserManagerTest extends TestCase
 
     public function test_can_delete_a_non_last_admin_but_not_yourself(): void
     {
-        $me = User::factory()->create(['is_admin' => true]);
+        $me = User::factory()->create(['is_admin' => true, 'is_super_admin' => true]);
         $other = User::factory()->create(['is_admin' => true]);
         $this->actingAs($me);
 
@@ -211,7 +213,7 @@ final class UserManagerTest extends TestCase
 
     public function test_delete_removes_a_staff_user_and_their_group(): void
     {
-        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
         $this->installPos();
 
         Livewire::test(UserManager::class)

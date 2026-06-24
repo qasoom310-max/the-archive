@@ -34,7 +34,9 @@ final class WorkspaceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->actingAs(User::factory()->create(['is_admin' => true, 'email' => 'owner@erp.test']));
+        // The owner is a super admin so these tests exercise the workspace CRUD
+        // directly; the regular-admin email-OTP gate is covered by SuperAdminTest.
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true, 'email' => 'owner@erp.test']));
     }
 
     protected function tearDown(): void

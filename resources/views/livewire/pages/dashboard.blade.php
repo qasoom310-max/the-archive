@@ -7,24 +7,26 @@
             {{ __('to jump anywhere.') }}</p>
     </div>
 
-    {{-- KPI tiles --}}
-    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        @foreach ([
-            ['Installed apps', $appCount, 'bg-primary-400', 'text-chrome-900'],
-            ['Installed modules', $moduleCount, 'bg-emerald-600', 'text-white'],
-            ['Registered models', $modelCount, 'bg-sky-600', 'text-white'],
-        ] as [$label, $value, $color, $textColor])
-            <div class="flex items-center gap-4 rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
-                <span class="flex size-10 items-center justify-center rounded-lg {{ $color }} {{ $textColor }}">
-                    <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4h14v3H3V4Zm0 5h14v3H3V9Zm0 5h14v3H3v-3Z"/></svg>
-                </span>
-                <div>
-                    <p class="text-2xl font-bold text-chrome-900">{{ $value }}</p>
-                    <p class="text-xs uppercase tracking-wide text-chrome-400">{{ __($label) }}</p>
+    {{-- KPI tiles — system internals, super-admin only. --}}
+    @if ($isSuperAdmin)
+        <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            @foreach ([
+                ['Installed apps', $appCount, 'bg-primary-400', 'text-chrome-900'],
+                ['Installed modules', $moduleCount, 'bg-emerald-600', 'text-white'],
+                ['Registered models', $modelCount, 'bg-sky-600', 'text-white'],
+            ] as [$label, $value, $color, $textColor])
+                <div class="flex items-center gap-4 rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
+                    <span class="flex size-10 items-center justify-center rounded-lg {{ $color }} {{ $textColor }}">
+                        <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4h14v3H3V4Zm0 5h14v3H3V9Zm0 5h14v3H3v-3Z"/></svg>
+                    </span>
+                    <div>
+                        <p class="text-2xl font-bold text-chrome-900">{{ $value }}</p>
+                        <p class="text-xs uppercase tracking-wide text-chrome-400">{{ __($label) }}</p>
+                    </div>
                 </div>
-            </div>
-        @endforeach
-    </div>
+            @endforeach
+        </div>
+    @endif
 
     {{-- ───────────── Daily report containers (admin-only) ───────────── --}}
     @if ($isAdmin && $dailySales !== null && $stockSummary !== null)

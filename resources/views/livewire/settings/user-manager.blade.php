@@ -120,9 +120,17 @@
         <h3 class="mb-2 text-sm font-semibold text-chrome-800">{{ __('Users') }}</h3>
         <ul class="divide-y divide-chrome-100 rounded-lg border border-chrome-100">
             @forelse ($users as $user)
+                @php
+                    $isSelf = $user->id === $currentUserId;
+                    $isLastAdmin = $user->is_admin && $adminCount <= 1;
+                    // A regular admin may not manage a super admin (escalation guard).
+                    $canManage = ! $user->is_super_admin || $actorIsSuperAdmin;
+                @endphp
                 <li wire:key="user-{{ $user->id }}" class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                     <span class="flex min-w-0 items-center gap-2">
-                        @if ($user->is_admin)
+                        @if ($user->is_super_admin)
+                            <span class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">{{ __('Super admin') }}</span>
+                        @elseif ($user->is_admin)
                             <span class="shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-700">{{ __('Admin') }}</span>
                         @else
                             <span class="shrink-0 rounded-full bg-chrome-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-chrome-500">{{ __('Staff') }}</span>
@@ -133,16 +141,21 @@
                         </span>
                     </span>
                     <span class="flex shrink-0 items-center gap-3">
-                        <button type="button" wire:click="editUser({{ $user->id }})"
-                            class="text-xs font-medium text-primary-700 hover:underline">{{ __('Edit') }}</button>
-                        @php
-                            $isSelf = $user->id === $currentUserId;
-                            $isLastAdmin = $user->is_admin && $adminCount <= 1;
-                        @endphp
-                        @if (! $isSelf && ! $isLastAdmin)
-                            <button type="button" wire:click="deleteUser({{ $user->id }})"
-                                wire:confirm="{{ __('Delete :name?', ['name' => $user->name]) }}"
-                                class="text-xs text-red-600 hover:underline">{{ __('remove') }}</button>
+                        {{-- Owner-only: promote/demote super admin. --}}
+                        @if ($actorIsSuperAdmin && ! $isSelf)
+                            <button type="button" wire:click="toggleSuperAdmin({{ $user->id }})"
+                                class="text-xs font-medium text-amber-700 hover:underline">
+                                {{ $user->is_super_admin ? __('Remove super admin') : __('Make super admin') }}
+                            </button>
+                        @endif
+                        @if ($canManage)
+                            <button type="button" wire:click="editUser({{ $user->id }})"
+                                class="text-xs font-medium text-primary-700 hover:underline">{{ __('Edit') }}</button>
+                            @if (! $isSelf && ! $isLastAdmin)
+                                <button type="button" wire:click="deleteUser({{ $user->id }})"
+                                    wire:confirm="{{ __('Delete :name?', ['name' => $user->name]) }}"
+                                    class="text-xs text-red-600 hover:underline">{{ __('remove') }}</button>
+                            @endif
                         @endif
                     </span>
                 </li>
@@ -151,4 +164,7 @@
             @endforelse
         </ul>
     </div>
+
+    {{-- 2FA: regular admins confirm an emailed code before edit/delete. --}}
+    @include('partials.otp-modal')
 </div>

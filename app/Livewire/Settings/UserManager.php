@@ -7,6 +7,7 @@ namespace App\Livewire\Settings;
 use App\Erp\Admin\UserProvisioner;
 use App\Erp\Enums\ModuleState;
 use App\Erp\Tenancy\WorkspaceManager;
+use App\Livewire\Concerns\ConfirmsWithEmailOtp;
 use App\Models\Auth\Group;
 use App\Models\Auth\ModelAccess;
 use App\Models\Ir\IrModel;
@@ -32,6 +33,8 @@ use Livewire\Component;
  */
 final class UserManager extends Component
 {
+    use ConfirmsWithEmailOtp;
+
     /** Set while editing an existing user; null in create mode. */
     public ?int $editingId = null;
 
@@ -56,6 +59,28 @@ final class UserManager extends Component
     {
         $user = Auth::user();
         abort_unless($user instanceof User && $user->isAdmin(), 403);
+    }
+
+    private function actor(): ?User
+    {
+        $user = Auth::user();
+
+        return $user instanceof User ? $user : null;
+    }
+
+    private function actorIsSuperAdmin(): bool
+    {
+        return $this->actor()?->isSuperAdmin() === true;
+    }
+
+    /**
+     * A regular admin may not edit/delete a SUPER admin (privilege-escalation
+     * guard — otherwise they could seize the owner account). Only a super admin
+     * can manage another super admin.
+     */
+    private function actorCanManage(User $target): bool
+    {
+        return ! $target->isSuperAdmin() || $this->actorIsSuperAdmin();
     }
 
     /**
@@ -97,7 +122,7 @@ final class UserManager extends Component
         $this->guardAdmin();
 
         $user = User::query()->find($id);
-        if ($user === null) {
+        if ($user === null || ! $this->actorCanManage($user)) {
             return;
         }
 
@@ -145,6 +170,12 @@ final class UserManager extends Component
         $this->validate();
 
         if ($this->editingId !== null) {
+            // Editing an existing user is a sensitive action — a regular admin
+            // must confirm an emailed code first (super admin is exempt).
+            if (! $this->requireOtp('user.update', ['id' => $this->editingId])) {
+                return;
+            }
+
             $this->updateExisting();
 
             return;
@@ -174,7 +205,7 @@ final class UserManager extends Component
     private function updateExisting(): void
     {
         $user = User::query()->find($this->editingId);
-        if ($user === null) {
+        if ($user === null || ! $this->actorCanManage($user)) {
             return;
         }
 
@@ -199,16 +230,50 @@ final class UserManager extends Component
     {
         $this->guardAdmin();
 
-        $target = User::query()->find($id);
-        if ($target === null) {
+        if (! $this->canDelete($id)) {
             return;
         }
 
-        // Never delete yourself, nor the last remaining admin.
-        if ($target->getKey() === Auth::id()) {
+        // Deleting a user is sensitive — a regular admin confirms an emailed
+        // code first (super admin is exempt).
+        if (! $this->requireOtp('user.delete', ['id' => $id])) {
             return;
         }
+
+        $this->performDelete($id);
+    }
+
+    /**
+     * Guards shared by the request and the post-OTP confirmation: target
+     * exists, is manageable by the actor, isn't the actor themselves, and
+     * isn't the last admin / last super admin.
+     */
+    private function canDelete(int $id): bool
+    {
+        $target = User::query()->find($id);
+        if ($target === null || ! $this->actorCanManage($target)) {
+            return false;
+        }
+
+        if ($target->getKey() === Auth::id()) {
+            return false;
+        }
+
+        if ($target->isSuperAdmin() && User::query()->where('is_super_admin', true)->count() <= 1) {
+            return false;
+        }
+
         if ($target->isAdmin() && User::query()->where('is_admin', true)->count() <= 1) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function performDelete(int $id): void
+    {
+        $target = User::query()->find($id);
+        if ($target === null) {
             return;
         }
 
@@ -220,6 +285,70 @@ final class UserManager extends Component
 
         if ($this->editingId === $id) {
             $this->cancelEdit();
+        }
+    }
+
+    /**
+     * Promote or demote another user to super admin. Owner-only: just a super
+     * admin can do this (so the tier can't be self-granted by a regular admin).
+     * Promoting also raises `is_admin` (super admin is a superset); you can't
+     * demote yourself or the last super admin.
+     */
+    public function toggleSuperAdmin(int $id): void
+    {
+        $this->guardAdmin();
+        abort_unless($this->actorIsSuperAdmin(), 403);
+
+        $target = User::query()->find($id);
+        if ($target === null || $target->getKey() === Auth::id()) {
+            return;
+        }
+
+        if ($target->isSuperAdmin()) {
+            // Demote — but never strip the last super admin.
+            if (User::query()->where('is_super_admin', true)->count() <= 1) {
+                return;
+            }
+            $target->is_super_admin = false;
+            $target->save();
+            app(\App\Erp\Activity\ActivityLogger::class)->log('user_updated', (string) $target->email, __('Removed super admin from :name', ['name' => (string) $target->name]));
+
+            return;
+        }
+
+        $target->is_admin = true;
+        $target->is_super_admin = true;
+        $target->save();
+        app(\App\Erp\Activity\ActivityLogger::class)->log('user_updated', (string) $target->email, __('Made :name a super admin', ['name' => (string) $target->name]));
+    }
+
+    /**
+     * Execute an action the email-OTP just confirmed (regular-admin path).
+     * Re-guards/re-validates as defence in depth.
+     *
+     * @param array<string, mixed> $args
+     */
+    protected function runConfirmedAction(string $action, array $args): void
+    {
+        $this->guardAdmin();
+
+        match ($action) {
+            'user.update' => $this->confirmedUpdate(),
+            'user.delete' => $this->confirmedDelete((int) ($args['id'] ?? 0)),
+            default => null,
+        };
+    }
+
+    private function confirmedUpdate(): void
+    {
+        $this->validate();
+        $this->updateExisting();
+    }
+
+    private function confirmedDelete(int $id): void
+    {
+        if ($this->canDelete($id)) {
+            $this->performDelete($id);
         }
     }
 
@@ -243,9 +372,10 @@ final class UserManager extends Component
             // properties (Livewire injects those into the view too).
             'appModules' => $apps,
             'workspaceList' => $workspaces,
-            'users' => User::query()->orderByDesc('is_admin')->orderBy('name')->get(['id', 'name', 'email', 'is_admin']),
+            'users' => User::query()->orderByDesc('is_super_admin')->orderByDesc('is_admin')->orderBy('name')->get(['id', 'name', 'email', 'is_admin', 'is_super_admin']),
             'currentUserId' => Auth::id(),
             'adminCount' => User::query()->where('is_admin', true)->count(),
+            'actorIsSuperAdmin' => $this->actorIsSuperAdmin(),
         ]);
     }
 }

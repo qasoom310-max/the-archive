@@ -166,6 +166,27 @@ final class AppFeatureSettingsTest extends TestCase
         $this->assertTrue(Features::modelAllowed('limousine.quotation'));
     }
 
+    public function test_postpaid_is_off_by_default_and_opt_in(): void
+    {
+        app(SettingManager::class)->flush();
+
+        // An unconfigured database fails open for ordinary features...
+        $this->assertTrue(Features::enabled(Feature::Condiments));
+        // ...but Postpaid is opt-in: the register is PREPAID (off) until an
+        // admin turns it on — even when no business type is set.
+        $this->assertFalse(Features::enabled(Feature::Postpaid));
+
+        // A configured business type does NOT enable it either (not in any preset).
+        Setting::set('company.business_type', 'cafe');
+        app(SettingManager::class)->flush();
+        $this->assertFalse(Features::enabled(Feature::Postpaid));
+
+        // The POS → Settings toggle is what switches a restaurant to kitchen-first.
+        Features::setOverrides(['postpaid' => true]);
+        app(SettingManager::class)->flush();
+        $this->assertTrue(Features::enabled(Feature::Postpaid));
+    }
+
     public function test_non_admin_is_forbidden(): void
     {
         $this->actingAs($this->admin());

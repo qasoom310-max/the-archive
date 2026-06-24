@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Pos\Livewire;
 
+use App\Erp\Business\Feature;
+use App\Erp\Business\Features;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
@@ -218,10 +220,14 @@ final class PosTerminal extends Component
         $order->recalculate();
 
         // Auto-send to the kitchen / shisha screens the moment an item is
-        // added (postpaid dine-in flow): a kitchen-routed line goes straight
-        // to the KDS — no payment required first. No-op for products whose
-        // category has no station, and idempotent for lines already sent.
-        app(KitchenRouter::class)->route($order);
+        // added — POSTPAID dine-in flow only: a kitchen-routed line goes
+        // straight to the KDS, no payment first. In PREPAID mode (the default)
+        // items fire to the kitchen on payment instead (PosOrderPaid →
+        // QueueLinesForKitchen), so the eager route is skipped here.
+        // No-op for products whose category has no station; idempotent.
+        if (Features::enabled(Feature::Postpaid)) {
+            app(KitchenRouter::class)->route($order);
+        }
     }
 
     /**
@@ -511,15 +517,20 @@ final class PosTerminal extends Component
 
     /**
      * May the cashier take payment right now? Always needs items + a positive
-     * total. For a DINE-IN table it additionally requires the kitchen to be
-     * done (green) — "Pay now" stays locked while the order is red (sent) or
-     * yellow (preparing). Walk-in / quick sale is ungated so counter service
-     * still pays immediately.
+     * total. In POSTPAID mode a DINE-IN table additionally requires the kitchen
+     * to be done (green) — "Pay now" stays locked while the order is red (sent)
+     * or yellow (preparing); walk-in / quick sale is ungated. In PREPAID mode
+     * (the default) payment is always allowed — the order fires to the kitchen
+     * once paid, so there is nothing to wait for.
      */
     private function canPay(PosOrder $order): bool
     {
         if ($order->lines->isEmpty() || $order->total <= 0) {
             return false;
+        }
+
+        if (! Features::enabled(Feature::Postpaid)) {
+            return true;
         }
 
         return $this->tableId === null || $this->orderKitchenReady($order);

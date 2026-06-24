@@ -83,6 +83,7 @@ final class Features
         'pos' => [
             Feature::Restaurant, Feature::Recipes, Feature::Condiments,
             Feature::CustomerDiscounts, Feature::Damage, Feature::BarcodeScanning,
+            Feature::Postpaid,
         ],
         'accounting' => [Feature::ChartOfAccounts, Feature::JournalEntries],
         'rental' => [
@@ -93,6 +94,17 @@ final class Features
             Feature::LimoExpenses, Feature::LimoQuotations, Feature::LimoLocations,
         ],
     ];
+
+    /**
+     * Opt-in features: OFF by default. Unlike every other feature these do NOT
+     * fail open on an unconfigured database and are NOT in any business-type
+     * preset — they stay off until an admin turns them on in an app's Settings
+     * tab. (Postpaid: the register is prepaid — pay first, then fire to the
+     * kitchen — until a restaurant explicitly switches to kitchen-first.)
+     *
+     * @var list<Feature>
+     */
+    private const DEFAULT_OFF = [Feature::Postpaid];
 
     /** The settings key holding manual per-feature overrides (JSON object). */
     private const OVERRIDES_KEY = 'features.overrides';
@@ -130,9 +142,10 @@ final class Features
     {
         $type = self::configuredType();
 
-        // Unconfigured database → fail open (legacy-safe).
+        // Unconfigured database → fail open (legacy-safe), EXCEPT opt-in
+        // features which stay off until deliberately enabled.
         if ($type === null) {
-            return true;
+            return ! in_array($feature, self::DEFAULT_OFF, true);
         }
 
         return in_array($feature, $type->features(), true);

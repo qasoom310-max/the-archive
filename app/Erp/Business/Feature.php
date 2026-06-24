@@ -28,6 +28,10 @@ enum Feature: string
     case CustomerDiscounts = 'customer_discounts';
     case Damage = 'damage';
     case BarcodeScanning = 'barcode_scanning';
+    // Postpaid dine-in: fire items to the kitchen on add and pay at the end.
+    // OFF (the default) = prepaid: pay first, then the order fires to the
+    // kitchen. Opt-in — see Features::DEFAULT_OFF.
+    case Postpaid = 'postpaid';
 
     // Accounting sub-features.
     case ChartOfAccounts = 'chart_of_accounts';
@@ -61,6 +65,7 @@ enum Feature: string
             self::CustomerDiscounts => 'Customer discounts',
             self::Damage => 'Damage / waste log',
             self::BarcodeScanning => 'Barcode scanning (camera)',
+            self::Postpaid => 'Postpaid (kitchen first, pay later)',
             self::ChartOfAccounts => 'Chart of accounts',
             self::JournalEntries => 'Journal entries',
             self::RentalMaintenance => 'Vehicle maintenance',

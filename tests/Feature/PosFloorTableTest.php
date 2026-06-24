@@ -69,6 +69,17 @@ final class PosFloorTableTest extends TestCase
         ]);
     }
 
+    /**
+     * The register is PREPAID by default (pay first → fire to kitchen). The
+     * dine-in tests below assert the kitchen-first POSTPAID behaviour (auto-send
+     * on add + the green pay-gate), so they must opt in.
+     */
+    private function enablePostpaid(): void
+    {
+        \App\Erp\Business\Features::setOverrides(['postpaid' => true]);
+        app(\App\Erp\Settings\SettingManager::class)->flush();
+    }
+
     public function test_open_routes_to_the_floor_plan_when_tables_exist(): void
     {
         $this->table();
@@ -125,6 +136,7 @@ final class PosFloorTableTest extends TestCase
 
     public function test_adding_a_kitchen_item_auto_sends_it_to_the_kitchen(): void
     {
+        $this->enablePostpaid();
         $session = $this->openSession();
         $table = $this->table();
         $cat = PosCategory::query()->create(['name' => 'Kitchen', 'station' => 'kitchen']);
@@ -155,6 +167,7 @@ final class PosFloorTableTest extends TestCase
 
     public function test_floor_plan_colours_a_table_by_its_kitchen_status(): void
     {
+        $this->enablePostpaid();
         $session = $this->openSession();
         $table = $this->table(name: '7');
         $cat = PosCategory::query()->create(['name' => 'Kitchen', 'station' => 'kitchen']);
@@ -188,6 +201,7 @@ final class PosFloorTableTest extends TestCase
 
     public function test_dine_in_payment_is_gated_until_the_kitchen_is_ready(): void
     {
+        $this->enablePostpaid();
         $session = $this->openSession();
         $table = $this->table();
         $cat = PosCategory::query()->create(['name' => 'Kitchen', 'station' => 'kitchen']);
@@ -210,8 +224,33 @@ final class PosFloorTableTest extends TestCase
         $term->call('startPayment')->assertSet('paying', true);
     }
 
+    public function test_prepaid_mode_skips_auto_send_and_lets_dine_in_pay_immediately(): void
+    {
+        // Default mode is PREPAID — no enablePostpaid(). A kitchen item is NOT
+        // fired while the cart is built, and a dine-in table can pay right away
+        // (no green-gate); the kitchen receives the order once it's paid.
+        $session = $this->openSession();
+        $table = $this->table();
+        $cat = PosCategory::query()->create(['name' => 'Kitchen', 'station' => 'kitchen']);
+        $burger = PosProduct::query()->create([
+            'name' => 'Burger', 'price' => 5.0, 'tax_rate' => 0.0,
+            'active' => true, 'pos_category_id' => $cat->id,
+        ]);
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id, 'table' => $table->id])
+            ->call('addProduct', $burger->id)
+            ->call('startPayment')
+            ->assertSet('paying', true);
+
+        // Nothing went to the kitchen yet — that happens on payment.
+        $line = PosOrderLine::query()->where('pos_product_id', $burger->id)->firstOrFail();
+        $this->assertNull($line->prep_status);
+    }
+
     public function test_walk_in_payment_is_not_gated_by_the_kitchen(): void
     {
+        // Even in postpaid mode (where dine-in is gated) a walk-in pays now.
+        $this->enablePostpaid();
         $session = $this->openSession();
         $cat = PosCategory::query()->create(['name' => 'Kitchen', 'station' => 'kitchen']);
         $burger = PosProduct::query()->create([

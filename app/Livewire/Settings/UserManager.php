@@ -44,6 +44,15 @@ final class UserManager extends Component
 
     public string $password = '';
 
+    /** Account role: 'staff' (view-only ACL) or 'admin' (full access). */
+    public string $role = 'staff';
+
+    /**
+     * True while editing a super admin — their adminness is owned by the
+     * super-admin toggle, so the role selector is read-only for them.
+     */
+    public bool $roleLocked = false;
+
     /** @var list<string> Selected application module names (Read access). */
     public array $apps = [];
 
@@ -95,6 +104,7 @@ final class UserManager extends Component
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($userId)],
             // Password required when creating; optional (blank = keep) when editing.
             'password' => [$userId === null ? 'required' : 'nullable', 'string', 'min:8', 'max:255'],
+            'role' => ['required', Rule::in(['staff', 'admin'])],
             'apps' => ['array'],
             'apps.*' => ['string'],
             // At least one database when creating (Main is no longer implicit).
@@ -130,6 +140,8 @@ final class UserManager extends Component
         $this->name = (string) $user->name;
         $this->email = (string) $user->email;
         $this->password = '';
+        $this->role = $user->isAdmin() ? 'admin' : 'staff';
+        $this->roleLocked = $user->isSuperAdmin();
         $this->apps = $this->currentApps($user);
         $this->workspaces = [];
         $this->resetValidation();
@@ -137,7 +149,7 @@ final class UserManager extends Component
 
     public function cancelEdit(): void
     {
-        $this->reset(['editingId', 'name', 'email', 'password', 'apps', 'workspaces']);
+        $this->reset(['editingId', 'name', 'email', 'password', 'role', 'roleLocked', 'apps', 'workspaces']);
         $this->resetValidation();
     }
 
@@ -189,11 +201,12 @@ final class UserManager extends Component
             $this->password,
             array_values($this->apps),
             array_map('intval', array_values($this->workspaces)),
+            $this->role === 'admin',
         );
 
         app(\App\Erp\Activity\ActivityLogger::class)->log('user_created', $email, __('Created :name', ['name' => trim($this->name)]));
 
-        $this->reset(['name', 'email', 'password', 'apps', 'workspaces']);
+        $this->reset(['name', 'email', 'password', 'role', 'roleLocked', 'apps', 'workspaces']);
         session()->flash('user_saved', __('User created.'));
     }
 
@@ -214,15 +227,29 @@ final class UserManager extends Component
         if ($this->password !== '') {
             $user->password = Hash::make($this->password);
         }
+
+        // Role change — never for a super admin (owned by the super-admin
+        // toggle), and never demote yourself or the last admin out of admin.
+        if (! $user->isSuperAdmin()) {
+            $wantsAdmin = $this->role === 'admin';
+            $isSelf = $user->getKey() === Auth::id();
+            $isLastAdmin = $user->isAdmin() && User::query()->where('is_admin', true)->count() <= 1;
+            if (! $wantsAdmin && ($isSelf || $isLastAdmin)) {
+                $wantsAdmin = true;
+            }
+            $user->is_admin = $wantsAdmin;
+        }
+
         $user->save();
 
+        // Admins bypass the ACL — grants only matter (and are rebuilt) for staff.
         if (! $user->isAdmin()) {
             app(UserProvisioner::class)->grantApps($user, array_values($this->apps));
         }
 
         app(\App\Erp\Activity\ActivityLogger::class)->log('user_updated', (string) $user->email, __('Updated :name', ['name' => (string) $user->name]));
 
-        $this->reset(['editingId', 'name', 'email', 'password', 'apps', 'workspaces']);
+        $this->reset(['editingId', 'name', 'email', 'password', 'role', 'roleLocked', 'apps', 'workspaces']);
         session()->flash('user_saved', __('User updated.'));
     }
 

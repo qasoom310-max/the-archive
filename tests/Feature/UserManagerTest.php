@@ -234,6 +234,72 @@ final class UserManagerTest extends TestCase
         $this->assertSame(0, ModelAccess::query()->where('group_id', $groupId)->count());
     }
 
+    public function test_admin_can_create_a_full_admin_user(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        $this->installPos();
+
+        Livewire::test(UserManager::class)
+            ->set('name', 'New Admin')
+            ->set('email', 'newadmin@example.com')
+            ->set('password', 'secret12')
+            ->set('role', 'admin')
+            ->set('workspaces', [$this->mainId()])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $user = User::query()->where('email', 'newadmin@example.com')->firstOrFail();
+        $this->assertTrue($user->isAdmin());
+        $this->assertFalse($user->isSuperAdmin());
+
+        // An admin bypasses the ACL — no per-user access group is created.
+        $this->assertNull(Group::query()->where('code', 'user:' . $user->getKey())->first());
+    }
+
+    public function test_edit_can_promote_a_staff_user_to_admin(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+        $this->installPos();
+
+        Livewire::test(UserManager::class)
+            ->set('name', 'Promote Me')
+            ->set('email', 'promote@example.com')
+            ->set('password', 'secret12')
+            ->set('apps', ['pos'])
+            ->set('workspaces', [$this->mainId()])
+            ->call('save');
+
+        $user = User::query()->where('email', 'promote@example.com')->firstOrFail();
+        $this->assertFalse($user->isAdmin());
+
+        Livewire::test(UserManager::class)
+            ->call('editUser', $user->getKey())
+            ->assertSet('role', 'staff')
+            ->set('role', 'admin')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertTrue($user->fresh()?->isAdmin());
+    }
+
+    public function test_edit_never_changes_a_super_admins_role_via_the_selector(): void
+    {
+        $owner = User::factory()->create(['is_admin' => true, 'is_super_admin' => true]);
+        $target = User::factory()->create(['is_admin' => true, 'is_super_admin' => true]);
+        $this->actingAs($owner);
+
+        // The role selector is locked for a super admin — their adminness is
+        // owned by the super-admin toggle, so a staff selection is a no-op.
+        Livewire::test(UserManager::class)
+            ->call('editUser', $target->getKey())
+            ->assertSet('roleLocked', true)
+            ->set('role', 'staff')
+            ->call('save');
+
+        $this->assertTrue($target->fresh()?->isAdmin());
+        $this->assertTrue($target->fresh()?->isSuperAdmin());
+    }
+
     public function test_user_is_provisioned_only_into_the_selected_databases(): void
     {
         $admin = User::factory()->create(['is_admin' => true, 'email' => 'admin@kaleem.test']);

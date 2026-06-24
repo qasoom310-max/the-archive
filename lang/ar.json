@@ -323,6 +323,9 @@
     "Email updated. You can now sign in with :email.": "تم تحديث البريد الإلكتروني. يمكنك الآن تسجيل الدخول باستخدام :email.",
     "Modular ERP": "نظام تخطيط موارد المؤسسات (وحدات)",
     "Administrator": "مسؤول",
+    "Staff (view only)": "موظف (عرض فقط)",
+    "Administrators have full access to every app and setting.": "يمتلك المسؤولون صلاحية كاملة للوصول إلى كل تطبيق وإعداد.",
+    "This user is a super admin; manage their role from the super-admin controls.": "هذا المستخدم مسؤول أعلى؛ يمكنك إدارة دوره من عناصر تحكم المسؤول الأعلى.",
     "User": "مستخدم",
 
     "Settings": "الإعدادات",

@@ -49,29 +49,58 @@
             </div>
         </div>
 
-        {{-- App access --}}
+        {{-- Role --}}
         <div>
-            <label class="mb-2 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Apps this user can access') }}</label>
-            @if ($appModules->isEmpty())
-                <p class="text-sm text-chrome-400">{{ __('No apps installed yet.') }}</p>
-            @else
-                <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    @foreach ($appModules as $app)
-                        @php
-                            $moduleKey = 'module.' . $app->name;
-                            $label = __($moduleKey);
-                            if ($label === $moduleKey) { $label = $app->display_name; }
-                        @endphp
-                        <label wire:key="app-{{ $app->id }}"
-                            class="flex cursor-pointer items-center gap-2 rounded-lg border border-chrome-200 px-3 py-2 text-sm hover:bg-chrome-50">
-                            <input type="checkbox" wire:model="apps" value="{{ $app->name }}"
-                                class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
-                            <span class="text-chrome-700">{{ $label }}</span>
-                        </label>
-                    @endforeach
-                </div>
+            <label class="mb-2 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Role') }}</label>
+            <div class="grid gap-2 sm:max-w-md sm:grid-cols-2">
+                @foreach (['staff' => __('Staff (view only)'), 'admin' => __('Administrator')] as $value => $roleLabel)
+                    <label @class([
+                        'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm',
+                        'border-primary-500 bg-primary-50 text-chrome-800' => $role === $value,
+                        'border-chrome-200 text-chrome-700 hover:bg-chrome-50' => $role !== $value,
+                        'pointer-events-none opacity-60' => $roleLocked,
+                    ])>
+                        <input type="radio" wire:model.live="role" value="{{ $value }}" @disabled($roleLocked)
+                            class="border-chrome-300 text-primary-600 focus:ring-primary-500">
+                        <span>{{ $roleLabel }}</span>
+                    </label>
+                @endforeach
+            </div>
+            @if ($roleLocked)
+                <p class="mt-1 text-xs text-chrome-400">{{ __('This user is a super admin; manage their role from the super-admin controls.') }}</p>
             @endif
+            @error('role') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
         </div>
+
+        {{-- App access — only for staff; admins bypass the ACL entirely. --}}
+        @if ($role === 'staff')
+            <div>
+                <label class="mb-2 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Apps this user can access') }}</label>
+                @if ($appModules->isEmpty())
+                    <p class="text-sm text-chrome-400">{{ __('No apps installed yet.') }}</p>
+                @else
+                    <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        @foreach ($appModules as $app)
+                            @php
+                                $moduleKey = 'module.' . $app->name;
+                                $label = __($moduleKey);
+                                if ($label === $moduleKey) { $label = $app->display_name; }
+                            @endphp
+                            <label wire:key="app-{{ $app->id }}"
+                                class="flex cursor-pointer items-center gap-2 rounded-lg border border-chrome-200 px-3 py-2 text-sm hover:bg-chrome-50">
+                                <input type="checkbox" wire:model="apps" value="{{ $app->name }}"
+                                    class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
+                                <span class="text-chrome-700">{{ $label }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+        @else
+            <p class="rounded-lg bg-chrome-50 px-3 py-2 text-sm text-chrome-500 ring-1 ring-chrome-100">
+                {{ __('Administrators have full access to every app and setting.') }}
+            </p>
+        @endif
 
         {{-- Database access — only meaningful when creating (it seeds the
              account into each picked database). On edit the account already

@@ -40,6 +40,7 @@ final class UserProvisioner
      *
      * @param  list<string>  $appNames      installed application module names to grant Read on
      * @param  list<int>     $workspaceIds  workspace ids (Main + tenants) to create the account in
+     * @param  bool          $isAdmin       create as a full admin (bypasses ACL — app grants ignored)
      */
     public function provision(
         string $name,
@@ -47,12 +48,13 @@ final class UserProvisioner
         string $plainPassword,
         array $appNames,
         array $workspaceIds,
+        bool $isAdmin = false,
     ): ?User {
         $hashed = Hash::make($plainPassword);
 
         // No workspace feature on disk → just create on the current connection.
         if (! Schema::hasTable('workspaces')) {
-            return $this->upsertWithAccess($name, $email, $hashed, $appNames);
+            return $this->upsertWithAccess($name, $email, $hashed, $appNames, $isAdmin);
         }
 
         $mainUser = null;
@@ -65,7 +67,7 @@ final class UserProvisioner
 
             // Main = the current (default) connection.
             if ($workspace->is_main) {
-                $mainUser = $this->upsertWithAccess($name, $email, $hashed, $appNames);
+                $mainUser = $this->upsertWithAccess($name, $email, $hashed, $appNames, $isAdmin);
 
                 continue;
             }
@@ -79,7 +81,7 @@ final class UserProvisioner
 
             $this->workspaces->withTenant(
                 $path,
-                fn (): User => $this->upsertWithAccess($name, $email, $hashed, $appNames),
+                fn (): User => $this->upsertWithAccess($name, $email, $hashed, $appNames, $isAdmin),
             );
         }
 
@@ -88,19 +90,22 @@ final class UserProvisioner
 
     /**
      * Create/update the user, then (re)grant the apps — all on the CURRENT
-     * default connection.
+     * default connection. An admin bypasses the ACL entirely, so no per-user
+     * group / Read rules are created for one.
      *
      * @param  list<string>  $appNames
      */
-    private function upsertWithAccess(string $name, string $email, string $hashedPassword, array $appNames): User
+    private function upsertWithAccess(string $name, string $email, string $hashedPassword, array $appNames, bool $isAdmin = false): User
     {
-        return DB::transaction(function () use ($name, $email, $hashedPassword, $appNames): User {
+        return DB::transaction(function () use ($name, $email, $hashedPassword, $appNames, $isAdmin): User {
             $user = User::query()->updateOrCreate(
                 ['email' => $email],
-                ['name' => $name, 'is_admin' => false, 'password' => $hashedPassword],
+                ['name' => $name, 'is_admin' => $isAdmin, 'password' => $hashedPassword],
             );
 
-            $this->grantApps($user, $appNames);
+            if (! $isAdmin) {
+                $this->grantApps($user, $appNames);
+            }
 
             return $user;
         });

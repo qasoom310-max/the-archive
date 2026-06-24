@@ -33,7 +33,9 @@
 
             {{-- Kitchen Display deep-links. The same component drives both
                  screens — the URL `station` segment parameterises whether
-                 it shows food or shisha tickets. Each device pins one. --}}
+                 it shows food or shisha tickets. Each device pins one.
+                 Dine-in only: hidden in retail / crafting databases. --}}
+            @if ($showStations)
             <div class="mt-5 grid grid-cols-2 gap-2">
                 <a href="{{ url('/app/pos/kitchen/kitchen') }}" wire:navigate
                     class="flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-3 py-3 text-sm font-semibold text-white shadow-sm hover:bg-amber-700">
@@ -60,6 +62,7 @@
                     {{ __('Shisha') }}
                 </a>
             </div>
+            @endif
         </div>
 
         <div class="lg:col-span-2">

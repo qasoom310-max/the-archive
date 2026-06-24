@@ -50,10 +50,12 @@ enum BusinessType: string
     {
         return match ($this) {
             // A café sells made-to-order items: full POS with recipes that
-            // consume stock, plus purchasing and inventory behind them.
+            // consume stock, plus purchasing and inventory behind them — and
+            // dine-in service (tables, floors, kitchen & shisha screens).
             self::Cafe => [
                 Feature::Pos, Feature::Recipes, Feature::Inventory,
                 Feature::Purchases, Feature::Hr, Feature::Accounting,
+                Feature::Restaurant,
             ],
             // A shop sells finished goods — same POS/stock chain, but no
             // recipes (nothing is assembled from components on sale).

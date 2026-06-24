@@ -21,6 +21,7 @@ enum Feature: string
     case Bookings = 'bookings';
     case Limousine = 'limousine';
     case Projects = 'projects';
+    case Restaurant = 'restaurant';
 
     public function label(): string
     {
@@ -34,6 +35,7 @@ enum Feature: string
             self::Bookings => 'Bookings & rentals',
             self::Limousine => 'Limousine',
             self::Projects => 'Projects',
+            self::Restaurant => 'Dine-in (tables, kitchen, shisha)',
         };
     }
 }

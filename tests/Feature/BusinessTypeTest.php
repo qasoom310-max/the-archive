@@ -61,6 +61,29 @@ final class BusinessTypeTest extends TestCase
         $this->assertTrue(Features::moduleAllowed('limousine'));
     }
 
+    public function test_dine_in_features_are_cafe_only(): void
+    {
+        // Floors, tables and the kitchen/shisha screens are restaurant service —
+        // a café has them; a retail shop and a perfume-crafting shop do not.
+        $this->seed(SettingSeeder::class);
+
+        Setting::set('company.business_type', 'cafe');
+        $this->assertTrue(Features::enabled(Feature::Restaurant));
+        $this->assertTrue(Features::modelAllowed('pos.floor'));
+        $this->assertTrue(Features::modelAllowed('pos.table'));
+
+        foreach (['retail', 'retail_craft'] as $type) {
+            app(SettingManager::class)->flush();
+            Setting::set('company.business_type', $type);
+
+            $this->assertFalse(Features::enabled(Feature::Restaurant), $type);
+            $this->assertFalse(Features::modelAllowed('pos.floor'), $type);
+            $this->assertFalse(Features::modelAllowed('pos.table'), $type);
+            // The register itself still works in retail/crafting.
+            $this->assertTrue(Features::moduleAllowed('pos'), $type);
+        }
+    }
+
     public function test_unconfigured_database_enables_everything(): void
     {
         // Legacy / freshly-seeded install: business_type is empty. Nothing

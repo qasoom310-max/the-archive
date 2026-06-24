@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Pos\Livewire;
 
+use App\Erp\Business\Feature;
+use App\Erp\Business\Features;
 use App\Erp\Navigation\ModuleMenu;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
@@ -80,6 +82,9 @@ final class PosHome extends Component
                 ->latest('closed_at')->limit(10)->get(),
             'isManager' => $user instanceof User && $user->isAdmin(),
             'tiles' => $tiles,
+            // Dine-in only: the Kitchen / Shisha screens make no sense for a
+            // retail or crafting shop, so hide them outside Restaurant databases.
+            'showStations' => Features::enabled(Feature::Restaurant),
         ]);
     }
 }

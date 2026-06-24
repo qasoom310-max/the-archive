@@ -8,6 +8,8 @@ use App\Erp\Enums\ModuleState;
 use App\Erp\Modules\ModuleManager;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
+use App\Erp\Settings\Setting;
+use App\Erp\Settings\SettingManager;
 use App\Models\Ir\IrModel;
 use App\Models\Ir\IrModule;
 use App\Models\Ir\IrUiView;
@@ -84,6 +86,22 @@ final class PosModuleTest extends TestCase
         $this->assertTrue(
             IrUiView::query()->where('model', 'pos.order')->where('type', 'kanban')->exists(),
         );
+    }
+
+    public function test_pos_home_hides_kitchen_and_shisha_in_retail(): void
+    {
+        $this->installPos();
+
+        // Unconfigured / café database → dine-in stations shown.
+        Livewire::test(PosHome::class)->assertViewHas('showStations', true)->assertSee('Kitchen');
+
+        // Retail database → kitchen & shisha hidden.
+        Setting::set('company.business_type', 'retail');
+        app(SettingManager::class)->flush();
+
+        Livewire::test(PosHome::class)
+            ->assertViewHas('showStations', false)
+            ->assertDontSee('Shisha');
     }
 
     public function test_payment_methods_are_ordered_benefit_card_cash(): void

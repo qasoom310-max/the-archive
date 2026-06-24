@@ -50,6 +50,10 @@ final class Features
         // visible in Café, Retail and Retail+Crafting, hidden everywhere with
         // no stock (Rental / Limousine / Services).
         'pos.damage' => Feature::Inventory,
+        // Floors & tables are dine-in only — a retail / crafting shop has no
+        // table service, so they follow the Restaurant feature (Café only).
+        'pos.floor' => Feature::Restaurant,
+        'pos.table' => Feature::Restaurant,
     ];
 
     /**

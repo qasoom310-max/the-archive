@@ -90,6 +90,30 @@ final class OrderForm extends Component
 
     public ?string $existingLicenseImage = null;
 
+    // ── Handover (Start) capture modal ───────────────────────────────────
+    public bool $showHandover = false;
+
+    public string $handover_km = '';
+
+    public string $handover_fuel = 'full';
+
+    public string $handover_notes = '';
+
+    public string $handover_video_url = '';
+
+    // ── Return (Close) capture modal ─────────────────────────────────────
+    public bool $showReturn = false;
+
+    public string $return_km = '';
+
+    public string $return_fuel = 'full';
+
+    public bool $has_damage = false;
+
+    public string $damage_notes = '';
+
+    public string $damage_video_url = '';
+
     /** Inline "New customer" modal (shared transport customer). */
     public bool $addingCustomer = false;
 
@@ -384,18 +408,111 @@ final class OrderForm extends Component
         return $value === '' ? null : $value;
     }
 
-    public function startRental(): void
+    /** Fuel-gauge values, for the `in:` validation rule. */
+    private function fuelValues(): string
     {
-        $this->withOrder(function (RentalOrder $o): void {
-            $o->startRental();
-        });
+        return implode(',', array_column(RentalOrder::fuelLevelOptions(), 'value'));
     }
 
+    /** Start rental → open the handover capture modal (pre-fill the KM). */
+    public function startRental(): void
+    {
+        if ($this->id === null) {
+            return;
+        }
+
+        $this->handover_km = $this->pickup_mileage;
+        if ($this->handover_km === '' && $this->vehicle_id !== null) {
+            $odo = Vehicle::query()->where('id', $this->vehicle_id)->value('odometer');
+            $this->handover_km = $odo !== null ? (string) $odo : '';
+        }
+        $this->handover_fuel = 'full';
+        $this->handover_notes = '';
+        $this->handover_video_url = '';
+        $this->resetValidation();
+        $this->showHandover = true;
+    }
+
+    public function closeHandover(): void
+    {
+        $this->showHandover = false;
+    }
+
+    /** Record the handover details, then hand the car over (draft → active). */
+    public function confirmHandover(): void
+    {
+        if ($this->id === null) {
+            return;
+        }
+
+        $this->validate([
+            'handover_km' => ['nullable', 'integer', 'min:0'],
+            'handover_fuel' => ['required', 'in:' . $this->fuelValues()],
+            'handover_notes' => ['nullable', 'string', 'max:1000'],
+            'handover_video_url' => ['nullable', 'url', 'max:500'],
+        ]);
+
+        $this->withOrder(function (RentalOrder $o): void {
+            $o->handover_km = $this->handover_km !== '' ? (int) $this->handover_km : null;
+            $o->handover_fuel = $this->handover_fuel;
+            $o->handover_notes = $this->trimOrNull($this->handover_notes);
+            $o->handover_video_url = $this->trimOrNull($this->handover_video_url);
+            $o->startRental();
+        });
+
+        $this->showHandover = false;
+        session()->flash('toast', __('Car handed over.'));
+    }
+
+    /** Close rental → open the return capture modal (pre-fill the KM). */
     public function closeRental(): void
     {
+        if ($this->id === null) {
+            return;
+        }
+
+        $order = RentalOrder::query()->find($this->id);
+        $lastKm = $order?->handover_km;
+        $this->return_km = $lastKm !== null ? (string) $lastKm : $this->pickup_mileage;
+        $this->return_fuel = 'full';
+        $this->has_damage = false;
+        $this->damage_notes = '';
+        $this->damage_video_url = '';
+        $this->resetValidation();
+        $this->showReturn = true;
+    }
+
+    public function closeReturn(): void
+    {
+        $this->showReturn = false;
+    }
+
+    /** Record the return details, then receive the car back (active → closed). */
+    public function confirmReturn(): void
+    {
+        if ($this->id === null) {
+            return;
+        }
+
+        $this->validate([
+            'return_km' => ['nullable', 'integer', 'min:0'],
+            'return_fuel' => ['required', 'in:' . $this->fuelValues()],
+            'has_damage' => ['boolean'],
+            'damage_notes' => $this->has_damage ? ['required', 'string', 'max:1000'] : ['nullable', 'string', 'max:1000'],
+            'damage_video_url' => ['nullable', 'url', 'max:500'],
+        ]);
+
         $this->withOrder(function (RentalOrder $o): void {
+            $o->return_km = $this->return_km !== '' ? (int) $this->return_km : null;
+            $o->return_fuel = $this->return_fuel;
+            $o->has_damage = $this->has_damage;
+            $o->damage_notes = $this->has_damage ? $this->trimOrNull($this->damage_notes) : null;
+            $o->damage_video_url = $this->has_damage ? $this->trimOrNull($this->damage_video_url) : null;
             $o->closeRental();
         });
+
+        $this->showReturn = false;
+        session()->flash('toast', __('Car returned.'));
     }
 
     public function cancelOrder(): void
@@ -490,6 +607,9 @@ final class OrderForm extends Component
             'branches' => Branch::query()->where('active', true)->orderBy('name')->get(['id', 'name']),
             'selectedVehicle' => $selectedVehicle,
             'paymentTypes' => RentalOrder::paymentTypeOptions(),
+            'fuelLevels' => RentalOrder::fuelLevelOptions(),
+            // The persisted order, for the read-only handover / return summary.
+            'savedOrder' => $this->id !== null ? RentalOrder::query()->find($this->id) : null,
             'canBackdate' => $this->canBackdate(),
             'previewDays' => $preview->days,
             'previewUnits' => $preview->billableUnits(),

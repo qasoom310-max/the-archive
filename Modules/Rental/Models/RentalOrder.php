@@ -51,6 +51,17 @@ use Illuminate\Support\Carbon;
  * @property string|null $notes
  * @property string|null $cpr_image_path
  * @property string|null $license_image_path
+ * @property int|null $handover_km
+ * @property string|null $handover_fuel
+ * @property string|null $handover_notes
+ * @property string|null $handover_video_url
+ * @property Carbon|null $started_at
+ * @property int|null $return_km
+ * @property string|null $return_fuel
+ * @property bool $has_damage
+ * @property string|null $damage_notes
+ * @property string|null $damage_video_url
+ * @property Carbon|null $returned_at
  * @property-read RentalCustomer|null $customer
  * @property-read Vehicle|null $vehicle
  * @property-read Driver|null $driver
@@ -86,6 +97,8 @@ final class RentalOrder extends Model implements DefinesIrModel
         'discount', 'vat_rate', 'vat_amount', 'delivery', 'delivery_location', 'delivery_charges', 'deposit', 'total',
         'advance_amount', 'balance', 'payment_type', 'state', 'payment_status', 'notes',
         'cpr_image_path', 'license_image_path',
+        'handover_km', 'handover_fuel', 'handover_notes', 'handover_video_url', 'started_at',
+        'return_km', 'return_fuel', 'has_damage', 'damage_notes', 'damage_video_url', 'returned_at',
     ];
 
     /** @var array<string, mixed> */
@@ -133,6 +146,11 @@ final class RentalOrder extends Model implements DefinesIrModel
             'total' => 'float',
             'advance_amount' => 'float',
             'balance' => 'float',
+            'handover_km' => 'integer',
+            'started_at' => 'datetime',
+            'return_km' => 'integer',
+            'has_damage' => 'boolean',
+            'returned_at' => 'datetime',
         ];
     }
 
@@ -236,6 +254,34 @@ final class RentalOrder extends Model implements DefinesIrModel
         ];
     }
 
+    /**
+     * Fuel-gauge levels recorded at handover / return.
+     *
+     * @return list<array{value: string, label: string}>
+     */
+    public static function fuelLevelOptions(): array
+    {
+        return [
+            ['value' => 'empty', 'label' => 'Empty'],
+            ['value' => 'quarter', 'label' => '¼'],
+            ['value' => 'half', 'label' => '½'],
+            ['value' => 'three_quarter', 'label' => '¾'],
+            ['value' => 'full', 'label' => 'Full'],
+        ];
+    }
+
+    /** Human fuel-gauge label for a stored value (— when unset). */
+    public static function fuelLabel(?string $value): string
+    {
+        foreach (self::fuelLevelOptions() as $option) {
+            if ($option['value'] === $value) {
+                return $option['label'];
+            }
+        }
+
+        return '—';
+    }
+
     /** Hand the vehicle over: draft → active, vehicle becomes rented. */
     public function startRental(): void
     {
@@ -243,9 +289,17 @@ final class RentalOrder extends Model implements DefinesIrModel
             return;
         }
 
+        $this->started_at = Carbon::now();
         $this->state = self::STATE_ACTIVE;
         $this->save();
-        $this->vehicle?->update(['status' => Vehicle::STATUS_RENTED]);
+
+        // Vehicle is now out; push the handover KM onto its odometer so the
+        // fleet's reading stays current.
+        $attrs = ['status' => Vehicle::STATUS_RENTED];
+        if ($this->handover_km !== null) {
+            $attrs['odometer'] = $this->handover_km;
+        }
+        $this->vehicle?->update($attrs);
     }
 
     /** Receive the vehicle back: active → closed, vehicle becomes available. */
@@ -255,9 +309,17 @@ final class RentalOrder extends Model implements DefinesIrModel
             return;
         }
 
+        $this->returned_at = Carbon::now();
         $this->state = self::STATE_CLOSED;
         $this->save();
-        $this->vehicle?->update(['status' => Vehicle::STATUS_AVAILABLE]);
+
+        // Update the odometer from the return reading — keeps maintenance
+        // scheduling (next-service KM) accurate.
+        $attrs = ['status' => Vehicle::STATUS_AVAILABLE];
+        if ($this->return_km !== null) {
+            $attrs['odometer'] = $this->return_km;
+        }
+        $this->vehicle?->update($attrs);
     }
 
     /** States that hold a vehicle (block another booking for the same dates). */

@@ -49,6 +49,36 @@
         </div>
     @endif
 
+    {{-- Handover / Return inspection summary (saved orders) --}}
+    @php use Modules\Rental\Models\RentalOrder; @endphp
+    @if ($savedOrder && ($savedOrder->started_at || $savedOrder->returned_at))
+        <div class="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            @if ($savedOrder->started_at)
+                <div class="rounded-xl bg-white p-4 text-sm shadow-sm ring-1 ring-chrome-900/5">
+                    <h3 class="mb-2 font-semibold text-chrome-800">{{ __('Handover') }} <span class="text-xs font-normal text-chrome-400">{{ $savedOrder->started_at->format('Y-m-d H:i') }}</span></h3>
+                    <dl class="space-y-1 text-chrome-600">
+                        <div class="flex justify-between"><dt>{{ __('KM') }}</dt><dd class="font-medium text-chrome-800">{{ $savedOrder->handover_km !== null ? number_format((float) $savedOrder->handover_km) : '—' }}</dd></div>
+                        <div class="flex justify-between"><dt>{{ __('Fuel') }}</dt><dd class="font-medium text-chrome-800">{{ RentalOrder::fuelLabel($savedOrder->handover_fuel) }}</dd></div>
+                        @if ($savedOrder->handover_notes)<div><dt class="text-chrome-400">{{ __('Condition') }}</dt><dd class="text-chrome-700">{{ $savedOrder->handover_notes }}</dd></div>@endif
+                        @if ($savedOrder->handover_video_url)<a href="{{ $savedOrder->handover_video_url }}" target="_blank" rel="noopener" class="inline-block text-primary-700 hover:underline">{{ __('View video') }} ↗</a>@endif
+                    </dl>
+                </div>
+            @endif
+            @if ($savedOrder->returned_at)
+                <div class="rounded-xl bg-white p-4 text-sm shadow-sm ring-1 ring-chrome-900/5">
+                    <h3 class="mb-2 font-semibold text-chrome-800">{{ __('Return') }} <span class="text-xs font-normal text-chrome-400">{{ $savedOrder->returned_at->format('Y-m-d H:i') }}</span></h3>
+                    <dl class="space-y-1 text-chrome-600">
+                        <div class="flex justify-between"><dt>{{ __('KM') }}</dt><dd class="font-medium text-chrome-800">{{ $savedOrder->return_km !== null ? number_format((float) $savedOrder->return_km) : '—' }}</dd></div>
+                        <div class="flex justify-between"><dt>{{ __('Fuel') }}</dt><dd class="font-medium text-chrome-800">{{ RentalOrder::fuelLabel($savedOrder->return_fuel) }}</dd></div>
+                        <div class="flex justify-between"><dt>{{ __('Damage') }}</dt><dd class="font-medium {{ $savedOrder->has_damage ? 'text-red-600' : 'text-emerald-600' }}">{{ $savedOrder->has_damage ? __('Yes') : __('No') }}</dd></div>
+                        @if ($savedOrder->damage_notes)<div><dt class="text-chrome-400">{{ __('Damage notes') }}</dt><dd class="text-chrome-700">{{ $savedOrder->damage_notes }}</dd></div>@endif
+                        @if ($savedOrder->damage_video_url)<a href="{{ $savedOrder->damage_video_url }}" target="_blank" rel="noopener" class="inline-block text-primary-700 hover:underline">{{ __('View damage video') }} ↗</a>@endif
+                    </dl>
+                </div>
+            @endif
+        </div>
+    @endif
+
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {{-- Form --}}
         <div class="space-y-4 lg:col-span-2">
@@ -292,4 +322,94 @@
     </div>
 
     @include('rental::partials.customer-modal')
+
+    {{-- Handover modal --}}
+    @if ($showHandover)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4" x-data x-on:keydown.escape.window="$wire.closeHandover()">
+            <div class="absolute inset-0 bg-chrome-900/40" wire:click="closeHandover"></div>
+            <div class="relative w-full max-w-md rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5">
+                <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Hand over the car') }}</h3>
+                <p class="mb-3 text-xs text-chrome-500">{{ __('Record the car’s condition before giving it to the customer.') }}</p>
+                <form wire:submit.prevent="confirmHandover" class="space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('KM') }}</label>
+                            <input type="number" min="0" wire:model="handover_km" class="o-input w-full">
+                            @error('handover_km') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Fuel') }}</label>
+                            <select wire:model="handover_fuel" class="o-input w-full">
+                                @foreach ($fuelLevels as $f)<option value="{{ $f['value'] }}">{{ __($f['label']) }}</option>@endforeach
+                            </select>
+                            @error('handover_fuel') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Condition / problems') }}</label>
+                        <textarea wire:model="handover_notes" rows="2" class="o-input w-full" placeholder="{{ __('e.g. check-engine light, scratch on bumper…') }}"></textarea>
+                        @error('handover_notes') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Video link') }}</label>
+                        <input type="url" wire:model="handover_video_url" class="o-input w-full" placeholder="https://…">
+                        <p class="mt-1 text-xs text-chrome-400">{{ __('Paste a cloud link (Drive, Photos, Dropbox…). The video isn’t stored on the server.') }}</p>
+                        @error('handover_video_url') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="flex justify-end gap-2 pt-1">
+                        <button type="button" wire:click="closeHandover" class="text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</button>
+                        <button type="submit" class="o-btn-primary">{{ __('Confirm & start') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
+
+    {{-- Return modal --}}
+    @if ($showReturn)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4" x-data x-on:keydown.escape.window="$wire.closeReturn()">
+            <div class="absolute inset-0 bg-chrome-900/40" wire:click="closeReturn"></div>
+            <div class="relative w-full max-w-md rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5">
+                <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Return the car') }}</h3>
+                <p class="mb-3 text-xs text-chrome-500">{{ __('Record the car’s condition on return. The KM updates the vehicle.') }}</p>
+                <form wire:submit.prevent="confirmReturn" class="space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Return KM') }}</label>
+                            <input type="number" min="0" wire:model="return_km" class="o-input w-full">
+                            @error('return_km') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Fuel') }}</label>
+                            <select wire:model="return_fuel" class="o-input w-full">
+                                @foreach ($fuelLevels as $f)<option value="{{ $f['value'] }}">{{ __($f['label']) }}</option>@endforeach
+                            </select>
+                            @error('return_fuel') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+                    <label class="inline-flex items-center gap-2 text-sm text-chrome-700">
+                        <input type="checkbox" wire:model.live="has_damage" class="rounded border-chrome-300 text-primary-600">
+                        {{ __('Customer caused damage') }}
+                    </label>
+                    @if ($has_damage)
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Damage notes') }} <span class="text-red-500">*</span></label>
+                            <textarea wire:model="damage_notes" rows="2" class="o-input w-full" placeholder="{{ __('What was damaged…') }}"></textarea>
+                            @error('damage_notes') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Damage video link') }}</label>
+                            <input type="url" wire:model="damage_video_url" class="o-input w-full" placeholder="https://…">
+                            <p class="mt-1 text-xs text-chrome-400">{{ __('Optional — a cloud link to the damage clip.') }}</p>
+                            @error('damage_video_url') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    @endif
+                    <div class="flex justify-end gap-2 pt-1">
+                        <button type="button" wire:click="closeReturn" class="text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</button>
+                        <button type="submit" class="o-btn-primary">{{ __('Confirm & return') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
 </div>

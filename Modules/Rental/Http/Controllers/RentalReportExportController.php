@@ -23,7 +23,7 @@ final class RentalReportExportController
         $to = is_string($to) && $to !== '' ? $to : now()->endOfMonth()->format('Y-m-d');
 
         $orders = RentalOrder::query()
-            ->with(['customer:id,name', 'vehicle:id,name'])
+            ->with(['customer:id,name', 'vehicle:id,name,plate_no,color'])
             ->whereBetween('start_date', [$from, $to])
             ->orderBy('start_date')
             ->get();

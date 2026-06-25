@@ -33,7 +33,7 @@ final class Replacements extends Component
     public function render(): View
     {
         $query = RentalReplacement::query()
-            ->with(['customer:id,name', 'originalVehicle:id,name', 'replacementVehicle:id,name'])
+            ->with(['customer:id,name', 'originalVehicle:id,name,plate_no,color', 'replacementVehicle:id,name,plate_no,color'])
             ->orderByDesc('id');
 
         if (in_array($this->tab, [RentalReplacement::STATUS_ACTIVE, RentalReplacement::STATUS_CLOSED], true)) {

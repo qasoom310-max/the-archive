@@ -33,7 +33,7 @@ final class Quotations extends Component
     public function render(): View
     {
         $query = RentalQuotation::query()
-            ->with(['customer:id,name', 'vehicle:id,name'])
+            ->with(['customer:id,name', 'vehicle:id,name,plate_no,color'])
             ->orderByDesc('id');
 
         if (in_array($this->tab, [

@@ -80,7 +80,7 @@ final class Reports extends Component
             $data['summary'] = $this->summaryData();
         } elseif ($this->tab === 'orders') {
             $data['orders'] = RentalOrder::query()
-                ->with(['customer:id,name', 'vehicle:id,name'])
+                ->with(['customer:id,name', 'vehicle:id,name,plate_no,color'])
                 ->whereBetween('start_date', [$this->from, $this->to])
                 ->orderBy('start_date')
                 ->get();

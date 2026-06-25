@@ -75,7 +75,17 @@
                         onclick="window.location='{{ url('/app/rental/order/' . $order->id) }}'">
                         <td class="px-4 py-2 font-medium text-chrome-800">{{ $order->reference }}</td>
                         <td class="px-4 py-2 text-chrome-700">{{ $order->customer?->name ?? '—' }}</td>
-                        <td class="px-4 py-2 text-chrome-700">{{ $order->vehicle?->displayName() ?? '—' }}</td>
+                        <td class="px-4 py-2">
+                            @if ($order->vehicle)
+                                @php $sub = array_filter([$order->vehicle->plate_no, $order->vehicle->color], fn (?string $p) => $p !== null && $p !== ''); @endphp
+                                <div class="font-medium text-chrome-800">{{ $order->vehicle->name }}</div>
+                                @if ($sub)
+                                    <div class="text-xs text-chrome-500">{{ implode(' · ', $sub) }}</div>
+                                @endif
+                            @else
+                                <span class="text-chrome-400">—</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-2 text-chrome-600">{{ $order->start_date?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2 text-chrome-600">{{ $order->end_date?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($order->total) }}</td>

@@ -33,7 +33,7 @@ final class MaintenanceRecords extends Component
     public function render(): View
     {
         $query = RentalMaintenance::query()
-            ->with('vehicle:id,name')
+            ->with('vehicle:id,name,plate_no,color')
             ->orderByDesc('id');
 
         if (in_array($this->tab, [

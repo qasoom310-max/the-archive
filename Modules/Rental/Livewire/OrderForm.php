@@ -65,7 +65,8 @@ final class OrderForm extends Component
 
     public string $vat_rate = '10';
 
-    public string $delivery_charges = '0';
+    /** Delivery option — a fixed flat fee (RentalOrder::DELIVERY_FEE) when on. */
+    public bool $delivery = false;
 
     public string $advance_amount = '0';
 
@@ -119,7 +120,7 @@ final class OrderForm extends Component
                 $this->rate = (string) $order->rate;
                 $this->discount = (string) $order->discount;
                 $this->vat_rate = (string) $order->vat_rate;
-                $this->delivery_charges = (string) $order->delivery_charges;
+                $this->delivery = $order->delivery;
                 $this->advance_amount = (string) $order->advance_amount;
                 $this->deposit = (string) $order->deposit;
                 $this->payment_type = $order->payment_type ?? 'cash';
@@ -162,7 +163,7 @@ final class OrderForm extends Component
             'rate' => ['required', 'numeric', 'min:0'],
             'discount' => ['nullable', 'numeric', 'min:0'],
             'vat_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'delivery_charges' => ['nullable', 'numeric', 'min:0'],
+            'delivery' => ['boolean'],
             'advance_amount' => ['nullable', 'numeric', 'min:0'],
             'deposit' => ['nullable', 'numeric', 'min:0'],
             'payment_type' => ['nullable', 'string'],
@@ -242,7 +243,7 @@ final class OrderForm extends Component
         $order->rate = (float) $this->rate;
         $order->discount = $this->toFloat($this->discount);
         $order->vat_rate = $this->vat_rate === '' ? RentalOrder::DEFAULT_VAT_RATE : (float) $this->vat_rate;
-        $order->delivery_charges = $this->toFloat($this->delivery_charges);
+        $order->delivery = $this->delivery;
         $order->advance_amount = $this->toFloat($this->advance_amount);
         $order->deposit = $this->toFloat($this->deposit);
         $order->payment_type = $this->trimOrNull($this->payment_type);
@@ -400,7 +401,7 @@ final class OrderForm extends Component
         $order->rate = $this->toFloat($this->rate);
         $order->discount = $this->toFloat($this->discount);
         $order->vat_rate = $this->vat_rate === '' ? RentalOrder::DEFAULT_VAT_RATE : (float) $this->vat_rate;
-        $order->delivery_charges = $this->toFloat($this->delivery_charges);
+        $order->delivery = $this->delivery;
         $order->advance_amount = $this->toFloat($this->advance_amount);
         $order->recalcTotals();
 
@@ -426,6 +427,7 @@ final class OrderForm extends Component
             'previewUnits' => $preview->billableUnits(),
             'previewSubtotal' => $preview->subtotal,
             'previewVat' => $preview->vat_amount,
+            'previewDelivery' => $preview->delivery_charges,
             'previewTotal' => $preview->total,
             'previewBalance' => $preview->balance,
             'isEditing' => $this->id !== null,

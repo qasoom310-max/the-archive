@@ -42,15 +42,16 @@ final class RentalOrderContractTest extends TestCase
         $order->rate = 10;          // 5 days × 10 = 50 amount
         $order->discount = 5;        // taxable 45
         $order->vat_rate = 10;       // VAT 4.5
-        $order->delivery_charges = 2;
+        $order->delivery = true;     // flat delivery fee 3
         $order->advance_amount = 20;
         $order->recalcTotals();
 
         $this->assertSame(5, $order->days);
         $this->assertSame(50.0, $order->subtotal);
         $this->assertSame(4.5, $order->vat_amount);     // (50 − 5) × 10%
-        $this->assertSame(51.5, $order->total);          // 45 + 4.5 + 2
-        $this->assertSame(31.5, $order->balance);        // 51.5 − 20
+        $this->assertSame(3.0, $order->delivery_charges); // fixed fee, derived from the flag
+        $this->assertSame(52.5, $order->total);          // 45 + 4.5 + 3
+        $this->assertSame(32.5, $order->balance);        // 52.5 − 20
     }
 
     public function test_saving_an_order_persists_the_contract_fields(): void
@@ -66,7 +67,7 @@ final class RentalOrderContractTest extends TestCase
             ->set('additional_driver', 'Sami')
             ->set('additional_driver_license', 'DL-77')
             ->set('hired_time', '14:30')
-            ->set('delivery_charges', '3')
+            ->set('delivery', true)
             ->set('advance_amount', '20')
             ->set('payment_type', 'benefitpay')
             ->call('save')
@@ -77,7 +78,8 @@ final class RentalOrderContractTest extends TestCase
         $this->assertSame('DL-77', $order->additional_driver_license);
         $this->assertSame('14:30', $order->hired_time);
         $this->assertSame('benefitpay', $order->payment_type);
-        $this->assertSame(3.0, $order->delivery_charges);
+        $this->assertTrue($order->delivery);
+        $this->assertSame(3.0, $order->delivery_charges); // fixed flat fee
         $this->assertSame(20.0, $order->advance_amount);
         // VAT auto-applied at 10%, balance computed.
         $this->assertSame(10.0, $order->vat_rate);

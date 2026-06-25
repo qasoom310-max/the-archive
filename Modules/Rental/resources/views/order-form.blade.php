@@ -110,13 +110,12 @@
                         </select>
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Driver') }}</label>
-                        <select wire:model="driver_id" class="o-input w-full">
-                            <option value="">{{ __('No driver') }}</option>
-                            @foreach ($drivers as $d)
-                                <option value="{{ $d->id }}">{{ $d->name }}</option>
-                            @endforeach
-                        </select>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Delivery') }}</label>
+                        <label class="mt-2 inline-flex items-center gap-2 text-sm text-chrome-700">
+                            <input type="checkbox" wire:model.live="delivery" class="rounded border-chrome-300 text-primary-600">
+                            {{ __('Deliver the car') }}
+                            <span class="text-chrome-400">(+ {{ \App\Erp\Views\ValueFormat::money(\Modules\Rental\Models\RentalOrder::DELIVERY_FEE) }})</span>
+                        </label>
                     </div>
 
                     {{-- Vehicle + mileage --}}
@@ -206,10 +205,6 @@
                         <input type="number" step="0.001" min="0" wire:model.live="discount" class="o-input w-full">
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Delivery charges (BHD)') }}</label>
-                        <input type="number" step="0.001" min="0" wire:model.live="delivery_charges" class="o-input w-full">
-                    </div>
-                    <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Advance amount (BHD)') }}</label>
                         <input type="number" step="0.001" min="0" wire:model.live="advance_amount" class="o-input w-full">
                     </div>
@@ -276,7 +271,7 @@
                     <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Amount') }}</dt><dd class="font-medium text-chrome-800">{{ ValueFormat::money($previewSubtotal) }}</dd></div>
                     <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Discount') }}</dt><dd class="text-chrome-600">− {{ ValueFormat::money((float) ($discount === '' ? '0' : $discount)) }}</dd></div>
                     <div class="flex justify-between"><dt class="text-chrome-500">{{ __('VAT') }}</dt><dd class="text-chrome-600">+ {{ ValueFormat::money($previewVat) }}</dd></div>
-                    <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Delivery charges') }}</dt><dd class="text-chrome-600">+ {{ ValueFormat::money((float) ($delivery_charges === '' ? '0' : $delivery_charges)) }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Delivery charges') }}</dt><dd class="text-chrome-600">+ {{ ValueFormat::money($previewDelivery) }}</dd></div>
                     <div class="border-t border-chrome-100 pt-2 flex justify-between text-base"><dt class="font-semibold text-chrome-700">{{ __('Net total') }}</dt><dd class="font-bold text-chrome-900">{{ ValueFormat::money($previewTotal) }}</dd></div>
                     <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Advance') }}</dt><dd class="text-chrome-600">− {{ ValueFormat::money((float) ($advance_amount === '' ? '0' : $advance_amount)) }}</dd></div>
                     <div class="flex justify-between text-base"><dt class="font-semibold text-chrome-700">{{ __('Balance') }}</dt><dd class="font-bold text-primary-700">{{ ValueFormat::money($previewBalance) }}</dd></div>

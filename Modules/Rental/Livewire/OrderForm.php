@@ -129,6 +129,9 @@ final class OrderForm extends Component
 
     public string $damage_video_url = '';
 
+    /** Mandatory video of the car's condition on return. */
+    public string $return_video_url = '';
+
     /** Deposit settlement modal (accountant / super-admin only). */
     public bool $showDeposit = false;
 
@@ -517,6 +520,7 @@ final class OrderForm extends Component
         $this->has_damage = false;
         $this->damage_notes = '';
         $this->damage_video_url = '';
+        $this->return_video_url = $order->return_video_url ?? '';
         $this->resetValidation();
         $this->showReturn = true;
     }
@@ -550,8 +554,10 @@ final class OrderForm extends Component
             'has_damage' => ['boolean'],
             'damage_notes' => $this->has_damage ? ['required', 'string', 'max:1000'] : ['nullable', 'string', 'max:1000'],
             'damage_video_url' => ['nullable', 'url', 'max:500'],
+            'return_video_url' => ['required', 'url', 'max:500'],
         ], [
             'return_km.min' => __('The return KM can’t be less than the handover KM (:km).', ['km' => $floor]),
+            'return_video_url.required' => __('A return video is required to close the rental.'),
         ]);
 
         $this->withOrder(function (RentalOrder $o): void {
@@ -563,6 +569,7 @@ final class OrderForm extends Component
             $o->has_damage = $this->has_damage;
             $o->damage_notes = $this->has_damage ? $this->trimOrNull($this->damage_notes) : null;
             $o->damage_video_url = $this->has_damage ? $this->trimOrNull($this->damage_video_url) : null;
+            $o->return_video_url = $this->trimOrNull($this->return_video_url);
             $o->recalcTotals(); // fold the fuel + extra charge into the total/balance
             $o->closeRental();
         });

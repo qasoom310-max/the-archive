@@ -82,12 +82,14 @@ final class RentalHandoverReturnTest extends TestCase
             ->set('has_damage', true)
             ->set('damage_notes', 'Scratch on the rear door')
             ->set('damage_video_url', 'https://photos.app.goo.gl/xyz')
+            ->set('return_video_url', 'https://customer-x.cloudflarestream.com/r1/watch')
             ->call('confirmReturn')
             ->assertHasNoErrors();
 
         $order->refresh();
         $this->assertSame(RentalOrder::STATE_CLOSED, $order->state);
         $this->assertSame(10500, $order->return_km);
+        $this->assertSame('https://customer-x.cloudflarestream.com/r1/watch', $order->return_video_url);
         $this->assertTrue($order->has_damage);
         $this->assertSame('Scratch on the rear door', $order->damage_notes);
         $this->assertNotNull($order->returned_at);
@@ -109,6 +111,23 @@ final class RentalHandoverReturnTest extends TestCase
             ->call('confirmReturn')
             ->assertHasErrors(['damage_notes']);
 
+        $this->assertSame(RentalOrder::STATE_ACTIVE, $order->fresh()?->state);
+    }
+
+    public function test_a_return_video_is_required_to_close_the_rental(): void
+    {
+        [$order] = $this->draftOrder();
+        $order->startRental();
+
+        Livewire::test(OrderForm::class, ['id' => $order->id])
+            ->call('closeRental')
+            ->set('return_km', '10500')
+            ->set('return_fuel', 'full')
+            ->set('return_video_url', '')        // no return video
+            ->call('confirmReturn')
+            ->assertHasErrors(['return_video_url']);
+
+        // Still out — the rental can't close without the return video.
         $this->assertSame(RentalOrder::STATE_ACTIVE, $order->fresh()?->state);
     }
 
@@ -159,6 +178,7 @@ final class RentalHandoverReturnTest extends TestCase
             ->set('return_km', '10300')
             ->set('return_fuel', 'half')
             ->set('fuel_charge', '3')   // employee-decided refuel cost
+            ->set('return_video_url', 'https://customer-x.cloudflarestream.com/r2/watch')
             ->call('confirmReturn')
             ->assertHasNoErrors();
 
@@ -190,6 +210,7 @@ final class RentalHandoverReturnTest extends TestCase
             ->set('return_fuel', 'full')
             ->set('extra_charge', '10')               // an extra day
             ->set('extra_charge_note', 'Extra day')
+            ->set('return_video_url', 'https://customer-x.cloudflarestream.com/r3/watch')
             ->call('confirmReturn')
             ->assertHasNoErrors();
 

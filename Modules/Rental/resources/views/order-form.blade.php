@@ -114,6 +114,7 @@
                         <div class="flex justify-between"><dt>{{ __('Damage') }}</dt><dd class="font-medium {{ $savedOrder->has_damage ? 'text-red-600' : 'text-emerald-600' }}">{{ $savedOrder->has_damage ? __('Yes') : __('No') }}</dd></div>
                         @if ($savedOrder->damage_notes)<div><dt class="text-chrome-400">{{ __('Damage notes') }}</dt><dd class="text-chrome-700">{{ $savedOrder->damage_notes }}</dd></div>@endif
                         @if ($savedOrder->damage_video_url)<a href="{{ $savedOrder->damage_video_url }}" target="_blank" rel="noopener" class="inline-block text-primary-700 hover:underline">{{ __('View damage video') }} ↗</a>@endif
+                        @if ($savedOrder->return_video_url)<a href="{{ $savedOrder->return_video_url }}" target="_blank" rel="noopener" class="inline-block text-primary-700 hover:underline">{{ __('View return video') }} ↗</a>@endif
                     </dl>
                 </div>
             @endif
@@ -599,6 +600,13 @@
                             @error('damage_video_url') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
                     @endif
+                    {{-- Mandatory return video — the car's condition on return, captured every time. --}}
+                    <div class="border-t border-chrome-100 pt-3">
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Return video') }} <span class="text-red-500">*</span></label>
+                        <x-stream-video-upload target="return_video_url" :url="$return_video_url" />
+                        <p class="mt-1 text-xs text-chrome-400">{{ __('Required. Record the car on return. Uploads to Cloudflare; share the link with the team.') }}</p>
+                        @error('return_video_url') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
                     <div class="flex justify-end gap-2 pt-1">
                         <button type="button" wire:click="closeReturn" class="text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</button>
                         <button type="submit" class="o-btn-primary">{{ __('Confirm & return') }}</button>

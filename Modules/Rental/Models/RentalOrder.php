@@ -76,6 +76,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $damage_notes
  * @property string|null $damage_video_url
  * @property Carbon|null $returned_at
+ * @property string|null $return_video_url
  * @property-read RentalCustomer|null $customer
  * @property-read Vehicle|null $vehicle
  * @property-read Driver|null $driver
@@ -131,7 +132,7 @@ final class RentalOrder extends Model implements DefinesIrModel
         'payment_confirmed', 'confirmed_by_user_id', 'confirmed_at', 'agreement_emailed_at', 'notes',
         'cpr_image_path', 'license_image_path',
         'handover_km', 'handover_fuel', 'handover_notes', 'handover_video_url', 'started_at',
-        'return_km', 'return_fuel', 'fuel_charge', 'extra_charge', 'extra_charge_note', 'has_damage', 'damage_notes', 'damage_video_url', 'returned_at',
+        'return_km', 'return_fuel', 'fuel_charge', 'extra_charge', 'extra_charge_note', 'has_damage', 'damage_notes', 'damage_video_url', 'returned_at', 'return_video_url',
     ];
 
     /** @var array<string, mixed> */

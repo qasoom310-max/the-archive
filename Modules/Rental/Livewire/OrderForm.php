@@ -70,6 +70,9 @@ final class OrderForm extends Component
     /** Delivery option — a fixed flat fee (RentalOrder::DELIVERY_FEE) when on. */
     public bool $delivery = false;
 
+    /** Where to deliver the car — shown/required only when Delivery is on. */
+    public string $delivery_location = '';
+
     public string $advance_amount = '0';
 
     public string $deposit = '0';
@@ -123,6 +126,7 @@ final class OrderForm extends Component
                 $this->discount = (string) $order->discount;
                 $this->vat_rate = (string) $order->vat_rate;
                 $this->delivery = $order->delivery;
+                $this->delivery_location = $order->delivery_location ?? '';
                 $this->advance_amount = (string) $order->advance_amount;
                 $this->deposit = (string) $order->deposit;
                 $this->payment_type = $order->payment_type ?? 'cash';
@@ -171,6 +175,8 @@ final class OrderForm extends Component
             'discount' => ['nullable', 'numeric', 'min:0'],
             'vat_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'delivery' => ['boolean'],
+            // A delivery needs a location; otherwise the box is hidden and ignored.
+            'delivery_location' => $this->delivery ? ['required', 'string', 'max:255'] : ['nullable', 'string', 'max:255'],
             'advance_amount' => ['nullable', 'numeric', 'min:0'],
             'deposit' => ['nullable', 'numeric', 'min:0'],
             'payment_type' => ['nullable', 'string'],
@@ -291,6 +297,8 @@ final class OrderForm extends Component
         $order->discount = $this->toFloat($this->discount);
         $order->vat_rate = $this->vat_rate === '' ? RentalOrder::DEFAULT_VAT_RATE : (float) $this->vat_rate;
         $order->delivery = $this->delivery;
+        // Keep a location only while delivery is on; clear it otherwise.
+        $order->delivery_location = $this->delivery ? $this->trimOrNull($this->delivery_location) : null;
         $order->advance_amount = $this->toFloat($this->advance_amount);
         $order->deposit = $this->toFloat($this->deposit);
         $order->payment_type = $this->trimOrNull($this->payment_type);

@@ -39,6 +39,7 @@ use Illuminate\Support\Carbon;
  * @property float $vat_rate
  * @property float $vat_amount
  * @property bool $delivery
+ * @property string|null $delivery_location
  * @property float $delivery_charges
  * @property float $deposit
  * @property float $total
@@ -82,7 +83,7 @@ final class RentalOrder extends Model implements DefinesIrModel
         'reference', 'order_date', 'customer_id', 'phone', 'vehicle_id', 'pickup_mileage',
         'driver_id', 'additional_driver', 'additional_driver_license', 'branch_id',
         'start_date', 'end_date', 'hired_time', 'rate_type', 'rate', 'days', 'subtotal',
-        'discount', 'vat_rate', 'vat_amount', 'delivery', 'delivery_charges', 'deposit', 'total',
+        'discount', 'vat_rate', 'vat_amount', 'delivery', 'delivery_location', 'delivery_charges', 'deposit', 'total',
         'advance_amount', 'balance', 'payment_type', 'state', 'payment_status', 'notes',
         'cpr_image_path', 'license_image_path',
     ];

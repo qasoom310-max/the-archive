@@ -116,6 +116,10 @@
                             {{ __('Deliver the car') }}
                             <span class="text-chrome-400">(+ {{ \App\Erp\Views\ValueFormat::money(\Modules\Rental\Models\RentalOrder::DELIVERY_FEE) }})</span>
                         </label>
+                        @if ($delivery)
+                            <input type="text" wire:model="delivery_location" class="o-input mt-2 w-full" placeholder="{{ __('Delivery location') }}">
+                            @error('delivery_location') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        @endif
                     </div>
 
                     {{-- Vehicle + mileage --}}

@@ -68,6 +68,7 @@ final class RentalOrderContractTest extends TestCase
             ->set('additional_driver_license', 'DL-77')
             ->set('hired_time', '14:30')
             ->set('delivery', true)
+            ->set('delivery_location', 'Juffair, Block 338')
             ->set('advance_amount', '20')
             ->set('payment_type', 'benefitpay')
             ->call('save')
@@ -79,11 +80,39 @@ final class RentalOrderContractTest extends TestCase
         $this->assertSame('14:30', $order->hired_time);
         $this->assertSame('benefitpay', $order->payment_type);
         $this->assertTrue($order->delivery);
+        $this->assertSame('Juffair, Block 338', $order->delivery_location);
         $this->assertSame(3.0, $order->delivery_charges); // fixed flat fee
         $this->assertSame(20.0, $order->advance_amount);
         // VAT auto-applied at 10%, balance computed.
         $this->assertSame(10.0, $order->vat_rate);
         $this->assertGreaterThan(0.0, $order->balance);
+    }
+
+    public function test_delivery_location_is_required_when_delivery_is_on(): void
+    {
+        $customer = RentalCustomer::query()->create(['name' => 'Dana']);
+        $vehicle = Vehicle::query()->create(['name' => 'Civic', 'daily_rate' => 10]);
+
+        // Delivery on but no location → blocked.
+        Livewire::test(OrderForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('vehicle_id', $vehicle->id)
+            ->set('delivery', true)
+            ->set('delivery_location', '')
+            ->call('save')
+            ->assertHasErrors(['delivery_location']);
+
+        $this->assertSame(0, RentalOrder::query()->count());
+
+        // Delivery off → the (hidden) location isn't required.
+        Livewire::test(OrderForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('vehicle_id', $vehicle->id)
+            ->set('delivery', false)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertNull(RentalOrder::query()->firstOrFail()->delivery_location);
     }
 
     public function test_selecting_a_vehicle_prefills_mileage_and_rate(): void

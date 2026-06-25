@@ -451,9 +451,9 @@
                         @error('handover_notes') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Video link') }}</label>
-                        <input type="url" wire:model="handover_video_url" class="o-input w-full" placeholder="https://…">
-                        <p class="mt-1 text-xs text-chrome-400">{{ __('Paste a cloud link (Drive, Photos, Dropbox…). The video isn’t stored on the server.') }}</p>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Pickup video') }}</label>
+                        <x-stream-video-upload target="handover_video_url" :url="$handover_video_url" />
+                        <p class="mt-1 text-xs text-chrome-400">{{ __('Records the car at handover. Uploads to Cloudflare; share the link with the team.') }}</p>
                         @error('handover_video_url') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div class="flex justify-end gap-2 pt-1">
@@ -513,9 +513,9 @@
                             @error('damage_notes') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
                         <div>
-                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Damage video link') }}</label>
-                            <input type="url" wire:model="damage_video_url" class="o-input w-full" placeholder="https://…">
-                            <p class="mt-1 text-xs text-chrome-400">{{ __('Optional — a cloud link to the damage clip.') }}</p>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Damage video') }}</label>
+                            <x-stream-video-upload target="damage_video_url" :url="$damage_video_url" />
+                            <p class="mt-1 text-xs text-chrome-400">{{ __('Records the damage at return. Uploads to Cloudflare; share the link with the team.') }}</p>
                             @error('damage_video_url') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
                     @endif

@@ -21,6 +21,11 @@
     if ($isAdmin && $installedModule('woocommerce')) {
         $sections[] = ['key' => 'woocommerce', 'label' => 'WooCommerce', 'url' => url('/app/settings/woocommerce')];
     }
+
+    // Cloudflare Stream is a core integration (no module) — admin-only tab.
+    if ($isAdmin) {
+        $sections[] = ['key' => 'stream', 'label' => 'Cloudflare Stream', 'url' => url('/app/settings/stream')];
+    }
 @endphp
 
 @if (count($sections) > 1)

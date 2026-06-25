@@ -124,6 +124,95 @@ document.addEventListener('alpine:init', () => {
         },
     }));
 
+    /**
+     * Cloudflare Stream video uploader (rental handover / return videos). Wired
+     * via `x-data="streamVideoUpload('handover_video_url', $wire)"`. The big file
+     * goes STRAIGHT to Cloudflare (a one-time upload URL minted by our server),
+     * so it never passes through the ERP server. On success it writes the public
+     * watch URL into the Livewire property named by `target`.
+     *
+     * `wire` is closure-captured (see the note above) — never stored on `this`.
+     */
+    window.Alpine.data('streamVideoUpload', (target, wire) => ({
+        target,
+        uploading: false,
+        progress: 0,
+        error: '',
+
+        clear() {
+            wire.set(this.target, '');
+        },
+
+        async pick(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            this.error = '';
+            this.uploading = true;
+            this.progress = 0;
+
+            try {
+                const csrf = document.querySelector('meta[name=csrf-token]').content;
+
+                // 1) Mint a one-time direct-upload URL from our server.
+                const res = await fetch('/app/stream/upload-url', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrf,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name: file.name }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not start the upload.');
+
+                // 2) Upload the file directly to Cloudflare (progress via XHR).
+                await this.send(data.uploadURL, file);
+
+                // 3) Ask Cloudflare (via our server) for the public watch URL.
+                let watchUrl = '';
+                for (let i = 0; i < 6 && !watchUrl; i++) {
+                    const info = await (await fetch(`/app/stream/${data.uid}/info`, {
+                        headers: { 'Accept': 'application/json' },
+                    })).json();
+                    watchUrl = info.watchUrl || '';
+                    if (!watchUrl) await new Promise((r) => setTimeout(r, 1500));
+                }
+
+                // 4) Write the public watch URL into the target Livewire prop
+                //    (link shows even if Cloudflare is still processing).
+                await wire.set(this.target, watchUrl);
+            } catch (e) {
+                this.error = e.message || 'Upload failed.';
+            } finally {
+                this.uploading = false;
+                event.target.value = '';
+            }
+        },
+
+        send(url, file) {
+            return new Promise((resolve, reject) => {
+                const form = new FormData();
+                form.append('file', file);
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', url, true);
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) this.progress = Math.round((e.loaded / e.total) * 100);
+                };
+                xhr.onload = () => (xhr.status >= 200 && xhr.status < 300)
+                    ? resolve()
+                    : reject(new Error('Upload failed (HTTP ' + xhr.status + '). The file may be over 200 MB.'));
+                xhr.onerror = () => reject(new Error('Network error during upload.'));
+                xhr.send(form);
+            });
+        },
+
+        async copy(text) {
+            try { await navigator.clipboard.writeText(text); } catch (e) { /* ignore */ }
+        },
+    }));
+
     window.Alpine.data('listColumnPicker', () => ({
         init(el, wire) {
             let dragging = null;

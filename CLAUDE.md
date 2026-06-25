@@ -948,6 +948,7 @@ Keep this table current — it is how state survives across sessions.
 | 15 | **Kitchen Display System (KDS)**: per-category station routing (`kitchen` / `shisha`), `PosOrderPaid` listener stamps `prep_status=pending` on routed lines, 3-column kanban screen polling every 5s (`/app/pos/kitchen/{station}`), single-tap state machine (Pending → Preparing → Ready → Completed), late-ticket flash, Web Audio ping + green-flash on new arrivals | ✅ DONE |
 | 16 | **Purchases** (`Modules/Purchases/`): vendor bills with line items; **Confirm** atomically raises POS `stock_on_hand`, posts an Inventory receipt move (Vendor → Stock, updating `stock_quants` keyed by the same product id) AND books the accounting entry (Dr Inventory/Expense · Cr A/P) via `PurchaseInvoiceConfirmed` → the pre-existing `RecordPurchaseInJournal` listener. Custom master/detail Livewire editor; engine list | ✅ DONE |
 | 17 | **WooCommerce** (`Modules/WooCommerce/`): one-way ERP → store product sync (queued REST push on product save/delete + POS-sale stock). Phase A (push) DONE; Phase B (online orders + stock back via webhooks) = next | ✅ Phase A |
+| 18 | **Cloudflare Stream** (core `app/Erp/Stream/`): browser-direct video upload (one-time upload URL) + public watch link. Rental orders get **pickup & return condition videos** | ✅ DONE |
 
 **Phase 8 — Settings (where things live):**
 
@@ -1337,6 +1338,31 @@ WooCommerce** (admin) → paste the store URL + REST consumer key/secret
 → enable → "Sync all active products now". **Phase B (next, NOT built):** a
 public `/woocommerce/webhook` endpoint (HMAC-verified) to import online orders
 + pull stock changes back into the ERP (the user picked two-way).
+
+**Phase 18 — Cloudflare Stream video (core, shipped 2026-06-25):**
+
+Browser-direct video upload to **Cloudflare Stream** + a public share link.
+Built for the Rental flow per the user: a **pickup video** (car handover) and a
+**return video** (car return) on each rental order, each becoming a shareable
+Cloudflare watch link. Lives in **core** (not a module) so the routes are always
+available; per-database encrypted config like the other integrations.
+
+| Concern | Location |
+|---|---|
+| Config | `cloudflare_stream_configuration` (core migration, per database: `account_id` plain, `api_token` **encrypted**, `enabled`). `App\Models\CloudflareStreamConfiguration` — `current()`/`isConfigured()`/`apiBase()` = `https://api.cloudflare.com/client/v4/accounts/{id}/stream` |
+| Service | `App\Erp\Stream\CloudflareStreamService` (injected `HttpFactory`, Bearer token) — `createDirectUpload(name)` mints a one-time **direct creator upload** URL (`POST /direct_upload`, returns `{uid, uploadURL}`), `videoInfo(uid)` reads `result.preview` (the public **watch URL**) + status/thumbnail, `deleteVideo(uid)`. `App\Erp\Stream\StreamException` on unconfigured / non-2xx |
+| Endpoints | `App\Http\Controllers\StreamUploadController` — `POST /app/stream/upload-url` (mint, throttle 60/min) + `GET /app/stream/{uid}/info` (watch URL, throttle 120/min); both in the core `auth` group (`routes/web.php`). Errors → JSON 422 so the uploader shows them inline |
+| Upload flow | **The big file never touches the ERP server.** Browser: (1) `POST upload-url` → `{uid, uploadURL}`; (2) `XMLHttpRequest` POSTs the file straight to Cloudflare's `uploadURL` (progress bar); (3) `GET {uid}/info` (retried) for the watch URL; (4) `$wire.call('setVideo', …)`. **Simple direct upload = ≤200 MB** (the error names the limit); >200 MB would need a tus upgrade (follow-up). Alpine `streamVideoUpload(kind, wire)` in `resources/js/app.js` (closure-captures `wire` per `[[livewire-wire-on-alpine-this]]`); shared Blade component `resources/views/components/stream-video-upload.blade.php` (prop is `kind`, NOT `slot` — `$slot` is reserved in Blade components) |
+| Settings | `App\Livewire\Settings\StreamSettings` (admin-only) + `livewire.settings.stream-settings`, route `/app/settings/stream`; a **"Cloudflare Stream"** pill in `partials/settings-nav` (admin, always — core, no module gate). Token write-only (blank = keep). Tab content English (integration carve-out like WhatsApp/WooCommerce) |
+| Rental wiring | Feeds the **existing** rental handover/return flow (the `handover_video_url` / `damage_video_url` columns + capture modals — migration `2026_06_25_900016`). The shared Blade component `<x-stream-video-upload target="handover_video_url" :url="…" />` REPLACED the manual "paste a URL" `<input type="url">` in the **handover modal** (= pickup video) and the **return modal**'s damage video. The widget takes a `target` prop (a Livewire property name, NOT `kind`) and writes the watch URL via `$wire.set(target, watchUrl)` (clear → `$wire.set(target, '')`); the modal's own save (with its `nullable\|url` rule) persists it. **No new rental columns — reuses theirs.** (NOTE: the return video currently sits under the damage section, so it shows when "Damage at return" is ticked; an always-on return video is a small follow-up) |
+| Tests | `tests/Feature/CloudflareStreamTest.php` (8 — token encrypted-at-rest, settings admin-gate + enable-needs-creds, service mints upload URL (asserts Bearer + endpoint), service reads watch URL, throws-when-unconfigured, upload-url endpoint 422-unconfigured/200-configured, OrderForm renders + accepts the handover video URL). HTTP mocked via `Http::fake` |
+
+To use: **Settings → Cloudflare Stream** (admin) → Account ID (from the
+dashboard URL) + an API token with **Stream: Edit** → enable + Save. Then a
+**saved** rental order shows the Pickup/Return upload boxes. The share link is
+**public** (anyone with it can watch — the user's choice). NOT built: a
+standalone video library, signed/private playback, >200 MB (tus) uploads,
+videos on Limousine bookings (same widget would drop in).
 
 **Settings increment shipped 2026-06-21 — "Users" tab (admin-only staff accounts):**
 

@@ -100,6 +100,14 @@ Route::middleware('auth')->group(function (): void {
     // Explicit before the /app/{module} wildcard so it wins.
     Route::get('/app/settings', SettingsPage::class)->name('settings');
 
+    // Cloudflare Stream: admin settings tab + the browser uploader's two
+    // endpoints (mint a one-time upload URL, then read the video's watch URL).
+    Route::get('/app/settings/stream', \App\Livewire\Settings\StreamSettings::class)->name('stream.settings');
+    Route::post('/app/stream/upload-url', [\App\Http\Controllers\StreamUploadController::class, 'uploadUrl'])
+        ->middleware('throttle:60,1')->name('stream.upload-url');
+    Route::get('/app/stream/{uid}/info', [\App\Http\Controllers\StreamUploadController::class, 'info'])
+        ->where('uid', '[A-Za-z0-9]+')->middleware('throttle:120,1')->name('stream.info');
+
     // Per-app feature toggles (the app's own "Settings" tab). Two-segment and
     // more specific than the /app/{module} home below; no module defines an
     // `/app/{module}/settings` route, so this owns the path.

@@ -40,18 +40,19 @@ final class RentalOrderContractTest extends TestCase
         $order->end_date = Carbon::parse('2026-06-30');
         $order->rate_type = 'daily';
         $order->rate = 10;          // 5 days × 10 = 50 amount
-        $order->discount = 5;        // taxable 45
-        $order->vat_rate = 10;       // VAT 4.5
-        $order->delivery = true;     // flat delivery fee 3
+        $order->discount = 5;        // amount net of discount = 45
+        $order->vat_rate = 10;
+        $order->delivery = true;     // flat delivery fee 3 (also taxable)
         $order->advance_amount = 20;
         $order->recalcTotals();
 
         $this->assertSame(5, $order->days);
         $this->assertSame(50.0, $order->subtotal);
-        $this->assertSame(4.5, $order->vat_amount);     // (50 − 5) × 10%
         $this->assertSame(3.0, $order->delivery_charges); // fixed fee, derived from the flag
-        $this->assertSame(52.5, $order->total);          // 45 + 4.5 + 3
-        $this->assertSame(32.5, $order->balance);        // 52.5 − 20
+        // Taxable = (50 − 5) + 3 = 48; VAT = 48 × 10% = 4.8
+        $this->assertSame(4.8, $order->vat_amount);
+        $this->assertSame(52.8, $order->total);          // 48 + 4.8
+        $this->assertSame(32.8, $order->balance);        // 52.8 − 20
     }
 
     public function test_saving_an_order_persists_the_contract_fields(): void

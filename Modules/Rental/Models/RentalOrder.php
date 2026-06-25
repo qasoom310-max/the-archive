@@ -214,9 +214,11 @@ final class RentalOrder extends Model implements DefinesIrModel
         // Delivery is a fixed flat fee, applied only when the option is ticked.
         $this->delivery_charges = $this->delivery ? self::DELIVERY_FEE : 0.0;
 
-        $taxable = max(0.0, $this->subtotal - $this->discount);
+        // VAT applies to the whole taxable supply — the rental net of discount
+        // PLUS the delivery charge (Bahrain composite-supply treatment).
+        $taxable = max(0.0, $this->subtotal - $this->discount) + $this->delivery_charges;
         $this->vat_amount = round($taxable * ($this->vat_rate / 100), 3);
-        $this->total = round($taxable + $this->vat_amount + $this->delivery_charges, 3);
+        $this->total = round($taxable + $this->vat_amount, 3);
         $this->balance = round(max(0.0, $this->total - $this->advance_amount), 3);
     }
 

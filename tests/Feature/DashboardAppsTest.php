@@ -50,6 +50,22 @@ final class DashboardAppsTest extends TestCase
             });
     }
 
+    public function test_transport_apps_are_featured_first_in_order(): void
+    {
+        Setting::set('company.business_type', 'rental_limousine');
+
+        Livewire::test(Dashboard::class)
+            ->assertOk()
+            // Rent A Car on the left, Limousine on the right.
+            ->assertViewHas('featuredApps', fn (Collection $f): bool => $f->pluck('name')->all() === ['rental', 'limousine'])
+            // The rest never repeat the transport apps.
+            ->assertViewHas('otherApps', function (Collection $o): bool {
+                $names = $o->pluck('name');
+
+                return $names->doesntContain('rental') && $names->doesntContain('limousine');
+            });
+    }
+
     public function test_daily_report_cards_toggle_shows_and_hides_them_on_the_dashboard(): void
     {
         // POS installed → its tables exist, so the Daily sale / stock cards render.

@@ -13,30 +13,42 @@
     @if ($apps->isNotEmpty())
         <div class="mb-6 rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
             <h2 class="mb-4 text-sm font-semibold text-chrome-800">{{ __('Your apps') }}</h2>
-            <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                @foreach ($apps as $app)
-                    @php
-                        // Prefer a registry translation by module slug (POS → نقطة البيع),
-                        // else the server-stored display_name — same rule as the app bar.
-                        $moduleKey = 'module.' . $app->name;
-                        $label = __($moduleKey);
-                        if ($label === $moduleKey) { $label = $app->display_name; }
-                    @endphp
-                    <a href="{{ url('/app/' . $app->name) }}" wire:navigate
-                        class="group flex items-center gap-3 rounded-xl border border-chrome-200 bg-white p-4 transition hover:border-primary-400 hover:bg-primary-50/40 hover:shadow-sm">
-                        <span class="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary-400 text-chrome-900">
-                            <svg class="size-6" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                {!! \App\Erp\Navigation\ModuleIcon::body($app->name) !!}
-                            </svg>
-                        </span>
-                        <span class="min-w-0 flex-1">
-                            <span class="block truncate text-sm font-semibold text-chrome-800">{{ $label }}</span>
-                            <span class="block text-xs text-chrome-400">{{ __('Open') }}</span>
-                        </span>
-                        <svg class="size-4 shrink-0 text-chrome-300 transition group-hover:text-primary-600 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/></svg>
-                    </a>
-                @endforeach
-            </div>
+            {{-- Two rows: the transport apps (Rent A Car | Limousine) pinned
+                 2-up on top, the rest 3-up beneath. On a non-transport business
+                 `featuredApps` is empty and everything flows in the lower grid. --}}
+            @php
+                $groups = [
+                    ['apps' => $featuredApps, 'cols' => 'sm:grid-cols-2', 'mt' => ''],
+                    ['apps' => $otherApps, 'cols' => 'sm:grid-cols-3', 'mt' => $featuredApps->isNotEmpty() ? 'mt-3' : ''],
+                ];
+            @endphp
+            @foreach ($groups as $group)
+                @continue ($group['apps']->isEmpty())
+                <div class="grid grid-cols-1 gap-3 {{ $group['cols'] }} {{ $group['mt'] }}">
+                    @foreach ($group['apps'] as $app)
+                        @php
+                            // Prefer a registry translation by module slug (POS → نقطة البيع),
+                            // else the server-stored display_name — same rule as the app bar.
+                            $moduleKey = 'module.' . $app->name;
+                            $label = __($moduleKey);
+                            if ($label === $moduleKey) { $label = $app->display_name; }
+                        @endphp
+                        <a href="{{ url('/app/' . $app->name) }}" wire:navigate
+                            class="group flex items-center gap-3 rounded-xl border border-chrome-200 bg-white p-4 transition hover:border-primary-400 hover:bg-primary-50/40 hover:shadow-sm">
+                            <span class="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary-400 text-chrome-900">
+                                <svg class="size-6" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    {!! \App\Erp\Navigation\ModuleIcon::body($app->name) !!}
+                                </svg>
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate text-sm font-semibold text-chrome-800">{{ $label }}</span>
+                                <span class="block text-xs text-chrome-400">{{ __('Open') }}</span>
+                            </span>
+                            <svg class="size-4 shrink-0 text-chrome-300 transition group-hover:text-primary-600 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/></svg>
+                        </a>
+                    @endforeach
+                </div>
+            @endforeach
         </div>
     @endif
 

@@ -24,6 +24,15 @@ use Modules\Pos\Services\PosStockReportData;
 #[Title('Dashboard')]
 final class Dashboard extends Component
 {
+    /**
+     * Apps pinned to the top of the "Your apps" launcher as a 2-up featured
+     * row (Rent A Car on the left, Limousine on the right). Order here is the
+     * left→right order. Anything not listed flows into the 3-up grid below.
+     *
+     * @var list<string>
+     */
+    private const FEATURED_APPS = ['rental', 'limousine'];
+
     private function isAdmin(): bool
     {
         $user = Auth::user();
@@ -81,9 +90,22 @@ final class Dashboard extends Component
             ->filter(fn (IrModule $app): bool => Features::moduleAllowed($app->name))
             ->values();
 
+        // Feature the transport apps (Rent A Car + Limousine) as a prominent
+        // 2-up top row; everything else flows 3-up beneath. On a non-transport
+        // business `featuredApps` is empty and all apps fall to `otherApps`.
+        $featuredApps = collect(self::FEATURED_APPS)
+            ->map(fn (string $name): ?IrModule => $apps->firstWhere('name', $name))
+            ->filter()
+            ->values();
+        $otherApps = $apps->reject(
+            fn (IrModule $app): bool => in_array($app->name, self::FEATURED_APPS, true),
+        )->values();
+
         return view('livewire.pages.dashboard', [
             'ticket' => DemoTicket::query()->first(),
             'apps' => $apps,
+            'featuredApps' => $featuredApps,
+            'otherApps' => $otherApps,
             'appCount' => IrModule::query()
                 ->where('application', true)
                 ->where('state', ModuleState::Installed)

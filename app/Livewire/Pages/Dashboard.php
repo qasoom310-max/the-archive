@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Pages;
 
+use App\Erp\Business\Features;
 use App\Erp\Enums\ModuleState;
 use App\Models\Demo\DemoTicket;
 use App\Models\Ir\IrModel;
@@ -63,8 +64,21 @@ final class Dashboard extends Component
             $inventoryValue = app(PosStockReportData::class)->summary(false)['value'];
         }
 
+        // Quick-launch buttons: every installed application module the active
+        // database's business type allows (same filter as the top app bar), so
+        // a rental+limo store lands on Rent A Car / Limousine, a café on POS,
+        // etc. — straight from the dashboard.
+        $apps = IrModule::query()
+            ->where('application', true)
+            ->where('state', ModuleState::Installed)
+            ->orderBy('sequence')
+            ->get()
+            ->filter(fn (IrModule $app): bool => Features::moduleAllowed($app->name))
+            ->values();
+
         return view('livewire.pages.dashboard', [
             'ticket' => DemoTicket::query()->first(),
+            'apps' => $apps,
             'appCount' => IrModule::query()
                 ->where('application', true)
                 ->where('state', ModuleState::Installed)

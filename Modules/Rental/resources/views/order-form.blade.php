@@ -293,7 +293,8 @@
                     </div>
                     <div>
                         <label class="{{ $lbl }}">{{ __('VAT') }} %</label>
-                        <input type="number" step="0.1" min="0" max="100" wire:model.live="vat_rate" class="o-input w-full">
+                        <input type="text" value="{{ rtrim(rtrim(number_format(RentalOrder::DEFAULT_VAT_RATE, 2), '0'), '.') }}" class="o-input w-full bg-chrome-50 text-chrome-500" disabled>
+                        <p class="mt-1 text-xs text-chrome-400">{{ __('Fixed rate') }}</p>
                     </div>
                 </div>
             </section>

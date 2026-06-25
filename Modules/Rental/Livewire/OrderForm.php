@@ -328,7 +328,7 @@ final class OrderForm extends Component
         $order->rate_type = $this->rate_type;
         $order->rate = (float) $this->rate;
         $order->discount = $this->toFloat($this->discount);
-        $order->vat_rate = $this->vat_rate === '' ? RentalOrder::DEFAULT_VAT_RATE : (float) $this->vat_rate;
+        $order->vat_rate = RentalOrder::DEFAULT_VAT_RATE; // fixed rate, not user-editable
         $order->delivery = $this->delivery;
         // Keep a location only while delivery is on; clear it otherwise.
         $order->delivery_location = $this->delivery ? $this->trimOrNull($this->delivery_location) : null;
@@ -630,7 +630,7 @@ final class OrderForm extends Component
         $order->rate_type = $this->rate_type;
         $order->rate = $this->toFloat($this->rate);
         $order->discount = $this->toFloat($this->discount);
-        $order->vat_rate = $this->vat_rate === '' ? RentalOrder::DEFAULT_VAT_RATE : (float) $this->vat_rate;
+        $order->vat_rate = RentalOrder::DEFAULT_VAT_RATE; // fixed rate, not user-editable
         $order->delivery = $this->delivery;
         $order->advance_amount = $this->toFloat($this->advance_amount);
         $order->recalcTotals();

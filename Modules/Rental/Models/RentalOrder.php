@@ -47,7 +47,8 @@ use Illuminate\Support\Carbon;
  * @property string $state
  * @property string $payment_status
  * @property string|null $notes
- * @property string|null $image_path
+ * @property string|null $cpr_image_path
+ * @property string|null $license_image_path
  * @property-read RentalCustomer|null $customer
  * @property-read Vehicle|null $vehicle
  * @property-read Driver|null $driver
@@ -78,7 +79,8 @@ final class RentalOrder extends Model implements DefinesIrModel
         'driver_id', 'additional_driver', 'additional_driver_license', 'branch_id',
         'start_date', 'end_date', 'hired_time', 'rate_type', 'rate', 'days', 'subtotal',
         'discount', 'vat_rate', 'vat_amount', 'delivery_charges', 'deposit', 'total',
-        'advance_amount', 'balance', 'payment_type', 'state', 'payment_status', 'notes', 'image_path',
+        'advance_amount', 'balance', 'payment_type', 'state', 'payment_status', 'notes',
+        'cpr_image_path', 'license_image_path',
     ];
 
     /** @var array<string, mixed> */

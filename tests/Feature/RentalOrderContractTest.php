@@ -104,7 +104,7 @@ final class RentalOrderContractTest extends TestCase
             ->assertSet('phone', '39000011');
     }
 
-    public function test_a_handover_photo_is_stored_on_the_order(): void
+    public function test_cpr_and_licence_images_are_stored_on_the_order(): void
     {
         Storage::fake('public');
         $customer = RentalCustomer::query()->create(['name' => 'Noor']);
@@ -113,12 +113,15 @@ final class RentalOrderContractTest extends TestCase
         Livewire::test(OrderForm::class)
             ->set('customer_id', $customer->id)
             ->set('vehicle_id', $vehicle->id)
-            ->set('photo', UploadedFile::fake()->image('handover.jpg'))
+            ->set('cprPhoto', UploadedFile::fake()->image('cpr.jpg'))
+            ->set('licensePhoto', UploadedFile::fake()->image('licence.jpg'))
             ->call('save')
             ->assertHasNoErrors();
 
         $order = RentalOrder::query()->firstOrFail();
-        $this->assertNotNull($order->image_path);
-        Storage::disk('public')->assertExists($order->image_path);
+        $this->assertNotNull($order->cpr_image_path);
+        $this->assertNotNull($order->license_image_path);
+        Storage::disk('public')->assertExists($order->cpr_image_path);
+        Storage::disk('public')->assertExists($order->license_image_path);
     }
 }

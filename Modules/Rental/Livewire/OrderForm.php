@@ -75,10 +75,14 @@ final class OrderForm extends Component
 
     public string $notes = '';
 
-    /** New handover photo (temporary upload), and the already-saved path. */
-    public ?TemporaryUploadedFile $photo = null;
+    /** Document uploads (temporary), plus any already-saved paths. */
+    public ?TemporaryUploadedFile $cprPhoto = null;
 
-    public ?string $existingImage = null;
+    public ?TemporaryUploadedFile $licensePhoto = null;
+
+    public ?string $existingCprImage = null;
+
+    public ?string $existingLicenseImage = null;
 
     /** Inline "New customer" modal (shared transport customer). */
     public bool $addingCustomer = false;
@@ -120,7 +124,8 @@ final class OrderForm extends Component
                 $this->deposit = (string) $order->deposit;
                 $this->payment_type = $order->payment_type ?? 'cash';
                 $this->notes = $order->notes ?? '';
-                $this->existingImage = $order->image_path;
+                $this->existingCprImage = $order->cpr_image_path;
+                $this->existingLicenseImage = $order->license_image_path;
                 $this->reference = $order->reference ?? '';
                 $this->state = $order->state;
                 $this->payment_status = $order->payment_status;
@@ -162,7 +167,8 @@ final class OrderForm extends Component
             'deposit' => ['nullable', 'numeric', 'min:0'],
             'payment_type' => ['nullable', 'string'],
             'notes' => ['nullable', 'string'],
-            'photo' => ['nullable', 'image', 'max:4096'],
+            'cprPhoto' => ['nullable', 'image', 'max:4096'],
+            'licensePhoto' => ['nullable', 'image', 'max:4096'],
         ];
     }
 
@@ -242,10 +248,16 @@ final class OrderForm extends Component
         $order->payment_type = $this->trimOrNull($this->payment_type);
         $order->notes = $this->trimOrNull($this->notes);
 
-        if ($this->photo instanceof TemporaryUploadedFile) {
-            $stored = $this->photo->store('rental_orders', 'public');
+        if ($this->cprPhoto instanceof TemporaryUploadedFile) {
+            $stored = $this->cprPhoto->store('rental_orders', 'public');
             if (is_string($stored)) {
-                $order->image_path = $stored;
+                $order->cpr_image_path = $stored;
+            }
+        }
+        if ($this->licensePhoto instanceof TemporaryUploadedFile) {
+            $stored = $this->licensePhoto->store('rental_orders', 'public');
+            if (is_string($stored)) {
+                $order->license_image_path = $stored;
             }
         }
 

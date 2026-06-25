@@ -238,17 +238,30 @@
                     <textarea wire:model="notes" rows="2" class="o-input w-full"></textarea>
                 </div>
 
-                {{-- Image --}}
-                <div class="mt-4">
-                    <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Image') }}</label>
-                    <input type="file" wire:model="photo" accept="image/*" class="block w-full text-sm text-chrome-600 file:mr-3 file:rounded-md file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-chrome-700 hover:file:bg-chrome-200">
-                    <div wire:loading wire:target="photo" class="mt-1 text-xs text-chrome-400">{{ __('Uploading…') }}</div>
-                    @error('photo') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    @if ($photo)
-                        <img src="{{ $photo->temporaryUrl() }}" alt="" class="mt-2 h-24 rounded-lg object-cover ring-1 ring-chrome-200">
-                    @elseif ($existingImage)
-                        <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($existingImage) }}" alt="" class="mt-2 h-24 rounded-lg object-cover ring-1 ring-chrome-200">
-                    @endif
+                {{-- Documents: CPR / ID and driving licence --}}
+                <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('CPR image') }}</label>
+                        <input type="file" wire:model="cprPhoto" accept="image/*" class="block w-full text-sm text-chrome-600 file:mr-3 file:rounded-md file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-chrome-700 hover:file:bg-chrome-200">
+                        <div wire:loading wire:target="cprPhoto" class="mt-1 text-xs text-chrome-400">{{ __('Uploading…') }}</div>
+                        @error('cprPhoto') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        @if ($cprPhoto)
+                            <img src="{{ $cprPhoto->temporaryUrl() }}" alt="" class="mt-2 h-24 rounded-lg object-cover ring-1 ring-chrome-200">
+                        @elseif ($existingCprImage)
+                            <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($existingCprImage) }}" alt="" class="mt-2 h-24 rounded-lg object-cover ring-1 ring-chrome-200">
+                        @endif
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Licence image') }}</label>
+                        <input type="file" wire:model="licensePhoto" accept="image/*" class="block w-full text-sm text-chrome-600 file:mr-3 file:rounded-md file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-chrome-700 hover:file:bg-chrome-200">
+                        <div wire:loading wire:target="licensePhoto" class="mt-1 text-xs text-chrome-400">{{ __('Uploading…') }}</div>
+                        @error('licensePhoto') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        @if ($licensePhoto)
+                            <img src="{{ $licensePhoto->temporaryUrl() }}" alt="" class="mt-2 h-24 rounded-lg object-cover ring-1 ring-chrome-200">
+                        @elseif ($existingLicenseImage)
+                            <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($existingLicenseImage) }}" alt="" class="mt-2 h-24 rounded-lg object-cover ring-1 ring-chrome-200">
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>

@@ -25,16 +25,29 @@ use Illuminate\Support\Carbon;
  * @property int|null $branch_id
  * @property Carbon|null $start_date
  * @property Carbon|null $end_date
+ * @property Carbon|null $order_date
+ * @property string|null $phone
+ * @property string|null $additional_driver
+ * @property string|null $additional_driver_license
+ * @property int|null $pickup_mileage
+ * @property string|null $hired_time
  * @property string $rate_type
  * @property float $rate
  * @property int $days
  * @property float $subtotal
  * @property float $discount
+ * @property float $vat_rate
+ * @property float $vat_amount
+ * @property float $delivery_charges
  * @property float $deposit
  * @property float $total
+ * @property float $advance_amount
+ * @property float $balance
+ * @property string|null $payment_type
  * @property string $state
  * @property string $payment_status
  * @property string|null $notes
+ * @property string|null $image_path
  * @property-read RentalCustomer|null $customer
  * @property-read Vehicle|null $vehicle
  * @property-read Driver|null $driver
@@ -56,11 +69,16 @@ final class RentalOrder extends Model implements DefinesIrModel
 
     public const PAYMENT_PAID = 'paid';
 
+    /** Flat VAT applied to rental orders (Bahrain), editable per order. */
+    public const DEFAULT_VAT_RATE = 10.0;
+
     /** @var list<string> */
     protected $fillable = [
-        'reference', 'customer_id', 'vehicle_id', 'driver_id', 'branch_id',
-        'start_date', 'end_date', 'rate_type', 'rate', 'days', 'subtotal',
-        'discount', 'deposit', 'total', 'state', 'payment_status', 'notes',
+        'reference', 'order_date', 'customer_id', 'phone', 'vehicle_id', 'pickup_mileage',
+        'driver_id', 'additional_driver', 'additional_driver_license', 'branch_id',
+        'start_date', 'end_date', 'hired_time', 'rate_type', 'rate', 'days', 'subtotal',
+        'discount', 'vat_rate', 'vat_amount', 'delivery_charges', 'deposit', 'total',
+        'advance_amount', 'balance', 'payment_type', 'state', 'payment_status', 'notes', 'image_path',
     ];
 
     /** @var array<string, mixed> */
@@ -70,8 +88,13 @@ final class RentalOrder extends Model implements DefinesIrModel
         'days' => 0,
         'subtotal' => 0,
         'discount' => 0,
+        'vat_rate' => self::DEFAULT_VAT_RATE,
+        'vat_amount' => 0,
+        'delivery_charges' => 0,
         'deposit' => 0,
         'total' => 0,
+        'advance_amount' => 0,
+        'balance' => 0,
         'state' => self::STATE_DRAFT,
         'payment_status' => self::PAYMENT_UNPAID,
     ];
@@ -86,14 +109,21 @@ final class RentalOrder extends Model implements DefinesIrModel
             'vehicle_id' => 'integer',
             'driver_id' => 'integer',
             'branch_id' => 'integer',
+            'order_date' => 'date',
             'start_date' => 'date',
             'end_date' => 'date',
+            'pickup_mileage' => 'integer',
             'rate' => 'float',
             'days' => 'integer',
             'subtotal' => 'float',
             'discount' => 'float',
+            'vat_rate' => 'float',
+            'vat_amount' => 'float',
+            'delivery_charges' => 'float',
             'deposit' => 'float',
             'total' => 'float',
+            'advance_amount' => 'float',
+            'balance' => 'float',
         ];
     }
 
@@ -162,12 +192,34 @@ final class RentalOrder extends Model implements DefinesIrModel
         };
     }
 
-    /** Recompute days / subtotal / total from the current inputs. */
+    /**
+     * Recompute the whole money column from the current inputs:
+     * Amount (subtotal) → less Discount → + VAT (vat_rate %) → + delivery =
+     * Net Total; Balance = Net Total − Advance.
+     */
     public function recalcTotals(): void
     {
         $this->days = $this->durationDays();
         $this->subtotal = round($this->rate * $this->billableUnits(), 3);
-        $this->total = round(max(0.0, $this->subtotal - $this->discount), 3);
+
+        $taxable = max(0.0, $this->subtotal - $this->discount);
+        $this->vat_amount = round($taxable * ($this->vat_rate / 100), 3);
+        $this->total = round($taxable + $this->vat_amount + $this->delivery_charges, 3);
+        $this->balance = round(max(0.0, $this->total - $this->advance_amount), 3);
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    public static function paymentTypeOptions(): array
+    {
+        return [
+            ['value' => 'cash', 'label' => 'Cash'],
+            ['value' => 'cheque', 'label' => 'Cheque'],
+            ['value' => 'credit_card', 'label' => 'Credit Card'],
+            ['value' => 'benefitpay', 'label' => 'BenefitPay'],
+            ['value' => 'online', 'label' => 'Online'],
+        ];
     }
 
     /** Hand the vehicle over: draft → active, vehicle becomes rented. */

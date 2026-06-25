@@ -10,6 +10,7 @@ use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * A fleet vehicle. Belongs to a branch, carries a full rate card and a
@@ -24,12 +25,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $year
  * @property string|null $color
  * @property string|null $category
+ * @property string|null $fuel_type
  * @property string $status
  * @property float $daily_rate
  * @property float $weekly_rate
  * @property float $monthly_rate
  * @property float $deposit
  * @property int|null $odometer
+ * @property Carbon|null $next_maintenance_date
+ * @property int|null $next_maintenance_mileage
  * @property bool $active
  */
 final class Vehicle extends Model implements DefinesIrModel
@@ -48,8 +52,8 @@ final class Vehicle extends Model implements DefinesIrModel
     /** @var list<string> */
     protected $fillable = [
         'name', 'plate_no', 'branch_id', 'make', 'model', 'year', 'color',
-        'category', 'status', 'daily_rate', 'weekly_rate', 'monthly_rate',
-        'deposit', 'odometer', 'active',
+        'category', 'fuel_type', 'status', 'daily_rate', 'weekly_rate', 'monthly_rate',
+        'deposit', 'odometer', 'next_maintenance_date', 'next_maintenance_mileage', 'active',
     ];
 
     /** @var array<string, mixed> */
@@ -75,6 +79,8 @@ final class Vehicle extends Model implements DefinesIrModel
             'monthly_rate' => 'float',
             'deposit' => 'float',
             'odometer' => 'integer',
+            'next_maintenance_date' => 'date',
+            'next_maintenance_mileage' => 'integer',
             'active' => 'boolean',
         ];
     }
@@ -117,6 +123,19 @@ final class Vehicle extends Model implements DefinesIrModel
         ];
     }
 
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    public static function fuelTypeOptions(): array
+    {
+        return [
+            ['value' => 'petrol', 'label' => 'Petrol'],
+            ['value' => 'diesel', 'label' => 'Diesel'],
+            ['value' => 'hybrid', 'label' => 'Hybrid'],
+            ['value' => 'electric', 'label' => 'Electric'],
+        ];
+    }
+
     public static function irModelDefinition(): ModelDefinition
     {
         return new ModelDefinition(
@@ -139,7 +158,10 @@ final class Vehicle extends Model implements DefinesIrModel
                 new FieldDefinition('model', 'Model', 'char', sequence: 110),
                 new FieldDefinition('year', 'Year', 'integer', sequence: 120),
                 new FieldDefinition('color', 'Colour', 'char', sequence: 130),
+                new FieldDefinition('fuel_type', 'Fuel type', 'selection', selection: self::fuelTypeOptions(), sequence: 135),
                 new FieldDefinition('odometer', 'Odometer', 'integer', sequence: 140),
+                new FieldDefinition('next_maintenance_date', 'Next maintenance date', 'date', sequence: 142),
+                new FieldDefinition('next_maintenance_mileage', 'Next maintenance mileage', 'integer', sequence: 144),
                 new FieldDefinition('active', 'Active', 'boolean', sequence: 150),
             ],
             views: [
@@ -178,7 +200,10 @@ final class Vehicle extends Model implements DefinesIrModel
                         ['field' => 'model', 'label' => 'Model', 'widget' => 'text'],
                         ['field' => 'year', 'label' => 'Year', 'widget' => 'number'],
                         ['field' => 'color', 'label' => 'Colour', 'widget' => 'text'],
-                        ['field' => 'odometer', 'label' => 'Odometer', 'widget' => 'number'],
+                        ['field' => 'fuel_type', 'label' => 'Fuel type', 'widget' => 'select', 'options' => self::fuelTypeOptions()],
+                        ['field' => 'odometer', 'label' => 'Odometer (current mileage)', 'widget' => 'number'],
+                        ['field' => 'next_maintenance_date', 'label' => 'Next maintenance date', 'widget' => 'date'],
+                        ['field' => 'next_maintenance_mileage', 'label' => 'Next maintenance mileage', 'widget' => 'number'],
                         ['field' => 'active', 'label' => 'Active', 'widget' => 'checkbox'],
                     ],
                 ]),

@@ -117,7 +117,7 @@ final class RentalModuleTest extends TestCase
         $order = RentalOrder::query()->create([
             'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id,
             'start_date' => '2026-07-01', 'end_date' => '2026-07-05', // 4 days
-            'rate_type' => 'daily', 'rate' => 25,
+            'rate_type' => 'daily', 'rate' => 25, 'vat_rate' => 0, // VAT-free, focus on settlement
         ]);
         $order->recalcTotals();
         $order->save();
@@ -169,7 +169,8 @@ final class RentalModuleTest extends TestCase
         $this->assertSame($order->id, $quote->fresh()->order_id);
         $this->assertSame($customer->id, $order->customer_id);
         $this->assertSame($vehicle->id, $order->vehicle_id);
-        $this->assertEqualsWithDelta(16.0, $order->total, 0.001); // 8 × 2 days
+        // 8 × 2 days = 16, + 10% VAT applied on the converted order = 17.6
+        $this->assertEqualsWithDelta(17.6, $order->total, 0.001);
         $this->assertSame(RentalOrder::STATE_DRAFT, $order->state);
 
         // Converting again is idempotent — same order, no duplicate.
@@ -238,7 +239,8 @@ final class RentalModuleTest extends TestCase
         $order = RentalOrder::query()->sole();
         $this->assertSame(RentalOrder::STATE_DRAFT, $order->state);
         $this->assertSame(3, $order->days);
-        $this->assertEqualsWithDelta(30.0, $order->total, 0.001); // 10 × 3
+        $this->assertEqualsWithDelta(30.0, $order->subtotal, 0.001); // 10 × 3 (pre-VAT amount)
+        $this->assertEqualsWithDelta(33.0, $order->total, 0.001);    // + 10% VAT
         $this->assertEqualsWithDelta(50.0, $order->deposit, 0.001);
         $this->assertNotNull($order->reference);
     }

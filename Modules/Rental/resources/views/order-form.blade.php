@@ -1,3 +1,4 @@
+@php use App\Erp\Views\ValueFormat; @endphp
 <div class="mx-auto max-w-5xl p-4 sm:p-6">
     <div class="mb-4 flex items-center gap-2 text-sm text-chrome-500">
         <a href="{{ url('/app/rental/order') }}" wire:navigate class="hover:text-primary-700">{{ __('Orders') }}</a>
@@ -55,6 +56,17 @@
                 <h2 class="mb-4 text-sm font-semibold text-chrome-800">{{ __('Rental details') }}</h2>
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {{-- Order number + date --}}
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Order number') }}</label>
+                        <input type="text" value="{{ $reference ?: __('Auto') }}" class="o-input w-full bg-chrome-50 text-chrome-500" disabled>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Date') }}</label>
+                        <input type="date" wire:model="order_date" class="o-input w-full">
+                    </div>
+
+                    {{-- Customer + phone --}}
                     <div>
                         <div class="mb-1 flex items-center justify-between gap-2">
                             <label class="block text-sm font-medium text-chrome-700">{{ __('Customer') }} *</label>
@@ -64,7 +76,7 @@
                                 {{ __('New customer') }}
                             </button>
                         </div>
-                        <select wire:model="customer_id" class="o-input w-full">
+                        <select wire:model.live="customer_id" class="o-input w-full">
                             <option value="">{{ __('— Select —') }}</option>
                             @foreach ($customers as $c)
                                 <option value="{{ $c->id }}">{{ $c->name }}{{ $c->phone ? ' · ' . $c->phone : '' }}</option>
@@ -72,18 +84,31 @@
                         </select>
                         @error('customer_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
-
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Vehicle') }} *</label>
-                        <select wire:model.live="vehicle_id" class="o-input w-full">
-                            <option value="">{{ __('— Select —') }}</option>
-                            @foreach ($vehicles as $v)
-                                <option value="{{ $v->id }}">{{ $v->name }} ({{ __(ucfirst($v->status)) }})</option>
-                            @endforeach
-                        </select>
-                        @error('vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Phone') }}</label>
+                        <input type="text" wire:model="phone" placeholder="{{ __('Customer phone number') }}" class="o-input w-full">
                     </div>
 
+                    {{-- Additional driver --}}
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Additional driver') }}</label>
+                        <input type="text" wire:model="additional_driver" placeholder="{{ __('Additional driver') }}" class="o-input w-full">
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Licence number') }}</label>
+                        <input type="text" wire:model="additional_driver_license" placeholder="{{ __("Additional driver's licence number") }}" class="o-input w-full">
+                    </div>
+
+                    {{-- Branch + assigned driver --}}
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Branch') }}</label>
+                        <select wire:model="branch_id" class="o-input w-full">
+                            <option value="">{{ __('— Select —') }}</option>
+                            @foreach ($branches as $b)
+                                <option value="{{ $b->id }}">{{ $b->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Driver') }}</label>
                         <select wire:model="driver_id" class="o-input w-full">
@@ -94,57 +119,136 @@
                         </select>
                     </div>
 
+                    {{-- Vehicle + mileage --}}
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Branch') }}</label>
-                        <select wire:model="branch_id" class="o-input w-full">
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Vehicle') }} *</label>
+                        <select wire:model.live="vehicle_id" class="o-input w-full">
                             <option value="">{{ __('— Select —') }}</option>
-                            @foreach ($branches as $b)
-                                <option value="{{ $b->id }}">{{ $b->name }}</option>
+                            @foreach ($vehicles as $v)
+                                <option value="{{ $v->id }}">{{ $v->name }} ({{ __(ucfirst($v->status)) }})</option>
                             @endforeach
                         </select>
+                        @error('vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Mileage') }}</label>
+                        <input type="number" min="0" wire:model="pickup_mileage" placeholder="{{ __('Current mileage') }}" class="o-input w-full">
+                    </div>
+                </div>
 
+                {{-- Selected vehicle read-out --}}
+                @if ($selectedVehicle)
+                    <div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg bg-chrome-50 p-3 text-xs sm:grid-cols-4">
+                        @php
+                            $readout = [
+                                __('Reservation status') => __(ucfirst($selectedVehicle->status)),
+                                __('Vehicle type') => $selectedVehicle->category ? __(ucfirst($selectedVehicle->category)) : '—',
+                                __('Fuel type') => $selectedVehicle->fuel_type ? __(ucfirst($selectedVehicle->fuel_type)) : '—',
+                                __('Year') => $selectedVehicle->year ?: '—',
+                                __('Colour') => $selectedVehicle->color ?: '—',
+                                __('Mileage') => $selectedVehicle->odometer !== null ? number_format((float) $selectedVehicle->odometer) : '—',
+                                __('Next maint. date') => $selectedVehicle->next_maintenance_date?->format('Y-m-d') ?? '—',
+                                __('Next maint. mileage') => $selectedVehicle->next_maintenance_mileage !== null ? number_format((float) $selectedVehicle->next_maintenance_mileage) : '—',
+                            ];
+                        @endphp
+                        @foreach ($readout as $label => $value)
+                            <div>
+                                <div class="uppercase tracking-wide text-chrome-400">{{ $label }}</div>
+                                <div class="font-medium text-chrome-800">{{ $value }}</div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
+                {{-- Hiring period + time --}}
+                <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Pick-up date') }} *</label>
                         <input type="date" wire:model.live="start_date" class="o-input w-full">
                         @error('start_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
-
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Return date') }} *</label>
                         <input type="date" wire:model.live="end_date" class="o-input w-full">
                         @error('end_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
-
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Rate type') }}</label>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Hired time') }}</label>
+                        <input type="time" wire:model="hired_time" class="o-input w-full">
+                    </div>
+                </div>
+
+                {{-- Rate --}}
+                <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Rate type') }} *</label>
                         <select wire:model.live="rate_type" class="o-input w-full">
                             <option value="daily">{{ __('Daily') }}</option>
                             <option value="weekly">{{ __('Weekly') }}</option>
                             <option value="monthly">{{ __('Monthly') }}</option>
                         </select>
                     </div>
-
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Rate (BHD)') }} *</label>
                         <input type="number" step="0.001" min="0" wire:model.live="rate" class="o-input w-full">
                         @error('rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('VAT') }} %</label>
+                        <input type="number" step="0.1" min="0" max="100" wire:model.live="vat_rate" class="o-input w-full">
+                    </div>
+                </div>
 
+                {{-- Charges --}}
+                <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Discount (BHD)') }}</label>
                         <input type="number" step="0.001" min="0" wire:model.live="discount" class="o-input w-full">
                     </div>
-
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Delivery charges (BHD)') }}</label>
+                        <input type="number" step="0.001" min="0" wire:model.live="delivery_charges" class="o-input w-full">
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Advance amount (BHD)') }}</label>
+                        <input type="number" step="0.001" min="0" wire:model.live="advance_amount" class="o-input w-full">
+                    </div>
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Deposit (BHD)') }}</label>
                         <input type="number" step="0.001" min="0" wire:model="deposit" class="o-input w-full">
                     </div>
                 </div>
 
+                {{-- Payment type --}}
                 <div class="mt-4">
-                    <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Notes') }}</label>
+                    <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Payment type') }}</label>
+                    <div class="flex flex-wrap gap-4">
+                        @foreach ($paymentTypes as $pt)
+                            <label class="inline-flex items-center gap-1.5 text-sm text-chrome-700">
+                                <input type="radio" wire:model="payment_type" value="{{ $pt['value'] }}" class="text-primary-600">
+                                {{ __($pt['label']) }}
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+
+                {{-- Comments --}}
+                <div class="mt-4">
+                    <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Comments') }}</label>
                     <textarea wire:model="notes" rows="2" class="o-input w-full"></textarea>
+                </div>
+
+                {{-- Image --}}
+                <div class="mt-4">
+                    <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Image') }}</label>
+                    <input type="file" wire:model="photo" accept="image/*" class="block w-full text-sm text-chrome-600 file:mr-3 file:rounded-md file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-chrome-700 hover:file:bg-chrome-200">
+                    <div wire:loading wire:target="photo" class="mt-1 text-xs text-chrome-400">{{ __('Uploading…') }}</div>
+                    @error('photo') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    @if ($photo)
+                        <img src="{{ $photo->temporaryUrl() }}" alt="" class="mt-2 h-24 rounded-lg object-cover ring-1 ring-chrome-200">
+                    @elseif ($existingImage)
+                        <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($existingImage) }}" alt="" class="mt-2 h-24 rounded-lg object-cover ring-1 ring-chrome-200">
+                    @endif
                 </div>
             </div>
         </div>
@@ -154,17 +258,23 @@
             <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
                 <h2 class="mb-3 text-sm font-semibold text-chrome-800">{{ __('Summary') }}</h2>
                 <dl class="space-y-2 text-sm">
-                    <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Duration') }}</dt><dd class="font-medium text-chrome-800">{{ $previewDays }} {{ __('days') }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-chrome-500">{{ __('No. of days') }}</dt><dd class="font-medium text-chrome-800">{{ $previewDays }} {{ __('days') }}</dd></div>
                     <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Billable units') }}</dt><dd class="font-medium text-chrome-800">{{ $previewUnits }}</dd></div>
-                    <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Subtotal') }}</dt><dd class="font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($previewSubtotal) }}</dd></div>
-                    <div class="border-t border-chrome-100 pt-2 flex justify-between text-base"><dt class="font-semibold text-chrome-700">{{ __('Total') }}</dt><dd class="font-bold text-chrome-900">{{ \App\Erp\Views\ValueFormat::money($previewTotal) }}</dd></div>
-                    <div class="flex justify-between text-xs"><dt class="text-chrome-400">{{ __('Deposit (refundable)') }}</dt><dd class="text-chrome-500">{{ \App\Erp\Views\ValueFormat::money((float) ($deposit === '' ? '0' : $deposit)) }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Amount') }}</dt><dd class="font-medium text-chrome-800">{{ ValueFormat::money($previewSubtotal) }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Discount') }}</dt><dd class="text-chrome-600">− {{ ValueFormat::money((float) ($discount === '' ? '0' : $discount)) }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-chrome-500">{{ __('VAT') }}</dt><dd class="text-chrome-600">+ {{ ValueFormat::money($previewVat) }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Delivery charges') }}</dt><dd class="text-chrome-600">+ {{ ValueFormat::money((float) ($delivery_charges === '' ? '0' : $delivery_charges)) }}</dd></div>
+                    <div class="border-t border-chrome-100 pt-2 flex justify-between text-base"><dt class="font-semibold text-chrome-700">{{ __('Net total') }}</dt><dd class="font-bold text-chrome-900">{{ ValueFormat::money($previewTotal) }}</dd></div>
+                    <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Advance') }}</dt><dd class="text-chrome-600">− {{ ValueFormat::money((float) ($advance_amount === '' ? '0' : $advance_amount)) }}</dd></div>
+                    <div class="flex justify-between text-base"><dt class="font-semibold text-chrome-700">{{ __('Balance') }}</dt><dd class="font-bold text-primary-700">{{ ValueFormat::money($previewBalance) }}</dd></div>
+                    <div class="flex justify-between text-xs"><dt class="text-chrome-400">{{ __('Deposit (refundable)') }}</dt><dd class="text-chrome-500">{{ ValueFormat::money((float) ($deposit === '' ? '0' : $deposit)) }}</dd></div>
                 </dl>
 
                 <button wire:click="save" class="o-btn-primary mt-4 w-full justify-center">
-                    <span wire:loading.remove wire:target="save">{{ $isEditing ? __('Save order') : __('Create order') }}</span>
+                    <span wire:loading.remove wire:target="save">{{ $isEditing ? __('Save order') : __('Add record') }}</span>
                     <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
                 </button>
+                <a href="{{ url('/app/rental/order') }}" wire:navigate class="mt-2 block text-center text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</a>
             </div>
         </div>
     </div>

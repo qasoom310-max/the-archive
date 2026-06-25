@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use Modules\Rental\Http\Controllers\RentalAgreementPrintController;
 use Modules\Rental\Http\Controllers\RentalReportExportController;
 use Modules\Rental\Livewire\BranchForm;
 use Modules\Rental\Livewire\Branches;
@@ -34,6 +35,9 @@ Route::middleware('auth')->group(function (): void {
     // Orders — bespoke list (status tabs + date search) and contract form.
     Route::get('/app/rental/order', Orders::class)->name('rental.order.index');
     Route::get('/app/rental/order/new', OrderForm::class)->name('rental.order.create');
+    // Printable Car Hire Agreement overlay (distinct path from the {id} editor).
+    Route::get('/app/rental/order/{id}/agreement', RentalAgreementPrintController::class)
+        ->whereNumber('id')->name('rental.order.agreement');
     Route::get('/app/rental/order/{id}', OrderForm::class)->whereNumber('id')->name('rental.order.edit');
 
     // Quotations — estimates that convert into orders.

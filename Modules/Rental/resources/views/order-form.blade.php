@@ -56,6 +56,8 @@
                     <button wire:click="createInvoice" class="o-btn-ghost text-sm">{{ __('Create invoice') }}</button>
                 @endif
 
+                <a href="{{ url('/app/rental/order/' . $id . '/agreement') }}" target="_blank" rel="noopener" class="o-btn-ghost text-sm">{{ __('Print agreement') }}</a>
+
                 {{-- Payment confirmation — accountant / super-admin only. --}}
                 @if ($canConfirmPayment)
                     @if ($payment_status === 'paid' && ! $payment_confirmed)

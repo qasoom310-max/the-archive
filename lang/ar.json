@@ -104,6 +104,7 @@
     "Please find your car hire agreement attached (:ref).": "تجد عقد تأجير السيارة مرفقًا (:ref).",
     "Kindly review, sign, and return it. Thank you for choosing us.": "يرجى مراجعته وتوقيعه وإعادته. شكرًا لاختياركم لنا.",
     "Car hire agreement terms": "شروط عقد تأجير السيارة",
+    "Logo size on documents (%)": "حجم الشعار على المستندات (٪)",
     "This vehicle is already booked (:ref) for overlapping dates.": "هذه المركبة محجوزة بالفعل (:ref) في تواريخ متداخلة.",
     "The pick-up date can’t be in the past. Only an admin can backdate a booking.": "لا يمكن أن يكون تاريخ الاستلام في الماضي. المشرف فقط يمكنه تسجيل حجز بتاريخ سابق.",
     "The return date must be after the pick-up date.": "يجب أن يكون تاريخ الإرجاع بعد تاريخ الاستلام.",

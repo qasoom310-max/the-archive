@@ -33,6 +33,9 @@ final class SettingSeeder extends Seeder
             // `App\Erp\Branding\Logo::url()` so a missing-file path
             // falls back to text branding (same guard as User::avatarUrl).
             ['key' => 'company.logo', 'label' => 'Company Logo', 'type' => 'image', 'group' => 'General', 'default' => '', 'sort' => 15, 'description' => 'Shown on receipts, the login page, and the topbar.'],
+            // How big the logo prints on documents (the agreement PDF): a percent
+            // of the default size. 100 = default, larger zooms in (e.g. 150).
+            ['key' => 'company.logo_scale', 'label' => 'Logo size on documents (%)', 'type' => 'string', 'group' => 'General', 'default' => '100', 'sort' => 16, 'description' => '100 = default. Enter a larger number to zoom the logo in (e.g. 150 or 200).'],
             // Super-admin-only (the Settings page hides it from regular admins
             // via SettingsPage::SUPER_ADMIN_KEYS). Descriptive for now; can
             // later drive module suggestions / defaults.

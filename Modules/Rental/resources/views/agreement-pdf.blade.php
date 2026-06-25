@@ -8,6 +8,9 @@
     $carType = trim(($veh?->make ?? '') . ' ' . ($veh?->model ?? ''));
     if ($carType === '') { $carType = (string) ($veh?->name ?? '—'); }
     $kmOut = $order->handover_km ?? $order->pickup_mileage;
+    $logoScale = $logoScale ?? 100;
+    $logoH = (int) round(52 * $logoScale / 100);
+    $logoW = (int) round(150 * $logoScale / 100);
 @endphp
 <!doctype html>
 <html>
@@ -45,7 +48,7 @@
     <table class="head">
         <tr>
             <td>
-                @if ($logoPath)<img class="logo" src="{{ $logoPath }}" alt="">@endif
+                @if ($logoPath)<img class="logo" style="max-height:{{ $logoH }}px; max-width:{{ $logoW }}px" src="{{ $logoPath }}" alt="">@endif
                 <div class="company">{{ $companyName }}</div>
             </td>
             <td>

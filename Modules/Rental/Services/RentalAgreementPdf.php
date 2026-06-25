@@ -27,8 +27,17 @@ final class RentalAgreementPdf
             'order' => $order,
             'companyName' => (string) Setting::get('company.name', 'OpenERP'),
             'logoPath' => $this->logoPath(),
+            'logoScale' => $this->logoScale(),
             'terms' => (string) Setting::get('rental.agreement_terms', ''),
         ];
+    }
+
+    /** Logo size as a percent of default, clamped to a sane 50–400 %. */
+    private function logoScale(): int
+    {
+        $raw = (int) Setting::get('company.logo_scale', 100);
+
+        return max(50, min(400, $raw > 0 ? $raw : 100));
     }
 
     /** Rendered PDF bytes. */

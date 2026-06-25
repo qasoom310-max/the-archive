@@ -1,9 +1,15 @@
 @php use App\Erp\Views\ValueFormat; @endphp
-<div class="mx-auto max-w-5xl p-4 sm:p-6">
-    <div class="mb-4 flex items-center gap-2 text-sm text-chrome-500">
-        <a href="{{ url('/app/rental/order') }}" wire:navigate class="hover:text-primary-700">{{ __('Orders') }}</a>
-        <span>/</span>
-        <span class="font-medium text-chrome-700">{{ $isEditing ? ($reference ?: __('Order')) : __('New order') }}</span>
+@php use Modules\Rental\Models\RentalOrder; @endphp
+@php $lbl = 'mb-1.5 block text-xs font-medium uppercase tracking-wide text-chrome-500'; @endphp
+<div class="mx-auto max-w-6xl p-4 sm:p-6">
+    {{-- Breadcrumb + title --}}
+    <div class="mb-5">
+        <div class="flex items-center gap-2 text-sm text-chrome-400">
+            <a href="{{ url('/app/rental/order') }}" wire:navigate class="hover:text-primary-700">{{ __('Orders') }}</a>
+            <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/></svg>
+            <span class="font-medium text-chrome-600">{{ $isEditing ? ($reference ?: __('Order')) : __('New order') }}</span>
+        </div>
+        <h1 class="mt-1 text-xl font-bold text-chrome-900">{{ $isEditing ? __('Rental order') : __('New rental order') }}</h1>
     </div>
 
     @php
@@ -17,10 +23,10 @@
 
     {{-- Status / actions panel (existing orders only) --}}
     @if ($isEditing)
-        <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
-            <div class="flex items-center gap-3">
+        <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
+            <div class="flex flex-wrap items-center gap-2.5">
                 <span class="text-sm font-semibold text-chrome-800">{{ $reference }}</span>
-                <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $stateBadge }}">{{ __(ucfirst($state)) }}</span>
+                <span class="rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $stateBadge }}">{{ __(ucfirst($state)) }}</span>
                 @php
                     // Paid+confirmed → green; paid-but-unconfirmed / partial / unpaid → amber.
                     $confirmed = $payment_status === 'paid' && $payment_confirmed;
@@ -32,7 +38,7 @@
                         default => __('Unpaid'),
                     };
                 @endphp
-                <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $payBadge }}">{{ $payLabel }}</span>
+                <span class="rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $payBadge }}">{{ $payLabel }}</span>
                 @if ($confirmed && $savedOrder?->confirmedBy)
                     <span class="text-[11px] text-chrome-400">{{ __('by') }} {{ $savedOrder->confirmedBy->name }} · {{ $savedOrder->confirmed_at?->format('Y-m-d H:i') }}</span>
                 @elseif ($payment_status === 'paid' && ! $payment_confirmed)
@@ -69,11 +75,10 @@
     @endif
 
     {{-- Handover / Return inspection summary (saved orders) --}}
-    @php use Modules\Rental\Models\RentalOrder; @endphp
     @if ($savedOrder && ($savedOrder->started_at || $savedOrder->returned_at))
         <div class="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
             @if ($savedOrder->started_at)
-                <div class="rounded-xl bg-white p-4 text-sm shadow-sm ring-1 ring-chrome-900/5">
+                <div class="rounded-2xl bg-white p-4 text-sm shadow-sm ring-1 ring-chrome-900/5">
                     <h3 class="mb-2 font-semibold text-chrome-800">{{ __('Handover') }} <span class="text-xs font-normal text-chrome-400">{{ $savedOrder->started_at->format('Y-m-d H:i') }}</span></h3>
                     <dl class="space-y-1 text-chrome-600">
                         <div class="flex justify-between"><dt>{{ __('KM') }}</dt><dd class="font-medium text-chrome-800">{{ $savedOrder->handover_km !== null ? number_format((float) $savedOrder->handover_km) : '—' }}</dd></div>
@@ -84,13 +89,13 @@
                 </div>
             @endif
             @if ($savedOrder->returned_at)
-                <div class="rounded-xl bg-white p-4 text-sm shadow-sm ring-1 ring-chrome-900/5">
+                <div class="rounded-2xl bg-white p-4 text-sm shadow-sm ring-1 ring-chrome-900/5">
                     <h3 class="mb-2 font-semibold text-chrome-800">{{ __('Return') }} <span class="text-xs font-normal text-chrome-400">{{ $savedOrder->returned_at->format('Y-m-d H:i') }}</span></h3>
                     <dl class="space-y-1 text-chrome-600">
                         <div class="flex justify-between"><dt>{{ __('KM') }}</dt><dd class="font-medium text-chrome-800">{{ $savedOrder->return_km !== null ? number_format((float) $savedOrder->return_km) : '—' }}</dd></div>
                         <div class="flex justify-between"><dt>{{ __('Fuel') }}</dt><dd class="font-medium text-chrome-800">{{ RentalOrder::fuelLabel($savedOrder->return_fuel) }}</dd></div>
                         @if ($savedOrder->fuelChargeTotal() > 0)
-                            <div class="flex justify-between"><dt>{{ __('Fuel charge') }}</dt><dd class="font-medium text-amber-700">{{ \App\Erp\Views\ValueFormat::money($savedOrder->fuelChargeTotal()) }}</dd></div>
+                            <div class="flex justify-between"><dt>{{ __('Fuel charge') }}</dt><dd class="font-medium text-amber-700">{{ ValueFormat::money($savedOrder->fuelChargeTotal()) }}</dd></div>
                         @endif
                         <div class="flex justify-between"><dt>{{ __('Damage') }}</dt><dd class="font-medium {{ $savedOrder->has_damage ? 'text-red-600' : 'text-emerald-600' }}">{{ $savedOrder->has_damage ? __('Yes') : __('No') }}</dd></div>
                         @if ($savedOrder->damage_notes)<div><dt class="text-chrome-400">{{ __('Damage notes') }}</dt><dd class="text-chrome-700">{{ $savedOrder->damage_notes }}</dd></div>@endif
@@ -102,26 +107,34 @@
     @endif
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {{-- Form --}}
-        <div class="space-y-4 lg:col-span-2">
-            <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
-                <h2 class="mb-4 text-sm font-semibold text-chrome-800">{{ __('Rental details') }}</h2>
+        {{-- ─────────────── Form ─────────────── --}}
+        <div class="space-y-5 lg:col-span-2">
+
+            {{-- Customer & contract --}}
+            <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5 sm:p-6">
+                <header class="mb-4 flex items-center gap-2.5">
+                    <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+                        <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-7 9a7 7 0 0 1 14 0H3Z"/></svg>
+                    </span>
+                    <div>
+                        <h2 class="text-sm font-semibold text-chrome-800">{{ __('Customer & contract') }}</h2>
+                        <p class="text-xs text-chrome-400">{{ __('Who is renting, and the contract reference.') }}</p>
+                    </div>
+                </header>
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    {{-- Order number + date --}}
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Order number') }}</label>
+                        <label class="{{ $lbl }}">{{ __('Order number') }}</label>
                         <input type="text" value="{{ $reference ?: __('Auto') }}" class="o-input w-full bg-chrome-50 text-chrome-500" disabled>
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Date') }}</label>
+                        <label class="{{ $lbl }}">{{ __('Date') }}</label>
                         <input type="date" wire:model="order_date" class="o-input w-full">
                     </div>
 
-                    {{-- Customer + phone --}}
                     <div>
-                        <div class="mb-1 flex items-center justify-between gap-2">
-                            <label class="block text-sm font-medium text-chrome-700">{{ __('Customer') }} *</label>
+                        <div class="mb-1.5 flex items-center justify-between gap-2">
+                            <label class="text-xs font-medium uppercase tracking-wide text-chrome-500">{{ __('Customer') }} <span class="text-red-500">*</span></label>
                             <button type="button" wire:click="openCustomerModal"
                                 class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-primary-700 hover:bg-primary-50">
                                 <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
@@ -137,46 +150,36 @@
                         @error('customer_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Phone') }}</label>
+                        <label class="{{ $lbl }}">{{ __('Phone') }}</label>
                         <input type="text" wire:model="phone" placeholder="{{ __('Customer phone number') }}" class="o-input w-full">
                     </div>
 
-                    {{-- Additional driver --}}
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Additional driver') }}</label>
+                        <label class="{{ $lbl }}">{{ __('Additional driver') }}</label>
                         <input type="text" wire:model="additional_driver" placeholder="{{ __('Additional driver') }}" class="o-input w-full">
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Licence number') }}</label>
+                        <label class="{{ $lbl }}">{{ __('Licence number') }}</label>
                         <input type="text" wire:model="additional_driver_license" placeholder="{{ __("Additional driver's licence number") }}" class="o-input w-full">
                     </div>
+                </div>
+            </section>
 
-                    {{-- Branch + assigned driver --}}
+            {{-- Vehicle --}}
+            <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5 sm:p-6">
+                <header class="mb-4 flex items-center gap-2.5">
+                    <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+                        <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M3 9.5 4.2 6.6A2 2 0 0 1 6 5.5h8a2 2 0 0 1 1.8 1.1L17 9.5a2 2 0 0 1 1 1.7V13a1 1 0 0 1-1 1h-1a2 2 0 1 1-4 0H8a2 2 0 1 1-4 0H3a1 1 0 0 1-1-1v-1.8a2 2 0 0 1 1-1.7Z"/><circle cx="6.5" cy="14" r="1.5"/><circle cx="13.5" cy="14" r="1.5"/></svg>
+                    </span>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Branch') }}</label>
-                        <select wire:model="branch_id" class="o-input w-full">
-                            <option value="">{{ __('— Select —') }}</option>
-                            @foreach ($branches as $b)
-                                <option value="{{ $b->id }}">{{ $b->name }}</option>
-                            @endforeach
-                        </select>
+                        <h2 class="text-sm font-semibold text-chrome-800">{{ __('Vehicle') }}</h2>
+                        <p class="text-xs text-chrome-400">{{ __('The car, branch and delivery.') }}</p>
                     </div>
-                    <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Delivery') }}</label>
-                        <label class="mt-2 inline-flex items-center gap-2 text-sm text-chrome-700">
-                            <input type="checkbox" wire:model.live="delivery" class="rounded border-chrome-300 text-primary-600">
-                            {{ __('Deliver the car') }}
-                            <span class="text-chrome-400">(+ {{ \App\Erp\Views\ValueFormat::money(\Modules\Rental\Models\RentalOrder::DELIVERY_FEE) }})</span>
-                        </label>
-                        @if ($delivery)
-                            <input type="text" wire:model="delivery_location" class="o-input mt-2 w-full" placeholder="{{ __('Delivery location') }}">
-                            @error('delivery_location') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                        @endif
-                    </div>
+                </header>
 
-                    {{-- Vehicle + mileage --}}
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Vehicle') }} *</label>
+                        <label class="{{ $lbl }}">{{ __('Vehicle') }} <span class="text-red-500">*</span></label>
                         <select wire:model.live="vehicle_id" class="o-input w-full">
                             <option value="">{{ __('— Select —') }}</option>
                             @foreach ($vehicles as $v)
@@ -186,57 +189,97 @@
                         @error('vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('KM') }}</label>
+                        <label class="{{ $lbl }}">{{ __('KM') }}</label>
                         <input type="number" min="0" wire:model="pickup_mileage" placeholder="{{ __('Current KM') }}" class="o-input w-full">
+                    </div>
+                    <div>
+                        <label class="{{ $lbl }}">{{ __('Branch') }}</label>
+                        <select wire:model="branch_id" class="o-input w-full">
+                            <option value="">{{ __('— Select —') }}</option>
+                            @foreach ($branches as $b)
+                                <option value="{{ $b->id }}">{{ $b->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="{{ $lbl }}">{{ __('Delivery') }}</label>
+                        <label class="flex items-center gap-2 rounded-lg border border-chrome-200 px-3 py-2 text-sm text-chrome-700 has-[:checked]:border-primary-400 has-[:checked]:bg-primary-50/40">
+                            <input type="checkbox" wire:model.live="delivery" class="rounded border-chrome-300 text-primary-600">
+                            {{ __('Deliver the car') }}
+                            <span class="ms-auto text-xs text-chrome-400">+ {{ ValueFormat::money(RentalOrder::DELIVERY_FEE) }}</span>
+                        </label>
+                        @if ($delivery)
+                            <input type="text" wire:model="delivery_location" class="o-input mt-2 w-full" placeholder="{{ __('Delivery location') }}">
+                            @error('delivery_location') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        @endif
                     </div>
                 </div>
 
                 {{-- Selected vehicle read-out --}}
                 @if ($selectedVehicle)
-                    <div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg bg-chrome-50 p-3 text-xs sm:grid-cols-4">
-                        @php
-                            $readout = [
-                                __('Reservation status') => __(ucfirst($selectedVehicle->status)),
-                                __('Vehicle type') => $selectedVehicle->category ? __(ucfirst($selectedVehicle->category)) : '—',
-                                __('Fuel type') => $selectedVehicle->fuel_type ? __(ucfirst($selectedVehicle->fuel_type)) : '—',
-                                __('Year') => $selectedVehicle->year ?: '—',
-                                __('Colour') => $selectedVehicle->color ?: '—',
-                                __('KM') => $selectedVehicle->odometer !== null ? number_format((float) $selectedVehicle->odometer) : '—',
-                                __('Next maint. date') => $selectedVehicle->next_maintenance_date?->format('Y-m-d') ?? '—',
-                                __('Next maint. KM') => $selectedVehicle->next_maintenance_mileage !== null ? number_format((float) $selectedVehicle->next_maintenance_mileage) : '—',
-                            ];
-                        @endphp
-                        @foreach ($readout as $label => $value)
+                    <div class="mt-4 rounded-xl border border-chrome-100 bg-chrome-50/70 p-3">
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs sm:grid-cols-4">
+                            @php
+                                $statusTint = [
+                                    'available' => 'bg-emerald-100 text-emerald-700',
+                                    'rented' => 'bg-sky-100 text-sky-700',
+                                    'reserved' => 'bg-violet-100 text-violet-700',
+                                    'maintenance' => 'bg-amber-100 text-amber-700',
+                                ][$selectedVehicle->status] ?? 'bg-chrome-200 text-chrome-700';
+                                $readout = [
+                                    __('Vehicle type') => $selectedVehicle->category ? __(ucfirst($selectedVehicle->category)) : '—',
+                                    __('Fuel type') => $selectedVehicle->fuel_type ? __(ucfirst($selectedVehicle->fuel_type)) : '—',
+                                    __('Year') => $selectedVehicle->year ?: '—',
+                                    __('Colour') => $selectedVehicle->color ?: '—',
+                                    __('KM') => $selectedVehicle->odometer !== null ? number_format((float) $selectedVehicle->odometer) : '—',
+                                    __('Next maint. date') => $selectedVehicle->next_maintenance_date?->format('Y-m-d') ?? '—',
+                                    __('Next maint. KM') => $selectedVehicle->next_maintenance_mileage !== null ? number_format((float) $selectedVehicle->next_maintenance_mileage) : '—',
+                                ];
+                            @endphp
                             <div>
-                                <div class="uppercase tracking-wide text-chrome-400">{{ $label }}</div>
-                                <div class="font-medium text-chrome-800">{{ $value }}</div>
+                                <div class="uppercase tracking-wide text-chrome-400">{{ __('Reservation status') }}</div>
+                                <span class="mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide {{ $statusTint }}">{{ __(ucfirst($selectedVehicle->status)) }}</span>
                             </div>
-                        @endforeach
+                            @foreach ($readout as $label => $value)
+                                <div>
+                                    <div class="uppercase tracking-wide text-chrome-400">{{ $label }}</div>
+                                    <div class="font-medium text-chrome-800">{{ $value }}</div>
+                                </div>
+                            @endforeach
+                        </div>
                     </div>
                 @endif
+            </section>
 
-                {{-- Hiring period + time --}}
-                <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {{-- Rental period & rate --}}
+            <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5 sm:p-6">
+                <header class="mb-4 flex items-center gap-2.5">
+                    <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+                        <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.75 2a.75.75 0 0 1 .75.75V4h7V2.75a.75.75 0 0 1 1.5 0V4h.25A2.75 2.75 0 0 1 18 6.75v8.5A2.75 2.75 0 0 1 15.25 18H4.75A2.75 2.75 0 0 1 2 15.25v-8.5A2.75 2.75 0 0 1 4.75 4H5V2.75A.75.75 0 0 1 5.75 2ZM3.5 8.5v6.75c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25V8.5h-13Z" clip-rule="evenodd"/></svg>
+                    </span>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Pick-up date') }} *</label>
+                        <h2 class="text-sm font-semibold text-chrome-800">{{ __('Rental period & rate') }}</h2>
+                        <p class="text-xs text-chrome-400">{{ __('Dates, time and the pricing.') }}</p>
+                    </div>
+                </header>
+
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div>
+                        <label class="{{ $lbl }}">{{ __('Pick-up date') }} <span class="text-red-500">*</span></label>
                         <input type="date" wire:model.live="start_date" class="o-input w-full" @unless ($canBackdate) min="{{ now()->toDateString() }}" @endunless>
                         @error('start_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Return date') }} *</label>
+                        <label class="{{ $lbl }}">{{ __('Return date') }} <span class="text-red-500">*</span></label>
                         <input type="date" wire:model.live="end_date" class="o-input w-full" @if ($start_date) min="{{ $start_date }}" @endif>
                         @error('end_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Hired time') }}</label>
+                        <label class="{{ $lbl }}">{{ __('Hired time') }}</label>
                         <input type="time" wire:model="hired_time" class="o-input w-full">
                     </div>
-                </div>
-
-                {{-- Rate --}}
-                <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Rate type') }} *</label>
+                        <label class="{{ $lbl }}">{{ __('Rate type') }} <span class="text-red-500">*</span></label>
                         <select wire:model.live="rate_type" class="o-input w-full">
                             <option value="daily">{{ __('Daily') }}</option>
                             <option value="weekly">{{ __('Weekly') }}</option>
@@ -244,101 +287,124 @@
                         </select>
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Rate (BHD)') }} *</label>
+                        <label class="{{ $lbl }}">{{ __('Rate (BHD)') }} <span class="text-red-500">*</span></label>
                         <input type="number" step="0.001" min="0" wire:model.live="rate" class="o-input w-full">
                         @error('rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('VAT') }} %</label>
+                        <label class="{{ $lbl }}">{{ __('VAT') }} %</label>
                         <input type="number" step="0.1" min="0" max="100" wire:model.live="vat_rate" class="o-input w-full">
                     </div>
                 </div>
+            </section>
 
-                {{-- Charges --}}
-                <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {{-- Charges & payment --}}
+            <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5 sm:p-6">
+                <header class="mb-4 flex items-center gap-2.5">
+                    <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+                        <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M1 4.25A2.25 2.25 0 0 1 3.25 2h13.5A2.25 2.25 0 0 1 19 4.25v1.5H1v-1.5ZM1 8h18v7.75A2.25 2.25 0 0 1 16.75 18H3.25A2.25 2.25 0 0 1 1 15.75V8Zm3 5.75a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 0 1.5h-3a.75.75 0 0 1-.75-.75Z"/></svg>
+                    </span>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Discount (BHD)') }}</label>
+                        <h2 class="text-sm font-semibold text-chrome-800">{{ __('Charges & payment') }}</h2>
+                        <p class="text-xs text-chrome-400">{{ __('Discounts, advance, deposit and method.') }}</p>
+                    </div>
+                </header>
+
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div>
+                        <label class="{{ $lbl }}">{{ __('Discount (BHD)') }}</label>
                         <input type="number" step="0.001" min="0" wire:model.live="discount" class="o-input w-full">
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Advance amount (BHD)') }}</label>
+                        <label class="{{ $lbl }}">{{ __('Advance amount (BHD)') }}</label>
                         <input type="number" step="0.001" min="0" wire:model.live="advance_amount" class="o-input w-full">
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Deposit (BHD)') }}</label>
+                        <label class="{{ $lbl }}">{{ __('Deposit (BHD)') }}</label>
                         <input type="number" step="0.001" min="0" wire:model="deposit" class="o-input w-full">
                     </div>
                 </div>
 
-                {{-- Payment type --}}
                 <div class="mt-4">
-                    <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Payment type') }}</label>
-                    <div class="flex flex-wrap gap-4">
+                    <label class="{{ $lbl }}">{{ __('Payment type') }}</label>
+                    <div class="flex flex-wrap gap-2">
                         @foreach ($paymentTypes as $pt)
-                            <label class="inline-flex items-center gap-1.5 text-sm text-chrome-700">
-                                <input type="radio" wire:model="payment_type" value="{{ $pt['value'] }}" class="text-primary-600">
-                                {{ __($pt['label']) }}
+                            <label class="cursor-pointer">
+                                <input type="radio" wire:model="payment_type" value="{{ $pt['value'] }}" class="peer sr-only">
+                                <span class="block rounded-lg border border-chrome-200 px-3 py-1.5 text-sm text-chrome-600 transition hover:bg-chrome-50 peer-checked:border-primary-500 peer-checked:bg-primary-50 peer-checked:font-medium peer-checked:text-primary-700">{{ __($pt['label']) }}</span>
                             </label>
                         @endforeach
                     </div>
                 </div>
+            </section>
 
-                {{-- Comments --}}
-                <div class="mt-4">
-                    <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Comments') }}</label>
+            {{-- Notes & documents --}}
+            <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5 sm:p-6">
+                <header class="mb-4 flex items-center gap-2.5">
+                    <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+                        <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 0 0 3 3.5v13A1.5 1.5 0 0 0 4.5 18h11a1.5 1.5 0 0 0 1.5-1.5V7.621a1.5 1.5 0 0 0-.44-1.06l-3.62-3.622A1.5 1.5 0 0 0 11.378 2H4.5Zm2.25 8.5a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5h-6.5Zm0 3a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5h-6.5Z" clip-rule="evenodd"/></svg>
+                    </span>
+                    <div>
+                        <h2 class="text-sm font-semibold text-chrome-800">{{ __('Notes & documents') }}</h2>
+                        <p class="text-xs text-chrome-400">{{ __('Comments and the customer’s ID / licence.') }}</p>
+                    </div>
+                </header>
+
+                <div>
+                    <label class="{{ $lbl }}">{{ __('Comments') }}</label>
                     <textarea wire:model="notes" rows="2" class="o-input w-full"></textarea>
                 </div>
 
-                {{-- Documents: CPR / ID and driving licence --}}
                 <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('CPR image') }}</label>
-                        <input type="file" wire:model="cprPhoto" accept="image/*" class="block w-full text-sm text-chrome-600 file:mr-3 file:rounded-md file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-chrome-700 hover:file:bg-chrome-200">
-                        <div wire:loading wire:target="cprPhoto" class="mt-1 text-xs text-chrome-400">{{ __('Uploading…') }}</div>
-                        @error('cprPhoto') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                        @if ($cprPhoto)
-                            <img src="{{ $cprPhoto->temporaryUrl() }}" alt="" class="mt-2 h-24 rounded-lg object-cover ring-1 ring-chrome-200">
-                        @elseif ($existingCprImage)
-                            <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($existingCprImage) }}" alt="" class="mt-2 h-24 rounded-lg object-cover ring-1 ring-chrome-200">
-                        @endif
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Licence image') }}</label>
-                        <input type="file" wire:model="licensePhoto" accept="image/*" class="block w-full text-sm text-chrome-600 file:mr-3 file:rounded-md file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-chrome-700 hover:file:bg-chrome-200">
-                        <div wire:loading wire:target="licensePhoto" class="mt-1 text-xs text-chrome-400">{{ __('Uploading…') }}</div>
-                        @error('licensePhoto') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                        @if ($licensePhoto)
-                            <img src="{{ $licensePhoto->temporaryUrl() }}" alt="" class="mt-2 h-24 rounded-lg object-cover ring-1 ring-chrome-200">
-                        @elseif ($existingLicenseImage)
-                            <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($existingLicenseImage) }}" alt="" class="mt-2 h-24 rounded-lg object-cover ring-1 ring-chrome-200">
-                        @endif
-                    </div>
+                    @foreach ([
+                        ['label' => __('CPR image'), 'model' => 'cprPhoto', 'temp' => $cprPhoto, 'existing' => $existingCprImage],
+                        ['label' => __('Licence image'), 'model' => 'licensePhoto', 'temp' => $licensePhoto, 'existing' => $existingLicenseImage],
+                    ] as $doc)
+                        <div>
+                            <label class="{{ $lbl }}">{{ $doc['label'] }}</label>
+                            <div class="rounded-xl border border-dashed border-chrome-200 p-3">
+                                <input type="file" wire:model="{{ $doc['model'] }}" accept="image/*" class="block w-full text-sm text-chrome-600 file:mr-3 file:rounded-md file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-chrome-700 hover:file:bg-chrome-200">
+                                <div wire:loading wire:target="{{ $doc['model'] }}" class="mt-1 text-xs text-chrome-400">{{ __('Uploading…') }}</div>
+                                @error($doc['model']) <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                @if ($doc['temp'])
+                                    <img src="{{ $doc['temp']->temporaryUrl() }}" alt="" class="mt-2 h-24 rounded-lg object-cover ring-1 ring-chrome-200">
+                                @elseif ($doc['existing'])
+                                    <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($doc['existing']) }}" alt="" class="mt-2 h-24 rounded-lg object-cover ring-1 ring-chrome-200">
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
-            </div>
+            </section>
         </div>
 
-        {{-- Live summary --}}
-        <div class="space-y-4">
-            <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
-                <h2 class="mb-3 text-sm font-semibold text-chrome-800">{{ __('Summary') }}</h2>
-                <dl class="space-y-2 text-sm">
-                    <div class="flex justify-between"><dt class="text-chrome-500">{{ __('No. of days') }}</dt><dd class="font-medium text-chrome-800">{{ $previewDays }} {{ __('days') }}</dd></div>
-                    <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Billable units') }}</dt><dd class="font-medium text-chrome-800">{{ $previewUnits }}</dd></div>
-                    <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Amount') }}</dt><dd class="font-medium text-chrome-800">{{ ValueFormat::money($previewSubtotal) }}</dd></div>
-                    <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Discount') }}</dt><dd class="text-chrome-600">− {{ ValueFormat::money((float) ($discount === '' ? '0' : $discount)) }}</dd></div>
-                    <div class="flex justify-between"><dt class="text-chrome-500">{{ __('VAT') }}</dt><dd class="text-chrome-600">+ {{ ValueFormat::money($previewVat) }}</dd></div>
-                    <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Delivery charges') }}</dt><dd class="text-chrome-600">+ {{ ValueFormat::money($previewDelivery) }}</dd></div>
-                    <div class="border-t border-chrome-100 pt-2 flex justify-between text-base"><dt class="font-semibold text-chrome-700">{{ __('Net total') }}</dt><dd class="font-bold text-chrome-900">{{ ValueFormat::money($previewTotal) }}</dd></div>
-                    <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Advance') }}</dt><dd class="text-chrome-600">− {{ ValueFormat::money((float) ($advance_amount === '' ? '0' : $advance_amount)) }}</dd></div>
-                    <div class="flex justify-between text-base"><dt class="font-semibold text-chrome-700">{{ __('Balance') }}</dt><dd class="font-bold text-primary-700">{{ ValueFormat::money($previewBalance) }}</dd></div>
-                    <div class="flex justify-between text-xs"><dt class="text-chrome-400">{{ __('Deposit (refundable)') }}</dt><dd class="text-chrome-500">{{ ValueFormat::money((float) ($deposit === '' ? '0' : $deposit)) }}</dd></div>
-                </dl>
+        {{-- ─────────────── Live summary ─────────────── --}}
+        <div class="lg:col-span-1">
+            <div class="space-y-4 lg:sticky lg:top-6">
+                <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/5">
+                    <div class="flex items-center justify-between border-b border-chrome-100 bg-chrome-50/60 px-5 py-3">
+                        <h2 class="text-sm font-semibold text-chrome-800">{{ __('Summary') }}</h2>
+                        <span class="text-xs text-chrome-400">{{ $previewDays }} {{ __('days') }} · {{ $previewUnits }} {{ __('units') }}</span>
+                    </div>
+                    <div class="p-5">
+                        <dl class="space-y-2 text-sm">
+                            <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Amount') }}</dt><dd class="font-medium text-chrome-800">{{ ValueFormat::money($previewSubtotal) }}</dd></div>
+                            <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Discount') }}</dt><dd class="text-chrome-600">− {{ ValueFormat::money((float) ($discount === '' ? '0' : $discount)) }}</dd></div>
+                            <div class="flex justify-between"><dt class="text-chrome-500">{{ __('VAT') }}</dt><dd class="text-chrome-600">+ {{ ValueFormat::money($previewVat) }}</dd></div>
+                            <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Delivery charges') }}</dt><dd class="text-chrome-600">+ {{ ValueFormat::money($previewDelivery) }}</dd></div>
+                            <div class="mt-1 flex items-center justify-between border-t border-chrome-100 pt-3"><dt class="font-semibold text-chrome-700">{{ __('Net total') }}</dt><dd class="text-lg font-bold text-chrome-900">{{ ValueFormat::money($previewTotal) }}</dd></div>
+                            <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Advance') }}</dt><dd class="text-chrome-600">− {{ ValueFormat::money((float) ($advance_amount === '' ? '0' : $advance_amount)) }}</dd></div>
+                            <div class="flex items-center justify-between rounded-lg bg-primary-50 px-3 py-2"><dt class="font-semibold text-primary-800">{{ __('Balance') }}</dt><dd class="text-base font-bold text-primary-700">{{ ValueFormat::money($previewBalance) }}</dd></div>
+                            <div class="flex justify-between pt-1 text-xs"><dt class="text-chrome-400">{{ __('Deposit (refundable)') }}</dt><dd class="text-chrome-500">{{ ValueFormat::money((float) ($deposit === '' ? '0' : $deposit)) }}</dd></div>
+                        </dl>
 
-                <button wire:click="save" class="o-btn-primary mt-4 w-full justify-center">
-                    <span wire:loading.remove wire:target="save">{{ $isEditing ? __('Save order') : __('Add record') }}</span>
-                    <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
-                </button>
-                <a href="{{ url('/app/rental/order') }}" wire:navigate class="mt-2 block text-center text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</a>
+                        <button wire:click="save" class="o-btn-primary mt-5 w-full justify-center py-2.5">
+                            <span wire:loading.remove wire:target="save">{{ $isEditing ? __('Save order') : __('Add record') }}</span>
+                            <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
+                        </button>
+                        <a href="{{ url('/app/rental/order') }}" wire:navigate class="mt-2 block text-center text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -417,9 +483,9 @@
                         <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Fuel charge (BHD)') }}</label>
                         <input type="number" step="0.001" min="0" wire:model.live="fuel_charge" class="o-input w-full" placeholder="0.000">
                         <p class="mt-1 text-xs text-chrome-400">
-                            {{ __('If returned with less fuel, enter the refuel cost. A :fee service fee is added.', ['fee' => \App\Erp\Views\ValueFormat::money(RentalOrder::FUEL_SERVICE_FEE)]) }}
+                            {{ __('If returned with less fuel, enter the refuel cost. A :fee service fee is added.', ['fee' => ValueFormat::money(RentalOrder::FUEL_SERVICE_FEE)]) }}
                             @if ((float) ($fuel_charge ?: 0) > 0)
-                                <span class="font-medium text-chrome-600">{{ __('Total charged') }}: {{ \App\Erp\Views\ValueFormat::money((float) $fuel_charge + RentalOrder::FUEL_SERVICE_FEE) }}</span>
+                                <span class="font-medium text-chrome-600">{{ __('Total charged') }}: {{ ValueFormat::money((float) $fuel_charge + RentalOrder::FUEL_SERVICE_FEE) }}</span>
                             @endif
                         </p>
                         @error('fuel_charge') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror

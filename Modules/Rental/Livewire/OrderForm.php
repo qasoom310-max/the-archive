@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Models\User;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -156,8 +158,13 @@ final class OrderForm extends Component
             'additional_driver' => ['nullable', 'string', 'max:255'],
             'additional_driver_license' => ['nullable', 'string', 'max:100'],
             'branch_id' => ['nullable', 'integer'],
-            'start_date' => ['required', 'date'],
-            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+            // Pick-up can't be before today — unless an admin / super-admin is
+            // deliberately backdating a booking.
+            'start_date' => $this->canBackdate()
+                ? ['required', 'date']
+                : ['required', 'date', 'after_or_equal:today'],
+            // Return must be a LATER day than pick-up (no same / earlier day).
+            'end_date' => ['required', 'date', 'after:start_date'],
             'hired_time' => ['nullable', 'string', 'max:10'],
             'rate_type' => ['required', 'in:daily,weekly,monthly'],
             'rate' => ['required', 'numeric', 'min:0'],
@@ -171,6 +178,25 @@ final class OrderForm extends Component
             'cprPhoto' => ['nullable', 'image', 'max:4096'],
             'licensePhoto' => ['nullable', 'image', 'max:4096'],
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function messages(): array
+    {
+        return [
+            'start_date.after_or_equal' => __('The pick-up date can’t be in the past. Only an admin can backdate a booking.'),
+            'end_date.after' => __('The return date must be after the pick-up date.'),
+        ];
+    }
+
+    /** Admins (and super-admins, a superset) may book a past pick-up date. */
+    private function canBackdate(): bool
+    {
+        $user = Auth::user();
+
+        return $user instanceof User && $user->isAdmin();
     }
 
     /** Picking a vehicle pre-fills its rate + deposit + branch + current mileage. */
@@ -456,6 +482,7 @@ final class OrderForm extends Component
             'branches' => Branch::query()->where('active', true)->orderBy('name')->get(['id', 'name']),
             'selectedVehicle' => $selectedVehicle,
             'paymentTypes' => RentalOrder::paymentTypeOptions(),
+            'canBackdate' => $this->canBackdate(),
             'previewDays' => $preview->days,
             'previewUnits' => $preview->billableUnits(),
             'previewSubtotal' => $preview->subtotal,

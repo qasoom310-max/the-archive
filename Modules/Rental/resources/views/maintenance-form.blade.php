@@ -44,7 +44,7 @@
                 <input type="number" step="0.001" min="0" wire:model="cost" class="o-input w-full">
             </div>
             <div>
-                <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Odometer') }}</label>
+                <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('KM') }}</label>
                 <input type="number" min="0" wire:model="odometer" class="o-input w-full">
             </div>
             <div class="sm:col-span-2">

@@ -130,8 +130,8 @@
                         @error('vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Mileage') }}</label>
-                        <input type="number" min="0" wire:model="pickup_mileage" placeholder="{{ __('Current mileage') }}" class="o-input w-full">
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('KM') }}</label>
+                        <input type="number" min="0" wire:model="pickup_mileage" placeholder="{{ __('Current KM') }}" class="o-input w-full">
                     </div>
                 </div>
 
@@ -145,9 +145,9 @@
                                 __('Fuel type') => $selectedVehicle->fuel_type ? __(ucfirst($selectedVehicle->fuel_type)) : '—',
                                 __('Year') => $selectedVehicle->year ?: '—',
                                 __('Colour') => $selectedVehicle->color ?: '—',
-                                __('Mileage') => $selectedVehicle->odometer !== null ? number_format((float) $selectedVehicle->odometer) : '—',
+                                __('KM') => $selectedVehicle->odometer !== null ? number_format((float) $selectedVehicle->odometer) : '—',
                                 __('Next maint. date') => $selectedVehicle->next_maintenance_date?->format('Y-m-d') ?? '—',
-                                __('Next maint. mileage') => $selectedVehicle->next_maintenance_mileage !== null ? number_format((float) $selectedVehicle->next_maintenance_mileage) : '—',
+                                __('Next maint. KM') => $selectedVehicle->next_maintenance_mileage !== null ? number_format((float) $selectedVehicle->next_maintenance_mileage) : '—',
                             ];
                         @endphp
                         @foreach ($readout as $label => $value)

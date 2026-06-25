@@ -102,28 +102,52 @@ final class WooCommerceSettings extends Component
         $this->saved = true;
     }
 
-    /** Queue a push of every active product to the store. */
+    public bool $syncError = false;
+
+    /**
+     * Push every active product to the store NOW (synchronously, in this
+     * database's context) and report the real outcome — so a wrong key /
+     * unreachable store surfaces immediately instead of failing silently in a
+     * background job.
+     */
     public function syncAllNow(): void
     {
         $this->authorizeAdmin();
 
         if (! WooCommerceConfiguration::current()->isConfigured()) {
+            $this->syncError = true;
             $this->syncMessage = __('Configure and enable the store, then Save first.');
 
             return;
         }
 
-        $count = app(WooCommerceService::class)->syncAllActive();
+        $result = app(WooCommerceService::class)->syncAllActiveNow();
+        $this->syncError = $result['failed'] > 0;
 
-        $this->syncMessage = $count > 0
-            ? __(':count products queued for syncing.', ['count' => $count])
-            : __('No active products in THIS database to sync — switch to the right database (My database) or add products here first.');
+        if ($result['synced'] === 0 && $result['failed'] === 0) {
+            $this->syncMessage = __('No active products in THIS database to sync — switch to the right database (My database) or add products here first.');
+
+            return;
+        }
+
+        if ($result['failed'] > 0) {
+            $this->syncMessage = __(':synced synced, :failed failed. First error: :error', [
+                'synced' => $result['synced'],
+                'failed' => $result['failed'],
+                'error' => (string) $result['error'],
+            ]);
+
+            return;
+        }
+
+        $this->syncMessage = __(':count products synced to the store.', ['count' => $result['synced']]);
     }
 
     public function updated(): void
     {
         $this->saved = false;
         $this->syncMessage = '';
+        $this->syncError = false;
     }
 
     public function render(): View

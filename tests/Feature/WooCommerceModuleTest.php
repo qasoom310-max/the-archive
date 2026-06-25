@@ -7,7 +7,6 @@ namespace Tests\Feature;
 use App\Erp\Modules\ModuleManager;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
-use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -158,7 +157,7 @@ final class WooCommerceModuleTest extends TestCase
         ]);
 
         // First run → POST, stores the remote id.
-        (new SyncProductToWooCommerce((int) $product->id))->handle(app(HttpFactory::class));
+        (new SyncProductToWooCommerce((int) $product->id))->handle(app(WooCommerceService::class));
 
         $link = WooCommerceProductLink::query()->where('pos_product_id', $product->id)->firstOrFail();
         $this->assertSame(555, $link->woo_id);
@@ -173,7 +172,7 @@ final class WooCommerceModuleTest extends TestCase
         });
 
         // Second run → PUT to the same remote id (update, not duplicate).
-        (new SyncProductToWooCommerce((int) $product->id))->handle(app(HttpFactory::class));
+        (new SyncProductToWooCommerce((int) $product->id))->handle(app(WooCommerceService::class));
 
         Http::assertSent(fn ($request): bool => $request->method() === 'PUT'
             && str_contains($request->url(), '/wp-json/wc/v3/products/555'));
@@ -192,7 +191,7 @@ final class WooCommerceModuleTest extends TestCase
 
         Http::fake(['*/wp-json/wc/v3/products/900' => Http::response(['id' => 900], 200)]);
 
-        (new SyncProductToWooCommerce((int) $product->id, 'unpublish'))->handle(app(HttpFactory::class));
+        (new SyncProductToWooCommerce((int) $product->id, 'unpublish'))->handle(app(WooCommerceService::class));
 
         Http::assertSent(fn ($request): bool => $request->method() === 'PUT'
             && str_contains($request->url(), '/products/900')
@@ -211,7 +210,7 @@ final class WooCommerceModuleTest extends TestCase
         Http::fake(['*' => Http::response('bad request', 400)]);
 
         try {
-            (new SyncProductToWooCommerce((int) $product->id))->handle(app(HttpFactory::class));
+            (new SyncProductToWooCommerce((int) $product->id))->handle(app(WooCommerceService::class));
             $this->fail('Expected a WooCommerceException.');
         } catch (\Modules\WooCommerce\Exceptions\WooCommerceException) {
             // expected
@@ -221,20 +220,39 @@ final class WooCommerceModuleTest extends TestCase
             ->where('pos_product_id', $product->id)->value('last_status'));
     }
 
-    public function test_sync_all_now_distinguishes_empty_catalogue_from_unconfigured(): void
+    public function test_sync_all_now_runs_synchronously_and_reports_outcomes(): void
     {
         $this->install();
         $this->configure();
-        Bus::fake();
 
         // Configured but the database has no products → clear, accurate message.
         $empty = Livewire::test(WooCommerceSettings::class)->call('syncAllNow');
         $this->assertStringContainsString('No active products', (string) $empty->get('syncMessage'));
+        $this->assertFalse($empty->get('syncError'));
 
-        // Add one → it reports the queued count instead.
+        // With a product + a healthy store → synced immediately (no queue).
+        $product = $this->product();
+        Http::fake(['*/wp-json/wc/v3/products' => Http::response(['id' => 321], 201)]);
+
+        $ok = Livewire::test(WooCommerceSettings::class)->call('syncAllNow');
+        $this->assertStringContainsString('synced', (string) $ok->get('syncMessage'));
+        $this->assertFalse($ok->get('syncError'));
+        $this->assertSame(321, WooCommerceProductLink::query()->where('pos_product_id', $product->id)->value('woo_id'));
+    }
+
+    public function test_sync_all_now_surfaces_a_store_error(): void
+    {
+        $this->install();
+        $this->configure();
         $this->product();
-        $withProduct = Livewire::test(WooCommerceSettings::class)->call('syncAllNow');
-        $this->assertStringContainsString('queued', (string) $withProduct->get('syncMessage'));
+
+        Http::fake(['*' => Http::response('Unauthorized', 401)]);
+
+        $component = Livewire::test(WooCommerceSettings::class)->call('syncAllNow');
+
+        $this->assertTrue($component->get('syncError'));
+        $this->assertStringContainsString('failed', (string) $component->get('syncMessage'));
+        $this->assertStringContainsString('401', (string) $component->get('syncMessage'));
     }
 
     public function test_saving_an_active_product_queues_a_push_when_enabled(): void

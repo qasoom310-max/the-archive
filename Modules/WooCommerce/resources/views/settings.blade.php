@@ -94,7 +94,7 @@
                     <p class="mt-2 text-xs text-chrome-400">Save your store settings (URL, keys, Enabled) first to turn this on.</p>
                 @endif
                 @if ($syncMessage !== '')
-                    <p class="mt-2 text-xs font-medium text-emerald-600">{{ $syncMessage }}</p>
+                    <p class="mt-2 text-xs font-medium {{ $syncError ? 'text-red-600' : 'text-emerald-600' }}">{{ $syncMessage }}</p>
                 @endif
             </div>
         </div>

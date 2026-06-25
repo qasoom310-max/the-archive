@@ -39,6 +39,9 @@ final class SettingSeeder extends Seeder
             ['key' => 'currency.default', 'label' => 'Default Currency', 'type' => 'string', 'group' => 'General', 'default' => 'USD', 'sort' => 20, 'description' => 'ISO code, e.g. USD, EUR.'],
             ['key' => 'company.timezone', 'label' => 'Timezone', 'type' => 'string', 'group' => 'General', 'default' => 'UTC', 'sort' => 30, 'description' => null],
             ['key' => 'company.language', 'label' => 'Language', 'type' => 'string', 'group' => 'General', 'default' => 'en', 'sort' => 40, 'description' => 'Default language for the system.'],
+            // Terms & conditions printed on the rental Car Hire Agreement PDF
+            // (the one emailed to customers). A `text` type renders as a textarea.
+            ['key' => 'rental.agreement_terms', 'label' => 'Car hire agreement terms', 'type' => 'text', 'group' => 'Rental', 'default' => '', 'sort' => 10, 'description' => 'Terms & conditions printed on the rental agreement PDF emailed to customers.'],
         ];
 
         foreach ($params as $p) {

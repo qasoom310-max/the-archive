@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Settings\Setting;
 use App\Models\User;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
+use Modules\Rental\Mail\RentalAgreementMail;
+use Modules\Rental\Services\RentalAgreementPdf;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -565,6 +569,31 @@ final class OrderForm extends Component
         $invoice = $order->createInvoice();
         session()->flash('toast', __('Invoice created.'));
         $this->redirect('/app/rental/invoice/' . $invoice->id, navigate: true);
+    }
+
+    /** Email the self-contained agreement PDF to the customer on file. */
+    public function emailAgreement(): void
+    {
+        if ($this->id === null) {
+            return;
+        }
+
+        $order = RentalOrder::query()->with('customer', 'vehicle', 'branch')->find($this->id);
+        if ($order === null) {
+            return;
+        }
+
+        $email = $order->customer?->email;
+        if (! is_string($email) || trim($email) === '') {
+            session()->flash('toast', __('This customer has no email — add one to send the agreement.'));
+
+            return;
+        }
+
+        $pdf = app(RentalAgreementPdf::class)->render($order);
+        Mail::to(trim($email))->send(new RentalAgreementMail($pdf, $order, (string) Setting::get('company.name', 'OpenERP')));
+
+        session()->flash('toast', __('Agreement emailed to :email.', ['email' => trim($email)]));
     }
 
     /** Only the accountant / super-admin may confirm money was received. */

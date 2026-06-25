@@ -57,6 +57,8 @@
                 @endif
 
                 <a href="{{ url('/app/rental/order/' . $id . '/agreement') }}" target="_blank" rel="noopener" class="o-btn-ghost text-sm">{{ __('Print agreement') }}</a>
+                <button wire:click="emailAgreement" wire:confirm="{{ __('Email the agreement PDF to the customer?') }}" class="o-btn-ghost text-sm">{{ __('Email agreement') }}</button>
+                <a href="{{ url('/app/rental/order/' . $id . '/agreement/pdf') }}" target="_blank" rel="noopener" class="text-sm font-medium text-chrome-500 hover:underline">{{ __('PDF') }}</a>
 
                 {{-- Payment confirmation — accountant / super-admin only. --}}
                 @if ($canConfirmPayment)

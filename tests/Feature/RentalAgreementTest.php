@@ -106,6 +106,19 @@ final class RentalAgreementTest extends TestCase
         Livewire::test(OrderForm::class, ['id' => $order->id])->call('emailAgreement');
 
         Mail::assertSent(RentalAgreementMail::class, fn (RentalAgreementMail $m): bool => $m->hasTo('renter@example.com'));
+        $this->assertNotNull($order->fresh()?->agreement_emailed_at);
+    }
+
+    public function test_the_agreement_can_only_be_emailed_once(): void
+    {
+        Mail::fake();
+        $order = $this->order('renter@example.com');
+
+        Livewire::test(OrderForm::class, ['id' => $order->id])
+            ->call('emailAgreement')   // sends
+            ->call('emailAgreement');  // blocked — already sent
+
+        Mail::assertSent(RentalAgreementMail::class, 1);
     }
 
     public function test_emailing_without_a_customer_email_sends_nothing(): void

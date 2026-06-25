@@ -57,7 +57,14 @@
                 @endif
 
                 <a href="{{ url('/app/rental/order/' . $id . '/agreement') }}" target="_blank" rel="noopener" class="o-btn-ghost text-sm">{{ __('Print agreement') }}</a>
-                <button wire:click="emailAgreement" wire:confirm="{{ __('Email the agreement PDF to the customer?') }}" class="o-btn-ghost text-sm">{{ __('Email agreement') }}</button>
+                @if ($savedOrder?->agreement_emailed_at)
+                    <span class="inline-flex items-center gap-1 text-sm text-emerald-600">
+                        <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0l-3.5-3.5a1 1 0 1 1 1.4-1.4l2.8 2.79 6.8-6.79a1 1 0 0 1 1.4 0Z" clip-rule="evenodd"/></svg>
+                        {{ __('Agreement sent') }} · {{ $savedOrder->agreement_emailed_at->format('Y-m-d H:i') }}
+                    </span>
+                @else
+                    <button wire:click="emailAgreement" wire:confirm="{{ __('Email the agreement PDF to the customer? (sends once)') }}" class="o-btn-ghost text-sm">{{ __('Email agreement') }}</button>
+                @endif
                 <a href="{{ url('/app/rental/order/' . $id . '/agreement/pdf') }}" target="_blank" rel="noopener" class="text-sm font-medium text-chrome-500 hover:underline">{{ __('PDF') }}</a>
 
                 {{-- Payment confirmation — accountant / super-admin only. --}}

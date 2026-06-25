@@ -583,6 +583,13 @@ final class OrderForm extends Component
             return;
         }
 
+        // Send once only.
+        if ($order->agreement_emailed_at !== null) {
+            session()->flash('toast', __('The agreement was already emailed to this customer.'));
+
+            return;
+        }
+
         $email = $order->customer?->email;
         if (! is_string($email) || trim($email) === '') {
             session()->flash('toast', __('This customer has no email — add one to send the agreement.'));
@@ -592,6 +599,9 @@ final class OrderForm extends Component
 
         $pdf = app(RentalAgreementPdf::class)->render($order);
         Mail::to(trim($email))->send(new RentalAgreementMail($pdf, $order, (string) Setting::get('company.name', 'OpenERP')));
+
+        $order->agreement_emailed_at = Carbon::now();
+        $order->save();
 
         session()->flash('toast', __('Agreement emailed to :email.', ['email' => trim($email)]));
     }

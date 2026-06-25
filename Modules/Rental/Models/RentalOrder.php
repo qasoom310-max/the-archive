@@ -52,6 +52,7 @@ use Illuminate\Support\Carbon;
  * @property bool $payment_confirmed
  * @property int|null $confirmed_by_user_id
  * @property Carbon|null $confirmed_at
+ * @property Carbon|null $agreement_emailed_at
  * @property string|null $notes
  * @property string|null $cpr_image_path
  * @property string|null $license_image_path
@@ -106,7 +107,7 @@ final class RentalOrder extends Model implements DefinesIrModel
         'start_date', 'end_date', 'hired_time', 'rate_type', 'rate', 'days', 'subtotal',
         'discount', 'vat_rate', 'vat_amount', 'delivery', 'delivery_location', 'delivery_charges', 'deposit', 'total',
         'advance_amount', 'balance', 'payment_type', 'state', 'payment_status',
-        'payment_confirmed', 'confirmed_by_user_id', 'confirmed_at', 'notes',
+        'payment_confirmed', 'confirmed_by_user_id', 'confirmed_at', 'agreement_emailed_at', 'notes',
         'cpr_image_path', 'license_image_path',
         'handover_km', 'handover_fuel', 'handover_notes', 'handover_video_url', 'started_at',
         'return_km', 'return_fuel', 'fuel_charge', 'has_damage', 'damage_notes', 'damage_video_url', 'returned_at',
@@ -166,6 +167,7 @@ final class RentalOrder extends Model implements DefinesIrModel
             'payment_confirmed' => 'boolean',
             'confirmed_by_user_id' => 'integer',
             'confirmed_at' => 'datetime',
+            'agreement_emailed_at' => 'datetime',
         ];
     }
 

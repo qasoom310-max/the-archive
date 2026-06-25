@@ -112,6 +112,66 @@ final class RentalHandoverReturnTest extends TestCase
         $this->assertSame(RentalOrder::STATE_ACTIVE, $order->fresh()?->state);
     }
 
+    public function test_return_km_below_the_handover_km_is_rejected(): void
+    {
+        [$order] = $this->draftOrder();
+
+        Livewire::test(OrderForm::class, ['id' => $order->id])
+            ->call('startRental')
+            ->set('handover_km', '10250')
+            ->set('handover_fuel', 'full')
+            ->call('confirmHandover')
+            ->assertHasNoErrors();
+
+        Livewire::test(OrderForm::class, ['id' => $order->id])
+            ->call('closeRental')
+            ->set('return_km', '1')           // less than the handover 10250
+            ->set('return_fuel', 'full')
+            ->call('confirmReturn')
+            ->assertHasErrors(['return_km']);
+
+        // Still out (not closed).
+        $this->assertSame(RentalOrder::STATE_ACTIVE, $order->fresh()?->state);
+    }
+
+    public function test_return_modal_shows_the_received_fuel_level(): void
+    {
+        [$order] = $this->draftOrder();
+
+        Livewire::test(OrderForm::class, ['id' => $order->id])
+            ->call('startRental')->set('handover_km', '10250')->set('handover_fuel', 'quarter')->call('confirmHandover');
+
+        Livewire::test(OrderForm::class, ['id' => $order->id])
+            ->call('closeRental')
+            ->assertSet('receivedFuel', '¼')      // shows what the customer received
+            ->assertSet('return_fuel', 'quarter'); // defaults to the same level
+    }
+
+    public function test_fuel_shortfall_charge_adds_the_amount_plus_a_service_fee(): void
+    {
+        [$order] = $this->draftOrder();
+
+        Livewire::test(OrderForm::class, ['id' => $order->id])
+            ->call('startRental')->set('handover_km', '10250')->set('handover_fuel', 'full')->call('confirmHandover');
+
+        Livewire::test(OrderForm::class, ['id' => $order->id])
+            ->call('closeRental')
+            ->set('return_km', '10300')
+            ->set('return_fuel', 'half')
+            ->set('fuel_charge', '3')   // employee-decided refuel cost
+            ->call('confirmReturn')
+            ->assertHasNoErrors();
+
+        $order->refresh();
+        $this->assertSame(3.0, $order->fuel_charge);
+        $this->assertSame(4.0, $order->fuelChargeTotal()); // 3 + 1 service fee
+        $this->assertSame(4.0, $order->total);             // base 0 + fuel 4
+
+        // The receipt/invoice mentions the fuel/service charge.
+        $invoice = $order->createInvoice();
+        $this->assertStringContainsStringIgnoringCase('charge', (string) $invoice->notes);
+    }
+
     public function test_an_invalid_video_link_is_rejected(): void
     {
         [$order] = $this->draftOrder();

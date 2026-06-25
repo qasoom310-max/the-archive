@@ -70,6 +70,9 @@
                     <dl class="space-y-1 text-chrome-600">
                         <div class="flex justify-between"><dt>{{ __('KM') }}</dt><dd class="font-medium text-chrome-800">{{ $savedOrder->return_km !== null ? number_format((float) $savedOrder->return_km) : '—' }}</dd></div>
                         <div class="flex justify-between"><dt>{{ __('Fuel') }}</dt><dd class="font-medium text-chrome-800">{{ RentalOrder::fuelLabel($savedOrder->return_fuel) }}</dd></div>
+                        @if ($savedOrder->fuelChargeTotal() > 0)
+                            <div class="flex justify-between"><dt>{{ __('Fuel charge') }}</dt><dd class="font-medium text-amber-700">{{ \App\Erp\Views\ValueFormat::money($savedOrder->fuelChargeTotal()) }}</dd></div>
+                        @endif
                         <div class="flex justify-between"><dt>{{ __('Damage') }}</dt><dd class="font-medium {{ $savedOrder->has_damage ? 'text-red-600' : 'text-emerald-600' }}">{{ $savedOrder->has_damage ? __('Yes') : __('No') }}</dd></div>
                         @if ($savedOrder->damage_notes)<div><dt class="text-chrome-400">{{ __('Damage notes') }}</dt><dd class="text-chrome-700">{{ $savedOrder->damage_notes }}</dd></div>@endif
                         @if ($savedOrder->damage_video_url)<a href="{{ $savedOrder->damage_video_url }}" target="_blank" rel="noopener" class="inline-block text-primary-700 hover:underline">{{ __('View damage video') }} ↗</a>@endif
@@ -375,17 +378,32 @@
                 <form wire:submit.prevent="confirmReturn" class="space-y-3">
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Return KM') }}</label>
-                            <input type="number" min="0" wire:model="return_km" class="o-input w-full">
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Return KM') }} <span class="text-red-500">*</span></label>
+                            <input type="number" wire:model="return_km" min="{{ $savedOrder?->handover_km ?? 0 }}" class="o-input w-full">
                             @error('return_km') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
                         <div>
-                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Fuel') }}</label>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Return fuel') }}</label>
                             <select wire:model="return_fuel" class="o-input w-full">
                                 @foreach ($fuelLevels as $f)<option value="{{ $f['value'] }}">{{ __($f['label']) }}</option>@endforeach
                             </select>
+                            @if ($receivedFuel && $receivedFuel !== '—')
+                                <p class="mt-1 text-xs text-chrome-400">{{ __('Received at') }} <span class="font-medium text-chrome-600">{{ $receivedFuel }}</span> — {{ __('should return the same') }}</p>
+                            @endif
                             @error('return_fuel') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
+                    </div>
+                    {{-- Fuel shortfall charge: employee enters the refuel amount; a flat service fee is added. --}}
+                    <div>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Fuel charge (BHD)') }}</label>
+                        <input type="number" step="0.001" min="0" wire:model.live="fuel_charge" class="o-input w-full" placeholder="0.000">
+                        <p class="mt-1 text-xs text-chrome-400">
+                            {{ __('If returned with less fuel, enter the refuel cost. A :fee service fee is added.', ['fee' => \App\Erp\Views\ValueFormat::money(RentalOrder::FUEL_SERVICE_FEE)]) }}
+                            @if ((float) ($fuel_charge ?: 0) > 0)
+                                <span class="font-medium text-chrome-600">{{ __('Total charged') }}: {{ \App\Erp\Views\ValueFormat::money((float) $fuel_charge + RentalOrder::FUEL_SERVICE_FEE) }}</span>
+                            @endif
+                        </p>
+                        @error('fuel_charge') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <label class="inline-flex items-center gap-2 text-sm text-chrome-700">
                         <input type="checkbox" wire:model.live="has_damage" class="rounded border-chrome-300 text-primary-600">

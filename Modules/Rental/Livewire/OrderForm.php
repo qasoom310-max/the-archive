@@ -108,6 +108,12 @@ final class OrderForm extends Component
 
     public string $return_fuel = 'full';
 
+    /** Fuel level the customer RECEIVED (read-only hint on the return modal). */
+    public string $receivedFuel = '';
+
+    /** Refuel amount the employee enters for a fuel shortfall (BHD). */
+    public string $fuel_charge = '0';
+
     public bool $has_damage = false;
 
     public string $damage_notes = '';
@@ -472,9 +478,15 @@ final class OrderForm extends Component
         }
 
         $order = RentalOrder::query()->find($this->id);
-        $lastKm = $order?->handover_km;
-        $this->return_km = $lastKm !== null ? (string) $lastKm : $this->pickup_mileage;
-        $this->return_fuel = 'full';
+        if ($order === null) {
+            return;
+        }
+
+        $this->return_km = $order->handover_km !== null ? (string) $order->handover_km : $this->pickup_mileage;
+        // Default to the level it went out with, and show what was received.
+        $this->return_fuel = $order->handover_fuel ?? 'full';
+        $this->receivedFuel = RentalOrder::fuelLabel($order->handover_fuel);
+        $this->fuel_charge = '0';
         $this->has_damage = false;
         $this->damage_notes = '';
         $this->damage_video_url = '';
@@ -494,20 +506,33 @@ final class OrderForm extends Component
             return;
         }
 
+        $order = RentalOrder::query()->find($this->id);
+        if ($order === null) {
+            return;
+        }
+
+        // The car can't come back with fewer KM than it went out with.
+        $floor = $order->handover_km ?? 0;
+
         $this->validate([
-            'return_km' => ['nullable', 'integer', 'min:0'],
+            'return_km' => ['required', 'integer', 'min:' . $floor],
             'return_fuel' => ['required', 'in:' . $this->fuelValues()],
+            'fuel_charge' => ['nullable', 'numeric', 'min:0'],
             'has_damage' => ['boolean'],
             'damage_notes' => $this->has_damage ? ['required', 'string', 'max:1000'] : ['nullable', 'string', 'max:1000'],
             'damage_video_url' => ['nullable', 'url', 'max:500'],
+        ], [
+            'return_km.min' => __('The return KM can’t be less than the handover KM (:km).', ['km' => $floor]),
         ]);
 
         $this->withOrder(function (RentalOrder $o): void {
             $o->return_km = $this->return_km !== '' ? (int) $this->return_km : null;
             $o->return_fuel = $this->return_fuel;
+            $o->fuel_charge = $this->toFloat($this->fuel_charge);
             $o->has_damage = $this->has_damage;
             $o->damage_notes = $this->has_damage ? $this->trimOrNull($this->damage_notes) : null;
             $o->damage_video_url = $this->has_damage ? $this->trimOrNull($this->damage_video_url) : null;
+            $o->recalcTotals(); // fold the fuel charge into the total/balance
             $o->closeRental();
         });
 

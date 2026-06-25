@@ -322,7 +322,7 @@
                     </div>
                     <div>
                         <label class="{{ $lbl }}">{{ __('Deposit (BHD)') }}</label>
-                        <input type="number" step="0.001" min="0" wire:model="deposit" class="o-input w-full">
+                        <input type="number" step="0.001" min="0" wire:model.live="deposit" class="o-input w-full">
                     </div>
                 </div>
 

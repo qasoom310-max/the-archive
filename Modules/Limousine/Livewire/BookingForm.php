@@ -42,6 +42,12 @@ final class BookingForm extends Component
 
     public string $notes = '';
 
+    /** Inline "New customer" modal (shared transport customer). */
+    public bool $addingCustomer = false;
+
+    /** @var array<string, string> */
+    public array $newCustomer = ['name' => '', 'phone' => '', 'email' => '', 'cpr' => '', 'license_no' => ''];
+
     public string $reference = '';
 
     public string $status = LimoBooking::STATUS_QUEUE;
@@ -114,6 +120,49 @@ final class BookingForm extends Component
 
         session()->flash('toast', __('Booking saved.'));
         $this->redirect('/app/limousine/booking', navigate: true);
+    }
+
+    /** Open the inline new-customer modal (adds to the shared customer list). */
+    public function openCustomerModal(): void
+    {
+        $this->newCustomer = ['name' => '', 'phone' => '', 'email' => '', 'cpr' => '', 'license_no' => ''];
+        $this->resetValidation();
+        $this->addingCustomer = true;
+    }
+
+    public function closeCustomerModal(): void
+    {
+        $this->addingCustomer = false;
+    }
+
+    /** Persist a shared customer and select it on the booking. */
+    public function saveCustomer(): void
+    {
+        $this->validate([
+            'newCustomer.name' => ['required', 'string', 'max:255'],
+            'newCustomer.phone' => ['nullable', 'string', 'max:50'],
+            'newCustomer.email' => ['nullable', 'email', 'max:255'],
+            'newCustomer.cpr' => ['nullable', 'string', 'max:50'],
+            'newCustomer.license_no' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $customer = LimoCustomer::query()->create([
+            'name' => trim($this->newCustomer['name']),
+            'phone' => $this->trimOrNull($this->newCustomer['phone']),
+            'email' => $this->trimOrNull($this->newCustomer['email']),
+            'cpr' => $this->trimOrNull($this->newCustomer['cpr']),
+            'license_no' => $this->trimOrNull($this->newCustomer['license_no']),
+        ]);
+
+        $this->customer_id = $customer->id;
+        $this->addingCustomer = false;
+    }
+
+    private function trimOrNull(string $value): ?string
+    {
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
     }
 
     public function confirm(): void

@@ -52,9 +52,13 @@ final class LimousineModuleTest extends TestCase
 
         $this->assertSame(ModuleState::Installed, IrModule::query()->where('name', 'limousine')->sole()->state);
 
-        foreach (['limo_customers', 'limo_locations', 'limo_bookings'] as $table) {
+        foreach (['limo_locations', 'limo_bookings'] as $table) {
             $this->assertTrue(Schema::hasTable($table), "missing {$table}");
         }
+        // Customers are now shared with Rent A Car: the per-app table is merged
+        // into the shared store and removed.
+        $this->assertTrue(Schema::hasTable('rental_customers'));
+        $this->assertFalse(Schema::hasTable('limo_customers'));
 
         $this->assertEqualsCanonicalizing(
             ['limousine.customer', 'limousine.location', 'limousine.booking', 'limousine.quotation', 'limousine.invoice', 'limousine.receipt', 'limousine.expense'],

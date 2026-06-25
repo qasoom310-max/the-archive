@@ -158,11 +158,14 @@ final class WorkspaceTest extends TestCase
         $path = $workspace->databasePath();
         $this->assertNotNull($path);
 
-        Artisan::call('workspaces:install-modules', ['name' => 'limousine']);
+        // Use a standalone app (Project depends only on base) so "single
+        // target" really means one module. Limousine now depends on Rental, so
+        // it would pull a second app in — not what this test is checking.
+        Artisan::call('workspaces:install-modules', ['name' => 'project']);
 
         app(WorkspaceManager::class)->withTenant($path, function (): void {
             $this->assertTrue(
-                IrModule::query()->where('name', 'limousine')->where('state', ModuleState::Installed)->exists(),
+                IrModule::query()->where('name', 'project')->where('state', ModuleState::Installed)->exists(),
             );
             // Rental was not requested → still absent.
             $this->assertFalse(

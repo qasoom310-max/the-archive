@@ -9,7 +9,7 @@
     "icon": "limousine",
     "application": true,
     "auto_install": false,
-    "depends": ["base"],
+    "depends": ["base", "rental"],
     "providers": ["Modules\\Limousine\\Providers\\LimousineServiceProvider"],
     "models": [
         "Modules\\Limousine\\Models\\LimoCustomer",

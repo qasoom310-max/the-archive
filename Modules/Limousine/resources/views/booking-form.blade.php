@@ -52,7 +52,14 @@
         <h2 class="mb-4 text-sm font-semibold text-chrome-800">{{ __('Trip details') }}</h2>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-                <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Customer') }} *</label>
+                <div class="mb-1 flex items-center justify-between gap-2">
+                    <label class="block text-sm font-medium text-chrome-700">{{ __('Customer') }} *</label>
+                    <button type="button" wire:click="openCustomerModal"
+                        class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-primary-700 hover:bg-primary-50">
+                        <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
+                        {{ __('New customer') }}
+                    </button>
+                </div>
                 <select wire:model="customer_id" class="o-input w-full">
                     <option value="">{{ __('— Select —') }}</option>
                     @foreach ($customers as $c)
@@ -116,4 +123,6 @@
             <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
         </button>
     </div>
+
+    @include('rental::partials.customer-modal')
 </div>

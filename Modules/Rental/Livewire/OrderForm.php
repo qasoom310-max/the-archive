@@ -118,6 +118,11 @@ final class OrderForm extends Component
     /** Refuel amount the employee enters for a fuel shortfall (BHD). */
     public string $fuel_charge = '0';
 
+    /** Free-form extra charge added at return (extra day, fee…) and what it's for. */
+    public string $extra_charge = '0';
+
+    public string $extra_charge_note = '';
+
     public bool $has_damage = false;
 
     public string $damage_notes = '';
@@ -494,6 +499,8 @@ final class OrderForm extends Component
         $this->return_fuel = $order->handover_fuel ?? 'full';
         $this->receivedFuel = RentalOrder::fuelLabel($order->handover_fuel);
         $this->fuel_charge = '0';
+        $this->extra_charge = '0';
+        $this->extra_charge_note = '';
         $this->has_damage = false;
         $this->damage_notes = '';
         $this->damage_video_url = '';
@@ -525,6 +532,8 @@ final class OrderForm extends Component
             'return_km' => ['required', 'integer', 'min:' . $floor],
             'return_fuel' => ['required', 'in:' . $this->fuelValues()],
             'fuel_charge' => ['nullable', 'numeric', 'min:0'],
+            'extra_charge' => ['nullable', 'numeric', 'min:0'],
+            'extra_charge_note' => ['nullable', 'string', 'max:255'],
             'has_damage' => ['boolean'],
             'damage_notes' => $this->has_damage ? ['required', 'string', 'max:1000'] : ['nullable', 'string', 'max:1000'],
             'damage_video_url' => ['nullable', 'url', 'max:500'],
@@ -536,10 +545,12 @@ final class OrderForm extends Component
             $o->return_km = $this->return_km !== '' ? (int) $this->return_km : null;
             $o->return_fuel = $this->return_fuel;
             $o->fuel_charge = $this->toFloat($this->fuel_charge);
+            $o->extra_charge = $this->toFloat($this->extra_charge);
+            $o->extra_charge_note = $this->trimOrNull($this->extra_charge_note);
             $o->has_damage = $this->has_damage;
             $o->damage_notes = $this->has_damage ? $this->trimOrNull($this->damage_notes) : null;
             $o->damage_video_url = $this->has_damage ? $this->trimOrNull($this->damage_video_url) : null;
-            $o->recalcTotals(); // fold the fuel charge into the total/balance
+            $o->recalcTotals(); // fold the fuel + extra charge into the total/balance
             $o->closeRental();
         });
 

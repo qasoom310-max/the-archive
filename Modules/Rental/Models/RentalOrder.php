@@ -64,6 +64,8 @@ use Illuminate\Support\Carbon;
  * @property int|null $return_km
  * @property string|null $return_fuel
  * @property float $fuel_charge
+ * @property float $extra_charge
+ * @property string|null $extra_charge_note
  * @property bool $has_damage
  * @property string|null $damage_notes
  * @property string|null $damage_video_url
@@ -110,7 +112,7 @@ final class RentalOrder extends Model implements DefinesIrModel
         'payment_confirmed', 'confirmed_by_user_id', 'confirmed_at', 'agreement_emailed_at', 'notes',
         'cpr_image_path', 'license_image_path',
         'handover_km', 'handover_fuel', 'handover_notes', 'handover_video_url', 'started_at',
-        'return_km', 'return_fuel', 'fuel_charge', 'has_damage', 'damage_notes', 'damage_video_url', 'returned_at',
+        'return_km', 'return_fuel', 'fuel_charge', 'extra_charge', 'extra_charge_note', 'has_damage', 'damage_notes', 'damage_video_url', 'returned_at',
     ];
 
     /** @var array<string, mixed> */
@@ -162,6 +164,7 @@ final class RentalOrder extends Model implements DefinesIrModel
             'started_at' => 'datetime',
             'return_km' => 'integer',
             'fuel_charge' => 'float',
+            'extra_charge' => 'float',
             'has_damage' => 'boolean',
             'returned_at' => 'datetime',
             'payment_confirmed' => 'boolean',
@@ -250,8 +253,9 @@ final class RentalOrder extends Model implements DefinesIrModel
         $this->delivery_charges = $this->delivery ? self::DELIVERY_FEE : 0.0;
 
         // VAT applies to the whole taxable supply — the rental net of discount
-        // PLUS the delivery charge (Bahrain composite-supply treatment).
-        $taxable = max(0.0, $this->subtotal - $this->discount) + $this->delivery_charges;
+        // PLUS the delivery charge and any extra charge (an extra day, a fee…),
+        // all part of the same Bahrain composite supply.
+        $taxable = max(0.0, $this->subtotal - $this->discount) + $this->delivery_charges + max(0.0, $this->extra_charge);
         $this->vat_amount = round($taxable * ($this->vat_rate / 100), 3);
         // Fuel-shortfall charge (amount + flat service fee) is billed at return.
         $this->total = round($taxable + $this->vat_amount + $this->fuelChargeTotal(), 3);
@@ -472,10 +476,21 @@ final class RentalOrder extends Model implements DefinesIrModel
         $invoice->discount = $this->discount;
         $invoice->total = $this->total;
         // So the receipt can mention the fuel/service charge when asked.
+        $lines = [];
         if ($this->fuelChargeTotal() > 0) {
-            $invoice->notes = trim(__('Includes fuel / service charge: :amount', [
+            $lines[] = __('Includes fuel / service charge: :amount', [
                 'amount' => \App\Erp\Money\Currencies::format($this->fuelChargeTotal()),
-            ]));
+            ]);
+        }
+        if ($this->extra_charge > 0) {
+            $note = trim((string) $this->extra_charge_note);
+            $lines[] = __('Extra charge: :amount:reason', [
+                'amount' => \App\Erp\Money\Currencies::format($this->extra_charge),
+                'reason' => $note !== '' ? ' — ' . $note : '',
+            ]);
+        }
+        if ($lines !== []) {
+            $invoice->notes = trim(implode("\n", $lines));
         }
         $invoice->save();
 

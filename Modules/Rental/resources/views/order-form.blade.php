@@ -108,6 +108,9 @@
                         @if ($savedOrder->fuelChargeTotal() > 0)
                             <div class="flex justify-between"><dt>{{ __('Fuel charge') }}</dt><dd class="font-medium text-amber-700">{{ ValueFormat::money($savedOrder->fuelChargeTotal()) }}</dd></div>
                         @endif
+                        @if ($savedOrder->extra_charge > 0)
+                            <div class="flex justify-between"><dt>{{ __('Extra charge') }}{{ $savedOrder->extra_charge_note ? ' · ' . $savedOrder->extra_charge_note : '' }}</dt><dd class="font-medium text-amber-700">{{ ValueFormat::money($savedOrder->extra_charge) }}</dd></div>
+                        @endif
                         <div class="flex justify-between"><dt>{{ __('Damage') }}</dt><dd class="font-medium {{ $savedOrder->has_damage ? 'text-red-600' : 'text-emerald-600' }}">{{ $savedOrder->has_damage ? __('Yes') : __('No') }}</dd></div>
                         @if ($savedOrder->damage_notes)<div><dt class="text-chrome-400">{{ __('Damage notes') }}</dt><dd class="text-chrome-700">{{ $savedOrder->damage_notes }}</dd></div>@endif
                         @if ($savedOrder->damage_video_url)<a href="{{ $savedOrder->damage_video_url }}" target="_blank" rel="noopener" class="inline-block text-primary-700 hover:underline">{{ __('View damage video') }} ↗</a>@endif
@@ -502,6 +505,22 @@
                         </p>
                         @error('fuel_charge') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
+                    {{-- Extra charge: an extra day, a fee, anything — VAT applies like the rental. --}}
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Extra charge (BHD)') }}</label>
+                            <input type="number" step="0.001" min="0" wire:model.live="extra_charge" class="o-input w-full" placeholder="0.000">
+                            @error('extra_charge') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('What for?') }}</label>
+                            <input type="text" wire:model="extra_charge_note" maxlength="255" class="o-input w-full" placeholder="{{ __('e.g. extra day') }}">
+                            @error('extra_charge_note') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+                    @if ((float) ($extra_charge ?: 0) > 0)
+                        <p class="-mt-1 text-xs text-chrome-400">{{ __('VAT applies — added to the order total.') }}</p>
+                    @endif
                     <label class="inline-flex items-center gap-2 text-sm text-chrome-700">
                         <input type="checkbox" wire:model.live="has_damage" class="rounded border-chrome-300 text-primary-600">
                         {{ __('Customer caused damage') }}

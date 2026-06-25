@@ -172,6 +172,39 @@ final class RentalHandoverReturnTest extends TestCase
         $this->assertStringContainsStringIgnoringCase('charge', (string) $invoice->notes);
     }
 
+    public function test_an_extra_charge_at_return_is_taxed_and_added_to_the_total(): void
+    {
+        $vehicle = Vehicle::query()->create(['name' => 'Yaris', 'daily_rate' => 10, 'odometer' => 10000]);
+        $order = RentalOrder::query()->create([
+            'customer_id' => RentalCustomer::query()->create(['name' => 'Ali'])->id,
+            'vehicle_id' => $vehicle->id,
+            'start_date' => Carbon::now()->addDay(),
+            'end_date' => Carbon::now()->addDays(2), // 1 day × 10 = 10 base
+            'rate_type' => 'daily', 'rate' => 10, 'vat_rate' => 10,
+        ]);
+        $order->startRental();
+
+        Livewire::test(OrderForm::class, ['id' => $order->id])
+            ->call('closeRental')
+            ->set('return_km', '10300')
+            ->set('return_fuel', 'full')
+            ->set('extra_charge', '10')               // an extra day
+            ->set('extra_charge_note', 'Extra day')
+            ->call('confirmReturn')
+            ->assertHasNoErrors();
+
+        $order->refresh();
+        $this->assertSame(10.0, $order->extra_charge);
+        $this->assertSame('Extra day', $order->extra_charge_note);
+        // Taxable = 10 base + 10 extra = 20; VAT 10% = 2; total = 22.
+        $this->assertSame(2.0, $order->vat_amount);
+        $this->assertSame(22.0, $order->total);
+
+        // The receipt/invoice names the extra charge and its reason.
+        $invoice = $order->createInvoice();
+        $this->assertStringContainsString('Extra day', (string) $invoice->notes);
+    }
+
     public function test_an_invalid_video_link_is_rejected(): void
     {
         [$order] = $this->draftOrder();

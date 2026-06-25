@@ -8,6 +8,7 @@ use App\Erp\Contracts\DefinesIrModel;
 use App\Erp\Registry\FieldDefinition;
 use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -48,6 +49,9 @@ use Illuminate\Support\Carbon;
  * @property string|null $payment_type
  * @property string $state
  * @property string $payment_status
+ * @property bool $payment_confirmed
+ * @property int|null $confirmed_by_user_id
+ * @property Carbon|null $confirmed_at
  * @property string|null $notes
  * @property string|null $cpr_image_path
  * @property string|null $license_image_path
@@ -82,6 +86,8 @@ final class RentalOrder extends Model implements DefinesIrModel
 
     public const PAYMENT_UNPAID = 'unpaid';
 
+    public const PAYMENT_PARTIAL = 'partial';
+
     public const PAYMENT_PAID = 'paid';
 
     /** Flat VAT applied to rental orders (Bahrain), editable per order. */
@@ -99,7 +105,8 @@ final class RentalOrder extends Model implements DefinesIrModel
         'driver_id', 'additional_driver', 'additional_driver_license', 'branch_id',
         'start_date', 'end_date', 'hired_time', 'rate_type', 'rate', 'days', 'subtotal',
         'discount', 'vat_rate', 'vat_amount', 'delivery', 'delivery_location', 'delivery_charges', 'deposit', 'total',
-        'advance_amount', 'balance', 'payment_type', 'state', 'payment_status', 'notes',
+        'advance_amount', 'balance', 'payment_type', 'state', 'payment_status',
+        'payment_confirmed', 'confirmed_by_user_id', 'confirmed_at', 'notes',
         'cpr_image_path', 'license_image_path',
         'handover_km', 'handover_fuel', 'handover_notes', 'handover_video_url', 'started_at',
         'return_km', 'return_fuel', 'fuel_charge', 'has_damage', 'damage_notes', 'damage_video_url', 'returned_at',
@@ -156,6 +163,9 @@ final class RentalOrder extends Model implements DefinesIrModel
             'fuel_charge' => 'float',
             'has_damage' => 'boolean',
             'returned_at' => 'datetime',
+            'payment_confirmed' => 'boolean',
+            'confirmed_by_user_id' => 'integer',
+            'confirmed_at' => 'datetime',
         ];
     }
 
@@ -244,6 +254,53 @@ final class RentalOrder extends Model implements DefinesIrModel
         // Fuel-shortfall charge (amount + flat service fee) is billed at return.
         $this->total = round($taxable + $this->vat_amount + $this->fuelChargeTotal(), 3);
         $this->balance = round(max(0.0, $this->total - $this->advance_amount), 3);
+
+        // Payment status follows the money: a full advance pays it, part of it is
+        // partial, none is unpaid. A confirmation can't survive losing full payment.
+        $this->payment_status = match (true) {
+            $this->total <= 0.0 || $this->advance_amount >= $this->total => self::PAYMENT_PAID,
+            $this->advance_amount > 0.0 => self::PAYMENT_PARTIAL,
+            default => self::PAYMENT_UNPAID,
+        };
+        if ($this->payment_status !== self::PAYMENT_PAID) {
+            $this->payment_confirmed = false;
+            $this->confirmed_by_user_id = null;
+            $this->confirmed_at = null;
+        }
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function confirmedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'confirmed_by_user_id');
+    }
+
+    /**
+     * Accountant / super-admin confirms the money was actually received. Only
+     * meaningful once the order is fully paid (authorisation is enforced by the
+     * caller / form).
+     */
+    public function confirmPayment(User $by): void
+    {
+        if ($this->payment_status !== self::PAYMENT_PAID) {
+            return;
+        }
+
+        $this->payment_confirmed = true;
+        $this->confirmed_by_user_id = (int) $by->getKey();
+        $this->confirmed_at = Carbon::now();
+        $this->save();
+    }
+
+    /** Revoke a confirmation (e.g. the money didn't actually clear). */
+    public function unconfirmPayment(): void
+    {
+        $this->payment_confirmed = false;
+        $this->confirmed_by_user_id = null;
+        $this->confirmed_at = null;
+        $this->save();
     }
 
     /** Total fuel charge billed: the entered amount plus a flat service fee. */

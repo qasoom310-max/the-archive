@@ -21,7 +21,23 @@
             <div class="flex items-center gap-3">
                 <span class="text-sm font-semibold text-chrome-800">{{ $reference }}</span>
                 <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $stateBadge }}">{{ __(ucfirst($state)) }}</span>
-                <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($payment_status)) }}</span>
+                @php
+                    // Paid+confirmed → green; paid-but-unconfirmed / partial / unpaid → amber.
+                    $confirmed = $payment_status === 'paid' && $payment_confirmed;
+                    $payBadge = $confirmed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700';
+                    $payLabel = match (true) {
+                        $confirmed => __('Paid'),
+                        $payment_status === 'paid' => __('Paid · unconfirmed'),
+                        $payment_status === 'partial' => __('Partial'),
+                        default => __('Unpaid'),
+                    };
+                @endphp
+                <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $payBadge }}">{{ $payLabel }}</span>
+                @if ($confirmed && $savedOrder?->confirmedBy)
+                    <span class="text-[11px] text-chrome-400">{{ __('by') }} {{ $savedOrder->confirmedBy->name }} · {{ $savedOrder->confirmed_at?->format('Y-m-d H:i') }}</span>
+                @elseif ($payment_status === 'paid' && ! $payment_confirmed)
+                    <span class="text-[11px] text-amber-600">{{ __('Awaiting accountant confirmation') }}</span>
+                @endif
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 @if ($state === 'draft')
@@ -34,10 +50,13 @@
                     <button wire:click="createInvoice" class="o-btn-ghost text-sm">{{ __('Create invoice') }}</button>
                 @endif
 
-                @if ($payment_status === 'unpaid')
-                    <button wire:click="markPaid" class="o-btn-ghost text-sm">{{ __('Mark paid') }}</button>
-                @else
-                    <button wire:click="markUnpaid" class="o-btn-ghost text-sm">{{ __('Mark unpaid') }}</button>
+                {{-- Payment confirmation — accountant / super-admin only. --}}
+                @if ($canConfirmPayment)
+                    @if ($payment_status === 'paid' && ! $payment_confirmed)
+                        <button wire:click="confirmPayment" class="o-btn-primary text-sm">{{ __('Confirm payment') }}</button>
+                    @elseif ($payment_confirmed)
+                        <button wire:click="unconfirmPayment" class="text-sm font-medium text-chrome-500 hover:underline">{{ __('Unconfirm') }}</button>
+                    @endif
                 @endif
 
                 @if (in_array($state, ['draft', 'active'], true))

@@ -350,6 +350,33 @@ final class UserManager extends Component
     }
 
     /**
+     * Grant or revoke the Accountant role (may confirm payments). Owner-only —
+     * a sensitive financial power, so only a super admin can assign it, never a
+     * regular admin and never yourself.
+     */
+    public function toggleAccountant(int $id): void
+    {
+        $this->guardAdmin();
+        abort_unless($this->actorIsSuperAdmin(), 403);
+
+        $target = User::query()->find($id);
+        if ($target === null || $target->getKey() === Auth::id()) {
+            return;
+        }
+
+        $target->is_accountant = ! $target->isAccountant();
+        $target->save();
+
+        app(\App\Erp\Activity\ActivityLogger::class)->log(
+            'user_updated',
+            (string) $target->email,
+            $target->is_accountant
+                ? __('Made :name an accountant', ['name' => (string) $target->name])
+                : __('Removed accountant from :name', ['name' => (string) $target->name]),
+        );
+    }
+
+    /**
      * Execute an action the email-OTP just confirmed (regular-admin path).
      * Re-guards/re-validates as defence in depth.
      *
@@ -399,7 +426,7 @@ final class UserManager extends Component
             // properties (Livewire injects those into the view too).
             'appModules' => $apps,
             'workspaceList' => $workspaces,
-            'users' => User::query()->orderByDesc('is_super_admin')->orderByDesc('is_admin')->orderBy('name')->get(['id', 'name', 'email', 'is_admin', 'is_super_admin']),
+            'users' => User::query()->orderByDesc('is_super_admin')->orderByDesc('is_admin')->orderBy('name')->get(['id', 'name', 'email', 'is_admin', 'is_super_admin', 'is_accountant']),
             'currentUserId' => Auth::id(),
             'adminCount' => User::query()->where('is_admin', true)->count(),
             'actorIsSuperAdmin' => $this->actorIsSuperAdmin(),

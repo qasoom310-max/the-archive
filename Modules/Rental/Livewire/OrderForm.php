@@ -133,6 +133,8 @@ final class OrderForm extends Component
 
     public string $payment_status = RentalOrder::PAYMENT_UNPAID;
 
+    public bool $payment_confirmed = false;
+
     public function mount(?int $id = null): void
     {
         if ($id !== null) {
@@ -166,6 +168,7 @@ final class OrderForm extends Component
                 $this->reference = $order->reference ?? '';
                 $this->state = $order->state;
                 $this->payment_status = $order->payment_status;
+                $this->payment_confirmed = $order->payment_confirmed;
 
                 return;
             }
@@ -564,19 +567,36 @@ final class OrderForm extends Component
         $this->redirect('/app/rental/invoice/' . $invoice->id, navigate: true);
     }
 
-    public function markPaid(): void
+    /** Only the accountant / super-admin may confirm money was received. */
+    private function canConfirmPayments(): bool
     {
-        $this->withOrder(function (RentalOrder $o): void {
-            $o->payment_status = RentalOrder::PAYMENT_PAID;
-            $o->save();
+        $user = Auth::user();
+
+        return $user instanceof User && $user->canConfirmPayments();
+    }
+
+    /** Accountant / super-admin confirms a fully-paid order's payment. */
+    public function confirmPayment(): void
+    {
+        abort_unless($this->canConfirmPayments(), 403);
+
+        $user = Auth::user();
+        if (! $user instanceof User) {
+            return;
+        }
+
+        $this->withOrder(function (RentalOrder $o) use ($user): void {
+            $o->confirmPayment($user);
         });
     }
 
-    public function markUnpaid(): void
+    /** Revoke a payment confirmation (same gate). */
+    public function unconfirmPayment(): void
     {
+        abort_unless($this->canConfirmPayments(), 403);
+
         $this->withOrder(function (RentalOrder $o): void {
-            $o->payment_status = RentalOrder::PAYMENT_UNPAID;
-            $o->save();
+            $o->unconfirmPayment();
         });
     }
 
@@ -598,6 +618,7 @@ final class OrderForm extends Component
         $order->refresh();
         $this->state = $order->state;
         $this->payment_status = $order->payment_status;
+        $this->payment_confirmed = $order->payment_confirmed;
     }
 
     /** A transient order used purely to compute the live summary figures. */
@@ -633,8 +654,10 @@ final class OrderForm extends Component
             'selectedVehicle' => $selectedVehicle,
             'paymentTypes' => RentalOrder::paymentTypeOptions(),
             'fuelLevels' => RentalOrder::fuelLevelOptions(),
-            // The persisted order, for the read-only handover / return summary.
-            'savedOrder' => $this->id !== null ? RentalOrder::query()->find($this->id) : null,
+            // The persisted order, for the read-only handover / return summary
+            // and the payment-confirmation details (who / when).
+            'savedOrder' => $this->id !== null ? RentalOrder::query()->with('confirmedBy')->find($this->id) : null,
+            'canConfirmPayment' => $this->canConfirmPayments(),
             'canBackdate' => $this->canBackdate(),
             'previewDays' => $preview->days,
             'previewUnits' => $preview->billableUnits(),

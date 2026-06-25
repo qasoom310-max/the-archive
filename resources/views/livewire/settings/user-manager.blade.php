@@ -164,6 +164,9 @@
                         @else
                             <span class="shrink-0 rounded-full bg-chrome-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-chrome-500">{{ __('Staff') }}</span>
                         @endif
+                        @if ($user->is_accountant)
+                            <span class="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">{{ __('Accountant') }}</span>
+                        @endif
                         <span class="min-w-0 truncate">
                             <span class="font-medium text-chrome-700">{{ $user->name }}</span>
                             <span class="text-chrome-400">— {{ $user->email }}</span>
@@ -175,6 +178,11 @@
                             <button type="button" wire:click="toggleSuperAdmin({{ $user->id }})"
                                 class="text-xs font-medium text-amber-700 hover:underline">
                                 {{ $user->is_super_admin ? __('Remove super admin') : __('Make super admin') }}
+                            </button>
+                            {{-- Owner-only: grant/revoke the Accountant role (confirm payments). --}}
+                            <button type="button" wire:click="toggleAccountant({{ $user->id }})"
+                                class="text-xs font-medium text-emerald-700 hover:underline">
+                                {{ $user->is_accountant ? __('Remove accountant') : __('Make accountant') }}
                             </button>
                         @endif
                         @if ($canManage)

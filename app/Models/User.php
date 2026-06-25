@@ -24,6 +24,7 @@ use Throwable;
  * @property float|null $hourly_cost    Labour rate per hour (Project module); null = use project.default_hourly_cost
  * @property bool $is_admin
  * @property bool $is_super_admin   Owner tier above admin (a strict superset of is_admin)
+ * @property bool $is_accountant    May confirm payments (with super-admins); not even a regular admin can
  * @property string $password
  */
 final class User extends Authenticatable
@@ -42,6 +43,7 @@ final class User extends Authenticatable
         'hourly_cost',
         'is_admin',
         'is_super_admin',
+        'is_accountant',
         'password',
     ];
 
@@ -61,6 +63,7 @@ final class User extends Authenticatable
             'password' => 'hashed',
             'is_admin' => 'boolean',
             'is_super_admin' => 'boolean',
+            'is_accountant' => 'boolean',
             // Project module: the column is added by that module's migration,
             // so it's simply absent (reads null) until Project is installed.
             'hourly_cost' => 'float',
@@ -92,6 +95,21 @@ final class User extends Authenticatable
         // The column is added by a core migration; guard so a not-yet-migrated
         // DB (or an old session payload) reads false rather than throwing.
         return ($this->getAttribute('is_super_admin') ?? false) === true;
+    }
+
+    /** Whether this user holds the Accountant role (column-guarded like above). */
+    public function isAccountant(): bool
+    {
+        return ($this->getAttribute('is_accountant') ?? false) === true;
+    }
+
+    /**
+     * Who may confirm that a payment was actually received: the Accountant and
+     * super-admins only — deliberately NOT regular admins.
+     */
+    public function canConfirmPayments(): bool
+    {
+        return $this->isSuperAdmin() || $this->isAccountant();
     }
 
     /**

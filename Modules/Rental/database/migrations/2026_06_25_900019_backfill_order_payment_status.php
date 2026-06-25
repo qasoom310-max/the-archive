@@ -9,9 +9,12 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Payment status is now derived from the advance vs the total, but that only
  * recomputes when an order is saved — so orders created before the change kept
- * their old (often wrong) status. Backfill them once: a full advance reads Paid,
- * part Partial, none Unpaid. (payment_confirmed stays false, so a now-Paid order
- * shows "Paid · unconfirmed" until an accountant confirms it.)
+ * their old (often wrong) status. Backfill them once with a single idempotent
+ * UPDATE (a full advance reads Paid, part Partial, none Unpaid). payment_confirmed
+ * stays false, so a now-Paid order shows "Paid · unconfirmed" until confirmed.
+ *
+ * A plain CASE statement (not a row loop) so it can't partially run and works on
+ * MySQL and SQLite alike.
  */
 return new class extends Migration
 {
@@ -21,25 +24,17 @@ return new class extends Migration
             return;
         }
 
-        DB::table('rental_orders')->orderBy('id')->each(function (object $row): void {
-            $total = (float) ($row->total ?? 0);
-            $advance = (float) ($row->advance_amount ?? 0);
-
-            $status = match (true) {
-                $total <= 0.0 || $advance >= $total => 'paid',
-                $advance > 0.0 => 'partial',
-                default => 'unpaid',
-            };
-
-            if (($row->payment_status ?? null) !== $status) {
-                DB::table('rental_orders')->where('id', $row->id)->update(['payment_status' => $status]);
-            }
-        });
+        DB::statement(
+            "UPDATE rental_orders SET payment_status = CASE
+                WHEN total <= 0 OR advance_amount >= total THEN 'paid'
+                WHEN advance_amount > 0 THEN 'partial'
+                ELSE 'unpaid'
+            END"
+        );
     }
 
     public function down(): void
     {
-        // No-op: re-deriving on the next save keeps it correct; we don't restore
-        // the previous (stale) values.
+        // No-op: the status re-derives on the next save anyway.
     }
 };

@@ -99,11 +99,25 @@ final class RentalOrderContractTest extends TestCase
 
     public function test_selecting_a_customer_prefills_the_phone(): void
     {
-        $customer = RentalCustomer::query()->create(['name' => 'Layla', 'phone' => '39000011']);
+        $layla = RentalCustomer::query()->create(['name' => 'Layla', 'phone' => '39000011']);
+        $omar = RentalCustomer::query()->create(['name' => 'Omar', 'phone' => '39000022']);
 
         Livewire::test(OrderForm::class)
-            ->set('customer_id', $customer->id)
-            ->assertSet('phone', '39000011');
+            ->set('customer_id', $layla->id)
+            ->assertSet('phone', '39000011')
+            // Switching customers refreshes the phone.
+            ->set('customer_id', $omar->id)
+            ->assertSet('phone', '39000022');
+    }
+
+    public function test_inline_new_customer_prefills_its_phone_on_the_order(): void
+    {
+        Livewire::test(OrderForm::class)
+            ->call('openCustomerModal')
+            ->set('newCustomer.name', 'Hind')
+            ->set('newCustomer.phone', '39000033')
+            ->call('saveCustomer')
+            ->assertSet('phone', '39000033');
     }
 
     public function test_cpr_and_licence_images_are_stored_on_the_order(): void

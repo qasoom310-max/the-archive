@@ -195,7 +195,9 @@ final class OrderForm extends Component
     public function updatedCustomerId(mixed $value): void
     {
         $customer = $value !== null && $value !== '' ? RentalCustomer::query()->find((int) $value) : null;
-        if ($customer !== null && $this->phone === '') {
+        if ($customer !== null) {
+            // Auto-fill the phone from the chosen customer (still editable, and
+            // refreshes if a different customer is picked).
             $this->phone = (string) ($customer->phone ?? '');
         }
     }
@@ -307,6 +309,9 @@ final class OrderForm extends Component
         ]);
 
         $this->customer_id = $customer->id;
+        // Setting customer_id in PHP doesn't fire updatedCustomerId, so mirror
+        // the phone auto-fill here for the inline-created customer.
+        $this->phone = (string) ($customer->phone ?? '');
         $this->addingCustomer = false;
     }
 

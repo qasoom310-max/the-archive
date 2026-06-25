@@ -97,7 +97,7 @@ final class Reports extends Component
                 $row = $rows->get($v->id);
 
                 return [
-                    'name' => $v->name,
+                    'name' => $v->displayName(),
                     'status' => $v->status,
                     'orders' => $row !== null ? (int) $row->getAttribute('orders_count') : 0,
                     'days' => $row !== null ? (int) $row->getAttribute('days_out') : 0,

@@ -75,7 +75,7 @@
                         <tr>
                             <td class="px-4 py-2 font-medium text-chrome-800">{{ $o->reference }}</td>
                             <td class="px-4 py-2 text-chrome-700">{{ $o->customer?->name ?? '—' }}</td>
-                            <td class="px-4 py-2 text-chrome-700">{{ $o->vehicle?->name ?? '—' }}</td>
+                            <td class="px-4 py-2 text-chrome-700">{{ $o->vehicle?->displayName() ?? '—' }}</td>
                             <td class="px-4 py-2 text-chrome-600">{{ $o->start_date?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
                             <td class="px-4 py-2 text-chrome-600">{{ __(ucfirst($o->state)) }}</td>
                             <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($o->total) }}</td>

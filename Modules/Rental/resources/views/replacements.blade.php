@@ -40,8 +40,8 @@
                         onclick="window.location='{{ url('/app/rental/replacement/' . $r->id) }}'">
                         <td class="px-4 py-2 font-medium text-chrome-800">{{ $r->reference }}</td>
                         <td class="px-4 py-2 text-chrome-700">{{ $r->customer?->name ?? '—' }}</td>
-                        <td class="px-4 py-2 text-chrome-700">{{ $r->originalVehicle?->name ?? '—' }}</td>
-                        <td class="px-4 py-2 text-chrome-700">{{ $r->replacementVehicle?->name ?? '—' }}</td>
+                        <td class="px-4 py-2 text-chrome-700">{{ $r->originalVehicle?->displayName() ?? '—' }}</td>
+                        <td class="px-4 py-2 text-chrome-700">{{ $r->replacementVehicle?->displayName() ?? '—' }}</td>
                         <td class="px-4 py-2 text-chrome-600">{{ $r->date?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $r->status === 'active' ? 'bg-sky-100 text-sky-700' : 'bg-emerald-100 text-emerald-700' }}">{{ __(ucfirst($r->status)) }}</span></td>
                     </tr>

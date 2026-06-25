@@ -122,7 +122,7 @@ final class ReplacementForm extends Component
     {
         return view('rental::replacement-form', [
             'customers' => RentalCustomer::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'phone']),
-            'vehicles' => Vehicle::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'status']),
+            'vehicles' => Vehicle::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'plate_no', 'color', 'status']),
             'isEditing' => $this->id !== null,
         ]);
     }

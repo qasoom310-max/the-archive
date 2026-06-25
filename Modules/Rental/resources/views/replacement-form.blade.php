@@ -39,7 +39,7 @@
                 <select wire:model="original_vehicle_id" class="o-input w-full">
                     <option value="">{{ __('— Select —') }}</option>
                     @foreach ($vehicles as $v)
-                        <option value="{{ $v->id }}">{{ $v->name }} ({{ __(ucfirst($v->status)) }})</option>
+                        <option value="{{ $v->id }}">{{ $v->displayName() }} ({{ __(ucfirst($v->status)) }})</option>
                     @endforeach
                 </select>
                 @error('original_vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
@@ -49,7 +49,7 @@
                 <select wire:model="replacement_vehicle_id" class="o-input w-full">
                     <option value="">{{ __('— Select —') }}</option>
                     @foreach ($vehicles as $v)
-                        <option value="{{ $v->id }}">{{ $v->name }} ({{ __(ucfirst($v->status)) }})</option>
+                        <option value="{{ $v->id }}">{{ $v->displayName() }} ({{ __(ucfirst($v->status)) }})</option>
                     @endforeach
                 </select>
                 @error('replacement_vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror

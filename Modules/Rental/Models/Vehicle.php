@@ -94,6 +94,18 @@ final class Vehicle extends Model implements DefinesIrModel
     }
 
     /**
+     * Display label used everywhere a vehicle is listed — includes the plate
+     * number and colour so cars of the same brand/model are told apart
+     * (e.g. "Eco Sport · 123456 · White"). Empty parts are skipped.
+     */
+    public function displayName(): string
+    {
+        $parts = array_filter([$this->name, $this->plate_no, $this->color], static fn (?string $p): bool => $p !== null && $p !== '');
+
+        return implode(' · ', $parts);
+    }
+
+    /**
      * Selectable status options (shared by the form widget and the registry).
      *
      * @return list<array{value: string, label: string}>
@@ -169,6 +181,7 @@ final class Vehicle extends Model implements DefinesIrModel
                     'columns' => [
                         ['field' => 'name', 'label' => 'Name', 'sortable' => true],
                         ['field' => 'plate_no', 'label' => 'Plate'],
+                        ['field' => 'color', 'label' => 'Colour'],
                         ['field' => 'category', 'label' => 'Category', 'format' => 'badge', 'sortable' => true],
                         ['field' => 'status', 'label' => 'Status', 'format' => 'badge', 'sortable' => true],
                         ['field' => 'daily_rate', 'label' => 'Daily', 'format' => 'money', 'align' => 'right', 'sortable' => true],

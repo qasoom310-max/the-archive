@@ -245,7 +245,7 @@ final class QuotationForm extends Component
 
         return view('rental::quotation-form', [
             'customers' => RentalCustomer::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'phone']),
-            'vehicles' => Vehicle::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'status']),
+            'vehicles' => Vehicle::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'plate_no', 'color', 'status']),
             'drivers' => Driver::query()->where('active', true)->orderBy('name')->get(['id', 'name']),
             'branches' => Branch::query()->where('active', true)->orderBy('name')->get(['id', 'name']),
             'previewDays' => $preview->days,

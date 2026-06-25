@@ -124,7 +124,7 @@
                         <select wire:model.live="vehicle_id" class="o-input w-full">
                             <option value="">{{ __('— Select —') }}</option>
                             @foreach ($vehicles as $v)
-                                <option value="{{ $v->id }}">{{ $v->name }} ({{ __(ucfirst($v->status)) }})</option>
+                                <option value="{{ $v->id }}">{{ $v->displayName() }} ({{ __(ucfirst($v->status)) }})</option>
                             @endforeach
                         </select>
                         @error('vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror

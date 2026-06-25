@@ -216,6 +216,17 @@ final class RentalModuleTest extends TestCase
         $this->assertSame(Vehicle::STATUS_AVAILABLE, $vehicle->status);
     }
 
+    public function test_vehicle_display_name_includes_plate_and_colour(): void
+    {
+        $this->install();
+        $full = Vehicle::query()->create(['name' => 'Eco Sport', 'plate_no' => '123456', 'color' => 'White', 'daily_rate' => 10]);
+        $this->assertSame('Eco Sport · 123456 · White', $full->displayName());
+
+        // Missing parts are skipped, so a bare vehicle just shows its name.
+        $bare = Vehicle::query()->create(['name' => 'Hiace', 'daily_rate' => 10]);
+        $this->assertSame('Hiace', $bare->displayName());
+    }
+
     public function test_order_form_creates_a_draft_with_computed_totals(): void
     {
         $this->install();

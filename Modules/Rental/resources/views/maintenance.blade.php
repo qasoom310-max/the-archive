@@ -46,7 +46,7 @@
                     <tr wire:key="mnt-{{ $m->id }}" class="cursor-pointer hover:bg-chrome-50"
                         onclick="window.location='{{ url('/app/rental/maintenance/' . $m->id) }}'">
                         <td class="px-4 py-2 font-medium text-chrome-800">{{ $m->reference }}</td>
-                        <td class="px-4 py-2 text-chrome-700">{{ $m->vehicle?->name ?? '—' }}</td>
+                        <td class="px-4 py-2 text-chrome-700">{{ $m->vehicle?->displayName() ?? '—' }}</td>
                         <td class="px-4 py-2 text-chrome-600">{{ __(ucfirst(str_replace('_', ' ', $m->type))) }}</td>
                         <td class="px-4 py-2 text-chrome-600">{{ $m->date?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($m->cost) }}</td>

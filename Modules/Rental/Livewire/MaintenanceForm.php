@@ -109,7 +109,7 @@ final class MaintenanceForm extends Component
     public function render(): View
     {
         return view('rental::maintenance-form', [
-            'vehicles' => Vehicle::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'status']),
+            'vehicles' => Vehicle::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'plate_no', 'color', 'status']),
             'typeOptions' => RentalMaintenance::typeOptions(),
             'statusOptions' => RentalMaintenance::statusOptions(),
             'isEditing' => $this->id !== null,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Pages;
 
+use App\Erp\Business\Feature;
 use App\Erp\Business\Features;
 use App\Erp\Enums\ModuleState;
 use App\Models\Demo\DemoTicket;
@@ -54,7 +55,11 @@ final class Dashboard extends Component
         $periodLabel = null;
         $inventoryValue = null;
 
-        if ($isAdmin && $this->posReady()) {
+        // The Daily sale + Daily stock cards are POS-derived and admins can
+        // hide them from POS → Settings (Features::DailyReportCards). Skipping
+        // the computation leaves the values null, which the Blade reads as
+        // "don't render the cards".
+        if ($isAdmin && $this->posReady() && Features::enabled(Feature::DailyReportCards)) {
             $report = app(DailyReport::class);
             [$start, $end] = $report->currentWindow();
             $dailySales = $report->sales($start, $end);

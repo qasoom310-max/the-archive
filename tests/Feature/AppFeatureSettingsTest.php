@@ -187,6 +187,25 @@ final class AppFeatureSettingsTest extends TestCase
         $this->assertTrue(Features::enabled(Feature::Postpaid));
     }
 
+    public function test_daily_report_cards_can_be_toggled_off_from_pos_settings(): void
+    {
+        $this->actingAs($this->admin());
+        $this->bootPos();
+
+        // Shown by default (fail-open).
+        $this->assertTrue(Features::enabled(Feature::DailyReportCards));
+
+        Livewire::test(AppFeatureSettings::class, ['module' => 'pos'])
+            ->assertSee('Daily sale')
+            ->assertSet('toggles.daily_report_cards', true)
+            ->set('toggles.daily_report_cards', false)
+            ->call('save')
+            ->assertSet('saved', true);
+
+        app(SettingManager::class)->flush();
+        $this->assertFalse(Features::enabled(Feature::DailyReportCards));
+    }
+
     public function test_non_admin_is_forbidden(): void
     {
         $this->actingAs($this->admin());

@@ -50,6 +50,26 @@ final class DashboardAppsTest extends TestCase
             });
     }
 
+    public function test_daily_report_cards_toggle_shows_and_hides_them_on_the_dashboard(): void
+    {
+        // POS installed → its tables exist, so the Daily sale / stock cards render.
+        app(ModuleManager::class)->install('pos');
+        app(SettingManager::class)->flush();
+
+        Livewire::test(Dashboard::class)
+            ->assertOk()
+            ->assertSee('Daily sale')
+            ->assertSee('Daily stock report');
+
+        // Hide them from POS → Settings.
+        \App\Erp\Business\Features::setOverrides(['daily_report_cards' => false]);
+        app(SettingManager::class)->flush();
+
+        Livewire::test(Dashboard::class)
+            ->assertOk()
+            ->assertDontSee('Daily sale');
+    }
+
     public function test_business_type_filters_which_app_buttons_appear(): void
     {
         // A plain rental database shows Rent A Car but not Limousine.

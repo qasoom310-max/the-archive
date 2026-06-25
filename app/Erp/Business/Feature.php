@@ -28,6 +28,7 @@ enum Feature: string
     case CustomerDiscounts = 'customer_discounts';
     case Damage = 'damage';
     case BarcodeScanning = 'barcode_scanning';
+    case DailyReportCards = 'daily_report_cards';
     // Postpaid dine-in: fire items to the kitchen on add and pay at the end.
     // OFF (the default) = prepaid: pay first, then the order fires to the
     // kitchen. Opt-in — see Features::DEFAULT_OFF.
@@ -65,6 +66,7 @@ enum Feature: string
             self::CustomerDiscounts => 'Customer discounts',
             self::Damage => 'Damage / waste log',
             self::BarcodeScanning => 'Barcode scanning (camera)',
+            self::DailyReportCards => 'Daily sale & stock cards on dashboard',
             self::Postpaid => 'Postpaid (kitchen first, pay later)',
             self::ChartOfAccounts => 'Chart of accounts',
             self::JournalEntries => 'Journal entries',
@@ -91,6 +93,7 @@ enum Feature: string
             self::CustomerDiscounts => "Apply a percentage discount to an order from the customer's phone number.",
             self::Damage => 'Record damaged or wasted stock so on-hand counts stay accurate.',
             self::BarcodeScanning => 'Show the camera scan button in the terminal search bar (USB scanners always work).',
+            self::DailyReportCards => 'Show the Daily sale and Daily stock report cards on the main dashboard.',
             self::Postpaid => 'Send items to the kitchen as they are added and take payment at the end. Off = pay first, then the order fires to the kitchen.',
             self::ChartOfAccounts => 'The list of ledger accounts (assets, income, expenses…).',
             self::JournalEntries => 'Manual and automatic double-entry journal postings.',

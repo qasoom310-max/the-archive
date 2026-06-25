@@ -83,7 +83,7 @@ final class Features
         'pos' => [
             Feature::Restaurant, Feature::Recipes, Feature::Condiments,
             Feature::CustomerDiscounts, Feature::Damage, Feature::BarcodeScanning,
-            Feature::Postpaid,
+            Feature::Postpaid, Feature::DailyReportCards,
         ],
         'accounting' => [Feature::ChartOfAccounts, Feature::JournalEntries],
         'rental' => [

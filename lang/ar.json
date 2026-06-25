@@ -27,6 +27,7 @@
     "Delivery charges": "رسوم التوصيل",
     "Delivery": "توصيل",
     "Deliver the car": "توصيل السيارة",
+    "This vehicle is already booked (:ref) for overlapping dates.": "هذه المركبة محجوزة بالفعل (:ref) في تواريخ متداخلة.",
     "Delivery charges (BHD)": "رسوم التوصيل (د.ب)",
     "Payment type": "طريقة الدفع",
     "Cheque": "شيك",

@@ -224,10 +224,29 @@ final class OrderForm extends Component
     {
         $this->validate();
 
+        // Block double-booking: refuse if the car is already held (reserved or
+        // rented) by another open order over overlapping dates.
+        if ($this->vehicle_id !== null) {
+            $conflict = RentalOrder::overlappingOpenOrder(
+                $this->vehicle_id,
+                Carbon::parse($this->start_date),
+                Carbon::parse($this->end_date),
+                $this->id,
+            );
+            if ($conflict !== null) {
+                $this->addError('vehicle_id', __('This vehicle is already booked (:ref) for overlapping dates.', ['ref' => $conflict->reference ?? '']));
+
+                return;
+            }
+        }
+
         $order = $this->id !== null ? RentalOrder::query()->find($this->id) : new RentalOrder();
         if ($order === null) {
             return;
         }
+
+        // Remember the previously-held car so we can release it if it changes.
+        $previousVehicleId = $order->exists ? $order->vehicle_id : null;
 
         $order->order_date = $this->order_date !== '' ? Carbon::parse($this->order_date) : null;
         $order->customer_id = $this->customer_id;
@@ -266,6 +285,15 @@ final class OrderForm extends Component
 
         $order->recalcTotals();
         $order->save();
+
+        // Hold the car: a draft reserves it. If the vehicle changed, free the
+        // old one (when nothing else holds it).
+        if ($previousVehicleId !== null && $previousVehicleId !== $order->vehicle_id) {
+            RentalOrder::releaseVehicleIfUnheld($previousVehicleId, $order->id);
+        }
+        if ($order->state === RentalOrder::STATE_DRAFT) {
+            $order->reserveVehicle();
+        }
 
         session()->flash('toast', __('Order saved.'));
         $this->redirect('/app/rental/order', navigate: true);

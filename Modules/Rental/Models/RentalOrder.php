@@ -257,6 +257,65 @@ final class RentalOrder extends Model implements DefinesIrModel
         $this->vehicle?->update(['status' => Vehicle::STATUS_AVAILABLE]);
     }
 
+    /** States that hold a vehicle (block another booking for the same dates). */
+    private const HOLDING_STATES = [self::STATE_DRAFT, self::STATE_ACTIVE];
+
+    /**
+     * Another open (draft or active) order for the same vehicle whose dates
+     * overlap [$start, $end] — i.e. a double-booking. Null when the slot is
+     * free. `$exceptId` excludes the order being edited.
+     */
+    public static function overlappingOpenOrder(int $vehicleId, ?Carbon $start, ?Carbon $end, ?int $exceptId = null): ?self
+    {
+        if ($start === null || $end === null) {
+            return null;
+        }
+
+        return self::query()
+            ->where('vehicle_id', $vehicleId)
+            ->whereIn('state', self::HOLDING_STATES)
+            ->when($exceptId !== null, fn ($q) => $q->where('id', '!=', $exceptId))
+            // Ranges overlap when each starts on/before the other ends.
+            ->whereDate('start_date', '<=', $end)
+            ->whereDate('end_date', '>=', $start)
+            ->first();
+    }
+
+    /** Mark this draft's vehicle as Reserved (only if it's otherwise free). */
+    public function reserveVehicle(): void
+    {
+        if ($this->state !== self::STATE_DRAFT || $this->vehicle_id === null) {
+            return;
+        }
+
+        // Only flip an Available car — never downgrade a Rented / Maintenance one.
+        Vehicle::query()
+            ->where('id', $this->vehicle_id)
+            ->where('status', Vehicle::STATUS_AVAILABLE)
+            ->update(['status' => Vehicle::STATUS_RESERVED]);
+    }
+
+    /**
+     * Release a reserved vehicle back to Available — but only when no other
+     * open order still holds it, and only if it's merely Reserved (never touch
+     * a Rented / Maintenance car).
+     */
+    public static function releaseVehicleIfUnheld(int $vehicleId, ?int $exceptId = null): void
+    {
+        $stillHeld = self::query()
+            ->where('vehicle_id', $vehicleId)
+            ->whereIn('state', self::HOLDING_STATES)
+            ->when($exceptId !== null, fn ($q) => $q->where('id', '!=', $exceptId))
+            ->exists();
+
+        if (! $stillHeld) {
+            Vehicle::query()
+                ->where('id', $vehicleId)
+                ->where('status', Vehicle::STATUS_RESERVED)
+                ->update(['status' => Vehicle::STATUS_AVAILABLE]);
+        }
+    }
+
     /**
      * Generate an invoice from this order (idempotent — returns the existing
      * invoice if one was already raised for it).
@@ -281,7 +340,7 @@ final class RentalOrder extends Model implements DefinesIrModel
         return $invoice;
     }
 
-    /** Cancel an order; free the vehicle if it had been handed over. */
+    /** Cancel an order; free the vehicle it was holding (rented or reserved). */
     public function cancelOrder(): void
     {
         if (in_array($this->state, [self::STATE_CLOSED, self::STATE_CANCELLED], true)) {
@@ -289,11 +348,16 @@ final class RentalOrder extends Model implements DefinesIrModel
         }
 
         $wasActive = $this->state === self::STATE_ACTIVE;
+        $vehicleId = $this->vehicle_id;
         $this->state = self::STATE_CANCELLED;
         $this->save();
 
         if ($wasActive) {
+            // The car was physically out → it's back and available.
             $this->vehicle?->update(['status' => Vehicle::STATUS_AVAILABLE]);
+        } elseif ($vehicleId !== null) {
+            // A draft only held a reservation → release it if nothing else does.
+            self::releaseVehicleIfUnheld($vehicleId);
         }
     }
 

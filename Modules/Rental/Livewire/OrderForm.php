@@ -129,6 +129,19 @@ final class OrderForm extends Component
 
     public string $damage_video_url = '';
 
+    /** Deposit settlement modal (accountant / super-admin only). */
+    public bool $showDeposit = false;
+
+    /** refund | deduct | forfeit */
+    public string $depositOutcome = 'refund';
+
+    public string $deposit_deducted = '0';
+
+    public string $deposit_reason = '';
+
+    /** @var array<int, TemporaryUploadedFile> */
+    public array $depositPhotos = [];
+
     /** Inline "New customer" modal (shared transport customer). */
     public bool $addingCustomer = false;
 
@@ -650,6 +663,80 @@ final class OrderForm extends Component
         });
     }
 
+    /** Open the deposit-settlement modal (accountant / super-admin only). */
+    public function settleDeposit(): void
+    {
+        abort_unless($this->canConfirmPayments(), 403);
+
+        $this->depositOutcome = 'refund';
+        $this->deposit_deducted = '0';
+        $this->deposit_reason = '';
+        $this->depositPhotos = [];
+        $this->resetValidation();
+        $this->showDeposit = true;
+    }
+
+    public function closeDeposit(): void
+    {
+        $this->showDeposit = false;
+    }
+
+    /** Record the deposit outcome — refund / deduct part / forfeit — with reason + photos. */
+    public function confirmDeposit(): void
+    {
+        abort_unless($this->canConfirmPayments(), 403);
+
+        $user = Auth::user();
+        if (! $user instanceof User || $this->id === null) {
+            return;
+        }
+
+        $order = RentalOrder::query()->find($this->id);
+        if ($order === null) {
+            return;
+        }
+
+        $rules = [
+            'depositOutcome' => ['required', 'in:refund,deduct,forfeit'],
+            'depositPhotos' => ['array', 'max:10'],
+            'depositPhotos.*' => ['image', 'max:5120'],
+        ];
+        if ($this->depositOutcome === 'deduct') {
+            $rules['deposit_deducted'] = ['required', 'numeric', 'gt:0', 'max:' . $order->deposit];
+            $rules['deposit_reason'] = ['required', 'string', 'max:1000'];
+        } elseif ($this->depositOutcome === 'forfeit') {
+            $rules['deposit_reason'] = ['required', 'string', 'max:1000'];
+        }
+
+        $this->validate($rules, [
+            'deposit_deducted.max' => __('The deduction can’t be more than the deposit (:amount).', ['amount' => $order->deposit]),
+        ]);
+
+        // How much of the deposit is kept.
+        $deducted = match ($this->depositOutcome) {
+            'forfeit' => $order->deposit,
+            'deduct' => $this->toFloat($this->deposit_deducted),
+            default => 0.0,
+        };
+
+        // Persist any evidence photos.
+        $paths = [];
+        foreach ($this->depositPhotos as $photo) {
+            if ($photo instanceof TemporaryUploadedFile) {
+                $stored = $photo->store('rental_deposits', 'public');
+                if (is_string($stored)) {
+                    $paths[] = $stored;
+                }
+            }
+        }
+
+        $order->resolveDeposit($user, $deducted, $this->depositOutcome === 'refund' ? null : $this->deposit_reason, $paths);
+
+        $this->showDeposit = false;
+        $this->depositPhotos = [];
+        session()->flash('toast', __('Deposit settled.'));
+    }
+
     /**
      * Run a mutation against the persisted order, then refresh the panel state.
      */
@@ -706,7 +793,7 @@ final class OrderForm extends Component
             'fuelLevels' => RentalOrder::fuelLevelOptions(),
             // The persisted order, for the read-only handover / return summary
             // and the payment-confirmation details (who / when).
-            'savedOrder' => $this->id !== null ? RentalOrder::query()->with('confirmedBy')->find($this->id) : null,
+            'savedOrder' => $this->id !== null ? RentalOrder::query()->with('confirmedBy', 'depositResolvedBy')->find($this->id) : null,
             'canConfirmPayment' => $this->canConfirmPayments(),
             'canBackdate' => $this->canBackdate(),
             'previewDays' => $preview->days,

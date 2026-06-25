@@ -43,6 +43,12 @@ use Illuminate\Support\Carbon;
  * @property string|null $delivery_location
  * @property float $delivery_charges
  * @property float $deposit
+ * @property string $deposit_status
+ * @property float $deposit_deducted
+ * @property string|null $deposit_reason
+ * @property array<int, string>|null $deposit_images
+ * @property int|null $deposit_resolved_by_user_id
+ * @property Carbon|null $deposit_resolved_at
  * @property float $total
  * @property float $advance_amount
  * @property float $balance
@@ -102,12 +108,25 @@ final class RentalOrder extends Model implements DefinesIrModel
     /** Flat service fee added on top of a fuel-shortfall charge at return (BHD). */
     public const FUEL_SERVICE_FEE = 1.0;
 
+    /** Security deposit is held this many days after return before it's settled. */
+    public const DEPOSIT_HOLD_DAYS = 14;
+
+    /** Deposit settlement states. */
+    public const DEPOSIT_HELD = 'held';
+
+    public const DEPOSIT_REFUNDED = 'refunded';
+
+    public const DEPOSIT_PARTIAL = 'partial';
+
+    public const DEPOSIT_FORFEITED = 'forfeited';
+
     /** @var list<string> */
     protected $fillable = [
         'reference', 'order_date', 'customer_id', 'phone', 'vehicle_id', 'pickup_mileage',
         'driver_id', 'additional_driver', 'additional_driver_license', 'branch_id',
         'start_date', 'end_date', 'hired_time', 'rate_type', 'rate', 'days', 'subtotal',
         'discount', 'vat_rate', 'vat_amount', 'delivery', 'delivery_location', 'delivery_charges', 'deposit', 'total',
+        'deposit_status', 'deposit_deducted', 'deposit_reason', 'deposit_images', 'deposit_resolved_by_user_id', 'deposit_resolved_at',
         'advance_amount', 'balance', 'payment_type', 'state', 'payment_status',
         'payment_confirmed', 'confirmed_by_user_id', 'confirmed_at', 'agreement_emailed_at', 'notes',
         'cpr_image_path', 'license_image_path',
@@ -127,6 +146,8 @@ final class RentalOrder extends Model implements DefinesIrModel
         'delivery' => false,
         'delivery_charges' => 0,
         'deposit' => 0,
+        'deposit_status' => self::DEPOSIT_HELD,
+        'deposit_deducted' => 0,
         'total' => 0,
         'advance_amount' => 0,
         'balance' => 0,
@@ -157,6 +178,10 @@ final class RentalOrder extends Model implements DefinesIrModel
             'delivery' => 'boolean',
             'delivery_charges' => 'float',
             'deposit' => 'float',
+            'deposit_deducted' => 'float',
+            'deposit_images' => 'array',
+            'deposit_resolved_by_user_id' => 'integer',
+            'deposit_resolved_at' => 'datetime',
             'total' => 'float',
             'advance_amount' => 'float',
             'balance' => 'float',
@@ -306,6 +331,56 @@ final class RentalOrder extends Model implements DefinesIrModel
         $this->payment_confirmed = false;
         $this->confirmed_by_user_id = null;
         $this->confirmed_at = null;
+        $this->save();
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function depositResolvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'deposit_resolved_by_user_id');
+    }
+
+    /** The deposit is still held (not yet settled). */
+    public function depositPending(): bool
+    {
+        return $this->deposit > 0 && $this->deposit_status === self::DEPOSIT_HELD;
+    }
+
+    /** Last day the security deposit is held before it's returned. */
+    public function depositHoldUntil(): ?Carbon
+    {
+        return $this->returned_at?->copy()->addDays(self::DEPOSIT_HOLD_DAYS);
+    }
+
+    /** Amount of the deposit due back to the customer (held total less deductions). */
+    public function depositRefundAmount(): float
+    {
+        return round(max(0.0, $this->deposit - $this->deposit_deducted), 3);
+    }
+
+    /**
+     * Settle the security deposit: refund it, cut part of it, or keep it all.
+     * A deduction needs a reason (and ideally photos). Authorisation (accountant
+     * / super-admin) is enforced by the caller. Returns nothing.
+     *
+     * @param  array<int, string>  $images
+     */
+    public function resolveDeposit(User $by, float $deducted, ?string $reason, array $images = []): void
+    {
+        $deducted = round(max(0.0, min($this->deposit, $deducted)), 3);
+
+        $this->deposit_deducted = $deducted;
+        $this->deposit_reason = $reason !== null && trim($reason) !== '' ? trim($reason) : null;
+        $this->deposit_images = $images === [] ? null : array_values($images);
+        $this->deposit_status = match (true) {
+            $deducted <= 0.0 => self::DEPOSIT_REFUNDED,
+            $deducted >= $this->deposit => self::DEPOSIT_FORFEITED,
+            default => self::DEPOSIT_PARTIAL,
+        };
+        $this->deposit_resolved_by_user_id = (int) $by->getKey();
+        $this->deposit_resolved_at = Carbon::now();
         $this->save();
     }
 

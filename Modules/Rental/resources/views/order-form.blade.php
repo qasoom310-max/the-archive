@@ -120,6 +120,67 @@
         </div>
     @endif
 
+    {{-- Security deposit — held after return, then settled by an accountant. --}}
+    @if ($savedOrder && $savedOrder->deposit > 0)
+        @php
+            $depBadge = [
+                'held' => 'bg-amber-100 text-amber-700',
+                'refunded' => 'bg-emerald-100 text-emerald-700',
+                'partial' => 'bg-amber-100 text-amber-700',
+                'forfeited' => 'bg-red-100 text-red-700',
+            ][$savedOrder->deposit_status] ?? 'bg-chrome-200 text-chrome-700';
+            $depLabel = [
+                'held' => __('Held'),
+                'refunded' => __('Refunded'),
+                'partial' => __('Partially refunded'),
+                'forfeited' => __('Non-refundable'),
+            ][$savedOrder->deposit_status] ?? __('Held');
+        @endphp
+        <div class="mb-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <h3 class="text-sm font-semibold text-chrome-800">{{ __('Security deposit') }}</h3>
+                    <span class="text-sm font-medium text-chrome-700">{{ ValueFormat::money($savedOrder->deposit) }}</span>
+                    <span class="rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $depBadge }}">{{ $depLabel }}</span>
+                    @if ($savedOrder->depositPending() && $savedOrder->depositHoldUntil())
+                        <span class="text-[11px] text-chrome-400">{{ __('Refundable from') }} {{ $savedOrder->depositHoldUntil()->format('Y-m-d') }}</span>
+                    @endif
+                </div>
+                @if ($savedOrder->depositPending())
+                    @if ($canConfirmPayment)
+                        <button wire:click="settleDeposit" class="o-btn-primary text-sm">{{ __('Settle deposit') }}</button>
+                    @else
+                        <span class="text-[11px] text-amber-600">{{ __('Awaiting accountant settlement') }}</span>
+                    @endif
+                @endif
+            </div>
+
+            @unless ($savedOrder->depositPending())
+                <dl class="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-chrome-600 sm:grid-cols-3">
+                    <div class="flex justify-between"><dt>{{ __('Returned') }}</dt><dd class="font-medium text-emerald-700">{{ ValueFormat::money($savedOrder->depositRefundAmount()) }}</dd></div>
+                    @if ($savedOrder->deposit_deducted > 0)
+                        <div class="flex justify-between"><dt>{{ __('Deducted') }}</dt><dd class="font-medium text-red-600">{{ ValueFormat::money($savedOrder->deposit_deducted) }}</dd></div>
+                    @endif
+                    @if ($savedOrder->depositResolvedBy)
+                        <div class="flex justify-between"><dt>{{ __('By') }}</dt><dd class="text-chrome-500">{{ $savedOrder->depositResolvedBy->name }} · {{ $savedOrder->deposit_resolved_at?->format('Y-m-d') }}</dd></div>
+                    @endif
+                </dl>
+                @if ($savedOrder->deposit_reason)
+                    <p class="mt-2 text-sm text-chrome-700"><span class="text-chrome-400">{{ __('Reason') }}:</span> {{ $savedOrder->deposit_reason }}</p>
+                @endif
+                @if (! empty($savedOrder->deposit_images))
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        @foreach ($savedOrder->deposit_images as $img)
+                            <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($img) }}" target="_blank" rel="noopener">
+                                <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($img) }}" alt="{{ __('Deposit evidence') }}" class="size-16 rounded-lg object-cover ring-1 ring-chrome-900/10">
+                            </a>
+                        @endforeach
+                    </div>
+                @endif
+            @endunless
+        </div>
+    @endif
+
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {{-- ─────────────── Form ─────────────── --}}
         <div class="space-y-5 lg:col-span-2">
@@ -541,6 +602,67 @@
                     <div class="flex justify-end gap-2 pt-1">
                         <button type="button" wire:click="closeReturn" class="text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</button>
                         <button type="submit" class="o-btn-primary">{{ __('Confirm & return') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
+
+    {{-- ─────────────── Settle deposit (accountant / super-admin) ─────────────── --}}
+    @if ($showDeposit)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4" x-data x-on:keydown.escape.window="$wire.closeDeposit()">
+            <div class="absolute inset-0 bg-chrome-900/40" wire:click="closeDeposit"></div>
+            <div class="relative w-full max-w-md rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5">
+                <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Settle deposit') }}</h3>
+                <p class="mb-3 text-xs text-chrome-500">{{ __('Return the :amount deposit, deduct part of it, or keep it all.', ['amount' => ValueFormat::money($savedOrder?->deposit ?? 0)]) }}</p>
+                <form wire:submit.prevent="confirmDeposit" class="space-y-3">
+                    <div class="space-y-2">
+                        @foreach (['refund' => __('Refund in full'), 'deduct' => __('Deduct an amount'), 'forfeit' => __('Non-refundable (keep it all)')] as $val => $label)
+                            <label class="flex items-center gap-2 rounded-lg border border-chrome-200 px-3 py-2 text-sm text-chrome-700 has-[:checked]:border-primary-400 has-[:checked]:bg-primary-50">
+                                <input type="radio" wire:model.live="depositOutcome" value="{{ $val }}" class="text-primary-600">
+                                {{ $label }}
+                            </label>
+                        @endforeach
+                    </div>
+
+                    @if ($depositOutcome === 'deduct')
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Amount to deduct (BHD)') }} <span class="text-red-500">*</span></label>
+                            <input type="number" step="0.001" min="0" max="{{ $savedOrder?->deposit ?? 0 }}" wire:model.live="deposit_deducted" class="o-input w-full" placeholder="0.000">
+                            @if ((float) ($deposit_deducted ?: 0) > 0)
+                                <p class="mt-1 text-xs text-chrome-400">{{ __('Refunding') }} <span class="font-medium text-emerald-700">{{ ValueFormat::money(max(0, ($savedOrder?->deposit ?? 0) - (float) ($deposit_deducted ?: 0))) }}</span></p>
+                            @endif
+                            @error('deposit_deducted') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    @endif
+
+                    @if ($depositOutcome !== 'refund')
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Reason') }} <span class="text-red-500">*</span></label>
+                            <textarea wire:model="deposit_reason" rows="2" class="o-input w-full" placeholder="{{ __('Why is the deposit being deducted / kept…') }}"></textarea>
+                            @error('deposit_reason') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Photos') }}</label>
+                            <input type="file" wire:model="depositPhotos" multiple accept="image/*" class="block w-full text-sm text-chrome-600 file:mr-3 file:rounded-lg file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-chrome-700">
+                            <p class="mt-1 text-xs text-chrome-400">{{ __('Attach photos of the damage / reason (recommended).') }}</p>
+                            <div wire:loading wire:target="depositPhotos" class="mt-1 text-xs text-chrome-400">{{ __('Uploading…') }}</div>
+                            @error('depositPhotos.*') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            @if (! empty($depositPhotos))
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    @foreach ($depositPhotos as $p)
+                                        @if (method_exists($p, 'temporaryUrl'))
+                                            <img src="{{ $p->temporaryUrl() }}" class="size-14 rounded-lg object-cover ring-1 ring-chrome-900/10" alt="">
+                                        @endif
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+                    @endif
+
+                    <div class="flex justify-end gap-2 pt-1">
+                        <button type="button" wire:click="closeDeposit" class="text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</button>
+                        <button type="submit" class="o-btn-primary">{{ __('Confirm') }}</button>
                     </div>
                 </form>
             </div>

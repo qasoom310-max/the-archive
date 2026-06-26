@@ -71,7 +71,12 @@
                     @endphp
                     <tr wire:key="order-{{ $order->id }}" class="cursor-pointer hover:bg-chrome-50"
                         onclick="window.location='{{ url('/app/rental/order/' . $order->id) }}'">
-                        <td class="px-4 py-2 font-medium text-chrome-800">{{ $order->reference }}</td>
+                        <td class="px-4 py-2">
+                            <div class="font-medium text-chrome-800">{{ $order->reference }}</div>
+                            @if ($order->createdBy)
+                                <div class="text-xs text-chrome-400">{{ __('by') }} {{ $order->createdBy->name }}</div>
+                            @endif
+                        </td>
                         <td class="px-4 py-2 text-chrome-700">@if ($order->customer?->flag)<span class="me-1">{{ $order->customer->flag }}</span>@endif{{ $order->customer?->name ?? '—' }}</td>
                         <td class="px-4 py-2">
                             @if ($order->vehicle)

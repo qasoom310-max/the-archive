@@ -1,6 +1,7 @@
 @props([
     'subject' => null,   // the Eloquent model whose audit trail to show
     'title' => null,
+    'empty' => null,     // optional placeholder text shown when there is no history yet
 ])
 {{--
     A record's audit trail: who did what, in order (created → edited → approved …).
@@ -38,5 +39,10 @@
                 </li>
             @endforeach
         </ol>
+    </div>
+@elseif ($empty !== null)
+    <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]">
+        <h2 class="mb-2 text-sm font-semibold text-chrome-800">{{ $title ?? __('Activity') }}</h2>
+        <p class="text-sm text-chrome-400">{{ $empty }}</p>
     </div>
 @endif

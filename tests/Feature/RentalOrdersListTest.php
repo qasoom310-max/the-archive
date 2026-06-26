@@ -50,4 +50,28 @@ final class RentalOrdersListTest extends TestCase
             ->assertSee('789456')   // plate number
             ->assertSee('White');   // colour
     }
+
+    public function test_saving_a_new_order_stamps_and_lists_the_creator(): void
+    {
+        $maker = User::factory()->create(['name' => 'Sara Customer-Service', 'is_admin' => true]);
+        $this->actingAs($maker);
+
+        $customer = RentalCustomer::query()->create(['name' => 'Buyer', 'phone' => '39000002']);
+        $vehicle = Vehicle::query()->create(['name' => 'Yaris', 'daily_rate' => 10]);
+
+        Livewire::test(\Modules\Rental\Livewire\OrderForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('vehicle_id', $vehicle->id)
+            ->set('start_date', '2026-06-24')
+            ->set('end_date', '2026-06-25')
+            ->set('rate_type', 'daily')
+            ->set('rate', '10')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $order = RentalOrder::query()->latest('id')->sole();
+        $this->assertSame($maker->id, $order->created_by_user_id);
+
+        Livewire::test(Orders::class)->assertSee('Sara Customer-Service'); // creator shows on the list
+    }
 }

@@ -50,7 +50,7 @@ final class Orders extends Component
     public function render(): View
     {
         $query = RentalOrder::query()
-            ->with(['customer:id,name,country', 'vehicle:id,name,plate_no,color'])
+            ->with(['customer:id,name,country', 'vehicle:id,name,plate_no,color', 'createdBy:id,name'])
             ->orderByDesc('id');
 
         if (in_array($this->tab, [

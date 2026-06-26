@@ -58,6 +58,7 @@ use Illuminate\Support\Carbon;
  * @property bool $payment_confirmed
  * @property int|null $confirmed_by_user_id
  * @property Carbon|null $confirmed_at
+ * @property int|null $created_by_user_id
  * @property Carbon|null $agreement_emailed_at
  * @property string|null $notes
  * @property string|null $cpr_image_path
@@ -129,7 +130,7 @@ final class RentalOrder extends Model implements DefinesIrModel
         'discount', 'vat_rate', 'vat_amount', 'delivery', 'delivery_location', 'delivery_charges', 'deposit', 'total',
         'deposit_status', 'deposit_deducted', 'deposit_reason', 'deposit_images', 'deposit_resolved_by_user_id', 'deposit_resolved_at',
         'advance_amount', 'balance', 'payment_type', 'state', 'payment_status',
-        'payment_confirmed', 'confirmed_by_user_id', 'confirmed_at', 'agreement_emailed_at', 'notes',
+        'payment_confirmed', 'confirmed_by_user_id', 'confirmed_at', 'created_by_user_id', 'agreement_emailed_at', 'notes',
         'cpr_image_path', 'license_image_path',
         'handover_km', 'handover_fuel', 'handover_notes', 'handover_video_url', 'started_at',
         'return_km', 'return_fuel', 'fuel_charge', 'extra_charge', 'extra_charge_note', 'has_damage', 'damage_notes', 'damage_video_url', 'returned_at', 'return_video_url',
@@ -196,6 +197,7 @@ final class RentalOrder extends Model implements DefinesIrModel
             'payment_confirmed' => 'boolean',
             'confirmed_by_user_id' => 'integer',
             'confirmed_at' => 'datetime',
+            'created_by_user_id' => 'integer',
             'agreement_emailed_at' => 'datetime',
         ];
     }
@@ -307,6 +309,16 @@ final class RentalOrder extends Model implements DefinesIrModel
     public function confirmedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'confirmed_by_user_id');
+    }
+
+    /**
+     * The staff member who first created the order.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
     /**

@@ -27,6 +27,9 @@
             <div class="flex flex-wrap items-center gap-2.5">
                 <span class="text-sm font-semibold text-chrome-800">{{ $reference }}</span>
                 <span class="rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $stateBadge }}">{{ __(ucfirst($state)) }}</span>
+                @if ($savedOrder?->createdBy)
+                    <span class="text-[11px] text-chrome-400">{{ __('Created by') }} {{ $savedOrder->createdBy->name }} · {{ $savedOrder->created_at?->format('Y-m-d') }}</span>
+                @endif
                 @php
                     // Paid+confirmed → green; paid-but-unconfirmed / partial / unpaid → amber.
                     $confirmed = $payment_status === 'paid' && $payment_confirmed;
@@ -516,7 +519,7 @@
     {{-- Audit trail: who created / edited / approved this order, in order. --}}
     @if ($savedOrder)
         <div class="mt-6">
-            <x-activity-trail :subject="$savedOrder" />
+            <x-activity-trail :subject="$savedOrder" :empty="__('No activity recorded yet. Actions from now on (edits, handover, return, payments) will appear here with who and when.')" />
         </div>
     @endif
 

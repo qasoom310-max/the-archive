@@ -1076,6 +1076,8 @@
     "Action": "الإجراء",
     "Clear": "مسح",
     "No activity recorded yet.": "لم يُسجَّل أي نشاط بعد.",
+    "Created by": "أنشأها",
+    "No activity recorded yet. Actions from now on (edits, handover, return, payments) will appear here with who and when.": "لم يُسجَّل أي نشاط بعد. ستظهر هنا الإجراءات من الآن فصاعدًا (التعديلات، التسليم، الإرجاع، المدفوعات) مع بيان مَن قام بها ومتى.",
     "Signed in": "تسجيل الدخول",
     "Signed out": "تسجيل الخروج",
     "Failed sign-in": "محاولة دخول فاشلة",

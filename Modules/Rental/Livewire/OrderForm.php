@@ -337,6 +337,10 @@ final class OrderForm extends Component
 
         $wasNew = ! $order->exists;
 
+        if ($wasNew) {
+            $order->created_by_user_id = Auth::id();
+        }
+
         // Remember the previously-held car so we can release it if it changes.
         $previousVehicleId = $order->exists ? $order->vehicle_id : null;
 

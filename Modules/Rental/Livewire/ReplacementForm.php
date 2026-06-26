@@ -161,6 +161,18 @@ final class ReplacementForm extends Component
             return; // existing replacements are read-only; the swap already happened
         }
 
+        // Authoritative: the original car, customer, and on-road check come from
+        // the order itself — never from client-side state — so the original can
+        // only ever be the car the customer currently has on this rental.
+        $order = $this->order_id !== null ? RentalOrder::query()->find($this->order_id) : null;
+        if ($order === null || ! $this->orderIsOnRoad($order)) {
+            $this->blocked = true;
+
+            return;
+        }
+        $this->original_vehicle_id = $order->vehicle_id;
+        $this->customer_id = $order->customer_id;
+
         $this->validate();
 
         // The replacement car must be free (available). Valid papers are required

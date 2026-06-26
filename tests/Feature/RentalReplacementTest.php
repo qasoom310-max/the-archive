@@ -82,6 +82,26 @@ final class RentalReplacementTest extends TestCase
         $this->assertSame(1500, $original->fresh()?->odometer);           // original odo advanced
     }
 
+    public function test_the_original_car_is_always_the_orders_car_even_if_tampered(): void
+    {
+        $original = $this->bookableCar('Eco Sport', '111', Vehicle::STATUS_RENTED);
+        $replacement = $this->bookableCar('Expedition', '222');
+        $decoy = $this->bookableCar('Decoy', '333'); // a car the request tries to pass off as the original
+        $order = $this->onRoadOrder($original);
+
+        Livewire::test(ReplacementForm::class, ['order' => $order->id])
+            ->set('reason_type', RentalReplacement::REASON_BREAKDOWN)
+            ->set('original_vehicle_id', $decoy->id)         // tamper attempt
+            ->set('replacement_vehicle_id', $replacement->id)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $rep = RentalReplacement::query()->latest('id')->sole();
+        $this->assertSame($original->id, $rep->original_vehicle_id);            // the order's car, not the decoy
+        $this->assertSame(Vehicle::STATUS_AVAILABLE, $decoy->fresh()?->status); // decoy untouched
+        $this->assertSame(Vehicle::STATUS_MAINTENANCE, $original->fresh()?->status);
+    }
+
     public function test_a_customer_request_returns_the_original_to_the_fleet(): void
     {
         $original = $this->bookableCar('Eco Sport', '111', Vehicle::STATUS_RENTED);

@@ -8,6 +8,7 @@ use App\Erp\Contracts\DefinesIrModel;
 use App\Erp\Registry\FieldDefinition;
 use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -24,33 +25,55 @@ use Illuminate\Support\Carbon;
  * @property string|null $description
  * @property float $cost
  * @property int|null $odometer
+ * @property string $priority
  * @property string $status
+ * @property int|null $approved_by_user_id
+ * @property Carbon|null $approved_at
+ * @property Carbon|null $started_at
+ * @property Carbon|null $completed_at
  * @property string|null $notes
  * @property-read Vehicle|null $vehicle
+ * @property-read User|null $approvedBy
  */
 final class RentalMaintenance extends Model implements DefinesIrModel
 {
     protected $table = 'rental_maintenance';
 
-    public const STATUS_SCHEDULED = 'scheduled';
+    // Work-order lifecycle: raised → a manager approves (or declines) → started
+    // → completed. Modelled on fleet-maintenance practice (Fleetio / Oxmaint).
+    public const STATUS_PENDING = 'pending';        // awaiting manager approval
+
+    public const STATUS_APPROVED = 'approved';      // authorised, ready to start
 
     public const STATUS_IN_PROGRESS = 'in_progress';
 
     public const STATUS_DONE = 'done';
 
+    public const STATUS_DECLINED = 'declined';
+
     public const STATUS_CANCELLED = 'cancelled';
+
+    public const PRIORITY_LOW = 'low';
+
+    public const PRIORITY_NORMAL = 'normal';
+
+    public const PRIORITY_HIGH = 'high';
+
+    public const PRIORITY_CRITICAL = 'critical';
 
     /** @var list<string> */
     protected $fillable = [
-        'reference', 'vehicle_id', 'date', 'type', 'description',
-        'cost', 'odometer', 'status', 'notes',
+        'reference', 'vehicle_id', 'date', 'type', 'priority', 'description',
+        'cost', 'odometer', 'status', 'approved_by_user_id', 'approved_at',
+        'started_at', 'completed_at', 'notes',
     ];
 
     /** @var array<string, mixed> */
     protected $attributes = [
         'type' => 'service',
+        'priority' => self::PRIORITY_NORMAL,
         'cost' => 0,
-        'status' => self::STATUS_SCHEDULED,
+        'status' => self::STATUS_PENDING,
     ];
 
     /**
@@ -63,6 +86,10 @@ final class RentalMaintenance extends Model implements DefinesIrModel
             'date' => 'date',
             'cost' => 'float',
             'odometer' => 'integer',
+            'approved_by_user_id' => 'integer',
+            'approved_at' => 'datetime',
+            'started_at' => 'datetime',
+            'completed_at' => 'datetime',
         ];
     }
 
@@ -85,8 +112,16 @@ final class RentalMaintenance extends Model implements DefinesIrModel
     }
 
     /**
+     * @return BelongsTo<User, $this>
+     */
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by_user_id');
+    }
+
+    /**
      * Reflect this record's status onto its vehicle: in progress → maintenance,
-     * done → available. Scheduled leaves the vehicle as-is.
+     * done → available. Anything else leaves the vehicle as-is.
      */
     public function syncVehicleStatus(): void
     {
@@ -118,17 +153,48 @@ final class RentalMaintenance extends Model implements DefinesIrModel
             && in_array($vehicle->status, [Vehicle::STATUS_AVAILABLE, Vehicle::STATUS_MAINTENANCE], true);
     }
 
+    /** Workflow — Pending → Approved. A manager authorises the work / spend. */
+    public function approve(User $by): bool
+    {
+        if ($this->status !== self::STATUS_PENDING) {
+            return false;
+        }
+
+        $this->status = self::STATUS_APPROVED;
+        $this->approved_by_user_id = (int) $by->getKey();
+        $this->approved_at = Carbon::now();
+        $this->save();
+
+        return true;
+    }
+
+    /** Workflow — Pending → Declined. A manager refuses the work. */
+    public function decline(User $by): bool
+    {
+        if ($this->status !== self::STATUS_PENDING) {
+            return false;
+        }
+
+        $this->status = self::STATUS_DECLINED;
+        $this->approved_by_user_id = (int) $by->getKey();
+        $this->approved_at = Carbon::now();
+        $this->save();
+
+        return true;
+    }
+
     /**
-     * Workflow — Scheduled → Start. Takes the car off the road. Refuses if the
-     * record isn't scheduled or the car isn't free; returns whether it moved.
+     * Workflow — Approved → In progress. Takes the car off the road. Refuses
+     * unless the record is approved AND the car is free at the branch.
      */
     public function start(): bool
     {
-        if ($this->status !== self::STATUS_SCHEDULED || ! $this->vehicleIsFree()) {
+        if ($this->status !== self::STATUS_APPROVED || ! $this->vehicleIsFree()) {
             return false;
         }
 
         $this->status = self::STATUS_IN_PROGRESS;
+        $this->started_at = Carbon::now();
         $this->save();
 
         if ($this->vehicle_id !== null) {
@@ -146,6 +212,7 @@ final class RentalMaintenance extends Model implements DefinesIrModel
         }
 
         $this->status = self::STATUS_DONE;
+        $this->completed_at = Carbon::now();
         $this->save();
 
         if ($this->vehicle_id !== null) {
@@ -155,10 +222,10 @@ final class RentalMaintenance extends Model implements DefinesIrModel
         return true;
     }
 
-    /** Workflow — Scheduled → Cancelled (a plan that won't happen). */
+    /** Workflow — Pending / Approved → Cancelled (won't happen after all). */
     public function cancelRecord(): bool
     {
-        if ($this->status !== self::STATUS_SCHEDULED) {
+        if (! in_array($this->status, [self::STATUS_PENDING, self::STATUS_APPROVED], true)) {
             return false;
         }
 
@@ -168,14 +235,22 @@ final class RentalMaintenance extends Model implements DefinesIrModel
         return true;
     }
 
+    /** Open work orders (raised or authorised) the manager queue cares about. */
+    public function isOpen(): bool
+    {
+        return in_array($this->status, [self::STATUS_PENDING, self::STATUS_APPROVED, self::STATUS_IN_PROGRESS], true);
+    }
+
     /** Human label for the current status. */
     public function statusLabel(): string
     {
         return match ($this->status) {
+            self::STATUS_APPROVED => 'Approved',
             self::STATUS_IN_PROGRESS => 'In progress',
             self::STATUS_DONE => 'Done',
+            self::STATUS_DECLINED => 'Declined',
             self::STATUS_CANCELLED => 'Cancelled',
-            default => 'Scheduled',
+            default => 'Pending approval',
         };
     }
 
@@ -202,10 +277,25 @@ final class RentalMaintenance extends Model implements DefinesIrModel
     public static function statusOptions(): array
     {
         return [
-            ['value' => self::STATUS_SCHEDULED, 'label' => 'Scheduled'],
+            ['value' => self::STATUS_PENDING, 'label' => 'Pending approval'],
+            ['value' => self::STATUS_APPROVED, 'label' => 'Approved'],
             ['value' => self::STATUS_IN_PROGRESS, 'label' => 'In progress'],
             ['value' => self::STATUS_DONE, 'label' => 'Done'],
+            ['value' => self::STATUS_DECLINED, 'label' => 'Declined'],
             ['value' => self::STATUS_CANCELLED, 'label' => 'Cancelled'],
+        ];
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    public static function priorityOptions(): array
+    {
+        return [
+            ['value' => self::PRIORITY_LOW, 'label' => 'Low'],
+            ['value' => self::PRIORITY_NORMAL, 'label' => 'Normal'],
+            ['value' => self::PRIORITY_HIGH, 'label' => 'High'],
+            ['value' => self::PRIORITY_CRITICAL, 'label' => 'Critical'],
         ];
     }
 

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Models\User;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -29,13 +31,15 @@ final class MaintenanceForm extends Component
 
     public string $type = 'service';
 
+    public string $priority = RentalMaintenance::PRIORITY_NORMAL;
+
     public string $description = '';
 
     public string $cost = '0';
 
     public string $odometer = '';
 
-    public string $status = RentalMaintenance::STATUS_SCHEDULED;
+    public string $status = RentalMaintenance::STATUS_PENDING;
 
     public string $notes = '';
 
@@ -50,6 +54,7 @@ final class MaintenanceForm extends Component
                 $this->vehicle_id = $record->vehicle_id;
                 $this->date = $record->date?->format('Y-m-d') ?? '';
                 $this->type = $record->type;
+                $this->priority = $record->priority;
                 $this->description = $record->description ?? '';
                 $this->cost = (string) $record->cost;
                 $this->odometer = $record->odometer !== null ? (string) $record->odometer : '';
@@ -73,6 +78,7 @@ final class MaintenanceForm extends Component
             'vehicle_id' => ['required', 'integer'],
             'date' => ['required', 'date'],
             'type' => ['required', 'string'],
+            'priority' => ['required', 'in:low,normal,high,critical'],
             'description' => ['nullable', 'string'],
             'cost' => ['nullable', 'numeric', 'min:0'],
             'odometer' => ['nullable', 'numeric', 'min:0'],
@@ -84,7 +90,7 @@ final class MaintenanceForm extends Component
      * Save the record's DETAILS only. The status is never set here — it moves
      * through the workflow buttons (Start / Complete / Cancel), so an employee
      * can't free-type a car into "done" or jump states. A new record is born
-     * Scheduled and leaves the car untouched.
+     * Pending approval and leaves the car untouched.
      */
     public function save(): void
     {
@@ -98,6 +104,7 @@ final class MaintenanceForm extends Component
         $record->vehicle_id = $this->vehicle_id;
         $record->date = Carbon::parse($this->date);
         $record->type = $this->type;
+        $record->priority = $this->priority;
         $record->description = $this->description !== '' ? $this->description : null;
         $record->cost = (float) ($this->cost === '' ? '0' : $this->cost);
         $record->odometer = $this->odometer !== '' ? (int) $this->odometer : null;
@@ -107,6 +114,14 @@ final class MaintenanceForm extends Component
         session()->flash('toast', __('Maintenance record saved.'));
         // Land on the record so its workflow panel (Start / Complete) shows.
         $this->redirect('/app/rental/maintenance/' . $record->id, navigate: true);
+    }
+
+    /** Only a fleet manager (admin / super-admin) may approve or decline work. */
+    public function canApprove(): bool
+    {
+        $user = Auth::user();
+
+        return $user instanceof User && $user->canApproveMaintenance();
     }
 
     /** Run a workflow transition against the saved record, then refresh status. */
@@ -125,7 +140,35 @@ final class MaintenanceForm extends Component
         $this->status = $record->status;
     }
 
-    /** Scheduled → In progress. Blocked unless the car is free at the branch. */
+    /** Pending → Approved. Manager authorises the work / spend. */
+    public function approveMaintenance(): void
+    {
+        abort_unless($this->canApprove(), 403);
+
+        $user = Auth::user();
+        if (! $user instanceof User) {
+            return;
+        }
+
+        $this->withRecord(fn (RentalMaintenance $r) => $r->approve($user));
+        session()->flash('toast', __('Work order approved.'));
+    }
+
+    /** Pending → Declined. Manager refuses the work. */
+    public function declineMaintenance(): void
+    {
+        abort_unless($this->canApprove(), 403);
+
+        $user = Auth::user();
+        if (! $user instanceof User) {
+            return;
+        }
+
+        $this->withRecord(fn (RentalMaintenance $r) => $r->decline($user));
+        session()->flash('toast', __('Work order declined.'));
+    }
+
+    /** Approved → In progress. Blocked unless the car is free at the branch. */
     public function startMaintenance(): void
     {
         if ($this->id === null) {
@@ -144,9 +187,10 @@ final class MaintenanceForm extends Component
             return;
         }
 
-        $record->start(); // mutates $record->status in place
-        $this->status = $record->status;
-        session()->flash('toast', __('Maintenance started.'));
+        if ($record->start()) { // mutates $record->status in place
+            $this->status = $record->status;
+            session()->flash('toast', __('Maintenance started.'));
+        }
     }
 
     /** In progress → Done. Frees the car back to Available. */
@@ -156,7 +200,7 @@ final class MaintenanceForm extends Component
         session()->flash('toast', __('Maintenance completed — car is available again.'));
     }
 
-    /** Scheduled → Cancelled. */
+    /** Pending / Approved → Cancelled. */
     public function cancelMaintenance(): void
     {
         $this->withRecord(fn (RentalMaintenance $r) => $r->cancelRecord());
@@ -168,6 +212,9 @@ final class MaintenanceForm extends Component
         return view('rental::maintenance-form', [
             'vehicles' => Vehicle::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'plate_no', 'color', 'status']),
             'typeOptions' => RentalMaintenance::typeOptions(),
+            'priorityOptions' => RentalMaintenance::priorityOptions(),
+            'canApprove' => $this->canApprove(),
+            'savedRecord' => $this->id !== null ? RentalMaintenance::query()->with('approvedBy')->find($this->id) : null,
             'isEditing' => $this->id !== null,
         ]);
     }

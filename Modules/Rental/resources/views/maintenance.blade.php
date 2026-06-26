@@ -11,7 +11,7 @@
         </x-slot:actions>
     </x-page-header>
 
-    @php $tabs = ['all' => __('All'), 'scheduled' => __('Scheduled'), 'in_progress' => __('In progress'), 'done' => __('Done')]; @endphp
+    @php $tabs = ['all' => __('All'), 'pending' => __('Pending'), 'approved' => __('Approved'), 'in_progress' => __('In progress'), 'done' => __('Done')]; @endphp
     <div class="mb-4 flex flex-wrap items-center gap-1 border-b border-chrome-200">
         @foreach ($tabs as $key => $label)
             @php $n = $key === 'all' ? $totalCount : (int) $counts->get($key, 0); @endphp
@@ -30,6 +30,7 @@
                     <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Car') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Type') }}</th>
+                    <th class="px-4 py-2 text-start">{{ __('Priority') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Date') }}</th>
                     <th class="px-4 py-2 text-end">{{ __('Cost') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Status') }}</th>
@@ -39,22 +40,27 @@
                 @forelse ($records as $m)
                     @php
                         $sb = [
-                            'scheduled' => 'bg-chrome-200 text-chrome-700',
-                            'in_progress' => 'bg-amber-100 text-amber-700',
+                            'pending' => 'bg-amber-100 text-amber-700',
+                            'approved' => 'bg-sky-100 text-sky-700',
+                            'in_progress' => 'bg-indigo-100 text-indigo-700',
                             'done' => 'bg-emerald-100 text-emerald-700',
-                        ][$m->status] ?? 'bg-chrome-200 text-chrome-700';
+                            'declined' => 'bg-red-100 text-red-700',
+                            'cancelled' => 'bg-chrome-200 text-chrome-700',
+                        ][$m->status] ?? 'bg-amber-100 text-amber-700';
+                        $pb = ['low' => 'text-chrome-400', 'normal' => 'text-chrome-500', 'high' => 'text-amber-600', 'critical' => 'text-red-600'][$m->priority] ?? 'text-chrome-500';
                     @endphp
                     <tr wire:key="mnt-{{ $m->id }}" class="cursor-pointer hover:bg-chrome-50"
                         onclick="window.location='{{ url('/app/rental/maintenance/' . $m->id) }}'">
                         <td class="px-4 py-2 font-medium text-chrome-800">{{ $m->reference }}</td>
                         <td class="px-4 py-2 text-chrome-700">{{ $m->vehicle?->displayName() ?? '—' }}</td>
                         <td class="px-4 py-2 text-chrome-600">{{ __(ucfirst(str_replace('_', ' ', $m->type))) }}</td>
+                        <td class="px-4 py-2 text-xs font-semibold uppercase {{ $pb }}">{{ __(ucfirst($m->priority)) }}</td>
                         <td class="px-4 py-2 text-chrome-600">{{ $m->date?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($m->cost) }}</td>
-                        <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst(str_replace('_', ' ', $m->status))) }}</span></td>
+                        <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __($m->statusLabel()) }}</span></td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No maintenance records found.') }}</td></tr>
+                    <tr><td colspan="7" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No maintenance records found.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>

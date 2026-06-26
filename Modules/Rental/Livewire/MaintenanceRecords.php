@@ -21,7 +21,7 @@ final class MaintenanceRecords extends Component
 {
     use WithPagination;
 
-    /** all | scheduled | in_progress | done */
+    /** all | pending | approved | in_progress | done */
     #[Url]
     public string $tab = 'all';
 
@@ -37,7 +37,8 @@ final class MaintenanceRecords extends Component
             ->orderByDesc('id');
 
         if (in_array($this->tab, [
-            RentalMaintenance::STATUS_SCHEDULED,
+            RentalMaintenance::STATUS_PENDING,
+            RentalMaintenance::STATUS_APPROVED,
             RentalMaintenance::STATUS_IN_PROGRESS,
             RentalMaintenance::STATUS_DONE,
         ], true)) {

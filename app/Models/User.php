@@ -113,6 +113,16 @@ final class User extends Authenticatable
     }
 
     /**
+     * Who may authorise (approve / decline) maintenance work orders before any
+     * work or spend happens — a fleet manager, i.e. an admin or super-admin.
+     * Regular staff can raise a request but not authorise it.
+     */
+    public function canApproveMaintenance(): bool
+    {
+        return $this->isAdmin() || $this->isSuperAdmin();
+    }
+
+    /**
      * Public URL of the user's avatar — null when no avatar is set, AND
      * null when the column points at a file that no longer exists on
      * disk (so the UI's fallback initial-letter renders instead of a

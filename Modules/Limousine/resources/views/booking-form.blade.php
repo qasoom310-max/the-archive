@@ -1,9 +1,5 @@
 <div class="mx-auto max-w-4xl p-4 sm:p-6">
-    <div class="mb-4 flex items-center gap-2 text-sm text-chrome-500">
-        <a href="{{ url('/app/limousine/booking') }}" wire:navigate class="hover:text-primary-700">{{ __('Bookings') }}</a>
-        <span>/</span>
-        <span class="font-medium text-chrome-700">{{ $isEditing ? ($reference ?: __('Booking')) : __('New booking') }}</span>
-    </div>
+    <x-form-breadcrumb :parent="__('Bookings')" :parent-url="url('/app/limousine/booking')" :current="$isEditing ? ($reference ?: __('Booking')) : __('New booking')" />
 
     @php
         $statusBadge = [
@@ -16,7 +12,7 @@
     @endphp
 
     @if ($isEditing)
-        <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
+        <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/[0.06]">
             <div class="flex items-center gap-3">
                 <span class="text-sm font-semibold text-chrome-800">{{ $reference }}</span>
                 <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $statusBadge }}">{{ __(ucfirst($status)) }}</span>
@@ -48,7 +44,7 @@
         </div>
     @endif
 
-    <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
+    <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]">
         <h2 class="mb-4 text-sm font-semibold text-chrome-800">{{ __('Trip details') }}</h2>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>

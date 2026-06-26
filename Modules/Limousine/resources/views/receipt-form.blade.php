@@ -1,11 +1,7 @@
 <div class="mx-auto max-w-3xl p-4 sm:p-6">
-    <div class="mb-4 flex items-center gap-2 text-sm text-chrome-500">
-        <a href="{{ url('/app/limousine/receipt') }}" wire:navigate class="hover:text-primary-700">{{ __('Receipts') }}</a>
-        <span>/</span>
-        <span class="font-medium text-chrome-700">{{ $isEditing ? ($reference ?: __('Receipt')) : __('New receipt') }}</span>
-    </div>
+    <x-form-breadcrumb :parent="__('Receipts')" :parent-url="url('/app/limousine/receipt')" :current="$isEditing ? ($reference ?: __('Receipt')) : __('New receipt')" />
 
-    <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
+    <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]">
         <h2 class="mb-4 text-sm font-semibold text-chrome-800">{{ __('Record payment') }}</h2>
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">

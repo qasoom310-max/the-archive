@@ -1,9 +1,5 @@
 <div class="mx-auto max-w-3xl p-4 sm:p-6">
-    <div class="mb-4 flex items-center gap-2 text-sm text-chrome-500">
-        <a href="{{ url('/app/rental/driver') }}" wire:navigate class="hover:text-primary-700">{{ __('Drivers') }}</a>
-        <span>/</span>
-        <span class="font-medium text-chrome-700">{{ $driver?->name ?? __('New driver') }}</span>
-    </div>
+    <x-form-breadcrumb :parent="__('Drivers')" :parent-url="url('/app/rental/driver')" :current="$driver?->name ?? __('New driver')" />
 
     <livewire:views.form-view
         :model="\Modules\Rental\Models\Driver::class"

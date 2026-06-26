@@ -1,11 +1,7 @@
 <div class="mx-auto max-w-3xl p-4 sm:p-6">
-    <div class="mb-4 flex items-center gap-2 text-sm text-chrome-500">
-        <a href="{{ url('/app/rental/maintenance') }}" wire:navigate class="hover:text-primary-700">{{ __('Maintenance') }}</a>
-        <span>/</span>
-        <span class="font-medium text-chrome-700">{{ $isEditing ? ($reference ?: __('Maintenance')) : __('New record') }}</span>
-    </div>
+    <x-form-breadcrumb :parent="__('Maintenance')" :parent-url="url('/app/rental/maintenance')" :current="$isEditing ? ($reference ?: __('Maintenance')) : __('New record')" />
 
-    <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
+    <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]">
         <h2 class="mb-4 text-sm font-semibold text-chrome-800">{{ __('Maintenance record') }}</h2>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>

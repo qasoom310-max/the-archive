@@ -72,7 +72,7 @@
                     <tr wire:key="order-{{ $order->id }}" class="cursor-pointer hover:bg-chrome-50"
                         onclick="window.location='{{ url('/app/rental/order/' . $order->id) }}'">
                         <td class="px-4 py-2 font-medium text-chrome-800">{{ $order->reference }}</td>
-                        <td class="px-4 py-2 text-chrome-700">{{ $order->customer?->name ?? '—' }}</td>
+                        <td class="px-4 py-2 text-chrome-700">@if ($order->customer?->flag)<span class="me-1">{{ $order->customer->flag }}</span>@endif{{ $order->customer?->name ?? '—' }}</td>
                         <td class="px-4 py-2">
                             @if ($order->vehicle)
                                 @php $sub = array_filter([$order->vehicle->plate_no, $order->vehicle->color], fn (?string $p) => $p !== null && $p !== ''); @endphp

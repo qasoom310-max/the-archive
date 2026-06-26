@@ -7,7 +7,9 @@ namespace Tests\Feature;
 use App\Erp\Modules\ModuleManager;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Modules\Rental\Livewire\CustomerForm;
 use Modules\Rental\Models\RentalCustomer;
@@ -53,5 +55,70 @@ final class RentalCustomerProfileTest extends TestCase
 
         Livewire::test(CustomerForm::class, ['id' => $customer->id])
             ->assertSee('No rental orders yet.');
+    }
+
+    public function test_saving_a_company_keeps_cr_and_contact_clears_individual_fields(): void
+    {
+        Livewire::test(CustomerForm::class)
+            ->set('type', 'company')
+            ->set('name', 'Wanaan Trading W.L.L.')
+            ->set('country', 'BH')
+            ->set('phone', '17000000')
+            ->set('cr_number', '12345-1')
+            ->set('contact_person', 'Qassim')
+            ->set('contact_phone', '39000000')
+            ->set('cpr', '999')   // should be cleared for a company
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $c = RentalCustomer::query()->where('name', 'Wanaan Trading W.L.L.')->sole();
+        $this->assertSame('company', $c->type);
+        $this->assertSame('12345-1', $c->cr_number);
+        $this->assertSame('Qassim', $c->contact_person);
+        $this->assertSame('39000000', $c->contact_phone);
+        $this->assertSame('BH', $c->country);
+        $this->assertNull($c->cpr);
+    }
+
+    public function test_saving_an_individual_keeps_cpr_clears_company_fields(): void
+    {
+        Livewire::test(CustomerForm::class)
+            ->set('type', 'individual')
+            ->set('name', 'Ali Hassan')
+            ->set('cpr', '900112233')
+            ->set('license_no', '880011')
+            ->set('cr_number', 'X')  // should be cleared for an individual
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $c = RentalCustomer::query()->where('name', 'Ali Hassan')->sole();
+        $this->assertSame('individual', $c->type);
+        $this->assertSame('900112233', $c->cpr);
+        $this->assertNull($c->cr_number);
+    }
+
+    public function test_a_company_cr_document_uploads_as_pdf(): void
+    {
+        Storage::fake('public');
+
+        Livewire::test(CustomerForm::class)
+            ->set('type', 'company')
+            ->set('name', 'Docs Co')
+            ->set('crDocument', UploadedFile::fake()->create('cr.pdf', 100, 'application/pdf'))
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $c = RentalCustomer::query()->where('name', 'Docs Co')->sole();
+        $this->assertNotNull($c->cr_document);
+        Storage::disk('public')->assertExists($c->cr_document);
+    }
+
+    public function test_the_flag_is_derived_from_the_country_code(): void
+    {
+        $this->assertSame('🇧🇭', RentalCustomer::flagFor('BH'));
+        $this->assertSame('', RentalCustomer::flagFor(null));
+
+        $c = RentalCustomer::query()->create(['name' => 'Flagged', 'country' => 'SA']);
+        $this->assertSame('🇸🇦', $c->flag);
     }
 }

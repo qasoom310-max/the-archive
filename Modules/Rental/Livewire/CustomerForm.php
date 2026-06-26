@@ -10,24 +10,155 @@ use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 use Modules\Rental\Models\RentalCustomer;
 use Modules\Rental\Models\RentalOrder;
 
 /**
- * Customer 360: the editable details (via the engine form) PLUS everything the
- * customer has done — their rental orders and limousine bookings — so their
- * whole history lives on the customer record, not buried in the orders list.
- * Rental and Limousine share one customer store, so both apps' activity shows.
+ * Customer record + 360 history. A customer is an Individual (name, CPR,
+ * licence) or a Company (company name, CR number + CR document, company phone,
+ * and a contact person with their own phone). A country is captured so phones
+ * read with a dial code and a flag shows wherever the customer appears. Below
+ * the details, the customer's whole rental + limousine history is listed.
  */
 #[Layout('components.layouts.app')]
 #[Title('Customer')]
 final class CustomerForm extends Component
 {
+    use WithFileUploads;
+
     public ?int $id = null;
+
+    public string $type = RentalCustomer::TYPE_INDIVIDUAL;
+
+    public string $name = '';
+
+    public string $country = 'BH';
+
+    public string $phone = '';
+
+    public string $email = '';
+
+    public string $address = '';
+
+    public bool $active = true;
+
+    // Individual
+    public string $cpr = '';
+
+    public string $license_no = '';
+
+    public string $nationality = '';
+
+    // Company
+    public string $cr_number = '';
+
+    public string $contact_person = '';
+
+    public string $contact_phone = '';
+
+    public ?TemporaryUploadedFile $crDocument = null;
+
+    public ?string $existingCrDocument = null;
 
     public function mount(?int $id = null): void
     {
-        $this->id = $id;
+        if ($id === null) {
+            return;
+        }
+
+        $customer = RentalCustomer::query()->find($id);
+        if ($customer === null) {
+            return;
+        }
+
+        $this->id = $customer->id;
+        $this->type = $customer->type;
+        $this->name = $customer->name;
+        $this->country = $customer->country ?? 'BH';
+        $this->phone = $customer->phone ?? '';
+        $this->email = $customer->email ?? '';
+        $this->address = $customer->address ?? '';
+        $this->active = $customer->active;
+        $this->cpr = $customer->cpr ?? '';
+        $this->license_no = $customer->license_no ?? '';
+        $this->nationality = $customer->nationality ?? '';
+        $this->cr_number = $customer->cr_number ?? '';
+        $this->contact_person = $customer->contact_person ?? '';
+        $this->contact_phone = $customer->contact_phone ?? '';
+        $this->existingCrDocument = $customer->cr_document;
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    protected function rules(): array
+    {
+        return [
+            'type' => ['required', 'in:individual,company'],
+            'name' => ['required', 'string', 'max:255'],
+            'country' => ['nullable', 'string', 'size:2'],
+            'phone' => ['nullable', 'string', 'max:40'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'address' => ['nullable', 'string', 'max:1000'],
+            'cpr' => ['nullable', 'string', 'max:50'],
+            'license_no' => ['nullable', 'string', 'max:50'],
+            'nationality' => ['nullable', 'string', 'max:80'],
+            'cr_number' => ['nullable', 'string', 'max:50'],
+            'contact_person' => ['nullable', 'string', 'max:255'],
+            'contact_phone' => ['nullable', 'string', 'max:40'],
+            'crDocument' => ['nullable', 'mimes:pdf', 'max:8192'],
+        ];
+    }
+
+    public function save(): void
+    {
+        $this->validate();
+
+        $customer = $this->id !== null ? RentalCustomer::query()->find($this->id) : new RentalCustomer();
+        if ($customer === null) {
+            return;
+        }
+
+        $isCompany = $this->type === RentalCustomer::TYPE_COMPANY;
+
+        $customer->type = $this->type;
+        $customer->name = trim($this->name);
+        $customer->country = $this->country !== '' ? strtoupper($this->country) : null;
+        $customer->phone = $this->trimOrNull($this->phone);
+        $customer->email = $this->trimOrNull($this->email);
+        $customer->address = $this->trimOrNull($this->address);
+        $customer->active = $this->active;
+
+        // Identity fields by type — keep the other type's fields clear.
+        $customer->cpr = $isCompany ? null : $this->trimOrNull($this->cpr);
+        $customer->license_no = $isCompany ? null : $this->trimOrNull($this->license_no);
+        $customer->nationality = $isCompany ? null : $this->trimOrNull($this->nationality);
+        $customer->cr_number = $isCompany ? $this->trimOrNull($this->cr_number) : null;
+        $customer->contact_person = $isCompany ? $this->trimOrNull($this->contact_person) : null;
+        $customer->contact_phone = $isCompany ? $this->trimOrNull($this->contact_phone) : null;
+
+        if ($isCompany && $this->crDocument instanceof TemporaryUploadedFile) {
+            $stored = $this->crDocument->store('rental_customers', 'public');
+            if (is_string($stored)) {
+                $customer->cr_document = $stored;
+            }
+        }
+
+        $customer->save();
+
+        $this->id = $customer->id;
+        $this->existingCrDocument = $customer->cr_document;
+        $this->crDocument = null;
+        session()->flash('toast', __('Customer saved.'));
+    }
+
+    private function trimOrNull(string $value): ?string
+    {
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
     }
 
     public function render(): View
@@ -48,8 +179,6 @@ final class CustomerForm extends Component
                 ->get();
             $rentalSpend = (float) $orders->where('payment_status', RentalOrder::PAYMENT_PAID)->sum('total');
 
-            // Limousine shares the same customer; query its bookings by raw table
-            // so Rental keeps no hard dependency on the Limousine module.
             if (Schema::hasTable('limo_bookings')) {
                 $limoBookings = DB::table('limo_bookings')
                     ->where('customer_id', $customer->id)
@@ -61,6 +190,9 @@ final class CustomerForm extends Component
         }
 
         return view('rental::customer-form', [
+            'isEditing' => $this->id !== null,
+            'countries' => RentalCustomer::countries(),
+            'typeOptions' => RentalCustomer::typeOptions(),
             'customer' => $customer,
             'orders' => $orders,
             'limoBookings' => $limoBookings,

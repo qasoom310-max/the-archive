@@ -21,13 +21,20 @@ use Modules\Rental\Models\Concerns\DerivesServiceTag;
  *
  * @property int $id
  * @property string $name
+ * @property string $type
  * @property string|null $phone
+ * @property string|null $country
  * @property string|null $email
  * @property string|null $cpr
+ * @property string|null $cr_number
+ * @property string|null $cr_document
+ * @property string|null $contact_person
+ * @property string|null $contact_phone
  * @property string|null $license_no
  * @property string|null $nationality
  * @property string|null $address
  * @property bool $active
+ * @property-read string $flag
  */
 final class LimoCustomer extends Model implements DefinesIrModel
 {
@@ -38,7 +45,8 @@ final class LimoCustomer extends Model implements DefinesIrModel
 
     /** @var list<string> */
     protected $fillable = [
-        'name', 'phone', 'email', 'cpr', 'license_no', 'nationality', 'address', 'active',
+        'name', 'type', 'phone', 'country', 'email', 'cpr', 'cr_number', 'cr_document',
+        'contact_person', 'contact_phone', 'license_no', 'nationality', 'address', 'active',
     ];
 
     /** @var array<string, mixed> */
@@ -50,6 +58,12 @@ final class LimoCustomer extends Model implements DefinesIrModel
     protected function casts(): array
     {
         return ['active' => 'boolean'];
+    }
+
+    /** Country flag emoji — shared logic with the rental customer model. */
+    public function getFlagAttribute(): string
+    {
+        return \Modules\Rental\Models\RentalCustomer::flagFor($this->country);
     }
 
     public static function irModelDefinition(): ModelDefinition
@@ -75,15 +89,15 @@ final class LimoCustomer extends Model implements DefinesIrModel
                     'columns' => [
                         ['field' => 'name', 'label' => 'Name', 'sortable' => true],
                         ['field' => 'phone', 'label' => 'Phone'],
-                        ['field' => 'cpr', 'label' => 'CPR / ID'],
+                        ['field' => 'cpr', 'label' => 'CPR / CR'],
                         // Derived Rental / Limousine / Both badge (accessor, no DB sort).
                         ['field' => 'service_tag_label', 'label' => 'Service'],
-                        ['field' => 'nationality', 'label' => 'Nationality', 'sortable' => true],
                         ['field' => 'active', 'label' => 'Active', 'format' => 'bool'],
+                        ['field' => 'flag', 'label' => 'Country'],
                     ],
                     'default_sort' => [['field' => 'name', 'dir' => 'asc']],
                     'per_page' => 20,
-                    'searchable' => ['name', 'phone', 'cpr'],
+                    'searchable' => ['name', 'phone', 'cpr', 'cr_number', 'contact_person'],
                     'open' => '/app/limousine/customer/{id}',
                 ]),
                 new ViewDefinition('Customer', 'form', [

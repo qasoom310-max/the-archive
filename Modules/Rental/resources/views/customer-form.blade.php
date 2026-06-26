@@ -1,15 +1,117 @@
+@php use App\Erp\Views\ValueFormat; @endphp
+@php use Modules\Rental\Models\RentalCustomer; @endphp
+@php $lbl = 'mb-1.5 block text-xs font-medium uppercase tracking-wide text-chrome-500'; @endphp
 <div class="mx-auto max-w-5xl p-4 sm:p-6">
-    <x-form-breadcrumb :parent="__('Customers')" :parent-url="url('/app/rental/customer')" :current="$customer?->name ?? __('New customer')" />
+    <x-form-breadcrumb :parent="__('Customers')" :parent-url="url('/app/rental/customer')" :current="$name ?: __('New customer')" />
 
-    {{-- Editable details (engine form — ACL-gated to admins / super-admins). --}}
-    <livewire:views.form-view
-        :model="\Modules\Rental\Models\RentalCustomer::class"
-        model-key="rental.customer"
-        :record-id="$customer?->id"
-        title="{{ $customer ? 'Edit customer' : 'New customer' }}"
-        :key="'rental-customer-form-'.($customer?->id ?? 'new')" />
+    {{-- ───────── Details ───────── --}}
+    <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-sm font-semibold text-chrome-800">{{ $isEditing ? __('Edit customer') : __('New customer') }}</h2>
+            {{-- Individual / Company toggle --}}
+            <div class="inline-flex rounded-lg bg-chrome-100 p-0.5 text-sm">
+                @foreach ($typeOptions as $opt)
+                    <button type="button" wire:click="$set('type', '{{ $opt['value'] }}')"
+                        class="rounded-md px-3 py-1 font-medium transition {{ $type === $opt['value'] ? 'bg-white text-chrome-900 shadow-sm' : 'text-chrome-500 hover:text-chrome-700' }}">
+                        {{ __($opt['label']) }}
+                    </button>
+                @endforeach
+            </div>
+        </div>
 
-    @if ($customer)
+        @php $dial = collect($countries)->firstWhere('code', $country)['dial'] ?? ''; @endphp
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+                <label class="{{ $lbl }}">{{ $type === 'company' ? __('Company name') : __('Name') }} <span class="text-red-500">*</span></label>
+                <input type="text" wire:model="name" class="o-input w-full" placeholder="{{ $type === 'company' ? __('e.g. Wanaan Trading W.L.L.') : __('Full name') }}">
+                @error('name') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+            </div>
+
+            <div>
+                <label class="{{ $lbl }}">{{ __('Country') }}</label>
+                <select wire:model.live="country" class="o-input w-full">
+                    @foreach ($countries as $c)
+                        <option value="{{ $c['code'] }}">{{ RentalCustomer::flagFor($c['code']) }} {{ $c['name'] }} ({{ $c['dial'] }})</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label class="{{ $lbl }}">{{ $type === 'company' ? __('Company phone') : __('Phone') }}</label>
+                <div class="flex">
+                    <span class="inline-flex items-center rounded-s-md border border-e-0 border-chrome-300 bg-chrome-50 px-3 text-sm text-chrome-500">{{ $dial ?: '+' }}</span>
+                    <input type="tel" wire:model="phone" class="o-input w-full rounded-s-none" placeholder="{{ __('Local number') }}">
+                </div>
+                @error('phone') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+            </div>
+
+            <div>
+                <label class="{{ $lbl }}">{{ __('Email') }}</label>
+                <input type="email" wire:model="email" class="o-input w-full">
+                @error('email') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+            </div>
+
+            @if ($type === 'company')
+                {{-- ── Company fields ── --}}
+                <div>
+                    <label class="{{ $lbl }}">{{ __('CR number') }}</label>
+                    <input type="text" wire:model="cr_number" class="o-input w-full">
+                    @error('cr_number') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="{{ $lbl }}">{{ __('CR document (PDF)') }}</label>
+                    <input type="file" wire:model="crDocument" accept="application/pdf"
+                        class="block w-full text-sm text-chrome-600 file:mr-3 file:rounded-lg file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-chrome-700">
+                    <div wire:loading wire:target="crDocument" class="mt-1 text-xs text-chrome-400">{{ __('Uploading…') }}</div>
+                    @error('crDocument') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    @if ($existingCrDocument)
+                        <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($existingCrDocument) }}" target="_blank" rel="noopener" class="mt-1 inline-block text-xs font-medium text-primary-700 hover:underline">{{ __('View current CR') }} ↗</a>
+                    @endif
+                </div>
+                <div>
+                    <label class="{{ $lbl }}">{{ __('Contact person') }}</label>
+                    <input type="text" wire:model="contact_person" class="o-input w-full" placeholder="{{ __('Who we deal with') }}">
+                </div>
+                <div>
+                    <label class="{{ $lbl }}">{{ __('Contact person phone') }}</label>
+                    <input type="tel" wire:model="contact_phone" class="o-input w-full">
+                </div>
+            @else
+                {{-- ── Individual fields ── --}}
+                <div>
+                    <label class="{{ $lbl }}">{{ __('CPR / ID') }}</label>
+                    <input type="text" wire:model="cpr" class="o-input w-full">
+                </div>
+                <div>
+                    <label class="{{ $lbl }}">{{ __('Licence no.') }}</label>
+                    <input type="text" wire:model="license_no" class="o-input w-full">
+                </div>
+                <div>
+                    <label class="{{ $lbl }}">{{ __('Nationality') }}</label>
+                    <input type="text" wire:model="nationality" class="o-input w-full">
+                </div>
+            @endif
+
+            <div class="sm:col-span-2">
+                <label class="{{ $lbl }}">{{ __('Address') }}</label>
+                <textarea wire:model="address" rows="2" class="o-input w-full"></textarea>
+            </div>
+
+            <label class="inline-flex items-center gap-2 text-sm text-chrome-700">
+                <input type="checkbox" wire:model="active" class="rounded border-chrome-300 text-primary-600">
+                {{ __('Active') }}
+            </label>
+        </div>
+
+        <div class="mt-5 flex justify-end">
+            <button wire:click="save" class="o-btn-primary">
+                <span wire:loading.remove wire:target="save">{{ $isEditing ? __('Save') : __('Create customer') }}</span>
+                <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
+            </button>
+        </div>
+    </div>
+
+    @if ($isEditing)
         {{-- ───────── At a glance ───────── --}}
         <div class="mt-6 grid gap-4 sm:grid-cols-3">
             @php
@@ -18,25 +120,20 @@
                     ['label' => __('Limousine trips'), 'value' => $stats['limo'], 'tint' => 'bg-indigo-50 text-indigo-600 ring-indigo-100', 'icon' => '<path fill-rule="evenodd" d="M5.75 2a.75.75 0 0 1 .75.75V4h7V2.75a.75.75 0 0 1 1.5 0V4h.25A2.75 2.75 0 0 1 18 6.75v8.5A2.75 2.75 0 0 1 15.25 18H4.75A2.75 2.75 0 0 1 2 15.25v-8.5A2.75 2.75 0 0 1 4.75 4H5V2.75A.75.75 0 0 1 5.75 2ZM3.5 8.5v6.75c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25V8.5h-13Z" clip-rule="evenodd"/>'],
                 ];
             @endphp
-            @foreach ($cards as $c)
+            @foreach ($cards as $cc)
                 <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]">
-                    <div class="flex items-center justify-between">
-                        <span class="flex size-9 items-center justify-center rounded-xl ring-1 {{ $c['tint'] }}">
-                            <svg class="size-5" viewBox="0 0 20 20" fill="currentColor">{!! $c['icon'] !!}</svg>
-                        </span>
-                    </div>
-                    <div class="mt-3 text-3xl font-bold tracking-tight text-chrome-900">{{ $c['value'] }}</div>
-                    <div class="text-sm font-medium text-chrome-500">{{ $c['label'] }}</div>
+                    <span class="flex size-9 items-center justify-center rounded-xl ring-1 {{ $cc['tint'] }}">
+                        <svg class="size-5" viewBox="0 0 20 20" fill="currentColor">{!! $cc['icon'] !!}</svg>
+                    </span>
+                    <div class="mt-3 text-3xl font-bold tracking-tight text-chrome-900">{{ $cc['value'] }}</div>
+                    <div class="text-sm font-medium text-chrome-500">{{ $cc['label'] }}</div>
                 </div>
             @endforeach
             <div class="rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-700 p-5 shadow-sm">
-                <div class="flex items-center justify-between">
-                    <span class="flex size-9 items-center justify-center rounded-xl bg-white/15 text-white ring-1 ring-white/20">
-                        <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path d="M1 4.25C1 3.56 1.56 3 2.25 3h15.5c.69 0 1.25.56 1.25 1.25v8.5c0 .69-.56 1.25-1.25 1.25H2.25C1.56 14 1 13.44 1 12.75v-8.5ZM10 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>
-                    </span>
-                    <span class="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/90">{{ __('Paid') }}</span>
-                </div>
-                <div class="mt-3 text-2xl font-bold tracking-tight text-white">{{ \App\Erp\Views\ValueFormat::money($stats['spend']) }}</div>
+                <span class="flex size-9 items-center justify-center rounded-xl bg-white/15 text-white ring-1 ring-white/20">
+                    <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path d="M1 4.25C1 3.56 1.56 3 2.25 3h15.5c.69 0 1.25.56 1.25 1.25v8.5c0 .69-.56 1.25-1.25 1.25H2.25C1.56 14 1 13.44 1 12.75v-8.5ZM10 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>
+                </span>
+                <div class="mt-3 text-2xl font-bold tracking-tight text-white">{{ ValueFormat::money($stats['spend']) }}</div>
                 <div class="text-sm font-medium text-white/70">{{ __('Total spend') }}</div>
             </div>
         </div>
@@ -61,14 +158,12 @@
                     </thead>
                     <tbody class="divide-y divide-chrome-50">
                         @foreach ($orders as $o)
-                            @php
-                                $sb = ['draft' => 'bg-chrome-200 text-chrome-700', 'active' => 'bg-sky-100 text-sky-700', 'closed' => 'bg-emerald-100 text-emerald-700', 'cancelled' => 'bg-red-100 text-red-700'][$o->state] ?? 'bg-chrome-200 text-chrome-700';
-                            @endphp
+                            @php $sb = ['draft' => 'bg-chrome-200 text-chrome-700', 'active' => 'bg-sky-100 text-sky-700', 'closed' => 'bg-emerald-100 text-emerald-700', 'cancelled' => 'bg-red-100 text-red-700'][$o->state] ?? 'bg-chrome-200 text-chrome-700'; @endphp
                             <tr class="cursor-pointer hover:bg-chrome-50" onclick="window.location='{{ url('/app/rental/order/' . $o->id) }}'">
                                 <td class="px-4 py-2 font-medium text-chrome-800">{{ $o->reference }}</td>
                                 <td class="px-4 py-2 text-chrome-700">{{ $o->vehicle?->displayName() ?? '—' }}</td>
                                 <td class="px-4 py-2 text-chrome-600">{{ $o->start_date?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
-                                <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($o->total) }}</td>
+                                <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ ValueFormat::money($o->total) }}</td>
                                 <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst($o->state)) }}</span></td>
                                 <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $o->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($o->payment_status)) }}</span></td>
                             </tr>
@@ -99,13 +194,11 @@
                     </thead>
                     <tbody class="divide-y divide-chrome-50">
                         @foreach ($limoBookings as $b)
-                            @php
-                                $lb = ['queue' => 'bg-amber-100 text-amber-700', 'confirmed' => 'bg-sky-100 text-sky-700', 'active' => 'bg-indigo-100 text-indigo-700', 'completed' => 'bg-emerald-100 text-emerald-700', 'cancelled' => 'bg-red-100 text-red-700'][$b->status] ?? 'bg-chrome-200 text-chrome-700';
-                            @endphp
+                            @php $lb = ['queue' => 'bg-amber-100 text-amber-700', 'confirmed' => 'bg-sky-100 text-sky-700', 'active' => 'bg-indigo-100 text-indigo-700', 'completed' => 'bg-emerald-100 text-emerald-700', 'cancelled' => 'bg-red-100 text-red-700'][$b->status] ?? 'bg-chrome-200 text-chrome-700'; @endphp
                             <tr class="cursor-pointer hover:bg-chrome-50" onclick="window.location='{{ url('/app/limousine/booking/' . $b->id) }}'">
                                 <td class="px-4 py-2 font-medium text-chrome-800">{{ $b->reference }}</td>
                                 <td class="px-4 py-2 text-chrome-600">{{ $b->pickup_at ? \Illuminate\Support\Carbon::parse($b->pickup_at)->isoFormat('MMM D, h:mm A') : '—' }}</td>
-                                <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money((float) $b->fare) }}</td>
+                                <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ ValueFormat::money((float) $b->fare) }}</td>
                                 <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $lb }}">{{ __(ucfirst($b->status)) }}</span></td>
                                 <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $b->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($b->payment_status)) }}</span></td>
                             </tr>

@@ -220,6 +220,7 @@ jobs:
               --exclude='storage/app/public/rental_vehicles/' \
               --exclude='storage/app/public/rental_orders/' \
               --exclude='storage/app/public/rental_deposits/' \
+              --exclude='storage/app/public/rental_customers/' \
               --exclude='storage/app/workspaces/' \
               --exclude='storage/logs/' \
               --exclude='storage/framework/cache/data/' \

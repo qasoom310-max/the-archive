@@ -31,6 +31,7 @@ use Illuminate\Support\Carbon;
  * @property float $weekly_rate
  * @property float $monthly_rate
  * @property float $deposit
+ * @property float $monthly_target
  * @property int|null $odometer
  * @property Carbon|null $next_maintenance_date
  * @property int|null $next_maintenance_mileage
@@ -60,7 +61,7 @@ final class Vehicle extends Model implements DefinesIrModel
     protected $fillable = [
         'name', 'plate_no', 'branch_id', 'make', 'model', 'year', 'color',
         'category', 'fuel_type', 'status', 'daily_rate', 'weekly_rate', 'monthly_rate',
-        'deposit', 'odometer', 'next_maintenance_date', 'next_maintenance_mileage',
+        'deposit', 'monthly_target', 'odometer', 'next_maintenance_date', 'next_maintenance_mileage',
         'registration_expiry', 'registration_doc', 'insurance_expiry', 'insurance_doc', 'active',
     ];
 
@@ -71,6 +72,7 @@ final class Vehicle extends Model implements DefinesIrModel
         'weekly_rate' => 0,
         'monthly_rate' => 0,
         'deposit' => 0,
+        'monthly_target' => 0,
         'active' => true,
     ];
 
@@ -86,6 +88,7 @@ final class Vehicle extends Model implements DefinesIrModel
             'weekly_rate' => 'float',
             'monthly_rate' => 'float',
             'deposit' => 'float',
+            'monthly_target' => 'float',
             'odometer' => 'integer',
             'next_maintenance_date' => 'date',
             'next_maintenance_mileage' => 'integer',
@@ -93,6 +96,20 @@ final class Vehicle extends Model implements DefinesIrModel
             'insurance_expiry' => 'date',
             'active' => 'boolean',
         ];
+    }
+
+    /**
+     * Revenue this car earned in the current calendar month — the sum of order
+     * totals for rentals that started this month (cancelled orders excluded).
+     * Compared against {@see $monthly_target} on the car page.
+     */
+    public function revenueThisMonth(): float
+    {
+        return (float) RentalOrder::query()
+            ->where('vehicle_id', $this->id)
+            ->where('state', '!=', RentalOrder::STATE_CANCELLED)
+            ->whereBetween('start_date', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])
+            ->sum('total');
     }
 
     /**
@@ -242,6 +259,7 @@ final class Vehicle extends Model implements DefinesIrModel
                 new FieldDefinition('weekly_rate', 'Weekly rate', 'float', sequence: 70),
                 new FieldDefinition('monthly_rate', 'Monthly rate', 'float', sequence: 80),
                 new FieldDefinition('deposit', 'Deposit', 'float', sequence: 90),
+                new FieldDefinition('monthly_target', 'Monthly target', 'float', sequence: 95),
                 new FieldDefinition('make', 'Make', 'char', sequence: 100),
                 new FieldDefinition('model', 'Model', 'char', sequence: 110),
                 new FieldDefinition('year', 'Year', 'integer', sequence: 120),
@@ -289,6 +307,7 @@ final class Vehicle extends Model implements DefinesIrModel
                         ['field' => 'weekly_rate', 'label' => 'Weekly rate (BHD)', 'widget' => 'number'],
                         ['field' => 'monthly_rate', 'label' => 'Monthly rate (BHD)', 'widget' => 'number'],
                         ['field' => 'deposit', 'label' => 'Deposit (BHD)', 'widget' => 'number'],
+                        ['field' => 'monthly_target', 'label' => 'Monthly sales target (BHD)', 'widget' => 'number', 'help' => 'Revenue goal for this car each month — tracked against actual earnings.'],
                         ['field' => 'make', 'label' => 'Make', 'widget' => 'text'],
                         ['field' => 'model', 'label' => 'Model', 'widget' => 'text'],
                         ['field' => 'year', 'label' => 'Year', 'widget' => 'number'],

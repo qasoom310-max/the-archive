@@ -62,9 +62,12 @@ final class VehicleForm extends Component
         $user = Auth::user();
         $vehicle = $this->id !== null ? Vehicle::query()->find($this->id) : null;
 
+        $earnedThisMonth = $vehicle !== null && $vehicle->monthly_target > 0 ? $vehicle->revenueThisMonth() : 0.0;
+
         return view('rental::vehicle-form', [
             'vehicle' => $vehicle,
             'canManage' => $user instanceof User && $user->canApproveMaintenance(),
+            'earnedThisMonth' => $earnedThisMonth,
         ]);
     }
 }

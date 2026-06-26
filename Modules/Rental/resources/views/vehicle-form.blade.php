@@ -22,6 +22,38 @@
                     class="o-btn-primary text-sm">{{ __('Return to service') }}</button>
             @endif
         </div>
+
+        {{-- Monthly sales target vs actual earnings this month. --}}
+        @if ($vehicle->monthly_target > 0)
+            @php
+                $target = (float) $vehicle->monthly_target;
+                $pct = $target > 0 ? min(100, (int) round($earnedThisMonth / $target * 100)) : 0;
+                $hit = $earnedThisMonth >= $target;
+                $bar = $hit ? 'bg-emerald-500' : ($pct >= 60 ? 'bg-sky-500' : 'bg-amber-500');
+            @endphp
+            <div class="mb-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/[0.06]">
+                <div class="mb-2 flex flex-wrap items-end justify-between gap-2">
+                    <div>
+                        <h3 class="text-sm font-semibold text-chrome-800">{{ __('Monthly sales target') }}</h3>
+                        <p class="text-xs text-chrome-400">{{ __('Earnings this month vs target') }}</p>
+                    </div>
+                    <div class="text-end">
+                        <span class="text-lg font-bold {{ $hit ? 'text-emerald-600' : 'text-chrome-800' }}">{{ \App\Erp\Views\ValueFormat::money($earnedThisMonth) }}</span>
+                        <span class="text-sm text-chrome-400">/ {{ \App\Erp\Views\ValueFormat::money($target) }}</span>
+                    </div>
+                </div>
+                <div class="h-2.5 w-full overflow-hidden rounded-full bg-chrome-100">
+                    <div class="h-full rounded-full {{ $bar }}" style="width: {{ $pct }}%"></div>
+                </div>
+                <p class="mt-1.5 text-xs {{ $hit ? 'text-emerald-600' : 'text-chrome-500' }}">
+                    @if ($hit)
+                        {{ __('Target reached 🎉') }}
+                    @else
+                        {{ __(':pct% — :amount to go', ['pct' => $pct, 'amount' => \App\Erp\Views\ValueFormat::money(max(0, $target - $earnedThisMonth))]) }}
+                    @endif
+                </p>
+            </div>
+        @endif
     @endif
 
     <livewire:views.form-view

@@ -77,7 +77,7 @@
             <div>
                 <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Car') }} *</label>
                 @php $carLocked = $isEditing && ! in_array($status, ['pending', 'approved'], true); @endphp
-                <select wire:model="vehicle_id" class="o-input w-full" @disabled($carLocked)>
+                <select wire:model.live="vehicle_id" class="o-input w-full" @disabled($carLocked)>
                     <option value="">{{ __('— Select —') }}</option>
                     @foreach ($vehicles as $v)
                         <option value="{{ $v->id }}">{{ $v->displayName() }} ({{ __(ucfirst($v->status)) }})</option>

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Livewire\Views;
 
 use App\Erp\Chatter\Chatterable;
-use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
+use App\Livewire\Concerns\HasAccessControl;
 use App\Erp\Views\ValueFormat;
 use App\Erp\Views\ViewArch;
 use App\Erp\Views\ViewResolver;
@@ -42,6 +42,8 @@ use Livewire\Component;
  */
 final class KanbanView extends Component
 {
+    use HasAccessControl;
+
     /** @var class-string<Model> */
     public string $model;
 
@@ -118,17 +120,6 @@ final class KanbanView extends Component
     public function loadMore(): void
     {
         $this->loaded += $this->pageSize();
-    }
-
-    private function access(): AccessControl
-    {
-        return app(AccessControl::class);
-    }
-
-    private function may(Permission $permission): bool
-    {
-        return $this->modelKey === ''
-            || $this->access()->allows(Auth::user(), $this->modelKey, $permission);
     }
 
     /**

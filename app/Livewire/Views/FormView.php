@@ -6,8 +6,8 @@ namespace App\Livewire\Views;
 
 use App\Erp\Activity\ActivityLogger;
 use App\Erp\Chatter\Chatterable;
-use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
+use App\Livewire\Concerns\HasAccessControl;
 use App\Erp\Translation\TranslatableModel;
 use App\Erp\Views\FormFieldDef;
 use App\Erp\Views\ViewArch;
@@ -29,6 +29,7 @@ use Livewire\WithFileUploads;
  */
 final class FormView extends Component
 {
+    use HasAccessControl;
     use WithFileUploads;
 
     /** @var class-string<Model> */
@@ -260,17 +261,6 @@ final class FormView extends Component
         }
 
         return new $this->model();
-    }
-
-    private function access(): AccessControl
-    {
-        return app(AccessControl::class);
-    }
-
-    private function may(Permission $permission): bool
-    {
-        return $this->modelKey === ''
-            || $this->access()->allows(Auth::user(), $this->modelKey, $permission);
     }
 
     /**

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Livewire\Views;
 
-use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
+use App\Livewire\Concerns\HasAccessControl;
 use App\Erp\Views\ColumnDef;
 use App\Erp\Views\DatePreset;
 use App\Erp\Views\FilterDef;
@@ -32,6 +32,7 @@ use Throwable;
  */
 final class ListView extends Component
 {
+    use HasAccessControl;
     use WithPagination;
 
     /** @var class-string<Model> */
@@ -292,17 +293,6 @@ final class ListView extends Component
     {
         $this->selected = [];
         $this->selectPage = false;
-    }
-
-    private function access(): AccessControl
-    {
-        return app(AccessControl::class);
-    }
-
-    private function may(Permission $permission): bool
-    {
-        return $this->modelKey === ''
-            || $this->access()->allows(Auth::user(), $this->modelKey, $permission);
     }
 
     /**

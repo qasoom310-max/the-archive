@@ -126,6 +126,8 @@
     "Work order declined.": "تم رفض أمر العمل.",
     "Raise work order": "إنشاء أمر عمل",
     "Requested": "مطلوب",
+    "Work orders awaiting approval": "أوامر عمل بانتظار الموافقة",
+    "Review": "مراجعة",
     "The deduction can’t be more than the deposit (:amount).": "لا يمكن أن يتجاوز الخصم مبلغ التأمين (:amount).",
     "Car": "سيارة",
     "Cars": "السيارات",

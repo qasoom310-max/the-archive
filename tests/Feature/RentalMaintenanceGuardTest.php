@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
 use Modules\Rental\Livewire\MaintenanceForm;
+use Modules\Rental\Livewire\RentalHome;
 use Modules\Rental\Models\RentalMaintenance;
 use Modules\Rental\Models\Vehicle;
 use Tests\TestCase;
@@ -154,5 +155,21 @@ final class RentalMaintenanceGuardTest extends TestCase
         Livewire::test(MaintenanceForm::class, ['id' => $record->id])->call('cancelMaintenance');
 
         $this->assertSame(RentalMaintenance::STATUS_CANCELLED, $record->fresh()?->status);
+    }
+
+    public function test_the_dashboard_shows_the_approval_queue_to_a_manager(): void
+    {
+        $car = $this->car(Vehicle::STATUS_AVAILABLE);
+        $this->record($car); // a pending work order (MNT reference)
+
+        Livewire::test(RentalHome::class)->assertSee('Work orders awaiting approval');
+    }
+
+    public function test_a_non_manager_does_not_see_the_approval_queue(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => false, 'is_super_admin' => false]));
+        $this->record($this->car(Vehicle::STATUS_AVAILABLE));
+
+        Livewire::test(RentalHome::class)->assertDontSee('Work orders awaiting approval');
     }
 }

@@ -13,6 +13,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Rental\Models\Branch;
+use Modules\Rental\Models\RentalMaintenance;
 use Modules\Rental\Models\RentalOrder;
 use Modules\Rental\Models\Vehicle;
 
@@ -101,11 +102,26 @@ final class RentalHome extends Component
                 ->get()
             : collect();
 
+        // Maintenance work orders awaiting a manager's approval — the manager's
+        // queue, most urgent (Critical) first. Only a fleet manager sees it.
+        $canApprove = $user instanceof User && $user->canApproveMaintenance();
+        $rank = ['critical' => 3, 'high' => 2, 'normal' => 1, 'low' => 0];
+        $pendingWorkOrders = $canApprove
+            ? RentalMaintenance::query()
+                ->where('status', RentalMaintenance::STATUS_PENDING)
+                ->with('vehicle:id,name,plate_no,color')
+                ->get()
+                ->sortByDesc(fn (RentalMaintenance $m): int => $rank[$m->priority] ?? 1)
+                ->values()
+            : collect();
+
         // Masters tiles — ACL-filtered, same source as the app-bar dropdown.
         $module = IrModule::query()->where('name', 'rental')->first();
         $tiles = $module !== null ? app(ModuleMenu::class)->items($module, Auth::user()) : [];
 
         return view('rental::home', [
+            'pendingWorkOrders' => $pendingWorkOrders,
+            'canApproveMaintenance' => $canApprove,
             'depositsToRefund' => $depositsToRefund,
             'canSeeRefunds' => $canSeeRefunds,
             'renewalAlerts' => $renewalAlerts,

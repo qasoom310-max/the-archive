@@ -65,6 +65,36 @@
         </div>
     </div>
 
+    {{-- ───────── Work orders awaiting approval (managers only) ───────── --}}
+    @if ($pendingWorkOrders->isNotEmpty())
+        <div class="mb-6 overflow-hidden rounded-2xl border border-indigo-200 bg-indigo-50/50 shadow-sm">
+            <div class="flex items-center gap-2 border-b border-indigo-200/70 px-4 py-3">
+                <span class="flex size-7 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+                    <svg class="size-4" viewBox="0 0 20 20" fill="currentColor">{!! $ic['wrench'] !!}</svg>
+                </span>
+                <h2 class="text-sm font-semibold text-indigo-900">{{ __('Work orders awaiting approval') }}</h2>
+                <span class="ms-auto rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-700">{{ $pendingWorkOrders->count() }}</span>
+            </div>
+            <ul class="divide-y divide-indigo-200/50">
+                @foreach ($pendingWorkOrders as $wo)
+                    @php $pb = ['low' => 'bg-chrome-100 text-chrome-500', 'normal' => 'bg-chrome-100 text-chrome-600', 'high' => 'bg-amber-100 text-amber-700', 'critical' => 'bg-red-100 text-red-700'][$wo->priority] ?? 'bg-chrome-100 text-chrome-600'; @endphp
+                    <li>
+                        <a href="{{ url('/app/rental/maintenance/' . $wo->id) }}" wire:navigate class="flex items-center justify-between gap-3 px-4 py-2.5 transition hover:bg-indigo-100/40">
+                            <div class="min-w-0">
+                                <div class="truncate font-medium text-chrome-800">{{ $wo->vehicle?->displayName() ?? '—' }} <span class="text-chrome-400">· {{ $wo->reference }}</span></div>
+                                <div class="truncate text-xs text-chrome-500">{{ __(ucfirst(str_replace('_', ' ', $wo->type))) }} · {{ \App\Erp\Views\ValueFormat::money($wo->cost) }}</div>
+                            </div>
+                            <div class="flex shrink-0 items-center gap-2 text-xs">
+                                <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase {{ $pb }}">{{ __(ucfirst($wo->priority)) }}</span>
+                                <span class="rounded-lg bg-indigo-600 px-2.5 py-1 font-semibold text-white">{{ __('Review') }} →</span>
+                            </div>
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     {{-- ───────── Deposits to refund (accountant / super-admin only) ───────── --}}
     @if ($canSeeRefunds)
         @php

@@ -22,8 +22,13 @@
                     <span class="text-sm font-semibold text-chrome-800">{{ $reference }}</span>
                     <span class="rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $mBadge }}">{{ $mLabel }}</span>
                     <span class="rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $prBadge }}">{{ __(ucfirst($priority)) }}</span>
+                    @if ($savedRecord?->requestedBy)
+                        <span class="text-[11px] text-chrome-400">{{ __('Requested by') }} {{ $savedRecord->requestedBy->name }} · {{ $savedRecord->created_at?->format('Y-m-d') }}</span>
+                    @endif
                     @if ($savedRecord?->approvedBy && in_array($status, ['approved', 'in_progress', 'done'], true))
-                        <span class="text-[11px] text-chrome-400">{{ __('Approved by') }} {{ $savedRecord->approvedBy->name }} · {{ $savedRecord->approved_at?->format('Y-m-d') }}</span>
+                        <span class="text-[11px] text-chrome-400">· {{ __('Approved by') }} {{ $savedRecord->approvedBy->name }} · {{ $savedRecord->approved_at?->format('Y-m-d') }}</span>
+                    @elseif ($savedRecord?->approvedBy && $status === 'declined')
+                        <span class="text-[11px] text-red-500">· {{ __('Declined by') }} {{ $savedRecord->approvedBy->name }} · {{ $savedRecord->approved_at?->format('Y-m-d') }}</span>
                     @endif
                 </div>
                 <div class="flex flex-wrap items-center gap-2">

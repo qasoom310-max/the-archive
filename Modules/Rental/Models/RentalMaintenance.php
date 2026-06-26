@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property string|null $reference
+ * @property int|null $requested_by_user_id
  * @property int|null $vehicle_id
  * @property Carbon|null $date
  * @property string $type
@@ -34,6 +35,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $notes
  * @property-read Vehicle|null $vehicle
  * @property-read User|null $approvedBy
+ * @property-read User|null $requestedBy
  */
 final class RentalMaintenance extends Model implements DefinesIrModel
 {
@@ -63,7 +65,7 @@ final class RentalMaintenance extends Model implements DefinesIrModel
 
     /** @var list<string> */
     protected $fillable = [
-        'reference', 'vehicle_id', 'date', 'type', 'priority', 'description',
+        'reference', 'requested_by_user_id', 'vehicle_id', 'date', 'type', 'priority', 'description',
         'cost', 'odometer', 'status', 'approved_by_user_id', 'approved_at',
         'started_at', 'completed_at', 'notes',
     ];
@@ -86,6 +88,7 @@ final class RentalMaintenance extends Model implements DefinesIrModel
             'date' => 'date',
             'cost' => 'float',
             'odometer' => 'integer',
+            'requested_by_user_id' => 'integer',
             'approved_by_user_id' => 'integer',
             'approved_at' => 'datetime',
             'started_at' => 'datetime',
@@ -117,6 +120,14 @@ final class RentalMaintenance extends Model implements DefinesIrModel
     public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by_user_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function requestedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'requested_by_user_id');
     }
 
     /**

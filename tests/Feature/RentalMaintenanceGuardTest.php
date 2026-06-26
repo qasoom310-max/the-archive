@@ -172,4 +172,35 @@ final class RentalMaintenanceGuardTest extends TestCase
 
         Livewire::test(RentalHome::class)->assertDontSee('Work orders awaiting approval');
     }
+
+    public function test_a_new_request_records_who_raised_it(): void
+    {
+        $user = User::factory()->create(['is_admin' => true]);
+        $this->actingAs($user);
+        $car = $this->car(Vehicle::STATUS_AVAILABLE);
+
+        Livewire::test(MaintenanceForm::class)
+            ->set('vehicle_id', $car->id)
+            ->set('date', now()->format('Y-m-d'))
+            ->set('type', 'service')
+            ->set('priority', 'normal')
+            ->set('cost', '22')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame($user->id, RentalMaintenance::query()->first()?->requested_by_user_id);
+    }
+
+    public function test_a_requester_sees_their_request_outcome_on_the_dashboard(): void
+    {
+        $user = User::factory()->create(['is_admin' => true]);
+        $this->actingAs($user);
+        $car = $this->car(Vehicle::STATUS_AVAILABLE);
+        RentalMaintenance::query()->create([
+            'vehicle_id' => $car->id, 'type' => 'service', 'date' => now(), 'cost' => 22,
+            'requested_by_user_id' => $user->id, 'status' => RentalMaintenance::STATUS_APPROVED,
+        ]);
+
+        Livewire::test(RentalHome::class)->assertSee('Your maintenance requests');
+    }
 }

@@ -109,10 +109,22 @@ final class RentalHome extends Component
         $pendingWorkOrders = $canApprove
             ? RentalMaintenance::query()
                 ->where('status', RentalMaintenance::STATUS_PENDING)
-                ->with('vehicle:id,name,plate_no,color')
+                ->with('vehicle:id,name,plate_no,color', 'requestedBy:id,name')
                 ->get()
                 ->sortByDesc(fn (RentalMaintenance $m): int => $rank[$m->priority] ?? 1)
                 ->values()
+            : collect();
+
+        // The current user's OWN maintenance requests + their outcome (the
+        // lightweight "your request was approved / declined" notification).
+        $myRequests = $user instanceof User
+            ? RentalMaintenance::query()
+                ->where('requested_by_user_id', $user->getKey())
+                ->whereIn('status', [RentalMaintenance::STATUS_PENDING, RentalMaintenance::STATUS_APPROVED, RentalMaintenance::STATUS_DECLINED])
+                ->whereDate('created_at', '>=', now()->subDays(30)->toDateString())
+                ->with('vehicle:id,name,plate_no,color', 'approvedBy:id,name')
+                ->orderByDesc('id')
+                ->get()
             : collect();
 
         // Masters tiles — ACL-filtered, same source as the app-bar dropdown.
@@ -122,6 +134,7 @@ final class RentalHome extends Component
         return view('rental::home', [
             'pendingWorkOrders' => $pendingWorkOrders,
             'canApproveMaintenance' => $canApprove,
+            'myRequests' => $myRequests,
             'depositsToRefund' => $depositsToRefund,
             'canSeeRefunds' => $canSeeRefunds,
             'renewalAlerts' => $renewalAlerts,

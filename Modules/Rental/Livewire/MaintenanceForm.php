@@ -108,6 +108,12 @@ final class MaintenanceForm extends Component
             return;
         }
 
+        // Stamp who raised the request (once, on creation).
+        $userId = Auth::id();
+        if (! $record->exists && $userId !== null) {
+            $record->requested_by_user_id = (int) $userId;
+        }
+
         $record->vehicle_id = $this->vehicle_id;
         $record->date = Carbon::parse($this->date);
         $record->type = $this->type;
@@ -221,7 +227,7 @@ final class MaintenanceForm extends Component
             'typeOptions' => RentalMaintenance::typeOptions(),
             'priorityOptions' => RentalMaintenance::priorityOptions(),
             'canApprove' => $this->canApprove(),
-            'savedRecord' => $this->id !== null ? RentalMaintenance::query()->with('approvedBy')->find($this->id) : null,
+            'savedRecord' => $this->id !== null ? RentalMaintenance::query()->with('approvedBy', 'requestedBy')->find($this->id) : null,
             'isEditing' => $this->id !== null,
         ]);
     }

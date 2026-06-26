@@ -6,6 +6,7 @@ namespace Modules\Rental\Livewire;
 
 use App\Erp\Navigation\ModuleMenu;
 use App\Models\Ir\IrModule;
+use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -84,11 +85,28 @@ final class RentalHome extends Component
             ->sortBy(fn (Vehicle $v): string => $v->nextDocExpiry()?->toDateString() ?? '0001-01-01')
             ->values();
 
+        // Deposits ready to refund — held, the 14-day hold has elapsed, and not
+        // yet settled. Only an accountant / super-admin needs this worklist, so
+        // it's gated and hidden from everyone else.
+        $user = Auth::user();
+        $canSeeRefunds = $user instanceof User && $user->canConfirmPayments();
+        $depositsToRefund = $canSeeRefunds
+            ? RentalOrder::query()
+                ->where('deposit', '>', 0)
+                ->where('deposit_status', RentalOrder::DEPOSIT_HELD)
+                ->whereNotNull('returned_at')
+                ->whereDate('returned_at', '<=', now()->subDays(RentalOrder::DEPOSIT_HOLD_DAYS)->toDateString())
+                ->with('customer:id,name', 'vehicle:id,name,plate_no,color')
+                ->orderBy('returned_at')
+                ->get()
+            : collect();
+
         // Masters tiles — ACL-filtered, same source as the app-bar dropdown.
         $module = IrModule::query()->where('name', 'rental')->first();
         $tiles = $module !== null ? app(ModuleMenu::class)->items($module, Auth::user()) : [];
 
         return view('rental::home', [
+            'depositsToRefund' => $depositsToRefund,
             'renewalAlerts' => $renewalAlerts,
             'total' => $total,
             'available' => $available,

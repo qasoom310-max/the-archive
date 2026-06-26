@@ -355,6 +355,20 @@ final class RentalOrder extends Model implements DefinesIrModel
         return $this->returned_at?->copy()->addDays(self::DEPOSIT_HOLD_DAYS);
     }
 
+    /** The 14-day security hold has passed — the deposit may now be settled. */
+    public function depositHoldElapsed(): bool
+    {
+        $until = $this->depositHoldUntil();
+
+        return $until !== null && Carbon::now()->gte($until);
+    }
+
+    /** Still held AND the hold has elapsed — it's now due to be refunded. */
+    public function depositDueForRefund(): bool
+    {
+        return $this->depositPending() && $this->depositHoldElapsed();
+    }
+
     /** Amount of the deposit due back to the customer (held total less deductions). */
     public function depositRefundAmount(): float
     {

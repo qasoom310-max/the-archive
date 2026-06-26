@@ -149,7 +149,16 @@
                 </div>
                 @if ($savedOrder->depositPending())
                     @if ($canConfirmPayment)
-                        <button wire:click="settleDeposit" class="o-btn-primary text-sm">{{ __('Settle deposit') }}</button>
+                        @if ($savedOrder->depositHoldElapsed())
+                            <button wire:click="settleDeposit" class="o-btn-primary text-sm">{{ __('Settle deposit') }}</button>
+                        @elseif ($isSuperAdmin)
+                            <button wire:click="settleDeposit" wire:confirm="{{ __('Settle this deposit before the 14-day hold ends?') }}" class="o-btn-primary text-sm">{{ __('Settle early') }}</button>
+                        @else
+                            <span class="inline-flex items-center gap-1 text-[11px] font-medium text-chrome-500">
+                                <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd"/></svg>
+                                {{ __('Locked until') }} {{ $savedOrder->depositHoldUntil()?->format('Y-m-d') }}
+                            </span>
+                        @endif
                     @else
                         <span class="text-[11px] text-amber-600">{{ __('Awaiting accountant settlement') }}</span>
                     @endif

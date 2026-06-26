@@ -671,10 +671,26 @@ final class OrderForm extends Component
         });
     }
 
+    /** A super-admin may settle a deposit early / use a lapsed-papers car. */
+    private function isSuperAdmin(): bool
+    {
+        $user = Auth::user();
+
+        return $user instanceof User && $user->isSuperAdmin();
+    }
+
     /** Open the deposit-settlement modal (accountant / super-admin only). */
     public function settleDeposit(): void
     {
         abort_unless($this->canConfirmPayments(), 403);
+
+        // The deposit is held for 14 days — only a super-admin may settle early.
+        $order = $this->id !== null ? RentalOrder::query()->find($this->id) : null;
+        if ($order !== null && ! $order->depositHoldElapsed() && ! $this->isSuperAdmin()) {
+            session()->flash('toast', __('The deposit is held until :date — only a super-admin can settle it early.', ['date' => $order->depositHoldUntil()?->format('Y-m-d')]));
+
+            return;
+        }
 
         $this->depositOutcome = 'refund';
         $this->deposit_deducted = '0';
@@ -701,6 +717,14 @@ final class OrderForm extends Component
 
         $order = RentalOrder::query()->find($this->id);
         if ($order === null) {
+            return;
+        }
+
+        // Re-check the hold here too (the modal could be opened then submitted).
+        if (! $order->depositHoldElapsed() && ! $this->isSuperAdmin()) {
+            $this->showDeposit = false;
+            session()->flash('toast', __('The deposit is still within its 14-day hold.'));
+
             return;
         }
 

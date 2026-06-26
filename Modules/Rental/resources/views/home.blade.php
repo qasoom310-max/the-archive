@@ -65,6 +65,38 @@
         </div>
     </div>
 
+    {{-- ───────── Deposits to refund (accountant / super-admin only) ───────── --}}
+    @if ($depositsToRefund->isNotEmpty())
+        <div class="mb-6 overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50/60 shadow-sm">
+            <div class="flex items-center gap-2 border-b border-emerald-200/70 px-4 py-3">
+                <span class="flex size-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
+                    <svg class="size-4" viewBox="0 0 20 20" fill="currentColor">{!! $ic['cash'] !!}</svg>
+                </span>
+                <h2 class="text-sm font-semibold text-emerald-900">{{ __('Deposits to refund') }}</h2>
+                <span class="ms-auto flex items-center gap-2">
+                    <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">{{ $depositsToRefund->count() }}</span>
+                    <span class="text-sm font-bold text-emerald-800">{{ \App\Erp\Views\ValueFormat::money($depositsToRefund->sum('deposit')) }}</span>
+                </span>
+            </div>
+            <ul class="divide-y divide-emerald-200/50">
+                @foreach ($depositsToRefund as $o)
+                    <li>
+                        <a href="{{ url('/app/rental/order/' . $o->id) }}" wire:navigate class="flex items-center justify-between gap-3 px-4 py-2.5 transition hover:bg-emerald-100/50">
+                            <div class="min-w-0">
+                                <div class="truncate font-medium text-chrome-800">{{ $o->customer?->name ?? '—' }} <span class="text-chrome-400">· {{ $o->reference }}</span></div>
+                                <div class="truncate text-xs text-chrome-500">{{ $o->vehicle?->displayName() ?? '—' }} · {{ __('held since') }} {{ $o->returned_at?->format('Y-m-d') }}</div>
+                            </div>
+                            <div class="flex shrink-0 items-center gap-3 text-sm">
+                                <span class="font-semibold text-emerald-700">{{ \App\Erp\Views\ValueFormat::money($o->deposit) }}</span>
+                                <span class="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">{{ __('Refund') }} →</span>
+                            </div>
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     {{-- ───────── Renewal reminder ───────── --}}
     @if ($renewalAlerts->isNotEmpty())
         <div class="mb-6 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/60 shadow-sm">

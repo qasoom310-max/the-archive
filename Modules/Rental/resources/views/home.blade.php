@@ -169,7 +169,7 @@
                 <h2 class="text-sm font-semibold text-amber-900">{{ __('Car papers needing attention') }}</h2>
                 <span class="ms-auto rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">{{ $renewalAlerts->count() }}</span>
             </div>
-            <ul class="divide-y divide-amber-200/50">
+            <ul class="max-h-72 divide-y divide-amber-200/50 overflow-y-auto">
                 @foreach ($renewalAlerts as $car)
                     @php
                         $expired = $car->needsRenewal();
@@ -193,6 +193,13 @@
                     </li>
                 @endforeach
             </ul>
+            @if ($renewalAlerts->count() > 5)
+                <a href="{{ url('/app/rental/vehicle') }}" wire:navigate
+                    class="flex items-center justify-between gap-2 border-t border-amber-200/70 bg-amber-100/40 px-4 py-2.5 text-xs font-semibold text-amber-800 hover:bg-amber-100/70">
+                    <span>{{ __(':count cars need attention — scroll the list or open all cars', ['count' => $renewalAlerts->count()]) }}</span>
+                    <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/></svg>
+                </a>
+            @endif
         </div>
     @endif
 

@@ -7,6 +7,7 @@ namespace Modules\Rental\Livewire;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -189,11 +190,30 @@ final class CustomerForm extends Component
             }
         }
 
+        // Aggregate every document the customer has — the company CR plus the
+        // CPR / licence images captured on each of their orders — so they're
+        // all downloadable from the customer record, not buried in the order.
+        $documents = [];
+        if ($customer !== null) {
+            if ($customer->cr_document !== null) {
+                $documents[] = ['label' => __('CR document'), 'ref' => '', 'url' => Storage::disk('public')->url($customer->cr_document), 'kind' => 'pdf'];
+            }
+            foreach ($orders as $o) {
+                if ($o->cpr_image_path !== null) {
+                    $documents[] = ['label' => __('CPR / ID'), 'ref' => (string) $o->reference, 'url' => Storage::disk('public')->url($o->cpr_image_path), 'kind' => 'image'];
+                }
+                if ($o->license_image_path !== null) {
+                    $documents[] = ['label' => __('Licence'), 'ref' => (string) $o->reference, 'url' => Storage::disk('public')->url($o->license_image_path), 'kind' => 'image'];
+                }
+            }
+        }
+
         return view('rental::customer-form', [
             'isEditing' => $this->id !== null,
             'countries' => RentalCustomer::countries(),
             'typeOptions' => RentalCustomer::typeOptions(),
             'customer' => $customer,
+            'documents' => $documents,
             'orders' => $orders,
             'limoBookings' => $limoBookings,
             'stats' => [

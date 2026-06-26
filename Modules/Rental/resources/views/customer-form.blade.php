@@ -138,6 +138,39 @@
             </div>
         </div>
 
+        {{-- ───────── Documents ───────── --}}
+        @if (! empty($documents))
+            <div class="mb-3 mt-8 flex items-center gap-2">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-chrome-500">{{ __('Documents') }}</h2>
+                <span class="rounded-full bg-chrome-100 px-2 py-0.5 text-[11px] font-bold text-chrome-500">{{ count($documents) }}</span>
+                <span class="h-px flex-1 bg-chrome-200"></span>
+            </div>
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                @foreach ($documents as $d)
+                    <div class="group relative overflow-hidden rounded-xl bg-white ring-1 ring-chrome-900/[0.06]">
+                        <a href="{{ $d['url'] }}" target="_blank" rel="noopener" class="block">
+                            @if ($d['kind'] === 'image')
+                                <img src="{{ $d['url'] }}" alt="{{ $d['label'] }}" class="h-28 w-full bg-chrome-50 object-cover">
+                            @else
+                                <div class="flex h-28 w-full items-center justify-center bg-chrome-50">
+                                    <svg class="size-10 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 0 1 2-2h5.586A2 2 0 0 1 13 2.586L15.414 5A2 2 0 0 1 16 6.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4Zm7 0v3a1 1 0 0 0 1 1h3l-4-4Z" clip-rule="evenodd"/></svg>
+                                </div>
+                            @endif
+                        </a>
+                        <div class="flex items-center justify-between gap-2 px-3 py-2">
+                            <div class="min-w-0">
+                                <div class="truncate text-xs font-semibold text-chrome-700">{{ $d['label'] }}</div>
+                                @if ($d['ref'])<div class="truncate text-[11px] text-chrome-400">{{ $d['ref'] }}</div>@endif
+                            </div>
+                            <a href="{{ $d['url'] }}" download class="shrink-0 rounded-md bg-chrome-100 p-1.5 text-chrome-600 hover:bg-chrome-200" title="{{ __('Download') }}" aria-label="{{ __('Download') }}">
+                                <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z"/><path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z"/></svg>
+                            </a>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+
         {{-- ───────── Rental orders ───────── --}}
         <div class="mb-3 mt-8 flex items-center gap-2">
             <h2 class="text-xs font-bold uppercase tracking-wider text-chrome-500">{{ __('Rental orders') }}</h2>

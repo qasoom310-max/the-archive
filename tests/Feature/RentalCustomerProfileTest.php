@@ -49,6 +49,24 @@ final class RentalCustomerProfileTest extends TestCase
             ->assertSee('Total spend');
     }
 
+    public function test_documents_uploaded_on_orders_appear_on_the_customer_page(): void
+    {
+        $customer = RentalCustomer::query()->create(['name' => 'Qassim', 'phone' => '38467744']);
+        $car = Vehicle::query()->create(['name' => 'Eco Sport', 'daily_rate' => 10]);
+        RentalOrder::query()->create([
+            'customer_id' => $customer->id, 'vehicle_id' => $car->id,
+            'start_date' => Carbon::now(), 'end_date' => Carbon::now()->addDay(),
+            'rate_type' => 'daily', 'rate' => 10,
+            'cpr_image_path' => 'rental_orders/qassim-cpr.jpg',
+            'license_image_path' => 'rental_orders/qassim-licence.jpg',
+        ]);
+
+        Livewire::test(CustomerForm::class, ['id' => $customer->id])
+            ->assertSee('Documents')
+            ->assertSee('rental_orders/qassim-cpr.jpg')        // the CPR is reachable here
+            ->assertSee('rental_orders/qassim-licence.jpg');   // and the licence
+    }
+
     public function test_a_customer_with_no_history_shows_an_empty_state(): void
     {
         $customer = RentalCustomer::query()->create(['name' => 'New Person', 'phone' => '30000000']);

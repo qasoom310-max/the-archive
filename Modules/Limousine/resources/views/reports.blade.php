@@ -1,8 +1,5 @@
 <div class="mx-auto max-w-7xl p-4 sm:p-6">
-    <div class="mb-4">
-        <h1 class="text-xl font-bold text-chrome-900">{{ __('Reports') }}</h1>
-        <p class="text-sm text-chrome-500">{{ __('Limousine performance over a date range.') }}</p>
-    </div>
+    <x-page-header :title="__('Reports')" :subtitle="__('Limousine performance over a date range.')" icon="chart" accent="indigo" />
 
     @php $tabs = ['summary' => __('Summary'), 'bookings' => __('Bookings'), 'customers' => __('Customers')]; @endphp
     <div class="mb-4 flex flex-wrap items-center gap-1 border-b border-chrome-200">
@@ -53,7 +50,7 @@
     @endif
 
     @if ($tab === 'bookings')
-        <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5">
+        <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
             <table class="min-w-full divide-y divide-chrome-100 text-sm">
                 <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                     <tr>
@@ -92,7 +89,7 @@
     @endif
 
     @if ($tab === 'customers')
-        <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5">
+        <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
             <table class="min-w-full divide-y divide-chrome-100 text-sm">
                 <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                     <tr>

@@ -64,6 +64,9 @@ final class RentalReplacement extends Model implements DefinesIrModel
 
     public const REASON_UPGRADE = 'upgrade';
 
+    /** Swapping back to the car the customer first rented (the loaner is returned). */
+    public const REASON_RETURN = 'return_original';
+
     /** Reasons that send the original car into maintenance rather than back to the fleet. */
     private const MAINTENANCE_REASONS = [self::REASON_BREAKDOWN, self::REASON_ACCIDENT, self::REASON_SERVICE];
 
@@ -229,6 +232,7 @@ final class RentalReplacement extends Model implements DefinesIrModel
             ['value' => self::REASON_ACCIDENT, 'label' => 'Accident'],
             ['value' => self::REASON_SERVICE, 'label' => 'Service due'],
             ['value' => self::REASON_CUSTOMER, 'label' => 'Customer request'],
+            ['value' => self::REASON_RETURN, 'label' => 'Return to original car'],
             ['value' => self::REASON_UPGRADE, 'label' => 'Upgrade'],
         ];
     }

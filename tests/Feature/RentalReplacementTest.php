@@ -98,6 +98,25 @@ final class RentalReplacementTest extends TestCase
         $this->assertSame(Vehicle::STATUS_RENTED, $replacement->fresh()?->status);
     }
 
+    public function test_returning_to_the_original_car_hands_the_loaner_back_to_the_fleet(): void
+    {
+        // The customer is on a loaner; swapping back to their own car returns the
+        // loaner to the fleet (not maintenance) and puts their car back on the road.
+        $loaner = $this->bookableCar('Loaner', '111', Vehicle::STATUS_RENTED);
+        $ownCar = $this->bookableCar('Own Car', '222');
+        $order = $this->onRoadOrder($loaner);
+
+        Livewire::test(ReplacementForm::class, ['order' => $order->id])
+            ->set('reason_type', RentalReplacement::REASON_RETURN)
+            ->set('replacement_vehicle_id', $ownCar->id)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame($ownCar->id, $order->fresh()?->vehicle_id);
+        $this->assertSame(Vehicle::STATUS_AVAILABLE, $loaner->fresh()?->status); // loaner freed, not maintenance
+        $this->assertSame(Vehicle::STATUS_RENTED, $ownCar->fresh()?->status);
+    }
+
     public function test_the_replacement_must_be_an_available_bookable_car(): void
     {
         $original = $this->bookableCar('Eco Sport', '111', Vehicle::STATUS_RENTED);

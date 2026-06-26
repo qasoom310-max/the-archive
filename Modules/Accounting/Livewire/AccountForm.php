@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Accounting\Livewire;
 
-use Illuminate\Contracts\View\View;
+use App\Livewire\Concerns\EditsRecordViaFormView;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -17,23 +17,20 @@ use Modules\Accounting\Models\Account;
 #[Title('Account')]
 final class AccountForm extends Component
 {
-    public ?int $id = null;
+    use EditsRecordViaFormView;
 
-    public function mount(?int $id = null): void
+    protected function formModel(): string
     {
-        $this->id = $id;
+        return Account::class;
     }
 
-    public function render(): View
+    protected function formView(): string
     {
-        $account = $this->id !== null ? Account::query()->find($this->id) : null;
+        return 'accounting::account-form';
+    }
 
-        if ($account !== null) {
-            request()->attributes->set('breadcrumb_terminal_label', (string) $account->name);
-        }
-
-        return view('accounting::account-form', [
-            'account' => $account,
-        ]);
+    protected function formVar(): string
+    {
+        return 'account';
     }
 }

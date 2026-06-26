@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Pos\Livewire;
 
-use Illuminate\Contracts\View\View;
+use App\Livewire\Concerns\EditsRecordViaFormView;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -18,23 +18,20 @@ use Modules\Pos\Models\PosCategory;
 #[Title('POS Category')]
 final class PosCategoryForm extends Component
 {
-    public ?int $id = null;
+    use EditsRecordViaFormView;
 
-    public function mount(?int $id = null): void
+    protected function formModel(): string
     {
-        $this->id = $id;
+        return PosCategory::class;
     }
 
-    public function render(): View
+    protected function formView(): string
     {
-        $category = $this->id !== null ? PosCategory::query()->find($this->id) : null;
+        return 'pos::category-form';
+    }
 
-        if ($category !== null) {
-            request()->attributes->set('breadcrumb_terminal_label', (string) $category->name);
-        }
-
-        return view('pos::category-form', [
-            'category' => $category,
-        ]);
+    protected function formVar(): string
+    {
+        return 'category';
     }
 }

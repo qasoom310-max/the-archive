@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Accounting\Livewire;
 
-use Illuminate\Contracts\View\View;
+use App\Livewire\Concerns\EditsRecordViaFormView;
+use Illuminate\Database\Eloquent\Model;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -19,23 +20,25 @@ use Modules\Accounting\Models\JournalEntry;
 #[Title('Journal Entry')]
 final class JournalEntryForm extends Component
 {
-    public ?int $id = null;
+    use EditsRecordViaFormView;
 
-    public function mount(?int $id = null): void
+    protected function formModel(): string
     {
-        $this->id = $id;
+        return JournalEntry::class;
     }
 
-    public function render(): View
+    protected function formView(): string
     {
-        $entry = $this->id !== null ? JournalEntry::query()->find($this->id) : null;
+        return 'accounting::journal-entry-form';
+    }
 
-        if ($entry !== null) {
-            request()->attributes->set('breadcrumb_terminal_label', $entry->number);
-        }
+    protected function formVar(): string
+    {
+        return 'entry';
+    }
 
-        return view('accounting::journal-entry-form', [
-            'entry' => $entry,
-        ]);
+    protected function recordLabel(Model $record): string
+    {
+        return (string) $record->getAttribute('number');
     }
 }

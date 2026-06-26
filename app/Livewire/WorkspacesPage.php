@@ -29,6 +29,7 @@ use Livewire\Component;
 final class WorkspacesPage extends Component
 {
     use ConfirmsWithEmailOtp;
+    use \App\Livewire\Concerns\HasAdminCheck;
 
     #[Validate('required|string|max:80')]
     public string $newName = '';
@@ -46,13 +47,6 @@ final class WorkspacesPage extends Component
     public function mount(): void
     {
         abort_unless($this->isAdmin(), 403);
-    }
-
-    private function isAdmin(): bool
-    {
-        $user = Auth::user();
-
-        return $user instanceof User && $user->isAdmin();
     }
 
     public function create(): void

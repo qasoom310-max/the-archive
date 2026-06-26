@@ -46,6 +46,8 @@ use Modules\Pos\Services\DailyReport;
 #[Title('Settings')]
 final class SettingsPage extends Component
 {
+    use \App\Livewire\Concerns\HasAdminCheck;
+
     /**
      * Setting keys a non-admin user is allowed to view and modify.
      * Cashiers / sales users land here from the sidebar and should
@@ -309,12 +311,6 @@ final class SettingsPage extends Component
         return in_array($key, self::NON_ADMIN_KEYS, true);
     }
 
-    private function isAdmin(): bool
-    {
-        $user = Auth::user();
-
-        return $user instanceof User && $user->isAdmin();
-    }
 
     private function isSuperAdmin(): bool
     {

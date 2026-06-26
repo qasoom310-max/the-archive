@@ -24,6 +24,8 @@ use Modules\Pos\Services\PosStockReportData;
 #[Title('Dashboard')]
 final class Dashboard extends Component
 {
+    use \App\Livewire\Concerns\HasAdminCheck;
+
     /**
      * Apps pinned to the top of the "Your apps" launcher as a 2-up featured
      * row (Rent A Car on the left, Limousine on the right). Order here is the
@@ -32,13 +34,6 @@ final class Dashboard extends Component
      * @var list<string>
      */
     private const FEATURED_APPS = ['rental', 'limousine'];
-
-    private function isAdmin(): bool
-    {
-        $user = Auth::user();
-
-        return $user instanceof User && $user->isAdmin();
-    }
 
     private function isSuperAdmin(): bool
     {

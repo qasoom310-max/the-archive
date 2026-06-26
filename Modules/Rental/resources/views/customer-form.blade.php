@@ -247,5 +247,10 @@
                 </table>
             </div>
         @endif
+
+        {{-- Audit trail: who created / edited this customer. --}}
+        <div class="mt-8">
+            <x-activity-trail :subject="$customer" />
+        </div>
     @endif
 </div>

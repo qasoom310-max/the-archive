@@ -500,6 +500,13 @@
         </div>
     </div>
 
+    {{-- Audit trail: who created / edited / approved this order, in order. --}}
+    @if ($savedOrder)
+        <div class="mt-6">
+            <x-activity-trail :subject="$savedOrder" />
+        </div>
+    @endif
+
     @include('rental::partials.customer-modal')
 
     {{-- Handover modal --}}

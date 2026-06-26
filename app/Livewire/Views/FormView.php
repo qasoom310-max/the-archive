@@ -470,18 +470,15 @@ final class FormView extends Component
      */
     private function recordActivity(Model $record, bool $isNew): void
     {
-        $label = \Illuminate\Support\Str::headline(\Illuminate\Support\Str::afterLast($this->modelKey, '.'));
-        $subject = trim($label . ' #' . $record->getKey());
-
         if ($isNew) {
-            app(ActivityLogger::class)->log('created', $subject);
+            app(ActivityLogger::class)->logFor($record, 'created');
             $this->activityLogged = true;
 
             return;
         }
 
         if (! $this->activityLogged) {
-            app(ActivityLogger::class)->log('updated', $subject);
+            app(ActivityLogger::class)->logFor($record, 'updated');
             $this->activityLogged = true;
         }
     }

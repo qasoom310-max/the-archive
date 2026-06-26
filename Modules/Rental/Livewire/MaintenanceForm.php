@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Activity\ActivityLogger;
 use App\Models\User;
 use Closure;
 use Illuminate\Contracts\View\View;
@@ -122,8 +123,10 @@ final class MaintenanceForm extends Component
         $record->cost = (float) ($this->cost === '' ? '0' : $this->cost);
         $record->odometer = $this->odometer !== '' ? (int) $this->odometer : null;
         $record->notes = $this->notes !== '' ? $this->notes : null;
+        $wasNew = ! $record->exists;
         $record->save();
 
+        app(ActivityLogger::class)->logFor($record, $wasNew ? 'created' : 'updated');
         session()->flash('toast', __('Maintenance record saved.'));
         // Land on the record so its workflow panel (Start / Complete) shows.
         $this->redirect('/app/rental/maintenance/' . $record->id, navigate: true);
@@ -163,7 +166,10 @@ final class MaintenanceForm extends Component
             return;
         }
 
-        $this->withRecord(fn (RentalMaintenance $r) => $r->approve($user));
+        $this->withRecord(function (RentalMaintenance $r) use ($user): void {
+            $r->approve($user);
+            app(ActivityLogger::class)->logFor($r, 'approved');
+        });
         session()->flash('toast', __('Work order approved.'));
     }
 
@@ -177,7 +183,10 @@ final class MaintenanceForm extends Component
             return;
         }
 
-        $this->withRecord(fn (RentalMaintenance $r) => $r->decline($user));
+        $this->withRecord(function (RentalMaintenance $r) use ($user): void {
+            $r->decline($user);
+            app(ActivityLogger::class)->logFor($r, 'declined');
+        });
         session()->flash('toast', __('Work order declined.'));
     }
 
@@ -202,6 +211,7 @@ final class MaintenanceForm extends Component
 
         if ($record->start()) { // mutates $record->status in place
             $this->status = $record->status;
+            app(ActivityLogger::class)->logFor($record, 'started');
             session()->flash('toast', __('Maintenance started.'));
         }
     }
@@ -209,14 +219,20 @@ final class MaintenanceForm extends Component
     /** In progress → Done. Frees the car back to Available. */
     public function completeMaintenance(): void
     {
-        $this->withRecord(fn (RentalMaintenance $r) => $r->complete());
+        $this->withRecord(function (RentalMaintenance $r): void {
+            $r->complete();
+            app(ActivityLogger::class)->logFor($r, 'completed');
+        });
         session()->flash('toast', __('Maintenance completed — car is available again.'));
     }
 
     /** Pending / Approved → Cancelled. */
     public function cancelMaintenance(): void
     {
-        $this->withRecord(fn (RentalMaintenance $r) => $r->cancelRecord());
+        $this->withRecord(function (RentalMaintenance $r): void {
+            $r->cancelRecord();
+            app(ActivityLogger::class)->logFor($r, 'cancelled');
+        });
         session()->flash('toast', __('Maintenance cancelled.'));
     }
 

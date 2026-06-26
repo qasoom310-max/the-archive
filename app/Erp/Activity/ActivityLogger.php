@@ -7,6 +7,7 @@ namespace App\Erp\Activity;
 use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
@@ -44,6 +45,43 @@ final class ActivityLogger
                 'user_is_admin' => $actor instanceof User && $actor->isAdmin(),
                 'action' => $action,
                 'subject' => $subject,
+                'description' => $description,
+                'ip_address' => $this->clientIp(),
+                'created_at' => Carbon::now(),
+            ]);
+        } catch (Throwable) {
+            // Never let auditing break the audited action.
+        }
+    }
+
+    /**
+     * Log an action against a specific record so it shows on that record's own
+     * audit trail (subject_type + subject_id), e.g. who created / edited /
+     * approved this order. Falls back to a `reference` label or "Class #id".
+     */
+    public function logFor(Model $subject, string $action, ?string $description = null, ?Authenticatable $actor = null): void
+    {
+        try {
+            if (! Schema::hasTable('activity_logs')) {
+                return;
+            }
+
+            $actor ??= Auth::user();
+            $name = $actor instanceof User ? (string) $actor->name : 'System';
+
+            $reference = $subject->getAttribute('reference');
+            $label = is_string($reference) && $reference !== ''
+                ? $reference
+                : class_basename($subject) . ' #' . (string) $subject->getKey();
+
+            ActivityLog::query()->create([
+                'user_id' => $actor instanceof User ? $actor->getKey() : null,
+                'user_name' => $name,
+                'user_is_admin' => $actor instanceof User && $actor->isAdmin(),
+                'action' => $action,
+                'subject' => $label,
+                'subject_type' => $subject->getMorphClass(),
+                'subject_id' => $subject->getKey(),
                 'description' => $description,
                 'ip_address' => $this->clientIp(),
                 'created_at' => Carbon::now(),

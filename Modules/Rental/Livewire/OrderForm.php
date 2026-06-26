@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Activity\ActivityLogger;
 use App\Erp\Settings\Setting;
 use App\Models\User;
 use Closure;
@@ -336,6 +337,8 @@ final class OrderForm extends Component
             return;
         }
 
+        $wasNew = ! $order->exists;
+
         // Remember the previously-held car so we can release it if it changes.
         $previousVehicleId = $order->exists ? $order->vehicle_id : null;
 
@@ -378,6 +381,8 @@ final class OrderForm extends Component
 
         $order->recalcTotals();
         $order->save();
+
+        app(ActivityLogger::class)->logFor($order, $wasNew ? 'created' : 'updated');
 
         // Hold the car: a draft reserves it. If the vehicle changed, free the
         // old one (when nothing else holds it).
@@ -493,6 +498,7 @@ final class OrderForm extends Component
             $o->handover_notes = $this->trimOrNull($this->handover_notes);
             $o->handover_video_url = $this->trimOrNull($this->handover_video_url);
             $o->startRental();
+            app(ActivityLogger::class)->logFor($o, 'started');
         });
 
         $this->showHandover = false;
@@ -573,6 +579,7 @@ final class OrderForm extends Component
             $o->return_video_url = $this->trimOrNull($this->return_video_url);
             $o->recalcTotals(); // fold the fuel + extra charge into the total/balance
             $o->closeRental();
+            app(ActivityLogger::class)->logFor($o, 'returned');
         });
 
         $this->showReturn = false;
@@ -583,6 +590,7 @@ final class OrderForm extends Component
     {
         $this->withOrder(function (RentalOrder $o): void {
             $o->cancelOrder();
+            app(ActivityLogger::class)->logFor($o, 'cancelled');
         });
     }
 
@@ -599,6 +607,7 @@ final class OrderForm extends Component
         }
 
         $invoice = $order->createInvoice();
+        app(ActivityLogger::class)->logFor($order, 'invoiced');
         session()->flash('toast', __('Invoice created.'));
         $this->redirect('/app/rental/invoice/' . $invoice->id, navigate: true);
     }
@@ -658,6 +667,7 @@ final class OrderForm extends Component
 
         $this->withOrder(function (RentalOrder $o) use ($user): void {
             $o->confirmPayment($user);
+            app(ActivityLogger::class)->logFor($o, 'payment_confirmed');
         });
     }
 
@@ -763,6 +773,7 @@ final class OrderForm extends Component
         }
 
         $order->resolveDeposit($user, $deducted, $this->depositOutcome === 'refund' ? null : $this->deposit_reason, $paths);
+        app(ActivityLogger::class)->logFor($order, 'deposit_settled');
 
         $this->showDeposit = false;
         $this->depositPhotos = [];

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Activity\ActivityLogger;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
@@ -124,6 +125,8 @@ final class CustomerForm extends Component
             return;
         }
 
+        $wasNew = ! $customer->exists;
+
         // The individual/company type is set once at creation. After that only a
         // super-admin may change it — for everyone else the saved type wins,
         // even if the property was tampered with client-side.
@@ -157,6 +160,8 @@ final class CustomerForm extends Component
         }
 
         $customer->save();
+
+        app(ActivityLogger::class)->logFor($customer, $wasNew ? 'created' : 'updated');
 
         $this->id = $customer->id;
         $this->existingCrDocument = $customer->cr_document;
@@ -209,17 +214,26 @@ final class CustomerForm extends Component
         // Aggregate every document the customer has — the company CR plus the
         // CPR / licence images captured on each of their orders — so they're
         // all downloadable from the customer record, not buried in the order.
+        // One of each document — the customer's latest CPR and latest licence
+        // (orders are newest-first), plus the company CR. No per-order repeats.
         $documents = [];
         if ($customer !== null) {
             if ($customer->cr_document !== null) {
                 $documents[] = ['label' => __('CR document'), 'ref' => '', 'url' => Storage::disk('public')->url($customer->cr_document), 'kind' => 'pdf'];
             }
+            $haveCpr = false;
+            $haveLicence = false;
             foreach ($orders as $o) {
-                if ($o->cpr_image_path !== null) {
+                if (! $haveCpr && $o->cpr_image_path !== null) {
                     $documents[] = ['label' => __('CPR / ID'), 'ref' => (string) $o->reference, 'url' => Storage::disk('public')->url($o->cpr_image_path), 'kind' => 'image'];
+                    $haveCpr = true;
                 }
-                if ($o->license_image_path !== null) {
+                if (! $haveLicence && $o->license_image_path !== null) {
                     $documents[] = ['label' => __('Licence'), 'ref' => (string) $o->reference, 'url' => Storage::disk('public')->url($o->license_image_path), 'kind' => 'image'];
+                    $haveLicence = true;
+                }
+                if ($haveCpr && $haveLicence) {
+                    break;
                 }
             }
         }

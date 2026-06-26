@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property bool $user_is_admin
  * @property string $action
  * @property string|null $subject
+ * @property string|null $subject_type
+ * @property int|null $subject_id
  * @property string|null $description
  * @property string|null $ip_address
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -27,7 +29,7 @@ final class ActivityLog extends Model
     /** @var list<string> */
     protected $fillable = [
         'user_id', 'user_name', 'user_is_admin',
-        'action', 'subject', 'description', 'ip_address', 'created_at',
+        'action', 'subject', 'subject_type', 'subject_id', 'description', 'ip_address', 'created_at',
     ];
 
     /**
@@ -47,6 +49,17 @@ final class ActivityLog extends Model
         'user_updated' => 'Updated user',
         'user_deleted' => 'Deleted user',
         'settings_updated' => 'Updated settings',
+        // Record workflow actions (orders, work orders, …).
+        'started' => 'Started',
+        'returned' => 'Returned',
+        'closed' => 'Closed',
+        'cancelled' => 'Cancelled',
+        'payment_confirmed' => 'Payment confirmed',
+        'deposit_settled' => 'Deposit settled',
+        'approved' => 'Approved',
+        'declined' => 'Declined',
+        'completed' => 'Completed',
+        'invoiced' => 'Invoiced',
     ];
 
     /**
@@ -65,6 +78,16 @@ final class ActivityLog extends Model
         'user_updated' => 'bg-amber-100 text-amber-700',
         'user_deleted' => 'bg-red-100 text-red-700',
         'settings_updated' => 'bg-violet-100 text-violet-700',
+        'started' => 'bg-sky-100 text-sky-700',
+        'returned' => 'bg-emerald-100 text-emerald-700',
+        'closed' => 'bg-emerald-100 text-emerald-700',
+        'cancelled' => 'bg-red-100 text-red-700',
+        'payment_confirmed' => 'bg-emerald-100 text-emerald-700',
+        'deposit_settled' => 'bg-emerald-100 text-emerald-700',
+        'approved' => 'bg-emerald-100 text-emerald-700',
+        'declined' => 'bg-red-100 text-red-700',
+        'completed' => 'bg-emerald-100 text-emerald-700',
+        'invoiced' => 'bg-indigo-100 text-indigo-700',
     ];
 
     /**

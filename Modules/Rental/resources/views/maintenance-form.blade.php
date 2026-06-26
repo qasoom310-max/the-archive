@@ -133,4 +133,11 @@
             <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
         </button>
     </div>
+
+    {{-- Audit trail: who raised / approved / started / completed this work order. --}}
+    @if ($savedRecord)
+        <div class="mt-6">
+            <x-activity-trail :subject="$savedRecord" />
+        </div>
+    @endif
 </div>

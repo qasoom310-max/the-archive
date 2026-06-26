@@ -84,6 +84,22 @@ final class MaintenanceForm extends Component
     {
         $this->validate();
 
+        // A car that's out (rented) or held (reserved) can't be pulled into
+        // maintenance — it has to be freed (do a replacement) and back at the
+        // branch first. Only "in progress" takes the car off the road; just
+        // scheduling ahead is fine. A car already under maintenance (this very
+        // record) passes, so re-saving / editing isn't blocked.
+        $vehicle = $this->vehicle_id !== null ? Vehicle::query()->find($this->vehicle_id) : null;
+        if (
+            $this->status === RentalMaintenance::STATUS_IN_PROGRESS
+            && $vehicle !== null
+            && ! in_array($vehicle->status, [Vehicle::STATUS_AVAILABLE, Vehicle::STATUS_MAINTENANCE], true)
+        ) {
+            $this->addError('vehicle_id', __('This car is :status — free it first (do a replacement so it’s back at the branch) before starting maintenance.', ['status' => __(ucfirst($vehicle->status))]));
+
+            return;
+        }
+
         $record = $this->id !== null ? RentalMaintenance::query()->find($this->id) : new RentalMaintenance();
         if ($record === null) {
             return;

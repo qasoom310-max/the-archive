@@ -101,6 +101,7 @@
     "held since": "محتجز منذ",
     "Refund": "استرداد",
     "No deposits are due for refund right now.": "لا توجد تأمينات مستحقة للاسترداد حالياً.",
+    "This car is :status — free it first (do a replacement so it’s back at the branch) before starting maintenance.": "هذه السيارة :status — حرّرها أولاً (نفّذ استبدالاً لإعادتها إلى الفرع) قبل بدء الصيانة.",
     "The deduction can’t be more than the deposit (:amount).": "لا يمكن أن يتجاوز الخصم مبلغ التأمين (:amount).",
     "Car": "سيارة",
     "Cars": "السيارات",

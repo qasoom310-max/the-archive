@@ -60,6 +60,7 @@ final class ActivityLog extends Model
         'declined' => 'Declined',
         'completed' => 'Completed',
         'invoiced' => 'Invoiced',
+        'car_replaced' => 'Car replaced',
     ];
 
     /**
@@ -88,6 +89,7 @@ final class ActivityLog extends Model
         'declined' => 'bg-red-100 text-red-700',
         'completed' => 'bg-emerald-100 text-emerald-700',
         'invoiced' => 'bg-indigo-100 text-indigo-700',
+        'car_replaced' => 'bg-orange-100 text-orange-700',
     ];
 
     /**

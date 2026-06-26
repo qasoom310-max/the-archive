@@ -55,6 +55,11 @@
                     <button wire:click="closeRental" class="o-btn-primary text-sm">{{ __('Close rental') }}</button>
                 @endif
 
+                {{-- Swap the car mid-rental (only while it's actually out). --}}
+                @if ($savedOrder && $state === 'active' && $savedOrder->started_at && ! $savedOrder->returned_at)
+                    <a href="{{ url('/app/rental/replacement/new?order=' . $id) }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Replace car') }}</a>
+                @endif
+
                 @if ($state !== 'cancelled')
                     <button wire:click="createInvoice" class="o-btn-ghost text-sm">{{ __('Create invoice') }}</button>
                 @endif

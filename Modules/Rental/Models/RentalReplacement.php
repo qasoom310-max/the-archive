@@ -8,14 +8,16 @@ use App\Erp\Contracts\DefinesIrModel;
 use App\Erp\Registry\FieldDefinition;
 use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * A car replacement: the customer's vehicle is swapped for another. Activating
- * marks the replacement rented and the original under maintenance; closing
- * frees both.
+ * A car replacement on a live rental: the customer's car is swapped for another
+ * mid-agreement. Activating moves the replacement car onto the order (a permanent
+ * swap for the rest of the rental) and sends the original to maintenance (for a
+ * breakdown / accident / service) or back to the fleet (a customer request).
  *
  * @property int $id
  * @property string|null $reference
@@ -25,11 +27,21 @@ use Illuminate\Support\Carbon;
  * @property int|null $replacement_vehicle_id
  * @property Carbon|null $date
  * @property string|null $reason
+ * @property string|null $reason_type
+ * @property int|null $original_return_km
+ * @property string|null $original_return_fuel
+ * @property string|null $original_condition_notes
+ * @property int|null $replacement_handover_km
+ * @property string|null $replacement_handover_fuel
+ * @property string|null $replacement_condition_notes
+ * @property int|null $created_by_user_id
  * @property string $status
  * @property string|null $notes
  * @property-read RentalCustomer|null $customer
+ * @property-read RentalOrder|null $order
  * @property-read Vehicle|null $originalVehicle
  * @property-read Vehicle|null $replacementVehicle
+ * @property-read User|null $createdBy
  */
 final class RentalReplacement extends Model implements DefinesIrModel
 {
@@ -39,10 +51,27 @@ final class RentalReplacement extends Model implements DefinesIrModel
 
     public const STATUS_CLOSED = 'closed';
 
+    // Why the car is being swapped — drives where the original car goes.
+    public const REASON_BREAKDOWN = 'breakdown';
+
+    public const REASON_ACCIDENT = 'accident';
+
+    public const REASON_SERVICE = 'service';
+
+    public const REASON_CUSTOMER = 'customer_request';
+
+    public const REASON_UPGRADE = 'upgrade';
+
+    /** Reasons that send the original car into maintenance rather than back to the fleet. */
+    private const MAINTENANCE_REASONS = [self::REASON_BREAKDOWN, self::REASON_ACCIDENT, self::REASON_SERVICE];
+
     /** @var list<string> */
     protected $fillable = [
         'reference', 'order_id', 'customer_id', 'original_vehicle_id',
-        'replacement_vehicle_id', 'date', 'reason', 'status', 'notes',
+        'replacement_vehicle_id', 'date', 'reason', 'reason_type', 'status', 'notes',
+        'original_return_km', 'original_return_fuel', 'original_condition_notes',
+        'replacement_handover_km', 'replacement_handover_fuel', 'replacement_condition_notes',
+        'created_by_user_id',
     ];
 
     /** @var array<string, mixed> */
@@ -58,6 +87,9 @@ final class RentalReplacement extends Model implements DefinesIrModel
             'customer_id' => 'integer',
             'original_vehicle_id' => 'integer',
             'replacement_vehicle_id' => 'integer',
+            'original_return_km' => 'integer',
+            'replacement_handover_km' => 'integer',
+            'created_by_user_id' => 'integer',
             'date' => 'date',
         ];
     }
@@ -81,6 +113,14 @@ final class RentalReplacement extends Model implements DefinesIrModel
     }
 
     /**
+     * @return BelongsTo<RentalOrder, $this>
+     */
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(RentalOrder::class, 'order_id');
+    }
+
+    /**
      * @return BelongsTo<Vehicle, $this>
      */
     public function originalVehicle(): BelongsTo
@@ -96,18 +136,76 @@ final class RentalReplacement extends Model implements DefinesIrModel
         return $this->belongsTo(Vehicle::class, 'replacement_vehicle_id');
     }
 
-    /** Put the replacement car on the road and the original into maintenance. */
-    public function applyStatuses(): void
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function createdBy(): BelongsTo
     {
+        return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /** A mechanical reason (breakdown / accident / service) sends the original to maintenance. */
+    public function originalGoesToMaintenance(): bool
+    {
+        return in_array($this->reason_type, self::MAINTENANCE_REASONS, true);
+    }
+
+    /**
+     * Perform the swap: put the replacement car on the road and move the original
+     * off it, then re-point the live order to the replacement car so the rest of
+     * the agreement (and its final return) runs against the new vehicle. The
+     * price stays as originally agreed — a like-for-like swap.
+     */
+    public function activate(): void
+    {
+        // Replacement car goes out on the road.
         if ($this->replacement_vehicle_id !== null) {
-            Vehicle::query()->whereKey($this->replacement_vehicle_id)->update(['status' => Vehicle::STATUS_RENTED]);
+            $replacement = Vehicle::query()->find($this->replacement_vehicle_id);
+            if ($replacement !== null) {
+                $replacement->status = Vehicle::STATUS_RENTED;
+                if ($this->replacement_handover_km !== null && $this->replacement_handover_km > (int) $replacement->odometer) {
+                    $replacement->odometer = $this->replacement_handover_km;
+                }
+                $replacement->save();
+            }
         }
+
+        // Original car comes in — to maintenance or back to the fleet.
         if ($this->original_vehicle_id !== null) {
-            Vehicle::query()->whereKey($this->original_vehicle_id)->update(['status' => Vehicle::STATUS_MAINTENANCE]);
+            $original = Vehicle::query()->find($this->original_vehicle_id);
+            if ($original !== null) {
+                $original->status = $this->originalGoesToMaintenance()
+                    ? Vehicle::STATUS_MAINTENANCE
+                    : Vehicle::STATUS_AVAILABLE;
+                if ($this->original_return_km !== null && $this->original_return_km > (int) $original->odometer) {
+                    $original->odometer = $this->original_return_km;
+                }
+                $original->save();
+            }
+        }
+
+        // The order now runs on the replacement car; its handover baseline moves
+        // to the replacement so the final return is measured against it.
+        if ($this->order_id !== null && $this->replacement_vehicle_id !== null) {
+            $order = RentalOrder::query()->find($this->order_id);
+            if ($order !== null) {
+                $order->vehicle_id = $this->replacement_vehicle_id;
+                if ($this->replacement_handover_km !== null) {
+                    $order->handover_km = $this->replacement_handover_km;
+                }
+                if ($this->replacement_handover_fuel !== null) {
+                    $order->handover_fuel = $this->replacement_handover_fuel;
+                }
+                $order->save();
+            }
         }
     }
 
-    /** Close the replacement and free both vehicles. */
+    /**
+     * Close the replacement once the original car is back in service. The
+     * replacement car stays out with the customer — it is freed by the order's
+     * own return, not here.
+     */
     public function close(): void
     {
         if ($this->status === self::STATUS_CLOSED) {
@@ -117,11 +215,36 @@ final class RentalReplacement extends Model implements DefinesIrModel
         $this->status = self::STATUS_CLOSED;
         $this->save();
 
-        foreach ([$this->replacement_vehicle_id, $this->original_vehicle_id] as $vehicleId) {
-            if ($vehicleId !== null) {
-                Vehicle::query()->whereKey($vehicleId)->update(['status' => Vehicle::STATUS_AVAILABLE]);
+        if ($this->original_vehicle_id !== null) {
+            Vehicle::query()->whereKey($this->original_vehicle_id)
+                ->where('status', Vehicle::STATUS_MAINTENANCE)
+                ->update(['status' => Vehicle::STATUS_AVAILABLE]);
+        }
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    public static function reasonTypeOptions(): array
+    {
+        return [
+            ['value' => self::REASON_BREAKDOWN, 'label' => 'Breakdown'],
+            ['value' => self::REASON_ACCIDENT, 'label' => 'Accident'],
+            ['value' => self::REASON_SERVICE, 'label' => 'Service due'],
+            ['value' => self::REASON_CUSTOMER, 'label' => 'Customer request'],
+            ['value' => self::REASON_UPGRADE, 'label' => 'Upgrade'],
+        ];
+    }
+
+    public static function reasonTypeLabel(?string $value): string
+    {
+        foreach (self::reasonTypeOptions() as $option) {
+            if ($option['value'] === $value) {
+                return $option['label'];
             }
         }
+
+        return '—';
     }
 
     public static function irModelDefinition(): ModelDefinition

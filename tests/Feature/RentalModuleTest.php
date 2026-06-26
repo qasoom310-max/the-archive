@@ -78,16 +78,18 @@ final class RentalModuleTest extends TestCase
         $replacement = RentalReplacement::query()->create([
             'original_vehicle_id' => $original->id,
             'replacement_vehicle_id' => $spare->id,
-            'date' => '2026-07-02', 'reason' => 'breakdown',
+            'date' => '2026-07-02', 'reason_type' => RentalReplacement::REASON_BREAKDOWN,
         ]);
-        $replacement->applyStatuses();
+        $replacement->activate();
 
+        // The spare goes out; a breakdown sends the original to maintenance.
         $this->assertSame(Vehicle::STATUS_RENTED, $spare->fresh()->status);
         $this->assertSame(Vehicle::STATUS_MAINTENANCE, $original->fresh()->status);
 
+        // Closing returns the original to the fleet; the spare stays out with the customer.
         $replacement->close();
         $this->assertSame(RentalReplacement::STATUS_CLOSED, $replacement->fresh()->status);
-        $this->assertSame(Vehicle::STATUS_AVAILABLE, $spare->fresh()->status);
+        $this->assertSame(Vehicle::STATUS_RENTED, $spare->fresh()->status);
         $this->assertSame(Vehicle::STATUS_AVAILABLE, $original->fresh()->status);
     }
 

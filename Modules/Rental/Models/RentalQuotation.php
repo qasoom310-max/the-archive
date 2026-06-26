@@ -40,6 +40,8 @@ use Illuminate\Support\Carbon;
  */
 final class RentalQuotation extends Model implements DefinesIrModel
 {
+    use \App\Models\Concerns\HasReference;
+
     protected $table = 'rental_quotations';
 
     public const STATUS_DRAFT = 'draft';
@@ -94,14 +96,9 @@ final class RentalQuotation extends Model implements DefinesIrModel
         ];
     }
 
-    protected static function booted(): void
+    public function referencePrefix(): string
     {
-        static::created(function (RentalQuotation $quote): void {
-            if ($quote->reference === null || $quote->reference === '') {
-                $quote->reference = 'QT/' . str_pad((string) $quote->id, 5, '0', STR_PAD_LEFT);
-                $quote->saveQuietly();
-            }
-        });
+        return 'QT';
     }
 
     /**

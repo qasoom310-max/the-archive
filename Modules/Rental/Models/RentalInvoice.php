@@ -36,6 +36,8 @@ use Illuminate\Support\Carbon;
  */
 final class RentalInvoice extends Model implements DefinesIrModel
 {
+    use \App\Models\Concerns\HasReference;
+
     protected $table = 'rental_invoices';
 
     public const STATUS_UNPAID = 'unpaid';
@@ -76,14 +78,9 @@ final class RentalInvoice extends Model implements DefinesIrModel
         ];
     }
 
-    protected static function booted(): void
+    public function referencePrefix(): string
     {
-        static::created(function (RentalInvoice $invoice): void {
-            if ($invoice->reference === null || $invoice->reference === '') {
-                $invoice->reference = 'INV/' . str_pad((string) $invoice->id, 5, '0', STR_PAD_LEFT);
-                $invoice->saveQuietly();
-            }
-        });
+        return 'INV';
     }
 
     /**

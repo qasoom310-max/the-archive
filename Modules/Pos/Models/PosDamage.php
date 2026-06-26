@@ -40,6 +40,8 @@ use Modules\Pos\Services\PosInventoryBridge;
  */
 final class PosDamage extends Model implements DefinesIrModel
 {
+    use \App\Models\Concerns\HasReference;
+
     protected $table = 'pos_damages';
 
     /** @var list<string> */
@@ -96,6 +98,11 @@ final class PosDamage extends Model implements DefinesIrModel
         ];
     }
 
+    public function referencePrefix(): string
+    {
+        return 'DMG';
+    }
+
     protected static function booted(): void
     {
         static::creating(function (PosDamage $damage): void {
@@ -107,13 +114,9 @@ final class PosDamage extends Model implements DefinesIrModel
         });
 
         static::created(function (PosDamage $damage): void {
-            if ($damage->reference === null || $damage->reference === '') {
-                $damage->reference = 'DMG/' . str_pad((string) $damage->id, 5, '0', STR_PAD_LEFT);
-                $damage->saveQuietly();
-            }
-
             // Remove the damaged quantity from stock now the row (and its
-            // reference, used as the ledger move label) exists.
+            // reference, used as the ledger move label) exists. The reference is
+            // set first by the HasReference trait's created hook.
             $damage->adjustStock(-1.0);
         });
 

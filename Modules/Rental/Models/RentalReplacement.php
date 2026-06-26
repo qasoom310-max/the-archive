@@ -45,6 +45,8 @@ use Illuminate\Support\Carbon;
  */
 final class RentalReplacement extends Model implements DefinesIrModel
 {
+    use \App\Models\Concerns\HasReference;
+
     protected $table = 'rental_replacements';
 
     public const STATUS_ACTIVE = 'active';
@@ -94,14 +96,9 @@ final class RentalReplacement extends Model implements DefinesIrModel
         ];
     }
 
-    protected static function booted(): void
+    public function referencePrefix(): string
     {
-        static::created(function (RentalReplacement $replacement): void {
-            if ($replacement->reference === null || $replacement->reference === '') {
-                $replacement->reference = 'REP/' . str_pad((string) $replacement->id, 5, '0', STR_PAD_LEFT);
-                $replacement->saveQuietly();
-            }
-        });
+        return 'REP';
     }
 
     /**

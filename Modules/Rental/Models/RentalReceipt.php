@@ -29,6 +29,8 @@ use Illuminate\Support\Carbon;
  */
 final class RentalReceipt extends Model implements DefinesIrModel
 {
+    use \App\Models\Concerns\HasReference;
+
     protected $table = 'rental_receipts';
 
     /** @var list<string> */
@@ -55,13 +57,14 @@ final class RentalReceipt extends Model implements DefinesIrModel
         ];
     }
 
+    public function referencePrefix(): string
+    {
+        return 'RCP';
+    }
+
     protected static function booted(): void
     {
         static::created(function (RentalReceipt $receipt): void {
-            if ($receipt->reference === null || $receipt->reference === '') {
-                $receipt->reference = 'RCP/' . str_pad((string) $receipt->id, 5, '0', STR_PAD_LEFT);
-                $receipt->saveQuietly();
-            }
             $receipt->invoice?->recomputePaid();
         });
 

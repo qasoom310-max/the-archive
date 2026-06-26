@@ -25,6 +25,8 @@ use Illuminate\Support\Carbon;
  */
 final class LimoExpense extends Model implements DefinesIrModel
 {
+    use \App\Models\Concerns\HasReference;
+
     protected $table = 'limo_expenses';
 
     /** @var list<string> */
@@ -45,14 +47,9 @@ final class LimoExpense extends Model implements DefinesIrModel
         ];
     }
 
-    protected static function booted(): void
+    public function referencePrefix(): string
     {
-        static::created(function (LimoExpense $expense): void {
-            if ($expense->reference === null || $expense->reference === '') {
-                $expense->reference = 'EXP/' . str_pad((string) $expense->id, 5, '0', STR_PAD_LEFT);
-                $expense->saveQuietly();
-            }
-        });
+        return 'EXP';
     }
 
     /**

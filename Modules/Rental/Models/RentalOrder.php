@@ -85,6 +85,8 @@ use Illuminate\Support\Carbon;
  */
 final class RentalOrder extends Model implements DefinesIrModel
 {
+    use \App\Models\Concerns\HasReference;
+
     protected $table = 'rental_orders';
 
     public const STATE_DRAFT = 'draft';
@@ -202,15 +204,9 @@ final class RentalOrder extends Model implements DefinesIrModel
         ];
     }
 
-    protected static function booted(): void
+    public function referencePrefix(): string
     {
-        // Human reference derived from the id, once it exists.
-        static::created(function (RentalOrder $order): void {
-            if ($order->reference === null || $order->reference === '') {
-                $order->reference = 'RO/' . str_pad((string) $order->id, 5, '0', STR_PAD_LEFT);
-                $order->saveQuietly();
-            }
-        });
+        return 'RO';
     }
 
     /**

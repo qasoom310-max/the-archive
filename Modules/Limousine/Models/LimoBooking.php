@@ -36,6 +36,8 @@ use Illuminate\Support\Carbon;
  */
 final class LimoBooking extends Model implements DefinesIrModel
 {
+    use \App\Models\Concerns\HasReference;
+
     protected $table = 'limo_bookings';
 
     public const STATUS_QUEUE = 'queue';
@@ -81,14 +83,9 @@ final class LimoBooking extends Model implements DefinesIrModel
         ];
     }
 
-    protected static function booted(): void
+    public function referencePrefix(): string
     {
-        static::created(function (LimoBooking $booking): void {
-            if ($booking->reference === null || $booking->reference === '') {
-                $booking->reference = 'BK/' . str_pad((string) $booking->id, 5, '0', STR_PAD_LEFT);
-                $booking->saveQuietly();
-            }
-        });
+        return 'BK';
     }
 
     /**

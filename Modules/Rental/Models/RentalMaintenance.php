@@ -39,6 +39,8 @@ use Illuminate\Support\Carbon;
  */
 final class RentalMaintenance extends Model implements DefinesIrModel
 {
+    use \App\Models\Concerns\HasReference;
+
     protected $table = 'rental_maintenance';
 
     // Work-order lifecycle: raised → a manager approves (or declines) → started
@@ -96,14 +98,9 @@ final class RentalMaintenance extends Model implements DefinesIrModel
         ];
     }
 
-    protected static function booted(): void
+    public function referencePrefix(): string
     {
-        static::created(function (RentalMaintenance $record): void {
-            if ($record->reference === null || $record->reference === '') {
-                $record->reference = 'MNT/' . str_pad((string) $record->id, 5, '0', STR_PAD_LEFT);
-                $record->saveQuietly();
-            }
-        });
+        return 'MNT';
     }
 
     /**

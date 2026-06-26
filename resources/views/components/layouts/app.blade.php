@@ -80,6 +80,9 @@
                 <kbd class="hidden rounded border border-black/20 px-1 text-[10px] sm:inline">⌘K</kbd>
             </button>
 
+            {{-- Notification bell — cross-module alerts via the NotificationCenter. --}}
+            <livewire:navigation.notification-bell />
+
             {{-- Activity log — admin-only audit trail of everything users do. --}}
             @if (auth()->user()?->isAdmin())
                 <a href="{{ route('activity') }}" wire:navigate

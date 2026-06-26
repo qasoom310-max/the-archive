@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Erp\Activity\ActivityLogger;
+use App\Erp\Notifications\NotificationCenter;
 use App\Erp\Settings\Setting;
 use App\Erp\Settings\SettingManager;
 use Illuminate\Auth\Events\Failed;
@@ -25,6 +26,9 @@ final class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(SettingManager::class);
         $this->app->singleton(ActivityLogger::class);
+        // Shared across the request so module service providers register their
+        // notification providers into the one instance the bell reads.
+        $this->app->singleton(NotificationCenter::class);
     }
 
     /**

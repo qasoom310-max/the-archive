@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Providers;
 
+use App\Erp\Notifications\NotificationCenter;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\ServiceProvider;
+use Modules\Rental\Support\RentalNotifications;
 
 /**
  * Car-rental module service provider. Loaded by the core ModuleServiceProvider
@@ -22,6 +25,9 @@ final class RentalServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        //
+        // Contribute this module's alerts to the top-bar notification bell.
+        $this->app->make(NotificationCenter::class)->register(
+            fn (Authenticatable $user): array => $this->app->make(RentalNotifications::class)->for($user),
+        );
     }
 }

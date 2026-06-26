@@ -168,11 +168,13 @@ final class ReplacementForm extends Component
         // the booking rule.
         $replacementQuery = Vehicle::query()
             ->where('active', true)
-            ->where('status', Vehicle::STATUS_AVAILABLE)
             ->whereKey($this->replacement_vehicle_id);
 
-        if (! $this->isSuperAdmin()) {
-            $replacementQuery->bookable();
+        if ($this->isSuperAdmin()) {
+            // Urgent override: any car not already rented out to another customer.
+            $replacementQuery->where('status', '!=', Vehicle::STATUS_RENTED);
+        } else {
+            $replacementQuery->bookable()->where('status', Vehicle::STATUS_AVAILABLE);
         }
 
         $replacementCar = $replacementQuery->first();
@@ -244,24 +246,26 @@ final class ReplacementForm extends Component
         $original = $this->original_vehicle_id !== null ? Vehicle::query()->find($this->original_vehicle_id) : null;
         $order = $this->order_id !== null ? RentalOrder::query()->with('customer:id,name,phone')->find($this->order_id) : null;
 
-        // Free (available) cars — same branch first. Valid papers are required,
-        // except a super-admin sees lapsed-paper cars too (urgent override), the
-        // same rule the order's car picker uses.
+        // Cars to offer, same branch first. Normal staff: only free, valid-paper
+        // cars. A super-admin gets an urgent override — any car not already rented
+        // out to another customer (lapsed papers / in maintenance / reserved), each
+        // marked so the state is clear.
         $isSuperAdmin = $this->isSuperAdmin();
         $branchId = $original?->branch_id;
         $availableQuery = Vehicle::query()
             ->where('active', true)
-            ->where('status', Vehicle::STATUS_AVAILABLE)
             ->when($this->original_vehicle_id !== null, fn (Builder $q) => $q->where('id', '!=', $this->original_vehicle_id));
 
-        if (! $isSuperAdmin) {
-            $availableQuery->bookable();
+        if ($isSuperAdmin) {
+            $availableQuery->where('status', '!=', Vehicle::STATUS_RENTED);
+        } else {
+            $availableQuery->bookable()->where('status', Vehicle::STATUS_AVAILABLE);
         }
 
         $available = $availableQuery
             ->orderByRaw('CASE WHEN branch_id = ? THEN 0 ELSE 1 END', [$branchId ?? 0])
             ->orderBy('name')
-            ->get(['id', 'name', 'plate_no', 'color', 'branch_id', 'registration_expiry', 'insurance_expiry']);
+            ->get(['id', 'name', 'plate_no', 'color', 'status', 'branch_id', 'registration_expiry', 'insurance_expiry']);
 
         return view('rental::replacement-form', [
             'isEditing' => $this->id !== null,

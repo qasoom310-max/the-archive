@@ -151,6 +151,41 @@ final class RentalReplacementTest extends TestCase
         $this->assertSame($noPapers->id, $order->fresh()?->vehicle_id); // urgent override allowed
     }
 
+    public function test_a_super_admin_can_swap_in_a_car_that_is_in_maintenance(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+
+        $original = $this->bookableCar('Eco Sport', '111', Vehicle::STATUS_RENTED);
+        $inShop = $this->bookableCar('Spare', '222', Vehicle::STATUS_MAINTENANCE); // not "available"
+        $order = $this->onRoadOrder($original);
+
+        Livewire::test(ReplacementForm::class, ['order' => $order->id])
+            ->set('reason_type', RentalReplacement::REASON_BREAKDOWN)
+            ->set('replacement_vehicle_id', $inShop->id)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame($inShop->id, $order->fresh()?->vehicle_id);          // urgent override allowed
+        $this->assertSame(Vehicle::STATUS_RENTED, $inShop->fresh()?->status);  // now out on the road
+    }
+
+    public function test_a_super_admin_cannot_swap_in_a_car_rented_to_someone_else(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+
+        $original = $this->bookableCar('Eco Sport', '111', Vehicle::STATUS_RENTED);
+        $takenByOther = $this->bookableCar('Taken', '222', Vehicle::STATUS_RENTED); // out with another customer
+        $order = $this->onRoadOrder($original);
+
+        Livewire::test(ReplacementForm::class, ['order' => $order->id])
+            ->set('reason_type', RentalReplacement::REASON_BREAKDOWN)
+            ->set('replacement_vehicle_id', $takenByOther->id)
+            ->call('save')
+            ->assertHasErrors('replacement_vehicle_id');
+
+        $this->assertSame($original->id, $order->fresh()?->vehicle_id); // blocked
+    }
+
     public function test_a_non_super_admin_cannot_swap_in_a_car_with_lapsed_papers(): void
     {
         // setUp acts as a plain admin (not super).

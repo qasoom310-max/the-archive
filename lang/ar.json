@@ -1091,6 +1091,7 @@
     "No car is free to swap in right now.": "لا توجد سيارة شاغرة للاستبدال حالياً.",
     "Cars with missing or expired papers are hidden — a super-admin can override.": "السيارات ذات الأوراق المفقودة أو المنتهية مخفية — يمكن للمشرف الأعلى التجاوز.",
     "Cars marked “no valid papers” need renewal — use only for an urgent swap.": "السيارات المعلَّمة بـ«بدون أوراق سارية» تحتاج تجديداً — استخدمها فقط للاستبدال العاجل.",
+    "Cars in maintenance / reserved / without papers are shown for an urgent swap only.": "تظهر السيارات في الصيانة / المحجوزة / بدون أوراق للاستبدال العاجل فقط.",
     "Reason note": "ملاحظة السبب",
     "e.g. engine warning light on the highway": "مثال: إضاءة لمبة المحرك على الطريق السريع",
     "The original car will go to maintenance.": "ستذهب السيارة الأصلية إلى الصيانة.",

@@ -26,6 +26,7 @@ use Modules\Rental\Livewire\RentalHome;
 use Modules\Rental\Livewire\ReplacementForm;
 use Modules\Rental\Livewire\Replacements;
 use Modules\Rental\Livewire\Reports;
+use Modules\Rental\Livewire\Sales;
 use Modules\Rental\Livewire\VehicleForm;
 use Modules\Rental\Livewire\Vehicles;
 
@@ -73,6 +74,9 @@ Route::middleware('auth')->group(function (): void {
     // export route is declared before the page so it isn't shadowed.
     Route::get('/app/rental/reports/orders/export', RentalReportExportController::class)->name('rental.reports.export');
     Route::get('/app/rental/reports', Reports::class)->name('rental.reports');
+
+    // Sales — booking-revenue matrix by car/month + seasonal analysis.
+    Route::get('/app/rental/sales', Sales::class)->name('rental.sales');
 
     // Masters. `new` is declared before the numeric {id} so it isn't
     // captured as an id (same convention as the other modules).

@@ -24,21 +24,51 @@
         </div>
     @endif
 
-    {{-- Year picker. --}}
+    {{-- Year picker + tools. --}}
     <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <div>
-            <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Year') }}</label>
-            <select wire:model.live="year" class="o-input text-sm">
-                @foreach ($availableYears as $y)
-                    <option value="{{ $y }}">{{ $y }}</option>
-                @endforeach
-            </select>
+        <div class="flex flex-wrap items-end gap-3">
+            <div>
+                <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Year') }}</label>
+                <select wire:model.live="year" class="o-input text-sm">
+                    @foreach ($availableYears as $y)
+                        <option value="{{ $y }}">{{ $y }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <a href="{{ url('/app/rental/sales/export?year=' . $year) }}" class="o-btn-ghost text-sm">{{ __('Export CSV') }}</a>
+            <button type="button" onclick="window.print()" class="o-btn-ghost text-sm">{{ __('Print') }}</button>
+            @if ($canManage)
+                <button type="button" onclick="document.getElementById('import-history').classList.toggle('hidden')" class="o-btn-ghost text-sm">{{ __('Import history') }}</button>
+            @endif
         </div>
         <div class="text-end">
             <p class="text-xs font-medium uppercase tracking-wide text-chrome-400">{{ __('Total revenue :year', ['year' => $year]) }}</p>
             <p class="text-2xl font-bold text-chrome-900">{{ ValueFormat::money($fleetTotal) }}</p>
         </div>
     </div>
+
+    {{-- Import old monthly revenue (managers). Direct POST — Hostinger-safe. --}}
+    @if ($canManage)
+        <div id="import-history" class="mb-5 hidden rounded-2xl border border-dashed border-chrome-300 bg-white p-4">
+            <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Import monthly revenue (CSV)') }}</h3>
+            <p class="mb-3 text-xs text-chrome-500">{{ __('A CSV with a Reg#/Plate column and month columns (Jan…Dec). Other columns are ignored. Re-importing a year replaces it.') }}</p>
+            <form method="POST" action="{{ url('/app/rental/sales/import') }}" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">
+                @csrf
+                <div>
+                    <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Year') }}</label>
+                    <input type="number" name="year" min="2000" max="2100" value="{{ $year }}" required class="o-input w-28 text-sm">
+                </div>
+                <div>
+                    <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('CSV file') }}</label>
+                    <input type="file" name="file" accept=".csv,text/csv" required class="text-sm">
+                </div>
+                <button type="submit" class="o-btn-primary text-sm">{{ __('Import') }}</button>
+            </form>
+            @if (session('toast'))
+                <p class="mt-2 text-xs font-medium text-emerald-600">{{ session('toast') }}</p>
+            @endif
+        </div>
+    @endif
 
     {{-- Seasonality panel. --}}
     <div class="mb-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]">

@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Route;
 use Modules\Rental\Http\Controllers\RentalAgreementPdfController;
 use Modules\Rental\Http\Controllers\RentalAgreementPrintController;
 use Modules\Rental\Http\Controllers\RentalReportExportController;
+use Modules\Rental\Http\Controllers\RentalSalesExportController;
+use Modules\Rental\Http\Controllers\RentalSalesImportController;
 use Modules\Rental\Livewire\BranchForm;
 use Modules\Rental\Livewire\Branches;
 use Modules\Rental\Livewire\CustomerForm;
@@ -76,6 +78,8 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/rental/reports', Reports::class)->name('rental.reports');
 
     // Sales — booking-revenue matrix by car/month + seasonal analysis.
+    Route::get('/app/rental/sales/export', RentalSalesExportController::class)->name('rental.sales.export');
+    Route::post('/app/rental/sales/import', RentalSalesImportController::class)->name('rental.sales.import');
     Route::get('/app/rental/sales', Sales::class)->name('rental.sales');
 
     // Masters. `new` is declared before the numeric {id} so it isn't

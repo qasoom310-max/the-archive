@@ -7,12 +7,18 @@ namespace Tests\Feature;
 use App\Erp\Modules\ModuleManager;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
+use Modules\Rental\Http\Controllers\RentalSalesExportController;
+use Modules\Rental\Http\Controllers\RentalSalesImportController;
 use Modules\Rental\Livewire\Sales;
 use Modules\Rental\Models\RentalCustomer;
 use Modules\Rental\Models\RentalOrder;
+use Modules\Rental\Models\RentalRevenueHistory;
 use Modules\Rental\Models\Vehicle;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 /**
@@ -76,5 +82,74 @@ final class RentalSalesTest extends TestCase
 
         Livewire::test(Sales::class, ['year' => 2026])
             ->assertSee('Not enough history yet');
+    }
+
+    public function test_imported_history_feeds_the_matrix_and_activates_seasonality(): void
+    {
+        Vehicle::query()->create(['name' => 'Eco Sport', 'plate_no' => '203011', 'monthly_target' => 0]);
+        foreach ([1 => 100, 2 => 250, 3 => 300] as $month => $amount) {
+            RentalRevenueHistory::query()->create(['plate_no' => '203011', 'year' => 2025, 'month' => $month, 'amount' => $amount]);
+        }
+
+        Livewire::test(Sales::class, ['year' => 2025])
+            ->assertSee('203011')
+            ->assertSee('100')                        // January from history
+            ->assertSee('650')                        // car total 100+250+300
+            ->assertDontSee('Not enough history yet'); // 3 months → seasons active
+    }
+
+    public function test_the_import_controller_parses_a_csv_and_replaces_the_year(): void
+    {
+        // Old-system style export: extra columns (Expected/Total) are ignored.
+        $csv = "Reg#,Vehicle,Expected,January,February,Total\n203011,FORD ECOSPORT,1200,100,250,350\n";
+        $response = (new RentalSalesImportController())($this->importRequest(2025, $csv));
+
+        $this->assertStringContainsString('/app/rental/sales?year=2025', $response->getTargetUrl());
+        $this->assertDatabaseHas('rental_revenue_history', ['plate_no' => '203011', 'year' => 2025, 'month' => 1, 'amount' => 100]);
+        $this->assertDatabaseHas('rental_revenue_history', ['plate_no' => '203011', 'year' => 2025, 'month' => 2, 'amount' => 250]);
+
+        // Re-importing the year replaces, not appends.
+        (new RentalSalesImportController())($this->importRequest(2025, "Reg#,January\n203011,999\n"));
+        $this->assertDatabaseCount('rental_revenue_history', 1);
+        $this->assertDatabaseHas('rental_revenue_history', ['plate_no' => '203011', 'year' => 2025, 'month' => 1, 'amount' => 999]);
+    }
+
+    public function test_a_non_manager_cannot_import(): void
+    {
+        $this->actingAs(User::factory()->create()); // plain staff
+
+        try {
+            (new RentalSalesImportController())($this->importRequest(2025, "Reg#,January\n203011,100\n"));
+            $this->fail('A non-manager should be forbidden.');
+        } catch (HttpException $e) {
+            $this->assertSame(403, $e->getStatusCode());
+        }
+
+        $this->assertDatabaseCount('rental_revenue_history', 0);
+    }
+
+    public function test_the_export_controller_streams_the_matrix(): void
+    {
+        $car = Vehicle::query()->create(['name' => 'Eco Sport', 'plate_no' => '203011', 'monthly_target' => 100]);
+        $this->order($car, 90, '2026-03-10');
+
+        $response = (new RentalSalesExportController())(Request::create('/x', 'GET', ['year' => 2026]));
+
+        ob_start();
+        $response->sendContent();
+        $csv = (string) ob_get_clean();
+
+        $this->assertStringContainsString('203011', $csv);
+        $this->assertStringContainsString('90', $csv);
+        $this->assertStringContainsString('Fleet total', $csv);
+    }
+
+    private function importRequest(int $year, string $csv): Request
+    {
+        $path = tempnam(sys_get_temp_dir(), 'imp') . '.csv';
+        file_put_contents($path, $csv);
+        $file = new UploadedFile($path, 'history.csv', 'text/csv', null, true); // test mode
+
+        return Request::create('/app/rental/sales/import', 'POST', ['year' => $year], [], ['file' => $file]);
     }
 }

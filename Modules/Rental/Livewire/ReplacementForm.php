@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Modules\Rental\Livewire;
 
 use App\Erp\Activity\ActivityLogger;
+use App\Models\User;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -161,11 +163,19 @@ final class ReplacementForm extends Component
 
         $this->validate();
 
-        // The replacement car must be a free, bookable car (not the original).
-        $replacementCar = Vehicle::query()->bookable()
+        // The replacement car must be free (available). Valid papers are required
+        // too — except a super-admin may override for an urgent swap, matching
+        // the booking rule.
+        $replacementQuery = Vehicle::query()
+            ->where('active', true)
             ->where('status', Vehicle::STATUS_AVAILABLE)
-            ->whereKey($this->replacement_vehicle_id)
-            ->first();
+            ->whereKey($this->replacement_vehicle_id);
+
+        if (! $this->isSuperAdmin()) {
+            $replacementQuery->bookable();
+        }
+
+        $replacementCar = $replacementQuery->first();
 
         if ($replacementCar === null) {
             $this->addError('replacement_vehicle_id', __('Pick an available car with valid papers.'));
@@ -222,23 +232,41 @@ final class ReplacementForm extends Component
         $this->status = $replacement->status;
     }
 
+    private function isSuperAdmin(): bool
+    {
+        $user = Auth::user();
+
+        return $user instanceof User && $user->isSuperAdmin();
+    }
+
     public function render(): View
     {
         $original = $this->original_vehicle_id !== null ? Vehicle::query()->find($this->original_vehicle_id) : null;
         $order = $this->order_id !== null ? RentalOrder::query()->with('customer:id,name,phone')->find($this->order_id) : null;
 
-        // Available, bookable cars only — same branch first, then the rest.
+        // Free (available) cars — same branch first. Valid papers are required,
+        // except a super-admin sees lapsed-paper cars too (urgent override), the
+        // same rule the order's car picker uses.
+        $isSuperAdmin = $this->isSuperAdmin();
         $branchId = $original?->branch_id;
-        $available = Vehicle::query()->bookable()
+        $availableQuery = Vehicle::query()
+            ->where('active', true)
             ->where('status', Vehicle::STATUS_AVAILABLE)
-            ->when($this->original_vehicle_id !== null, fn ($q) => $q->where('id', '!=', $this->original_vehicle_id))
+            ->when($this->original_vehicle_id !== null, fn (Builder $q) => $q->where('id', '!=', $this->original_vehicle_id));
+
+        if (! $isSuperAdmin) {
+            $availableQuery->bookable();
+        }
+
+        $available = $availableQuery
             ->orderByRaw('CASE WHEN branch_id = ? THEN 0 ELSE 1 END', [$branchId ?? 0])
             ->orderBy('name')
-            ->get(['id', 'name', 'plate_no', 'color', 'branch_id']);
+            ->get(['id', 'name', 'plate_no', 'color', 'branch_id', 'registration_expiry', 'insurance_expiry']);
 
         return view('rental::replacement-form', [
             'isEditing' => $this->id !== null,
             'blocked' => $this->blocked,
+            'isSuperAdmin' => $isSuperAdmin,
             'order' => $order,
             'originalVehicle' => $original,
             'availableVehicles' => $available,

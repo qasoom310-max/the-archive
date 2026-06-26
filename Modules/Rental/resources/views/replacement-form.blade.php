@@ -100,12 +100,17 @@
                         <select wire:model="replacement_vehicle_id" class="o-input w-full">
                             <option value="">{{ __('— Select an available car —') }}</option>
                             @foreach ($availableVehicles as $v)
-                                <option value="{{ $v->id }}">{{ $v->displayName() }}</option>
+                                <option value="{{ $v->id }}">{{ $v->displayName() }}@if ($v->needsRenewal()) · {{ __('no valid papers') }}@endif</option>
                             @endforeach
                         </select>
                         @error('replacement_vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         @if ($availableVehicles->isEmpty())
-                            <p class="mt-1 text-xs text-amber-600">{{ __('No available car with valid papers right now.') }}</p>
+                            <p class="mt-1 text-xs text-amber-600">
+                                {{ __('No car is free to swap in right now.') }}
+                                @unless ($isSuperAdmin) {{ __('Cars with missing or expired papers are hidden — a super-admin can override.') }} @endunless
+                            </p>
+                        @elseif ($isSuperAdmin)
+                            <p class="mt-1 text-xs text-chrome-400">{{ __('Cars marked “no valid papers” need renewal — use only for an urgent swap.') }}</p>
                         @endif
                     </div>
                     <div class="sm:col-span-2">

@@ -113,6 +113,43 @@ final class RentalReplacementTest extends TestCase
         $this->assertSame($original->id, $order->fresh()?->vehicle_id); // no swap happened
     }
 
+    public function test_a_super_admin_can_swap_in_a_car_with_lapsed_papers(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+
+        $original = $this->bookableCar('Eco Sport', '111', Vehicle::STATUS_RENTED);
+        $noPapers = Vehicle::query()->create([   // available, but no registration/insurance
+            'name' => 'Spare', 'plate_no' => '222', 'daily_rate' => 10, 'status' => Vehicle::STATUS_AVAILABLE,
+        ]);
+        $order = $this->onRoadOrder($original);
+
+        Livewire::test(ReplacementForm::class, ['order' => $order->id])
+            ->set('reason_type', RentalReplacement::REASON_BREAKDOWN)
+            ->set('replacement_vehicle_id', $noPapers->id)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame($noPapers->id, $order->fresh()?->vehicle_id); // urgent override allowed
+    }
+
+    public function test_a_non_super_admin_cannot_swap_in_a_car_with_lapsed_papers(): void
+    {
+        // setUp acts as a plain admin (not super).
+        $original = $this->bookableCar('Eco Sport', '111', Vehicle::STATUS_RENTED);
+        $noPapers = Vehicle::query()->create([
+            'name' => 'Spare', 'plate_no' => '222', 'daily_rate' => 10, 'status' => Vehicle::STATUS_AVAILABLE,
+        ]);
+        $order = $this->onRoadOrder($original);
+
+        Livewire::test(ReplacementForm::class, ['order' => $order->id])
+            ->set('reason_type', RentalReplacement::REASON_BREAKDOWN)
+            ->set('replacement_vehicle_id', $noPapers->id)
+            ->call('save')
+            ->assertHasErrors('replacement_vehicle_id');
+
+        $this->assertSame($original->id, $order->fresh()?->vehicle_id); // blocked, no swap
+    }
+
     public function test_a_replacement_cannot_be_started_without_an_on_road_order(): void
     {
         $car = $this->bookableCar('Eco Sport', '111');

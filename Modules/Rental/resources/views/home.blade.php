@@ -128,29 +128,18 @@
     @endif
 
     {{-- ───────── Deposits to refund (accountant / super-admin only) ───────── --}}
-    @if ($canSeeRefunds)
-        @php
-            $hasRefunds = $depositsToRefund->isNotEmpty();
-            $rBox = $hasRefunds ? 'border-emerald-200 bg-emerald-50/60' : 'border-chrome-200 bg-white';
-            $rDiv = $hasRefunds ? 'border-emerald-200/70' : 'border-chrome-100';
-            $rIcon = $hasRefunds ? 'bg-emerald-100 text-emerald-600' : 'bg-chrome-100 text-chrome-400';
-            $rTitle = $hasRefunds ? 'text-emerald-900' : 'text-chrome-700';
-            $rBadge = $hasRefunds ? 'bg-emerald-100 text-emerald-700' : 'bg-chrome-100 text-chrome-500';
-        @endphp
-        <div class="mb-6 overflow-hidden rounded-2xl border {{ $rBox }} shadow-sm">
-            <div class="flex items-center gap-2 {{ $hasRefunds ? 'border-b ' . $rDiv : '' }} px-4 py-3">
-                <span class="flex size-7 items-center justify-center rounded-lg {{ $rIcon }}">
+    @if ($depositsToRefund->isNotEmpty())
+        <div class="mb-6 overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50/60 shadow-sm">
+            <div class="flex items-center gap-2 border-b border-emerald-200/70 px-4 py-3">
+                <span class="flex size-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
                     <svg class="size-4" viewBox="0 0 20 20" fill="currentColor">{!! $ic['cash'] !!}</svg>
                 </span>
-                <h2 class="text-sm font-semibold {{ $rTitle }}">{{ __('Deposits to refund') }}</h2>
+                <h2 class="text-sm font-semibold text-emerald-900">{{ __('Deposits to refund') }}</h2>
                 <span class="ms-auto flex items-center gap-2">
-                    <span class="rounded-full px-2 py-0.5 text-[11px] font-bold {{ $rBadge }}">{{ $depositsToRefund->count() }}</span>
-                    @if ($hasRefunds)
-                        <span class="text-sm font-bold text-emerald-800">{{ \App\Erp\Views\ValueFormat::money($depositsToRefund->sum('deposit')) }}</span>
-                    @endif
+                    <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">{{ $depositsToRefund->count() }}</span>
+                    <span class="text-sm font-bold text-emerald-800">{{ \App\Erp\Views\ValueFormat::money($depositsToRefund->sum('deposit')) }}</span>
                 </span>
             </div>
-            @if ($hasRefunds)
                 <ul class="divide-y divide-emerald-200/50">
                     @foreach ($depositsToRefund as $o)
                         <li>
@@ -167,9 +156,6 @@
                         </li>
                     @endforeach
                 </ul>
-            @else
-                <p class="px-4 pb-3 text-xs text-chrome-400">{{ __('No deposits are due for refund right now.') }}</p>
-            @endif
         </div>
     @endif
 

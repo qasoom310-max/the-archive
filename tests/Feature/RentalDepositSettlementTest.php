@@ -212,14 +212,14 @@ final class RentalDepositSettlementTest extends TestCase
             ->assertDontSee('HeldCustomerZ');
     }
 
-    public function test_the_refund_box_is_always_shown_to_an_accountant_even_when_empty(): void
+    public function test_the_refund_box_is_hidden_when_nothing_is_due(): void
     {
+        // With the top-bar notification bell handling "always available"
+        // awareness, the dashboard box only appears when something is due.
         $this->actingAs(User::factory()->create(['is_accountant' => true]));
         $this->closedOrder(50, returnedDaysAgo: 2, customer: 'HeldCustomerZ'); // within hold → not due
 
-        Livewire::test(RentalHome::class)
-            ->assertSee('Deposits to refund')   // box is always present for the accountant
-            ->assertDontSee('HeldCustomerZ');   // but nothing is listed yet
+        Livewire::test(RentalHome::class)->assertDontSee('Deposits to refund');
     }
 
     public function test_a_regular_admin_does_not_see_the_refund_box(): void

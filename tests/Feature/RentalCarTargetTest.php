@@ -65,6 +65,33 @@ final class RentalCarTargetTest extends TestCase
             ->assertSee('500');  // the target
     }
 
+    public function test_a_manager_sets_the_target_inline_and_the_bar_appears(): void
+    {
+        $car = Vehicle::query()->create(['name' => 'Eco Sport']); // no target yet
+
+        Livewire::test(VehicleForm::class, ['id' => $car->id])
+            ->assertDontSee('Earnings this month vs target') // no bar before a target
+            ->set('targetInput', '750')
+            ->call('saveTarget')
+            ->assertHasNoErrors()
+            ->assertSee('Earnings this month vs target');     // bar now shows
+
+        $this->assertSame(750.0, $car->fresh()?->monthly_target);
+    }
+
+    public function test_a_non_manager_cannot_set_the_target(): void
+    {
+        $this->actingAs(User::factory()->create()); // plain staff
+        $car = Vehicle::query()->create(['name' => 'Eco Sport']);
+
+        Livewire::test(VehicleForm::class, ['id' => $car->id])
+            ->set('targetInput', '750')
+            ->call('saveTarget')
+            ->assertForbidden();
+
+        $this->assertSame(0.0, $car->fresh()?->monthly_target);
+    }
+
     public function test_no_target_card_when_target_is_zero(): void
     {
         // The form field "Monthly sales target (BHD)" is always present; only the

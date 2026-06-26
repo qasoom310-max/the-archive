@@ -20,9 +20,45 @@ final class VehicleForm extends Component
 {
     public ?int $id = null;
 
+    /** Inline monthly-target editor value (BHD). */
+    public string $targetInput = '';
+
     public function mount(?int $id = null): void
     {
         $this->id = $id;
+
+        if ($id !== null) {
+            $car = Vehicle::query()->find($id);
+            $this->targetInput = $car !== null && $car->monthly_target > 0
+                ? rtrim(rtrim(number_format($car->monthly_target, 3, '.', ''), '0'), '.')
+                : '';
+        }
+    }
+
+    /** Set / clear this car's monthly sales target. Manager-gated. */
+    public function saveTarget(): void
+    {
+        $user = Auth::user();
+        abort_unless($user instanceof User && $user->canApproveMaintenance(), 403);
+
+        if ($this->id === null) {
+            return;
+        }
+
+        $car = Vehicle::query()->find($this->id);
+        if ($car === null) {
+            return;
+        }
+
+        $value = $this->targetInput === '' ? 0.0 : max(0.0, (float) $this->targetInput);
+        $car->monthly_target = $value;
+        $car->save();
+
+        app(ActivityLogger::class)->logFor($car, 'updated', __('Monthly target set to :amount', [
+            'amount' => \App\Erp\Views\ValueFormat::money($value),
+        ]));
+
+        session()->flash('toast', __('Monthly target saved.'));
     }
 
     /**

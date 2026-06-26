@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Models\User;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -122,6 +124,13 @@ final class CustomerForm extends Component
             return;
         }
 
+        // The individual/company type is set once at creation. After that only a
+        // super-admin may change it — for everyone else the saved type wins,
+        // even if the property was tampered with client-side.
+        if ($customer->exists && ! $this->isSuperAdmin()) {
+            $this->type = $customer->type;
+        }
+
         $isCompany = $this->type === RentalCustomer::TYPE_COMPANY;
 
         $customer->type = $this->type;
@@ -160,6 +169,13 @@ final class CustomerForm extends Component
         $value = trim($value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function isSuperAdmin(): bool
+    {
+        $user = Auth::user();
+
+        return $user instanceof User && $user->isSuperAdmin();
     }
 
     public function render(): View
@@ -210,6 +226,8 @@ final class CustomerForm extends Component
 
         return view('rental::customer-form', [
             'isEditing' => $this->id !== null,
+            // Type is chosen at creation; afterwards only a super-admin may change it.
+            'canChangeType' => $this->id === null || $this->isSuperAdmin(),
             'countries' => RentalCustomer::countries(),
             'typeOptions' => RentalCustomer::typeOptions(),
             'customer' => $customer,

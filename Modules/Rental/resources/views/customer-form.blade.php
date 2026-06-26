@@ -8,15 +8,22 @@
     <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6">
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-sm font-semibold text-chrome-800">{{ $isEditing ? __('Edit customer') : __('New customer') }}</h2>
-            {{-- Individual / Company toggle --}}
-            <div class="inline-flex rounded-lg bg-chrome-100 p-0.5 text-sm">
-                @foreach ($typeOptions as $opt)
-                    <button type="button" wire:click="$set('type', '{{ $opt['value'] }}')"
-                        class="rounded-md px-3 py-1 font-medium transition {{ $type === $opt['value'] ? 'bg-white text-chrome-900 shadow-sm' : 'text-chrome-500 hover:text-chrome-700' }}">
-                        {{ __($opt['label']) }}
-                    </button>
-                @endforeach
-            </div>
+            {{-- Individual / Company — chosen at creation, then locked (super-admin can change). --}}
+            @if ($canChangeType)
+                <div class="inline-flex rounded-lg bg-chrome-100 p-0.5 text-sm">
+                    @foreach ($typeOptions as $opt)
+                        <button type="button" wire:click="$set('type', '{{ $opt['value'] }}')"
+                            class="rounded-md px-3 py-1 font-medium transition {{ $type === $opt['value'] ? 'bg-white text-chrome-900 shadow-sm' : 'text-chrome-500 hover:text-chrome-700' }}">
+                            {{ __($opt['label']) }}
+                        </button>
+                    @endforeach
+                </div>
+            @else
+                <span class="inline-flex items-center gap-1.5 rounded-lg bg-chrome-100 px-3 py-1 text-sm font-medium text-chrome-600">
+                    <svg class="size-3.5 text-chrome-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd"/></svg>
+                    {{ $type === 'company' ? __('Company') : __('Individual') }}
+                </span>
+            @endif
         </div>
 
         @php $dial = collect($countries)->firstWhere('code', $country)['dial'] ?? ''; @endphp

@@ -131,6 +131,35 @@ final class RentalCustomerProfileTest extends TestCase
         Storage::disk('public')->assertExists($c->cr_document);
     }
 
+    public function test_a_non_super_admin_cannot_change_an_existing_customers_type(): void
+    {
+        // setUp acts as a plain admin (not super). The type is set at creation
+        // and locked afterwards for everyone but a super-admin.
+        $customer = RentalCustomer::query()->create(['name' => 'Acme Co', 'type' => 'company']);
+
+        Livewire::test(CustomerForm::class, ['id' => $customer->id])
+            ->set('type', 'individual')   // tampering attempt
+            ->set('name', 'Acme Co')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame('company', $customer->fresh()?->type); // unchanged
+    }
+
+    public function test_a_super_admin_can_change_an_existing_customers_type(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+        $customer = RentalCustomer::query()->create(['name' => 'Acme Co', 'type' => 'company']);
+
+        Livewire::test(CustomerForm::class, ['id' => $customer->id])
+            ->set('type', 'individual')
+            ->set('name', 'Acme Co')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame('individual', $customer->fresh()?->type);
+    }
+
     public function test_the_flag_is_derived_from_the_country_code(): void
     {
         $this->assertSame('🇧🇭', RentalCustomer::flagFor('BH'));

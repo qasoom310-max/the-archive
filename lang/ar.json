@@ -100,6 +100,7 @@
     "Deposits to refund": "تأمينات للاسترداد",
     "held since": "محتجز منذ",
     "Refund": "استرداد",
+    "No deposits are due for refund right now.": "لا توجد تأمينات مستحقة للاسترداد حالياً.",
     "The deduction can’t be more than the deposit (:amount).": "لا يمكن أن يتجاوز الخصم مبلغ التأمين (:amount).",
     "Car": "سيارة",
     "Cars": "السيارات",

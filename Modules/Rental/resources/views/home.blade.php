@@ -66,34 +66,48 @@
     </div>
 
     {{-- ───────── Deposits to refund (accountant / super-admin only) ───────── --}}
-    @if ($depositsToRefund->isNotEmpty())
-        <div class="mb-6 overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50/60 shadow-sm">
-            <div class="flex items-center gap-2 border-b border-emerald-200/70 px-4 py-3">
-                <span class="flex size-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
+    @if ($canSeeRefunds)
+        @php
+            $hasRefunds = $depositsToRefund->isNotEmpty();
+            $rBox = $hasRefunds ? 'border-emerald-200 bg-emerald-50/60' : 'border-chrome-200 bg-white';
+            $rDiv = $hasRefunds ? 'border-emerald-200/70' : 'border-chrome-100';
+            $rIcon = $hasRefunds ? 'bg-emerald-100 text-emerald-600' : 'bg-chrome-100 text-chrome-400';
+            $rTitle = $hasRefunds ? 'text-emerald-900' : 'text-chrome-700';
+            $rBadge = $hasRefunds ? 'bg-emerald-100 text-emerald-700' : 'bg-chrome-100 text-chrome-500';
+        @endphp
+        <div class="mb-6 overflow-hidden rounded-2xl border {{ $rBox }} shadow-sm">
+            <div class="flex items-center gap-2 {{ $hasRefunds ? 'border-b ' . $rDiv : '' }} px-4 py-3">
+                <span class="flex size-7 items-center justify-center rounded-lg {{ $rIcon }}">
                     <svg class="size-4" viewBox="0 0 20 20" fill="currentColor">{!! $ic['cash'] !!}</svg>
                 </span>
-                <h2 class="text-sm font-semibold text-emerald-900">{{ __('Deposits to refund') }}</h2>
+                <h2 class="text-sm font-semibold {{ $rTitle }}">{{ __('Deposits to refund') }}</h2>
                 <span class="ms-auto flex items-center gap-2">
-                    <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">{{ $depositsToRefund->count() }}</span>
-                    <span class="text-sm font-bold text-emerald-800">{{ \App\Erp\Views\ValueFormat::money($depositsToRefund->sum('deposit')) }}</span>
+                    <span class="rounded-full px-2 py-0.5 text-[11px] font-bold {{ $rBadge }}">{{ $depositsToRefund->count() }}</span>
+                    @if ($hasRefunds)
+                        <span class="text-sm font-bold text-emerald-800">{{ \App\Erp\Views\ValueFormat::money($depositsToRefund->sum('deposit')) }}</span>
+                    @endif
                 </span>
             </div>
-            <ul class="divide-y divide-emerald-200/50">
-                @foreach ($depositsToRefund as $o)
-                    <li>
-                        <a href="{{ url('/app/rental/order/' . $o->id) }}" wire:navigate class="flex items-center justify-between gap-3 px-4 py-2.5 transition hover:bg-emerald-100/50">
-                            <div class="min-w-0">
-                                <div class="truncate font-medium text-chrome-800">{{ $o->customer?->name ?? '—' }} <span class="text-chrome-400">· {{ $o->reference }}</span></div>
-                                <div class="truncate text-xs text-chrome-500">{{ $o->vehicle?->displayName() ?? '—' }} · {{ __('held since') }} {{ $o->returned_at?->format('Y-m-d') }}</div>
-                            </div>
-                            <div class="flex shrink-0 items-center gap-3 text-sm">
-                                <span class="font-semibold text-emerald-700">{{ \App\Erp\Views\ValueFormat::money($o->deposit) }}</span>
-                                <span class="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">{{ __('Refund') }} →</span>
-                            </div>
-                        </a>
-                    </li>
-                @endforeach
-            </ul>
+            @if ($hasRefunds)
+                <ul class="divide-y divide-emerald-200/50">
+                    @foreach ($depositsToRefund as $o)
+                        <li>
+                            <a href="{{ url('/app/rental/order/' . $o->id) }}" wire:navigate class="flex items-center justify-between gap-3 px-4 py-2.5 transition hover:bg-emerald-100/50">
+                                <div class="min-w-0">
+                                    <div class="truncate font-medium text-chrome-800">{{ $o->customer?->name ?? '—' }} <span class="text-chrome-400">· {{ $o->reference }}</span></div>
+                                    <div class="truncate text-xs text-chrome-500">{{ $o->vehicle?->displayName() ?? '—' }} · {{ __('held since') }} {{ $o->returned_at?->format('Y-m-d') }}</div>
+                                </div>
+                                <div class="flex shrink-0 items-center gap-3 text-sm">
+                                    <span class="font-semibold text-emerald-700">{{ \App\Erp\Views\ValueFormat::money($o->deposit) }}</span>
+                                    <span class="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">{{ __('Refund') }} →</span>
+                                </div>
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+            @else
+                <p class="px-4 pb-3 text-xs text-chrome-400">{{ __('No deposits are due for refund right now.') }}</p>
+            @endif
         </div>
     @endif
 

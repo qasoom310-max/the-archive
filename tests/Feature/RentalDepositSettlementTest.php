@@ -212,6 +212,16 @@ final class RentalDepositSettlementTest extends TestCase
             ->assertDontSee('HeldCustomerZ');
     }
 
+    public function test_the_refund_box_is_always_shown_to_an_accountant_even_when_empty(): void
+    {
+        $this->actingAs(User::factory()->create(['is_accountant' => true]));
+        $this->closedOrder(50, returnedDaysAgo: 2, customer: 'HeldCustomerZ'); // within hold → not due
+
+        Livewire::test(RentalHome::class)
+            ->assertSee('Deposits to refund')   // box is always present for the accountant
+            ->assertDontSee('HeldCustomerZ');   // but nothing is listed yet
+    }
+
     public function test_a_regular_admin_does_not_see_the_refund_box(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => false, 'is_accountant' => false]));

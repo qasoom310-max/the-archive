@@ -107,6 +107,7 @@ final class RentalHome extends Component
 
         return view('rental::home', [
             'depositsToRefund' => $depositsToRefund,
+            'canSeeRefunds' => $canSeeRefunds,
             'renewalAlerts' => $renewalAlerts,
             'total' => $total,
             'available' => $available,

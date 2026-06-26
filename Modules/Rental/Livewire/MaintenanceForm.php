@@ -69,6 +69,13 @@ final class MaintenanceForm extends Component
         $this->date = now()->format('Y-m-d');
     }
 
+    /** Picking a car loads its current KM from the vehicle record (editable). */
+    public function updatedVehicleId(): void
+    {
+        $vehicle = $this->vehicle_id !== null ? Vehicle::query()->find($this->vehicle_id) : null;
+        $this->odometer = $vehicle !== null && $vehicle->odometer !== null ? (string) $vehicle->odometer : '';
+    }
+
     /**
      * @return array<string, list<string>>
      */

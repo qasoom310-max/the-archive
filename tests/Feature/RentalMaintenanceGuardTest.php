@@ -62,6 +62,28 @@ final class RentalMaintenanceGuardTest extends TestCase
         $this->assertSame(Vehicle::STATUS_AVAILABLE, $car->fresh()?->status); // untouched
     }
 
+    public function test_selecting_a_car_loads_its_km_from_the_vehicle(): void
+    {
+        $car = Vehicle::query()->create(['name' => 'Eco Sport', 'daily_rate' => 10, 'odometer' => 166650, 'status' => Vehicle::STATUS_AVAILABLE]);
+
+        Livewire::test(MaintenanceForm::class)
+            ->set('vehicle_id', $car->id)
+            ->assertSet('odometer', '166650');
+    }
+
+    public function test_completing_captures_the_service_km_onto_the_car(): void
+    {
+        $car = Vehicle::query()->create(['name' => 'Eco Sport', 'daily_rate' => 10, 'odometer' => 100000, 'status' => Vehicle::STATUS_MAINTENANCE]);
+        $record = RentalMaintenance::query()->create([
+            'vehicle_id' => $car->id, 'type' => 'oil_change', 'date' => now(), 'cost' => 50,
+            'odometer' => 166650, 'status' => RentalMaintenance::STATUS_IN_PROGRESS,
+        ]);
+
+        Livewire::test(MaintenanceForm::class, ['id' => $record->id])->call('completeMaintenance');
+
+        $this->assertSame(166650, $car->fresh()?->odometer); // odometer advanced to the reading
+    }
+
     public function test_the_full_workflow_approve_start_complete(): void
     {
         $manager = User::factory()->create(['is_admin' => true]);

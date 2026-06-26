@@ -204,7 +204,10 @@ final class RentalMaintenance extends Model implements DefinesIrModel
         return true;
     }
 
-    /** Workflow — In progress → Done. Frees the car back to Available. */
+    /**
+     * Workflow — In progress → Done. Frees the car back to Available and captures
+     * the service KM reading onto the vehicle's odometer (never decreasing).
+     */
     public function complete(): bool
     {
         if ($this->status !== self::STATUS_IN_PROGRESS) {
@@ -216,7 +219,17 @@ final class RentalMaintenance extends Model implements DefinesIrModel
         $this->save();
 
         if ($this->vehicle_id !== null) {
-            Vehicle::query()->whereKey($this->vehicle_id)->update(['status' => Vehicle::STATUS_AVAILABLE]);
+            $attrs = ['status' => Vehicle::STATUS_AVAILABLE];
+
+            if ($this->odometer !== null) {
+                $current = Vehicle::query()->whereKey($this->vehicle_id)->value('odometer');
+                $currentKm = is_numeric($current) ? (int) $current : null;
+                if ($currentKm === null || $this->odometer > $currentKm) {
+                    $attrs['odometer'] = $this->odometer;
+                }
+            }
+
+            Vehicle::query()->whereKey($this->vehicle_id)->update($attrs);
         }
 
         return true;

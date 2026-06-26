@@ -14,8 +14,6 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
-use Livewire\WithFileUploads;
 use Modules\Rental\Models\RentalCustomer;
 use Modules\Rental\Models\RentalOrder;
 
@@ -30,8 +28,6 @@ use Modules\Rental\Models\RentalOrder;
 #[Title('Customer')]
 final class CustomerForm extends Component
 {
-    use WithFileUploads;
-
     public ?int $id = null;
 
     public string $type = RentalCustomer::TYPE_INDIVIDUAL;
@@ -62,7 +58,8 @@ final class CustomerForm extends Component
 
     public string $contact_phone = '';
 
-    public ?TemporaryUploadedFile $crDocument = null;
+    /** Stored CR document path from the direct-upload controller (Hostinger-safe). */
+    public string $crDocumentPath = '';
 
     public ?string $existingCrDocument = null;
 
@@ -112,7 +109,7 @@ final class CustomerForm extends Component
             'cr_number' => ['nullable', 'string', 'max:50'],
             'contact_person' => ['nullable', 'string', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:40'],
-            'crDocument' => ['nullable', 'mimes:pdf', 'max:8192'],
+            'crDocumentPath' => ['nullable', 'string'],
         ];
     }
 
@@ -152,11 +149,8 @@ final class CustomerForm extends Component
         $customer->contact_person = $isCompany ? $this->trimOrNull($this->contact_person) : null;
         $customer->contact_phone = $isCompany ? $this->trimOrNull($this->contact_phone) : null;
 
-        if ($isCompany && $this->crDocument instanceof TemporaryUploadedFile) {
-            $stored = $this->crDocument->store('rental_customers', 'public');
-            if (is_string($stored)) {
-                $customer->cr_document = $stored;
-            }
+        if ($isCompany && $this->crDocumentPath !== '') {
+            $customer->cr_document = $this->crDocumentPath;
         }
 
         $customer->save();
@@ -165,7 +159,7 @@ final class CustomerForm extends Component
 
         $this->id = $customer->id;
         $this->existingCrDocument = $customer->cr_document;
-        $this->crDocument = null;
+        $this->crDocumentPath = '';
         session()->flash('toast', __('Customer saved.'));
     }
 

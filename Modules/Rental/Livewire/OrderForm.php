@@ -18,8 +18,6 @@ use Modules\Rental\Services\RentalAgreementPdf;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
-use Livewire\WithFileUploads;
 use Modules\Rental\Models\Branch;
 use Modules\Rental\Models\Driver;
 use Modules\Rental\Models\RentalCustomer;
@@ -37,8 +35,6 @@ use Modules\Rental\Models\Vehicle;
 #[Title('Order')]
 final class OrderForm extends Component
 {
-    use WithFileUploads;
-
     public ?int $id = null;
 
     public string $order_date = '';
@@ -87,10 +83,14 @@ final class OrderForm extends Component
 
     public string $notes = '';
 
-    /** Document uploads (temporary), plus any already-saved paths. */
-    public ?TemporaryUploadedFile $cprPhoto = null;
+    /**
+     * Document uploads. Stored paths come from the direct-upload controller
+     * (a single synchronous POST that works on Hostinger shared hosting, unlike
+     * Livewire's two-phase async upload). Empty = "no new file".
+     */
+    public string $cprImagePath = '';
 
-    public ?TemporaryUploadedFile $licensePhoto = null;
+    public string $licenseImagePath = '';
 
     public ?string $existingCprImage = null;
 
@@ -144,8 +144,8 @@ final class OrderForm extends Component
 
     public string $deposit_reason = '';
 
-    /** @var array<int, TemporaryUploadedFile> */
-    public array $depositPhotos = [];
+    /** @var array<int, string> Uploaded evidence-photo paths (direct upload). */
+    public array $depositPhotoPaths = [];
 
     /** Inline "New customer" modal (shared transport customer). */
     public bool $addingCustomer = false;
@@ -241,8 +241,6 @@ final class OrderForm extends Component
             'deposit' => ['nullable', 'numeric', 'min:0'],
             'payment_type' => ['nullable', 'string'],
             'notes' => ['nullable', 'string'],
-            'cprPhoto' => ['nullable', 'image', 'max:4096'],
-            'licensePhoto' => ['nullable', 'image', 'max:4096'],
         ];
     }
 
@@ -366,17 +364,11 @@ final class OrderForm extends Component
         $order->payment_type = $this->trimOrNull($this->payment_type);
         $order->notes = $this->trimOrNull($this->notes);
 
-        if ($this->cprPhoto instanceof TemporaryUploadedFile) {
-            $stored = $this->cprPhoto->store('rental_orders', 'public');
-            if (is_string($stored)) {
-                $order->cpr_image_path = $stored;
-            }
+        if ($this->cprImagePath !== '') {
+            $order->cpr_image_path = $this->cprImagePath;
         }
-        if ($this->licensePhoto instanceof TemporaryUploadedFile) {
-            $stored = $this->licensePhoto->store('rental_orders', 'public');
-            if (is_string($stored)) {
-                $order->license_image_path = $stored;
-            }
+        if ($this->licenseImagePath !== '') {
+            $order->license_image_path = $this->licenseImagePath;
         }
 
         $order->recalcTotals();
@@ -705,7 +697,7 @@ final class OrderForm extends Component
         $this->depositOutcome = 'refund';
         $this->deposit_deducted = '0';
         $this->deposit_reason = '';
-        $this->depositPhotos = [];
+        $this->depositPhotoPaths = [];
         $this->resetValidation();
         $this->showDeposit = true;
     }
@@ -713,6 +705,14 @@ final class OrderForm extends Component
     public function closeDeposit(): void
     {
         $this->showDeposit = false;
+    }
+
+    /** Direct-upload callback: append an uploaded evidence-photo path. */
+    public function addDepositPhoto(string $path): void
+    {
+        if ($path !== '' && count($this->depositPhotoPaths) < 10) {
+            $this->depositPhotoPaths[] = $path;
+        }
     }
 
     /** Record the deposit outcome — refund / deduct part / forfeit — with reason + photos. */
@@ -740,8 +740,8 @@ final class OrderForm extends Component
 
         $rules = [
             'depositOutcome' => ['required', 'in:refund,deduct,forfeit'],
-            'depositPhotos' => ['array', 'max:10'],
-            'depositPhotos.*' => ['image', 'max:5120'],
+            'depositPhotoPaths' => ['array', 'max:10'],
+            'depositPhotoPaths.*' => ['string'],
         ];
         if ($this->depositOutcome === 'deduct') {
             $rules['deposit_deducted'] = ['required', 'numeric', 'gt:0', 'max:' . $order->deposit];
@@ -761,22 +761,14 @@ final class OrderForm extends Component
             default => 0.0,
         };
 
-        // Persist any evidence photos.
-        $paths = [];
-        foreach ($this->depositPhotos as $photo) {
-            if ($photo instanceof TemporaryUploadedFile) {
-                $stored = $photo->store('rental_deposits', 'public');
-                if (is_string($stored)) {
-                    $paths[] = $stored;
-                }
-            }
-        }
+        // Evidence photos were already uploaded (direct controller) — use paths.
+        $paths = array_values(array_filter($this->depositPhotoPaths, static fn (string $p): bool => $p !== ''));
 
         $order->resolveDeposit($user, $deducted, $this->depositOutcome === 'refund' ? null : $this->deposit_reason, $paths);
         app(ActivityLogger::class)->logFor($order, 'deposit_settled');
 
         $this->showDeposit = false;
-        $this->depositPhotos = [];
+        $this->depositPhotoPaths = [];
         session()->flash('toast', __('Deposit settled.'));
     }
 

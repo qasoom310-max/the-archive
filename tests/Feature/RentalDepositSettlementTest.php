@@ -76,16 +76,16 @@ final class RentalDepositSettlementTest extends TestCase
 
     public function test_a_partial_deduction_keeps_a_reason_and_photos(): void
     {
-        Storage::fake('public');
         $this->actingAs(User::factory()->create(['is_accountant' => true]));
         $order = $this->closedOrder(50);
 
+        // Photos are uploaded by the direct controller; the form keeps the paths.
         Livewire::test(OrderForm::class, ['id' => $order->id])
             ->call('settleDeposit')
             ->set('depositOutcome', 'deduct')
             ->set('deposit_deducted', '20')
             ->set('deposit_reason', 'Scratched bumper')
-            ->set('depositPhotos', [UploadedFile::fake()->image('damage.jpg')])
+            ->call('addDepositPhoto', 'rental_deposits/damage.jpg')
             ->call('confirmDeposit')
             ->assertHasNoErrors();
 
@@ -94,8 +94,7 @@ final class RentalDepositSettlementTest extends TestCase
         $this->assertSame(20.0, $order->deposit_deducted);
         $this->assertSame(30.0, $order->depositRefundAmount());
         $this->assertSame('Scratched bumper', $order->deposit_reason);
-        $this->assertNotEmpty($order->deposit_images);
-        Storage::disk('public')->assertExists($order->deposit_images[0]);
+        $this->assertSame(['rental_deposits/damage.jpg'], $order->deposit_images);
     }
 
     public function test_the_deposit_can_be_forfeited_entirely(): void

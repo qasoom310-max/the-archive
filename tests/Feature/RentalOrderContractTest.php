@@ -150,24 +150,23 @@ final class RentalOrderContractTest extends TestCase
             ->assertSet('phone', '39000033');
     }
 
-    public function test_cpr_and_licence_images_are_stored_on_the_order(): void
+    public function test_cpr_and_licence_image_paths_are_stored_on_the_order(): void
     {
-        Storage::fake('public');
+        // The image is uploaded by the direct controller (covered separately);
+        // the form just binds and persists the stored path.
         $customer = RentalCustomer::query()->create(['name' => 'Noor']);
         $vehicle = Vehicle::query()->create(['name' => 'Civic', 'daily_rate' => 12]);
 
         Livewire::test(OrderForm::class)
             ->set('customer_id', $customer->id)
             ->set('vehicle_id', $vehicle->id)
-            ->set('cprPhoto', UploadedFile::fake()->image('cpr.jpg'))
-            ->set('licensePhoto', UploadedFile::fake()->image('licence.jpg'))
+            ->set('cprImagePath', 'rental_orders/cpr.jpg')
+            ->set('licenseImagePath', 'rental_orders/licence.jpg')
             ->call('save')
             ->assertHasNoErrors();
 
         $order = RentalOrder::query()->firstOrFail();
-        $this->assertNotNull($order->cpr_image_path);
-        $this->assertNotNull($order->license_image_path);
-        Storage::disk('public')->assertExists($order->cpr_image_path);
-        Storage::disk('public')->assertExists($order->license_image_path);
+        $this->assertSame('rental_orders/cpr.jpg', $order->cpr_image_path);
+        $this->assertSame('rental_orders/licence.jpg', $order->license_image_path);
     }
 }

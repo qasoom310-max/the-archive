@@ -115,20 +115,34 @@ final class RentalCustomerProfileTest extends TestCase
         $this->assertNull($c->cr_number);
     }
 
-    public function test_a_company_cr_document_uploads_as_pdf(): void
+    public function test_a_company_cr_document_path_is_stored(): void
     {
-        Storage::fake('public');
-
+        // The PDF is uploaded by the direct controller; the form keeps the path.
         Livewire::test(CustomerForm::class)
             ->set('type', 'company')
             ->set('name', 'Docs Co')
-            ->set('crDocument', UploadedFile::fake()->create('cr.pdf', 100, 'application/pdf'))
+            ->set('crDocumentPath', 'rental_customers/cr.pdf')
             ->call('save')
             ->assertHasNoErrors();
 
         $c = RentalCustomer::query()->where('name', 'Docs Co')->sole();
-        $this->assertNotNull($c->cr_document);
-        Storage::disk('public')->assertExists($c->cr_document);
+        $this->assertSame('rental_customers/cr.pdf', $c->cr_document);
+    }
+
+    public function test_the_cr_upload_controller_accepts_a_pdf_into_the_customers_bucket(): void
+    {
+        Storage::fake('public');
+
+        $response = $this->post(route('form.upload-file'), [
+            'file' => UploadedFile::fake()->create('cr.pdf', 100, 'application/pdf'),
+            'bucket' => 'rental_customers',
+            'only' => 'pdf',
+        ]);
+
+        $response->assertOk();
+        $path = $response->json('path');
+        $this->assertIsString($path);
+        Storage::disk('public')->assertExists($path);
     }
 
     public function test_a_non_super_admin_cannot_change_an_existing_customers_type(): void

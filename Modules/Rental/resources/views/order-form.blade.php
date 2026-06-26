@@ -446,22 +446,35 @@
                     <textarea wire:model="notes" rows="2" class="o-input w-full"></textarea>
                 </div>
 
+                {{-- Direct (synchronous) image upload — Livewire's async upload
+                     fails on Hostinger shared hosting, so the file is POSTed to
+                     a controller and only the stored path is bound to Livewire. --}}
                 <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     @foreach ([
-                        ['label' => __('CPR image'), 'model' => 'cprPhoto', 'temp' => $cprPhoto, 'existing' => $existingCprImage],
-                        ['label' => __('Licence image'), 'model' => 'licensePhoto', 'temp' => $licensePhoto, 'existing' => $existingLicenseImage],
+                        ['label' => __('CPR image'), 'prop' => 'cprImagePath', 'existing' => $existingCprImage],
+                        ['label' => __('Licence image'), 'prop' => 'licenseImagePath', 'existing' => $existingLicenseImage],
                     ] as $doc)
                         <div>
                             <label class="{{ $lbl }}">{{ $doc['label'] }}</label>
-                            <div class="rounded-xl border border-dashed border-chrome-200 p-3">
-                                <input type="file" wire:model="{{ $doc['model'] }}" accept="image/*" class="block w-full text-sm text-chrome-600 file:mr-3 file:rounded-md file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-chrome-700 hover:file:bg-chrome-200">
-                                <div wire:loading wire:target="{{ $doc['model'] }}" class="mt-1 text-xs text-chrome-400">{{ __('Uploading…') }}</div>
-                                @error($doc['model']) <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                                @if ($doc['temp'])
-                                    <img src="{{ $doc['temp']->temporaryUrl() }}" alt="" class="mt-2 h-24 rounded-lg object-cover ring-1 ring-chrome-200">
-                                @elseif ($doc['existing'])
-                                    <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($doc['existing']) }}" alt="" class="mt-2 h-24 rounded-lg object-cover ring-1 ring-chrome-200">
-                                @endif
+                            <div class="rounded-xl border border-dashed border-chrome-200 p-3"
+                                 x-data="{
+                                     busy: false, error: '',
+                                     preview: @js($doc['existing'] ? \Illuminate\Support\Facades\Storage::disk('public')->url($doc['existing']) : ''),
+                                     async upload(e) {
+                                         const file = e.target.files[0]; if (!file) return;
+                                         this.busy = true; this.error = '';
+                                         const data = new FormData(); data.append('file', file); data.append('bucket', 'rental_orders');
+                                         try {
+                                             const r = await fetch(@js(route('form.upload-image')), { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content, 'Accept': 'application/json' }, body: data, credentials: 'same-origin' });
+                                             if (!r.ok) { const j = await r.json().catch(() => ({})); this.error = (j.errors && j.errors.file && j.errors.file[0]) || j.message || @js(__('Upload failed.')); return; }
+                                             const j = await r.json(); this.preview = j.url; await $wire.set(@js($doc['prop']), j.path);
+                                         } catch (err) { this.error = err.message || @js(__('Upload failed.')); } finally { this.busy = false; }
+                                     },
+                                 }">
+                                <input type="file" accept="image/*" @change="upload($event)" class="block w-full text-sm text-chrome-600 file:mr-3 file:rounded-md file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-chrome-700 hover:file:bg-chrome-200">
+                                <p x-show="busy" class="mt-1 text-xs text-chrome-400">{{ __('Uploading…') }}</p>
+                                <p x-show="error" x-text="error" class="mt-1 text-xs text-red-600"></p>
+                                <template x-if="preview"><img :src="preview" alt="" class="mt-2 h-24 rounded-lg object-cover ring-1 ring-chrome-200"></template>
                             </div>
                         </div>
                     @endforeach
@@ -671,21 +684,31 @@
                             <textarea wire:model="deposit_reason" rows="2" class="o-input w-full" placeholder="{{ __('Why is the deposit being deducted / kept…') }}"></textarea>
                             @error('deposit_reason') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
-                        <div>
+                        <div x-data="{
+                                 busy: false, error: '', previews: [],
+                                 async upload(e) {
+                                     this.busy = true; this.error = '';
+                                     for (const file of Array.from(e.target.files)) {
+                                         const data = new FormData(); data.append('file', file); data.append('bucket', 'rental_deposits');
+                                         try {
+                                             const r = await fetch(@js(route('form.upload-image')), { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content, 'Accept': 'application/json' }, body: data, credentials: 'same-origin' });
+                                             if (!r.ok) { const j = await r.json().catch(() => ({})); this.error = (j.errors && j.errors.file && j.errors.file[0]) || j.message || @js(__('Upload failed.')); continue; }
+                                             const j = await r.json(); this.previews.push(j.url); await $wire.call('addDepositPhoto', j.path);
+                                         } catch (err) { this.error = err.message || @js(__('Upload failed.')); }
+                                     }
+                                     e.target.value = ''; this.busy = false;
+                                 },
+                             }">
                             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Photos') }}</label>
-                            <input type="file" wire:model="depositPhotos" multiple accept="image/*" class="block w-full text-sm text-chrome-600 file:mr-3 file:rounded-lg file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-chrome-700">
+                            <input type="file" multiple accept="image/*" @change="upload($event)" class="block w-full text-sm text-chrome-600 file:mr-3 file:rounded-lg file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-chrome-700">
                             <p class="mt-1 text-xs text-chrome-400">{{ __('Attach photos of the damage / reason (recommended).') }}</p>
-                            <div wire:loading wire:target="depositPhotos" class="mt-1 text-xs text-chrome-400">{{ __('Uploading…') }}</div>
-                            @error('depositPhotos.*') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                            @if (! empty($depositPhotos))
-                                <div class="mt-2 flex flex-wrap gap-2">
-                                    @foreach ($depositPhotos as $p)
-                                        @if (method_exists($p, 'temporaryUrl'))
-                                            <img src="{{ $p->temporaryUrl() }}" class="size-14 rounded-lg object-cover ring-1 ring-chrome-900/10" alt="">
-                                        @endif
-                                    @endforeach
-                                </div>
-                            @endif
+                            <p x-show="busy" class="mt-1 text-xs text-chrome-400">{{ __('Uploading…') }}</p>
+                            <p x-show="error" x-text="error" class="mt-1 text-xs text-red-600"></p>
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                <template x-for="u in previews" :key="u">
+                                    <img :src="u" class="size-14 rounded-lg object-cover ring-1 ring-chrome-900/10" alt="">
+                                </template>
+                            </div>
                         </div>
                     @endif
 

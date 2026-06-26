@@ -70,6 +70,10 @@ final class FormImageUploadController
             // .github/workflows/deploy.yml (memory:
             // rsync-delete-wipes-user-uploads).
             'company',
+            // Rental: customer CPR/licence captured on the order, and deposit
+            // evidence photos. Excluded from the deploy rsync --delete.
+            'rental_orders',
+            'rental_deposits',
         ];
     }
 }

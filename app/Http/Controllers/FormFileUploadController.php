@@ -73,6 +73,8 @@ final class FormFileUploadController
             // Car registration / insurance PDFs (Rental). PDF-only via the
             // field's accept:'pdf'. Excluded from the deploy rsync --delete.
             'rental_vehicles',
+            // Company CR documents (PDF) on the customer record.
+            'rental_customers',
         ];
     }
 }

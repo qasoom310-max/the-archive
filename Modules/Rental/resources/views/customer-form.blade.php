@@ -65,12 +65,25 @@
                     <input type="text" wire:model="cr_number" class="o-input w-full">
                     @error('cr_number') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
-                <div>
+                <div x-data="{
+                         busy: false, error: '', done: false,
+                         async upload(e) {
+                             const file = e.target.files[0]; if (!file) return;
+                             this.busy = true; this.error = ''; this.done = false;
+                             const data = new FormData(); data.append('file', file); data.append('bucket', 'rental_customers'); data.append('only', 'pdf');
+                             try {
+                                 const r = await fetch(@js(route('form.upload-file')), { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content, 'Accept': 'application/json' }, body: data, credentials: 'same-origin' });
+                                 if (!r.ok) { const j = await r.json().catch(() => ({})); this.error = (j.errors && j.errors.file && j.errors.file[0]) || j.message || @js(__('Upload failed.')); return; }
+                                 const j = await r.json(); await $wire.set('crDocumentPath', j.path); this.done = true;
+                             } catch (err) { this.error = err.message || @js(__('Upload failed.')); } finally { this.busy = false; }
+                         },
+                     }">
                     <label class="{{ $lbl }}">{{ __('CR document (PDF)') }}</label>
-                    <input type="file" wire:model="crDocument" accept="application/pdf"
+                    <input type="file" accept="application/pdf" @change="upload($event)"
                         class="block w-full text-sm text-chrome-600 file:mr-3 file:rounded-lg file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-chrome-700">
-                    <div wire:loading wire:target="crDocument" class="mt-1 text-xs text-chrome-400">{{ __('Uploading…') }}</div>
-                    @error('crDocument') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    <p x-show="busy" class="mt-1 text-xs text-chrome-400">{{ __('Uploading…') }}</p>
+                    <p x-show="done" class="mt-1 text-xs text-emerald-600">{{ __('Uploaded — save to attach.') }}</p>
+                    <p x-show="error" x-text="error" class="mt-1 text-xs text-red-600"></p>
                     @if ($existingCrDocument)
                         <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($existingCrDocument) }}" target="_blank" rel="noopener" class="mt-1 inline-block text-xs font-medium text-primary-700 hover:underline">{{ __('View current CR') }} ↗</a>
                     @endif

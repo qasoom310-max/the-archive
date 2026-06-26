@@ -266,32 +266,53 @@ jobs:
           # bypasses that restriction. -s = symbolic, -f = replace existing,
           # -n = don't follow the target if dst is already a symlink (avoids
           # accidentally creating a link inside an existing link target).
-          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "cd ${{ secrets.DEPLOY_PATH }} && \
-             ln -sfn ${{ secrets.DEPLOY_PATH }}/storage/app/public ${{ secrets.DEPLOY_PATH }}/public/storage && \
-             php artisan migrate --force && \
-             php artisan workspaces:migrate && \
-             php artisan migrate --path=Modules/Pos/database/migrations --force && \
-             php artisan migrate --path=Modules/WhatsApp/database/migrations --force && \
-             php artisan migrate --path=Modules/Accounting/database/migrations --force && \
-             php artisan migrate --path=Modules/Purchases/database/migrations --force && \
-             php artisan migrate --path=Modules/Inventory/database/migrations --force && \
-             php artisan migrate --path=Modules/Rental/database/migrations --force && \
-             php artisan migrate --path=Modules/Limousine/database/migrations --force && \
-             php artisan migrate --path=Modules/WooCommerce/database/migrations --force && \
-             php artisan db:seed --class='Database\\Seeders\\SettingSeeder' --force && \
-             php artisan db:seed --class='Database\\Seeders\\PosStaffSeeder' --force && \
-             php artisan module:resync pos && \
-             php artisan module:resync accounting && \
-             php artisan module:install rental && \
-             php artisan module:resync rental && \
-             php artisan module:install limousine && \
-             php artisan module:resync limousine && \
-             php artisan module:install woocommerce && \
-             php artisan workspaces:install-modules && \
-             php artisan optimize:clear && \
-             php artisan config:cache && \
-             php artisan route:cache && \
-             php artisan view:cache && \
-             php artisan event:cache"
+          # Like the rsync step, Hostinger's SSH ingress can drop the handshake
+          # (or the connection mid-chain), failing an otherwise-good deploy with
+          # no migration changes pending. Every remote command below is
+          # idempotent (migrate --force, idempotent seeders, module
+          # resync/install, cache rebuilds), so retry the whole chain up to 3x —
+          # only a genuine 3x failure fails the deploy.
+          ok=0
+          for attempt in 1 2 3; do
+            echo "Remote post-deploy attempt $attempt of 3…"
+            if ssh -p ${{ secrets.SSH_PORT }} \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+              "cd ${{ secrets.DEPLOY_PATH }} && \
+               ln -sfn ${{ secrets.DEPLOY_PATH }}/storage/app/public ${{ secrets.DEPLOY_PATH }}/public/storage && \
+               php artisan migrate --force && \
+               php artisan workspaces:migrate && \
+               php artisan migrate --path=Modules/Pos/database/migrations --force && \
+               php artisan migrate --path=Modules/WhatsApp/database/migrations --force && \
+               php artisan migrate --path=Modules/Accounting/database/migrations --force && \
+               php artisan migrate --path=Modules/Purchases/database/migrations --force && \
+               php artisan migrate --path=Modules/Inventory/database/migrations --force && \
+               php artisan migrate --path=Modules/Rental/database/migrations --force && \
+               php artisan migrate --path=Modules/Limousine/database/migrations --force && \
+               php artisan migrate --path=Modules/WooCommerce/database/migrations --force && \
+               php artisan db:seed --class='Database\\Seeders\\SettingSeeder' --force && \
+               php artisan db:seed --class='Database\\Seeders\\PosStaffSeeder' --force && \
+               php artisan module:resync pos && \
+               php artisan module:resync accounting && \
+               php artisan module:install rental && \
+               php artisan module:resync rental && \
+               php artisan module:install limousine && \
+               php artisan module:resync limousine && \
+               php artisan module:install woocommerce && \
+               php artisan workspaces:install-modules && \
+               php artisan optimize:clear && \
+               php artisan config:cache && \
+               php artisan route:cache && \
+               php artisan view:cache && \
+               php artisan event:cache"; then
+              ok=1
+              break
+            fi
+            echo "Post-deploy attempt $attempt failed; retrying in 20s…"
+            sleep 20
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "Remote post-deploy failed after 3 attempts (Hostinger SSH)."
+            exit 1
+          fi

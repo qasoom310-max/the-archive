@@ -38,6 +38,7 @@ use Modules\Rental\Models\Concerns\DerivesServiceTag;
  */
 final class LimoCustomer extends Model implements DefinesIrModel
 {
+    use \App\Models\Concerns\HasCountryFlag;
     use DerivesServiceTag;
 
     /** Shared table — the single transport-customer store for both apps. */
@@ -58,12 +59,6 @@ final class LimoCustomer extends Model implements DefinesIrModel
     protected function casts(): array
     {
         return ['active' => 'boolean'];
-    }
-
-    /** Country flag emoji — shared logic with the rental customer model. */
-    public function getFlagAttribute(): string
-    {
-        return \Modules\Rental\Models\RentalCustomer::flagFor($this->country);
     }
 
     public static function irModelDefinition(): ModelDefinition

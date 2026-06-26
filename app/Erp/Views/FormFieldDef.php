@@ -36,6 +36,11 @@ final readonly class FormFieldDef
         public ?DynamicOptions $optionsSource = null,
         public bool $translatable = false,
         public bool $unique = false,
+        /**
+         * Restricts a `file` widget's accepted upload type. 'pdf' = PDF only
+         * (rejects images too); null = the controller's default (PDF + images).
+         */
+        public ?string $accept = null,
     ) {}
 
     public function isImage(): bool

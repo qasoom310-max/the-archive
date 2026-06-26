@@ -11,7 +11,7 @@ use Livewire\Component;
 use Modules\Rental\Models\Vehicle;
 
 #[Layout('components.layouts.app')]
-#[Title('Vehicle')]
+#[Title('Car')]
 final class VehicleForm extends Component
 {
     public ?int $id = null;

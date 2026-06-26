@@ -5,7 +5,7 @@
     <p>{{ __('Please find your car hire agreement attached (:ref).', ['ref' => $order->reference]) }}</p>
 
     <p>
-        {{ __('Vehicle') }}: <strong>{{ $order->vehicle?->displayName() ?? '—' }}</strong><br>
+        {{ __('Car') }}: <strong>{{ $order->vehicle?->displayName() ?? '—' }}</strong><br>
         {{ __('Pick-up date') }}: <strong>{{ optional($order->start_date)->format('d-m-Y') }}</strong> ·
         {{ __('Return date') }}: <strong>{{ optional($order->end_date)->format('d-m-Y') }}</strong>
     </p>

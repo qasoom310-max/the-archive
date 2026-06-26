@@ -9,7 +9,7 @@
         <h2 class="mb-4 text-sm font-semibold text-chrome-800">{{ __('Maintenance record') }}</h2>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-                <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Vehicle') }} *</label>
+                <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Car') }} *</label>
                 <select wire:model="vehicle_id" class="o-input w-full">
                     <option value="">{{ __('— Select —') }}</option>
                     @foreach ($vehicles as $v)

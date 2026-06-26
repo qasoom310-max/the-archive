@@ -8,6 +8,7 @@ use App\Erp\Settings\Setting;
 use App\Models\User;
 use Closure;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
@@ -324,7 +325,7 @@ final class OrderForm extends Component
                 $this->id,
             );
             if ($conflict !== null) {
-                $this->addError('vehicle_id', __('This vehicle is already booked (:ref) for overlapping dates.', ['ref' => $conflict->reference ?? '']));
+                $this->addError('vehicle_id', __('This car is already booked (:ref) for overlapping dates.', ['ref' => $conflict->reference ?? '']));
 
                 return;
             }
@@ -790,9 +791,33 @@ final class OrderForm extends Component
             ? Vehicle::query()->find($this->vehicle_id)
             : null;
 
+        // A car with lapsed registration / insurance is held out of the picker
+        // until it's renewed — except for a super-admin (urgent override). The
+        // currently-selected car is always kept so editing never drops it.
+        $user = Auth::user();
+        $isSuperAdmin = $user instanceof User && $user->isSuperAdmin();
+        $cols = ['id', 'name', 'plate_no', 'color', 'status', 'registration_expiry', 'insurance_expiry'];
+        $vehiclesQuery = Vehicle::query()->where('active', true);
+        if (! $isSuperAdmin) {
+            $current = $this->vehicle_id;
+            $today = Carbon::today();
+            $vehiclesQuery->where(function (Builder $q) use ($current, $today): void {
+                $q->where(function (Builder $valid) use ($today): void {
+                    $valid->whereNotNull('registration_expiry')
+                        ->whereNotNull('insurance_expiry')
+                        ->whereDate('registration_expiry', '>=', $today)
+                        ->whereDate('insurance_expiry', '>=', $today);
+                });
+                if ($current !== null) {
+                    $q->orWhere('id', $current);
+                }
+            });
+        }
+
         return view('rental::order-form', [
             'customers' => RentalCustomer::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'phone']),
-            'vehicles' => Vehicle::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'plate_no', 'color', 'status']),
+            'vehicles' => $vehiclesQuery->orderBy('name')->get($cols),
+            'isSuperAdmin' => $isSuperAdmin,
             'drivers' => Driver::query()->where('active', true)->orderBy('name')->get(['id', 'name']),
             'branches' => Branch::query()->where('active', true)->orderBy('name')->get(['id', 'name']),
             'selectedVehicle' => $selectedVehicle,

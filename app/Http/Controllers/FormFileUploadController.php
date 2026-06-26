@@ -25,12 +25,19 @@ final class FormFileUploadController
 {
     public function __invoke(Request $request): JsonResponse
     {
+        // `only=pdf` (set by a field declaring accept:'pdf') tightens the
+        // accepted types to PDF — nothing else gets through, server-side.
+        $mimes = $request->input('only') === 'pdf'
+            ? 'mimes:pdf'
+            : 'mimes:pdf,jpg,jpeg,png,gif,webp,bmp,avif,heic,heif';
+
         $validated = $request->validate([
-            'file'   => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,gif,webp,bmp,avif,heic,heif', 'max:8192'],
+            'file'   => ['required', 'file', $mimes, 'max:8192'],
             // `bucket` decides the storage subdirectory. Whitelisted so an
             // attacker can't path-traverse to write into an arbitrary disk
             // location (same guard as the image controller).
             'bucket' => ['required', 'string', 'max:64', Rule::in(self::allowedBuckets())],
+            'only'   => ['nullable', 'string', Rule::in(['pdf'])],
         ]);
 
         /** @var \Illuminate\Http\UploadedFile $file */
@@ -63,6 +70,9 @@ final class FormFileUploadController
             // Employee signed-agreement uploads (HR). Also excluded from the
             // deploy rsync --delete so they survive deploys.
             'employee_agreements',
+            // Car registration / insurance PDFs (Rental). PDF-only via the
+            // field's accept:'pdf'. Excluded from the deploy rsync --delete.
+            'rental_vehicles',
         ];
     }
 }

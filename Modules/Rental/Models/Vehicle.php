@@ -34,6 +34,10 @@ use Illuminate\Support\Carbon;
  * @property int|null $odometer
  * @property Carbon|null $next_maintenance_date
  * @property int|null $next_maintenance_mileage
+ * @property Carbon|null $registration_expiry
+ * @property string|null $registration_doc
+ * @property Carbon|null $insurance_expiry
+ * @property string|null $insurance_doc
  * @property bool $active
  */
 final class Vehicle extends Model implements DefinesIrModel
@@ -49,11 +53,15 @@ final class Vehicle extends Model implements DefinesIrModel
 
     public const STATUS_RESERVED = 'reserved';
 
+    /** Cars expiring within this many days are flagged for renewal. */
+    public const RENEWAL_REMINDER_DAYS = 30;
+
     /** @var list<string> */
     protected $fillable = [
         'name', 'plate_no', 'branch_id', 'make', 'model', 'year', 'color',
         'category', 'fuel_type', 'status', 'daily_rate', 'weekly_rate', 'monthly_rate',
-        'deposit', 'odometer', 'next_maintenance_date', 'next_maintenance_mileage', 'active',
+        'deposit', 'odometer', 'next_maintenance_date', 'next_maintenance_mileage',
+        'registration_expiry', 'registration_doc', 'insurance_expiry', 'insurance_doc', 'active',
     ];
 
     /** @var array<string, mixed> */
@@ -81,8 +89,76 @@ final class Vehicle extends Model implements DefinesIrModel
             'odometer' => 'integer',
             'next_maintenance_date' => 'date',
             'next_maintenance_mileage' => 'integer',
+            'registration_expiry' => 'date',
+            'insurance_expiry' => 'date',
             'active' => 'boolean',
         ];
+    }
+
+    /**
+     * Both papers present and not yet expired — a car is only roadworthy to
+     * rent out when its registration AND insurance are valid today.
+     */
+    public function documentsValid(): bool
+    {
+        $today = Carbon::today();
+
+        return $this->registration_expiry !== null
+            && $this->insurance_expiry !== null
+            && $this->registration_expiry->gte($today)
+            && $this->insurance_expiry->gte($today);
+    }
+
+    /** A paper is missing or its date has passed — needs renewal before use. */
+    public function needsRenewal(): bool
+    {
+        return ! $this->documentsValid();
+    }
+
+    /** The sooner of the two expiry dates (null if either paper is missing). */
+    public function nextDocExpiry(): ?Carbon
+    {
+        if ($this->registration_expiry === null || $this->insurance_expiry === null) {
+            return null;
+        }
+
+        return $this->registration_expiry->lte($this->insurance_expiry)
+            ? $this->registration_expiry
+            : $this->insurance_expiry;
+    }
+
+    /**
+     * The car is still valid but a paper expires within the reminder window —
+     * the cue to renew it before it falls out of the bookable list.
+     */
+    public function expiringSoon(int $days = self::RENEWAL_REMINDER_DAYS): bool
+    {
+        if (! $this->documentsValid()) {
+            return false;
+        }
+
+        $next = $this->nextDocExpiry();
+
+        return $next !== null && $next->lte(Carbon::today()->addDays($days));
+    }
+
+    /**
+     * Bookable cars: active, with valid registration AND insurance. Drives the
+     * order form's car picker for everyone except a super-admin (who may use a
+     * car with lapsed papers for an urgent case).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<Vehicle>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<Vehicle>
+     */
+    public function scopeBookable(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        $today = Carbon::today();
+
+        return $query->where('active', true)
+            ->whereNotNull('registration_expiry')
+            ->whereNotNull('insurance_expiry')
+            ->whereDate('registration_expiry', '>=', $today)
+            ->whereDate('insurance_expiry', '>=', $today);
     }
 
     /**
@@ -152,7 +228,7 @@ final class Vehicle extends Model implements DefinesIrModel
     {
         return new ModelDefinition(
             model: 'rental.vehicle',
-            name: 'Vehicle',
+            name: 'Car',
             class: self::class,
             table: 'rental_vehicles',
             module: 'rental',
@@ -174,10 +250,12 @@ final class Vehicle extends Model implements DefinesIrModel
                 new FieldDefinition('odometer', 'KM', 'integer', sequence: 140),
                 new FieldDefinition('next_maintenance_date', 'Next maintenance date', 'date', sequence: 142),
                 new FieldDefinition('next_maintenance_mileage', 'Next maintenance KM', 'integer', sequence: 144),
+                new FieldDefinition('registration_expiry', 'Registration expiry', 'date', sequence: 146),
+                new FieldDefinition('insurance_expiry', 'Insurance expiry', 'date', sequence: 148),
                 new FieldDefinition('active', 'Active', 'boolean', sequence: 150),
             ],
             views: [
-                new ViewDefinition('Vehicles', 'list', [
+                new ViewDefinition('Cars', 'list', [
                     'columns' => [
                         ['field' => 'name', 'label' => 'Name', 'sortable' => true],
                         ['field' => 'plate_no', 'label' => 'Plate'],
@@ -185,6 +263,8 @@ final class Vehicle extends Model implements DefinesIrModel
                         ['field' => 'category', 'label' => 'Category', 'format' => 'badge', 'sortable' => true],
                         ['field' => 'status', 'label' => 'Status', 'format' => 'badge', 'sortable' => true],
                         ['field' => 'daily_rate', 'label' => 'Daily', 'format' => 'money', 'align' => 'right', 'sortable' => true],
+                        ['field' => 'registration_expiry', 'label' => 'Registration', 'format' => 'date', 'sortable' => true],
+                        ['field' => 'insurance_expiry', 'label' => 'Insurance', 'format' => 'date', 'sortable' => true],
                         ['field' => 'active', 'label' => 'Active', 'format' => 'bool'],
                     ],
                     'default_sort' => [['field' => 'name', 'dir' => 'asc']],
@@ -192,7 +272,7 @@ final class Vehicle extends Model implements DefinesIrModel
                     'searchable' => ['name', 'plate_no', 'make', 'model'],
                     'open' => '/app/rental/vehicle/{id}',
                 ]),
-                new ViewDefinition('Vehicle', 'form', [
+                new ViewDefinition('Car', 'form', [
                     'cols' => 2,
                     'fields' => [
                         ['field' => 'name', 'label' => 'Name', 'widget' => 'text', 'required' => true, 'placeholder' => 'e.g. Toyota Yaris 2023'],
@@ -217,6 +297,10 @@ final class Vehicle extends Model implements DefinesIrModel
                         ['field' => 'odometer', 'label' => 'Current KM', 'widget' => 'number'],
                         ['field' => 'next_maintenance_date', 'label' => 'Next maintenance date', 'widget' => 'date'],
                         ['field' => 'next_maintenance_mileage', 'label' => 'Next maintenance KM', 'widget' => 'number'],
+                        ['field' => 'registration_expiry', 'label' => 'Registration expiry', 'widget' => 'date', 'help' => 'Car is hidden from booking once this passes (super-admin can override).'],
+                        ['field' => 'registration_doc', 'label' => 'Registration card (PDF)', 'widget' => 'file', 'accept' => 'pdf'],
+                        ['field' => 'insurance_expiry', 'label' => 'Insurance expiry', 'widget' => 'date', 'help' => 'Renewal date of the insurance.'],
+                        ['field' => 'insurance_doc', 'label' => 'Insurance receipt / papers (PDF)', 'widget' => 'file', 'accept' => 'pdf'],
                         ['field' => 'active', 'label' => 'Active', 'widget' => 'checkbox'],
                     ],
                 ]),

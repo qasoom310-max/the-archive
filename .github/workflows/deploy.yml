@@ -217,6 +217,9 @@ jobs:
               --exclude='storage/app/public/whatsapp-receipts/' \
               --exclude='storage/app/public/accounts/' \
               --exclude='storage/app/public/employee_agreements/' \
+              --exclude='storage/app/public/rental_vehicles/' \
+              --exclude='storage/app/public/rental_orders/' \
+              --exclude='storage/app/public/rental_deposits/' \
               --exclude='storage/app/workspaces/' \
               --exclude='storage/logs/' \
               --exclude='storage/framework/cache/data/' \

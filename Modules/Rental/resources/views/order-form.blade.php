@@ -248,21 +248,26 @@
                         <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M3 9.5 4.2 6.6A2 2 0 0 1 6 5.5h8a2 2 0 0 1 1.8 1.1L17 9.5a2 2 0 0 1 1 1.7V13a1 1 0 0 1-1 1h-1a2 2 0 1 1-4 0H8a2 2 0 1 1-4 0H3a1 1 0 0 1-1-1v-1.8a2 2 0 0 1 1-1.7Z"/><circle cx="6.5" cy="14" r="1.5"/><circle cx="13.5" cy="14" r="1.5"/></svg>
                     </span>
                     <div>
-                        <h2 class="text-sm font-semibold text-chrome-800">{{ __('Vehicle') }}</h2>
+                        <h2 class="text-sm font-semibold text-chrome-800">{{ __('Car') }}</h2>
                         <p class="text-xs text-chrome-400">{{ __('The car, branch and delivery.') }}</p>
                     </div>
                 </header>
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                        <label class="{{ $lbl }}">{{ __('Vehicle') }} <span class="text-red-500">*</span></label>
+                        <label class="{{ $lbl }}">{{ __('Car') }} <span class="text-red-500">*</span></label>
                         <select wire:model.live="vehicle_id" class="o-input w-full">
                             <option value="">{{ __('— Select —') }}</option>
                             @foreach ($vehicles as $v)
-                                <option value="{{ $v->id }}">{{ $v->displayName() }} ({{ __(ucfirst($v->status)) }})</option>
+                                <option value="{{ $v->id }}">{{ $v->displayName() }} ({{ __(ucfirst($v->status)) }}){{ $v->needsRenewal() ? ' — ' . __('papers expired') : '' }}</option>
                             @endforeach
                         </select>
                         @error('vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        @if ($selectedVehicle && $selectedVehicle->needsRenewal())
+                            <p class="mt-1 text-xs font-medium text-red-600">{{ __('This car’s registration/insurance has lapsed — renew it before renting (super-admin override only).') }}</p>
+                        @elseif ($selectedVehicle && $selectedVehicle->expiringSoon())
+                            <p class="mt-1 text-xs text-amber-600">{{ __('Papers expire on :date.', ['date' => $selectedVehicle->nextDocExpiry()?->format('Y-m-d')]) }}</p>
+                        @endif
                     </div>
                     <div>
                         <label class="{{ $lbl }}">{{ __('KM') }}</label>
@@ -303,7 +308,7 @@
                                     'maintenance' => 'bg-amber-100 text-amber-700',
                                 ][$selectedVehicle->status] ?? 'bg-chrome-200 text-chrome-700';
                                 $readout = [
-                                    __('Vehicle type') => $selectedVehicle->category ? __(ucfirst($selectedVehicle->category)) : '—',
+                                    __('Car type') => $selectedVehicle->category ? __(ucfirst($selectedVehicle->category)) : '—',
                                     __('Fuel type') => $selectedVehicle->fuel_type ? __(ucfirst($selectedVehicle->fuel_type)) : '—',
                                     __('Year') => $selectedVehicle->year ?: '—',
                                     __('Colour') => $selectedVehicle->color ?: '—',
@@ -536,7 +541,7 @@
             <div class="absolute inset-0 bg-chrome-900/40" wire:click="closeReturn"></div>
             <div class="relative w-full max-w-md rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5">
                 <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Return the car') }}</h3>
-                <p class="mb-3 text-xs text-chrome-500">{{ __('Record the car’s condition on return. The KM updates the vehicle.') }}</p>
+                <p class="mb-3 text-xs text-chrome-500">{{ __('Record the car’s condition on return. The KM updates the car.') }}</p>
                 <form wire:submit.prevent="confirmReturn" class="space-y-3">
                     <div class="grid grid-cols-2 gap-3">
                         <div>

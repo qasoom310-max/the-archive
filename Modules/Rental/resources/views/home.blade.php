@@ -21,6 +21,41 @@
         $carIcon = '<path d="M3 9.5 4.2 6.6A2 2 0 0 1 6 5.5h8a2 2 0 0 1 1.8 1.1L17 9.5a2 2 0 0 1 1 1.7V13a1 1 0 0 1-1 1h-1a2 2 0 1 1-4 0H8a2 2 0 1 1-4 0H3a1 1 0 0 1-1-1v-1.8a2 2 0 0 1 1-1.7Z"/><circle cx="6.5" cy="14" r="1.5"/><circle cx="13.5" cy="14" r="1.5"/>';
     @endphp
 
+    {{-- Registration / insurance renewal reminder: cars missing, expired, or
+         expiring within 30 days. Expired cars are held out of the booking list. --}}
+    @if ($renewalAlerts->isNotEmpty())
+        <div class="mb-8 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <div class="mb-2 flex items-center gap-2">
+                <svg class="size-5 text-amber-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.515 2.625H3.72c-1.345 0-2.188-1.458-1.515-2.625L8.485 2.495ZM10 6a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 6Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
+                <h2 class="text-sm font-semibold text-amber-800">{{ __('Car papers needing attention') }}</h2>
+            </div>
+            <ul class="divide-y divide-amber-200/60">
+                @foreach ($renewalAlerts as $car)
+                    @php
+                        $expired = $car->needsRenewal();
+                        $rows = [];
+                        foreach ([['label' => __('Registration'), 'date' => $car->registration_expiry], ['label' => __('Insurance'), 'date' => $car->insurance_expiry]] as $r) {
+                            if ($r['date'] === null) {
+                                $rows[] = $r['label'] . ' — ' . __('missing');
+                            } elseif ($r['date']->isPast()) {
+                                $rows[] = $r['label'] . ' — ' . __('expired :date', ['date' => $r['date']->format('Y-m-d')]);
+                            } elseif ($r['date']->lte(now()->addDays(\Modules\Rental\Models\Vehicle::RENEWAL_REMINDER_DAYS))) {
+                                $rows[] = $r['label'] . ' — ' . __('expires :date', ['date' => $r['date']->format('Y-m-d')]);
+                            }
+                        }
+                    @endphp
+                    <li class="flex items-center justify-between gap-3 py-2">
+                        <a href="{{ url('/app/rental/vehicle/' . $car->id) }}" wire:navigate class="font-medium text-chrome-800 hover:text-primary-700">{{ $car->displayName() }}</a>
+                        <div class="flex flex-wrap items-center justify-end gap-2 text-xs">
+                            <span class="text-chrome-600">{{ implode(' · ', $rows) }}</span>
+                            <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide {{ $expired ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700' }}">{{ $expired ? __('Expired — not bookable') : __('Renew soon') }}</span>
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     {{-- Order KPIs --}}
     <h2 class="mb-3 text-sm font-semibold text-chrome-800">{{ __('Orders') }}</h2>
     <div class="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">

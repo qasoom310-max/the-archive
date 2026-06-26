@@ -243,6 +243,7 @@ final readonly class ViewArch
                 optionsSource: self::parseOptionsSource($entry),
                 translatable: ($entry['translatable'] ?? false) === true,
                 unique: ($entry['unique'] ?? false) === true,
+                accept: self::str($entry, 'accept'),
             );
         }
 

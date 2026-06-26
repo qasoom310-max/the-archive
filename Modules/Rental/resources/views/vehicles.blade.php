@@ -1,7 +1,7 @@
 <div class="mx-auto max-w-7xl p-4 sm:p-6">
     <div class="mb-4 flex items-center justify-between">
         <div>
-            <h1 class="text-xl font-bold text-chrome-900">{{ __('Vehicles') }}</h1>
+            <h1 class="text-xl font-bold text-chrome-900">{{ __('Cars') }}</h1>
             <p class="text-sm text-chrome-500">{{ __('Your rental fleet.') }}</p>
         </div>
         <a href="{{ url('/app/rental/vehicle/new') }}" wire:navigate class="o-btn-primary">
@@ -13,6 +13,6 @@
     <livewire:views.list-view
         :model="\Modules\Rental\Models\Vehicle::class"
         model-key="rental.vehicle"
-        title="Vehicles"
+        title="Cars"
         :key="'rental-vehicles'" />
 </div>

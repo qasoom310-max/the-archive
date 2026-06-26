@@ -280,6 +280,7 @@
                         @php
                             $currentFile = $record->getAttribute($field->field);
                             $fileBucket = $record->getTable();
+                            $pdfOnly = $field->accept === 'pdf';
                             $fileUrl = $currentFile
                                 ? \Illuminate\Support\Facades\Storage::disk('public')->url($currentFile)
                                 : '';
@@ -299,6 +300,7 @@
                                      const data = new FormData();
                                      data.append('file', file);
                                      data.append('bucket', @js($fileBucket));
+                                     @if ($pdfOnly) data.append('only', 'pdf'); @endif
                                      try {
                                          const r = await fetch(@js(route('form.upload-file')), {
                                              method: 'POST',
@@ -333,9 +335,9 @@
                                 </a>
                             </template>
                             <div class="flex flex-col gap-1">
-                                <input type="file" accept=".pdf,image/*" @change="upload($event)"
+                                <input type="file" accept="{{ $pdfOnly ? 'application/pdf' : '.pdf,image/*' }}" @change="upload($event)"
                                     class="text-sm text-chrome-600 file:me-3 file:rounded-md file:border-0 file:bg-chrome-100 file:px-3 file:py-1.5 file:text-sm">
-                                <p class="text-xs text-chrome-400">{{ __('Accepted: PDF, JPG, PNG, WebP · max 8 MB') }}</p>
+                                <p class="text-xs text-chrome-400">{{ $pdfOnly ? __('PDF only · max 8 MB') : __('Accepted: PDF, JPG, PNG, WebP · max 8 MB') }}</p>
                                 <p x-show="busy" class="text-xs text-chrome-400">{{ __('Uploading…') }}</p>
                                 <p x-show="error" x-text="error" class="text-xs text-red-600"></p>
                             </div>

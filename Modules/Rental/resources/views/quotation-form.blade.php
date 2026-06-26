@@ -56,7 +56,7 @@
                     </div>
 
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Vehicle') }} *</label>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Car') }} *</label>
                         <select wire:model.live="vehicle_id" class="o-input w-full">
                             <option value="">{{ __('— Select —') }}</option>
                             @foreach ($vehicles as $v)

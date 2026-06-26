@@ -53,7 +53,7 @@
                 <tr>
                     <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Customer') }}</th>
-                    <th class="px-4 py-2 text-start">{{ __('Vehicle') }}</th>
+                    <th class="px-4 py-2 text-start">{{ __('Car') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Pick-up') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Return') }}</th>
                     <th class="px-4 py-2 text-end">{{ __('Total') }}</th>

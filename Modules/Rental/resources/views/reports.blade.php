@@ -5,7 +5,7 @@
     </div>
 
     {{-- Tabs --}}
-    @php $tabs = ['summary' => __('Rental report'), 'orders' => __('Orders'), 'vehicles' => __('Vehicles'), 'customers' => __('Customers')]; @endphp
+    @php $tabs = ['summary' => __('Rental report'), 'orders' => __('Orders'), 'vehicles' => __('Cars'), 'customers' => __('Customers')]; @endphp
     <div class="mb-4 flex flex-wrap items-center gap-1 border-b border-chrome-200">
         @foreach ($tabs as $key => $label)
             <button wire:click="$set('tab', '{{ $key }}')"
@@ -64,7 +64,7 @@
                     <tr>
                         <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
                         <th class="px-4 py-2 text-start">{{ __('Customer') }}</th>
-                        <th class="px-4 py-2 text-start">{{ __('Vehicle') }}</th>
+                        <th class="px-4 py-2 text-start">{{ __('Car') }}</th>
                         <th class="px-4 py-2 text-start">{{ __('Pick-up') }}</th>
                         <th class="px-4 py-2 text-start">{{ __('Status') }}</th>
                         <th class="px-4 py-2 text-end">{{ __('Total') }}</th>
@@ -102,7 +102,7 @@
             <table class="min-w-full divide-y divide-chrome-100 text-sm">
                 <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                     <tr>
-                        <th class="px-4 py-2 text-start">{{ __('Vehicle') }}</th>
+                        <th class="px-4 py-2 text-start">{{ __('Car') }}</th>
                         <th class="px-4 py-2 text-start">{{ __('Current status') }}</th>
                         <th class="px-4 py-2 text-end">{{ __('Orders') }}</th>
                         <th class="px-4 py-2 text-end">{{ __('Days out') }}</th>

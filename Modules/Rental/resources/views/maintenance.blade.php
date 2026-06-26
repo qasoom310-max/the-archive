@@ -27,7 +27,7 @@
             <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                 <tr>
                     <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
-                    <th class="px-4 py-2 text-start">{{ __('Vehicle') }}</th>
+                    <th class="px-4 py-2 text-start">{{ __('Car') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Type') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Date') }}</th>
                     <th class="px-4 py-2 text-end">{{ __('Cost') }}</th>

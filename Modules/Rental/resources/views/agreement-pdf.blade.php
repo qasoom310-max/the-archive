@@ -75,7 +75,7 @@
         </td>
         <td style="width:2%"></td>
         <td class="col">
-            <h2>{{ __('Vehicle') }}</h2>
+            <h2>{{ __('Car') }}</h2>
             <table class="kv">
                 <tr><td class="k">{{ __('Type of Car') }}</td><td class="v">{{ $carType }}</td></tr>
                 <tr><td class="k">{{ __('Car No.') }}</td><td class="v">{{ $veh?->plate_no ?? '—' }}</td></tr>

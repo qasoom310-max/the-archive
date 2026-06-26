@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\Layout;
@@ -75,30 +76,19 @@ final class MaintenanceForm extends Component
             'description' => ['nullable', 'string'],
             'cost' => ['nullable', 'numeric', 'min:0'],
             'odometer' => ['nullable', 'numeric', 'min:0'],
-            'status' => ['required', 'in:scheduled,in_progress,done'],
             'notes' => ['nullable', 'string'],
         ];
     }
 
+    /**
+     * Save the record's DETAILS only. The status is never set here — it moves
+     * through the workflow buttons (Start / Complete / Cancel), so an employee
+     * can't free-type a car into "done" or jump states. A new record is born
+     * Scheduled and leaves the car untouched.
+     */
     public function save(): void
     {
         $this->validate();
-
-        // A car that's out (rented) or held (reserved) can't be pulled into
-        // maintenance — it has to be freed (do a replacement) and back at the
-        // branch first. Only "in progress" takes the car off the road; just
-        // scheduling ahead is fine. A car already under maintenance (this very
-        // record) passes, so re-saving / editing isn't blocked.
-        $vehicle = $this->vehicle_id !== null ? Vehicle::query()->find($this->vehicle_id) : null;
-        if (
-            $this->status === RentalMaintenance::STATUS_IN_PROGRESS
-            && $vehicle !== null
-            && ! in_array($vehicle->status, [Vehicle::STATUS_AVAILABLE, Vehicle::STATUS_MAINTENANCE], true)
-        ) {
-            $this->addError('vehicle_id', __('This car is :status — free it first (do a replacement so it’s back at the branch) before starting maintenance.', ['status' => __(ucfirst($vehicle->status))]));
-
-            return;
-        }
 
         $record = $this->id !== null ? RentalMaintenance::query()->find($this->id) : new RentalMaintenance();
         if ($record === null) {
@@ -111,15 +101,66 @@ final class MaintenanceForm extends Component
         $record->description = $this->description !== '' ? $this->description : null;
         $record->cost = (float) ($this->cost === '' ? '0' : $this->cost);
         $record->odometer = $this->odometer !== '' ? (int) $this->odometer : null;
-        $record->status = $this->status;
         $record->notes = $this->notes !== '' ? $this->notes : null;
         $record->save();
 
-        // Keep the vehicle's availability in step with the record.
-        $record->syncVehicleStatus();
-
         session()->flash('toast', __('Maintenance record saved.'));
-        $this->redirect('/app/rental/maintenance', navigate: true);
+        // Land on the record so its workflow panel (Start / Complete) shows.
+        $this->redirect('/app/rental/maintenance/' . $record->id, navigate: true);
+    }
+
+    /** Run a workflow transition against the saved record, then refresh status. */
+    private function withRecord(Closure $fn): void
+    {
+        if ($this->id === null) {
+            return;
+        }
+
+        $record = RentalMaintenance::query()->with('vehicle')->find($this->id);
+        if ($record === null) {
+            return;
+        }
+
+        $fn($record); // the transition mutates $record->status in place
+        $this->status = $record->status;
+    }
+
+    /** Scheduled → In progress. Blocked unless the car is free at the branch. */
+    public function startMaintenance(): void
+    {
+        if ($this->id === null) {
+            return;
+        }
+
+        $record = RentalMaintenance::query()->with('vehicle')->find($this->id);
+        if ($record === null) {
+            return;
+        }
+
+        if (! $record->vehicleIsFree()) {
+            $carStatus = (string) (Vehicle::query()->whereKey($record->vehicle_id)->value('status') ?? 'rented');
+            session()->flash('toast', __('This car is :status — free it first (do a replacement so it’s back at the branch) before starting maintenance.', ['status' => __(ucfirst($carStatus))]));
+
+            return;
+        }
+
+        $record->start(); // mutates $record->status in place
+        $this->status = $record->status;
+        session()->flash('toast', __('Maintenance started.'));
+    }
+
+    /** In progress → Done. Frees the car back to Available. */
+    public function completeMaintenance(): void
+    {
+        $this->withRecord(fn (RentalMaintenance $r) => $r->complete());
+        session()->flash('toast', __('Maintenance completed — car is available again.'));
+    }
+
+    /** Scheduled → Cancelled. */
+    public function cancelMaintenance(): void
+    {
+        $this->withRecord(fn (RentalMaintenance $r) => $r->cancelRecord());
+        session()->flash('toast', __('Maintenance cancelled.'));
     }
 
     public function render(): View
@@ -127,7 +168,6 @@ final class MaintenanceForm extends Component
         return view('rental::maintenance-form', [
             'vehicles' => Vehicle::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'plate_no', 'color', 'status']),
             'typeOptions' => RentalMaintenance::typeOptions(),
-            'statusOptions' => RentalMaintenance::statusOptions(),
             'isEditing' => $this->id !== null,
         ]);
     }

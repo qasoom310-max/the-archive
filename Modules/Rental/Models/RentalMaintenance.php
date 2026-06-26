@@ -38,6 +38,8 @@ final class RentalMaintenance extends Model implements DefinesIrModel
 
     public const STATUS_DONE = 'done';
 
+    public const STATUS_CANCELLED = 'cancelled';
+
     /** @var list<string> */
     protected $fillable = [
         'reference', 'vehicle_id', 'date', 'type', 'description',
@@ -104,6 +106,80 @@ final class RentalMaintenance extends Model implements DefinesIrModel
     }
 
     /**
+     * The car is free to take off the road — available at the branch, or already
+     * under maintenance (held by this very record). A rented / reserved car is
+     * NOT free: it must be released (e.g. a replacement) first.
+     */
+    public function vehicleIsFree(): bool
+    {
+        $vehicle = $this->vehicle;
+
+        return $vehicle !== null
+            && in_array($vehicle->status, [Vehicle::STATUS_AVAILABLE, Vehicle::STATUS_MAINTENANCE], true);
+    }
+
+    /**
+     * Workflow — Scheduled → Start. Takes the car off the road. Refuses if the
+     * record isn't scheduled or the car isn't free; returns whether it moved.
+     */
+    public function start(): bool
+    {
+        if ($this->status !== self::STATUS_SCHEDULED || ! $this->vehicleIsFree()) {
+            return false;
+        }
+
+        $this->status = self::STATUS_IN_PROGRESS;
+        $this->save();
+
+        if ($this->vehicle_id !== null) {
+            Vehicle::query()->whereKey($this->vehicle_id)->update(['status' => Vehicle::STATUS_MAINTENANCE]);
+        }
+
+        return true;
+    }
+
+    /** Workflow — In progress → Done. Frees the car back to Available. */
+    public function complete(): bool
+    {
+        if ($this->status !== self::STATUS_IN_PROGRESS) {
+            return false;
+        }
+
+        $this->status = self::STATUS_DONE;
+        $this->save();
+
+        if ($this->vehicle_id !== null) {
+            Vehicle::query()->whereKey($this->vehicle_id)->update(['status' => Vehicle::STATUS_AVAILABLE]);
+        }
+
+        return true;
+    }
+
+    /** Workflow — Scheduled → Cancelled (a plan that won't happen). */
+    public function cancelRecord(): bool
+    {
+        if ($this->status !== self::STATUS_SCHEDULED) {
+            return false;
+        }
+
+        $this->status = self::STATUS_CANCELLED;
+        $this->save();
+
+        return true;
+    }
+
+    /** Human label for the current status. */
+    public function statusLabel(): string
+    {
+        return match ($this->status) {
+            self::STATUS_IN_PROGRESS => 'In progress',
+            self::STATUS_DONE => 'Done',
+            self::STATUS_CANCELLED => 'Cancelled',
+            default => 'Scheduled',
+        };
+    }
+
+    /**
      * @return list<array{value: string, label: string}>
      */
     public static function typeOptions(): array
@@ -129,6 +205,7 @@ final class RentalMaintenance extends Model implements DefinesIrModel
             ['value' => self::STATUS_SCHEDULED, 'label' => 'Scheduled'],
             ['value' => self::STATUS_IN_PROGRESS, 'label' => 'In progress'],
             ['value' => self::STATUS_DONE, 'label' => 'Done'],
+            ['value' => self::STATUS_CANCELLED, 'label' => 'Cancelled'],
         ];
     }
 

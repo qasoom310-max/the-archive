@@ -14,9 +14,10 @@ use Modules\Rental\Models\Vehicle;
 use Tests\TestCase;
 
 /**
- * A rented-out (or reserved) car can't be sent straight into maintenance — it
- * must be freed (via a replacement) and back at the branch first. Only an
- * "in progress" record is blocked; scheduling ahead is allowed.
+ * Maintenance is a guarded workflow (Scheduled → Start → Complete / Cancel),
+ * not a free status dropdown. Starting takes the car off the road and is
+ * blocked unless the car is free at the branch — a rented/reserved car must be
+ * released (e.g. a replacement) first.
  */
 final class RentalMaintenanceGuardTest extends TestCase
 {
@@ -29,82 +30,93 @@ final class RentalMaintenanceGuardTest extends TestCase
         app(ModuleManager::class)->install('rental');
     }
 
-    public function test_a_rented_car_cannot_be_put_into_maintenance(): void
+    private function car(string $status): Vehicle
     {
-        $car = Vehicle::query()->create(['name' => 'Eco Sport', 'daily_rate' => 10, 'status' => Vehicle::STATUS_RENTED]);
-
-        Livewire::test(MaintenanceForm::class)
-            ->set('vehicle_id', $car->id)
-            ->set('type', 'service')
-            ->set('cost', '22')
-            ->set('status', RentalMaintenance::STATUS_IN_PROGRESS)
-            ->call('save')
-            ->assertHasErrors('vehicle_id');
-
-        $this->assertSame(Vehicle::STATUS_RENTED, $car->fresh()?->status); // untouched
-        $this->assertSame(0, RentalMaintenance::query()->count());          // nothing saved
+        return Vehicle::query()->create(['name' => 'Eco Sport', 'daily_rate' => 10, 'status' => $status]);
     }
 
-    public function test_a_reserved_car_cannot_be_put_into_maintenance(): void
+    private function scheduledRecord(Vehicle $car): RentalMaintenance
     {
-        $car = Vehicle::query()->create(['name' => 'Yaris', 'daily_rate' => 10, 'status' => Vehicle::STATUS_RESERVED]);
+        return RentalMaintenance::query()->create([
+            'vehicle_id' => $car->id, 'type' => 'service', 'date' => now(), 'cost' => 22,
+            'status' => RentalMaintenance::STATUS_SCHEDULED,
+        ]);
+    }
 
-        Livewire::test(MaintenanceForm::class)
-            ->set('vehicle_id', $car->id)
-            ->set('status', RentalMaintenance::STATUS_IN_PROGRESS)
-            ->call('save')
-            ->assertHasErrors('vehicle_id');
+    public function test_a_rented_car_cannot_be_started_into_maintenance(): void
+    {
+        $car = $this->car(Vehicle::STATUS_RENTED);
+        $record = $this->scheduledRecord($car);
+
+        Livewire::test(MaintenanceForm::class, ['id' => $record->id])->call('startMaintenance');
+
+        $this->assertSame(Vehicle::STATUS_RENTED, $car->fresh()?->status);                  // untouched
+        $this->assertSame(RentalMaintenance::STATUS_SCHEDULED, $record->fresh()?->status);   // didn't start
+    }
+
+    public function test_a_reserved_car_cannot_be_started_into_maintenance(): void
+    {
+        $car = $this->car(Vehicle::STATUS_RESERVED);
+        $record = $this->scheduledRecord($car);
+
+        Livewire::test(MaintenanceForm::class, ['id' => $record->id])->call('startMaintenance');
 
         $this->assertSame(Vehicle::STATUS_RESERVED, $car->fresh()?->status);
+        $this->assertSame(RentalMaintenance::STATUS_SCHEDULED, $record->fresh()?->status);
     }
 
-    public function test_an_available_car_goes_into_maintenance(): void
+    public function test_an_available_car_starts_into_maintenance(): void
     {
-        $car = Vehicle::query()->create(['name' => 'Camry', 'daily_rate' => 10, 'status' => Vehicle::STATUS_AVAILABLE]);
+        $car = $this->car(Vehicle::STATUS_AVAILABLE);
+        $record = $this->scheduledRecord($car);
 
-        Livewire::test(MaintenanceForm::class)
-            ->set('vehicle_id', $car->id)
-            ->set('type', 'service')
-            ->set('cost', '22')
-            ->set('status', RentalMaintenance::STATUS_IN_PROGRESS)
-            ->call('save')
-            ->assertHasNoErrors();
+        Livewire::test(MaintenanceForm::class, ['id' => $record->id])->call('startMaintenance');
 
         $this->assertSame(Vehicle::STATUS_MAINTENANCE, $car->fresh()?->status);
-        $this->assertSame(1, RentalMaintenance::query()->count());
+        $this->assertSame(RentalMaintenance::STATUS_IN_PROGRESS, $record->fresh()?->status);
     }
 
-    public function test_scheduling_maintenance_for_a_rented_car_is_allowed(): void
+    public function test_completing_maintenance_frees_the_car(): void
     {
-        // Planning a future service while the car is still out is fine — it
-        // doesn't pull the car off the road (status stays as-is).
-        $car = Vehicle::query()->create(['name' => 'Sunny', 'daily_rate' => 10, 'status' => Vehicle::STATUS_RENTED]);
+        $car = $this->car(Vehicle::STATUS_MAINTENANCE);
+        $record = RentalMaintenance::query()->create([
+            'vehicle_id' => $car->id, 'type' => 'service', 'date' => now(),
+            'status' => RentalMaintenance::STATUS_IN_PROGRESS,
+        ]);
+
+        Livewire::test(MaintenanceForm::class, ['id' => $record->id])->call('completeMaintenance');
+
+        $this->assertSame(Vehicle::STATUS_AVAILABLE, $car->fresh()?->status);
+        $this->assertSame(RentalMaintenance::STATUS_DONE, $record->fresh()?->status);
+    }
+
+    public function test_cancelling_a_scheduled_record_leaves_the_car_alone(): void
+    {
+        $car = $this->car(Vehicle::STATUS_AVAILABLE);
+        $record = $this->scheduledRecord($car);
+
+        Livewire::test(MaintenanceForm::class, ['id' => $record->id])->call('cancelMaintenance');
+
+        $this->assertSame(RentalMaintenance::STATUS_CANCELLED, $record->fresh()?->status);
+        $this->assertSame(Vehicle::STATUS_AVAILABLE, $car->fresh()?->status);
+    }
+
+    public function test_scheduling_for_a_rented_car_is_allowed(): void
+    {
+        // Planning a future service while the car is out is fine — a new record
+        // is born Scheduled and doesn't touch the car's availability.
+        $car = $this->car(Vehicle::STATUS_RENTED);
 
         Livewire::test(MaintenanceForm::class)
             ->set('vehicle_id', $car->id)
-            ->set('status', RentalMaintenance::STATUS_SCHEDULED)
+            ->set('date', now()->format('Y-m-d'))
+            ->set('type', 'service')
+            ->set('cost', '22')
             ->call('save')
             ->assertHasNoErrors();
 
+        $record = RentalMaintenance::query()->first();
+        $this->assertSame(RentalMaintenance::STATUS_SCHEDULED, $record?->status);
         $this->assertSame(Vehicle::STATUS_RENTED, $car->fresh()?->status); // still out
-        $this->assertSame(1, RentalMaintenance::query()->count());
-    }
-
-    public function test_editing_an_existing_in_progress_record_is_not_blocked(): void
-    {
-        // Car already under maintenance because of this record — re-saving it
-        // (e.g. adding notes) must not trip the guard.
-        $car = Vehicle::query()->create(['name' => 'Accent', 'daily_rate' => 10, 'status' => Vehicle::STATUS_MAINTENANCE]);
-        $record = RentalMaintenance::query()->create([
-            'vehicle_id' => $car->id, 'type' => 'service', 'cost' => 10,
-            'date' => now(), 'status' => RentalMaintenance::STATUS_IN_PROGRESS,
-        ]);
-
-        Livewire::test(MaintenanceForm::class, ['id' => $record->id])
-            ->set('notes', 'Waiting on parts')
-            ->call('save')
-            ->assertHasNoErrors();
-
-        $this->assertSame('Waiting on parts', $record->fresh()?->notes);
     }
 }

@@ -173,6 +173,31 @@
                 @endif
             </div>
 
+            {{-- What was found at return — the accountant's basis for any deduction. --}}
+            @if ($savedOrder->depositPending() && ($savedOrder->has_damage || $savedOrder->extra_charge > 0 || $savedOrder->fuelChargeTotal() > 0 || $savedOrder->damage_video_url || $savedOrder->return_video_url))
+                <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3">
+                    <p class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700">{{ __('From the return — basis for any deduction') }}</p>
+                    <dl class="space-y-1 text-sm text-chrome-700">
+                        @if ($savedOrder->has_damage)
+                            <div class="flex justify-between gap-3"><dt class="text-chrome-500">{{ __('Damage') }}</dt><dd class="font-semibold text-red-600">{{ __('Reported') }}</dd></div>
+                            @if ($savedOrder->damage_notes)<p class="text-xs text-chrome-600">{{ $savedOrder->damage_notes }}</p>@endif
+                        @endif
+                        @if ($savedOrder->extra_charge > 0)
+                            <div class="flex justify-between gap-3"><dt class="text-chrome-500">{{ __('Extra charge') }}{{ $savedOrder->extra_charge_note ? ' · ' . $savedOrder->extra_charge_note : '' }}</dt><dd class="font-medium text-amber-700">{{ ValueFormat::money($savedOrder->extra_charge) }}</dd></div>
+                        @endif
+                        @if ($savedOrder->fuelChargeTotal() > 0)
+                            <div class="flex justify-between gap-3"><dt class="text-chrome-500">{{ __('Fuel charge') }}</dt><dd class="font-medium text-amber-700">{{ ValueFormat::money($savedOrder->fuelChargeTotal()) }}</dd></div>
+                        @endif
+                    </dl>
+                    @if ($savedOrder->damage_video_url || $savedOrder->return_video_url)
+                        <div class="mt-1.5 flex flex-wrap gap-3 text-xs">
+                            @if ($savedOrder->damage_video_url)<a href="{{ $savedOrder->damage_video_url }}" target="_blank" rel="noopener" class="font-medium text-primary-700 hover:underline">{{ __('Damage video') }} ↗</a>@endif
+                            @if ($savedOrder->return_video_url)<a href="{{ $savedOrder->return_video_url }}" target="_blank" rel="noopener" class="font-medium text-primary-700 hover:underline">{{ __('Return video') }} ↗</a>@endif
+                        </div>
+                    @endif
+                </div>
+            @endif
+
             @unless ($savedOrder->depositPending())
                 <dl class="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-chrome-600 sm:grid-cols-3">
                     <div class="flex justify-between"><dt>{{ __('Returned') }}</dt><dd class="font-medium text-emerald-700">{{ ValueFormat::money($savedOrder->depositRefundAmount()) }}</dd></div>
@@ -701,6 +726,26 @@
             <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5">
                 <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Settle deposit') }}</h3>
                 <p class="mb-3 text-xs text-chrome-500">{{ __('Return the :amount deposit, deduct part of it, or keep it all.', ['amount' => ValueFormat::money($savedOrder?->deposit ?? 0)]) }}</p>
+
+                {{-- Recap of what was found at return, so the deduction is informed. --}}
+                @if ($savedOrder && ($savedOrder->has_damage || $savedOrder->extra_charge > 0 || $savedOrder->fuelChargeTotal() > 0 || $savedOrder->damage_video_url))
+                    <div class="mb-3 rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-sm">
+                        <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700">{{ __('From the return') }}</p>
+                        @if ($savedOrder->has_damage)
+                            <p class="text-red-600"><span class="font-semibold">{{ __('Damage reported') }}</span>{{ $savedOrder->damage_notes ? ' — ' . $savedOrder->damage_notes : '' }}</p>
+                        @endif
+                        @if ($savedOrder->extra_charge > 0)
+                            <p class="text-chrome-700">{{ __('Extra charge') }}: <span class="font-medium text-amber-700">{{ ValueFormat::money($savedOrder->extra_charge) }}</span>{{ $savedOrder->extra_charge_note ? ' · ' . $savedOrder->extra_charge_note : '' }}</p>
+                        @endif
+                        @if ($savedOrder->fuelChargeTotal() > 0)
+                            <p class="text-chrome-700">{{ __('Fuel charge') }}: <span class="font-medium text-amber-700">{{ ValueFormat::money($savedOrder->fuelChargeTotal()) }}</span></p>
+                        @endif
+                        @if ($savedOrder->damage_video_url)
+                            <a href="{{ $savedOrder->damage_video_url }}" target="_blank" rel="noopener" class="text-xs font-medium text-primary-700 hover:underline">{{ __('Damage video') }} ↗</a>
+                        @endif
+                    </div>
+                @endif
+
                 <form wire:submit.prevent="confirmDeposit" class="space-y-3">
                     <div class="space-y-2">
                         @foreach (['refund' => __('Refund in full'), 'deduct' => __('Deduct an amount'), 'forfeit' => __('Non-refundable (keep it all)')] as $val => $label)

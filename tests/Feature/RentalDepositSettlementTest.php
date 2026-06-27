@@ -230,4 +230,38 @@ final class RentalDepositSettlementTest extends TestCase
             ->assertDontSee('Deposits to refund')
             ->assertDontSee('DueCustomerZ');
     }
+
+    public function test_the_accountant_is_alerted_when_a_held_deposit_has_damage_or_charges(): void
+    {
+        $accountant = User::factory()->create(['is_accountant' => true]);
+        // Returned 2 days ago (still within the hold) but with damage flagged.
+        $order = $this->closedOrder(50, returnedDaysAgo: 2, customer: 'DamageCust');
+        $order->forceFill(['has_damage' => true, 'damage_notes' => 'Scratched bumper'])->save();
+
+        $titles = array_map(
+            static fn ($i): string => $i->title,
+            app(\Modules\Rental\Support\RentalNotifications::class)->for($accountant),
+        );
+
+        $this->assertContains('Deposits with damage / charges', $titles);
+
+        // A non-accountant manager isn't shown it.
+        $plain = User::factory()->create(['is_admin' => true, 'is_accountant' => false, 'is_super_admin' => false]);
+        $plainTitles = array_map(
+            static fn ($i): string => $i->title,
+            app(\Modules\Rental\Support\RentalNotifications::class)->for($plain),
+        );
+        $this->assertNotContains('Deposits with damage / charges', $plainTitles);
+    }
+
+    public function test_the_deposit_panel_shows_the_return_findings_for_the_accountant(): void
+    {
+        $this->actingAs(User::factory()->create(['is_accountant' => true]));
+        $order = $this->closedOrder(50, returnedDaysAgo: 2);
+        $order->forceFill(['has_damage' => true, 'damage_notes' => 'Cracked mirror', 'extra_charge' => 15])->save();
+
+        Livewire::test(OrderForm::class, ['id' => $order->id])
+            ->assertSee('From the return — basis for any deduction')
+            ->assertSee('Cracked mirror');
+    }
 }

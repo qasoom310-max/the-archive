@@ -84,6 +84,29 @@ final class RentalNotifications
                     group: __('Deposits'),
                 );
             }
+
+            // Held deposits whose return flagged damage / extra / fuel charges —
+            // the accountant should review a possible deduction (surfaced as soon
+            // as it's recorded, not only once the hold elapses).
+            $flagged = RentalOrder::query()
+                ->where('deposit', '>', 0)
+                ->where('deposit_status', RentalOrder::DEPOSIT_HELD)
+                ->whereNotNull('returned_at')
+                ->where(function ($q): void {
+                    $q->where('has_damage', true)
+                        ->orWhere('extra_charge', '>', 0)
+                        ->orWhere('fuel_charge', '>', 0);
+                })
+                ->count();
+            if ($flagged > 0) {
+                $items[] = new NotificationItem(
+                    title: __('Deposits with damage / charges'),
+                    description: __(':count to review before refund', ['count' => $flagged]),
+                    url: url('/app/rental'),
+                    level: 'warning',
+                    group: __('Deposits'),
+                );
+            }
         }
 
         // The requester — the outcome (approved / declined) of work orders they

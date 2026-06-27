@@ -79,6 +79,10 @@ use Illuminate\Support\Carbon;
  * @property string|null $damage_notes
  * @property string|null $damage_video_url
  * @property Carbon|null $returned_at
+ * @property Carbon|null $fines_checked_at
+ * @property float $fines_amount
+ * @property string|null $fines_notes
+ * @property int|null $fines_checked_by_user_id
  * @property string|null $return_video_url
  * @property-read RentalCustomer|null $customer
  * @property-read Vehicle|null $vehicle
@@ -142,6 +146,7 @@ final class RentalOrder extends Model implements DefinesIrModel
         'cpr_image_path', 'license_image_path',
         'handover_km', 'handover_fuel', 'handover_notes', 'handover_video_url', 'started_at',
         'return_km', 'return_fuel', 'fuel_charge', 'extra_charge', 'extra_charge_note', 'has_damage', 'damage_notes', 'damage_video_url', 'returned_at', 'return_video_url',
+        'fines_checked_at', 'fines_amount', 'fines_notes', 'fines_checked_by_user_id',
     ];
 
     /** @var array<string, mixed> */
@@ -205,6 +210,9 @@ final class RentalOrder extends Model implements DefinesIrModel
             'extra_charge' => 'float',
             'has_damage' => 'boolean',
             'returned_at' => 'datetime',
+            'fines_checked_at' => 'datetime',
+            'fines_amount' => 'float',
+            'fines_checked_by_user_id' => 'integer',
             'payment_confirmed' => 'boolean',
             'confirmed_by_user_id' => 'integer',
             'confirmed_at' => 'datetime',
@@ -375,6 +383,26 @@ final class RentalOrder extends Model implements DefinesIrModel
     public function depositPending(): bool
     {
         return $this->deposit > 0 && $this->deposit_status === self::DEPOSIT_HELD;
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function finesCheckedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'fines_checked_by_user_id');
+    }
+
+    /**
+     * The car is back with a held deposit, but nobody has confirmed yet whether a
+     * traffic fine came in — staff must record a fine (or "none") during the hold.
+     */
+    public function finesCheckPending(): bool
+    {
+        return $this->returned_at !== null
+            && $this->deposit > 0
+            && $this->deposit_status === self::DEPOSIT_HELD
+            && $this->fines_checked_at === null;
     }
 
     /** Last day the security deposit is held before it's returned. */

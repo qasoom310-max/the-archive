@@ -12,7 +12,7 @@
     @php
         $tabs = [
             'all' => __('All'),
-            'draft' => __('Draft'),
+            'draft' => __('Reservation'),
             'active' => __('Active'),
             'closed' => __('Closed'),
             'cancelled' => __('Cancelled'),
@@ -29,8 +29,15 @@
         @endforeach
     </div>
 
-    {{-- Date range (by pick-up date) --}}
+    {{-- Search + date range (by pick-up date) --}}
     <div class="mb-4 flex flex-wrap items-end gap-3">
+        <div class="min-w-[16rem] flex-1">
+            <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Search') }}</label>
+            <div class="relative">
+                <svg class="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-chrome-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 3.4 9.82l3.64 3.64a1 1 0 0 0 1.42-1.42l-3.64-3.64A5.5 5.5 0 0 0 9 3.5ZM5.5 9a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0Z" clip-rule="evenodd"/></svg>
+                <input type="search" wire:model.live.debounce.300ms="search" class="o-input w-full ps-9 text-sm" placeholder="{{ __('Reference, customer, car or plate…') }}">
+            </div>
+        </div>
         <div>
             <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Pick-up from') }}</label>
             <input type="date" wire:model.live="from" class="o-input text-sm">
@@ -39,8 +46,8 @@
             <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Pick-up to') }}</label>
             <input type="date" wire:model.live="to" class="o-input text-sm">
         </div>
-        @if ($from !== '' || $to !== '')
-            <button wire:click="$set('from', ''); $set('to', '')" class="text-sm text-chrome-500 hover:underline">{{ __('Clear') }}</button>
+        @if ($from !== '' || $to !== '' || $search !== '')
+            <button wire:click="$set('from', ''); $set('to', ''); $set('search', '')" class="text-sm text-chrome-500 hover:underline">{{ __('Clear') }}</button>
         @endif
     </div>
 
@@ -92,7 +99,7 @@
                         <td class="px-4 py-2 text-chrome-600">{{ $order->start_date?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2 text-chrome-600">{{ $order->end_date?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($order->total) }}</td>
-                        <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst($order->state)) }}</span></td>
+                        <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ $order->state === 'draft' ? __('Reservation') : __(ucfirst($order->state)) }}</span></td>
                         <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $order->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($order->payment_status)) }}</span></td>
                     </tr>
                 @empty

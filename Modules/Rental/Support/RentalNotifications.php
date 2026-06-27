@@ -65,6 +65,27 @@ final class RentalNotifications
                     group: __('Cars'),
                 );
             }
+
+            // Returned cars still inside the deposit hold whose traffic fines
+            // haven't been checked yet. Staff must confirm a fine (or none)
+            // before the hold elapses and the deposit is settled.
+            $finesWindow = now()->subDays(RentalOrder::DEPOSIT_HOLD_DAYS)->toDateString();
+            $finesDue = RentalOrder::query()
+                ->where('deposit', '>', 0)
+                ->where('deposit_status', RentalOrder::DEPOSIT_HELD)
+                ->whereNotNull('returned_at')
+                ->whereNull('fines_checked_at')
+                ->whereDate('returned_at', '>', $finesWindow)
+                ->count();
+            if ($finesDue > 0) {
+                $items[] = new NotificationItem(
+                    title: __('Check cars for traffic fines'),
+                    description: __(':count to check before the deposit hold ends', ['count' => $finesDue]),
+                    url: url('/app/rental'),
+                    level: 'warning',
+                    group: __('Traffic fines'),
+                );
+            }
         }
 
         // Accountants / super-admin — deposits past their hold, ready to refund.

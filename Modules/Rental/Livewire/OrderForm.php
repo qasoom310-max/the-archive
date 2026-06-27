@@ -141,6 +141,13 @@ final class OrderForm extends Component
     /** Mandatory video of the car's condition on return. */
     public string $return_video_url = '';
 
+    /** Traffic-fines check modal (staff record any fine during the deposit hold). */
+    public bool $showFines = false;
+
+    public string $fines_amount = '0';
+
+    public string $fines_notes = '';
+
     /** Deposit settlement modal (accountant / super-admin only). */
     public bool $showDeposit = false;
 
@@ -554,6 +561,65 @@ final class OrderForm extends Component
     public function closeReturn(): void
     {
         $this->showReturn = false;
+    }
+
+    /** Open the traffic-fines check (any signed-in staff/admin may record it). */
+    public function openFines(): void
+    {
+        if ($this->id === null) {
+            return;
+        }
+
+        $order = RentalOrder::query()->find($this->id);
+        if ($order === null) {
+            return;
+        }
+
+        $this->fines_amount = (string) $order->fines_amount;
+        $this->fines_notes = $order->fines_notes ?? '';
+        $this->resetValidation();
+        $this->showFines = true;
+    }
+
+    public function closeFines(): void
+    {
+        $this->showFines = false;
+    }
+
+    /**
+     * Record any traffic fine that came in during the deposit hold (0 = none).
+     * Confirming marks the check done so the accountant can settle informed.
+     */
+    public function recordFines(): void
+    {
+        abort_unless(Auth::check(), 403);
+
+        if ($this->id === null) {
+            return;
+        }
+
+        $this->validate([
+            'fines_amount' => ['required', 'numeric', 'min:0'],
+            'fines_notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $order = RentalOrder::query()->find($this->id);
+        if ($order === null) {
+            return;
+        }
+
+        $order->fines_amount = $this->toFloat($this->fines_amount);
+        $order->fines_notes = $this->trimOrNull($this->fines_notes);
+        $order->fines_checked_at = Carbon::now();
+        $order->fines_checked_by_user_id = Auth::id();
+        $order->save();
+
+        app(ActivityLogger::class)->logFor($order, 'updated', $order->fines_amount > 0
+            ? __('Traffic fine recorded: :amount', ['amount' => \App\Erp\Views\ValueFormat::money($order->fines_amount)])
+            : __('Checked — no traffic fines'));
+
+        $this->showFines = false;
+        session()->flash('toast', __('Traffic-fines check saved.'));
     }
 
     /** Record the return details, then receive the car back (active → closed). */

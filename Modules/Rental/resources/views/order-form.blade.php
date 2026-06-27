@@ -26,7 +26,7 @@
         <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
             <div class="flex flex-wrap items-center gap-2.5">
                 <span class="text-sm font-semibold text-chrome-800">{{ $reference }}</span>
-                <span class="rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $stateBadge }}">{{ __(ucfirst($state)) }}</span>
+                <span class="rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $stateBadge }}">{{ $state === 'draft' ? __('Reservation') : __(ucfirst($state)) }}</span>
                 @if ($savedOrder?->createdBy)
                     <span class="text-[11px] text-chrome-400">{{ __('Created by') }} {{ $savedOrder->createdBy->name }} · {{ $savedOrder->created_at?->format('Y-m-d') }}</span>
                 @endif
@@ -58,6 +58,16 @@
                 {{-- Swap the car mid-rental (only while it's actually out). --}}
                 @if ($savedOrder && $state === 'active' && $savedOrder->started_at && ! $savedOrder->returned_at)
                     <a href="{{ url('/app/rental/replacement/new?order=' . $id) }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Replace car') }}</a>
+                @endif
+
+                {{-- Traffic-fines check during the deposit hold (after return). --}}
+                @if ($savedOrder && $savedOrder->returned_at && $savedOrder->depositPending())
+                    <button wire:click="openFines" class="o-btn-ghost text-sm">
+                        {{ __('Traffic fines') }}
+                        @if ($savedOrder->finesCheckPending())
+                            <span class="ms-1 inline-block size-2 rounded-full bg-amber-500" title="{{ __('Not checked yet') }}"></span>
+                        @endif
+                    </button>
                 @endif
 
                 @if ($state !== 'cancelled')
@@ -173,10 +183,13 @@
                 @endif
             </div>
 
-            {{-- What was found at return — the accountant's basis for any deduction. --}}
-            @if ($savedOrder->depositPending() && ($savedOrder->has_damage || $savedOrder->extra_charge > 0 || $savedOrder->fuelChargeTotal() > 0 || $savedOrder->damage_video_url || $savedOrder->return_video_url))
+            {{-- What was found at return + the fines check — the accountant's basis for any deduction. --}}
+            @if ($savedOrder->depositPending() && ($savedOrder->has_damage || $savedOrder->extra_charge > 0 || $savedOrder->fuelChargeTotal() > 0 || $savedOrder->damage_video_url || $savedOrder->return_video_url || $savedOrder->fines_amount > 0 || $savedOrder->finesCheckPending()))
                 <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3">
                     <p class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700">{{ __('From the return — basis for any deduction') }}</p>
+                    @if ($savedOrder->finesCheckPending())
+                        <p class="mb-1.5 inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">⚠ {{ __('Traffic fines not checked yet — use the “Traffic fines” button before settling.') }}</p>
+                    @endif
                     <dl class="space-y-1 text-sm text-chrome-700">
                         @if ($savedOrder->has_damage)
                             <div class="flex justify-between gap-3"><dt class="text-chrome-500">{{ __('Damage') }}</dt><dd class="font-semibold text-red-600">{{ __('Reported') }}</dd></div>
@@ -187,6 +200,9 @@
                         @endif
                         @if ($savedOrder->fuelChargeTotal() > 0)
                             <div class="flex justify-between gap-3"><dt class="text-chrome-500">{{ __('Fuel charge') }}</dt><dd class="font-medium text-amber-700">{{ ValueFormat::money($savedOrder->fuelChargeTotal()) }}</dd></div>
+                        @endif
+                        @if ($savedOrder->fines_amount > 0)
+                            <div class="flex justify-between gap-3"><dt class="text-chrome-500">{{ __('Traffic fine') }}{{ $savedOrder->fines_notes ? ' · ' . $savedOrder->fines_notes : '' }}</dt><dd class="font-medium text-amber-700">{{ ValueFormat::money($savedOrder->fines_amount) }}</dd></div>
                         @endif
                     </dl>
                     @if ($savedOrder->damage_video_url || $savedOrder->return_video_url)
@@ -489,8 +505,8 @@
                     <label class="{{ $lbl }}">{{ __('Payment type') }}</label>
                     <div class="flex flex-wrap gap-2">
                         @foreach ($paymentTypes as $pt)
-                            <label class="cursor-pointer">
-                                <input type="radio" wire:model="payment_type" value="{{ $pt['value'] }}" class="peer sr-only">
+                            <label class="cursor-pointer" wire:key="pt-{{ $pt['value'] }}">
+                                <input type="radio" wire:model.live="payment_type" value="{{ $pt['value'] }}" class="peer sr-only">
                                 <span class="block rounded-lg border border-chrome-200 px-3 py-1.5 text-sm text-chrome-600 transition hover:bg-chrome-50 peer-checked:border-primary-500 peer-checked:bg-primary-50 peer-checked:font-medium peer-checked:text-primary-700">{{ __($pt['label']) }}</span>
                             </label>
                         @endforeach
@@ -547,6 +563,32 @@
                             </div>
                         </div>
                     @endforeach
+                </div>
+
+                {{-- Reference: which driving licences we accept and the rules.
+                     Content is a placeholder until the official list is provided. --}}
+                <div class="mt-4" x-data="{ open: false }">
+                    <button type="button" @click="open = ! open"
+                        class="flex w-full items-center justify-between rounded-xl border border-chrome-200 bg-chrome-50/60 px-4 py-2.5 text-sm font-medium text-chrome-700 hover:bg-chrome-50">
+                        <span class="flex items-center gap-2">
+                            <svg class="size-4 text-primary-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.25v1.75a.75.75 0 0 0 1.5 0V10A1 1 0 0 0 9.75 9H9Z" clip-rule="evenodd"/></svg>
+                            {{ __('Accepted driving licences & rules') }}
+                        </span>
+                        <svg class="size-4 text-chrome-400 transition" :class="open && 'rotate-180'" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>
+                    </button>
+                    <div x-show="open" x-cloak x-transition class="mt-2 rounded-xl border border-chrome-200 p-4 text-sm text-chrome-600">
+                        <p class="mb-2 text-xs text-chrome-400">{{ __('Reference only — for staff to check a customer’s licence before handover.') }}</p>
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                                <h3 class="mb-1 text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Accepted countries') }}</h3>
+                                <p class="text-chrome-400">{{ __('The official list will be added here.') }}</p>
+                            </div>
+                            <div>
+                                <h3 class="mb-1 text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Rules & conditions') }}</h3>
+                                <p class="text-chrome-400">{{ __('The rules will be added here.') }}</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
         </div>
@@ -691,6 +733,7 @@
                         {{ __('Customer caused damage') }}
                     </label>
                     @if ($has_damage)
+                        <p class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{{ __('Charge it now in “Extra charge” above; note any police/traffic report in the damage notes. Fines that arrive later go under the “Traffic fines” button.') }}</p>
                         <div>
                             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Damage notes') }} <span class="text-red-500">*</span></label>
                             <textarea wire:model="damage_notes" rows="2" class="o-input w-full" placeholder="{{ __('What was damaged…') }}"></textarea>
@@ -727,8 +770,8 @@
                 <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Settle deposit') }}</h3>
                 <p class="mb-3 text-xs text-chrome-500">{{ __('Return the :amount deposit, deduct part of it, or keep it all.', ['amount' => ValueFormat::money($savedOrder?->deposit ?? 0)]) }}</p>
 
-                {{-- Recap of what was found at return, so the deduction is informed. --}}
-                @if ($savedOrder && ($savedOrder->has_damage || $savedOrder->extra_charge > 0 || $savedOrder->fuelChargeTotal() > 0 || $savedOrder->damage_video_url))
+                {{-- Recap of what was found at return + any traffic fine, so the deduction is informed. --}}
+                @if ($savedOrder && ($savedOrder->has_damage || $savedOrder->extra_charge > 0 || $savedOrder->fuelChargeTotal() > 0 || $savedOrder->damage_video_url || $savedOrder->fines_amount > 0 || $savedOrder->finesCheckPending()))
                     <div class="mb-3 rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-sm">
                         <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700">{{ __('From the return') }}</p>
                         @if ($savedOrder->has_damage)
@@ -739,6 +782,11 @@
                         @endif
                         @if ($savedOrder->fuelChargeTotal() > 0)
                             <p class="text-chrome-700">{{ __('Fuel charge') }}: <span class="font-medium text-amber-700">{{ ValueFormat::money($savedOrder->fuelChargeTotal()) }}</span></p>
+                        @endif
+                        @if ($savedOrder->fines_amount > 0)
+                            <p class="text-chrome-700">{{ __('Traffic fine') }}: <span class="font-medium text-amber-700">{{ ValueFormat::money($savedOrder->fines_amount) }}</span>{{ $savedOrder->fines_notes ? ' · ' . $savedOrder->fines_notes : '' }}</p>
+                        @elseif ($savedOrder->finesCheckPending())
+                            <p class="font-medium text-amber-800">⚠ {{ __('Traffic fines not checked yet.') }}</p>
                         @endif
                         @if ($savedOrder->damage_video_url)
                             <a href="{{ $savedOrder->damage_video_url }}" target="_blank" rel="noopener" class="text-xs font-medium text-primary-700 hover:underline">{{ __('Damage video') }} ↗</a>
@@ -804,6 +852,37 @@
                     <div class="flex justify-end gap-2 pt-1">
                         <button type="button" wire:click="closeDeposit" class="text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</button>
                         <button type="submit" class="o-btn-primary">{{ __('Confirm') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
+
+    {{-- ─────────────── Traffic fines check (any staff/admin) ─────────────── --}}
+    @if ($showFines)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4" x-data x-on:keydown.escape.window="$wire.closeFines()">
+            <div class="absolute inset-0 bg-chrome-900/40" wire:click="closeFines"></div>
+            <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5">
+                <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Traffic fines') }}</h3>
+                <p class="mb-3 text-xs text-chrome-500">{{ __('Fines often arrive after the car is back. Record any fine from the rental period — or 0 if none — so the deposit can be settled correctly.') }}</p>
+                <form wire:submit.prevent="recordFines" class="space-y-3">
+                    <div>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Fine amount (BHD)') }}</label>
+                        <input type="number" step="0.001" min="0" wire:model="fines_amount" class="o-input w-full" placeholder="0.000">
+                        @error('fines_amount') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        <p class="mt-1 text-xs text-chrome-400">{{ __('Leave 0 to confirm there were no fines.') }}</p>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Details / reference') }}</label>
+                        <textarea wire:model="fines_notes" rows="2" class="o-input w-full" placeholder="{{ __('e.g. speeding fine, ticket no. …') }}"></textarea>
+                        @error('fines_notes') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    @if ($savedOrder && $savedOrder->fines_checked_at)
+                        <p class="text-xs text-chrome-400">{{ __('Last checked :when', ['when' => $savedOrder->fines_checked_at->format('Y-m-d H:i')]) }}{{ $savedOrder->finesCheckedBy ? ' · ' . $savedOrder->finesCheckedBy->name : '' }}</p>
+                    @endif
+                    <div class="flex items-center justify-end gap-3 pt-1">
+                        <button type="button" wire:click="closeFines" class="text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</button>
+                        <button type="submit" class="o-btn-primary">{{ __('Save check') }}</button>
                     </div>
                 </form>
             </div>

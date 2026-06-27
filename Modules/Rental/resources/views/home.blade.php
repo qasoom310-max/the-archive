@@ -214,7 +214,7 @@
         @php
             $orderCards = [
                 ['label' => __('Active Orders'), 'value' => $activeOrders, 'href' => url('/app/rental/order?tab=active'), 'icon' => 'doc', 'tint' => 'bg-sky-50 text-sky-600 ring-sky-100'],
-                ['label' => __('Pending (Draft)'), 'value' => $draftOrders, 'href' => url('/app/rental/order?tab=draft'), 'icon' => 'clock', 'tint' => 'bg-chrome-100 text-chrome-600 ring-chrome-200'],
+                ['label' => __('Reservations'), 'value' => $draftOrders, 'href' => url('/app/rental/order?tab=draft'), 'icon' => 'clock', 'tint' => 'bg-chrome-100 text-chrome-600 ring-chrome-200'],
                 ['label' => __('Returns Due'), 'value' => $returnsDue, 'href' => url('/app/rental/order?tab=active'), 'icon' => 'calendar', 'tint' => 'bg-amber-50 text-amber-600 ring-amber-100'],
                 ['label' => __('Unpaid Orders'), 'value' => $unpaidOrders, 'href' => url('/app/rental/order'), 'icon' => 'alert', 'tint' => 'bg-red-50 text-red-600 ring-red-100'],
             ];
@@ -256,23 +256,24 @@
     <div class="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         @php
             $cards = [
-                ['label' => __('Total Fleet'), 'value' => $total, 'icon' => 'car', 'tint' => 'bg-chrome-100 text-chrome-700 ring-chrome-200'],
-                ['label' => __('Available'), 'value' => $available, 'icon' => 'check', 'tint' => 'bg-emerald-50 text-emerald-600 ring-emerald-100'],
-                ['label' => __('Rented'), 'value' => $rented, 'icon' => 'key', 'tint' => 'bg-sky-50 text-sky-600 ring-sky-100'],
-                ['label' => __('Under Maintenance'), 'value' => $maintenance, 'icon' => 'wrench', 'tint' => 'bg-amber-50 text-amber-600 ring-amber-100'],
-                ['label' => __('Reserved'), 'value' => $reserved, 'icon' => 'bookmark', 'tint' => 'bg-violet-50 text-violet-600 ring-violet-100'],
+                ['label' => __('Total Fleet'), 'value' => $total, 'icon' => 'car', 'tint' => 'bg-chrome-100 text-chrome-700 ring-chrome-200', 'href' => url('/app/rental/vehicle')],
+                ['label' => __('Available'), 'value' => $available, 'icon' => 'check', 'tint' => 'bg-emerald-50 text-emerald-600 ring-emerald-100', 'href' => url('/app/rental/vehicle?search=available')],
+                ['label' => __('Rented'), 'value' => $rented, 'icon' => 'key', 'tint' => 'bg-sky-50 text-sky-600 ring-sky-100', 'href' => url('/app/rental/vehicle?search=rented')],
+                ['label' => __('Under Maintenance'), 'value' => $maintenance, 'icon' => 'wrench', 'tint' => 'bg-amber-50 text-amber-600 ring-amber-100', 'href' => url('/app/rental/vehicle?search=maintenance')],
+                ['label' => __('Reserved'), 'value' => $reserved, 'icon' => 'bookmark', 'tint' => 'bg-violet-50 text-violet-600 ring-violet-100', 'href' => url('/app/rental/vehicle?search=reserved')],
             ];
         @endphp
         @foreach ($cards as $card)
-            <div class="{{ $tile }}">
+            <a href="{{ $card['href'] }}" wire:navigate class="{{ $tile }} group block transition hover:ring-chrome-300 hover:shadow-md">
                 <div class="flex items-center justify-between">
                     <span class="flex size-9 items-center justify-center rounded-xl ring-1 {{ $card['tint'] }}">
                         <svg class="size-5" viewBox="0 0 20 20" fill="currentColor">{!! $ic[$card['icon']] !!}</svg>
                     </span>
+                    <svg class="size-4 text-chrome-300 opacity-0 transition group-hover:opacity-100" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/></svg>
                 </div>
                 <div class="mt-3 text-3xl font-bold tracking-tight text-chrome-900">{{ $card['value'] }}</div>
                 <div class="text-sm font-medium text-chrome-500">{{ $card['label'] }}</div>
-            </div>
+            </a>
         @endforeach
     </div>
 

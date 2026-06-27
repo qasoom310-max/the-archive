@@ -32,6 +32,14 @@ final class Orders extends Component
     #[Url]
     public string $to = '';
 
+    #[Url]
+    public string $search = '';
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
     public function updatedTab(): void
     {
         $this->resetPage();
@@ -67,6 +75,16 @@ final class Orders extends Component
         }
         if ($this->to !== '') {
             $query->whereDate('start_date', '<=', $this->to);
+        }
+
+        $term = trim($this->search);
+        if ($term !== '') {
+            $like = '%' . $term . '%';
+            $query->where(function ($q) use ($like): void {
+                $q->where('reference', 'like', $like)
+                    ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', $like))
+                    ->orWhereHas('vehicle', fn ($v) => $v->where('name', 'like', $like)->orWhere('plate_no', 'like', $like));
+            });
         }
 
         $counts = RentalOrder::query()

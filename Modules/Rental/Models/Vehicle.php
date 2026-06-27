@@ -306,7 +306,7 @@ final class Vehicle extends Model implements DefinesIrModel
                     ],
                     'default_sort' => [['field' => 'name', 'dir' => 'asc']],
                     'per_page' => 20,
-                    'searchable' => ['name', 'plate_no', 'make', 'model'],
+                    'searchable' => ['name', 'plate_no', 'make', 'model', 'status'],
                     'open' => '/app/rental/vehicle/{id}',
                 ]),
                 new ViewDefinition('Car', 'form', [

@@ -75,4 +75,35 @@ final class RentalOrdersListTest extends TestCase
 
         Livewire::test(Orders::class)->assertSee('Sara Customer-Service'); // creator shows on the list
     }
+
+    public function test_the_search_box_filters_by_customer_reference_and_plate(): void
+    {
+        $alpha = RentalCustomer::query()->create(['name' => 'Alpha Renter', 'phone' => '39000010']);
+        $beta = RentalCustomer::query()->create(['name' => 'Beta Renter', 'phone' => '39000011']);
+        $carA = Vehicle::query()->create(['name' => 'Patrol', 'plate_no' => 'AAA111', 'daily_rate' => 10]);
+        $carB = Vehicle::query()->create(['name' => 'Sunny', 'plate_no' => 'BBB222', 'daily_rate' => 10]);
+
+        RentalOrder::query()->create([
+            'customer_id' => $alpha->id, 'vehicle_id' => $carA->id,
+            'start_date' => Carbon::parse('2026-06-24'), 'end_date' => Carbon::parse('2026-06-25'),
+            'rate_type' => 'daily', 'rate' => 10,
+        ]);
+        RentalOrder::query()->create([
+            'customer_id' => $beta->id, 'vehicle_id' => $carB->id,
+            'start_date' => Carbon::parse('2026-06-24'), 'end_date' => Carbon::parse('2026-06-25'),
+            'rate_type' => 'daily', 'rate' => 10,
+        ]);
+
+        // By customer name.
+        Livewire::test(Orders::class)
+            ->set('search', 'Alpha')
+            ->assertSee('Alpha Renter')
+            ->assertDontSee('Beta Renter');
+
+        // By plate number.
+        Livewire::test(Orders::class)
+            ->set('search', 'BBB222')
+            ->assertSee('Beta Renter')
+            ->assertDontSee('Alpha Renter');
+    }
 }

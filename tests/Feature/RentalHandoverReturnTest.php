@@ -131,6 +131,24 @@ final class RentalHandoverReturnTest extends TestCase
         $this->assertSame(RentalOrder::STATE_ACTIVE, $order->fresh()?->state);
     }
 
+    public function test_a_super_admin_can_close_without_a_return_video(): void
+    {
+        [$order] = $this->draftOrder();
+        $order->startRental();
+
+        $this->actingAs(\App\Models\User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+
+        Livewire::test(OrderForm::class, ['id' => $order->id])
+            ->call('closeRental')
+            ->set('return_km', '10500')
+            ->set('return_fuel', 'full')
+            ->set('return_video_url', '')   // no video — allowed for a super-admin
+            ->call('confirmReturn')
+            ->assertHasNoErrors();
+
+        $this->assertSame(RentalOrder::STATE_CLOSED, $order->fresh()?->state);
+    }
+
     public function test_return_km_below_the_handover_km_is_rejected(): void
     {
         [$order] = $this->draftOrder();

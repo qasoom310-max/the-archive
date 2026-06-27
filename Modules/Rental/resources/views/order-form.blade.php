@@ -680,9 +680,9 @@
                     @endif
                     {{-- Mandatory return video — the car's condition on return, captured every time. --}}
                     <div class="border-t border-chrome-100 pt-3">
-                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Return video') }} <span class="text-red-500">*</span></label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Return video') }} @unless ($isSuperAdmin)<span class="text-red-500">*</span>@endunless</label>
                         <x-stream-video-upload target="return_video_url" :url="$return_video_url" />
-                        <p class="mt-1 text-xs text-chrome-400">{{ __('Required. Record the car on return. Uploads to Cloudflare; share the link with the team.') }}</p>
+                        <p class="mt-1 text-xs text-chrome-400">@unless ($isSuperAdmin){{ __('Required. ') }}@endunless{{ __('Record the car on return. Uploads to Cloudflare; share the link with the team.') }}</p>
                         @error('return_video_url') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div class="flex justify-end gap-2 pt-1">

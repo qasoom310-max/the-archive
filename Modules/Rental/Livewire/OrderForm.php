@@ -580,7 +580,9 @@ final class OrderForm extends Component
             'has_damage' => ['boolean'],
             'damage_notes' => $this->has_damage ? ['required', 'string', 'max:1000'] : ['nullable', 'string', 'max:1000'],
             'damage_video_url' => ['nullable', 'url', 'max:500'],
-            'return_video_url' => ['required', 'url', 'max:500'],
+            // A return video is required to close — except a super-admin may close
+            // without one (e.g. while video upload isn't configured).
+            'return_video_url' => $this->isSuperAdmin() ? ['nullable', 'url', 'max:500'] : ['required', 'url', 'max:500'],
         ], [
             'return_km.min' => __('The return KM can’t be less than the handover KM (:km).', ['km' => $floor]),
             'return_video_url.required' => __('A return video is required to close the rental.'),

@@ -37,6 +37,7 @@ final class RentalCarCostTest extends TestCase
             ->set('purchaseInput', '350')
             ->set('invoicePath', 'rental_vehicles/inv.pdf')
             ->set('agreementPath', 'rental_vehicles/agreement.pdf')
+            ->set('isOutsideInput', true)
             ->call('saveCost')
             ->assertHasNoErrors();
 
@@ -44,6 +45,7 @@ final class RentalCarCostTest extends TestCase
         $this->assertSame(350.0, $car->purchase_price);
         $this->assertSame('rental_vehicles/inv.pdf', $car->purchase_invoice);
         $this->assertSame('rental_vehicles/agreement.pdf', $car->agreement_copy);
+        $this->assertTrue($car->is_outside); // marked as a rented-in car
     }
 
     public function test_a_manager_can_also_save_cost(): void

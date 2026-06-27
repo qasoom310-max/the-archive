@@ -245,6 +245,10 @@
     {{-- ───────── Fleet status ───────── --}}
     <div class="mb-3 flex items-center gap-2">
         <h2 class="text-xs font-bold uppercase tracking-wider text-chrome-500">{{ __('Fleet status') }}</h2>
+        <span class="text-[11px] font-medium text-chrome-400">{{ __('(owned cars)') }}</span>
+        @if ($outsideCount > 0)
+            <span class="rounded-full bg-chrome-100 px-2 py-0.5 text-[11px] font-medium text-chrome-500">{{ __('+ :count rented in', ['count' => $outsideCount]) }}</span>
+        @endif
         <span class="h-px flex-1 bg-chrome-200"></span>
     </div>
     <div class="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">

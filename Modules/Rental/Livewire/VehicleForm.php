@@ -30,6 +30,9 @@ final class VehicleForm extends Component
 
     public string $agreementPath = '';
 
+    /** Whether this car is rented in from outside (not company-owned). */
+    public bool $isOutsideInput = false;
+
     public function mount(?int $id = null): void
     {
         $this->id = $id;
@@ -42,6 +45,7 @@ final class VehicleForm extends Component
             $this->purchaseInput = $car !== null && $car->purchase_price > 0
                 ? rtrim(rtrim(number_format($car->purchase_price, 3, '.', ''), '0'), '.')
                 : '';
+            $this->isOutsideInput = $car !== null && $car->is_outside;
         }
     }
 
@@ -64,6 +68,7 @@ final class VehicleForm extends Component
         }
 
         $car->purchase_price = $this->purchaseInput === '' ? 0.0 : max(0.0, (float) $this->purchaseInput);
+        $car->is_outside = $this->isOutsideInput;
         if ($this->invoicePath !== '') {
             $car->purchase_invoice = $this->invoicePath;
         }

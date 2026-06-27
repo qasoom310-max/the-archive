@@ -78,6 +78,8 @@ final class CarImporter
             }
 
             $year = isset($cols['year']) ? (int) preg_replace('/\D/', '', (string) ($row[$cols['year']] ?? '')) : 0;
+            $outside = isset($cols['outside'])
+                && in_array(strtolower(trim((string) ($row[$cols['outside']] ?? ''))), ['yes', 'y', '1', 'true', 'outside'], true);
 
             Vehicle::query()->create([
                 'name' => $name,
@@ -86,6 +88,7 @@ final class CarImporter
                 'color' => isset($cols['color']) ? ($this->clean((string) ($row[$cols['color']] ?? '')) ?: null) : null,
                 'category' => $this->category(isset($cols['type']) ? (string) ($row[$cols['type']] ?? '') : ''),
                 'status' => $this->status(isset($cols['status']) ? (string) ($row[$cols['status']] ?? '') : ''),
+                'is_outside' => $outside,
                 'active' => true,
             ]);
 
@@ -108,6 +111,7 @@ final class CarImporter
             in_array($key, ['color', 'colour'], true) => 'color',
             in_array($key, ['type', 'category', 'class'], true) => 'type',
             $key === 'status' => 'status',
+            in_array($key, ['outside vehicle', 'outside', 'outside_vehicle', 'rented in', 'rented-in'], true) => 'outside',
             default => null,
         };
     }

@@ -43,6 +43,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $insurance_expiry
  * @property string|null $insurance_doc
  * @property bool $active
+ * @property bool $is_outside
  */
 final class Vehicle extends Model implements DefinesIrModel
 {
@@ -66,7 +67,7 @@ final class Vehicle extends Model implements DefinesIrModel
         'category', 'fuel_type', 'status', 'daily_rate', 'weekly_rate', 'monthly_rate',
         'deposit', 'monthly_target', 'purchase_price', 'purchase_invoice', 'agreement_copy',
         'odometer', 'next_maintenance_date', 'next_maintenance_mileage',
-        'registration_expiry', 'registration_doc', 'insurance_expiry', 'insurance_doc', 'active',
+        'registration_expiry', 'registration_doc', 'insurance_expiry', 'insurance_doc', 'active', 'is_outside',
     ];
 
     /** @var array<string, mixed> */
@@ -100,6 +101,7 @@ final class Vehicle extends Model implements DefinesIrModel
             'registration_expiry' => 'date',
             'insurance_expiry' => 'date',
             'active' => 'boolean',
+            'is_outside' => 'boolean',
         ];
     }
 
@@ -162,6 +164,18 @@ final class Vehicle extends Model implements DefinesIrModel
         $next = $this->nextDocExpiry();
 
         return $next !== null && $next->lte(Carbon::today()->addDays($days));
+    }
+
+    /**
+     * Company-owned cars (not rented in from outside) — the basis for the fleet
+     * KPIs and owned-fleet reporting.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<Vehicle>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<Vehicle>
+     */
+    public function scopeOwned(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where('is_outside', false);
     }
 
     /**

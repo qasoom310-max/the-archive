@@ -15,6 +15,9 @@
             <div class="flex items-center gap-2.5">
                 <span class="text-sm font-semibold text-chrome-800">{{ $vehicle->displayName() }}</span>
                 <span class="rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $statusBadge }}">{{ __(ucfirst($vehicle->status)) }}</span>
+                @if ($vehicle->is_outside)
+                    <span class="rounded-full bg-orange-100 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-orange-700">{{ __('Outside') }}</span>
+                @endif
             </div>
             @if ($vehicle->status === 'maintenance' && $canManage)
                 <button wire:click="returnToService"
@@ -101,6 +104,10 @@
                         @endif
                     </div>
                 </div>
+                <label class="mt-3 flex items-center gap-2 text-sm text-chrome-700">
+                    <input type="checkbox" wire:model="isOutsideInput" class="rounded border-chrome-300">
+                    {{ __('This is an outside (rented-in) car — keep it out of the owned-fleet count.') }}
+                </label>
                 <p x-show="err" x-text="err" class="mt-2 text-xs text-red-600"></p>
                 <button wire:click="saveCost" class="o-btn-primary mt-3 text-sm">{{ __('Save') }}</button>
             </div>

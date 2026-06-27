@@ -29,9 +29,11 @@ final class RentalHome extends Component
 {
     public function render(): View
     {
-        // One grouped query for the whole status breakdown (active fleet only).
+        // One grouped query for the whole status breakdown — OWNED active fleet
+        // only (cars rented in from outside are excluded from the fleet KPIs).
         $byStatus = Vehicle::query()
             ->where('active', true)
+            ->owned()
             ->selectRaw('status, COUNT(*) as aggregate')
             ->groupBy('status')
             ->pluck('aggregate', 'status');
@@ -41,6 +43,9 @@ final class RentalHome extends Component
         $maintenance = (int) $byStatus->get(Vehicle::STATUS_MAINTENANCE, 0);
         $reserved = (int) $byStatus->get(Vehicle::STATUS_RESERVED, 0);
         $total = (int) $byStatus->sum();
+
+        // Cars rented in from outside — shown as context, not part of the fleet.
+        $outsideCount = (int) Vehicle::query()->where('active', true)->where('is_outside', true)->count();
 
         // Per-branch availability (matches the Branch 1/2/3 cards).
         $branches = Branch::query()
@@ -139,6 +144,7 @@ final class RentalHome extends Component
             'canSeeRefunds' => $canSeeRefunds,
             'renewalAlerts' => $renewalAlerts,
             'total' => $total,
+            'outsideCount' => $outsideCount,
             'available' => $available,
             'rented' => $rented,
             'maintenance' => $maintenance,

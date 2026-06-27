@@ -9,6 +9,7 @@ use Modules\Rental\Http\Controllers\RentalCustomerImportController;
 use Modules\Rental\Http\Controllers\RentalReportExportController;
 use Modules\Rental\Http\Controllers\RentalSalesExportController;
 use Modules\Rental\Http\Controllers\RentalSalesImportController;
+use Modules\Rental\Http\Controllers\RentalVehicleImportController;
 use Modules\Rental\Livewire\BranchForm;
 use Modules\Rental\Livewire\Branches;
 use Modules\Rental\Livewire\CustomerForm;
@@ -94,6 +95,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/rental/customer/new', CustomerForm::class)->name('rental.customer.create');
     Route::get('/app/rental/customer/{id}', CustomerForm::class)->whereNumber('id')->name('rental.customer.edit');
 
+    Route::post('/app/rental/vehicle/import', RentalVehicleImportController::class)->name('rental.vehicle.import');
     Route::get('/app/rental/vehicle', Vehicles::class)->name('rental.vehicle.index');
     Route::get('/app/rental/vehicle/new', VehicleForm::class)->name('rental.vehicle.create');
     Route::get('/app/rental/vehicle/{id}', VehicleForm::class)->whereNumber('id')->name('rental.vehicle.edit');

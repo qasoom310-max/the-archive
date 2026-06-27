@@ -50,6 +50,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $deposit_resolved_by_user_id
  * @property Carbon|null $deposit_resolved_at
  * @property float $total
+ * @property float $outside_cost
  * @property float $advance_amount
  * @property float $balance
  * @property string|null $payment_type
@@ -129,7 +130,7 @@ final class RentalOrder extends Model implements DefinesIrModel
         'reference', 'order_date', 'customer_id', 'phone', 'vehicle_id', 'pickup_mileage',
         'driver_id', 'additional_driver', 'additional_driver_license', 'branch_id',
         'start_date', 'end_date', 'hired_time', 'rate_type', 'rate', 'days', 'subtotal',
-        'discount', 'vat_rate', 'vat_amount', 'delivery', 'delivery_location', 'delivery_charges', 'deposit', 'total',
+        'discount', 'vat_rate', 'vat_amount', 'delivery', 'delivery_location', 'delivery_charges', 'deposit', 'total', 'outside_cost',
         'deposit_status', 'deposit_deducted', 'deposit_reason', 'deposit_images', 'deposit_resolved_by_user_id', 'deposit_resolved_at',
         'advance_amount', 'balance', 'payment_type', 'state', 'payment_status',
         'payment_confirmed', 'confirmed_by_user_id', 'confirmed_at', 'created_by_user_id', 'agreement_emailed_at', 'notes',
@@ -187,6 +188,7 @@ final class RentalOrder extends Model implements DefinesIrModel
             'deposit_resolved_by_user_id' => 'integer',
             'deposit_resolved_at' => 'datetime',
             'total' => 'float',
+            'outside_cost' => 'float',
             'advance_amount' => 'float',
             'balance' => 'float',
             'handover_km' => 'integer',
@@ -315,6 +317,16 @@ final class RentalOrder extends Model implements DefinesIrModel
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /**
+     * Revenue this booking earned us: the customer total minus what we paid the
+     * outside vendor for it (0 for owned cars). This is the figure used in the
+     * Sales/revenue reports — the markup, not the gross.
+     */
+    public function netRevenue(): float
+    {
+        return (float) $this->total - (float) $this->outside_cost;
     }
 
     /**

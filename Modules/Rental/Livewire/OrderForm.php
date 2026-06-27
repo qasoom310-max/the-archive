@@ -77,6 +77,9 @@ final class OrderForm extends Component
 
     public string $advance_amount = '0';
 
+    /** What we pay the outside vendor for this booking (outside cars only). */
+    public string $outside_cost = '0';
+
     public string $deposit = '0';
 
     public string $payment_type = 'cash';
@@ -187,6 +190,7 @@ final class OrderForm extends Component
                 $this->delivery = $order->delivery;
                 $this->delivery_location = $order->delivery_location ?? '';
                 $this->advance_amount = (string) $order->advance_amount;
+                $this->outside_cost = (string) $order->outside_cost;
                 $this->deposit = (string) $order->deposit;
                 $this->payment_type = $order->payment_type ?? 'cash';
                 $this->notes = $order->notes ?? '';
@@ -279,6 +283,9 @@ final class OrderForm extends Component
         if ($this->branch_id === null) {
             $this->branch_id = $vehicle->branch_id;
         }
+        // For an outside (rented-in) car, suggest the vendor cost from the car's
+        // agreed purchase price; cleared for an owned car.
+        $this->outside_cost = $vehicle->is_outside ? (string) $vehicle->purchase_price : '0';
     }
 
     /** Picking a customer pre-fills their phone (a snapshot on the order). */
@@ -364,6 +371,7 @@ final class OrderForm extends Component
         // Keep a location only while delivery is on; clear it otherwise.
         $order->delivery_location = $this->delivery ? $this->trimOrNull($this->delivery_location) : null;
         $order->advance_amount = $this->toFloat($this->advance_amount);
+        $order->outside_cost = $this->toFloat($this->outside_cost);
         $order->deposit = $this->toFloat($this->deposit);
         $order->payment_type = $this->trimOrNull($this->payment_type);
         $order->notes = $this->trimOrNull($this->notes);

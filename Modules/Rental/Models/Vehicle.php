@@ -116,7 +116,8 @@ final class Vehicle extends Model implements DefinesIrModel
             ->where('vehicle_id', $this->id)
             ->where('state', '!=', RentalOrder::STATE_CANCELLED)
             ->whereBetween('start_date', [Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth()])
-            ->sum('total');
+            ->selectRaw('COALESCE(SUM(total - outside_cost), 0) as net')
+            ->value('net');
     }
 
     /**

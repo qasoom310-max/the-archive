@@ -422,6 +422,14 @@
                         <label class="{{ $lbl }}">{{ __('Deposit (BHD)') }}</label>
                         <input type="number" step="0.001" min="0" wire:model.live="deposit" class="o-input w-full">
                     </div>
+                    {{-- Outside (rented-in) car: what we pay the vendor for this booking. --}}
+                    @if ($selectedVehicle?->is_outside)
+                        <div class="sm:col-span-2">
+                            <label class="{{ $lbl }}">{{ __('Vendor cost — this booking (BHD)') }}</label>
+                            <input type="number" step="0.001" min="0" wire:model.live="outside_cost" class="o-input w-full">
+                            <p class="mt-1 text-xs text-chrome-400">{{ __('Outside car — revenue counts as total minus this cost.') }}</p>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="mt-4">

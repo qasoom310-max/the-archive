@@ -44,7 +44,7 @@ final class SalesReport
                 Carbon::create($this->year, 1, 1)->startOfDay(),
                 Carbon::create($this->year, 12, 31)->endOfDay(),
             ])
-            ->get(['vehicle_id', 'start_date', 'total']);
+            ->get(['vehicle_id', 'start_date', 'total', 'outside_cost']);
 
         foreach ($orders as $order) {
             if ($order->start_date === null) {
@@ -53,7 +53,7 @@ final class SalesReport
             $plate = $order->vehicle_id !== null ? $plates->get($order->vehicle_id) : null;
             $plate = is_string($plate) && $plate !== '' ? $plate : '—';
             $m = $order->start_date->month;
-            $matrix[$plate][$m] = ($matrix[$plate][$m] ?? 0.0) + (float) $order->total;
+            $matrix[$plate][$m] = ($matrix[$plate][$m] ?? 0.0) + $order->netRevenue();
         }
 
         foreach (RentalRevenueHistory::query()->where('year', $this->year)->get(['plate_no', 'month', 'amount']) as $row) {
@@ -166,14 +166,14 @@ final class SalesReport
         $orders = RentalOrder::query()
             ->where('state', '!=', RentalOrder::STATE_CANCELLED)
             ->whereNotNull('start_date')
-            ->get(['start_date', 'total']);
+            ->get(['start_date', 'total', 'outside_cost']);
 
         foreach ($orders as $order) {
             if ($order->start_date === null) {
                 continue;
             }
             $byYearMonth[$order->start_date->year][$order->start_date->month]
-                = ($byYearMonth[$order->start_date->year][$order->start_date->month] ?? 0.0) + (float) $order->total;
+                = ($byYearMonth[$order->start_date->year][$order->start_date->month] ?? 0.0) + $order->netRevenue();
         }
 
         foreach (RentalRevenueHistory::query()->get(['year', 'month', 'amount']) as $row) {

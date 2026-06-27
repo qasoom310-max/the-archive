@@ -40,6 +40,7 @@ use Illuminate\Support\Carbon;
  * @property float $vat_rate
  * @property float $vat_amount
  * @property bool $delivery
+ * @property bool $pickup
  * @property string|null $delivery_location
  * @property float $delivery_charges
  * @property float $deposit
@@ -108,7 +109,11 @@ final class RentalOrder extends Model implements DefinesIrModel
     public const DEFAULT_VAT_RATE = 10.0;
 
     /** Flat delivery fee charged when the Delivery option is ticked (BHD). */
-    public const DELIVERY_FEE = 3.0;
+    /** Flat fee to deliver the car to the customer (drop-off). */
+    public const DELIVERY_FEE = 5.0;
+
+    /** Flat fee to collect the car back from the customer (pick-up). */
+    public const PICKUP_FEE = 5.0;
 
     /** Flat service fee added on top of a fuel-shortfall charge at return (BHD). */
     public const FUEL_SERVICE_FEE = 1.0;
@@ -130,7 +135,7 @@ final class RentalOrder extends Model implements DefinesIrModel
         'reference', 'order_date', 'customer_id', 'phone', 'vehicle_id', 'pickup_mileage',
         'driver_id', 'additional_driver', 'additional_driver_license', 'branch_id',
         'start_date', 'end_date', 'hired_time', 'rate_type', 'rate', 'days', 'subtotal',
-        'discount', 'vat_rate', 'vat_amount', 'delivery', 'delivery_location', 'delivery_charges', 'deposit', 'total', 'outside_cost',
+        'discount', 'vat_rate', 'vat_amount', 'delivery', 'pickup', 'delivery_location', 'delivery_charges', 'deposit', 'total', 'outside_cost',
         'deposit_status', 'deposit_deducted', 'deposit_reason', 'deposit_images', 'deposit_resolved_by_user_id', 'deposit_resolved_at',
         'advance_amount', 'balance', 'payment_type', 'state', 'payment_status',
         'payment_confirmed', 'confirmed_by_user_id', 'confirmed_at', 'created_by_user_id', 'agreement_emailed_at', 'notes',
@@ -149,6 +154,7 @@ final class RentalOrder extends Model implements DefinesIrModel
         'vat_rate' => self::DEFAULT_VAT_RATE,
         'vat_amount' => 0,
         'delivery' => false,
+        'pickup' => false,
         'delivery_charges' => 0,
         'deposit' => 0,
         'deposit_status' => self::DEPOSIT_HELD,
@@ -181,6 +187,7 @@ final class RentalOrder extends Model implements DefinesIrModel
             'vat_rate' => 'float',
             'vat_amount' => 'float',
             'delivery' => 'boolean',
+            'pickup' => 'boolean',
             'delivery_charges' => 'float',
             'deposit' => 'float',
             'deposit_deducted' => 'float',
@@ -275,8 +282,9 @@ final class RentalOrder extends Model implements DefinesIrModel
         $this->days = $this->durationDays();
         $this->subtotal = round($this->rate * $this->billableUnits(), 3);
 
-        // Delivery is a fixed flat fee, applied only when the option is ticked.
-        $this->delivery_charges = $this->delivery ? self::DELIVERY_FEE : 0.0;
+        // Drop-off and pick-up are two independent flat fees, each when ticked.
+        $this->delivery_charges = ($this->delivery ? self::DELIVERY_FEE : 0.0)
+            + ($this->pickup ? self::PICKUP_FEE : 0.0);
 
         // VAT applies to the whole taxable supply — the rental net of discount
         // PLUS the delivery charge and any extra charge (an extra day, a fee…),
@@ -431,11 +439,11 @@ final class RentalOrder extends Model implements DefinesIrModel
     public static function paymentTypeOptions(): array
     {
         return [
-            ['value' => 'cash', 'label' => 'Cash'],
-            ['value' => 'cheque', 'label' => 'Cheque'],
+            ['value' => 'online', 'label' => 'Online'],
             ['value' => 'credit_card', 'label' => 'Credit Card'],
             ['value' => 'benefitpay', 'label' => 'BenefitPay'],
-            ['value' => 'online', 'label' => 'Online'],
+            ['value' => 'cash', 'label' => 'Cash'],
+            ['value' => 'cheque', 'label' => 'Cheque'],
         ];
     }
 

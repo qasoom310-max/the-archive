@@ -66,6 +66,7 @@ final class RentalOrdersListTest extends TestCase
             ->set('end_date', '2026-06-25')
             ->set('rate_type', 'daily')
             ->set('rate', '10')
+            ->set('hired_time', '10:00')
             ->call('save')
             ->assertHasNoErrors();
 

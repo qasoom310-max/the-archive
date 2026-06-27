@@ -42,6 +42,7 @@ final class RecordActivityTrailTest extends TestCase
             ->set('start_date', now()->addDay()->format('Y-m-d'))
             ->set('end_date', now()->addDays(2)->format('Y-m-d'))
             ->set('rate', '10')
+            ->set('hired_time', '10:00')
             ->call('save')
             ->assertHasNoErrors();
 

@@ -23,5 +23,5 @@
         "Modules\\Rental\\Models\\RentalReplacement",
         "Modules\\Rental\\Models\\RentalMaintenance"
     ],
-    "sequence": 70
+    "sequence": 11
 }

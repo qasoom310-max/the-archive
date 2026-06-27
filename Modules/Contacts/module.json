@@ -12,5 +12,5 @@
     "depends": ["base"],
     "providers": ["Modules\\Contacts\\Providers\\ContactsServiceProvider"],
     "models": ["Modules\\Contacts\\Models\\Partner"],
-    "sequence": 10
+    "sequence": 15
 }

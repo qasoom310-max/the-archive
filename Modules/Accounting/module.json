@@ -15,5 +15,5 @@
         "Modules\\Accounting\\Models\\Account",
         "Modules\\Accounting\\Models\\JournalEntry"
     ],
-    "sequence": 50
+    "sequence": 14
 }

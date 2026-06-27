@@ -246,6 +246,7 @@ final class RentalModuleTest extends TestCase
             ->assertSet('deposit', '50')
             ->set('start_date', '2026-07-01')
             ->set('end_date', '2026-07-04')     // 3 days
+            ->set('hired_time', '10:00')
             ->call('save')
             ->assertHasNoErrors();
 

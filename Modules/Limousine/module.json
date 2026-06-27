@@ -20,5 +20,5 @@
         "Modules\\Limousine\\Models\\LimoReceipt",
         "Modules\\Limousine\\Models\\LimoExpense"
     ],
-    "sequence": 75
+    "sequence": 12
 }

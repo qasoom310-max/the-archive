@@ -47,6 +47,7 @@ final class RentalOrderDatesTest extends TestCase
             ->set('vehicle_id', $vehicle->id)
             ->set('start_date', now()->subDay()->toDateString())
             ->set('end_date', now()->addDay()->toDateString())
+            ->set('hired_time', '10:00')
             ->call('save')
             ->assertHasErrors(['start_date']);
 
@@ -63,6 +64,7 @@ final class RentalOrderDatesTest extends TestCase
             ->set('vehicle_id', $vehicle->id)
             ->set('start_date', now()->subDay()->toDateString())
             ->set('end_date', now()->addDay()->toDateString())
+            ->set('hired_time', '10:00')
             ->call('save')
             ->assertHasNoErrors();
 
@@ -80,6 +82,7 @@ final class RentalOrderDatesTest extends TestCase
             ->set('vehicle_id', $vehicle->id)
             ->set('start_date', now()->addDay()->toDateString())
             ->set('end_date', now()->addDay()->toDateString())
+            ->set('hired_time', '10:00')
             ->call('save')
             ->assertHasErrors(['end_date']);
 
@@ -89,6 +92,7 @@ final class RentalOrderDatesTest extends TestCase
             ->set('vehicle_id', $vehicle->id)
             ->set('start_date', now()->addDays(2)->toDateString())
             ->set('end_date', now()->addDay()->toDateString())
+            ->set('hired_time', '10:00')
             ->call('save')
             ->assertHasErrors(['end_date']);
 
@@ -105,6 +109,7 @@ final class RentalOrderDatesTest extends TestCase
             ->set('vehicle_id', $vehicle->id)
             ->set('start_date', now()->addDay()->toDateString())
             ->set('end_date', now()->addDays(3)->toDateString())
+            ->set('hired_time', '10:00')
             ->call('save')
             ->assertHasNoErrors();
 

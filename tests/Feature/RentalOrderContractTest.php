@@ -42,17 +42,48 @@ final class RentalOrderContractTest extends TestCase
         $order->rate = 10;          // 5 days × 10 = 50 amount
         $order->discount = 5;        // amount net of discount = 45
         $order->vat_rate = 10;
-        $order->delivery = true;     // flat delivery fee 3 (also taxable)
+        $order->delivery = true;     // flat drop-off fee 5 (also taxable)
         $order->advance_amount = 20;
         $order->recalcTotals();
 
         $this->assertSame(5, $order->days);
         $this->assertSame(50.0, $order->subtotal);
-        $this->assertSame(3.0, $order->delivery_charges); // fixed fee, derived from the flag
-        // Taxable = (50 − 5) + 3 = 48; VAT = 48 × 10% = 4.8
-        $this->assertSame(4.8, $order->vat_amount);
-        $this->assertSame(52.8, $order->total);          // 48 + 4.8
-        $this->assertSame(32.8, $order->balance);        // 52.8 − 20
+        $this->assertSame(5.0, $order->delivery_charges); // fixed fee, derived from the flag
+        // Taxable = (50 − 5) + 5 = 50; VAT = 50 × 10% = 5.0
+        $this->assertSame(5.0, $order->vat_amount);
+        $this->assertSame(55.0, $order->total);          // 50 + 5
+        $this->assertSame(35.0, $order->balance);        // 55 − 20
+    }
+
+    public function test_drop_off_and_pick_up_are_each_five_bhd(): void
+    {
+        $order = new RentalOrder();
+        $order->rate_type = 'daily';
+        $order->rate = 10;
+        $order->start_date = Carbon::parse('2026-06-25');
+        $order->end_date = Carbon::parse('2026-06-26'); // 1 day
+        $order->delivery = true;  // drop-off  +5
+        $order->pickup = true;    // pick-up    +5
+        $order->recalcTotals();
+
+        $this->assertSame(10.0, $order->delivery_charges); // 5 + 5
+    }
+
+    public function test_hired_time_is_required(): void
+    {
+        $customer = RentalCustomer::query()->create(['name' => 'Sara']);
+        $vehicle = Vehicle::query()->create(['name' => 'Yaris', 'daily_rate' => 10]);
+
+        Livewire::test(OrderForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('vehicle_id', $vehicle->id)
+            ->set('start_date', '2026-07-01')
+            ->set('end_date', '2026-07-03')
+            // no hired_time
+            ->call('save')
+            ->assertHasErrors(['hired_time']);
+
+        $this->assertSame(0, RentalOrder::query()->count());
     }
 
     public function test_saving_an_order_persists_the_contract_fields(): void
@@ -82,7 +113,7 @@ final class RentalOrderContractTest extends TestCase
         $this->assertSame('benefitpay', $order->payment_type);
         $this->assertTrue($order->delivery);
         $this->assertSame('Juffair, Block 338', $order->delivery_location);
-        $this->assertSame(3.0, $order->delivery_charges); // fixed flat fee
+        $this->assertSame(5.0, $order->delivery_charges); // fixed flat fee
         $this->assertSame(20.0, $order->advance_amount);
         // VAT auto-applied at 10%, balance computed.
         $this->assertSame(10.0, $order->vat_rate);
@@ -110,6 +141,7 @@ final class RentalOrderContractTest extends TestCase
             ->set('customer_id', $customer->id)
             ->set('vehicle_id', $vehicle->id)
             ->set('delivery', false)
+            ->set('hired_time', '10:00')
             ->call('save')
             ->assertHasNoErrors();
 
@@ -162,6 +194,7 @@ final class RentalOrderContractTest extends TestCase
             ->set('vehicle_id', $vehicle->id)
             ->set('cprImagePath', 'rental_orders/cpr.jpg')
             ->set('licenseImagePath', 'rental_orders/licence.jpg')
+            ->set('hired_time', '10:00')
             ->call('save')
             ->assertHasNoErrors();
 

@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 use Modules\Rental\Mail\RentalAgreementMail;
 use Modules\Rental\Services\RentalAgreementPdf;
 use Livewire\Attributes\Layout;
@@ -69,8 +70,11 @@ final class OrderForm extends Component
 
     public string $vat_rate = '10';
 
-    /** Delivery option — a fixed flat fee (RentalOrder::DELIVERY_FEE) when on. */
+    /** Drop-off — deliver the car (flat RentalOrder::DELIVERY_FEE when on). */
     public bool $delivery = false;
+
+    /** Pick-up — collect the car back (flat RentalOrder::PICKUP_FEE when on). */
+    public bool $pickup = false;
 
     /** Where to deliver the car — shown/required only when Delivery is on. */
     public string $delivery_location = '';
@@ -188,6 +192,7 @@ final class OrderForm extends Component
                 $this->discount = (string) $order->discount;
                 $this->vat_rate = (string) $order->vat_rate;
                 $this->delivery = $order->delivery;
+                $this->pickup = $order->pickup;
                 $this->delivery_location = $order->delivery_location ?? '';
                 $this->advance_amount = (string) $order->advance_amount;
                 $this->outside_cost = (string) $order->outside_cost;
@@ -233,14 +238,15 @@ final class OrderForm extends Component
                 : ['required', 'date', 'after_or_equal:today'],
             // Return must be a LATER day than pick-up (no same / earlier day).
             'end_date' => ['required', 'date', 'after:start_date'],
-            'hired_time' => ['nullable', 'string', 'max:10'],
+            'hired_time' => ['required', 'string', 'max:10'],
             'rate_type' => ['required', 'in:daily,weekly,monthly'],
             'rate' => ['required', 'numeric', 'min:0'],
             'discount' => ['nullable', 'numeric', 'min:0'],
             'vat_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'delivery' => ['boolean'],
-            // A delivery needs a location; otherwise the box is hidden and ignored.
-            'delivery_location' => $this->delivery ? ['required', 'string', 'max:255'] : ['nullable', 'string', 'max:255'],
+            'pickup' => ['boolean'],
+            // Either service needs a location; otherwise the box is hidden and ignored.
+            'delivery_location' => $this->delivery || $this->pickup ? ['required', 'string', 'max:255'] : ['nullable', 'string', 'max:255'],
             'advance_amount' => ['nullable', 'numeric', 'min:0'],
             'deposit' => ['nullable', 'numeric', 'min:0'],
             'payment_type' => ['nullable', 'string'],
@@ -319,7 +325,15 @@ final class OrderForm extends Component
 
     public function save(): void
     {
-        $this->validate();
+        // On a validation failure, point the user at the first missing field
+        // (the form is long and the Save button sits at the bottom).
+        try {
+            $this->validate();
+        } catch (ValidationException $e) {
+            $this->dispatch('order-scroll-to-error');
+
+            throw $e;
+        }
 
         // Block double-booking: refuse if the car is already held (reserved or
         // rented) by another open order over overlapping dates.
@@ -368,8 +382,9 @@ final class OrderForm extends Component
         $order->discount = $this->toFloat($this->discount);
         $order->vat_rate = RentalOrder::DEFAULT_VAT_RATE; // fixed rate, not user-editable
         $order->delivery = $this->delivery;
-        // Keep a location only while delivery is on; clear it otherwise.
-        $order->delivery_location = $this->delivery ? $this->trimOrNull($this->delivery_location) : null;
+        $order->pickup = $this->pickup;
+        // Keep a location only while a drop-off or pick-up is on; clear it otherwise.
+        $order->delivery_location = ($this->delivery || $this->pickup) ? $this->trimOrNull($this->delivery_location) : null;
         $order->advance_amount = $this->toFloat($this->advance_amount);
         $order->outside_cost = $this->toFloat($this->outside_cost);
         $order->deposit = $this->toFloat($this->deposit);
@@ -816,6 +831,7 @@ final class OrderForm extends Component
         $order->discount = $this->toFloat($this->discount);
         $order->vat_rate = RentalOrder::DEFAULT_VAT_RATE; // fixed rate, not user-editable
         $order->delivery = $this->delivery;
+        $order->pickup = $this->pickup;
         $order->advance_amount = $this->toFloat($this->advance_amount);
         $order->recalcTotals();
 
@@ -835,7 +851,7 @@ final class OrderForm extends Component
         // currently-selected car is always kept so editing never drops it.
         $user = Auth::user();
         $isSuperAdmin = $user instanceof User && $user->isSuperAdmin();
-        $cols = ['id', 'name', 'plate_no', 'color', 'status', 'registration_expiry', 'insurance_expiry'];
+        $cols = ['id', 'name', 'plate_no', 'color', 'status', 'is_outside', 'registration_expiry', 'insurance_expiry'];
         $vehiclesQuery = Vehicle::query()->where('active', true);
         if (! $isSuperAdmin) {
             $current = $this->vehicle_id;

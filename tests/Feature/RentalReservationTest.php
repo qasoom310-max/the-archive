@@ -50,6 +50,7 @@ final class RentalReservationTest extends TestCase
             ->set('vehicle_id', $vehicle->id)
             ->set('start_date', '2026-08-01')
             ->set('end_date', '2026-08-03')
+            ->set('hired_time', '10:00')
             ->call('save')
             ->assertHasNoErrors();
 
@@ -98,6 +99,7 @@ final class RentalReservationTest extends TestCase
             ->set('vehicle_id', $vehicle->id)
             ->set('start_date', '2026-08-03') // overlaps the existing booking
             ->set('end_date', '2026-08-07')
+            ->set('hired_time', '10:00')
             ->call('save')
             ->assertHasErrors('vehicle_id');
 
@@ -119,6 +121,7 @@ final class RentalReservationTest extends TestCase
             ->set('vehicle_id', $vehicle->id)
             ->set('start_date', '2026-08-06') // after the first booking ends
             ->set('end_date', '2026-08-08')
+            ->set('hired_time', '10:00')
             ->call('save')
             ->assertHasNoErrors();
 
@@ -136,6 +139,7 @@ final class RentalReservationTest extends TestCase
 
         Livewire::test(OrderForm::class, ['id' => $order->id])
             ->set('end_date', '2026-08-06')
+            ->set('hired_time', '10:00')
             ->call('save')
             ->assertHasNoErrors();
     }

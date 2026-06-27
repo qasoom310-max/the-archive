@@ -276,7 +276,7 @@
                         <select wire:model.live="vehicle_id" class="o-input w-full">
                             <option value="">{{ __('— Select —') }}</option>
                             @foreach ($vehicles as $v)
-                                <option value="{{ $v->id }}">{{ $v->displayName() }} ({{ __(ucfirst($v->status)) }}){{ $v->needsRenewal() ? ' — ' . __('papers expired') : '' }}</option>
+                                <option value="{{ $v->id }}">{{ $v->displayName() }} · {{ $v->is_outside ? __('Outside') : __('Ours') }} ({{ __(ucfirst($v->status)) }}){{ $v->needsRenewal() ? ' — ' . __('papers expired') : '' }}</option>
                             @endforeach
                         </select>
                         @error('vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
@@ -301,13 +301,20 @@
                     </div>
                     <div>
                         <label class="{{ $lbl }}">{{ __('Delivery') }}</label>
-                        <label class="flex items-center gap-2 rounded-lg border border-chrome-200 px-3 py-2 text-sm text-chrome-700 has-[:checked]:border-primary-400 has-[:checked]:bg-primary-50/40">
-                            <input type="checkbox" wire:model.live="delivery" class="rounded border-chrome-300 text-primary-600">
-                            {{ __('Deliver the car') }}
-                            <span class="ms-auto text-xs text-chrome-400">+ {{ ValueFormat::money(RentalOrder::DELIVERY_FEE) }}</span>
-                        </label>
-                        @if ($delivery)
-                            <input type="text" wire:model="delivery_location" class="o-input mt-2 w-full" placeholder="{{ __('Delivery location') }}">
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-2 rounded-lg border border-chrome-200 px-3 py-2 text-sm text-chrome-700 has-[:checked]:border-primary-400 has-[:checked]:bg-primary-50/40">
+                                <input type="checkbox" wire:model.live="delivery" class="rounded border-chrome-300 text-primary-600">
+                                {{ __('Drop-off — deliver the car') }}
+                                <span class="ms-auto text-xs text-chrome-400">+ {{ ValueFormat::money(RentalOrder::DELIVERY_FEE) }}</span>
+                            </label>
+                            <label class="flex items-center gap-2 rounded-lg border border-chrome-200 px-3 py-2 text-sm text-chrome-700 has-[:checked]:border-primary-400 has-[:checked]:bg-primary-50/40">
+                                <input type="checkbox" wire:model.live="pickup" class="rounded border-chrome-300 text-primary-600">
+                                {{ __('Pick-up — collect the car') }}
+                                <span class="ms-auto text-xs text-chrome-400">+ {{ ValueFormat::money(RentalOrder::PICKUP_FEE) }}</span>
+                            </label>
+                        </div>
+                        @if ($delivery || $pickup)
+                            <input type="text" wire:model="delivery_location" class="o-input mt-2 w-full" placeholder="{{ __('Drop-off / pick-up location') }}">
                             @error('delivery_location') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         @endif
                     </div>
@@ -373,8 +380,9 @@
                         @error('end_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label class="{{ $lbl }}">{{ __('Hired time') }}</label>
+                        <label class="{{ $lbl }}">{{ __('Hired time') }} <span class="text-red-500">*</span></label>
                         <input type="time" wire:model="hired_time" class="o-input w-full">
+                        @error('hired_time') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label class="{{ $lbl }}">{{ __('Rate type') }} <span class="text-red-500">*</span></label>
@@ -736,4 +744,19 @@
             </div>
         </div>
     @endif
+
+    @script
+    <script>
+        // On a failed save, jump to the first missing/invalid field and focus it.
+        $wire.on('order-scroll-to-error', () => {
+            requestAnimationFrame(() => {
+                const msg = document.querySelector('.text-red-600');
+                if (! msg) return;
+                msg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const field = msg.closest('div')?.querySelector('input, select, textarea');
+                if (field) field.focus({ preventScroll: true });
+            });
+        });
+    </script>
+    @endscript
 </div>

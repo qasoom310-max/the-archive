@@ -7,6 +7,7 @@ namespace Modules\Rental\Providers;
 use App\Erp\Notifications\NotificationCenter;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\ServiceProvider;
+use Modules\Rental\Console\ImportCustomersCommand;
 use Modules\Rental\Support\RentalNotifications;
 
 /**
@@ -29,5 +30,9 @@ final class RentalServiceProvider extends ServiceProvider
         $this->app->make(NotificationCenter::class)->register(
             fn (Authenticatable $user): array => $this->app->make(RentalNotifications::class)->for($user),
         );
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([ImportCustomersCommand::class]);
+        }
     }
 }

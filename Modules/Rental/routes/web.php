@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Modules\Rental\Http\Controllers\RentalAgreementPdfController;
 use Modules\Rental\Http\Controllers\RentalAgreementPrintController;
+use Modules\Rental\Http\Controllers\RentalCustomerImportController;
 use Modules\Rental\Http\Controllers\RentalReportExportController;
 use Modules\Rental\Http\Controllers\RentalSalesExportController;
 use Modules\Rental\Http\Controllers\RentalSalesImportController;
@@ -88,6 +89,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/rental/branch/new', BranchForm::class)->name('rental.branch.create');
     Route::get('/app/rental/branch/{id}', BranchForm::class)->whereNumber('id')->name('rental.branch.edit');
 
+    Route::post('/app/rental/customer/import', RentalCustomerImportController::class)->name('rental.customer.import');
     Route::get('/app/rental/customer', Customers::class)->name('rental.customer.index');
     Route::get('/app/rental/customer/new', CustomerForm::class)->name('rental.customer.create');
     Route::get('/app/rental/customer/{id}', CustomerForm::class)->whereNumber('id')->name('rental.customer.edit');

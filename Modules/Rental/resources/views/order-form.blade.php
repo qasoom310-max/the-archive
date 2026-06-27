@@ -273,12 +273,32 @@
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                         <label class="{{ $lbl }}">{{ __('Car') }} <span class="text-red-500">*</span></label>
-                        <select wire:model.live="vehicle_id" class="o-input w-full">
-                            <option value="">{{ __('— Select —') }}</option>
-                            @foreach ($vehicles as $v)
-                                <option value="{{ $v->id }}">{{ $v->displayName() }} · {{ $v->is_outside ? __('Outside') : __('Ours') }} ({{ __(ucfirst($v->status)) }}){{ $v->needsRenewal() ? ' — ' . __('papers expired') : '' }}</option>
-                            @endforeach
-                        </select>
+                        {{-- Searchable car picker (type to filter by name or plate). --}}
+                        <div class="relative" x-data="{
+                                open: false,
+                                q: '',
+                                label: @js($selectedVehicle ? $selectedVehicle->displayName() . ' · ' . ($selectedVehicle->is_outside ? __('Outside') : __('Ours')) : ''),
+                                pick(id, label) { this.label = label; this.open = false; this.q = ''; $wire.set('vehicle_id', id); },
+                            }" @click.outside="open = false">
+                            <button type="button" @click="open = ! open; if (open) $nextTick(() => $refs.q.focus())"
+                                class="o-input flex w-full items-center justify-between text-start">
+                                <span x-text="label || '{{ __('— Select —') }}'" :class="label ? '' : 'text-chrome-400'"></span>
+                                <svg class="size-4 text-chrome-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"/></svg>
+                            </button>
+                            <div x-show="open" x-cloak class="absolute z-30 mt-1 w-full overflow-hidden rounded-lg border border-chrome-200 bg-white shadow-pop">
+                                <input type="text" x-ref="q" x-model="q" @click.stop placeholder="{{ __('Search car or plate…') }}" class="o-input m-2 w-[calc(100%-1rem)] text-sm">
+                                <ul class="max-h-72 overflow-y-auto">
+                                    @foreach ($vehicles as $v)
+                                        <li data-label="{{ strtolower($v->displayName() . ' ' . ($v->plate_no ?? '')) }}"
+                                            x-show="q === '' || $el.dataset.label.includes(q.toLowerCase().trim())"
+                                            @click="pick({{ $v->id }}, @js($v->displayName() . ' · ' . ($v->is_outside ? __('Outside') : __('Ours'))))"
+                                            class="cursor-pointer px-3 py-2 text-sm hover:bg-chrome-50 {{ (string) $vehicle_id === (string) $v->id ? 'bg-primary-50 font-medium' : 'text-chrome-700' }}">
+                                            {{ $v->displayName() }} · <span class="{{ $v->is_outside ? 'text-orange-600' : 'text-emerald-600' }}">{{ $v->is_outside ? __('Outside') : __('Ours') }}</span> ({{ __(ucfirst($v->status)) }}){{ $v->needsRenewal() ? ' — ' . __('papers expired') : '' }}
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </div>
                         @error('vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         @if ($selectedVehicle && $selectedVehicle->needsRenewal())
                             <p class="mt-1 text-xs font-medium text-red-600">{{ __('This car’s registration/insurance has lapsed — renew it before renting (super-admin override only).') }}</p>

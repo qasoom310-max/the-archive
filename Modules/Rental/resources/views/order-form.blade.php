@@ -618,6 +618,7 @@
                             <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
                         </button>
                         <a href="{{ url('/app/rental/order') }}" wire:navigate class="mt-2 block text-center text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</a>
+                        <p class="mt-2 text-center text-[11px] text-chrome-400">{{ __('Tip: press Ctrl + S to save') }}</p>
                     </div>
                 </div>
             </div>
@@ -891,6 +892,15 @@
 
     @script
     <script>
+        // Ctrl/Cmd + S saves the order (same as "Add record") instead of the
+        // browser's "save page" dialog.
+        window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                e.preventDefault();
+                $wire.save();
+            }
+        });
+
         // On a failed save, jump to the first missing/invalid field and focus it.
         $wire.on('order-scroll-to-error', () => {
             requestAnimationFrame(() => {

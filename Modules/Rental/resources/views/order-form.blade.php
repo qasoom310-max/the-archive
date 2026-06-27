@@ -570,7 +570,7 @@
     @if ($showHandover)
         <div class="fixed inset-0 z-50 flex items-center justify-center p-4" x-data x-on:keydown.escape.window="$wire.closeHandover()">
             <div class="absolute inset-0 bg-chrome-900/40" wire:click="closeHandover"></div>
-            <div class="relative w-full max-w-md rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5">
+            <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5">
                 <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Hand over the car') }}</h3>
                 <p class="mb-3 text-xs text-chrome-500">{{ __('Record the car’s condition before giving it to the customer.') }}</p>
                 <form wire:submit.prevent="confirmHandover" class="space-y-3">
@@ -612,7 +612,7 @@
     @if ($showReturn)
         <div class="fixed inset-0 z-50 flex items-center justify-center p-4" x-data x-on:keydown.escape.window="$wire.closeReturn()">
             <div class="absolute inset-0 bg-chrome-900/40" wire:click="closeReturn"></div>
-            <div class="relative w-full max-w-md rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5">
+            <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5">
                 <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Return the car') }}</h3>
                 <p class="mb-3 text-xs text-chrome-500">{{ __('Record the car’s condition on return. The KM updates the car.') }}</p>
                 <form wire:submit.prevent="confirmReturn" class="space-y-3">
@@ -698,7 +698,7 @@
     @if ($showDeposit)
         <div class="fixed inset-0 z-50 flex items-center justify-center p-4" x-data x-on:keydown.escape.window="$wire.closeDeposit()">
             <div class="absolute inset-0 bg-chrome-900/40" wire:click="closeDeposit"></div>
-            <div class="relative w-full max-w-md rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5">
+            <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5">
                 <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Settle deposit') }}</h3>
                 <p class="mb-3 text-xs text-chrome-500">{{ __('Return the :amount deposit, deduct part of it, or keep it all.', ['amount' => ValueFormat::money($savedOrder?->deposit ?? 0)]) }}</p>
                 <form wire:submit.prevent="confirmDeposit" class="space-y-3">

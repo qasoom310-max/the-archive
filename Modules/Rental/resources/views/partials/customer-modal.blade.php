@@ -7,7 +7,7 @@
         x-data x-on:keydown.escape.window="$wire.closeCustomerModal()"
         x-init="$nextTick(() => $refs.customerName && $refs.customerName.focus())">
         <div class="absolute inset-0 bg-chrome-900/40" wire:click="closeCustomerModal"></div>
-        <div class="relative w-full max-w-md rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5">
+        <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5">
             <h3 class="mb-3 text-sm font-semibold text-chrome-800">{{ __('New customer') }}</h3>
             <form wire:submit.prevent="saveCustomer" class="space-y-3">
                 <div>

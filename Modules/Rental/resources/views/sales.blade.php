@@ -49,7 +49,7 @@
 
     {{-- Import old monthly revenue (managers). Direct POST — Hostinger-safe. --}}
     @if ($canManage)
-        <div id="import-history" class="mb-5 hidden rounded-2xl border border-dashed border-chrome-300 bg-white p-4">
+        <div id="import-history" class="mb-5 {{ $errors->any() ? '' : 'hidden' }} rounded-2xl border border-dashed border-chrome-300 bg-white p-4">
             <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Import monthly revenue (CSV)') }}</h3>
             <p class="mb-3 text-xs text-chrome-500">{{ __('A CSV with a Reg#/Plate column and month columns (Jan…Dec). Other columns are ignored. Re-importing a year replaces it.') }}</p>
             <form method="POST" action="{{ url('/app/rental/sales/import') }}" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">
@@ -60,10 +60,11 @@
                 </div>
                 <div>
                     <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('CSV file') }}</label>
-                    <input type="file" name="file" accept=".csv,text/csv" required class="text-sm">
+                    <input type="file" name="file" accept=".csv,text/csv,text/plain" required class="text-sm">
                 </div>
                 <button type="submit" class="o-btn-primary text-sm">{{ __('Import') }}</button>
             </form>
+            @error('file')<p class="mt-2 text-xs font-medium text-red-600">{{ $message }}</p>@enderror
             @if (session('toast'))
                 <p class="mt-2 text-xs font-medium text-emerald-600">{{ session('toast') }}</p>
             @endif

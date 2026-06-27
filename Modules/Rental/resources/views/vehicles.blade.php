@@ -13,14 +13,15 @@
 
     {{-- Import cars from a CSV (managers). Direct POST — Hostinger-safe. --}}
     @if ($canManage)
-        <div id="import-cars" class="mb-4 hidden rounded-2xl border border-dashed border-chrome-300 bg-white p-4">
+        <div id="import-cars" class="mb-4 {{ $errors->any() ? '' : 'hidden' }} rounded-2xl border border-dashed border-chrome-300 bg-white p-4">
             <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Import cars (CSV)') }}</h3>
             <p class="mb-3 text-xs text-chrome-500">{{ __('Columns: Name, Reg.No, Year, Color, Type, Status. Other columns are ignored. Duplicate plates are skipped.') }}</p>
             <form method="POST" action="{{ url('/app/rental/vehicle/import') }}" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">
                 @csrf
-                <input type="file" name="file" accept=".csv,text/csv" required class="text-sm">
+                <input type="file" name="file" accept=".csv,text/csv,text/plain" required class="text-sm">
                 <button type="submit" class="o-btn-primary text-sm">{{ __('Import') }}</button>
             </form>
+            @error('file')<p class="mt-2 text-xs font-medium text-red-600">{{ $message }}</p>@enderror
             @if (session('toast'))
                 <p class="mt-2 text-xs font-medium text-emerald-600">{{ session('toast') }}</p>
             @endif

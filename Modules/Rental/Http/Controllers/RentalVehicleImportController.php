@@ -21,8 +21,11 @@ final class RentalVehicleImportController
         $user = Auth::user();
         abort_unless($user instanceof User && $user->canApproveMaintenance(), 403);
 
+        // Note: no strict `mimes:csv` — Excel/Windows often report a CSV as
+        // text/plain or application/vnd.ms-excel, which that rule wrongly rejects.
+        // The importer only reads CSV rows, so a non-CSV simply imports nothing.
         $validated = $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,txt', 'max:8192'],
+            'file' => ['required', 'file', 'max:16384'],
         ]);
 
         /** @var \Illuminate\Http\UploadedFile $file */

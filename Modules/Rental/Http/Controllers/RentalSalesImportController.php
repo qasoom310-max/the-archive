@@ -28,8 +28,9 @@ final class RentalSalesImportController
         $user = Auth::user();
         abort_unless($user instanceof User && $user->canApproveMaintenance(), 403);
 
+        // No strict `mimes:csv` — Excel/Windows often mis-report a CSV's MIME.
         $validated = $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,txt', 'max:8192'],
+            'file' => ['required', 'file', 'max:8192'],
             'year' => ['required', 'integer', 'min:2000', 'max:2100'],
         ]);
 

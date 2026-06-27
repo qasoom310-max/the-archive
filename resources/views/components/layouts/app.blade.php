@@ -179,29 +179,67 @@
     @endphp
     <nav class="hidden shrink-0 items-center gap-1.5 border-b border-chrome-200 bg-white px-4 py-2 text-sm text-chrome-500 md:flex"
         aria-label="{{ __('Breadcrumb') }}">
-        <a href="{{ url('/') }}" wire:navigate class="hover:text-chrome-800">{{ __('Home') }}</a>
-        @php $cumulative = []; @endphp
-        @foreach ($segments as $segment)
+        {{-- Inside an app (/app/<module>/…) the root crumb is that module's home
+             (icon + name), NOT the global dashboard — pressing it keeps the user
+             in the module. The company logo (topbar) is the only way back to the
+             main dashboard. Outside a module we fall back to a plain "Home". --}}
+        @if ($activeModule !== null)
             @php
-                $cumulative[] = $segment;
-                $isLast = $loop->last;
-                $isAppPrefix = $loop->first && $segment === 'app';
-                $label = $isLast && $terminalLabel !== null
-                    ? $terminalLabel
-                    : __(str_replace(['-', '_'], ' ', $segment));
+                $modKey = 'module.' . $activeModule;
+                $modLabel = __($modKey);
+                if ($modLabel === $modKey) {
+                    $modLabel = \App\Models\Ir\IrModule::query()->where('name', $activeModule)->value('display_name')
+                        ?: \Illuminate\Support\Str::headline($activeModule);
+                }
+                $modIcon = \App\Erp\Navigation\ModuleIcon::body($activeModule);
+                // Crumbs after /app/<module> (the module home owns the first two).
+                $rest = array_slice($segments, 2);
             @endphp
-            <span class="text-chrome-300">/</span>
-            @if ($isLast || $isAppPrefix)
-                <span class="{{ $isLast && $terminalLabel === null ? 'capitalize' : '' }} {{ $isLast ? 'font-medium text-chrome-800' : '' }}">
-                    {{ $label }}
-                </span>
-            @else
-                <a href="{{ url('/' . implode('/', $cumulative)) }}" wire:navigate
-                    class="capitalize hover:text-chrome-800">
-                    {{ $label }}
-                </a>
-            @endif
-        @endforeach
+            <a href="{{ url('/app/' . $activeModule) }}" wire:navigate class="flex items-center gap-1.5 hover:text-chrome-800">
+                <svg class="size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">{!! $modIcon !!}</svg>
+                <span>{{ $modLabel }}</span>
+            </a>
+            @php $cumulative = ['app', $activeModule]; @endphp
+            @foreach ($rest as $segment)
+                @php
+                    $cumulative[] = $segment;
+                    $isLast = $loop->last;
+                    $label = $isLast && $terminalLabel !== null
+                        ? $terminalLabel
+                        : __(str_replace(['-', '_'], ' ', $segment));
+                @endphp
+                <span class="text-chrome-300">/</span>
+                @if ($isLast)
+                    <span class="{{ $terminalLabel === null ? 'capitalize' : '' }} font-medium text-chrome-800">{{ $label }}</span>
+                @else
+                    <a href="{{ url('/' . implode('/', $cumulative)) }}" wire:navigate class="capitalize hover:text-chrome-800">{{ $label }}</a>
+                @endif
+            @endforeach
+        @else
+            <a href="{{ url('/') }}" wire:navigate class="hover:text-chrome-800">{{ __('Home') }}</a>
+            @php $cumulative = []; @endphp
+            @foreach ($segments as $segment)
+                @php
+                    $cumulative[] = $segment;
+                    $isLast = $loop->last;
+                    $isAppPrefix = $loop->first && $segment === 'app';
+                    $label = $isLast && $terminalLabel !== null
+                        ? $terminalLabel
+                        : __(str_replace(['-', '_'], ' ', $segment));
+                @endphp
+                <span class="text-chrome-300">/</span>
+                @if ($isLast || $isAppPrefix)
+                    <span class="{{ $isLast && $terminalLabel === null ? 'capitalize' : '' }} {{ $isLast ? 'font-medium text-chrome-800' : '' }}">
+                        {{ $label }}
+                    </span>
+                @else
+                    <a href="{{ url('/' . implode('/', $cumulative)) }}" wire:navigate
+                        class="capitalize hover:text-chrome-800">
+                        {{ $label }}
+                    </a>
+                @endif
+            @endforeach
+        @endif
     </nav>
 
     {{-- ───────────────────────────── Body: content ──────────────────────────

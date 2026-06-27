@@ -1471,5 +1471,8 @@
     "Reference, customer, car or plate…": "المرجع، العميل، السيارة أو اللوحة…",
     "Reservation": "حجز",
     "Reservations": "الحجوزات",
-    "Tip: press Ctrl + S to save": "تلميح: اضغط Ctrl + S للحفظ"
+    "Tip: press Ctrl + S to save": "تلميح: اضغط Ctrl + S للحفظ",
+    "This order is closed — only a super-admin can edit it.": "هذا الطلب مغلق — لا يمكن تعديله إلا لمدير عام.",
+    "This order is closed and locked. Only a super-admin can edit it.": "هذا الطلب مغلق ومقفل. لا يمكن تعديله إلا لمدير عام.",
+    "Back to orders": "العودة إلى الطلبات"
 }

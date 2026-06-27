@@ -332,6 +332,16 @@ final class OrderForm extends Component
 
     public function save(): void
     {
+        // A closed order is locked: only a super-admin may edit it after the
+        // fact. (The UI also hides the Save button + disables the fields, but
+        // this is the authoritative server-side guard.)
+        if ($this->id !== null && ! $this->isSuperAdmin()) {
+            $existing = RentalOrder::query()->find($this->id);
+            if ($existing !== null && $existing->state === RentalOrder::STATE_CLOSED) {
+                abort(403);
+            }
+        }
+
         // On a validation failure, point the user at the first missing field
         // (the form is long and the Save button sits at the bottom).
         try {
@@ -959,6 +969,10 @@ final class OrderForm extends Component
             'previewTotal' => $preview->total,
             'previewBalance' => $preview->balance,
             'isEditing' => $this->id !== null,
+            // A closed order is read-only for everyone except a super-admin.
+            'locked' => $this->id !== null
+                && $this->state === RentalOrder::STATE_CLOSED
+                && ! $this->isSuperAdmin(),
         ]);
     }
 }

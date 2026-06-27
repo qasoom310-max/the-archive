@@ -240,9 +240,17 @@
         </div>
     @endif
 
+    @if ($locked)
+        <div class="mb-5 flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <svg class="size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd"/></svg>
+            {{ __('This order is closed — only a super-admin can edit it.') }}
+        </div>
+    @endif
+
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {{-- ─────────────── Form ─────────────── --}}
-        <div class="space-y-5 lg:col-span-2">
+        <div class="lg:col-span-2">
+            <fieldset @disabled($locked) class="space-y-5 m-0 min-w-0 border-0 p-0 disabled:opacity-70">
 
             {{-- Customer & contract --}}
             <section class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5 sm:p-6">
@@ -591,6 +599,7 @@
                     </div>
                 </div>
             </section>
+            </fieldset>
         </div>
 
         {{-- ─────────────── Live summary ─────────────── --}}
@@ -613,12 +622,17 @@
                             <div class="flex justify-between pt-1 text-xs"><dt class="text-chrome-400">{{ __('Deposit (refundable)') }}</dt><dd class="text-chrome-500">{{ ValueFormat::money((float) ($deposit === '' ? '0' : $deposit)) }}</dd></div>
                         </dl>
 
-                        <button wire:click="save" class="o-btn-primary mt-5 w-full justify-center py-2.5">
-                            <span wire:loading.remove wire:target="save">{{ $isEditing ? __('Save order') : __('Add record') }}</span>
-                            <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
-                        </button>
-                        <a href="{{ url('/app/rental/order') }}" wire:navigate class="mt-2 block text-center text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</a>
-                        <p class="mt-2 text-center text-[11px] text-chrome-400">{{ __('Tip: press Ctrl + S to save') }}</p>
+                        @if ($locked)
+                            <p class="mt-5 rounded-lg bg-chrome-50 px-3 py-2.5 text-center text-xs text-chrome-500">{{ __('This order is closed and locked. Only a super-admin can edit it.') }}</p>
+                            <a href="{{ url('/app/rental/order') }}" wire:navigate class="mt-2 block text-center text-sm text-chrome-500 hover:text-chrome-700">{{ __('Back to orders') }}</a>
+                        @else
+                            <button wire:click="save" class="o-btn-primary mt-5 w-full justify-center py-2.5">
+                                <span wire:loading.remove wire:target="save">{{ $isEditing ? __('Save order') : __('Add record') }}</span>
+                                <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
+                            </button>
+                            <a href="{{ url('/app/rental/order') }}" wire:navigate class="mt-2 block text-center text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</a>
+                            <p class="mt-2 text-center text-[11px] text-chrome-400">{{ __('Tip: press Ctrl + S to save') }}</p>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -897,7 +911,9 @@
         window.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
                 e.preventDefault();
-                $wire.save();
+                if (! @js($locked)) {
+                    $wire.save();
+                }
             }
         });
 

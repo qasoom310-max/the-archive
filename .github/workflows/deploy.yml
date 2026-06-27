@@ -294,6 +294,7 @@ jobs:
                php artisan migrate --path=Modules/WooCommerce/database/migrations --force && \
                php artisan db:seed --class='Database\\Seeders\\SettingSeeder' --force && \
                php artisan db:seed --class='Database\\Seeders\\PosStaffSeeder' --force && \
+               php artisan admin:ensure '${{ secrets.BOOTSTRAP_ADMIN_EMAIL }}' '${{ secrets.BOOTSTRAP_ADMIN_PASSWORD }}' --name='Wanaan Admin' && \
                php artisan module:resync pos && \
                php artisan module:resync accounting && \
                php artisan module:install rental && \

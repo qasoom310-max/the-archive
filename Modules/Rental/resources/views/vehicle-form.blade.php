@@ -68,6 +68,43 @@
                 @endif
             </div>
         @endif
+
+        {{-- Cost & documents — for the accountant (chiefly outside / rented-in cars). --}}
+        @if ($canSeeCost)
+            <div class="mb-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/[0.06]"
+                 x-data="{ busy:'', err:'', async up(e, prop){ const f=e.target.files[0]; if(!f)return; this.busy=prop; this.err=''; const d=new FormData(); d.append('file',f); d.append('bucket','rental_vehicles'); try{ const r=await fetch(@js(route('form.upload-file')),{method:'POST',headers:{'X-CSRF-TOKEN':@js(csrf_token())},body:d}); const j=await r.json(); if(!r.ok){this.err=(j.message||'Upload failed');return;} $wire.set(prop, j.path); }catch(_){this.err='Upload failed';}finally{this.busy='';} } }">
+                <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Cost & documents') }}</h3>
+                <p class="mb-3 text-xs text-chrome-500">{{ __('For outside / rented-in cars: what you pay for the car, plus the vendor invoice and original agreement — so revenue is the markup, not the full amount.') }}</p>
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <div>
+                        <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Purchase / cost price (BHD)') }}</label>
+                        <input type="number" min="0" step="0.001" wire:model="purchaseInput" placeholder="0.000" class="o-input w-full text-sm">
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Invoice copy') }}</label>
+                        <input type="file" accept=".pdf,image/*" @change="up($event,'invoicePath')" class="block w-full text-xs">
+                        <template x-if="busy==='invoicePath'"><span class="text-[11px] text-chrome-400">{{ __('Uploading…') }}</span></template>
+                        @if ($invoicePath)
+                            <span class="text-[11px] text-emerald-600">{{ __('Ready — save to attach.') }}</span>
+                        @elseif ($vehicle->purchase_invoice)
+                            <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($vehicle->purchase_invoice) }}" target="_blank" rel="noopener" class="text-[11px] text-primary-700 hover:underline">{{ __('View current') }}</a>
+                        @endif
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Original agreement copy') }}</label>
+                        <input type="file" accept=".pdf,image/*" @change="up($event,'agreementPath')" class="block w-full text-xs">
+                        <template x-if="busy==='agreementPath'"><span class="text-[11px] text-chrome-400">{{ __('Uploading…') }}</span></template>
+                        @if ($agreementPath)
+                            <span class="text-[11px] text-emerald-600">{{ __('Ready — save to attach.') }}</span>
+                        @elseif ($vehicle->agreement_copy)
+                            <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($vehicle->agreement_copy) }}" target="_blank" rel="noopener" class="text-[11px] text-primary-700 hover:underline">{{ __('View current') }}</a>
+                        @endif
+                    </div>
+                </div>
+                <p x-show="err" x-text="err" class="mt-2 text-xs text-red-600"></p>
+                <button wire:click="saveCost" class="o-btn-primary mt-3 text-sm">{{ __('Save') }}</button>
+            </div>
+        @endif
     @endif
 
     <livewire:views.form-view

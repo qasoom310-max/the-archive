@@ -23,6 +23,13 @@ final class VehicleForm extends Component
     /** Inline monthly-target editor value (BHD). */
     public string $targetInput = '';
 
+    /** Cost & documents editor (chiefly for outside / rented-in cars). */
+    public string $purchaseInput = '';
+
+    public string $invoicePath = '';
+
+    public string $agreementPath = '';
+
     public function mount(?int $id = null): void
     {
         $this->id = $id;
@@ -32,7 +39,44 @@ final class VehicleForm extends Component
             $this->targetInput = $car !== null && $car->monthly_target > 0
                 ? rtrim(rtrim(number_format($car->monthly_target, 3, '.', ''), '0'), '.')
                 : '';
+            $this->purchaseInput = $car !== null && $car->purchase_price > 0
+                ? rtrim(rtrim(number_format($car->purchase_price, 3, '.', ''), '0'), '.')
+                : '';
         }
+    }
+
+    /**
+     * Save the car's cost (purchase price) and any newly-uploaded vendor invoice
+     * / original agreement. For the accountant — accountant or manager only.
+     */
+    public function saveCost(): void
+    {
+        $user = Auth::user();
+        abort_unless($user instanceof User && ($user->isAccountant() || $user->canApproveMaintenance()), 403);
+
+        if ($this->id === null) {
+            return;
+        }
+
+        $car = Vehicle::query()->find($this->id);
+        if ($car === null) {
+            return;
+        }
+
+        $car->purchase_price = $this->purchaseInput === '' ? 0.0 : max(0.0, (float) $this->purchaseInput);
+        if ($this->invoicePath !== '') {
+            $car->purchase_invoice = $this->invoicePath;
+        }
+        if ($this->agreementPath !== '') {
+            $car->agreement_copy = $this->agreementPath;
+        }
+        $car->save();
+
+        $this->invoicePath = '';
+        $this->agreementPath = '';
+
+        app(ActivityLogger::class)->logFor($car, 'updated', __('Cost & documents updated'));
+        session()->flash('toast', __('Cost & documents saved.'));
     }
 
     /** Set / clear this car's monthly sales target. Manager-gated. */
@@ -103,6 +147,7 @@ final class VehicleForm extends Component
         return view('rental::vehicle-form', [
             'vehicle' => $vehicle,
             'canManage' => $user instanceof User && $user->canApproveMaintenance(),
+            'canSeeCost' => $user instanceof User && ($user->isAccountant() || $user->canApproveMaintenance()),
             'earnedThisMonth' => $earnedThisMonth,
         ]);
     }

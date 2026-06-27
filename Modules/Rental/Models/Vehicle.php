@@ -32,6 +32,9 @@ use Illuminate\Support\Carbon;
  * @property float $monthly_rate
  * @property float $deposit
  * @property float $monthly_target
+ * @property float $purchase_price
+ * @property string|null $purchase_invoice
+ * @property string|null $agreement_copy
  * @property int|null $odometer
  * @property Carbon|null $next_maintenance_date
  * @property int|null $next_maintenance_mileage
@@ -61,7 +64,8 @@ final class Vehicle extends Model implements DefinesIrModel
     protected $fillable = [
         'name', 'plate_no', 'branch_id', 'make', 'model', 'year', 'color',
         'category', 'fuel_type', 'status', 'daily_rate', 'weekly_rate', 'monthly_rate',
-        'deposit', 'monthly_target', 'odometer', 'next_maintenance_date', 'next_maintenance_mileage',
+        'deposit', 'monthly_target', 'purchase_price', 'purchase_invoice', 'agreement_copy',
+        'odometer', 'next_maintenance_date', 'next_maintenance_mileage',
         'registration_expiry', 'registration_doc', 'insurance_expiry', 'insurance_doc', 'active',
     ];
 
@@ -89,6 +93,7 @@ final class Vehicle extends Model implements DefinesIrModel
             'monthly_rate' => 'float',
             'deposit' => 'float',
             'monthly_target' => 'float',
+            'purchase_price' => 'float',
             'odometer' => 'integer',
             'next_maintenance_date' => 'date',
             'next_maintenance_mileage' => 'integer',

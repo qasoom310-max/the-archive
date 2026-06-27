@@ -159,17 +159,19 @@
         </div>
     @endif
 
-    {{-- ───────── Renewal reminder ───────── --}}
+    {{-- ───────── Renewal reminder (collapsed by default; just the header line) ───────── --}}
     @if ($renewalAlerts->isNotEmpty())
-        <div class="mb-6 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/60 shadow-sm">
-            <div class="flex items-center gap-2 border-b border-amber-200/70 px-4 py-3">
+        <div x-data="{ open: {{ $renewalAlerts->count() <= 5 ? 'true' : 'false' }} }" class="mb-6 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/60 shadow-sm">
+            <button type="button" @click="open = !open" class="flex w-full items-center gap-2 px-4 py-3 text-start">
                 <span class="flex size-7 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
                     <svg class="size-4" viewBox="0 0 20 20" fill="currentColor">{!! $ic['alert'] !!}</svg>
                 </span>
                 <h2 class="text-sm font-semibold text-amber-900">{{ __('Car papers needing attention') }}</h2>
-                <span class="ms-auto rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">{{ $renewalAlerts->count() }}</span>
-            </div>
-            <ul class="max-h-72 divide-y divide-amber-200/50 overflow-y-auto">
+                <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">{{ $renewalAlerts->count() }}</span>
+                <span class="ms-auto text-xs font-medium text-amber-700" x-text="open ? '{{ __('Hide') }}' : '{{ __('Show') }}'"></span>
+                <svg class="size-4 text-amber-600 transition-transform" :class="open && 'rotate-180'" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"/></svg>
+            </button>
+            <ul x-show="open" x-cloak class="max-h-72 divide-y divide-amber-200/50 overflow-y-auto border-t border-amber-200/70">
                 @foreach ($renewalAlerts as $car)
                     @php
                         $expired = $car->needsRenewal();
@@ -194,7 +196,7 @@
                 @endforeach
             </ul>
             @if ($renewalAlerts->count() > 5)
-                <a href="{{ url('/app/rental/vehicle') }}" wire:navigate
+                <a href="{{ url('/app/rental/vehicle') }}" wire:navigate x-show="open" x-cloak
                     class="flex items-center justify-between gap-2 border-t border-amber-200/70 bg-amber-100/40 px-4 py-2.5 text-xs font-semibold text-amber-800 hover:bg-amber-100/70">
                     <span>{{ __(':count cars need attention — scroll the list or open all cars', ['count' => $renewalAlerts->count()]) }}</span>
                     <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/></svg>

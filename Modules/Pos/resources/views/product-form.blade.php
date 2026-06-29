@@ -13,6 +13,13 @@
         :key="'pos-product-form-' . ($product?->id ?? 'new')" />
 
     @if ($product)
+        {{-- Secondary (gallery) images, on top of the single primary photo the
+             engine form owns. Pushed to WooCommerce as additional product
+             images. Always available — harmless when a database has no store. --}}
+        <div class="mt-6">
+            @livewire(\Modules\Pos\Livewire\PosProductGallery::class, ['productId' => $product->id], 'gallery-' . $product->id)
+        </div>
+
         {{-- The recipe (bill of materials consumed on sale) is a café /
              kitchen concept. A retail or perfume database has no recipes,
              so its Business Type hides this editor. --}}

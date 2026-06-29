@@ -1,5 +1,8 @@
 {
     "OpenERP": "OpenERP",
+    "Gallery images": "صور المعرض",
+    "Extra photos shown alongside the main photo. These are pushed to WooCommerce as additional product images.": "صور إضافية تُعرض بجانب الصورة الرئيسية. تُرسل إلى WooCommerce كصور إضافية للمنتج.",
+    "No additional images yet.": "لا توجد صور إضافية بعد.",
     "Order number": "رقم الطلب",
     "Auto": "تلقائي",
     "Customer phone number": "رقم هاتف العميل",

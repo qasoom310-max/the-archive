@@ -857,6 +857,34 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
   admin-only ACL, 30-day window on create, findForPhone skips lapsed, paid-order
   renews window, sweep deactivates only expired, re-enable restarts window).
 
+**POS product secondary (gallery) images (shipped 2026-06-25):**
+
+- A product can carry **extra photos** on top of the single primary
+  `image_path` the engine form owns — stored as a JSON path list in
+  `pos_products.gallery_images` (`'array'` cast; migration
+  `2026_06_24_700016`, auto-applied by deploy's POS migrate step + tenants
+  via `workspaces:migrate`). **NOT an `irModelDefinition()` arch field** ⇒ no
+  `module:resync`. `PosProduct::galleryImages(): list<string>` returns the
+  cleaned, ordered list.
+- **Editor**: `Modules\Pos\Livewire\PosProductGallery` (`pos::product-gallery`)
+  — embedded on the product page **beneath the engine form + recipe + condiment
+  editors** (`product-form.blade.php`), **always shown** (no Business-Type gate
+  — harmless when a database has no store). A thumbnail grid with a per-image
+  **remove** (×), plus an uploader that reuses the existing
+  `FormImageUploadController` + `pos_products` bucket (already whitelisted +
+  deploy-excluded) — the Alpine block POSTs the file straight to the controller
+  then calls `$wire.addImage(path)` (de-dupes; `removeImage(index)` drops the
+  DB entry, file stays on disk). Admin-only in practice: `pos.product` Write
+  gates mutations, cashiers have no `pos.product` access.
+- **WooCommerce**: `gallery_images` added to `WooCommerceServiceProvider::SYNCED_FIELDS`
+  (a gallery change re-pushes) and `WooCommerceService` emits `images[]` as the
+  primary **first then every secondary path** — so a store listing shows the
+  whole gallery, primary as featured. Tests:
+  `tests/Feature/PosProductGalleryTest.php` (3 — add/remove + de-dupe, blank
+  ignored, non-admin forbidden) + `WooCommerceModuleTest::test_secondary_gallery_images_push_after_the_primary`.
+  AR keys: Gallery images / the help string (keeps "WooCommerce" English) /
+  empty-state.
+
 **Automated daily report (dashboard + emailed PDF, shipped 2026-06-09):**
 
 | Concern | Location |
@@ -1324,9 +1352,9 @@ next increment.
 | Manifest | `Modules/WooCommerce/module.json` (`depends:[base,pos]`, `application:false`, `models:[]`, sequence 30) — surface is a Settings tab, not an app screen |
 | Config | `woocommerce_configuration` (single row: `store_url`, `consumer_key`/`consumer_secret` = **TEXT holding APP_KEY-encrypted ciphertext**, `api_version` default `wc/v3`, `enabled`). `WooCommerceConfiguration::current()` firstOrNew, `isConfigured()`, `apiBase()` = `{store_url}/wp-json/wc/v3`. **Per-database** (each workspace its own row) so it's effectively Kaleem-only — the module installs everywhere but stays **dormant until store keys are entered**, and only that DB syncs |
 | Mapping | `woocommerce_product_links` (`pos_product_id` unique logical ref, `woo_id` nullable, `last_status`/`last_error`/`last_synced_at`). `woo_id` null until first push → POST creates; thereafter PUT `/products/{woo_id}` updates the SAME remote product (no duplicates). Row survives a product delete so the listing can still be unpublished |
-| Service | `WooCommerceService` — `syncProduct()`/`unpublishProduct()` (QUEUE a push + mark link `queued`); `pushNow(id, action)` (the actual SYNCHRONOUS REST call → returns `{ok, skipped, error}`, never throws); `syncAllActiveNow()` (the "Sync all now" button — loops active products through `pushNow` **synchronously in the current request's DB context** and returns `{synced, failed, error}` for immediate UI feedback). Field map: `name` (EN translation), `type=simple`, `status`=active?publish:draft, `regular_price`, `manage_stock=true`+`stock_quantity` (int round), `sku`=barcode, `images[].src`=`Storage::disk('public')->url(image_path)`. HTTP Basic auth (key/secret) + 20s timeout. Every method no-ops when `! isConfigured()` |
+| Service | `WooCommerceService` — `syncProduct()`/`unpublishProduct()` (QUEUE a push + mark link `queued`); `pushNow(id, action)` (the actual SYNCHRONOUS REST call → returns `{ok, skipped, error}`, never throws); `syncAllActiveNow()` (the "Sync all now" button — loops active products through `pushNow` **synchronously in the current request's DB context** and returns `{synced, failed, error}` for immediate UI feedback). Field map: `name` (EN translation), `type=simple`, `status`=active?publish:draft, `regular_price`, `manage_stock=true`+`stock_quantity` (int round), `sku`=barcode, `images[]`=primary `image_path` **first then every `PosProduct::galleryImages()` secondary path** (each `Storage::disk('public')->url(...)` — the WooCommerce listing shows the full gallery, primary as featured). HTTP Basic auth (key/secret) + 20s timeout. Every method no-ops when `! isConfigured()` |
 | Queued job | `SyncProductToWooCommerce(posProductId, action='sync'|'unpublish', workspaceId?)` (`ShouldQueue`, tries=3, backoff 30). **Tenant-aware** — the database `queue` connection is pinned to Main (see `WorkspaceServiceProvider`), so a job dispatched from a tenant RUNS in Main's context; it carries the originating `workspaceId` and re-activates that workspace (`WorkspaceManager::withTenant`) before delegating to `pushNow`, otherwise it would read Main's (wrong) config/products and silently no-op. **This was the bug: products queued on a tenant (Kaleem) never reached the store.** Non-2xx → throw (retry → `failed_jobs`). **Needs the hPanel `schedule:run` cron** (`[[hostinger-cron-needed-for-queue-worker]]`); the manual "Sync all now" is synchronous so it does NOT depend on the cron |
-| Triggers | `WooCommerceServiceProvider::boot()` (loaded only while installed): `PosProduct::saved` → upsert (or unpublish if just deactivated), **guarded by `wasChanged(SYNCED_FIELDS)`** so per-keystroke autosaves don't spam; `PosProduct::deleted` → unpublish; `PosOrderPaid` → re-push each sold product's stock (sale-time `decrement()` bypasses model events). All gated by `storeReady()` = `Schema::hasTable(...) && isConfigured()` (defensive: a stray hook on a DB without the table no-ops) |
+| Triggers | `WooCommerceServiceProvider::boot()` (loaded only while installed): `PosProduct::saved` → upsert (or unpublish if just deactivated), **guarded by `wasChanged(SYNCED_FIELDS)`** (incl. `gallery_images`, so adding/removing a secondary image re-pushes) so per-keystroke autosaves don't spam; `PosProduct::deleted` → unpublish; `PosOrderPaid` → re-push each sold product's stock (sale-time `decrement()` bypasses model events). All gated by `storeReady()` = `Schema::hasTable(...) && isConfigured()` (defensive: a stray hook on a DB without the table no-ops) |
 | Settings UI | `Modules\WooCommerce\Livewire\WooCommerceSettings` (**admin-only** `abort 403`) + `woocommerce::settings`; secrets write-only (blank = keep). Surfaced as a **"WooCommerce" tab** via `resources/views/partials/settings-nav.blade.php` (now generic `installedModule()` helper; shows the pill only when installed + admin). Tab content stays **English by design** (same integration carve-out as the WhatsApp tab). A "Sync all active products now" button calls `syncAllActive()` |
 | Routes | `Modules/WooCommerce/routes/web.php` → `/app/settings/woocommerce` (`auth`, two-segment so the `/app/{module}` wildcard doesn't shadow it). Phase B webhook routes not built yet |
 | Deploy | `deploy.yml` runs `migrate --path=Modules/WooCommerce/database/migrations --force` + `module:install woocommerce` (Main) + the existing `workspaces:install-modules` backfills tenants; `workspaces:migrate` keeps its migrations applied per tenant. Image-bucket note: it pushes existing `pos_products` image URLs (already deploy-excluded) — no new bucket |

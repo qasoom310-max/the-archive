@@ -203,12 +203,19 @@ final class WooCommerceService
             $payload['sku'] = $barcode;
         }
 
-        $image = (string) $product->image_path;
-        if ($image !== '') {
-            // Absolute URL so the store can fetch the file from this server.
-            $payload['images'] = [
-                ['src' => Storage::disk('public')->url($image)],
-            ];
+        // Primary photo first, then every secondary (gallery) image — so the
+        // store lists them in the same order, the primary as the featured one.
+        // Absolute URLs so the store can fetch each file from this server.
+        $images = [];
+        $primary = (string) $product->image_path;
+        if ($primary !== '') {
+            $images[] = ['src' => Storage::disk('public')->url($primary)];
+        }
+        foreach ($product->galleryImages() as $path) {
+            $images[] = ['src' => Storage::disk('public')->url($path)];
+        }
+        if ($images !== []) {
+            $payload['images'] = $images;
         }
 
         return $payload;

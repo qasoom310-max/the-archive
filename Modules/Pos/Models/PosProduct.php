@@ -31,6 +31,7 @@ use Spatie\Translatable\HasTranslations;
  * @property string|null $barcode
  * @property int|null $pos_category_id
  * @property string|null $image_path
+ * @property array<int, string>|null $gallery_images  Secondary photo paths (public disk)
  * @property bool $active
  * @property float $stock_on_hand
  * @property string|null $unit  Unit of measure code: qty|kg|g|l|ml|pcs|box|pack|dozen
@@ -57,7 +58,7 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
     /** @var list<string> */
     protected $fillable = [
         'name', 'price', 'cost_price', 'tax_rate', 'barcode',
-        'pos_category_id', 'image_path', 'active', 'stock_on_hand', 'unit', 'reorder_point', 'supplier_id',
+        'pos_category_id', 'image_path', 'gallery_images', 'active', 'stock_on_hand', 'unit', 'reorder_point', 'supplier_id',
     ];
 
     /**
@@ -107,7 +108,23 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
             'stock_on_hand' => 'float',
             'reorder_point' => 'float',
             'supplier_id' => 'integer',
+            'gallery_images' => 'array',
         ];
+    }
+
+    /**
+     * Secondary image paths as a clean list of non-empty strings (the raw
+     * cast can hold null or stray empties). Render order = WooCommerce
+     * gallery order (after the primary photo).
+     *
+     * @return list<string>
+     */
+    public function galleryImages(): array
+    {
+        return array_values(array_filter(
+            $this->gallery_images ?? [],
+            static fn (string $path): bool => $path !== '',
+        ));
     }
 
     /**

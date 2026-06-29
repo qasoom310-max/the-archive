@@ -30,7 +30,7 @@ final class WooCommerceServiceProvider extends ServiceProvider
 {
     /** Product fields whose change is worth a re-push (skip irrelevant saves). */
     private const SYNCED_FIELDS = [
-        'name', 'price', 'barcode', 'stock_on_hand', 'image_path', 'pos_category_id', 'active',
+        'name', 'price', 'barcode', 'stock_on_hand', 'image_path', 'gallery_images', 'pos_category_id', 'active',
     ];
 
     public function register(): void

@@ -178,6 +178,31 @@ final class WooCommerceModuleTest extends TestCase
             && str_contains($request->url(), '/wp-json/wc/v3/products/555'));
     }
 
+    public function test_secondary_gallery_images_push_after_the_primary(): void
+    {
+        $this->install();
+        $this->configure();
+        $product = $this->product([
+            'image_path' => 'pos_products/primary.webp',
+            'gallery_images' => ['pos_products/extra1.webp', 'pos_products/extra2.webp'],
+        ]);
+
+        Http::fake(['*/wp-json/wc/v3/products' => Http::response(['id' => 777], 201)]);
+
+        (new SyncProductToWooCommerce((int) $product->id))->handle(app(WooCommerceService::class));
+
+        Http::assertSent(function ($request): bool {
+            $images = $request['images'] ?? [];
+
+            // Primary first, then both gallery images, in order.
+            return is_array($images)
+                && count($images) === 3
+                && str_contains((string) $images[0]['src'], 'primary.webp')
+                && str_contains((string) $images[1]['src'], 'extra1.webp')
+                && str_contains((string) $images[2]['src'], 'extra2.webp');
+        });
+    }
+
     public function test_job_unpublish_sets_the_remote_listing_to_draft(): void
     {
         $this->install();

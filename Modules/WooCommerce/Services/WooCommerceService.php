@@ -136,7 +136,7 @@ final class WooCommerceService
             return ['ok' => false, 'skipped' => true, 'error' => null];
         }
 
-        $payload = $this->buildPayload($product);
+        $payload = $this->buildPayload($product, $config);
 
         $response = $link->woo_id !== null
             ? $this->client($config)->put($config->apiBase() . '/products/' . $link->woo_id, $payload)
@@ -181,7 +181,7 @@ final class WooCommerceService
      *
      * @return array<string, mixed>
      */
-    private function buildPayload(PosProduct $product): array
+    private function buildPayload(PosProduct $product, WooCommerceConfiguration $config): array
     {
         // Prefer the English name; fall back to the active-locale value.
         $name = $product->getTranslation('name', 'en');
@@ -218,7 +218,83 @@ final class WooCommerceService
             $payload['images'] = $images;
         }
 
+        // Category: resolve the product's POS category name to a WooCommerce
+        // category term (matched by name, created on the store if missing) so
+        // the listing isn't "Uncategorized". Best-effort — a category that
+        // can't be resolved just leaves the product uncategorised; it never
+        // fails the product push.
+        $categoryName = $this->categoryName($product);
+        if ($categoryName !== '') {
+            $termId = $this->resolveCategoryId($config, $categoryName);
+            if ($termId !== null) {
+                $payload['categories'] = [['id' => $termId]];
+            }
+        }
+
         return $payload;
+    }
+
+    /** The product's POS category name in English (matches the WC category). */
+    private function categoryName(PosProduct $product): string
+    {
+        $category = $product->category;
+        if ($category === null) {
+            return '';
+        }
+
+        $name = $category->getTranslation('name', 'en');
+
+        return $name !== '' ? $name : (string) $category->name;
+    }
+
+    /**
+     * Resolve a WooCommerce product-category term id by name: find an existing
+     * one (exact, case-insensitive) else create it on the store. Best-effort —
+     * returns null on any failure so a category hiccup never blocks the product
+     * push. Cached per name for the life of this (singleton) service so a
+     * "Sync all" doesn't re-resolve the same category for every product.
+     *
+     * @var array<string, int>
+     */
+    private array $categoryIdCache = [];
+
+    private function resolveCategoryId(WooCommerceConfiguration $config, string $name): ?int
+    {
+        $key = mb_strtolower($name);
+        if (isset($this->categoryIdCache[$key])) {
+            return $this->categoryIdCache[$key];
+        }
+
+        $base = $config->apiBase() . '/products/categories';
+
+        // 1) Search existing categories (WooCommerce search is a partial match,
+        //    so filter for an exact, case-insensitive name match).
+        $search = $this->client($config)->get($base, ['search' => $name, 'per_page' => 100]);
+        if ($search->successful()) {
+            foreach ((array) $search->json() as $term) {
+                if (is_array($term) && isset($term['id'], $term['name'])
+                    && mb_strtolower((string) $term['name']) === $key) {
+                    return $this->categoryIdCache[$key] = (int) $term['id'];
+                }
+            }
+        }
+
+        // 2) Not found → create it.
+        $create = $this->client($config)->post($base, ['name' => $name]);
+        if ($create->successful()) {
+            $id = $create->json('id');
+            if (is_int($id)) {
+                return $this->categoryIdCache[$key] = $id;
+            }
+        }
+
+        // A 400 "term_exists" race carries the existing id in data.resource_id.
+        $existingId = $create->json('data.resource_id');
+        if (is_int($existingId)) {
+            return $this->categoryIdCache[$key] = $existingId;
+        }
+
+        return null;
     }
 
     /**

@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
+use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosProduct;
 use Modules\WooCommerce\Jobs\SyncProductToWooCommerce;
 use Modules\WooCommerce\Livewire\WooCommerceSettings;
@@ -200,6 +201,65 @@ final class WooCommerceModuleTest extends TestCase
                 && str_contains((string) $images[0]['src'], 'primary.webp')
                 && str_contains((string) $images[1]['src'], 'extra1.webp')
                 && str_contains((string) $images[2]['src'], 'extra2.webp');
+        });
+    }
+
+    public function test_the_product_category_maps_to_a_woocommerce_term(): void
+    {
+        $this->install();
+        $this->configure();
+        $category = PosCategory::query()->create(['name' => 'Men']);
+        $product = $this->product(['pos_category_id' => $category->id]);
+
+        Http::fake([
+            // The store already has a "Men" category (matched by name on search).
+            '*/wp-json/wc/v3/products/categories*' => Http::response([['id' => 42, 'name' => 'Men']], 200),
+            '*/wp-json/wc/v3/products' => Http::response(['id' => 888], 201),
+        ]);
+
+        (new SyncProductToWooCommerce((int) $product->id))->handle(app(WooCommerceService::class));
+
+        Http::assertSent(function ($request): bool {
+            if ($request->method() !== 'POST' || ! str_ends_with(strtok($request->url(), '?'), '/products')) {
+                return false;
+            }
+            $categories = $request['categories'] ?? [];
+
+            return is_array($categories)
+                && count($categories) === 1
+                && (int) $categories[0]['id'] === 42;
+        });
+    }
+
+    public function test_a_missing_category_is_created_on_the_store(): void
+    {
+        $this->install();
+        $this->configure();
+        $category = PosCategory::query()->create(['name' => 'Women']);
+        $product = $this->product(['pos_category_id' => $category->id]);
+
+        Http::fake([
+            // Search returns nothing → the service creates the term, gets id 9.
+            '*/wp-json/wc/v3/products/categories*' => Http::sequence()
+                ->push([], 200)          // GET search: empty
+                ->push(['id' => 9, 'name' => 'Women'], 201), // POST create
+            '*/wp-json/wc/v3/products' => Http::response(['id' => 889], 201),
+        ]);
+
+        (new SyncProductToWooCommerce((int) $product->id))->handle(app(WooCommerceService::class));
+
+        // The store was asked to create the missing category…
+        Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+            && str_ends_with(strtok($request->url(), '?'), '/products/categories')
+            && $request['name'] === 'Women');
+
+        // …and the product carries that new term id.
+        Http::assertSent(function ($request): bool {
+            if ($request->method() !== 'POST' || ! str_ends_with(strtok($request->url(), '?'), '/products')) {
+                return false;
+            }
+
+            return (int) ($request['categories'][0]['id'] ?? 0) === 9;
         });
     }
 

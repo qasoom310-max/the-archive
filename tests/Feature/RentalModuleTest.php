@@ -216,6 +216,22 @@ final class RentalModuleTest extends TestCase
         $this->assertEqualsWithDelta(50.0, $vehicle->deposit, 0.001);
         $this->assertSame($branch->id, $vehicle->branch_id);
         $this->assertSame(Vehicle::STATUS_AVAILABLE, $vehicle->status);
+        $this->assertFalse($vehicle->is_outside); // owned by default
+    }
+
+    public function test_a_car_can_be_registered_as_an_outside_rented_in_vehicle(): void
+    {
+        $this->install();
+
+        Livewire::test(FormView::class, ['model' => Vehicle::class, 'modelKey' => 'rental.vehicle'])
+            ->assertSet('form.is_outside', false) // owned by default
+            ->set('form.name', 'Outside Patrol')
+            ->set('form.daily_rate', 20)
+            ->set('form.is_outside', true)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertTrue(Vehicle::query()->where('name', 'Outside Patrol')->sole()->is_outside);
     }
 
     public function test_vehicle_display_name_includes_plate_and_colour(): void

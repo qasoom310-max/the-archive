@@ -272,6 +272,7 @@ final class Vehicle extends Model implements DefinesIrModel
             fields: [
                 new FieldDefinition('name', 'Name', 'char', required: true, sequence: 10),
                 new FieldDefinition('plate_no', 'Plate no.', 'char', sequence: 20),
+                new FieldDefinition('is_outside', 'Outside vehicle', 'boolean', sequence: 25),
                 new FieldDefinition('branch_id', 'Branch', 'many2one', relation: 'rental.branch', sequence: 30),
                 new FieldDefinition('category', 'Category', 'selection', selection: self::categoryOptions(), sequence: 40),
                 new FieldDefinition('status', 'Status', 'selection', selection: self::statusOptions(), sequence: 50),
@@ -299,6 +300,7 @@ final class Vehicle extends Model implements DefinesIrModel
                         ['field' => 'color', 'label' => 'Colour'],
                         ['field' => 'category', 'label' => 'Category', 'format' => 'badge', 'sortable' => true],
                         ['field' => 'status', 'label' => 'Status', 'format' => 'badge', 'sortable' => true],
+                        ['field' => 'is_outside', 'label' => 'Outside', 'format' => 'bool', 'sortable' => true],
                         ['field' => 'daily_rate', 'label' => 'Daily', 'format' => 'money', 'align' => 'right', 'sortable' => true],
                         ['field' => 'registration_expiry', 'label' => 'Registration', 'format' => 'date', 'sortable' => true],
                         ['field' => 'insurance_expiry', 'label' => 'Insurance', 'format' => 'date', 'sortable' => true],
@@ -314,6 +316,7 @@ final class Vehicle extends Model implements DefinesIrModel
                     'fields' => [
                         ['field' => 'name', 'label' => 'Name', 'widget' => 'text', 'required' => true, 'placeholder' => 'e.g. Toyota Yaris 2023'],
                         ['field' => 'plate_no', 'label' => 'Plate no.', 'widget' => 'text'],
+                        ['field' => 'is_outside', 'label' => 'Outside vehicle (rented in from another company)', 'widget' => 'checkbox', 'help' => 'Tick only if this car is NOT owned — it won’t count in the fleet, and its revenue is the mark-up over the cost you pay the outside owner.'],
                         [
                             'field' => 'branch_id',
                             'label' => 'Branch',

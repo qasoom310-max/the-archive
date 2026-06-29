@@ -1474,5 +1474,9 @@
     "Tip: press Ctrl + S to save": "تلميح: اضغط Ctrl + S للحفظ",
     "This order is closed — only a super-admin can edit it.": "هذا الطلب مغلق — لا يمكن تعديله إلا لمدير عام.",
     "This order is closed and locked. Only a super-admin can edit it.": "هذا الطلب مغلق ومقفل. لا يمكن تعديله إلا لمدير عام.",
-    "Back to orders": "العودة إلى الطلبات"
+    "Back to orders": "العودة إلى الطلبات",
+    "Outside vehicle": "مركبة خارجية",
+    "Outside": "خارجية",
+    "Outside vehicle (rented in from another company)": "مركبة خارجية (مستأجرة من شركة أخرى)",
+    "Tick only if this car is NOT owned — it won’t count in the fleet, and its revenue is the mark-up over the cost you pay the outside owner.": "ضع علامة فقط إذا كانت السيارة غير مملوكة — لن تُحتسب ضمن الأسطول، وإيرادها هو هامش الربح فوق التكلفة التي تدفعها للمالك الخارجي."
 }

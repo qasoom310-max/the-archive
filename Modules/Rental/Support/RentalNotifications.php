@@ -45,8 +45,11 @@ final class RentalNotifications
                 );
             }
 
+            // Owned cars only — outside (rented-in) cars' papers are the
+            // outside owner's responsibility, not ours.
             $horizon = now()->addDays(Vehicle::RENEWAL_REMINDER_DAYS)->toDateString();
             $cars = Vehicle::query()
+                ->owned()
                 ->where('active', true)
                 ->where(function ($q) use ($horizon): void {
                     $q->whereNull('registration_expiry')

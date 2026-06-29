@@ -111,4 +111,27 @@ final class RentalCarDocumentsTest extends TestCase
             ->assertSee('ExpiredCarZ')
             ->assertDontSee('FineCarZ');
     }
+
+    public function test_paper_reminders_ignore_outside_rented_in_cars(): void
+    {
+        // An outside (rented-in) car with lapsed papers is the owner's problem,
+        // not ours — it must not appear on the dashboard reminder nor inflate
+        // the "Cars need paper renewal" notification count.
+        $this->actingAs($admin = User::factory()->create(['is_admin' => true]));
+        $this->car('OwnedLapsedZ', -1, 200);
+        Vehicle::query()->create([
+            'name' => 'OutsideLapsedZ', 'daily_rate' => 10, 'is_outside' => true,
+            'registration_expiry' => Carbon::today()->subDay(),
+            'insurance_expiry' => Carbon::today()->subDay(),
+        ]);
+
+        Livewire::test(RentalHome::class)
+            ->assertSee('OwnedLapsedZ')
+            ->assertDontSee('OutsideLapsedZ');
+
+        $renewal = collect(app(\Modules\Rental\Support\RentalNotifications::class)->for($admin))
+            ->firstWhere('title', 'Cars need paper renewal');
+        $this->assertNotNull($renewal);
+        $this->assertSame('1 expired or expiring soon', $renewal->description);
+    }
 }

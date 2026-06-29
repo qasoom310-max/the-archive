@@ -78,8 +78,10 @@ final class RentalHome extends Component
 
         // Cars whose registration / insurance is missing, expired, or expiring
         // within the reminder window — surfaced as a "renew soon" box.
+        // Owned cars only — outside (rented-in) cars' papers aren't ours to renew.
         $horizon = now()->addDays(Vehicle::RENEWAL_REMINDER_DAYS)->toDateString();
         $renewalAlerts = Vehicle::query()
+            ->owned()
             ->where('active', true)
             ->where(function ($q) use ($horizon): void {
                 $q->whereNull('registration_expiry')

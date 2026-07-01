@@ -1493,5 +1493,9 @@
     "Achieved": "محقّق",
     "Missed": "غير محقّق",
     "No target": "بلا هدف",
-    "No cars yet.": "لا توجد سيارات بعد."
+    "No cars yet.": "لا توجد سيارات بعد.",
+    "Revenue by month": "الإيراد حسب الشهر",
+    "Hit target": "حقّق الهدف",
+    "Below target": "دون الهدف",
+    "Target": "الهدف"
 }

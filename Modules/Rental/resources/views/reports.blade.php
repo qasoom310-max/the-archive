@@ -149,6 +149,56 @@
     {{-- ── Targets ── --}}
     @if ($tab === 'targets')
         @php $periodLabel = $targets['wholeYear'] ? $targets['year'] : (__(\Modules\Rental\Support\SalesReport::MONTHS[$targets['month']] ?? '') . ' ' . $targets['year']); @endphp
+
+        {{-- Year-at-a-glance: fleet revenue per month vs the monthly fleet target.
+             Click a bar to drill the table below into that month. --}}
+        @php
+            $monthly = $targets['monthly'];
+            $fleetTarget = (float) $targets['fleetTarget'];
+            $peak = max($fleetTarget, max($monthly), 1);
+            $scale = $peak * 1.15; // headroom so the target line isn't at the very top
+        @endphp
+        <div class="mb-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-5">
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h3 class="text-sm font-semibold text-chrome-800">{{ __('Revenue by month') }} · {{ $targets['year'] }}</h3>
+                <div class="flex items-center gap-4 text-xs text-chrome-500">
+                    <span class="flex items-center gap-1.5"><span class="inline-block size-2.5 rounded-sm bg-emerald-500"></span>{{ __('Hit target') }}</span>
+                    <span class="flex items-center gap-1.5"><span class="inline-block size-2.5 rounded-sm bg-amber-400"></span>{{ __('Below target') }}</span>
+                    @if ($fleetTarget > 0)
+                        <span class="flex items-center gap-1.5"><span class="inline-block h-0 w-4 border-t-2 border-dashed border-chrome-400"></span>{{ __('Target') }} {{ \App\Erp\Views\ValueFormat::money($fleetTarget) }}</span>
+                    @endif
+                </div>
+            </div>
+            <div class="relative h-44">
+                {{-- Monthly fleet target reference line --}}
+                @if ($fleetTarget > 0)
+                    <div class="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-dashed border-chrome-400/70" style="bottom: {{ $fleetTarget / $scale * 100 }}%"></div>
+                @endif
+                <div class="flex h-full items-end gap-1 sm:gap-2">
+                    @foreach (\Modules\Rental\Support\SalesReport::MONTHS as $num => $abbr)
+                        @php
+                            $val = (float) ($monthly[$num] ?? 0.0);
+                            $hgt = $val > 0 ? max(2, $val / $scale * 100) : 0;
+                            $hit = $fleetTarget > 0 && $val >= $fleetTarget;
+                            $isSel = ! $targets['wholeYear'] && $targets['month'] === $num;
+                        @endphp
+                        <button type="button" wire:click="$set('targetMonth', {{ $num }})"
+                            class="group relative flex h-full flex-1 flex-col justify-end rounded-t hover:bg-chrome-50"
+                            title="{{ __($abbr) }} {{ $targets['year'] }} — {{ \App\Erp\Views\ValueFormat::money($val) }}">
+                            <span class="mb-1 text-center text-[10px] font-medium text-chrome-400 opacity-0 transition group-hover:opacity-100">{{ \App\Erp\Views\ValueFormat::money($val) }}</span>
+                            <div class="w-full rounded-t {{ $hit ? 'bg-emerald-500' : ($val > 0 ? 'bg-amber-400' : 'bg-chrome-100') }} {{ $isSel ? 'ring-2 ring-primary-500 ring-offset-1' : '' }}"
+                                style="height: {{ $hgt }}%"></div>
+                        </button>
+                    @endforeach
+                </div>
+            </div>
+            <div class="mt-1 flex gap-1 sm:gap-2">
+                @foreach (\Modules\Rental\Support\SalesReport::MONTHS as $num => $abbr)
+                    @php $isSel = ! $targets['wholeYear'] && $targets['month'] === $num; @endphp
+                    <div class="flex-1 text-center text-[11px] {{ $isSel ? 'font-bold text-primary-700' : 'text-chrome-500' }}">{{ __($abbr) }}</div>
+                @endforeach
+            </div>
+        </div>
         <div class="mb-4 rounded-xl bg-white p-4 text-sm shadow-sm ring-1 ring-chrome-900/5">
             @if ($targets['targetCount'] > 0)
                 <span class="font-semibold text-chrome-800">{{ $targets['achievedCount'] }} / {{ $targets['targetCount'] }}</span>

@@ -67,7 +67,7 @@ final class Reports extends Component
      * history merged via {@see SalesReport}). Cars that missed sort to the top;
      * cars with no target set fall to the bottom.
      *
-     * @return array{rows: list<array{name: string, target: float, expected: float, revenue: float, pct: float|null, hasTarget: bool, achieved: bool}>, targetCount: int, achievedCount: int, wholeYear: bool, month: int, year: int, years: list<int>}
+     * @return array{rows: list<array{name: string, target: float, expected: float, revenue: float, pct: float|null, hasTarget: bool, achieved: bool}>, targetCount: int, achievedCount: int, wholeYear: bool, month: int, year: int, years: list<int>, monthly: array<int, float>, fleetTarget: float}
      */
     private function targetsData(): array
     {
@@ -76,11 +76,26 @@ final class Reports extends Component
         $wholeYear = $this->targetMonth < 1 || $this->targetMonth > 12;
         $factor = $wholeYear ? 12 : 1;
 
-        $rows = Vehicle::query()
-            ->owned()   // targets are for our own cars, not rented-in (outside) ones
+        // Our own, active cars — the basis for both the table and the year chart.
+        $vehicles = Vehicle::query()
+            ->owned()
             ->where('active', true)
             ->orderBy('name')
-            ->get(['id', 'name', 'plate_no', 'color', 'monthly_target'])
+            ->get(['id', 'name', 'plate_no', 'color', 'monthly_target']);
+
+        // Fleet net revenue per month (our cars only) for the year chart.
+        $ownedPlates = $vehicles->map(static fn (Vehicle $v): string => $v->plate_no ?? '—')->flip();
+        $monthly = array_fill(1, 12, 0.0);
+        foreach ($matrix as $plate => $months) {
+            if (! $ownedPlates->has($plate)) {
+                continue;
+            }
+            foreach ($months as $m => $val) {
+                $monthly[$m] += (float) $val;
+            }
+        }
+
+        $rows = $vehicles
             ->map(function (Vehicle $v) use ($matrix, $wholeYear, $factor): array {
                 $months = $matrix[$v->plate_no ?? '—'] ?? [];
                 $revenue = $wholeYear ? array_sum($months) : (float) ($months[$this->targetMonth] ?? 0.0);
@@ -124,6 +139,8 @@ final class Reports extends Component
             'month' => $this->targetMonth,
             'year' => $this->targetYear,
             'years' => $report->availableYears(),
+            'monthly' => $monthly,
+            'fleetTarget' => (float) $vehicles->sum('monthly_target'),
         ];
     }
 
@@ -156,7 +173,7 @@ final class Reports extends Component
             'vehicles' => collect(),
             'customers' => collect(),
             'summary' => [],
-            'targets' => ['rows' => [], 'targetCount' => 0, 'achievedCount' => 0, 'wholeYear' => true, 'month' => 0, 'year' => $this->targetYear, 'years' => []],
+            'targets' => ['rows' => [], 'targetCount' => 0, 'achievedCount' => 0, 'wholeYear' => true, 'month' => 0, 'year' => $this->targetYear, 'years' => [], 'monthly' => array_fill(1, 12, 0.0), 'fleetTarget' => 0.0],
         ];
 
         if ($this->tab === 'targets') {

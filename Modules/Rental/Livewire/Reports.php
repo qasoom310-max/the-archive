@@ -77,6 +77,7 @@ final class Reports extends Component
         $factor = $wholeYear ? 12 : 1;
 
         $rows = Vehicle::query()
+            ->owned()   // targets are for our own cars, not rented-in (outside) ones
             ->where('active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'plate_no', 'color', 'monthly_target'])

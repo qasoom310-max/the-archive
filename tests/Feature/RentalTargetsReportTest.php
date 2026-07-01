@@ -78,6 +78,22 @@ final class RentalTargetsReportTest extends TestCase
                 && $t['rows'][0]['expected'] === 1200.0);
     }
 
+    public function test_outside_rented_in_cars_are_excluded_from_targets(): void
+    {
+        $ours = Vehicle::query()->create(['name' => 'OurCar', 'plate_no' => 'OUR1', 'daily_rate' => 10, 'monthly_target' => 50]);
+        $outside = Vehicle::query()->create(['name' => 'OutsideCar', 'plate_no' => 'OUT1', 'daily_rate' => 10, 'monthly_target' => 50, 'is_outside' => true]);
+        $this->orderFor($ours, 100, Carbon::create(2026, 3, 4));
+        $this->orderFor($outside, 100, Carbon::create(2026, 3, 4));
+
+        Livewire::test(Reports::class)
+            ->set('tab', 'targets')
+            ->set('targetYear', 2026)
+            ->set('targetMonth', 3)
+            ->assertSee('OurCar')
+            ->assertDontSee('OutsideCar')
+            ->assertViewHas('targets', fn (array $t): bool => $t['targetCount'] === 1);
+    }
+
     public function test_a_cancelled_order_does_not_count_toward_the_target(): void
     {
         $car = Vehicle::query()->create(['name' => 'CancelCar', 'plate_no' => 'CN1', 'daily_rate' => 10, 'monthly_target' => 50]);

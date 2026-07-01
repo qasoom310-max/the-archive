@@ -1497,5 +1497,18 @@
     "Revenue by month": "الإيراد حسب الشهر",
     "Hit target": "حقّق الهدف",
     "Below target": "دون الهدف",
-    "Target": "الهدف"
+    "Target": "الهدف",
+    "Revenue (year to date)": "الإيراد (حتى تاريخه)",
+    "Revenue (year)": "الإيراد (السنة)",
+    "Avg :money / month": "المتوسط :money / شهر",
+    "Target attainment": "نسبة تحقيق الهدف",
+    "of target so far": "من الهدف حتى الآن",
+    "no targets set": "لا توجد أهداف محددة",
+    "vs :year": "مقارنة بـ :year",
+    "was :money": "كان :money",
+    "no prior-year data": "لا توجد بيانات للسنة السابقة",
+    "Projected year-end": "التوقع لنهاية السنة",
+    "at the current run-rate": "بحسب المعدل الحالي",
+    "Best month": "أفضل شهر",
+    ":year": ":year"
 }

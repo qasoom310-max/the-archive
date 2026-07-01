@@ -67,7 +67,7 @@ final class Reports extends Component
      * history merged via {@see SalesReport}). Cars that missed sort to the top;
      * cars with no target set fall to the bottom.
      *
-     * @return array{rows: list<array{name: string, target: float, expected: float, revenue: float, pct: float|null, hasTarget: bool, achieved: bool}>, targetCount: int, achievedCount: int, wholeYear: bool, month: int, year: int, years: list<int>, monthly: array<int, float>, fleetTarget: float}
+     * @return array{rows: list<array{name: string, target: float, expected: float, revenue: float, pct: float|null, hasTarget: bool, achieved: bool}>, targetCount: int, achievedCount: int, wholeYear: bool, month: int, year: int, years: list<int>, monthly: array<int, float>, prevMonthly: array<int, float>, fleetTarget: float, kpi: array{total: float, prevTotal: float, yoy: float|null, attainment: float|null, projected: float, isCurrentYear: bool, monthsElapsed: int, bestMonth: int|null, bestValue: float, avg: float}}
      */
     private function targetsData(): array
     {
@@ -131,6 +131,34 @@ final class Reports extends Component
 
         $withTarget = array_filter($rows, static fn (array $r): bool => $r['hasTarget']);
 
+        // Headline analytics for the year: same-fleet last-year comparison, pace
+        // to target, a simple run-rate projection, and the best month so far.
+        $prevMonthly = $this->ownedMonthly($this->targetYear - 1, $ownedPlates);
+        $fleetTarget = (float) $vehicles->sum('monthly_target');
+        $total = array_sum($monthly);
+        $prevTotal = array_sum($prevMonthly);
+        $isCurrentYear = $this->targetYear === (int) now()->year;
+        $monthsElapsed = $isCurrentYear ? (int) now()->month : 12;
+
+        $elapsed = array_slice($monthly, 0, $monthsElapsed, true); // months that have happened
+        $bestValue = $elapsed !== [] ? max($elapsed) : 0.0;
+        $bestMonth = $bestValue > 0 ? (int) array_search($bestValue, $elapsed, true) : null;
+
+        $kpi = [
+            'total' => round($total, 3),
+            'prevTotal' => round($prevTotal, 3),
+            'yoy' => $prevTotal > 0 ? round(($total - $prevTotal) / $prevTotal * 100) : null,
+            'attainment' => $fleetTarget > 0 && $monthsElapsed > 0
+                ? round($total / ($fleetTarget * $monthsElapsed) * 100)
+                : null,
+            'projected' => $monthsElapsed > 0 ? round($total / $monthsElapsed * 12, 3) : round($total, 3),
+            'isCurrentYear' => $isCurrentYear,
+            'monthsElapsed' => $monthsElapsed,
+            'bestMonth' => $bestMonth,
+            'bestValue' => round($bestValue, 3),
+            'avg' => $monthsElapsed > 0 ? round($total / $monthsElapsed, 3) : 0.0,
+        ];
+
         return [
             'rows' => $rows,
             'targetCount' => count($withTarget),
@@ -140,8 +168,32 @@ final class Reports extends Component
             'year' => $this->targetYear,
             'years' => $report->availableYears(),
             'monthly' => $monthly,
-            'fleetTarget' => (float) $vehicles->sum('monthly_target'),
+            'prevMonthly' => $prevMonthly,
+            'fleetTarget' => $fleetTarget,
+            'kpi' => $kpi,
         ];
+    }
+
+    /**
+     * Fleet net revenue per month for a year, restricted to the given (owned)
+     * plates — used for the current year and the prior-year comparison overlay.
+     *
+     * @param  \Illuminate\Support\Collection<string, int>  $ownedPlates
+     * @return array<int, float>
+     */
+    private function ownedMonthly(int $year, $ownedPlates): array
+    {
+        $monthly = array_fill(1, 12, 0.0);
+        foreach ((new SalesReport($year))->plateMatrix() as $plate => $months) {
+            if (! $ownedPlates->has($plate)) {
+                continue;
+            }
+            foreach ($months as $m => $val) {
+                $monthly[$m] += (float) $val;
+            }
+        }
+
+        return $monthly;
     }
 
     /**
@@ -173,7 +225,7 @@ final class Reports extends Component
             'vehicles' => collect(),
             'customers' => collect(),
             'summary' => [],
-            'targets' => ['rows' => [], 'targetCount' => 0, 'achievedCount' => 0, 'wholeYear' => true, 'month' => 0, 'year' => $this->targetYear, 'years' => [], 'monthly' => array_fill(1, 12, 0.0), 'fleetTarget' => 0.0],
+            'targets' => ['rows' => [], 'targetCount' => 0, 'achievedCount' => 0, 'wholeYear' => true, 'month' => 0, 'year' => $this->targetYear, 'years' => [], 'monthly' => array_fill(1, 12, 0.0), 'prevMonthly' => array_fill(1, 12, 0.0), 'fleetTarget' => 0.0, 'kpi' => ['total' => 0.0, 'prevTotal' => 0.0, 'yoy' => null, 'attainment' => null, 'projected' => 0.0, 'isCurrentYear' => true, 'monthsElapsed' => 0, 'bestMonth' => null, 'bestValue' => 0.0, 'avg' => 0.0]],
         ];
 
         if ($this->tab === 'targets') {

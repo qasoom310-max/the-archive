@@ -94,6 +94,25 @@ final class RentalTargetsReportTest extends TestCase
             ->assertViewHas('targets', fn (array $t): bool => $t['targetCount'] === 1);
     }
 
+    public function test_kpis_compute_year_total_and_year_over_year(): void
+    {
+        $car = Vehicle::query()->create(['name' => 'KpiCar', 'plate_no' => 'KPI1', 'daily_rate' => 10, 'monthly_target' => 100]);
+        $this->orderFor($car, 300, Carbon::create(2025, 5, 1));   // last year: 300
+        $this->orderFor($car, 600, Carbon::create(2026, 5, 1));   // this year: 600 → +100% YoY
+
+        Livewire::test(Reports::class)
+            ->set('tab', 'targets')
+            ->set('targetYear', 2026)
+            ->set('targetMonth', 0)
+            ->assertViewHas('targets', function (array $t): bool {
+                return $t['kpi']['total'] === 600.0
+                    && $t['kpi']['prevTotal'] === 300.0
+                    && $t['kpi']['yoy'] === 100.0
+                    && $t['prevMonthly'][5] === 300.0
+                    && $t['kpi']['bestMonth'] === 5;
+            });
+    }
+
     public function test_a_cancelled_order_does_not_count_toward_the_target(): void
     {
         $car = Vehicle::query()->create(['name' => 'CancelCar', 'plate_no' => 'CN1', 'daily_rate' => 10, 'monthly_target' => 50]);

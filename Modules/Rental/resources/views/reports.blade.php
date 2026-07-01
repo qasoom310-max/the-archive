@@ -2,7 +2,7 @@
     <x-page-header :title="__('Reports')" :subtitle="__('Rental performance over a date range.')" icon="chart" accent="primary" />
 
     {{-- Tabs --}}
-    @php $tabs = ['summary' => __('Rental report'), 'orders' => __('Orders'), 'vehicles' => __('Cars'), 'customers' => __('Customers')]; @endphp
+    @php $tabs = ['summary' => __('Rental report'), 'orders' => __('Orders'), 'vehicles' => __('Cars'), 'targets' => __('Targets'), 'customers' => __('Customers')]; @endphp
     <div class="mb-4 flex flex-wrap items-center gap-1 border-b border-chrome-200">
         @foreach ($tabs as $key => $label)
             <button wire:click="$set('tab', '{{ $key }}')"
@@ -12,21 +12,44 @@
         @endforeach
     </div>
 
-    {{-- Shared date range (by pick-up date) --}}
-    <div class="mb-6 flex flex-wrap items-end gap-3">
-        <div>
-            <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('From') }}</label>
-            <input type="date" wire:model.live="from" class="o-input text-sm">
+    {{-- Targets lens picks a month / year; every other lens uses the date range. --}}
+    @if ($tab === 'targets')
+        <div class="mb-6 flex flex-wrap items-end gap-3">
+            <div>
+                <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Year') }}</label>
+                <select wire:model.live="targetYear" class="o-input text-sm">
+                    @foreach ($targets['years'] as $y)
+                        <option value="{{ $y }}">{{ $y }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Period') }}</label>
+                <select wire:model.live="targetMonth" class="o-input text-sm">
+                    <option value="0">{{ __('Whole year') }}</option>
+                    @foreach (\Modules\Rental\Support\SalesReport::MONTHS as $num => $abbr)
+                        <option value="{{ $num }}">{{ __($abbr) }}</option>
+                    @endforeach
+                </select>
+            </div>
         </div>
-        <div>
-            <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('To') }}</label>
-            <input type="date" wire:model.live="to" class="o-input text-sm">
+    @else
+        {{-- Shared date range (by pick-up date) --}}
+        <div class="mb-6 flex flex-wrap items-end gap-3">
+            <div>
+                <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('From') }}</label>
+                <input type="date" wire:model.live="from" class="o-input text-sm">
+            </div>
+            <div>
+                <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('To') }}</label>
+                <input type="date" wire:model.live="to" class="o-input text-sm">
+            </div>
+            @if ($tab === 'orders')
+                <a href="{{ url('/app/rental/reports/orders/export?from=' . $from . '&to=' . $to) }}"
+                    class="o-btn-ghost text-sm">{{ __('Export CSV') }}</a>
+            @endif
         </div>
-        @if ($tab === 'orders')
-            <a href="{{ url('/app/rental/reports/orders/export?from=' . $from . '&to=' . $to) }}"
-                class="o-btn-ghost text-sm">{{ __('Export CSV') }}</a>
-        @endif
-    </div>
+    @endif
 
     {{-- ── Summary / "Rental report" ── --}}
     @if ($tab === 'summary')
@@ -117,6 +140,66 @@
                         </tr>
                     @empty
                         <tr><td colspan="5" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No vehicles yet.') }}</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    @endif
+
+    {{-- ── Targets ── --}}
+    @if ($tab === 'targets')
+        @php $periodLabel = $targets['wholeYear'] ? $targets['year'] : (__(\Modules\Rental\Support\SalesReport::MONTHS[$targets['month']] ?? '') . ' ' . $targets['year']); @endphp
+        <div class="mb-4 rounded-xl bg-white p-4 text-sm shadow-sm ring-1 ring-chrome-900/5">
+            @if ($targets['targetCount'] > 0)
+                <span class="font-semibold text-chrome-800">{{ $targets['achievedCount'] }} / {{ $targets['targetCount'] }}</span>
+                <span class="text-chrome-500">{{ __('cars hit their target for :period', ['period' => $periodLabel]) }}</span>
+            @else
+                <span class="text-chrome-500">{{ __('No car has a monthly target set yet — set one on the car page.') }}</span>
+            @endif
+        </div>
+        <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
+            <table class="min-w-full divide-y divide-chrome-100 text-sm">
+                <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
+                    <tr>
+                        <th class="px-4 py-2 text-start">{{ __('Car') }}</th>
+                        <th class="px-4 py-2 text-end">{{ $targets['wholeYear'] ? __('Target (year)') : __('Target (month)') }}</th>
+                        <th class="px-4 py-2 text-end">{{ __('Revenue') }}</th>
+                        <th class="px-4 py-2 text-end">{{ __('Achieved') }}</th>
+                        <th class="px-4 py-2 text-start">{{ __('Status') }}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-chrome-50">
+                    @forelse ($targets['rows'] as $r)
+                        <tr class="{{ $r['hasTarget'] && ! $r['achieved'] ? 'bg-red-50/40' : '' }}">
+                            <td class="px-4 py-2 font-medium text-chrome-800">{{ $r['name'] }}</td>
+                            <td class="px-4 py-2 text-end text-chrome-600">
+                                @if ($r['hasTarget']){{ \App\Erp\Views\ValueFormat::money($r['expected']) }}@else<span class="text-chrome-300">—</span>@endif
+                            </td>
+                            <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($r['revenue']) }}</td>
+                            <td class="px-4 py-2 text-end">
+                                @if ($r['pct'] !== null)
+                                    <div class="flex items-center justify-end gap-2">
+                                        <div class="hidden h-1.5 w-20 overflow-hidden rounded-full bg-chrome-100 sm:block">
+                                            <div class="h-full rounded-full {{ $r['achieved'] ? 'bg-emerald-500' : 'bg-amber-400' }}" style="width: {{ min(100, (int) $r['pct']) }}%"></div>
+                                        </div>
+                                        <span class="tabular-nums {{ $r['achieved'] ? 'text-emerald-600' : 'text-amber-600' }}">{{ (int) $r['pct'] }}%</span>
+                                    </div>
+                                @else
+                                    <span class="text-chrome-300">—</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-2">
+                                @if (! $r['hasTarget'])
+                                    <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase text-chrome-400">{{ __('No target') }}</span>
+                                @elseif ($r['achieved'])
+                                    <span class="rounded bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-emerald-700">{{ __('Achieved') }}</span>
+                                @else
+                                    <span class="rounded bg-red-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-red-700">{{ __('Missed') }}</span>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No cars yet.') }}</td></tr>
                     @endforelse
                 </tbody>
             </table>

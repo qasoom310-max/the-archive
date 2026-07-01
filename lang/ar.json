@@ -1481,5 +1481,17 @@
     "Outside vehicle": "مركبة خارجية",
     "Outside": "خارجية",
     "Outside vehicle (rented in from another company)": "مركبة خارجية (مستأجرة من شركة أخرى)",
-    "Tick only if this car is NOT owned — it won’t count in the fleet, and its revenue is the mark-up over the cost you pay the outside owner.": "ضع علامة فقط إذا كانت السيارة غير مملوكة — لن تُحتسب ضمن الأسطول، وإيرادها هو هامش الربح فوق التكلفة التي تدفعها للمالك الخارجي."
+    "Tick only if this car is NOT owned — it won’t count in the fleet, and its revenue is the mark-up over the cost you pay the outside owner.": "ضع علامة فقط إذا كانت السيارة غير مملوكة — لن تُحتسب ضمن الأسطول، وإيرادها هو هامش الربح فوق التكلفة التي تدفعها للمالك الخارجي.",
+    "Targets": "الأهداف",
+    "Year": "السنة",
+    "Period": "الفترة",
+    "Whole year": "السنة كاملة",
+    "cars hit their target for :period": "سيارة حققت هدفها في :period",
+    "No car has a monthly target set yet — set one on the car page.": "لا توجد سيارة لها هدف شهري محدد بعد — حدّد هدفًا من صفحة السيارة.",
+    "Target (year)": "الهدف (سنوي)",
+    "Target (month)": "الهدف (شهري)",
+    "Achieved": "محقّق",
+    "Missed": "غير محقّق",
+    "No target": "بلا هدف",
+    "No cars yet.": "لا توجد سيارات بعد."
 }

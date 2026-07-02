@@ -62,10 +62,13 @@ final class RentalHome extends Component
         // Order KPIs (now that orders exist).
         $activeOrders = RentalOrder::query()->where('state', RentalOrder::STATE_ACTIVE)->count();
         $draftOrders = RentalOrder::query()->where('state', RentalOrder::STATE_DRAFT)->count();
-        $unpaidOrders = RentalOrder::query()
-            ->where('payment_status', RentalOrder::PAYMENT_UNPAID)
-            ->whereIn('state', [RentalOrder::STATE_ACTIVE, RentalOrder::STATE_CLOSED])
-            ->count();
+        // Orders still owing money (unpaid or part-paid) on a live/closed order —
+        // both the count and the outstanding balance feed the revenue box.
+        $owing = RentalOrder::query()
+            ->whereIn('payment_status', [RentalOrder::PAYMENT_UNPAID, RentalOrder::PAYMENT_PARTIAL])
+            ->whereIn('state', [RentalOrder::STATE_ACTIVE, RentalOrder::STATE_CLOSED]);
+        $unpaidOrders = (clone $owing)->count();
+        $unpaidOutstanding = (float) (clone $owing)->sum('balance');
         $returnsDue = RentalOrder::query()
             ->where('state', RentalOrder::STATE_ACTIVE)
             ->whereDate('end_date', '<=', now())
@@ -157,6 +160,7 @@ final class RentalHome extends Component
             'activeOrders' => $activeOrders,
             'draftOrders' => $draftOrders,
             'unpaidOrders' => $unpaidOrders,
+            'unpaidOutstanding' => $unpaidOutstanding,
             'returnsDue' => $returnsDue,
             'revenue' => $revenue,
             'tiles' => $tiles,

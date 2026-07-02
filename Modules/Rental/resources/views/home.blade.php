@@ -210,13 +210,12 @@
         <h2 class="text-xs font-bold uppercase tracking-wider text-chrome-500">{{ __('Orders') }}</h2>
         <span class="h-px flex-1 bg-chrome-200"></span>
     </div>
-    <div class="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div class="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         @php
             $orderCards = [
                 ['label' => __('Active Orders'), 'value' => $activeOrders, 'href' => url('/app/rental/order?tab=active'), 'icon' => 'doc', 'tint' => 'bg-sky-50 text-sky-600 ring-sky-100'],
                 ['label' => __('Reservations'), 'value' => $draftOrders, 'href' => url('/app/rental/order?tab=draft'), 'icon' => 'clock', 'tint' => 'bg-chrome-100 text-chrome-600 ring-chrome-200'],
                 ['label' => __('Returns Due'), 'value' => $returnsDue, 'href' => url('/app/rental/order?tab=active'), 'icon' => 'calendar', 'tint' => 'bg-amber-50 text-amber-600 ring-amber-100'],
-                ['label' => __('Unpaid Orders'), 'value' => $unpaidOrders, 'href' => url('/app/rental/order'), 'icon' => 'alert', 'tint' => 'bg-red-50 text-red-600 ring-red-100'],
             ];
         @endphp
         @foreach ($orderCards as $card)
@@ -231,8 +230,8 @@
                 <div class="text-sm font-medium text-chrome-500">{{ $card['label'] }}</div>
             </a>
         @endforeach
-        {{-- Revenue --}}
-        <div class="{{ $tile }} bg-gradient-to-br from-emerald-600 to-emerald-700 ring-0">
+        {{-- Money: collected revenue + what's still owed (unpaid / part-paid). --}}
+        <div class="{{ $tile }} flex flex-col bg-gradient-to-br from-emerald-600 to-emerald-700 ring-0">
             <div class="flex items-center justify-between">
                 <span class="flex size-9 items-center justify-center rounded-xl bg-white/15 text-white ring-1 ring-white/20">
                     <svg class="size-5" viewBox="0 0 20 20" fill="currentColor">{!! $ic['cash'] !!}</svg>
@@ -241,6 +240,14 @@
             </div>
             <div class="mt-3 text-2xl font-bold tracking-tight text-white">{{ \App\Erp\Views\ValueFormat::money($revenue) }}</div>
             <div class="text-sm font-medium text-white/70">{{ __('Revenue') }}</div>
+            <a href="{{ url('/app/rental/order') }}" wire:navigate
+                class="mt-3 flex items-center justify-between rounded-lg bg-black/15 px-3 py-2 transition hover:bg-black/25">
+                <span class="flex items-center gap-1.5 text-xs font-medium text-white/80">
+                    <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10A8 8 0 1 1 2 10a8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a1 1 0 0 0 0 2v3a1 1 0 0 0 1 1h1a1 1 0 1 0 0-2v-3a1 1 0 0 0-1-1H9Z" clip-rule="evenodd"/></svg>
+                    {{ __('Unpaid') }} · {{ $unpaidOrders }}
+                </span>
+                <span class="text-sm font-bold text-white">{{ \App\Erp\Views\ValueFormat::money($unpaidOutstanding) }}</span>
+            </a>
         </div>
     </div>
 

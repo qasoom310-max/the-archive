@@ -311,11 +311,20 @@
     @endif
 
     {{-- ───────── Masters ───────── --}}
+    {{-- Collapsed by default — these master lists aren't needed at a glance. --}}
     @if (! empty($tiles))
-        <div class="mb-3 flex items-center gap-2">
-            <h2 class="text-xs font-bold uppercase tracking-wider text-chrome-500">{{ __('Manage') }}</h2>
-            <span class="h-px flex-1 bg-chrome-200"></span>
+        <div x-data="{ open: false }">
+            <div class="mb-3 flex items-center gap-2">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-chrome-500">{{ __('Manage') }}</h2>
+                <span class="h-px flex-1 bg-chrome-200"></span>
+                <button type="button" @click="open = ! open" class="flex items-center gap-1 text-xs font-medium text-chrome-500 hover:text-chrome-800">
+                    <span x-text="open ? @js(__('Hide')) : @js(__('Show'))"></span>
+                    <svg class="size-3.5 transition" :class="open && 'rotate-180'" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>
+                </button>
+            </div>
+            <div x-show="open" x-cloak x-transition>
+                @include('partials.module-tiles', ['tiles' => $tiles])
+            </div>
         </div>
-        @include('partials.module-tiles', ['tiles' => $tiles])
     @endif
 </div>

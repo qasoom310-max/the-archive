@@ -52,6 +52,7 @@ use Illuminate\Support\Carbon;
  * @property-read LimoCustomer|null $customer
  * @property-read LimoLocation|null $pickupLocation
  * @property-read LimoLocation|null $dropoffLocation
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, LimoLeg> $legs
  */
 final class LimoBooking extends Model implements DefinesIrModel
 {
@@ -115,10 +116,26 @@ final class LimoBooking extends Model implements DefinesIrModel
         ];
     }
 
-    /** Net booking amount = gross amount − discount (never negative). */
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\MorphMany<LimoLeg, $this>
+     */
+    public function legs(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(LimoLeg::class, 'legable')->orderBy('sequence');
+    }
+
+    /** Grand total = sum of leg nets; stored on `fare` (and mirrored to amount). */
+    public function recalcTotal(): void
+    {
+        $total = round((float) $this->legs()->sum('net_amount'), 3);
+        $this->fare = $total;
+        $this->amount = $total;
+    }
+
+    /** Net booking amount = the grand total across all legs. */
     public function netAmount(): float
     {
-        return round(max(0.0, $this->amount - $this->discount), 3);
+        return round((float) $this->fare, 3);
     }
 
     /** Balance still owed after the advance. */

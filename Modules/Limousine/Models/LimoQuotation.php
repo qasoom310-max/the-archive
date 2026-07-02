@@ -34,7 +34,7 @@ use Illuminate\Support\Carbon;
  * @property string $status
  * @property string|null $notes
  * @property-read LimoCustomer|null $customer
- * @property-read \Illuminate\Database\Eloquent\Collection<int, LimoQuotationLine> $lines
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, LimoLeg> $legs
  */
 final class LimoQuotation extends Model implements DefinesIrModel
 {
@@ -93,17 +93,17 @@ final class LimoQuotation extends Model implements DefinesIrModel
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany<LimoQuotationLine, $this>
+     * @return \Illuminate\Database\Eloquent\Relations\MorphMany<LimoLeg, $this>
      */
-    public function lines(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function legs(): \Illuminate\Database\Eloquent\Relations\MorphMany
     {
-        return $this->hasMany(LimoQuotationLine::class, 'quotation_id')->orderBy('sequence');
+        return $this->morphMany(LimoLeg::class, 'legable')->orderBy('sequence');
     }
 
-    /** Recalculate the grand total (sum of line nets) and store it on `fare`. */
+    /** Recalculate the grand total (sum of leg nets) and store it on `fare`. */
     public function recalcTotal(): void
     {
-        $this->fare = round((float) $this->lines()->sum('net_amount'), 3);
+        $this->fare = round((float) $this->legs()->sum('net_amount'), 3);
     }
 
     /** Spawn a queued booking from this quotation (idempotent). */
@@ -123,8 +123,24 @@ final class LimoQuotation extends Model implements DefinesIrModel
         $booking->pickup_at = $this->pickup_at;
         $booking->car_type = $this->car_type;
         $booking->fare = $this->fare;
+        $booking->amount = $this->fare;
         $booking->notes = $this->notes;
+        $booking->pax_name = $this->contact_person;
+        $booking->requested_by = $this->requested_by;
+        $booking->prepared_by = $this->prepared_by;
         $booking->save();
+
+        // Copy the priced legs across so the booking carries the same trip plan.
+        foreach ($this->legs as $leg) {
+            $copy = $leg->replicate(['legable_type', 'legable_id']);
+            $copy->legable_type = $booking->getMorphClass();
+            $copy->legable_id = $booking->id;
+            $copy->save();
+        }
+        if ($this->legs->isNotEmpty()) {
+            $booking->recalcTotal(); // keep the header fare for legacy no-leg quotes
+            $booking->save();
+        }
 
         $this->booking_id = $booking->id;
         $this->status = self::STATUS_CONVERTED;

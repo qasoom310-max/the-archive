@@ -10,20 +10,20 @@ use Illuminate\Support\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use Modules\Limousine\Models\LimoBooking;
+use Modules\Limousine\Livewire\Concerns\HandlesTripLegs;
 use Modules\Limousine\Models\LimoCustomer;
-use Modules\Limousine\Models\LimoLocation;
 use Modules\Limousine\Models\LimoQuotation;
-use Modules\Limousine\Models\LimoQuotationLine;
 
 /**
- * Bespoke limousine quotation form: a header plus unlimited priced line items
- * (add/remove lines), with status actions and "Convert to booking".
+ * Bespoke limousine quotation: a header plus unlimited trip legs (transfer /
+ * chauffeur), with status actions and "Convert to booking".
  */
 #[Layout('components.layouts.app')]
 #[Title('Quotation')]
 final class QuotationForm extends Component
 {
+    use HandlesTripLegs;
+
     public ?int $id = null;
 
     public string $reference = '';
@@ -48,31 +48,16 @@ final class QuotationForm extends Component
 
     public ?int $booking_id = null;
 
-    /** @var list<array<string, string>> */
-    public array $lines = [];
-
     /** Inline "New customer" modal (shared transport customer). */
     public bool $addingCustomer = false;
 
     /** @var array<string, string> */
     public array $newCustomer = ['name' => '', 'phone' => '', 'email' => '', 'type' => 'individual'];
 
-    /**
-     * @return array<string, string>
-     */
-    private function emptyLine(): array
-    {
-        return [
-            'quote_type' => '', 'rate_type' => '', 'date_from' => '', 'date_to' => '',
-            'hours' => '', 'units' => '1', 'vehicle' => '', 'vehicle_details' => '',
-            'rate' => '0', 'discount' => '0', 'vat' => '0',
-        ];
-    }
-
     public function mount(?int $id = null): void
     {
         if ($id !== null) {
-            $quote = LimoQuotation::query()->with('lines')->find($id);
+            $quote = LimoQuotation::query()->with('legs')->find($id);
             if ($quote !== null) {
                 $this->id = $quote->id;
                 $this->reference = $quote->reference ?? '';
@@ -86,24 +71,7 @@ final class QuotationForm extends Component
                 $this->notes = $quote->notes ?? '';
                 $this->status = $quote->status;
                 $this->booking_id = $quote->booking_id;
-
-                $this->lines = $quote->lines->map(fn (LimoQuotationLine $l): array => [
-                    'quote_type' => $l->quote_type ?? '',
-                    'rate_type' => $l->rate_type ?? '',
-                    'date_from' => $l->date_from?->format('Y-m-d\TH:i') ?? '',
-                    'date_to' => $l->date_to?->format('Y-m-d\TH:i') ?? '',
-                    'hours' => $l->hours !== null ? (string) $l->hours : '',
-                    'units' => (string) $l->units,
-                    'vehicle' => $l->vehicle ?? '',
-                    'vehicle_details' => $l->vehicle_details ?? '',
-                    'rate' => (string) $l->rate,
-                    'discount' => (string) $l->discount,
-                    'vat' => (string) $l->vat,
-                ])->all();
-
-                if ($this->lines === []) {
-                    $this->lines = [$this->emptyLine()];
-                }
+                $this->loadLegs($quote);
 
                 return;
             }
@@ -111,21 +79,7 @@ final class QuotationForm extends Component
 
         $this->quote_date = now()->format('Y-m-d');
         $this->valid_until = now()->addWeek()->format('Y-m-d');
-        $this->lines = [$this->emptyLine()];
-    }
-
-    public function addLine(): void
-    {
-        $this->lines[] = $this->emptyLine();
-    }
-
-    public function removeLine(int $index): void
-    {
-        unset($this->lines[$index]);
-        $this->lines = array_values($this->lines);
-        if ($this->lines === []) {
-            $this->lines = [$this->emptyLine()];
-        }
+        $this->seedLegs();
     }
 
     /**
@@ -142,18 +96,7 @@ final class QuotationForm extends Component
             'contact_number' => ['nullable', 'string', 'max:100'],
             'valid_until' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
-            'lines' => ['required', 'array', 'min:1'],
-            'lines.*.quote_type' => ['required', 'string'],
-            'lines.*.rate_type' => ['required', 'string'],
-            'lines.*.date_from' => ['required', 'date'],
-            'lines.*.date_to' => ['required', 'date'],
-            'lines.*.hours' => ['nullable', 'numeric', 'min:0'],
-            'lines.*.units' => ['required', 'integer', 'min:1'],
-            'lines.*.vehicle' => ['required', 'string'],
-            'lines.*.vehicle_details' => ['nullable', 'string', 'max:255'],
-            'lines.*.rate' => ['required', 'numeric', 'min:0'],
-            'lines.*.discount' => ['nullable', 'numeric', 'min:0'],
-            'lines.*.vat' => ['nullable', 'numeric', 'min:0'],
+            ...$this->legRules(),
         ];
     }
 
@@ -166,7 +109,7 @@ final class QuotationForm extends Component
             return;
         }
 
-        $first = $this->lines[0] ?? $this->emptyLine();
+        $first = $this->legs[0] ?? $this->emptyLeg();
 
         $quote->quote_date = $this->quote_date !== '' ? Carbon::parse($this->quote_date) : null;
         $quote->customer_id = $this->customer_id;
@@ -176,56 +119,16 @@ final class QuotationForm extends Component
         $quote->contact_number = $this->trimOrNull($this->contact_number);
         $quote->valid_until = $this->valid_until !== '' ? Carbon::parse($this->valid_until) : null;
         $quote->notes = $this->trimOrNull($this->notes);
-        // Derive the header trip basics from the first line so convert-to-booking works.
-        $quote->pickup_at = $first['date_from'] !== '' ? Carbon::parse($first['date_from']) : Carbon::now();
-        $quote->car_type = $first['vehicle'] !== '' ? $first['vehicle'] : null;
+        // Derive the header trip basics from the first leg so convert-to-booking works.
+        $quote->pickup_at = ($first['start_at'] ?? '') !== '' ? Carbon::parse($first['start_at']) : Carbon::now();
+        $quote->car_type = ($first['vehicle'] ?? '') !== '' ? $first['vehicle'] : null;
         $quote->fare = $this->grandTotal();
         $quote->save();
 
-        // Replace the lines wholesale (simplest reliable sync for a quote).
-        $quote->lines()->delete();
-        foreach ($this->lines as $i => $line) {
-            $rate = (float) ($line['rate'] === '' ? '0' : $line['rate']);
-            $units = max(1, (int) ($line['units'] === '' ? '1' : $line['units']));
-            $discount = (float) ($line['discount'] === '' ? '0' : $line['discount']);
-            $vat = (float) ($line['vat'] === '' ? '0' : $line['vat']);
-
-            $quote->lines()->create([
-                'sequence' => $i,
-                'quote_type' => $this->trimOrNull($line['quote_type']),
-                'rate_type' => $this->trimOrNull($line['rate_type']),
-                'date_from' => $line['date_from'] !== '' ? Carbon::parse($line['date_from']) : null,
-                'date_to' => $line['date_to'] !== '' ? Carbon::parse($line['date_to']) : null,
-                'hours' => $line['hours'] !== '' ? (float) $line['hours'] : null,
-                'units' => $units,
-                'vehicle' => $this->trimOrNull($line['vehicle']),
-                'vehicle_details' => $this->trimOrNull($line['vehicle_details']),
-                'rate' => $rate,
-                'discount' => $discount,
-                'vat' => $vat,
-                'line_total' => LimoQuotationLine::grossFor($rate, $units),
-                'net_amount' => LimoQuotationLine::netFor($rate, $units, $discount, $vat),
-            ]);
-        }
+        $this->persistLegs($quote);
 
         session()->flash('toast', __('Quotation saved.'));
         $this->redirect('/app/limousine/quotation', navigate: true);
-    }
-
-    /** Grand total = sum of line nets (recomputed from the live line inputs). */
-    public function grandTotal(): float
-    {
-        $sum = 0.0;
-        foreach ($this->lines as $line) {
-            $sum += LimoQuotationLine::netFor(
-                (float) ($line['rate'] ?? 0),
-                max(1, (int) ($line['units'] ?? 1)),
-                (float) ($line['discount'] ?? 0),
-                (float) ($line['vat'] ?? 0),
-            );
-        }
-
-        return round($sum, 3);
     }
 
     private function trimOrNull(string $value): ?string
@@ -327,12 +230,8 @@ final class QuotationForm extends Component
     {
         return view('limousine::quotation-form', [
             'customers' => LimoCustomer::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'phone']),
-            'locations' => LimoLocation::query()->where('active', true)->orderBy('name')->get(['id', 'name']),
-            'quoteTypes' => LimoBooking::bookingTypeOptions(),
-            'rateTypes' => LimoBooking::rateTypeOptions(),
-            'vehicleOptions' => [...LimoBooking::carTypeOptions(), ['value' => 'other', 'label' => 'Other']],
-            'grandTotal' => $this->grandTotal(),
             'isEditing' => $this->id !== null,
+            ...$this->legViewData(),
         ]);
     }
 }

@@ -10,42 +10,28 @@ use Illuminate\Support\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Modules\Limousine\Livewire\Concerns\HandlesTripLegs;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
-use Modules\Limousine\Models\LimoLocation;
 
 /**
- * Bespoke limousine booking form: a trip from pickup → dropoff at a time for a
- * fare, with status actions (confirm → start → complete, cancel, mark paid).
+ * Bespoke limousine booking: a customer/PAX header plus unlimited trip legs
+ * (transfer / chauffeur), with status actions (confirm → start → complete,
+ * cancel, mark paid) and invoicing.
  */
 #[Layout('components.layouts.app')]
 #[Title('Booking')]
 final class BookingForm extends Component
 {
+    use HandlesTripLegs;
+
     public ?int $id = null;
 
-    public ?int $customer_id = null;
+    public string $reference = '';
 
-    public ?int $pickup_location_id = null;
-
-    public ?int $dropoff_location_id = null;
-
-    public string $pickup_at = '';
-
-    public string $passengers = '';
-
-    public string $car_type = 'sedan';
-
-    public string $driver_name = '';
-
-    public string $fare = '0';
-
-    public string $notes = '';
-
-    // Full booking sheet (ported from the old system).
     public string $booking_type = '';
 
-    public string $booking_to = '';
+    public ?int $customer_id = null;
 
     public string $contact_person = '';
 
@@ -59,27 +45,19 @@ final class BookingForm extends Component
 
     public string $email = '';
 
-    public string $pickup_address = '';
-
-    public string $dropoff_address = '';
-
-    public string $amount = '0';
-
-    public string $discount = '0';
-
-    public string $advance = '0';
-
-    public string $rate_type = '';
-
-    public string $payment_method = 'cash';
-
-    public string $num_cars = '1';
-
-    public string $car_details = '';
-
     public string $requested_by = '';
 
     public string $prepared_by = '';
+
+    public string $advance = '0';
+
+    public string $payment_method = 'cash';
+
+    public string $notes = '';
+
+    public string $status = LimoBooking::STATUS_QUEUE;
+
+    public string $payment_status = LimoBooking::PAYMENT_UNPAID;
 
     /** Inline "New customer" modal (shared transport customer). */
     public bool $addingCustomer = false;
@@ -87,56 +65,35 @@ final class BookingForm extends Component
     /** @var array<string, string> */
     public array $newCustomer = ['name' => '', 'phone' => '', 'email' => '', 'type' => 'individual'];
 
-    public string $reference = '';
-
-    public string $status = LimoBooking::STATUS_QUEUE;
-
-    public string $payment_status = LimoBooking::PAYMENT_UNPAID;
-
     public function mount(?int $id = null): void
     {
         if ($id !== null) {
-            $booking = LimoBooking::query()->find($id);
+            $booking = LimoBooking::query()->with('legs')->find($id);
             if ($booking !== null) {
                 $this->id = $booking->id;
-                $this->customer_id = $booking->customer_id;
-                $this->pickup_location_id = $booking->pickup_location_id;
-                $this->dropoff_location_id = $booking->dropoff_location_id;
-                $this->pickup_at = $booking->pickup_at?->format('Y-m-d\TH:i') ?? '';
-                $this->booking_to = $booking->booking_to?->format('Y-m-d\TH:i') ?? '';
-                $this->passengers = $booking->passengers !== null ? (string) $booking->passengers : '';
-                $this->car_type = $booking->car_type ?? 'sedan';
-                $this->driver_name = $booking->driver_name ?? '';
-                $this->fare = (string) $booking->fare;
-                $this->notes = $booking->notes ?? '';
                 $this->reference = $booking->reference ?? '';
-                $this->status = $booking->status;
-                $this->payment_status = $booking->payment_status;
-
                 $this->booking_type = $booking->booking_type ?? '';
+                $this->customer_id = $booking->customer_id;
                 $this->contact_person = $booking->contact_person ?? '';
                 $this->company_reference = $booking->company_reference ?? '';
                 $this->pax_name = $booking->pax_name ?? '';
                 $this->pax_contact = $booking->pax_contact ?? '';
                 $this->flight_number = $booking->flight_number ?? '';
                 $this->email = $booking->email ?? '';
-                $this->pickup_address = $booking->pickup_address ?? '';
-                $this->dropoff_address = $booking->dropoff_address ?? '';
-                $this->amount = (string) $booking->amount;
-                $this->discount = (string) $booking->discount;
-                $this->advance = (string) $booking->advance;
-                $this->rate_type = $booking->rate_type ?? '';
-                $this->payment_method = $booking->payment_method ?? 'cash';
-                $this->num_cars = (string) $booking->num_cars;
-                $this->car_details = $booking->car_details ?? '';
                 $this->requested_by = $booking->requested_by ?? '';
                 $this->prepared_by = $booking->prepared_by ?? '';
+                $this->advance = (string) $booking->advance;
+                $this->payment_method = $booking->payment_method ?? 'cash';
+                $this->notes = $booking->notes ?? '';
+                $this->status = $booking->status;
+                $this->payment_status = $booking->payment_status;
+                $this->loadLegs($booking);
 
                 return;
             }
         }
 
-        $this->pickup_at = now()->addHour()->format('Y-m-d\TH:i');
+        $this->seedLegs();
     }
 
     /**
@@ -153,25 +110,12 @@ final class BookingForm extends Component
             'pax_contact' => ['nullable', 'string', 'max:100'],
             'flight_number' => ['nullable', 'string', 'max:100'],
             'email' => ['nullable', 'email', 'max:255'],
-            'pickup_location_id' => ['nullable', 'integer'],
-            'dropoff_location_id' => ['nullable', 'integer'],
-            'pickup_address' => ['nullable', 'string', 'max:1000'],
-            'dropoff_address' => ['nullable', 'string', 'max:1000'],
-            'pickup_at' => ['required', 'date'],
-            'booking_to' => ['nullable', 'date'],
-            'passengers' => ['nullable', 'numeric', 'min:0'],
-            'car_type' => ['nullable', 'string'],
-            'driver_name' => ['nullable', 'string'],
-            'num_cars' => ['nullable', 'integer', 'min:1'],
-            'car_details' => ['required', 'string', 'max:1000'],
-            'amount' => ['required', 'numeric', 'min:0'],
-            'discount' => ['nullable', 'numeric', 'min:0'],
-            'advance' => ['nullable', 'numeric', 'min:0'],
-            'rate_type' => ['required', 'string'],
-            'payment_method' => ['required', 'string'],
             'requested_by' => ['required', 'string', 'max:255'],
             'prepared_by' => ['required', 'string', 'max:255'],
+            'advance' => ['nullable', 'numeric', 'min:0'],
+            'payment_method' => ['required', 'string'],
             'notes' => ['nullable', 'string'],
+            ...$this->legRules(),
         ];
     }
 
@@ -184,41 +128,39 @@ final class BookingForm extends Component
             return;
         }
 
-        $booking->customer_id = $this->customer_id;
+        $first = $this->legs[0] ?? $this->emptyLeg();
+
         $booking->booking_type = $this->trimOrNull($this->booking_type);
+        $booking->customer_id = $this->customer_id;
         $booking->contact_person = $this->trimOrNull($this->contact_person);
         $booking->company_reference = $this->trimOrNull($this->company_reference);
         $booking->pax_name = $this->trimOrNull($this->pax_name);
         $booking->pax_contact = $this->trimOrNull($this->pax_contact);
         $booking->flight_number = $this->trimOrNull($this->flight_number);
         $booking->email = $this->trimOrNull($this->email);
-        $booking->pickup_location_id = $this->pickup_location_id;
-        $booking->dropoff_location_id = $this->dropoff_location_id;
-        $booking->pickup_address = $this->trimOrNull($this->pickup_address);
-        $booking->dropoff_address = $this->trimOrNull($this->dropoff_address);
-        $booking->pickup_at = Carbon::parse($this->pickup_at);
-        $booking->booking_to = $this->booking_to !== '' ? Carbon::parse($this->booking_to) : null;
-        $booking->passengers = $this->passengers !== '' ? (int) $this->passengers : null;
-        $booking->car_type = $this->car_type !== '' ? $this->car_type : null;
-        $booking->driver_name = $this->trimOrNull($this->driver_name);
-        $booking->num_cars = $this->num_cars !== '' ? max(1, (int) $this->num_cars) : 1;
-        $booking->car_details = $this->trimOrNull($this->car_details);
-        $booking->amount = (float) $this->amount;
-        $booking->discount = (float) $this->discount;
-        $booking->advance = (float) $this->advance;
-        $booking->fare = $booking->netAmount();   // net = amount − discount
-        $booking->rate_type = $this->trimOrNull($this->rate_type);
-        $booking->payment_method = $this->trimOrNull($this->payment_method);
         $booking->requested_by = $this->trimOrNull($this->requested_by);
         $booking->prepared_by = $this->trimOrNull($this->prepared_by);
+        $booking->advance = (float) $this->advance;
+        $booking->payment_method = $this->trimOrNull($this->payment_method);
         $booking->notes = $this->trimOrNull($this->notes);
+        // Header trip basics from the first leg (used by invoicing / the lists).
+        $booking->pickup_at = ($first['start_at'] ?? '') !== '' ? Carbon::parse($first['start_at']) : Carbon::now();
+        $booking->car_type = ($first['vehicle'] ?? '') !== '' ? $first['vehicle'] : null;
         $booking->save();
+
+        $this->persistLegs($booking); // recreates legs + sets fare/amount = grand total
 
         session()->flash('toast', __('Booking saved.'));
         $this->redirect('/app/limousine/booking', navigate: true);
     }
 
-    /** Open the inline new-customer modal (adds to the shared customer list). */
+    private function trimOrNull(string $value): ?string
+    {
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
+    }
+
     public function openCustomerModal(): void
     {
         $this->newCustomer = ['name' => '', 'phone' => '', 'email' => '', 'type' => 'individual'];
@@ -231,7 +173,6 @@ final class BookingForm extends Component
         $this->addingCustomer = false;
     }
 
-    /** Persist a shared customer and select it on the booking. */
     public function saveCustomer(): void
     {
         $this->validate([
@@ -250,13 +191,6 @@ final class BookingForm extends Component
 
         $this->customer_id = $customer->id;
         $this->addingCustomer = false;
-    }
-
-    private function trimOrNull(string $value): ?string
-    {
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
     }
 
     public function confirm(): void
@@ -337,14 +271,15 @@ final class BookingForm extends Component
 
     public function render(): View
     {
+        $grand = $this->grandTotal();
+
         return view('limousine::booking-form', [
             'customers' => LimoCustomer::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'phone']),
-            'locations' => LimoLocation::query()->where('active', true)->orderBy('name')->get(['id', 'name']),
-            'carTypes' => LimoBooking::carTypeOptions(),
             'bookingTypes' => LimoBooking::bookingTypeOptions(),
-            'rateTypes' => LimoBooking::rateTypeOptions(),
             'paymentMethods' => LimoBooking::paymentMethodOptions(),
+            'balance' => round(max(0.0, $grand - (float) ($this->advance === '' ? '0' : $this->advance)), 3),
             'isEditing' => $this->id !== null,
+            ...$this->legViewData(),
         ]);
     }
 }

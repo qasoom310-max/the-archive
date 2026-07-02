@@ -1,0 +1,188 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Modules\Limousine\Livewire\Concerns;
+
+use Illuminate\Support\Carbon;
+use Modules\Limousine\Models\LimoBooking;
+use Modules\Limousine\Models\LimoLeg;
+use Modules\Limousine\Models\LimoLocation;
+use Modules\Limousine\Models\LimoQuotation;
+
+/**
+ * Shared trip-leg editing for the Limousine booking + quotation forms: an array
+ * of legs (transfer or chauffeur), add/remove, validation, persistence and the
+ * grand total. Both forms bind to `$legs` and render the `limousine::partials.legs`
+ * editor.
+ */
+trait HandlesTripLegs
+{
+    /** @var list<array<string, string>> */
+    public array $legs = [];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function emptyLeg(): array
+    {
+        return [
+            'service_type' => LimoLeg::TYPE_TRANSFER,
+            'from_location' => '', 'to_location' => '', 'start_at' => '',
+            'hours' => '', 'days' => '1', 'vehicle' => '', 'vehicle_details' => '',
+            'rate' => '0', 'rate_basis' => LimoLeg::BASIS_TRIP, 'discount' => '0', 'vat' => '0',
+        ];
+    }
+
+    public function addLeg(): void
+    {
+        $this->legs[] = $this->emptyLeg();
+    }
+
+    public function removeLeg(int $index): void
+    {
+        unset($this->legs[$index]);
+        $this->legs = array_values($this->legs);
+        if ($this->legs === []) {
+            $this->legs = [$this->emptyLeg()];
+        }
+    }
+
+    /** Seed one empty leg for a brand-new record. */
+    protected function seedLegs(): void
+    {
+        if ($this->legs === []) {
+            $this->legs = [$this->emptyLeg()];
+        }
+    }
+
+    /** Load legs from a saved parent into the form array. */
+    protected function loadLegs(LimoBooking|LimoQuotation $parent): void
+    {
+        $this->legs = $parent->legs->map(fn (LimoLeg $l): array => [
+            'service_type' => $l->service_type,
+            'from_location' => $l->from_location ?? '',
+            'to_location' => $l->to_location ?? '',
+            'start_at' => $l->start_at?->format('Y-m-d\TH:i') ?? '',
+            'hours' => $l->hours !== null ? (string) $l->hours : '',
+            'days' => (string) $l->days,
+            'vehicle' => $l->vehicle ?? '',
+            'vehicle_details' => $l->vehicle_details ?? '',
+            'rate' => (string) $l->rate,
+            'rate_basis' => $l->rate_basis,
+            'discount' => (string) $l->discount,
+            'vat' => (string) $l->vat,
+        ])->all();
+
+        $this->seedLegs();
+    }
+
+    /**
+     * Validation rules for the legs (per-index so transfer vs chauffeur differ).
+     *
+     * @return array<string, list<string>>
+     */
+    protected function legRules(): array
+    {
+        $rules = ['legs' => ['required', 'array', 'min:1']];
+
+        foreach ($this->legs as $i => $leg) {
+            $rules["legs.$i.service_type"] = ['required', 'in:transfer,chauffeur'];
+            $rules["legs.$i.from_location"] = ['required', 'string', 'max:255'];
+            $rules["legs.$i.start_at"] = ['required', 'date'];
+            $rules["legs.$i.vehicle"] = ['required', 'string'];
+            $rules["legs.$i.vehicle_details"] = ['nullable', 'string', 'max:255'];
+            $rules["legs.$i.rate"] = ['required', 'numeric', 'min:0'];
+            $rules["legs.$i.rate_basis"] = ['required', 'in:trip,hour,day'];
+            $rules["legs.$i.discount"] = ['nullable', 'numeric', 'min:0'];
+            $rules["legs.$i.vat"] = ['nullable', 'numeric', 'min:0'];
+
+            if (($leg['service_type'] ?? '') === LimoLeg::TYPE_CHAUFFEUR) {
+                $rules["legs.$i.hours"] = ['required', 'numeric', 'min:0.5'];
+                $rules["legs.$i.days"] = ['required', 'integer', 'min:1'];
+            } else {
+                $rules["legs.$i.to_location"] = ['required', 'string', 'max:255'];
+            }
+        }
+
+        return $rules;
+    }
+
+    /** Grand total = sum of leg nets, recomputed from the live inputs. */
+    public function grandTotal(): float
+    {
+        $sum = 0.0;
+        foreach ($this->legs as $leg) {
+            $sum += LimoLeg::netFor(
+                $leg['rate_basis'] ?? LimoLeg::BASIS_TRIP,
+                (float) ($leg['rate'] ?? 0),
+                $leg['hours'] !== '' && isset($leg['hours']) ? (float) $leg['hours'] : null,
+                max(1, (int) ($leg['days'] ?? 1)),
+                (float) ($leg['discount'] ?? 0),
+                (float) ($leg['vat'] ?? 0),
+            );
+        }
+
+        return round($sum, 3);
+    }
+
+    /** Replace the parent's legs from the form array and recalc its total. */
+    protected function persistLegs(LimoBooking|LimoQuotation $parent): void
+    {
+        $parent->legs()->delete();
+
+        foreach ($this->legs as $i => $leg) {
+            $chauffeur = ($leg['service_type'] ?? '') === LimoLeg::TYPE_CHAUFFEUR;
+            $basis = $leg['rate_basis'] ?? LimoLeg::BASIS_TRIP;
+            $rate = (float) ($leg['rate'] === '' ? '0' : $leg['rate']);
+            $hours = $chauffeur && $leg['hours'] !== '' ? (float) $leg['hours'] : null;
+            $days = $chauffeur ? max(1, (int) ($leg['days'] === '' ? '1' : $leg['days'])) : 1;
+            $discount = (float) ($leg['discount'] === '' ? '0' : $leg['discount']);
+            $vat = (float) ($leg['vat'] === '' ? '0' : $leg['vat']);
+
+            $parent->legs()->create([
+                'sequence' => $i,
+                'service_type' => $leg['service_type'] ?? LimoLeg::TYPE_TRANSFER,
+                'from_location' => $this->blankToNull($leg['from_location'] ?? ''),
+                'to_location' => $chauffeur ? null : $this->blankToNull($leg['to_location'] ?? ''),
+                'start_at' => ($leg['start_at'] ?? '') !== '' ? Carbon::parse($leg['start_at']) : null,
+                'hours' => $hours,
+                'days' => $days,
+                'vehicle' => $this->blankToNull($leg['vehicle'] ?? ''),
+                'vehicle_details' => $this->blankToNull($leg['vehicle_details'] ?? ''),
+                'rate' => $rate,
+                'rate_basis' => $basis,
+                'discount' => $discount,
+                'vat' => $vat,
+                'line_total' => LimoLeg::grossFor($basis, $rate, $hours, $days),
+                'net_amount' => LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat),
+            ]);
+        }
+
+        $parent->recalcTotal();
+        $parent->save();
+    }
+
+    private function blankToNull(string $value): ?string
+    {
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
+    }
+
+    /**
+     * Shared view data for the legs editor.
+     *
+     * @return array<string, mixed>
+     */
+    protected function legViewData(): array
+    {
+        return [
+            'serviceTypes' => LimoLeg::serviceTypeOptions(),
+            'rateBasisOptions' => LimoLeg::rateBasisOptions(),
+            'vehicleOptions' => [...LimoBooking::carTypeOptions(), ['value' => 'other', 'label' => 'Other']],
+            'locationNames' => LimoLocation::query()->where('active', true)->orderBy('name')->pluck('name')->all(),
+            'grandTotal' => $this->grandTotal(),
+        ];
+    }
+}

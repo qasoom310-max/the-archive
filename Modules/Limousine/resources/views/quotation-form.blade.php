@@ -92,109 +92,15 @@
         </div>
     </div>
 
-    {{-- ── Line items ── --}}
-    <div class="mt-5 space-y-4">
-        @error('lines') <p class="text-sm text-red-600">{{ $message }}</p> @enderror
-        @foreach ($lines as $i => $line)
-            @php
-                $gross = (float) ($line['rate'] === '' ? 0 : $line['rate']) * max(1, (int) ($line['units'] === '' ? 1 : $line['units']));
-                $net = max(0, $gross - (float) ($line['discount'] === '' ? 0 : $line['discount'])) + (float) ($line['vat'] === '' ? 0 : $line['vat']);
-            @endphp
-            <div wire:key="line-{{ $i }}" class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6">
-                <div class="mb-4 flex items-center justify-between">
-                    <h3 class="text-sm font-semibold text-chrome-800">{{ __('Quotation line') }} {{ $i + 1 }}</h3>
-                    @if (count($lines) > 1)
-                        <button type="button" wire:click="removeLine({{ $i }})" class="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700">
-                            <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.75 1a1 1 0 0 0-.96.72L7.5 3H4a1 1 0 0 0 0 2h12a1 1 0 1 0 0-2h-3.5l-.29-1.28A1 1 0 0 0 11.25 1h-2.5ZM5.06 7l.66 9.24A2 2 0 0 0 7.72 18h4.56a2 2 0 0 0 2-1.76L14.94 7H5.06Z" clip-rule="evenodd"/></svg>
-                            {{ __('Remove') }}
-                        </button>
-                    @endif
-                </div>
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                        <label class="{{ $lbl }}">{{ __('Quotation type') }} *</label>
-                        <select wire:model="lines.{{ $i }}.quote_type" class="o-input w-full">
-                            <option value="">{{ __('— Select —') }}</option>
-                            @foreach ($quoteTypes as $opt)<option value="{{ $opt['value'] }}">{{ __($opt['label']) }}</option>@endforeach
-                        </select>
-                        @error('lines.'.$i.'.quote_type') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    </div>
-                    <div>
-                        <label class="{{ $lbl }}">{{ __('Rate type') }} *</label>
-                        <select wire:model="lines.{{ $i }}.rate_type" class="o-input w-full">
-                            <option value="">{{ __('— Select —') }}</option>
-                            @foreach ($rateTypes as $opt)<option value="{{ $opt['value'] }}">{{ __($opt['label']) }}</option>@endforeach
-                        </select>
-                        @error('lines.'.$i.'.rate_type') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    </div>
-                    <div>
-                        <label class="{{ $lbl }}">{{ __('Quotation date from') }} *</label>
-                        <input type="datetime-local" wire:model="lines.{{ $i }}.date_from" class="o-input w-full">
-                        @error('lines.'.$i.'.date_from') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    </div>
-                    <div>
-                        <label class="{{ $lbl }}">{{ __('Quotation date to') }} *</label>
-                        <input type="datetime-local" wire:model="lines.{{ $i }}.date_to" class="o-input w-full">
-                        @error('lines.'.$i.'.date_to') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    </div>
-                    <div>
-                        <label class="{{ $lbl }}">{{ __('Number of hours') }}</label>
-                        <input type="number" step="0.5" min="0" wire:model="lines.{{ $i }}.hours" class="o-input w-full">
-                    </div>
-                    <div>
-                        <label class="{{ $lbl }}">{{ __('Number of units') }} *</label>
-                        <input type="number" min="1" wire:model.live="lines.{{ $i }}.units" class="o-input w-full">
-                        @error('lines.'.$i.'.units') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    </div>
-                    <div>
-                        <label class="{{ $lbl }}">{{ __('Vehicle') }} *</label>
-                        <select wire:model="lines.{{ $i }}.vehicle" class="o-input w-full">
-                            <option value="">{{ __('— Select —') }}</option>
-                            @foreach ($vehicleOptions as $opt)<option value="{{ $opt['value'] }}">{{ __($opt['label']) }}</option>@endforeach
-                        </select>
-                        @error('lines.'.$i.'.vehicle') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    </div>
-                    <div>
-                        <label class="{{ $lbl }}">{{ __('Vehicle details') }}</label>
-                        <input type="text" wire:model="lines.{{ $i }}.vehicle_details" class="o-input w-full">
-                    </div>
-                    <div>
-                        <label class="{{ $lbl }}">{{ __('Rate (BHD)') }} *</label>
-                        <input type="number" step="0.001" min="0" wire:model.live="lines.{{ $i }}.rate" class="o-input w-full">
-                        @error('lines.'.$i.'.rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    </div>
-                    <div>
-                        <label class="{{ $lbl }}">{{ __('Line total (BHD)') }}</label>
-                        <input type="text" value="{{ \App\Erp\Views\ValueFormat::money($gross) }}" disabled class="o-input w-full bg-chrome-50 text-chrome-600">
-                    </div>
-                    <div>
-                        <label class="{{ $lbl }}">{{ __('Discount (BHD)') }}</label>
-                        <input type="number" step="0.001" min="0" wire:model.live="lines.{{ $i }}.discount" class="o-input w-full">
-                    </div>
-                    <div>
-                        <label class="{{ $lbl }}">{{ __('VAT (BHD)') }}</label>
-                        <input type="number" step="0.001" min="0" wire:model.live="lines.{{ $i }}.vat" class="o-input w-full">
-                    </div>
-                    <div class="sm:col-span-2">
-                        <div class="flex items-center justify-between rounded-lg bg-primary-50 px-3 py-2">
-                            <span class="text-sm font-semibold text-primary-800">{{ __('Net amount') }}</span>
-                            <span class="text-base font-bold text-primary-700">{{ \App\Erp\Views\ValueFormat::money($net) }}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        @endforeach
-
-        <button type="button" wire:click="addLine" class="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-chrome-300 bg-white/60 py-3 text-sm font-medium text-chrome-600 hover:border-primary-400 hover:text-primary-700">
-            <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
-            {{ __('Add another line') }}
-        </button>
+    {{-- ── Trip legs ── --}}
+    <div class="mt-5">
+        @include('limousine::partials.legs')
     </div>
 
     {{-- ── Grand total + save ── --}}
     <div class="mt-5 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6">
         <div class="flex items-center justify-between">
-            <span class="text-sm font-semibold text-chrome-700">{{ __('Grand total') }} <span class="text-chrome-400">· {{ count($lines) }} {{ __('line(s)') }}</span></span>
+            <span class="text-sm font-semibold text-chrome-700">{{ __('Grand total') }} <span class="text-chrome-400">· {{ count($legs) }} {{ __('leg(s)') }}</span></span>
             <span class="text-2xl font-bold text-chrome-900">{{ \App\Erp\Views\ValueFormat::money($grandTotal) }}</span>
         </div>
         <button wire:click="save" class="o-btn-primary mt-4 w-full justify-center py-2.5">

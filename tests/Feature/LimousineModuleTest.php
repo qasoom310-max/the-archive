@@ -130,7 +130,7 @@ final class LimousineModuleTest extends TestCase
         $this->assertSame(LimoBooking::PAYMENT_PAID, $booking->fresh()->payment_status);
     }
 
-    public function test_quotation_form_saves_multiple_lines_with_a_grand_total(): void
+    public function test_quotation_saves_transfer_and_chauffeur_legs_with_a_grand_total(): void
     {
         $this->install();
         $customer = LimoCustomer::query()->create(['name' => 'LineCo']);
@@ -139,91 +139,110 @@ final class LimousineModuleTest extends TestCase
             ->set('customer_id', $customer->id)
             ->set('requested_by', 'Sara')
             ->set('prepared_by', 'Qassim')
-            // Line 1 (seeded): 30 × 2 = 60, − 10 discount + 5 VAT = 55.
-            ->set('lines.0.quote_type', 'airport')
-            ->set('lines.0.rate_type', 'fixed')
-            ->set('lines.0.date_from', '2026-07-05T09:00')
-            ->set('lines.0.date_to', '2026-07-05T12:00')
-            ->set('lines.0.units', 2)
-            ->set('lines.0.vehicle', 'sedan')
-            ->set('lines.0.rate', 30)
-            ->set('lines.0.discount', 10)
-            ->set('lines.0.vat', 5)
-            // Line 2: 40 × 1 = 40 net.
-            ->call('addLine')
-            ->set('lines.1.quote_type', 'hourly')
-            ->set('lines.1.rate_type', 'hourly')
-            ->set('lines.1.date_from', '2026-07-06T09:00')
-            ->set('lines.1.date_to', '2026-07-06T13:00')
-            ->set('lines.1.units', 1)
-            ->set('lines.1.vehicle', 'suv')
-            ->set('lines.1.rate', 40)
+            // Leg 1 (seeded) — transfer, flat 45.
+            ->set('legs.0.service_type', 'transfer')
+            ->set('legs.0.from_location', 'Bahrain Airport')
+            ->set('legs.0.to_location', 'Manama')
+            ->set('legs.0.start_at', '2026-07-05T09:00')
+            ->set('legs.0.vehicle', 'sedan')
+            ->set('legs.0.rate', 45)
+            ->set('legs.0.rate_basis', 'trip')
+            // Leg 2 — chauffeur 8h/day × 4 days at 10/hr = 320.
+            ->call('addLeg')
+            ->set('legs.1.service_type', 'chauffeur')
+            ->set('legs.1.from_location', 'Manama')
+            ->set('legs.1.start_at', '2026-07-06T09:00')
+            ->set('legs.1.hours', 8)
+            ->set('legs.1.days', 4)
+            ->set('legs.1.vehicle', 'suv')
+            ->set('legs.1.rate', 10)
+            ->set('legs.1.rate_basis', 'hour')
             ->call('save')
             ->assertHasNoErrors();
 
-        $quote = LimoQuotation::query()->with('lines')->latest('id')->first();
+        $quote = LimoQuotation::query()->with('legs')->latest('id')->first();
         $this->assertNotNull($quote);
-        $this->assertCount(2, $quote->lines);
-        $this->assertEqualsWithDelta(55.0, $quote->lines[0]->net_amount, 0.001);
-        $this->assertEqualsWithDelta(60.0, $quote->lines[0]->line_total, 0.001);
-        $this->assertEqualsWithDelta(95.0, $quote->fare, 0.001); // 55 + 40 (grand total)
+        $this->assertCount(2, $quote->legs);
+        $this->assertEqualsWithDelta(45.0, $quote->legs[0]->net_amount, 0.001);   // flat transfer
+        $this->assertEqualsWithDelta(320.0, $quote->legs[1]->net_amount, 0.001);  // 10 × 8 × 4
+        $this->assertSame(4, $quote->legs[1]->days);
+        $this->assertEqualsWithDelta(365.0, $quote->fare, 0.001);                 // grand total
         $this->assertNotNull($quote->reference);
     }
 
-    public function test_quotation_requires_sign_off_and_a_complete_line(): void
+    public function test_quotation_requires_sign_off_and_a_complete_leg(): void
     {
         $this->install();
         $customer = LimoCustomer::query()->create(['name' => 'X']);
 
         Livewire::test(QuotationForm::class)
             ->set('customer_id', $customer->id)
-            // requested_by / prepared_by blank; line left empty
+            // requested_by / prepared_by blank; leg left empty (transfer needs from/to/start/vehicle)
             ->call('save')
-            ->assertHasErrors(['requested_by', 'prepared_by', 'lines.0.quote_type', 'lines.0.rate_type', 'lines.0.vehicle', 'lines.0.date_from']);
+            ->assertHasErrors(['requested_by', 'prepared_by', 'legs.0.from_location', 'legs.0.to_location', 'legs.0.start_at', 'legs.0.vehicle']);
 
         $this->assertSame(0, LimoQuotation::query()->count());
     }
 
-    public function test_removing_a_line_keeps_at_least_one(): void
+    public function test_a_chauffeur_leg_requires_hours_and_days(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Y']);
+
+        Livewire::test(QuotationForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('requested_by', 'A')->set('prepared_by', 'B')
+            ->set('legs.0.service_type', 'chauffeur')
+            ->set('legs.0.from_location', 'Manama')
+            ->set('legs.0.start_at', '2026-07-05T09:00')
+            ->set('legs.0.vehicle', 'sedan')
+            ->set('legs.0.rate', 10)
+            // hours left blank
+            ->call('save')
+            ->assertHasErrors(['legs.0.hours']);
+    }
+
+    public function test_removing_a_leg_keeps_at_least_one(): void
     {
         $this->install();
 
         Livewire::test(QuotationForm::class)
-            ->call('addLine')
-            ->assertCount('lines', 2)
-            ->call('removeLine', 1)
-            ->assertCount('lines', 1)
-            ->call('removeLine', 0)
-            ->assertCount('lines', 1); // never drops below one
+            ->call('addLeg')
+            ->assertCount('legs', 2)
+            ->call('removeLeg', 1)
+            ->assertCount('legs', 1)
+            ->call('removeLeg', 0)
+            ->assertCount('legs', 1); // never drops below one
     }
 
-    public function test_booking_form_creates_and_transitions_status(): void
+    public function test_booking_form_creates_from_legs_and_transitions_status(): void
     {
         $this->install();
         $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
-        $from = LimoLocation::query()->create(['name' => 'Airport']);
-        $to = LimoLocation::query()->create(['name' => 'City Centre']);
 
         Livewire::test(BookingForm::class)
             ->set('customer_id', $customer->id)
             ->set('pax_name', 'John Traveller')
-            ->set('pickup_location_id', $from->id)
-            ->set('dropoff_location_id', $to->id)
-            ->set('pickup_at', '2026-07-01T14:30')
-            ->set('amount', 18.5)
-            ->set('rate_type', 'fixed')
-            ->set('payment_method', 'cash')
-            ->set('car_details', 'Lexus ES · white')
             ->set('requested_by', 'Sara')
             ->set('prepared_by', 'Ali')
+            ->set('payment_method', 'cash')
+            ->set('advance', 5)
+            ->set('legs.0.service_type', 'transfer')
+            ->set('legs.0.from_location', 'Airport')
+            ->set('legs.0.to_location', 'City Centre')
+            ->set('legs.0.start_at', '2026-07-01T14:30')
+            ->set('legs.0.vehicle', 'sedan')
+            ->set('legs.0.rate', 18.5)
+            ->set('legs.0.rate_basis', 'trip')
             ->call('save')
             ->assertHasNoErrors();
 
-        $booking = LimoBooking::query()->sole();
+        $booking = LimoBooking::query()->with('legs')->sole();
         $this->assertSame(LimoBooking::STATUS_QUEUE, $booking->status);
-        $this->assertEqualsWithDelta(18.5, $booking->fare, 0.001); // net = amount − discount
+        $this->assertCount(1, $booking->legs);
+        $this->assertEqualsWithDelta(18.5, $booking->fare, 0.001);       // grand total from legs
+        $this->assertEqualsWithDelta(13.5, $booking->balanceDue(), 0.001); // 18.5 − 5 advance
         $this->assertSame('John Traveller', $booking->pax_name);
-        $this->assertSame('Lexus ES · white', $booking->car_details);
         $this->assertNotNull($booking->reference);
 
         // Status machine: confirm → start → complete; mark paid.
@@ -234,44 +253,16 @@ final class LimousineModuleTest extends TestCase
             ->call('markPaid')->assertSet('payment_status', LimoBooking::PAYMENT_PAID);
     }
 
-    public function test_net_amount_is_the_gross_amount_minus_discount(): void
-    {
-        $this->install();
-        $customer = LimoCustomer::query()->create(['name' => 'Yousif']);
-
-        Livewire::test(BookingForm::class)
-            ->set('customer_id', $customer->id)
-            ->set('pax_name', 'Guest')
-            ->set('pickup_at', '2026-07-01T10:00')
-            ->set('amount', 100)
-            ->set('discount', 20)
-            ->set('advance', 30)
-            ->set('rate_type', 'daily')
-            ->set('payment_method', 'benefitpay')
-            ->set('car_details', 'Van')
-            ->set('requested_by', 'A')
-            ->set('prepared_by', 'B')
-            ->call('save')
-            ->assertHasNoErrors();
-
-        $booking = LimoBooking::query()->sole();
-        $this->assertEqualsWithDelta(80.0, $booking->netAmount(), 0.001); // 100 − 20
-        $this->assertEqualsWithDelta(80.0, $booking->fare, 0.001);        // fare stores the net
-        $this->assertEqualsWithDelta(50.0, $booking->balanceDue(), 0.001); // 80 − 30 advance
-        $this->assertSame('benefitpay', $booking->payment_method);
-    }
-
-    public function test_the_booking_form_requires_the_key_sheet_fields(): void
+    public function test_the_booking_form_requires_pax_sign_off_and_a_leg(): void
     {
         $this->install();
         $customer = LimoCustomer::query()->create(['name' => 'Nasser']);
 
         Livewire::test(BookingForm::class)
             ->set('customer_id', $customer->id)
-            ->set('pickup_at', '2026-07-01T10:00')
-            // pax_name / rate_type / car_details / requested_by / prepared_by left blank
+            // pax_name / requested_by / prepared_by blank; leg incomplete
             ->call('save')
-            ->assertHasErrors(['pax_name', 'rate_type', 'car_details', 'requested_by', 'prepared_by']);
+            ->assertHasErrors(['pax_name', 'requested_by', 'prepared_by', 'legs.0.from_location', 'legs.0.vehicle']);
     }
 
     public function test_dashboard_renders_booking_kpis(): void

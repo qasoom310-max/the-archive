@@ -95,12 +95,31 @@ final class SharedTransportCustomerTest extends TestCase
         Livewire::test(BookingForm::class)
             ->call('openCustomerModal')
             ->set('newCustomer.name', 'Mona')
+            ->set('newCustomer.phone', '39000003')
+            ->set('newCustomer.email', 'mona@example.com')
+            ->set('newCustomer.type', 'company')
             ->call('saveCustomer')
             ->assertHasNoErrors()
             ->assertSet('customer_id', fn ($id): bool => $id !== null);
 
-        // The customer the limo desk just added shows in the rental list.
-        $this->assertSame(1, RentalCustomer::query()->where('name', 'Mona')->count());
+        // The customer the limo desk just added shows in the rental list, with
+        // the individual/company type it was given.
+        $mona = RentalCustomer::query()->where('name', 'Mona')->sole();
+        $this->assertSame('company', $mona->type);
+        $this->assertSame('39000003', $mona->phone);
+    }
+
+    public function test_the_limousine_new_customer_requires_phone_email_and_type(): void
+    {
+        Livewire::test(BookingForm::class)
+            ->call('openCustomerModal')
+            ->set('newCustomer.name', 'NoContact')
+            ->set('newCustomer.phone', '')
+            ->set('newCustomer.email', '')
+            ->call('saveCustomer')
+            ->assertHasErrors(['newCustomer.phone', 'newCustomer.email']);
+
+        $this->assertSame(0, RentalCustomer::query()->where('name', 'NoContact')->count());
     }
 
     public function test_inline_new_customer_requires_a_name(): void

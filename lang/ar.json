@@ -1546,5 +1546,6 @@
     "Event": "مناسبة",
     "Fixed / per trip": "ثابت / لكل رحلة",
     "Hourly": "بالساعة",
-    "Daily": "يومي"
+    "Daily": "يومي",
+    "Customer type": "نوع العميل"
 }

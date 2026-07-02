@@ -265,5 +265,5 @@
         </button>
     </div>
 
-    @include('rental::partials.customer-modal')
+    @include('limousine::partials.customer-modal')
 </div>

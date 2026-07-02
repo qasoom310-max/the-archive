@@ -85,7 +85,7 @@ final class BookingForm extends Component
     public bool $addingCustomer = false;
 
     /** @var array<string, string> */
-    public array $newCustomer = ['name' => '', 'phone' => '', 'email' => '', 'cpr' => '', 'license_no' => ''];
+    public array $newCustomer = ['name' => '', 'phone' => '', 'email' => '', 'type' => 'individual'];
 
     public string $reference = '';
 
@@ -221,7 +221,7 @@ final class BookingForm extends Component
     /** Open the inline new-customer modal (adds to the shared customer list). */
     public function openCustomerModal(): void
     {
-        $this->newCustomer = ['name' => '', 'phone' => '', 'email' => '', 'cpr' => '', 'license_no' => ''];
+        $this->newCustomer = ['name' => '', 'phone' => '', 'email' => '', 'type' => 'individual'];
         $this->resetValidation();
         $this->addingCustomer = true;
     }
@@ -236,18 +236,16 @@ final class BookingForm extends Component
     {
         $this->validate([
             'newCustomer.name' => ['required', 'string', 'max:255'],
-            'newCustomer.phone' => ['nullable', 'string', 'max:50'],
-            'newCustomer.email' => ['nullable', 'email', 'max:255'],
-            'newCustomer.cpr' => ['nullable', 'string', 'max:50'],
-            'newCustomer.license_no' => ['nullable', 'string', 'max:50'],
+            'newCustomer.phone' => ['required', 'string', 'max:50'],
+            'newCustomer.email' => ['required', 'email', 'max:255'],
+            'newCustomer.type' => ['required', 'in:individual,company'],
         ]);
 
         $customer = LimoCustomer::query()->create([
             'name' => trim($this->newCustomer['name']),
-            'phone' => $this->trimOrNull($this->newCustomer['phone']),
-            'email' => $this->trimOrNull($this->newCustomer['email']),
-            'cpr' => $this->trimOrNull($this->newCustomer['cpr']),
-            'license_no' => $this->trimOrNull($this->newCustomer['license_no']),
+            'type' => $this->newCustomer['type'],
+            'phone' => trim($this->newCustomer['phone']),
+            'email' => trim($this->newCustomer['email']),
         ]);
 
         $this->customer_id = $customer->id;

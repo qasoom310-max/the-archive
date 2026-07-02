@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Rental\Livewire;
 
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -55,13 +56,29 @@ final class Orders extends Component
         $this->resetPage();
     }
 
+    /**
+     * Orders that still owe money — unpaid or part-paid on a live / closed order
+     * (matches the dashboard money box). Draft and cancelled orders are excluded.
+     *
+     * @param  Builder<RentalOrder>  $query
+     * @return Builder<RentalOrder>
+     */
+    private function applyOwing(Builder $query): Builder
+    {
+        return $query
+            ->whereIn('payment_status', [RentalOrder::PAYMENT_UNPAID, RentalOrder::PAYMENT_PARTIAL])
+            ->whereIn('state', [RentalOrder::STATE_ACTIVE, RentalOrder::STATE_CLOSED]);
+    }
+
     public function render(): View
     {
         $query = RentalOrder::query()
             ->with(['customer:id,name,country', 'vehicle:id,name,plate_no,color', 'createdBy:id,name'])
             ->orderByDesc('id');
 
-        if (in_array($this->tab, [
+        if ($this->tab === 'unpaid') {
+            $this->applyOwing($query);
+        } elseif (in_array($this->tab, [
             RentalOrder::STATE_DRAFT,
             RentalOrder::STATE_ACTIVE,
             RentalOrder::STATE_CLOSED,
@@ -92,9 +109,12 @@ final class Orders extends Component
             ->groupBy('state')
             ->pluck('aggregate', 'state');
 
+        $unpaidCount = $this->applyOwing(RentalOrder::query())->count();
+
         return view('rental::orders', [
             'orders' => $query->paginate(20),
             'counts' => $counts,
+            'unpaidCount' => $unpaidCount,
             'totalCount' => (int) $counts->sum(),
         ]);
     }

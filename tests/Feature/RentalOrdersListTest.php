@@ -106,4 +106,28 @@ final class RentalOrdersListTest extends TestCase
             ->assertSee('Beta Renter')
             ->assertDontSee('Alpha Renter');
     }
+
+    public function test_the_unpaid_tab_lists_only_orders_that_still_owe_money(): void
+    {
+        $owing = RentalCustomer::query()->create(['name' => 'OwingCustomerZ', 'phone' => '39000020']);
+        $paid = RentalCustomer::query()->create(['name' => 'PaidCustomerZ', 'phone' => '39000021']);
+        $car = Vehicle::query()->create(['name' => 'Yaris', 'daily_rate' => 10]);
+
+        $mk = function (RentalCustomer $c, string $pay, string $state) use ($car): void {
+            RentalOrder::query()->create([
+                'customer_id' => $c->id, 'vehicle_id' => $car->id,
+                'start_date' => Carbon::parse('2026-06-24'), 'end_date' => Carbon::parse('2026-06-25'),
+                'rate_type' => 'daily', 'rate' => 10, 'total' => 10, 'balance' => 10,
+                'payment_status' => $pay, 'state' => $state,
+            ]);
+        };
+        $mk($owing, RentalOrder::PAYMENT_UNPAID, RentalOrder::STATE_ACTIVE);   // owes
+        $mk($paid, RentalOrder::PAYMENT_PAID, RentalOrder::STATE_CLOSED);      // settled
+
+        Livewire::test(Orders::class)
+            ->assertViewHas('unpaidCount', 1)
+            ->set('tab', 'unpaid')
+            ->assertSee('OwingCustomerZ')
+            ->assertDontSee('PaidCustomerZ');
+    }
 }

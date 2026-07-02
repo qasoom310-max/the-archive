@@ -240,7 +240,7 @@
             </div>
             <div class="mt-3 text-2xl font-bold tracking-tight text-white">{{ \App\Erp\Views\ValueFormat::money($revenue) }}</div>
             <div class="text-sm font-medium text-white/70">{{ __('Revenue') }}</div>
-            <a href="{{ url('/app/rental/order') }}" wire:navigate
+            <a href="{{ url('/app/rental/order?tab=unpaid') }}" wire:navigate
                 class="mt-3 flex items-center justify-between rounded-lg bg-black/15 px-3 py-2 transition hover:bg-black/25">
                 <span class="flex items-center gap-1.5 text-xs font-medium text-white/80">
                     <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10A8 8 0 1 1 2 10a8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a1 1 0 0 0 0 2v3a1 1 0 0 0 1 1h1a1 1 0 1 0 0-2v-3a1 1 0 0 0-1-1H9Z" clip-rule="evenodd"/></svg>

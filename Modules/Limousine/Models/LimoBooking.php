@@ -20,13 +20,32 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property string|null $reference
  * @property int|null $customer_id
+ * @property string|null $booking_type
+ * @property string|null $contact_person
+ * @property string|null $company_reference
+ * @property string|null $pax_name
+ * @property string|null $pax_contact
+ * @property string|null $flight_number
+ * @property string|null $email
  * @property int|null $pickup_location_id
  * @property int|null $dropoff_location_id
+ * @property string|null $pickup_address
+ * @property string|null $dropoff_address
  * @property Carbon|null $pickup_at
+ * @property Carbon|null $booking_to
  * @property int|null $passengers
  * @property string|null $car_type
  * @property string|null $driver_name
+ * @property int $num_cars
+ * @property string|null $car_details
  * @property float $fare
+ * @property float $amount
+ * @property float $discount
+ * @property float $advance
+ * @property string|null $rate_type
+ * @property string|null $payment_method
+ * @property string|null $requested_by
+ * @property string|null $prepared_by
  * @property string $status
  * @property string $payment_status
  * @property string|null $notes
@@ -56,14 +75,22 @@ final class LimoBooking extends Model implements DefinesIrModel
 
     /** @var list<string> */
     protected $fillable = [
-        'reference', 'customer_id', 'pickup_location_id', 'dropoff_location_id',
-        'pickup_at', 'passengers', 'car_type', 'driver_name', 'fare',
+        'reference', 'booking_type', 'customer_id', 'contact_person', 'company_reference',
+        'pax_name', 'pax_contact', 'flight_number', 'email',
+        'pickup_location_id', 'dropoff_location_id', 'pickup_address', 'dropoff_address',
+        'pickup_at', 'booking_to', 'passengers', 'car_type', 'driver_name',
+        'num_cars', 'car_details', 'fare', 'amount', 'discount', 'advance',
+        'rate_type', 'payment_method', 'requested_by', 'prepared_by',
         'status', 'payment_status', 'notes',
     ];
 
     /** @var array<string, mixed> */
     protected $attributes = [
         'fare' => 0,
+        'amount' => 0,
+        'discount' => 0,
+        'advance' => 0,
+        'num_cars' => 1,
         'status' => self::STATUS_QUEUE,
         'payment_status' => self::PAYMENT_UNPAID,
     ];
@@ -78,9 +105,26 @@ final class LimoBooking extends Model implements DefinesIrModel
             'pickup_location_id' => 'integer',
             'dropoff_location_id' => 'integer',
             'pickup_at' => 'datetime',
+            'booking_to' => 'datetime',
             'passengers' => 'integer',
+            'num_cars' => 'integer',
             'fare' => 'float',
+            'amount' => 'float',
+            'discount' => 'float',
+            'advance' => 'float',
         ];
+    }
+
+    /** Net booking amount = gross amount − discount (never negative). */
+    public function netAmount(): float
+    {
+        return round(max(0.0, $this->amount - $this->discount), 3);
+    }
+
+    /** Balance still owed after the advance. */
+    public function balanceDue(): float
+    {
+        return round(max(0.0, $this->netAmount() - $this->advance), 3);
     }
 
     public function referencePrefix(): string
@@ -165,6 +209,49 @@ final class LimoBooking extends Model implements DefinesIrModel
             ['value' => 'suv', 'label' => 'SUV'],
             ['value' => 'van', 'label' => 'Van'],
             ['value' => 'luxury', 'label' => 'Luxury'],
+        ];
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    public static function bookingTypeOptions(): array
+    {
+        return [
+            ['value' => 'airport', 'label' => 'Airport transfer'],
+            ['value' => 'point_to_point', 'label' => 'Point to point'],
+            ['value' => 'hourly', 'label' => 'Hourly / disposal'],
+            ['value' => 'full_day', 'label' => 'Full day'],
+            ['value' => 'multi_day', 'label' => 'Multi-day'],
+            ['value' => 'event', 'label' => 'Event'],
+        ];
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    public static function rateTypeOptions(): array
+    {
+        return [
+            ['value' => 'fixed', 'label' => 'Fixed / per trip'],
+            ['value' => 'hourly', 'label' => 'Hourly'],
+            ['value' => 'daily', 'label' => 'Daily'],
+        ];
+    }
+
+    /**
+     * Payment methods, in the same order the rest of the app uses.
+     *
+     * @return list<array{value: string, label: string}>
+     */
+    public static function paymentMethodOptions(): array
+    {
+        return [
+            ['value' => 'cash', 'label' => 'Cash'],
+            ['value' => 'cheque', 'label' => 'Cheque'],
+            ['value' => 'credit_card', 'label' => 'Credit Card'],
+            ['value' => 'benefitpay', 'label' => 'BenefitPay'],
+            ['value' => 'online', 'label' => 'Online'],
         ];
     }
 

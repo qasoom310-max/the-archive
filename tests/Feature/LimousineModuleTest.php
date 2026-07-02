@@ -138,16 +138,24 @@ final class LimousineModuleTest extends TestCase
 
         Livewire::test(BookingForm::class)
             ->set('customer_id', $customer->id)
+            ->set('pax_name', 'John Traveller')
             ->set('pickup_location_id', $from->id)
             ->set('dropoff_location_id', $to->id)
             ->set('pickup_at', '2026-07-01T14:30')
-            ->set('fare', 18.5)
+            ->set('amount', 18.5)
+            ->set('rate_type', 'fixed')
+            ->set('payment_method', 'cash')
+            ->set('car_details', 'Lexus ES · white')
+            ->set('requested_by', 'Sara')
+            ->set('prepared_by', 'Ali')
             ->call('save')
             ->assertHasNoErrors();
 
         $booking = LimoBooking::query()->sole();
         $this->assertSame(LimoBooking::STATUS_QUEUE, $booking->status);
-        $this->assertEqualsWithDelta(18.5, $booking->fare, 0.001);
+        $this->assertEqualsWithDelta(18.5, $booking->fare, 0.001); // net = amount − discount
+        $this->assertSame('John Traveller', $booking->pax_name);
+        $this->assertSame('Lexus ES · white', $booking->car_details);
         $this->assertNotNull($booking->reference);
 
         // Status machine: confirm → start → complete; mark paid.
@@ -156,6 +164,46 @@ final class LimousineModuleTest extends TestCase
             ->call('start')->assertSet('status', LimoBooking::STATUS_ACTIVE)
             ->call('complete')->assertSet('status', LimoBooking::STATUS_COMPLETED)
             ->call('markPaid')->assertSet('payment_status', LimoBooking::PAYMENT_PAID);
+    }
+
+    public function test_net_amount_is_the_gross_amount_minus_discount(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Yousif']);
+
+        Livewire::test(BookingForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('pax_name', 'Guest')
+            ->set('pickup_at', '2026-07-01T10:00')
+            ->set('amount', 100)
+            ->set('discount', 20)
+            ->set('advance', 30)
+            ->set('rate_type', 'daily')
+            ->set('payment_method', 'benefitpay')
+            ->set('car_details', 'Van')
+            ->set('requested_by', 'A')
+            ->set('prepared_by', 'B')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $booking = LimoBooking::query()->sole();
+        $this->assertEqualsWithDelta(80.0, $booking->netAmount(), 0.001); // 100 − 20
+        $this->assertEqualsWithDelta(80.0, $booking->fare, 0.001);        // fare stores the net
+        $this->assertEqualsWithDelta(50.0, $booking->balanceDue(), 0.001); // 80 − 30 advance
+        $this->assertSame('benefitpay', $booking->payment_method);
+    }
+
+    public function test_the_booking_form_requires_the_key_sheet_fields(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Nasser']);
+
+        Livewire::test(BookingForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('pickup_at', '2026-07-01T10:00')
+            // pax_name / rate_type / car_details / requested_by / prepared_by left blank
+            ->call('save')
+            ->assertHasErrors(['pax_name', 'rate_type', 'car_details', 'requested_by', 'prepared_by']);
     }
 
     public function test_dashboard_renders_booking_kpis(): void

@@ -42,6 +42,45 @@ final class BookingForm extends Component
 
     public string $notes = '';
 
+    // Full booking sheet (ported from the old system).
+    public string $booking_type = '';
+
+    public string $booking_to = '';
+
+    public string $contact_person = '';
+
+    public string $company_reference = '';
+
+    public string $pax_name = '';
+
+    public string $pax_contact = '';
+
+    public string $flight_number = '';
+
+    public string $email = '';
+
+    public string $pickup_address = '';
+
+    public string $dropoff_address = '';
+
+    public string $amount = '0';
+
+    public string $discount = '0';
+
+    public string $advance = '0';
+
+    public string $rate_type = '';
+
+    public string $payment_method = 'cash';
+
+    public string $num_cars = '1';
+
+    public string $car_details = '';
+
+    public string $requested_by = '';
+
+    public string $prepared_by = '';
+
     /** Inline "New customer" modal (shared transport customer). */
     public bool $addingCustomer = false;
 
@@ -64,6 +103,7 @@ final class BookingForm extends Component
                 $this->pickup_location_id = $booking->pickup_location_id;
                 $this->dropoff_location_id = $booking->dropoff_location_id;
                 $this->pickup_at = $booking->pickup_at?->format('Y-m-d\TH:i') ?? '';
+                $this->booking_to = $booking->booking_to?->format('Y-m-d\TH:i') ?? '';
                 $this->passengers = $booking->passengers !== null ? (string) $booking->passengers : '';
                 $this->car_type = $booking->car_type ?? 'sedan';
                 $this->driver_name = $booking->driver_name ?? '';
@@ -72,6 +112,25 @@ final class BookingForm extends Component
                 $this->reference = $booking->reference ?? '';
                 $this->status = $booking->status;
                 $this->payment_status = $booking->payment_status;
+
+                $this->booking_type = $booking->booking_type ?? '';
+                $this->contact_person = $booking->contact_person ?? '';
+                $this->company_reference = $booking->company_reference ?? '';
+                $this->pax_name = $booking->pax_name ?? '';
+                $this->pax_contact = $booking->pax_contact ?? '';
+                $this->flight_number = $booking->flight_number ?? '';
+                $this->email = $booking->email ?? '';
+                $this->pickup_address = $booking->pickup_address ?? '';
+                $this->dropoff_address = $booking->dropoff_address ?? '';
+                $this->amount = (string) $booking->amount;
+                $this->discount = (string) $booking->discount;
+                $this->advance = (string) $booking->advance;
+                $this->rate_type = $booking->rate_type ?? '';
+                $this->payment_method = $booking->payment_method ?? 'cash';
+                $this->num_cars = (string) $booking->num_cars;
+                $this->car_details = $booking->car_details ?? '';
+                $this->requested_by = $booking->requested_by ?? '';
+                $this->prepared_by = $booking->prepared_by ?? '';
 
                 return;
             }
@@ -87,13 +146,31 @@ final class BookingForm extends Component
     {
         return [
             'customer_id' => ['required', 'integer'],
+            'booking_type' => ['nullable', 'string'],
+            'contact_person' => ['nullable', 'string', 'max:255'],
+            'company_reference' => ['nullable', 'string', 'max:255'],
+            'pax_name' => ['required', 'string', 'max:255'],
+            'pax_contact' => ['nullable', 'string', 'max:100'],
+            'flight_number' => ['nullable', 'string', 'max:100'],
+            'email' => ['nullable', 'email', 'max:255'],
             'pickup_location_id' => ['nullable', 'integer'],
             'dropoff_location_id' => ['nullable', 'integer'],
+            'pickup_address' => ['nullable', 'string', 'max:1000'],
+            'dropoff_address' => ['nullable', 'string', 'max:1000'],
             'pickup_at' => ['required', 'date'],
+            'booking_to' => ['nullable', 'date'],
             'passengers' => ['nullable', 'numeric', 'min:0'],
             'car_type' => ['nullable', 'string'],
             'driver_name' => ['nullable', 'string'],
-            'fare' => ['required', 'numeric', 'min:0'],
+            'num_cars' => ['nullable', 'integer', 'min:1'],
+            'car_details' => ['required', 'string', 'max:1000'],
+            'amount' => ['required', 'numeric', 'min:0'],
+            'discount' => ['nullable', 'numeric', 'min:0'],
+            'advance' => ['nullable', 'numeric', 'min:0'],
+            'rate_type' => ['required', 'string'],
+            'payment_method' => ['required', 'string'],
+            'requested_by' => ['required', 'string', 'max:255'],
+            'prepared_by' => ['required', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
         ];
     }
@@ -108,14 +185,33 @@ final class BookingForm extends Component
         }
 
         $booking->customer_id = $this->customer_id;
+        $booking->booking_type = $this->trimOrNull($this->booking_type);
+        $booking->contact_person = $this->trimOrNull($this->contact_person);
+        $booking->company_reference = $this->trimOrNull($this->company_reference);
+        $booking->pax_name = $this->trimOrNull($this->pax_name);
+        $booking->pax_contact = $this->trimOrNull($this->pax_contact);
+        $booking->flight_number = $this->trimOrNull($this->flight_number);
+        $booking->email = $this->trimOrNull($this->email);
         $booking->pickup_location_id = $this->pickup_location_id;
         $booking->dropoff_location_id = $this->dropoff_location_id;
+        $booking->pickup_address = $this->trimOrNull($this->pickup_address);
+        $booking->dropoff_address = $this->trimOrNull($this->dropoff_address);
         $booking->pickup_at = Carbon::parse($this->pickup_at);
+        $booking->booking_to = $this->booking_to !== '' ? Carbon::parse($this->booking_to) : null;
         $booking->passengers = $this->passengers !== '' ? (int) $this->passengers : null;
         $booking->car_type = $this->car_type !== '' ? $this->car_type : null;
-        $booking->driver_name = $this->driver_name !== '' ? $this->driver_name : null;
-        $booking->fare = (float) $this->fare;
-        $booking->notes = $this->notes !== '' ? $this->notes : null;
+        $booking->driver_name = $this->trimOrNull($this->driver_name);
+        $booking->num_cars = $this->num_cars !== '' ? max(1, (int) $this->num_cars) : 1;
+        $booking->car_details = $this->trimOrNull($this->car_details);
+        $booking->amount = (float) $this->amount;
+        $booking->discount = (float) $this->discount;
+        $booking->advance = (float) $this->advance;
+        $booking->fare = $booking->netAmount();   // net = amount − discount
+        $booking->rate_type = $this->trimOrNull($this->rate_type);
+        $booking->payment_method = $this->trimOrNull($this->payment_method);
+        $booking->requested_by = $this->trimOrNull($this->requested_by);
+        $booking->prepared_by = $this->trimOrNull($this->prepared_by);
+        $booking->notes = $this->trimOrNull($this->notes);
         $booking->save();
 
         session()->flash('toast', __('Booking saved.'));
@@ -247,6 +343,9 @@ final class BookingForm extends Component
             'customers' => LimoCustomer::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'phone']),
             'locations' => LimoLocation::query()->where('active', true)->orderBy('name')->get(['id', 'name']),
             'carTypes' => LimoBooking::carTypeOptions(),
+            'bookingTypes' => LimoBooking::bookingTypeOptions(),
+            'rateTypes' => LimoBooking::rateTypeOptions(),
+            'paymentMethods' => LimoBooking::paymentMethodOptions(),
             'isEditing' => $this->id !== null,
         ]);
     }

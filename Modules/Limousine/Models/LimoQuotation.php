@@ -18,7 +18,12 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property string|null $reference
+ * @property Carbon|null $quote_date
  * @property int|null $customer_id
+ * @property string|null $contact_person
+ * @property string|null $requested_by
+ * @property string|null $prepared_by
+ * @property string|null $contact_number
  * @property int|null $pickup_location_id
  * @property int|null $dropoff_location_id
  * @property int|null $booking_id
@@ -29,6 +34,7 @@ use Illuminate\Support\Carbon;
  * @property string $status
  * @property string|null $notes
  * @property-read LimoCustomer|null $customer
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, LimoQuotationLine> $lines
  */
 final class LimoQuotation extends Model implements DefinesIrModel
 {
@@ -48,7 +54,8 @@ final class LimoQuotation extends Model implements DefinesIrModel
 
     /** @var list<string> */
     protected $fillable = [
-        'reference', 'customer_id', 'pickup_location_id', 'dropoff_location_id',
+        'reference', 'quote_date', 'customer_id', 'contact_person', 'requested_by',
+        'prepared_by', 'contact_number', 'pickup_location_id', 'dropoff_location_id',
         'booking_id', 'pickup_at', 'valid_until', 'car_type', 'fare', 'status', 'notes',
     ];
 
@@ -61,6 +68,7 @@ final class LimoQuotation extends Model implements DefinesIrModel
     protected function casts(): array
     {
         return [
+            'quote_date' => 'date',
             'customer_id' => 'integer',
             'pickup_location_id' => 'integer',
             'dropoff_location_id' => 'integer',
@@ -82,6 +90,20 @@ final class LimoQuotation extends Model implements DefinesIrModel
     public function customer(): BelongsTo
     {
         return $this->belongsTo(LimoCustomer::class, 'customer_id');
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<LimoQuotationLine, $this>
+     */
+    public function lines(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(LimoQuotationLine::class, 'quotation_id')->orderBy('sequence');
+    }
+
+    /** Recalculate the grand total (sum of line nets) and store it on `fare`. */
+    public function recalcTotal(): void
+    {
+        $this->fare = round((float) $this->lines()->sum('net_amount'), 3);
     }
 
     /** Spawn a queued booking from this quotation (idempotent). */

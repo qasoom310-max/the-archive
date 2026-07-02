@@ -1558,5 +1558,21 @@
     "Net amount": "الصافي",
     "Pick-up": "الاستلام",
     "Drop-off": "التسليم",
-    "No customer yet": "لا يوجد عميل بعد"
+    "No customer yet": "لا يوجد عميل بعد",
+    "Quotation number": "رقم عرض السعر",
+    "Contact number": "رقم التواصل",
+    "Contact number of prepared person": "رقم تواصل مُعِدّ العرض",
+    "Quotation line": "بند العرض",
+    "Quotation type": "نوع العرض",
+    "Quotation date from": "تاريخ العرض من",
+    "Quotation date to": "تاريخ العرض إلى",
+    "Number of hours": "عدد الساعات",
+    "Number of units": "عدد الوحدات",
+    "Vehicle details": "تفاصيل المركبة",
+    "Rate (BHD)": "السعر (د.ب)",
+    "Line total (BHD)": "إجمالي البند (د.ب)",
+    "VAT (BHD)": "الضريبة (د.ب)",
+    "Add another line": "إضافة بند آخر",
+    "Grand total": "الإجمالي الكلي",
+    "line(s)": "بند"
 }

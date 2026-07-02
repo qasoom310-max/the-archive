@@ -20,6 +20,7 @@ use Livewire\Livewire;
 use Modules\Limousine\Http\Controllers\LimoReportExportController;
 use Modules\Limousine\Livewire\BookingForm;
 use Modules\Limousine\Livewire\LimoHome;
+use Modules\Limousine\Livewire\QuotationForm;
 use Modules\Limousine\Livewire\Reports;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
@@ -127,6 +128,73 @@ final class LimousineModuleTest extends TestCase
         ]);
         $this->assertSame(LimoInvoice::STATUS_PAID, $invoice->fresh()->status);
         $this->assertSame(LimoBooking::PAYMENT_PAID, $booking->fresh()->payment_status);
+    }
+
+    public function test_quotation_form_saves_multiple_lines_with_a_grand_total(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'LineCo']);
+
+        Livewire::test(QuotationForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('requested_by', 'Sara')
+            ->set('prepared_by', 'Qassim')
+            // Line 1 (seeded): 30 × 2 = 60, − 10 discount + 5 VAT = 55.
+            ->set('lines.0.quote_type', 'airport')
+            ->set('lines.0.rate_type', 'fixed')
+            ->set('lines.0.date_from', '2026-07-05T09:00')
+            ->set('lines.0.date_to', '2026-07-05T12:00')
+            ->set('lines.0.units', 2)
+            ->set('lines.0.vehicle', 'sedan')
+            ->set('lines.0.rate', 30)
+            ->set('lines.0.discount', 10)
+            ->set('lines.0.vat', 5)
+            // Line 2: 40 × 1 = 40 net.
+            ->call('addLine')
+            ->set('lines.1.quote_type', 'hourly')
+            ->set('lines.1.rate_type', 'hourly')
+            ->set('lines.1.date_from', '2026-07-06T09:00')
+            ->set('lines.1.date_to', '2026-07-06T13:00')
+            ->set('lines.1.units', 1)
+            ->set('lines.1.vehicle', 'suv')
+            ->set('lines.1.rate', 40)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $quote = LimoQuotation::query()->with('lines')->latest('id')->first();
+        $this->assertNotNull($quote);
+        $this->assertCount(2, $quote->lines);
+        $this->assertEqualsWithDelta(55.0, $quote->lines[0]->net_amount, 0.001);
+        $this->assertEqualsWithDelta(60.0, $quote->lines[0]->line_total, 0.001);
+        $this->assertEqualsWithDelta(95.0, $quote->fare, 0.001); // 55 + 40 (grand total)
+        $this->assertNotNull($quote->reference);
+    }
+
+    public function test_quotation_requires_sign_off_and_a_complete_line(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'X']);
+
+        Livewire::test(QuotationForm::class)
+            ->set('customer_id', $customer->id)
+            // requested_by / prepared_by blank; line left empty
+            ->call('save')
+            ->assertHasErrors(['requested_by', 'prepared_by', 'lines.0.quote_type', 'lines.0.rate_type', 'lines.0.vehicle', 'lines.0.date_from']);
+
+        $this->assertSame(0, LimoQuotation::query()->count());
+    }
+
+    public function test_removing_a_line_keeps_at_least_one(): void
+    {
+        $this->install();
+
+        Livewire::test(QuotationForm::class)
+            ->call('addLine')
+            ->assertCount('lines', 2)
+            ->call('removeLine', 1)
+            ->assertCount('lines', 1)
+            ->call('removeLine', 0)
+            ->assertCount('lines', 1); // never drops below one
     }
 
     public function test_booking_form_creates_and_transitions_status(): void

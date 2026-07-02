@@ -273,6 +273,13 @@ jobs:
           # idempotent (migrate --force, idempotent seeders, module
           # resync/install, cache rebuilds), so retry the whole chain up to 3x —
           # only a genuine 3x failure fails the deploy.
+          #
+          # The chain ends by resetting the WEB PHP OPcache: `view:cache` runs in
+          # the CLI SAPI, so LiteSpeed keeps serving the previous compiled Blade
+          # bytecode until its workers recycle — deploys looked "stuck on the old
+          # view". We drop a tiny self-deleting `opcache_reset()` script into
+          # public/ and curl it (runs under the web SAPI → clears the right
+          # cache), then remove it. base64 avoids quoting inside the ssh string.
           ok=0
           for attempt in 1 2 3; do
             echo "Remote post-deploy attempt $attempt of 3…"
@@ -307,7 +314,10 @@ jobs:
                php artisan config:cache && \
                php artisan route:cache && \
                php artisan view:cache && \
-               php artisan event:cache"; then
+               php artisan event:cache && \
+               echo 'PD9waHAgaWYgKGZ1bmN0aW9uX2V4aXN0cygib3BjYWNoZV9yZXNldCIpKSB7IG9wY2FjaGVfcmVzZXQoKTsgfSBlY2hvICJvayI7IEB1bmxpbmsoX19GSUxFX18pOw==' | base64 -d > public/__cachebust.php && \
+               (curl -fsS --max-time 30 https://erp.wanaan-bh.com/__cachebust.php || true) && \
+               rm -f public/__cachebust.php"; then
               ok=1
               break
             fi

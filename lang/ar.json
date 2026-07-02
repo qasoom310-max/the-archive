@@ -1547,5 +1547,16 @@
     "Fixed / per trip": "ثابت / لكل رحلة",
     "Hourly": "بالساعة",
     "Daily": "يومي",
-    "Customer type": "نوع العميل"
+    "Customer type": "نوع العميل",
+    "Type and the trip window.": "النوع ونطاق وقت الرحلة.",
+    "Who the booking is for.": "لمن هذا الحجز.",
+    "Traveller and flight details.": "بيانات المسافر والرحلة الجوية.",
+    "Pick-up and drop-off.": "الاستلام والتسليم.",
+    "Amount, discount, advance and method.": "المبلغ والخصم والدفعة والطريقة.",
+    "Car, count and driver.": "السيارة والعدد والسائق.",
+    "Who requested and prepared it.": "من طلبه ومن أعدّه.",
+    "Net amount": "الصافي",
+    "Pick-up": "الاستلام",
+    "Drop-off": "التسليم",
+    "No customer yet": "لا يوجد عميل بعد"
 }

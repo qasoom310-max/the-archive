@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
  * @property int $legable_id
  * @property int $sequence
  * @property string $service_type
+ * @property int|null $car_id
  * @property string|null $from_location
  * @property string|null $to_location
  * @property Carbon|null $start_at
@@ -50,7 +51,7 @@ final class LimoLeg extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'legable_type', 'legable_id', 'sequence', 'service_type', 'from_location',
+        'legable_type', 'legable_id', 'sequence', 'service_type', 'car_id', 'from_location',
         'to_location', 'start_at', 'hours', 'days', 'vehicle', 'vehicle_details',
         'rate', 'rate_basis', 'discount', 'vat', 'line_total', 'net_amount', 'notes',
     ];
@@ -75,6 +76,7 @@ final class LimoLeg extends Model
         return [
             'legable_id' => 'integer',
             'sequence' => 'integer',
+            'car_id' => 'integer',
             'start_at' => 'datetime',
             'hours' => 'float',
             'days' => 'integer',

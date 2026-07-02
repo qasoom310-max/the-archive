@@ -29,6 +29,7 @@ use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoLocation;
 use Modules\Limousine\Models\LimoQuotation;
 use Modules\Limousine\Models\LimoReceipt;
+use Modules\Rental\Models\Vehicle;
 use Tests\TestCase;
 
 final class LimousineModuleTest extends TestCase
@@ -45,6 +46,17 @@ final class LimousineModuleTest extends TestCase
     private function install(): void
     {
         app(ModuleManager::class)->install('limousine');
+    }
+
+    /** An available car in the shared Rent A Car fleet (valid papers). */
+    private function availableCar(string $name = 'Sedan A', bool $outside = false): Vehicle
+    {
+        return Vehicle::query()->create([
+            'name' => $name, 'daily_rate' => 10, 'active' => true, 'is_outside' => $outside,
+            'status' => Vehicle::STATUS_AVAILABLE,
+            'registration_expiry' => now()->addYear(),
+            'insurance_expiry' => now()->addYear(),
+        ]);
     }
 
     public function test_install_creates_schema_and_registers_models(): void
@@ -134,6 +146,8 @@ final class LimousineModuleTest extends TestCase
     {
         $this->install();
         $customer = LimoCustomer::query()->create(['name' => 'LineCo']);
+        $carA = $this->availableCar('Sedan A');
+        $carB = $this->availableCar('SUV B', outside: true);
 
         Livewire::test(QuotationForm::class)
             ->set('customer_id', $customer->id)
@@ -144,7 +158,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.from_location', 'Bahrain Airport')
             ->set('legs.0.to_location', 'Manama')
             ->set('legs.0.start_at', '2026-07-05T09:00')
-            ->set('legs.0.vehicle', 'sedan')
+            ->set('legs.0.car_id', $carA->id)
             ->set('legs.0.rate', 45)
             ->set('legs.0.rate_basis', 'trip')
             // Leg 2 — chauffeur 8h/day × 4 days at 10/hr = 320.
@@ -154,7 +168,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.1.start_at', '2026-07-06T09:00')
             ->set('legs.1.hours', 8)
             ->set('legs.1.days', 4)
-            ->set('legs.1.vehicle', 'suv')
+            ->set('legs.1.car_id', $carB->id)
             ->set('legs.1.rate', 10)
             ->set('legs.1.rate_basis', 'hour')
             ->call('save')
@@ -164,10 +178,28 @@ final class LimousineModuleTest extends TestCase
         $this->assertNotNull($quote);
         $this->assertCount(2, $quote->legs);
         $this->assertEqualsWithDelta(45.0, $quote->legs[0]->net_amount, 0.001);   // flat transfer
+        $this->assertSame($carA->id, $quote->legs[0]->car_id);
+        $this->assertStringContainsString('Sedan A', (string) $quote->legs[0]->vehicle); // label snapshot
         $this->assertEqualsWithDelta(320.0, $quote->legs[1]->net_amount, 0.001);  // 10 × 8 × 4
         $this->assertSame(4, $quote->legs[1]->days);
         $this->assertEqualsWithDelta(365.0, $quote->fare, 0.001);                 // grand total
         $this->assertNotNull($quote->reference);
+    }
+
+    public function test_only_available_cars_are_offered_on_a_leg(): void
+    {
+        $this->install();
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        $available = $this->availableCar('Free Car');
+        $rented = $this->availableCar('Busy Car');
+        $rented->update(['status' => Vehicle::STATUS_RENTED]); // in use in Rent A Car
+
+        Livewire::test(QuotationForm::class)
+            ->assertViewHas('carOptions', function (array $opts) use ($available, $rented): bool {
+                $ids = array_column($opts, 'value');
+
+                return in_array($available->id, $ids, true) && ! in_array($rented->id, $ids, true);
+            });
     }
 
     public function test_quotation_requires_sign_off_and_a_complete_leg(): void
@@ -177,9 +209,9 @@ final class LimousineModuleTest extends TestCase
 
         Livewire::test(QuotationForm::class)
             ->set('customer_id', $customer->id)
-            // requested_by / prepared_by blank; leg left empty (transfer needs from/to/start/vehicle)
+            // requested_by / prepared_by blank; leg left empty (transfer needs from/to/start/car)
             ->call('save')
-            ->assertHasErrors(['requested_by', 'prepared_by', 'legs.0.from_location', 'legs.0.to_location', 'legs.0.start_at', 'legs.0.vehicle']);
+            ->assertHasErrors(['requested_by', 'prepared_by', 'legs.0.from_location', 'legs.0.to_location', 'legs.0.start_at', 'legs.0.car_id']);
 
         $this->assertSame(0, LimoQuotation::query()->count());
     }
@@ -195,7 +227,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.service_type', 'chauffeur')
             ->set('legs.0.from_location', 'Manama')
             ->set('legs.0.start_at', '2026-07-05T09:00')
-            ->set('legs.0.vehicle', 'sedan')
+            ->set('legs.0.car_id', $this->availableCar()->id)
             ->set('legs.0.rate', 10)
             // hours left blank
             ->call('save')
@@ -219,6 +251,7 @@ final class LimousineModuleTest extends TestCase
     {
         $this->install();
         $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $car = $this->availableCar('Lexus ES');
 
         Livewire::test(BookingForm::class)
             ->set('customer_id', $customer->id)
@@ -231,7 +264,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.from_location', 'Airport')
             ->set('legs.0.to_location', 'City Centre')
             ->set('legs.0.start_at', '2026-07-01T14:30')
-            ->set('legs.0.vehicle', 'sedan')
+            ->set('legs.0.car_id', $car->id)
             ->set('legs.0.rate', 18.5)
             ->set('legs.0.rate_basis', 'trip')
             ->call('save')
@@ -262,7 +295,7 @@ final class LimousineModuleTest extends TestCase
             ->set('customer_id', $customer->id)
             // pax_name / requested_by / prepared_by blank; leg incomplete
             ->call('save')
-            ->assertHasErrors(['pax_name', 'requested_by', 'prepared_by', 'legs.0.from_location', 'legs.0.vehicle']);
+            ->assertHasErrors(['pax_name', 'requested_by', 'prepared_by', 'legs.0.from_location', 'legs.0.car_id']);
     }
 
     public function test_dashboard_renders_booking_kpis(): void

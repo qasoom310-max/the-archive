@@ -9,6 +9,7 @@ use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Models\LimoLocation;
 use Modules\Limousine\Models\LimoQuotation;
+use Modules\Rental\Models\Vehicle;
 
 /**
  * Shared trip-leg editing for the Limousine booking + quotation forms: an array
@@ -28,8 +29,8 @@ trait HandlesTripLegs
     {
         return [
             'service_type' => LimoLeg::TYPE_TRANSFER,
-            'from_location' => '', 'to_location' => '', 'start_at' => '',
-            'hours' => '', 'days' => '1', 'vehicle' => '', 'vehicle_details' => '',
+            'car_id' => '', 'from_location' => '', 'to_location' => '', 'start_at' => '',
+            'hours' => '', 'days' => '1', 'car_details' => '',
             'rate' => '0', 'rate_basis' => LimoLeg::BASIS_TRIP, 'discount' => '0', 'vat' => '0',
         ];
     }
@@ -61,13 +62,13 @@ trait HandlesTripLegs
     {
         $this->legs = $parent->legs->map(fn (LimoLeg $l): array => [
             'service_type' => $l->service_type,
+            'car_id' => $l->car_id !== null ? (string) $l->car_id : '',
             'from_location' => $l->from_location ?? '',
             'to_location' => $l->to_location ?? '',
             'start_at' => $l->start_at?->format('Y-m-d\TH:i') ?? '',
             'hours' => $l->hours !== null ? (string) $l->hours : '',
             'days' => (string) $l->days,
-            'vehicle' => $l->vehicle ?? '',
-            'vehicle_details' => $l->vehicle_details ?? '',
+            'car_details' => $l->vehicle_details ?? '',
             'rate' => (string) $l->rate,
             'rate_basis' => $l->rate_basis,
             'discount' => (string) $l->discount,
@@ -88,10 +89,10 @@ trait HandlesTripLegs
 
         foreach ($this->legs as $i => $leg) {
             $rules["legs.$i.service_type"] = ['required', 'in:transfer,chauffeur'];
+            $rules["legs.$i.car_id"] = ['required', 'integer'];
             $rules["legs.$i.from_location"] = ['required', 'string', 'max:255'];
             $rules["legs.$i.start_at"] = ['required', 'date'];
-            $rules["legs.$i.vehicle"] = ['required', 'string'];
-            $rules["legs.$i.vehicle_details"] = ['nullable', 'string', 'max:255'];
+            $rules["legs.$i.car_details"] = ['nullable', 'string', 'max:255'];
             $rules["legs.$i.rate"] = ['required', 'numeric', 'min:0'];
             $rules["legs.$i.rate_basis"] = ['required', 'in:trip,hour,day'];
             $rules["legs.$i.discount"] = ['nullable', 'numeric', 'min:0'];
@@ -131,6 +132,11 @@ trait HandlesTripLegs
     {
         $parent->legs()->delete();
 
+        // Snapshot the car label so a leg still shows its car if the fleet changes.
+        $carIds = collect($this->legs)->pluck('car_id')->filter()->map(fn ($x): int => (int) $x)->all();
+        $carLabels = Vehicle::query()->whereIn('id', $carIds)->get()
+            ->mapWithKeys(fn (Vehicle $v): array => [$v->id => $v->displayName()]);
+
         foreach ($this->legs as $i => $leg) {
             $chauffeur = ($leg['service_type'] ?? '') === LimoLeg::TYPE_CHAUFFEUR;
             $basis = $leg['rate_basis'] ?? LimoLeg::BASIS_TRIP;
@@ -139,17 +145,19 @@ trait HandlesTripLegs
             $days = $chauffeur ? max(1, (int) ($leg['days'] === '' ? '1' : $leg['days'])) : 1;
             $discount = (float) ($leg['discount'] === '' ? '0' : $leg['discount']);
             $vat = (float) ($leg['vat'] === '' ? '0' : $leg['vat']);
+            $carId = ($leg['car_id'] ?? '') !== '' ? (int) $leg['car_id'] : null;
 
             $parent->legs()->create([
                 'sequence' => $i,
                 'service_type' => $leg['service_type'] ?? LimoLeg::TYPE_TRANSFER,
+                'car_id' => $carId,
                 'from_location' => $this->blankToNull($leg['from_location'] ?? ''),
                 'to_location' => $chauffeur ? null : $this->blankToNull($leg['to_location'] ?? ''),
                 'start_at' => ($leg['start_at'] ?? '') !== '' ? Carbon::parse($leg['start_at']) : null,
                 'hours' => $hours,
                 'days' => $days,
-                'vehicle' => $this->blankToNull($leg['vehicle'] ?? ''),
-                'vehicle_details' => $this->blankToNull($leg['vehicle_details'] ?? ''),
+                'vehicle' => $carId !== null ? ($carLabels[$carId] ?? null) : null,
+                'vehicle_details' => $this->blankToNull($leg['car_details'] ?? ''),
                 'rate' => $rate,
                 'rate_basis' => $basis,
                 'discount' => $discount,
@@ -180,9 +188,42 @@ trait HandlesTripLegs
         return [
             'serviceTypes' => LimoLeg::serviceTypeOptions(),
             'rateBasisOptions' => LimoLeg::rateBasisOptions(),
-            'vehicleOptions' => [...LimoBooking::carTypeOptions(), ['value' => 'other', 'label' => 'Other']],
+            'carOptions' => $this->carOptions(),
             'locationNames' => LimoLocation::query()->where('active', true)->orderBy('name')->pluck('name')->all(),
             'grandTotal' => $this->grandTotal(),
         ];
+    }
+
+    /**
+     * Cars the limo desk can pick: only cars that are available in Rent A Car
+     * (status available + valid papers) — owned and outside alike — plus any car
+     * already chosen on a leg (so editing never loses the selection).
+     *
+     * @return list<array{value: int, label: string}>
+     */
+    private function carOptions(): array
+    {
+        $availableIds = Vehicle::query()
+            ->where('status', Vehicle::STATUS_AVAILABLE)
+            ->bookable()
+            ->pluck('id')
+            ->all();
+
+        $selectedIds = collect($this->legs)->pluck('car_id')->filter()->map(fn ($x): int => (int) $x)->all();
+        $ids = array_values(array_unique([...$availableIds, ...$selectedIds]));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        return Vehicle::query()
+            ->whereIn('id', $ids)
+            ->orderBy('name')
+            ->get(['id', 'name', 'plate_no', 'color', 'is_outside'])
+            ->map(fn (Vehicle $v): array => [
+                'value' => $v->id,
+                'label' => $v->displayName() . ($v->is_outside ? ' · ' . __('Outside') : ''),
+            ])
+            ->all();
     }
 }

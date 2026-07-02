@@ -24,13 +24,15 @@
             <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <h3 class="text-sm font-semibold text-chrome-800">{{ __('Leg') }} {{ $i + 1 }}</h3>
                 <div class="flex items-center gap-3">
-                    {{-- Service type toggle --}}
+                    {{-- Service type toggle (buttons → reliable field switch) --}}
                     <div class="flex gap-1">
                         @foreach ($serviceTypes as $opt)
-                            <label class="cursor-pointer" wire:key="leg-{{ $i }}-st-{{ $opt['value'] }}">
-                                <input type="radio" wire:model.live="legs.{{ $i }}.service_type" value="{{ $opt['value'] }}" class="peer sr-only">
-                                <span class="block rounded-lg border border-chrome-200 px-2.5 py-1 text-xs text-chrome-600 transition hover:bg-chrome-50 peer-checked:border-primary-500 peer-checked:bg-primary-50 peer-checked:font-medium peer-checked:text-primary-700">{{ __($opt['label']) }}</span>
-                            </label>
+                            @php $active = ($leg['service_type'] ?? 'transfer') === $opt['value']; @endphp
+                            <button type="button" wire:key="leg-{{ $i }}-st-{{ $opt['value'] }}"
+                                wire:click="$set('legs.{{ $i }}.service_type', '{{ $opt['value'] }}')"
+                                class="rounded-lg border px-2.5 py-1 text-xs transition {{ $active ? 'border-primary-500 bg-primary-50 font-medium text-primary-700' : 'border-chrome-200 text-chrome-600 hover:bg-chrome-50' }}">
+                                {{ __($opt['label']) }}
+                            </button>
                         @endforeach
                     </div>
                     @if (count($legs) > 1)
@@ -79,16 +81,16 @@
                 @endif
 
                 <div>
-                    <label class="{{ $lbl }}">{{ __('Vehicle') }} *</label>
-                    <select wire:model="legs.{{ $i }}.vehicle" class="o-input w-full">
-                        <option value="">{{ __('— Select —') }}</option>
-                        @foreach ($vehicleOptions as $opt)<option value="{{ $opt['value'] }}">{{ __($opt['label']) }}</option>@endforeach
+                    <label class="{{ $lbl }}">{{ __('Car') }} *</label>
+                    <select wire:model="legs.{{ $i }}.car_id" class="o-input w-full">
+                        <option value="">{{ count($carOptions) ? __('— Select —') : __('No cars available') }}</option>
+                        @foreach ($carOptions as $opt)<option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>@endforeach
                     </select>
-                    @error('legs.'.$i.'.vehicle') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    @error('legs.'.$i.'.car_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label class="{{ $lbl }}">{{ __('Vehicle details') }}</label>
-                    <input type="text" wire:model="legs.{{ $i }}.vehicle_details" class="o-input w-full">
+                    <label class="{{ $lbl }}">{{ __('Car details') }}</label>
+                    <input type="text" wire:model="legs.{{ $i }}.car_details" class="o-input w-full" placeholder="{{ __('Any note about the car') }}">
                 </div>
 
                 <div>

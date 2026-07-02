@@ -145,7 +145,7 @@ final class BookingForm extends Component
         $booking->notes = $this->trimOrNull($this->notes);
         // Header trip basics from the first leg (used by invoicing / the lists).
         $booking->pickup_at = ($first['start_at'] ?? '') !== '' ? Carbon::parse($first['start_at']) : Carbon::now();
-        $booking->car_type = ($first['vehicle'] ?? '') !== '' ? $first['vehicle'] : null;
+        $booking->car_type = null; // the car now lives on each leg
         $booking->save();
 
         $this->persistLegs($booking); // recreates legs + sets fare/amount = grand total

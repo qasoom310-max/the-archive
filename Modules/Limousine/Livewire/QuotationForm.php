@@ -121,7 +121,7 @@ final class QuotationForm extends Component
         $quote->notes = $this->trimOrNull($this->notes);
         // Derive the header trip basics from the first leg so convert-to-booking works.
         $quote->pickup_at = ($first['start_at'] ?? '') !== '' ? Carbon::parse($first['start_at']) : Carbon::now();
-        $quote->car_type = ($first['vehicle'] ?? '') !== '' ? $first['vehicle'] : null;
+        $quote->car_type = null; // the car now lives on each leg
         $quote->fare = $this->grandTotal();
         $quote->save();
 

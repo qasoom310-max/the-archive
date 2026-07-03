@@ -194,11 +194,19 @@ final class LimousineModuleTest extends TestCase
         $rented = $this->availableCar('Busy Car');
         $rented->update(['status' => Vehicle::STATUS_RENTED]); // in use in Rent A Car
 
+        // A car with no paper dates entered is still offered (papers aren't required).
+        $noPapers = Vehicle::query()->create([
+            'name' => 'Papersless', 'daily_rate' => 10, 'active' => true,
+            'status' => Vehicle::STATUS_AVAILABLE,
+        ]);
+
         Livewire::test(QuotationForm::class)
-            ->assertViewHas('carOptions', function (array $opts) use ($available, $rented): bool {
+            ->assertViewHas('carOptions', function (array $opts) use ($available, $rented, $noPapers): bool {
                 $ids = array_column($opts, 'value');
 
-                return in_array($available->id, $ids, true) && ! in_array($rented->id, $ids, true);
+                return in_array($available->id, $ids, true)
+                    && in_array($noPapers->id, $ids, true)
+                    && ! in_array($rented->id, $ids, true);
             });
     }
 

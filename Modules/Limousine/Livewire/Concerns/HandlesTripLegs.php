@@ -195,17 +195,20 @@ trait HandlesTripLegs
     }
 
     /**
-     * Cars the limo desk can pick: only cars that are available in Rent A Car
-     * (status available + valid papers) — owned and outside alike — plus any car
-     * already chosen on a leg (so editing never loses the selection).
+     * Cars the limo desk can pick: cars that are available in Rent A Car (active
+     * and not rented / reserved / in maintenance) — owned and outside alike —
+     * plus any car already chosen on a leg (so editing never loses the selection).
      *
      * @return list<array{value: int, label: string}>
      */
     private function carOptions(): array
     {
+        // "Available in Rent A Car" = active and not rented / reserved / in
+        // maintenance. Papers aren't required here (many fleet cars have no
+        // expiry dates entered), so the list isn't emptied by that.
         $availableIds = Vehicle::query()
+            ->where('active', true)
             ->where('status', Vehicle::STATUS_AVAILABLE)
-            ->bookable()
             ->pluck('id')
             ->all();
 

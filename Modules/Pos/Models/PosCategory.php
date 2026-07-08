@@ -128,9 +128,16 @@ final class PosCategory extends Model implements DefinesIrModel, TranslatableMod
                 $category->parent_id = null;
             }
 
-            if ($category->slug === null || $category->slug === '') {
-                $category->slug = $category->uniqueSlug(Str::slug((string) $category->name));
+            // Slug: an admin may type their own; blank falls back to the name.
+            // Either way it's normalised to a URL-safe form (Str::slug) and made
+            // unique, so a hand-typed slug can't collide or carry stray
+            // characters. Re-running on an unchanged slug is a no-op (uniqueSlug
+            // excludes this row).
+            $desired = $category->slug;
+            if ($desired === null || trim($desired) === '') {
+                $desired = (string) $category->name;
             }
+            $category->slug = $category->uniqueSlug(Str::slug($desired));
         });
     }
 
@@ -227,6 +234,7 @@ final class PosCategory extends Model implements DefinesIrModel, TranslatableMod
             module: 'pos',
             fields: [
                 new FieldDefinition('name', 'Name', 'char', required: true, sequence: 10),
+                new FieldDefinition('slug', 'Slug', 'char', sequence: 15),
                 new FieldDefinition('parent_id', 'Parent', 'many2one', relation: 'pos.category', sequence: 20),
                 new FieldDefinition('station', 'Kitchen station', 'selection', sequence: 25),
                 new FieldDefinition('sequence', 'Sequence', 'integer', sequence: 30),
@@ -265,6 +273,13 @@ final class PosCategory extends Model implements DefinesIrModel, TranslatableMod
                                 'excludeSelf' => true,
                             ],
                             'help' => 'Leave blank for a top-level category.',
+                        ],
+                        [
+                            'field' => 'slug',
+                            'label' => 'Slug',
+                            'widget' => 'text',
+                            'placeholder' => 'auto-generated-from-name',
+                            'help' => 'Used in links. Lowercase letters, numbers and dashes only — anything else is cleaned up on save. Leave blank to regenerate from the name.',
                         ],
                         ['field' => 'image', 'label' => 'Image', 'widget' => 'image', 'help' => 'Upload an image shown on the POS category button.'],
                         [

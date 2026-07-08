@@ -1260,6 +1260,45 @@ final class PosModuleTest extends TestCase
         $this->assertSame('Snacks', $cat->name);
     }
 
+    public function test_category_slug_is_editable_and_sanitised(): void
+    {
+        $this->installPos();
+
+        // A hand-typed slug is normalised to a URL-safe form on save.
+        Livewire::test(FormView::class, ['model' => PosCategory::class, 'modelKey' => 'pos.category'])
+            ->set('form.name', '100ml Perfumes')
+            ->set('form.slug', 'Small Bottles!!')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $cat = PosCategory::query()->where('name->en', '100ml Perfumes')->sole();
+        $this->assertSame('small-bottles', $cat->slug);
+
+        // Clearing the slug regenerates it from the name.
+        Livewire::test(FormView::class, ['model' => PosCategory::class, 'modelKey' => 'pos.category', 'recordId' => $cat->id])
+            ->set('form.slug', '')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame('100ml-perfumes', $cat->fresh()?->slug);
+    }
+
+    public function test_a_hand_typed_slug_stays_unique(): void
+    {
+        $this->installPos();
+
+        PosCategory::query()->create(['name' => 'First', 'slug' => 'perfumes']);
+
+        // A second category typing the same slug is de-duplicated, not rejected.
+        Livewire::test(FormView::class, ['model' => PosCategory::class, 'modelKey' => 'pos.category'])
+            ->set('form.name', 'Second')
+            ->set('form.slug', 'perfumes')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame('perfumes-2', PosCategory::query()->where('name->en', 'Second')->sole()->slug);
+    }
+
     public function test_terminal_filters_products_by_category_subtree(): void
     {
         $this->installPos();

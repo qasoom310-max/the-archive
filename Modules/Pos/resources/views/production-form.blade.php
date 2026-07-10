@@ -114,5 +114,9 @@
             <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
         </button>
         <a href="{{ url('/app/pos/production') }}" wire:navigate class="mt-2 block text-center text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</a>
+        @if ($isEditing)
+            <button type="button" wire:click="delete" wire:confirm="{{ __('Delete this production? The materials go back and the bottles leave the store.') }}"
+                class="mt-3 block w-full text-center text-sm font-medium text-red-600 hover:underline">{{ __('Delete production') }}</button>
+        @endif
     </div>
 </div>

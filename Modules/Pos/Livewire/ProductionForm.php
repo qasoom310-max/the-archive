@@ -109,6 +109,26 @@ final class ProductionForm extends Component
         $this->produced_units = $this->expectedUnits() > 0 ? (string) $this->expectedUnits() : $this->produced_units;
     }
 
+    /** Delete this production, reversing its stock effect first. */
+    public function delete(): void
+    {
+        abort_unless(Features::enabled(Feature::Production), 404);
+        if ($this->id === null) {
+            return;
+        }
+
+        $production = PosProduction::query()->with('lines.ingredient', 'product')->find($this->id);
+        if ($production === null) {
+            return;
+        }
+
+        $production->reverseStock(); // materials back, bottles out of the store
+        $production->delete();        // lines cascade
+
+        session()->flash('toast', __('Production deleted.'));
+        $this->redirect('/app/pos/production', navigate: true);
+    }
+
     /** Store the current materials as this product's standard formula. */
     public function saveAsFormula(): void
     {

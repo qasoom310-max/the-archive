@@ -1651,6 +1651,9 @@
     "Cost per unit": "التكلفة لكل وحدة",
     "Production": "الإنتاج",
     "Production updated.": "تم تحديث الإنتاج.",
+    "Production deleted.": "تم حذف الإنتاج.",
+    "Delete production": "حذف الإنتاج",
+    "Delete this production? The materials go back and the bottles leave the store.": "حذف هذا الإنتاج؟ ستعود المواد ويُسحب المنتَج من المخزن.",
     "Millilitres per unit": "المللتر لكل وحدة",
     "Millilitres per unit (optional)": "المللتر لكل وحدة (اختياري)",
     "Usually leave blank. Choose Unit = Liter and it counts as 1000 ml automatically (mL = 1). Only fill this for an odd size — e.g. a 750 ml bottle counted as one unit.": "غالبًا اتركه فارغًا. اختر الوحدة = لتر فيُحتسب 1000 مل تلقائيًا (مل = 1). لا تملأه إلا لحجم غير قياسي — مثل زجاجة 750 مل تُعدّ وحدة واحدة."

@@ -201,6 +201,30 @@ final class PosProductionTest extends TestCase
         $this->assertSame(1, PosProduction::query()->count()); // updated, not duplicated
     }
 
+    public function test_deleting_a_production_reverses_its_stock(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 1]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50, 'store_stock' => 0]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->set('produced_units', 10)
+            ->call('save');
+
+        $run = PosProduction::query()->latest('id')->first();
+
+        Livewire::test(ProductionForm::class, ['id' => $run->id])
+            ->call('delete');
+
+        // Materials restored, store emptied, record gone.
+        $this->assertEqualsWithDelta(1000.0, $oil->fresh()->stock_on_hand, 0.001);
+        $this->assertEqualsWithDelta(0.0, $perfume->fresh()->store_stock, 0.001);
+        $this->assertSame(0, PosProduction::query()->count());
+    }
+
     public function test_moving_stock_from_store_to_shop(): void
     {
         $this->enableProduction();

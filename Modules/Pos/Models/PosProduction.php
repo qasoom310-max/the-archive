@@ -123,4 +123,27 @@ final class PosProduction extends Model
             $product->save();
         }
     }
+
+    /**
+     * Undo {@see applyStock()} — add the materials back and remove the produced
+     * bottles from the store. Used before rewriting a production on edit.
+     */
+    public function reverseStock(): void
+    {
+        foreach ($this->lines as $line) {
+            $ingredient = $line->ingredient;
+            if ($ingredient !== null) {
+                $per = $ingredient->mlPerUnit();
+                $ingredient->stock_on_hand = (float) $ingredient->stock_on_hand
+                    + ($per > 0 ? (float) $line->ml_used / $per : (float) $line->ml_used);
+                $ingredient->save();
+            }
+        }
+
+        $product = $this->product;
+        if ($product !== null) {
+            $product->store_stock = max(0.0, (float) $product->store_stock - $this->produced_units);
+            $product->save();
+        }
+    }
 }

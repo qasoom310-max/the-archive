@@ -66,6 +66,7 @@ Route::middleware('auth')->group(function (): void {
     // Production & store (mixing) — perfumes POS. The screens re-check the
     // feature flag in mount(), so a stale link 404s when it's off.
     Route::get('/app/pos/production/new', ProductionForm::class)->name('pos.production.create');
+    Route::get('/app/pos/production/{id}', ProductionForm::class)->whereNumber('id')->name('pos.production.edit');
     Route::get('/app/pos/production', Productions::class)->name('pos.production.index');
     // Damage / waste log — the bespoke Damage Report (date range + loss totals).
     // Export + new are registered before the bare index so the suffixes aren't

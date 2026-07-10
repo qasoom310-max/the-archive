@@ -77,8 +77,8 @@
                     </thead>
                     <tbody class="divide-y divide-chrome-50">
                         @forelse ($productions as $r)
-                            <tr>
-                                <td class="px-4 py-2 font-medium text-chrome-800">{{ $r->reference }}</td>
+                            <tr class="cursor-pointer hover:bg-chrome-50" onclick="window.location='{{ url('/app/pos/production/' . $r->id) }}'">
+                                <td class="px-4 py-2 font-medium text-primary-700">{{ $r->reference }}</td>
                                 <td class="px-4 py-2 text-chrome-700">{{ $r->product?->name ?? '—' }}</td>
                                 <td class="px-4 py-2 text-end tabular-nums text-chrome-600">{{ $num($r->total_mix_ml) }}</td>
                                 <td class="px-4 py-2 text-end tabular-nums text-chrome-600">{{ $r->expected_units }}</td>

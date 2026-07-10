@@ -1,5 +1,5 @@
 <div class="mx-auto max-w-3xl p-4 sm:p-6">
-    <x-form-breadcrumb :parent="__('Production & store')" :parent-url="url('/app/pos/production')" :current="__('New production')" />
+    <x-form-breadcrumb :parent="__('Production & store')" :parent-url="url('/app/pos/production')" :current="$isEditing ? ($reference ?: __('Production')) : __('New production')" />
 
     @php
         $lbl = 'mb-1 block text-sm font-medium text-chrome-700';
@@ -110,7 +110,7 @@
         </div>
 
         <button wire:click="save" class="o-btn-primary mt-5 w-full justify-center py-2.5">
-            <span wire:loading.remove wire:target="save">{{ __('Record production → store') }}</span>
+            <span wire:loading.remove wire:target="save">{{ $isEditing ? __('Save changes') : __('Record production → store') }}</span>
             <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
         </button>
         <a href="{{ url('/app/pos/production') }}" wire:navigate class="mt-2 block text-center text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</a>

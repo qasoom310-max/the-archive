@@ -171,6 +171,36 @@ final class PosProductionTest extends TestCase
         $this->assertEqualsWithDelta(30.0, $perfume->fresh()->store_stock, 0.001);
     }
 
+    public function test_editing_a_production_reverses_then_reapplies_stock(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 1]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50, 'store_stock' => 0]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->set('produced_units', 10)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertEqualsWithDelta(500.0, $oil->fresh()->stock_on_hand, 0.001); // 1000 − 500
+        $this->assertEqualsWithDelta(10.0, $perfume->fresh()->store_stock, 0.001);
+        $run = PosProduction::query()->latest('id')->first();
+
+        // Edit: 800 ml, 16 bottles. Reverses (→1000 / 0) then reapplies (→200 / 16).
+        Livewire::test(ProductionForm::class, ['id' => $run->id])
+            ->set('lines.0.ml_used', 800)
+            ->set('produced_units', 16)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertEqualsWithDelta(200.0, $oil->fresh()->stock_on_hand, 0.001); // 1000 − 800
+        $this->assertEqualsWithDelta(16.0, $perfume->fresh()->store_stock, 0.001);
+        $this->assertSame(1, PosProduction::query()->count()); // updated, not duplicated
+    }
+
     public function test_moving_stock_from_store_to_shop(): void
     {
         $this->enableProduction();

@@ -25,11 +25,15 @@ use Modules\Pos\Services\PosSessionManager;
 #[Title('New production')]
 final class ProductionForm extends Component
 {
+    public ?int $id = null;
+
     public ?int $product_id = null;
 
     public string $produced_units = '';
 
     public string $notes = '';
+
+    public string $reference = '';
 
     /** Set right after "Save as formula" so the view can confirm it. */
     public bool $formulaJustSaved = false;
@@ -37,9 +41,30 @@ final class ProductionForm extends Component
     /** @var list<array<string, string>> */
     public array $lines = [];
 
-    public function mount(): void
+    public function mount(?int $id = null): void
     {
         abort_unless(Features::enabled(Feature::Production), 404);
+
+        if ($id !== null) {
+            $production = PosProduction::query()->with('lines')->find($id);
+            if ($production !== null) {
+                $this->id = $production->id;
+                $this->product_id = $production->pos_product_id;
+                $this->produced_units = (string) $production->produced_units;
+                $this->notes = $production->notes ?? '';
+                $this->reference = $production->reference ?? '';
+                $this->lines = $production->lines->map(fn ($l): array => [
+                    'ingredient_id' => (string) $l->pos_ingredient_id,
+                    'ml_used' => rtrim(rtrim(number_format((float) $l->ml_used, 3, '.', ''), '0'), '.'),
+                ])->all();
+                if ($this->lines === []) {
+                    $this->lines = [$this->emptyLine()];
+                }
+
+                return;
+            }
+        }
+
         $this->lines = [$this->emptyLine()];
     }
 
@@ -174,19 +199,32 @@ final class ProductionForm extends Component
             $totalCost += (float) ($line['ml_used'] ?? 0) * ($ing?->costPerMl() ?? 0);
         }
 
-        $production = PosProduction::query()->create([
-            'pos_product_id' => $this->product_id,
-            'pos_session_id' => app(PosSessionManager::class)->getActiveSession()?->id,
-            'bottle_size_ml' => $bottle,
-            'total_mix_ml' => $totalMix,
-            'expected_units' => PosProduction::expectedUnits($totalMix, $bottle),
-            'produced_units' => $produced,
-            'total_cost' => round($totalCost, 3),
-            'unit_cost' => $produced > 0 ? round($totalCost / $produced, 4) : 0,
-            'notes' => trim($this->notes) !== '' ? trim($this->notes) : null,
-            'produced_by_user_id' => Auth::id(),
-        ]);
+        // Editing: undo the previous stock effect before rewriting the run.
+        $production = $this->id !== null
+            ? PosProduction::query()->with('lines.ingredient', 'product')->find($this->id)
+            : new PosProduction();
+        if ($production === null) {
+            return;
+        }
+        if ($production->exists) {
+            $production->reverseStock();
+        }
 
+        $production->pos_product_id = $this->product_id;
+        $production->bottle_size_ml = $bottle;
+        $production->total_mix_ml = $totalMix;
+        $production->expected_units = PosProduction::expectedUnits($totalMix, $bottle);
+        $production->produced_units = $produced;
+        $production->total_cost = round($totalCost, 3);
+        $production->unit_cost = $produced > 0 ? round($totalCost / $produced, 4) : 0;
+        $production->notes = trim($this->notes) !== '' ? trim($this->notes) : null;
+        if (! $production->exists) {
+            $production->pos_session_id = app(PosSessionManager::class)->getActiveSession()?->id;
+            $production->produced_by_user_id = Auth::id();
+        }
+        $production->save();
+
+        $production->lines()->delete();
         foreach ($this->lines as $line) {
             $ing = $ingredients->get((int) $line['ingredient_id']);
             $production->lines()->create([
@@ -199,7 +237,9 @@ final class ProductionForm extends Component
         $production->load('lines.ingredient', 'product');
         $production->applyStock();
 
-        session()->flash('toast', __('Production recorded — :n bottles added to the store.', ['n' => $produced]));
+        session()->flash('toast', $this->id !== null
+            ? __('Production updated.')
+            : __('Production recorded — :n bottles added to the store.', ['n' => $produced]));
         $this->redirect('/app/pos/production', navigate: true);
     }
 
@@ -213,6 +253,7 @@ final class ProductionForm extends Component
             'expected' => $this->expectedUnits(),
             'hasFormula' => $this->product_id !== null
                 && PosProduct::query()->whereKey($this->product_id)->has('formulaLines')->exists(),
+            'isEditing' => $this->id !== null,
         ]);
     }
 }

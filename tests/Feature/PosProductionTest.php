@@ -102,6 +102,32 @@ final class PosProductionTest extends TestCase
             ->assertSet('lines.1.ml_used', '1300');
     }
 
+    public function test_container_materials_are_deducted_by_ml(): void
+    {
+        $this->enableProduction();
+        // A 20 L drum tracked as units: 3 drums, 20000 ml each, 24.3 per drum.
+        $ethanol = PosIngredient::query()->create([
+            'name' => 'Ethanol 20 LTR', 'unit' => 'pcs', 'stock_on_hand' => 3,
+            'cost_price' => 24.3, 'ml_per_unit' => 20000,
+        ]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $ethanol->id)
+            ->set('lines.0.ml_used', 1300)
+            ->set('produced_units', 26)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        // 3 − 1300 ÷ 20000 = 2.935 drums left.
+        $this->assertEqualsWithDelta(2.935, $ethanol->fresh()->stock_on_hand, 0.0001);
+
+        // Cost = 1300 ml × (24.3 ÷ 20000) = 1.5795 → stored to 3 dp.
+        $run = PosProduction::query()->latest('id')->first();
+        $this->assertEqualsWithDelta(1.58, $run->total_cost, 0.005);
+    }
+
     public function test_a_shortfall_is_recorded_as_variance(): void
     {
         $this->enableProduction();

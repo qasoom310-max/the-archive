@@ -1645,5 +1645,7 @@
     "Update formula": "تحديث الوصفة",
     "Auto-filled from this product’s saved formula — adjust if needed.": "تمت التعبئة تلقائيًا من وصفة المنتج المحفوظة — عدّلها إن لزم.",
     "Formula saved — it will auto-fill next time.": "تم حفظ الوصفة — ستُعبّأ تلقائيًا في المرة القادمة.",
-    "Pick a product first.": "اختر منتجًا أولًا."
+    "Pick a product first.": "اختر منتجًا أولًا.",
+    "Millilitres per unit": "المللتر لكل وحدة",
+    "If you buy this in fixed-size containers (e.g. a 20 L drum = 20000 ml), enter the ml in one unit. Stock stays a count of units; production deducts by ml. Leave blank if you already track in ml.": "إذا كنت تشتري هذا في عبوات ثابتة الحجم (مثل برميل 20 لتر = 20000 مل)، أدخل عدد المللتر في الوحدة الواحدة. يبقى المخزون عدد وحدات؛ ويخصم الإنتاج بالمللتر. اتركه فارغًا إن كنت تتابعه بالمللتر أصلًا."
 }

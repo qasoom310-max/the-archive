@@ -112,8 +112,8 @@ final class PosProduction extends Model
         foreach ($this->lines as $line) {
             $ingredient = $line->ingredient;
             if ($ingredient !== null) {
-                $ingredient->stock_on_hand = (float) $ingredient->stock_on_hand - (float) $line->ml_used;
-                $ingredient->save();
+                // Converts ML → units for container-tracked materials.
+                $ingredient->deductMl((float) $line->ml_used);
             }
         }
 

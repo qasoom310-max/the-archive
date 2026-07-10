@@ -28,6 +28,7 @@ use Spatie\Translatable\HasTranslations;
  * @property float $stock_on_hand  On-hand quantity (so an ingredient can be a recipe component)
  * @property float|null $reorder_point  Low-stock threshold; null = global default
  * @property string|null $unit  Unit of measure code: qty|kg|g|l|ml|pcs|box|pack|dozen
+ * @property float|null $ml_per_unit  ML in one purchased unit (container size); null = tracked in ML
  * @property int|null $supplier_id  Preferred vendor (logical ref to partners)
  * @property bool $active
  * @property int $sequence
@@ -42,7 +43,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
     public array $translatable = ['name'];
 
     /** @var list<string> */
-    protected $fillable = ['name', 'cost_price', 'stock_on_hand', 'reorder_point', 'unit', 'supplier_id', 'active', 'sequence'];
+    protected $fillable = ['name', 'cost_price', 'stock_on_hand', 'reorder_point', 'unit', 'ml_per_unit', 'supplier_id', 'active', 'sequence'];
 
     /** @var array<string, mixed> */
     protected $attributes = [
@@ -62,10 +63,35 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
             'cost_price' => 'float',
             'stock_on_hand' => 'float',
             'reorder_point' => 'float',
+            'ml_per_unit' => 'float',
             'supplier_id' => 'integer',
             'active' => 'boolean',
             'sequence' => 'integer',
         ];
+    }
+
+    /** Millilitres available in stock (units × container size, or stock if in ML). */
+    public function availableMl(): float
+    {
+        $per = (float) ($this->ml_per_unit ?? 0);
+
+        return $per > 0 ? round((float) $this->stock_on_hand * $per, 3) : (float) $this->stock_on_hand;
+    }
+
+    /** Cost of one ML (container cost ÷ container size, or cost if already per ML). */
+    public function costPerMl(): float
+    {
+        $per = (float) ($this->ml_per_unit ?? 0);
+
+        return $per > 0 ? (float) $this->cost_price / $per : (float) $this->cost_price;
+    }
+
+    /** Deduct `$ml` of consumption from stock, converting to units when needed. */
+    public function deductMl(float $ml): void
+    {
+        $per = (float) ($this->ml_per_unit ?? 0);
+        $this->stock_on_hand = (float) $this->stock_on_hand - ($per > 0 ? $ml / $per : $ml);
+        $this->save();
     }
 
     /**
@@ -102,6 +128,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
                 new FieldDefinition('stock_on_hand', 'Stock on hand', 'float', sequence: 25),
                 new FieldDefinition('reorder_point', 'Reorder point', 'float', sequence: 28),
                 new FieldDefinition('unit', 'Unit', 'selection', sequence: 30),
+                new FieldDefinition('ml_per_unit', 'Millilitres per unit', 'float', sequence: 32),
                 new FieldDefinition('supplier_id', 'Preferred vendor', 'many2one', relation: 'contacts.partner', sequence: 35),
                 new FieldDefinition('sequence', 'Sequence', 'integer', sequence: 40),
             ],
@@ -128,6 +155,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
                         ['field' => 'stock_on_hand', 'label' => 'Stock on hand', 'widget' => 'number', 'help' => 'On-hand quantity, decremented when a product using this ingredient is sold.'],
                         ['field' => 'reorder_point', 'label' => 'Reorder point', 'widget' => 'number', 'help' => 'Flag as low stock at or below this. Leave blank to use the global default.'],
                         ['field' => 'unit', 'label' => 'Unit', 'widget' => 'select', 'options' => PosProduct::UNIT_OPTIONS],
+                        ['field' => 'ml_per_unit', 'label' => 'Millilitres per unit', 'widget' => 'number', 'help' => 'If you buy this in fixed-size containers (e.g. a 20 L drum = 20000 ml), enter the ml in one unit. Stock stays a count of units; production deducts by ml. Leave blank if you already track in ml.'],
                         [
                             'field' => 'supplier_id',
                             'label' => 'Preferred vendor',

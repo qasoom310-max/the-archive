@@ -171,7 +171,7 @@ final class ProductionForm extends Component
         $totalCost = 0.0;
         foreach ($this->lines as $line) {
             $ing = $ingredients->get((int) $line['ingredient_id']);
-            $totalCost += (float) ($line['ml_used'] ?? 0) * (float) ($ing->cost_price ?? 0);
+            $totalCost += (float) ($line['ml_used'] ?? 0) * ($ing?->costPerMl() ?? 0);
         }
 
         $production = PosProduction::query()->create([
@@ -192,7 +192,7 @@ final class ProductionForm extends Component
             $production->lines()->create([
                 'pos_ingredient_id' => (int) $line['ingredient_id'],
                 'ml_used' => (float) $line['ml_used'],
-                'unit_cost' => (float) ($ing->cost_price ?? 0),
+                'unit_cost' => $ing?->costPerMl() ?? 0, // cost per ML
             ]);
         }
 
@@ -207,7 +207,7 @@ final class ProductionForm extends Component
     {
         return view('pos::production-form', [
             'products' => PosProduct::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'bottle_size_ml']),
-            'ingredients' => PosIngredient::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'unit', 'stock_on_hand']),
+            'ingredients' => PosIngredient::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'unit', 'stock_on_hand', 'ml_per_unit', 'cost_price']),
             'totalMix' => $this->totalMix(),
             'bottleSize' => $this->bottleSize(),
             'expected' => $this->expectedUnits(),

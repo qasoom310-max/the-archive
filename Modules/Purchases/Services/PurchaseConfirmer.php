@@ -152,6 +152,11 @@ final class PurchaseConfirmer
         }
 
         $ingredient->stock_on_hand = round((float) $ingredient->stock_on_hand + (float) $line->quantity, 3);
+        // Adopt the purchase price as the material's cost (latest cost), so a
+        // material bought for the first time stops valuing at 0.
+        if ((float) $line->unit_cost > 0) {
+            $ingredient->cost_price = (float) $line->unit_cost;
+        }
         $ingredient->save();
     }
 

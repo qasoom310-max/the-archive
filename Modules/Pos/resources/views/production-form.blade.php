@@ -50,15 +50,22 @@
         @endif
         @error('lines') <p class="mb-2 text-sm text-red-600">{{ $message }}</p> @enderror
 
+        @php $numf = fn ($v) => rtrim(rtrim(number_format((float) $v, 1), '0'), '.'); @endphp
         <div class="space-y-3">
             @foreach ($lines as $i => $line)
-                <div wire:key="pline-{{ $i }}" class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr,10rem,auto] sm:items-end">
+                @php
+                    $sel = $ingredients->firstWhere('id', (int) ($line['ingredient_id'] ?? 0));
+                    $avail = $sel?->availableMl();
+                    $used = (float) (($line['ml_used'] ?? '') === '' ? 0 : $line['ml_used']);
+                    $left = $avail !== null ? $avail - $used : null;
+                @endphp
+                <div wire:key="pline-{{ $i }}" class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr,10rem,auto] sm:items-start">
                     <div>
                         <label class="{{ $lbl }} sm:sr-only">{{ __('Material') }}</label>
-                        <select wire:model="lines.{{ $i }}.ingredient_id" class="o-input w-full">
+                        <select wire:model.live="lines.{{ $i }}.ingredient_id" class="o-input w-full">
                             <option value="">{{ __('— Select material —') }}</option>
                             @foreach ($ingredients as $ing)
-                                <option value="{{ $ing->id }}">{{ $ing->name }} ({{ rtrim(rtrim(number_format($ing->availableMl(), 1), '0'), '.') }} {{ __('ml') }}{{ (float) $ing->pack_size > 1 ? ' · ' . rtrim(rtrim(number_format((float) $ing->stock_on_hand, 1), '0'), '.') . '×' . rtrim(rtrim(number_format((float) $ing->pack_size, 1), '0'), '.') . ' ' . $unitLabel($ing->unit) : '' }})</option>
+                                <option value="{{ $ing->id }}" @disabled($ing->availableMl() <= 0)>{{ $ing->name }} — {{ $ing->availableMl() <= 0 ? __('out of stock') : $numf($ing->availableMl()) . ' ' . __('ml') }}</option>
                             @endforeach
                         </select>
                         @error('lines.'.$i.'.ingredient_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
@@ -66,9 +73,12 @@
                     <div>
                         <label class="{{ $lbl }} sm:sr-only">{{ __('ML used') }}</label>
                         <input type="number" step="0.001" min="0" wire:model.live="lines.{{ $i }}.ml_used" class="o-input w-full" placeholder="{{ __('ml') }}">
+                        @if ($sel)
+                            <p class="mt-1 text-xs {{ $left < 0 ? 'font-medium text-red-600' : 'text-chrome-400' }}">{{ __('In stock') }}: {{ $numf($avail) }} · {{ __('Left') }}: {{ $numf($left) }} ml</p>
+                        @endif
                         @error('lines.'.$i.'.ml_used') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
-                    <div class="pb-1">
+                    <div class="pt-2">
                         @if (count($lines) > 1)
                             <button type="button" wire:click="removeLine({{ $i }})" class="text-xs font-medium text-red-600 hover:text-red-700">{{ __('Remove') }}</button>
                         @endif

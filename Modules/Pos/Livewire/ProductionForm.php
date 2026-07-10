@@ -210,6 +210,41 @@ final class ProductionForm extends Component
             ->whereIn('id', array_filter(array_column($this->lines, 'ingredient_id')))
             ->get()->keyBy('id');
 
+        // Not enough stock guard. When editing, the materials this run currently
+        // consumes will be freed on save, so add that back to what's available.
+        $priorUsage = [];
+        if ($this->id !== null) {
+            $existing = PosProduction::query()->with('lines')->find($this->id);
+            if ($existing !== null) {
+                foreach ($existing->lines as $l) {
+                    $priorUsage[$l->pos_ingredient_id] = ($priorUsage[$l->pos_ingredient_id] ?? 0) + (float) $l->ml_used;
+                }
+            }
+        }
+        $usedByIngredient = [];
+        foreach ($this->lines as $line) {
+            $id = (int) ($line['ingredient_id'] ?? 0);
+            if ($id > 0) {
+                $usedByIngredient[$id] = ($usedByIngredient[$id] ?? 0) + (float) ($line['ml_used'] ?? 0);
+            }
+        }
+        $short = false;
+        foreach ($usedByIngredient as $id => $used) {
+            $available = ($ingredients->get($id)?->availableMl() ?? 0) + ($priorUsage[$id] ?? 0);
+            if ($used > $available + 0.0001) {
+                $short = true;
+                foreach ($this->lines as $i => $line) {
+                    if ((int) ($line['ingredient_id'] ?? 0) === $id) {
+                        $this->addError("lines.$i.ml_used", __('Only :n ml in stock.', ['n' => rtrim(rtrim(number_format($available, 1), '0'), '.')]));
+                        break;
+                    }
+                }
+            }
+        }
+        if ($short) {
+            return;
+        }
+
         $totalMix = $this->totalMix();
         $bottle = $this->bottleSize();
         $produced = (int) $this->produced_units;

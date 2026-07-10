@@ -150,10 +150,28 @@ final class PosProductionTest extends TestCase
         $this->assertEqualsWithDelta(60000.0, $ethanol->availableMl(), 0.001);
     }
 
+    public function test_a_production_cannot_use_more_material_than_is_in_stock(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 100, 'cost_price' => 1]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 200) // only 100 available
+            ->set('produced_units', 4)
+            ->call('save')
+            ->assertHasErrors('lines.0.ml_used');
+
+        $this->assertSame(0, PosProduction::query()->count());
+        $this->assertEqualsWithDelta(100.0, $oil->fresh()->stock_on_hand, 0.001); // untouched
+    }
+
     public function test_a_shortfall_is_recorded_as_variance(): void
     {
         $this->enableProduction();
-        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 1]);
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 2000, 'cost_price' => 1]);
         $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50, 'store_stock' => 0]);
 
         Livewire::test(ProductionForm::class)

@@ -96,6 +96,26 @@ final class PurchaseConfirmTest extends TestCase
         return $purchase;
     }
 
+    public function test_confirming_an_ingredient_line_raises_its_stock_and_sets_its_cost(): void
+    {
+        // A perfume oil bought for the first time, valued at 0.
+        $oil = PosIngredient::query()->create(['name' => 'Rose Oil', 'stock_on_hand' => 2, 'cost_price' => 0]);
+
+        $purchase = Purchase::query()->create(['date' => '2026-06-08', 'is_stock_purchase' => true]);
+        $purchase->lines()->create([
+            'pos_ingredient_id' => $oil->id,
+            'description' => 'Rose Oil',
+            'quantity' => 3,
+            'unit_cost' => 12.5,
+        ]);
+
+        app(PurchaseConfirmer::class)->confirm($purchase);
+
+        $oil->refresh();
+        $this->assertSame(5.0, (float) $oil->stock_on_hand);   // 2 + 3
+        $this->assertSame(12.5, (float) $oil->cost_price);     // adopts the purchase price
+    }
+
     public function test_confirm_raises_pos_stock_warehouse_stock_and_posts_accounting(): void
     {
         $coal = $this->coal(stock: 4.0);

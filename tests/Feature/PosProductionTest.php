@@ -105,11 +105,13 @@ final class PosProductionTest extends TestCase
     public function test_container_materials_are_deducted_by_ml(): void
     {
         $this->enableProduction();
-        // A 20 L drum tracked as units: 3 drums, 20000 ml each, 24.3 per drum.
+        // "3 in hand, each unit is 20 Liter, 24.3 per unit" → 20000 ml each.
         $ethanol = PosIngredient::query()->create([
-            'name' => 'Ethanol 20 LTR', 'unit' => 'pcs', 'stock_on_hand' => 3,
-            'cost_price' => 24.3, 'ml_per_unit' => 20000,
+            'name' => 'Ethanol 20 LTR', 'unit' => 'l', 'pack_size' => 20, 'stock_on_hand' => 3,
+            'cost_price' => 24.3,
         ]);
+        $this->assertEqualsWithDelta(20000.0, $ethanol->ml_per_unit, 0.001); // derived on save
+        $this->assertEqualsWithDelta(60000.0, $ethanol->availableMl(), 0.001);
         $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50]);
 
         Livewire::test(ProductionForm::class)

@@ -58,7 +58,7 @@
                         <select wire:model="lines.{{ $i }}.ingredient_id" class="o-input w-full">
                             <option value="">{{ __('— Select material —') }}</option>
                             @foreach ($ingredients as $ing)
-                                <option value="{{ $ing->id }}">{{ $ing->name }} ({{ rtrim(rtrim(number_format($ing->availableMl(), 1), '0'), '.') }} {{ __('ml') }}{{ $ing->ml_per_unit ? ' · ' . rtrim(rtrim(number_format((float) $ing->stock_on_hand, 1), '0'), '.') . ' ' . $unitLabel($ing->unit) : '' }})</option>
+                                <option value="{{ $ing->id }}">{{ $ing->name }} ({{ rtrim(rtrim(number_format($ing->availableMl(), 1), '0'), '.') }} {{ __('ml') }}{{ (float) $ing->pack_size > 1 ? ' · ' . rtrim(rtrim(number_format((float) $ing->stock_on_hand, 1), '0'), '.') . '×' . rtrim(rtrim(number_format((float) $ing->pack_size, 1), '0'), '.') . ' ' . $unitLabel($ing->unit) : '' }})</option>
                             @endforeach
                         </select>
                         @error('lines.'.$i.'.ingredient_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror

@@ -207,7 +207,7 @@ final class ProductionForm extends Component
     {
         return view('pos::production-form', [
             'products' => PosProduct::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'bottle_size_ml']),
-            'ingredients' => PosIngredient::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'unit', 'stock_on_hand', 'ml_per_unit', 'cost_price']),
+            'ingredients' => PosIngredient::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'unit', 'stock_on_hand', 'pack_size', 'ml_per_unit', 'cost_price']),
             'totalMix' => $this->totalMix(),
             'bottleSize' => $this->bottleSize(),
             'expected' => $this->expectedUnits(),

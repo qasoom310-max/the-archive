@@ -1646,6 +1646,9 @@
     "Auto-filled from this product’s saved formula — adjust if needed.": "تمت التعبئة تلقائيًا من وصفة المنتج المحفوظة — عدّلها إن لزم.",
     "Formula saved — it will auto-fill next time.": "تم حفظ الوصفة — ستُعبّأ تلقائيًا في المرة القادمة.",
     "Pick a product first.": "اختر منتجًا أولًا.",
+    "How many in hand": "كم لديك",
+    "Each unit is": "حجم الوحدة الواحدة",
+    "Cost per unit": "التكلفة لكل وحدة",
     "Millilitres per unit": "المللتر لكل وحدة",
     "Millilitres per unit (optional)": "المللتر لكل وحدة (اختياري)",
     "Usually leave blank. Choose Unit = Liter and it counts as 1000 ml automatically (mL = 1). Only fill this for an odd size — e.g. a 750 ml bottle counted as one unit.": "غالبًا اتركه فارغًا. اختر الوحدة = لتر فيُحتسب 1000 مل تلقائيًا (مل = 1). لا تملأه إلا لحجم غير قياسي — مثل زجاجة 750 مل تُعدّ وحدة واحدة."

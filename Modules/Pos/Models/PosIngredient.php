@@ -27,8 +27,9 @@ use Spatie\Translatable\HasTranslations;
  * @property float $cost_price
  * @property float $stock_on_hand  On-hand quantity (so an ingredient can be a recipe component)
  * @property float|null $reorder_point  Low-stock threshold; null = global default
- * @property string|null $unit  Unit of measure code: qty|kg|g|l|ml|pcs|box|pack|dozen
- * @property float|null $ml_per_unit  ML in one purchased unit (container size); null = tracked in ML
+ * @property string|null $unit  Size unit: qty|kg|g|l|ml|pcs|box|pack|dozen
+ * @property float $pack_size  Size of one stock unit (e.g. 20 for a 20 L drum; 1 = count in the unit)
+ * @property float|null $ml_per_unit  Derived: ml in one stock unit (pack_size × the unit)
  * @property int|null $supplier_id  Preferred vendor (logical ref to partners)
  * @property bool $active
  * @property int $sequence
@@ -43,7 +44,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
     public array $translatable = ['name'];
 
     /** @var list<string> */
-    protected $fillable = ['name', 'cost_price', 'stock_on_hand', 'reorder_point', 'unit', 'ml_per_unit', 'supplier_id', 'active', 'sequence'];
+    protected $fillable = ['name', 'cost_price', 'stock_on_hand', 'reorder_point', 'unit', 'pack_size', 'ml_per_unit', 'supplier_id', 'active', 'sequence'];
 
     /** @var array<string, mixed> */
     protected $attributes = [
@@ -51,8 +52,26 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
         'cost_price' => 0,
         'stock_on_hand' => 0,
         'unit' => 'qty',
+        'pack_size' => 1,
         'sequence' => 0,
     ];
+
+    protected static function booted(): void
+    {
+        // Derive the ml in one stock unit from "each unit is X <unit>" so nobody
+        // has to type a raw ml figure. Non-volume units (kg, pcs…) have no ml.
+        static::saving(function (self $ingredient): void {
+            $size = (float) ($ingredient->pack_size ?? 0);
+            if ($size <= 0) {
+                $size = 1.0;
+            }
+            $ingredient->ml_per_unit = match ($ingredient->unit) {
+                'l' => $size * 1000,
+                'ml' => $size,
+                default => null,
+            };
+        });
+    }
 
     /**
      * @return array<string, string>
@@ -63,6 +82,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
             'cost_price' => 'float',
             'stock_on_hand' => 'float',
             'reorder_point' => 'float',
+            'pack_size' => 'float',
             'ml_per_unit' => 'float',
             'supplier_id' => 'integer',
             'active' => 'boolean',
@@ -70,22 +90,12 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
         ];
     }
 
-    /**
-     * Millilitres in one stock unit. Driven by the unit — Liter = 1000, mL = 1 —
-     * so the common case needs no extra field. A non-blank `ml_per_unit` overrides
-     * it for odd container sizes (e.g. a 750 ml bottle counted as one unit).
-     */
+    /** Millilitres in one stock unit (derived from pack_size × the unit). */
     public function mlPerUnit(): float
     {
-        $explicit = (float) ($this->ml_per_unit ?? 0);
-        if ($explicit > 0) {
-            return $explicit;
-        }
+        $per = (float) ($this->ml_per_unit ?? 0);
 
-        return match ($this->unit) {
-            'l' => 1000.0,
-            default => 1.0, // 'ml' and anything else: stock is already the consumption unit
-        };
+        return $per > 0 ? $per : 1.0;
     }
 
     /** Millilitres available in stock (stock × ml-per-unit). */
@@ -144,7 +154,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
                 new FieldDefinition('stock_on_hand', 'Stock on hand', 'float', sequence: 25),
                 new FieldDefinition('reorder_point', 'Reorder point', 'float', sequence: 28),
                 new FieldDefinition('unit', 'Unit', 'selection', sequence: 30),
-                new FieldDefinition('ml_per_unit', 'Millilitres per unit', 'float', sequence: 32),
+                new FieldDefinition('pack_size', 'Each unit is', 'float', sequence: 32),
                 new FieldDefinition('supplier_id', 'Preferred vendor', 'many2one', relation: 'contacts.partner', sequence: 35),
                 new FieldDefinition('sequence', 'Sequence', 'integer', sequence: 40),
             ],
@@ -167,11 +177,11 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
                     'cols' => 2,
                     'fields' => [
                         ['field' => 'name', 'label' => 'Name', 'widget' => 'text', 'required' => true, 'translatable' => true, 'unique' => true],
-                        ['field' => 'cost_price', 'label' => 'Cost Price', 'widget' => 'number', 'help' => 'Procurement cost per unit. Drives stock valuation.'],
-                        ['field' => 'stock_on_hand', 'label' => 'Stock on hand', 'widget' => 'number', 'help' => 'On-hand quantity, decremented when a product using this ingredient is sold.'],
-                        ['field' => 'reorder_point', 'label' => 'Reorder point', 'widget' => 'number', 'help' => 'Flag as low stock at or below this. Leave blank to use the global default.'],
+                        ['field' => 'stock_on_hand', 'label' => 'How many in hand', 'widget' => 'number', 'help' => 'How many units / containers you have.'],
+                        ['field' => 'pack_size', 'label' => 'Each unit is', 'widget' => 'number', 'help' => 'The size of one unit — e.g. 20 for a 20-litre drum. Use 1 if you just count in the unit itself.'],
                         ['field' => 'unit', 'label' => 'Unit', 'widget' => 'select', 'options' => PosProduct::UNIT_OPTIONS],
-                        ['field' => 'ml_per_unit', 'label' => 'Millilitres per unit (optional)', 'widget' => 'number', 'help' => 'Usually leave blank. Choose Unit = Liter and it counts as 1000 ml automatically (mL = 1). Only fill this for an odd size — e.g. a 750 ml bottle counted as one unit.'],
+                        ['field' => 'cost_price', 'label' => 'Cost per unit', 'widget' => 'number', 'help' => 'What one unit costs. Drives stock valuation.'],
+                        ['field' => 'reorder_point', 'label' => 'Reorder point', 'widget' => 'number', 'help' => 'Flag as low stock at or below this. Leave blank to use the global default.'],
                         [
                             'field' => 'supplier_id',
                             'label' => 'Preferred vendor',

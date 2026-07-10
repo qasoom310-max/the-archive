@@ -73,6 +73,35 @@ final class PosProductionTest extends TestCase
         $this->assertNotNull($run->reference);
     }
 
+    public function test_a_saved_formula_auto_fills_the_next_production(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 2]);
+        $ethanol = PosIngredient::query()->create(['name' => 'Ethanol', 'unit' => 'ml', 'stock_on_hand' => 2000, 'cost_price' => 0.05]);
+        $perfume = PosProduct::query()->create(['name' => 'Perfume F', 'price' => 5, 'bottle_size_ml' => 50]);
+
+        // Save the mix as this perfume's formula.
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->call('addLine')
+            ->set('lines.1.ingredient_id', $ethanol->id)
+            ->set('lines.1.ml_used', 1300)
+            ->call('saveAsFormula')
+            ->assertSet('formulaJustSaved', true);
+
+        $this->assertSame(2, $perfume->formulaLines()->count());
+
+        // A fresh production auto-fills the materials when the perfume is picked.
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->assertCount('lines', 2)
+            ->assertSet('lines.0.ingredient_id', (string) $oil->id)
+            ->assertSet('lines.0.ml_used', '500')
+            ->assertSet('lines.1.ml_used', '1300');
+    }
+
     public function test_a_shortfall_is_recorded_as_variance(): void
     {
         $this->enableProduction();

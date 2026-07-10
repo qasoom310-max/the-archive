@@ -1640,5 +1640,10 @@
     "Recent moves to shop": "أحدث عمليات النقل إلى المحل",
     "store → shop": "المخزن ← المحل",
     "shop → store": "المحل ← المخزن",
-    "Car maintenance": "صيانة السيارات"
+    "Car maintenance": "صيانة السيارات",
+    "Save as formula": "حفظ كوصفة",
+    "Update formula": "تحديث الوصفة",
+    "Auto-filled from this product’s saved formula — adjust if needed.": "تمت التعبئة تلقائيًا من وصفة المنتج المحفوظة — عدّلها إن لزم.",
+    "Formula saved — it will auto-fill next time.": "تم حفظ الوصفة — ستُعبّأ تلقائيًا في المرة القادمة.",
+    "Pick a product first.": "اختر منتجًا أولًا."
 }

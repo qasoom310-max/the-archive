@@ -31,6 +31,9 @@ final class ProductionForm extends Component
 
     public string $notes = '';
 
+    /** Set right after "Save as formula" so the view can confirm it. */
+    public bool $formulaJustSaved = false;
+
     /** @var list<array<string, string>> */
     public array $lines = [];
 
@@ -64,8 +67,50 @@ final class ProductionForm extends Component
 
     public function updatedProductId(): void
     {
-        // Default the produced count to the expected yield when a product is picked.
+        $this->formulaJustSaved = false;
+
+        // Auto-fill the materials from this product's saved formula (if any).
+        if ($this->product_id !== null) {
+            $product = PosProduct::query()->with('formulaLines')->find($this->product_id);
+            if ($product !== null && $product->formulaLines->isNotEmpty()) {
+                $this->lines = $product->formulaLines->map(fn ($f): array => [
+                    'ingredient_id' => (string) $f->pos_ingredient_id,
+                    'ml_used' => rtrim(rtrim(number_format((float) $f->ml, 3, '.', ''), '0'), '.'),
+                ])->all();
+            }
+        }
+
+        // Default the produced count to the expected yield.
         $this->produced_units = $this->expectedUnits() > 0 ? (string) $this->expectedUnits() : $this->produced_units;
+    }
+
+    /** Store the current materials as this product's standard formula. */
+    public function saveAsFormula(): void
+    {
+        abort_unless(Features::enabled(Feature::Production), 404);
+
+        if ($this->product_id === null) {
+            $this->addError('product_id', __('Pick a product first.'));
+
+            return;
+        }
+
+        $product = PosProduct::query()->find($this->product_id);
+        if ($product === null) {
+            return;
+        }
+
+        $product->formulaLines()->delete();
+        foreach ($this->lines as $i => $line) {
+            $ingredientId = (int) ($line['ingredient_id'] ?? 0);
+            $ml = (float) ($line['ml_used'] ?? 0);
+            if ($ingredientId <= 0 || $ml <= 0) {
+                continue;
+            }
+            $product->formulaLines()->create(['pos_ingredient_id' => $ingredientId, 'ml' => $ml, 'sequence' => $i]);
+        }
+
+        $this->formulaJustSaved = true;
     }
 
     public function totalMix(): float
@@ -166,6 +211,8 @@ final class ProductionForm extends Component
             'totalMix' => $this->totalMix(),
             'bottleSize' => $this->bottleSize(),
             'expected' => $this->expectedUnits(),
+            'hasFormula' => $this->product_id !== null
+                && PosProduct::query()->whereKey($this->product_id)->has('formulaLines')->exists(),
         ]);
     }
 }

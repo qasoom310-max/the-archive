@@ -118,6 +118,17 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
     }
 
     /**
+     * The product's standard production formula (perfumes) — raw materials × ML
+     * per batch, used to auto-fill a new production run.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<PosProductFormulaLine, $this>
+     */
+    public function formulaLines(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PosProductFormulaLine::class, 'pos_product_id')->orderBy('sequence');
+    }
+
+    /**
      * Secondary image paths as a clean list of non-empty strings (the raw
      * cast can hold null or stray empties). Render order = WooCommerce
      * gallery order (after the primary photo).

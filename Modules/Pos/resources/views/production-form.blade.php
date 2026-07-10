@@ -33,8 +33,21 @@
 
     {{-- Materials mixed --}}
     <div class="mt-5 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6">
-        <h2 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Materials mixed') }}</h2>
-        <p class="mb-4 text-xs text-chrome-400">{{ __('Enter how much of each raw material you actually used (ml).') }}</p>
+        <div class="mb-4 flex flex-wrap items-start justify-between gap-2">
+            <div>
+                <h2 class="text-sm font-semibold text-chrome-800">{{ __('Materials mixed') }}</h2>
+                <p class="text-xs text-chrome-400">{{ __('Enter how much of each raw material you actually used (ml).') }}</p>
+                @if ($hasFormula)
+                    <p class="mt-1 text-xs text-emerald-600">{{ __('Auto-filled from this product’s saved formula — adjust if needed.') }}</p>
+                @endif
+            </div>
+            <button type="button" wire:click="saveAsFormula" class="shrink-0 rounded-lg border border-chrome-200 px-2.5 py-1 text-xs font-medium text-chrome-600 hover:bg-chrome-50">
+                {{ $hasFormula ? __('Update formula') : __('Save as formula') }}
+            </button>
+        </div>
+        @if ($formulaJustSaved)
+            <p class="mb-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">{{ __('Formula saved — it will auto-fill next time.') }}</p>
+        @endif
         @error('lines') <p class="mb-2 text-sm text-red-600">{{ $message }}</p> @enderror
 
         <div class="space-y-3">

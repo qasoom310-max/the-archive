@@ -1647,5 +1647,6 @@
     "Formula saved — it will auto-fill next time.": "تم حفظ الوصفة — ستُعبّأ تلقائيًا في المرة القادمة.",
     "Pick a product first.": "اختر منتجًا أولًا.",
     "Millilitres per unit": "المللتر لكل وحدة",
-    "If you buy this in fixed-size containers (e.g. a 20 L drum = 20000 ml), enter the ml in one unit. Stock stays a count of units; production deducts by ml. Leave blank if you already track in ml.": "إذا كنت تشتري هذا في عبوات ثابتة الحجم (مثل برميل 20 لتر = 20000 مل)، أدخل عدد المللتر في الوحدة الواحدة. يبقى المخزون عدد وحدات؛ ويخصم الإنتاج بالمللتر. اتركه فارغًا إن كنت تتابعه بالمللتر أصلًا."
+    "Millilitres per unit (optional)": "المللتر لكل وحدة (اختياري)",
+    "Usually leave blank. Choose Unit = Liter and it counts as 1000 ml automatically (mL = 1). Only fill this for an odd size — e.g. a 750 ml bottle counted as one unit.": "غالبًا اتركه فارغًا. اختر الوحدة = لتر فيُحتسب 1000 مل تلقائيًا (مل = 1). لا تملأه إلا لحجم غير قياسي — مثل زجاجة 750 مل تُعدّ وحدة واحدة."
 }

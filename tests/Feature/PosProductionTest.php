@@ -128,6 +128,26 @@ final class PosProductionTest extends TestCase
         $this->assertEqualsWithDelta(1.58, $run->total_cost, 0.005);
     }
 
+    public function test_liter_materials_convert_to_ml_automatically(): void
+    {
+        $this->enableProduction();
+        // Just Unit = Liter, stock in liters, no "ml per unit" needed.
+        $ethanol = PosIngredient::query()->create(['name' => 'Ethanol', 'unit' => 'l', 'stock_on_hand' => 60, 'cost_price' => 1.215]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $ethanol->id)
+            ->set('lines.0.ml_used', 1300)
+            ->set('produced_units', 26)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        // 60 L − 1.3 L (1300 ml) = 58.7 L.
+        $this->assertEqualsWithDelta(58.7, $ethanol->fresh()->stock_on_hand, 0.0001);
+        $this->assertEqualsWithDelta(60000.0, $ethanol->availableMl(), 0.001);
+    }
+
     public function test_a_shortfall_is_recorded_as_variance(): void
     {
         $this->enableProduction();

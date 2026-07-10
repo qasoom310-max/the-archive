@@ -70,26 +70,42 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
         ];
     }
 
-    /** Millilitres available in stock (units × container size, or stock if in ML). */
-    public function availableMl(): float
+    /**
+     * Millilitres in one stock unit. Driven by the unit — Liter = 1000, mL = 1 —
+     * so the common case needs no extra field. A non-blank `ml_per_unit` overrides
+     * it for odd container sizes (e.g. a 750 ml bottle counted as one unit).
+     */
+    public function mlPerUnit(): float
     {
-        $per = (float) ($this->ml_per_unit ?? 0);
+        $explicit = (float) ($this->ml_per_unit ?? 0);
+        if ($explicit > 0) {
+            return $explicit;
+        }
 
-        return $per > 0 ? round((float) $this->stock_on_hand * $per, 3) : (float) $this->stock_on_hand;
+        return match ($this->unit) {
+            'l' => 1000.0,
+            default => 1.0, // 'ml' and anything else: stock is already the consumption unit
+        };
     }
 
-    /** Cost of one ML (container cost ÷ container size, or cost if already per ML). */
+    /** Millilitres available in stock (stock × ml-per-unit). */
+    public function availableMl(): float
+    {
+        return round((float) $this->stock_on_hand * $this->mlPerUnit(), 3);
+    }
+
+    /** Cost of one ML (unit cost ÷ ml-per-unit). */
     public function costPerMl(): float
     {
-        $per = (float) ($this->ml_per_unit ?? 0);
+        $per = $this->mlPerUnit();
 
         return $per > 0 ? (float) $this->cost_price / $per : (float) $this->cost_price;
     }
 
-    /** Deduct `$ml` of consumption from stock, converting to units when needed. */
+    /** Deduct `$ml` of consumption from stock, converting to stock units. */
     public function deductMl(float $ml): void
     {
-        $per = (float) ($this->ml_per_unit ?? 0);
+        $per = $this->mlPerUnit();
         $this->stock_on_hand = (float) $this->stock_on_hand - ($per > 0 ? $ml / $per : $ml);
         $this->save();
     }
@@ -155,7 +171,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
                         ['field' => 'stock_on_hand', 'label' => 'Stock on hand', 'widget' => 'number', 'help' => 'On-hand quantity, decremented when a product using this ingredient is sold.'],
                         ['field' => 'reorder_point', 'label' => 'Reorder point', 'widget' => 'number', 'help' => 'Flag as low stock at or below this. Leave blank to use the global default.'],
                         ['field' => 'unit', 'label' => 'Unit', 'widget' => 'select', 'options' => PosProduct::UNIT_OPTIONS],
-                        ['field' => 'ml_per_unit', 'label' => 'Millilitres per unit', 'widget' => 'number', 'help' => 'If you buy this in fixed-size containers (e.g. a 20 L drum = 20000 ml), enter the ml in one unit. Stock stays a count of units; production deducts by ml. Leave blank if you already track in ml.'],
+                        ['field' => 'ml_per_unit', 'label' => 'Millilitres per unit (optional)', 'widget' => 'number', 'help' => 'Usually leave blank. Choose Unit = Liter and it counts as 1000 ml automatically (mL = 1). Only fill this for an odd size — e.g. a 750 ml bottle counted as one unit.'],
                         [
                             'field' => 'supplier_id',
                             'label' => 'Preferred vendor',

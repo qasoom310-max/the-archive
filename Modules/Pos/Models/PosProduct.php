@@ -289,6 +289,26 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
         return $this->theoreticalYield();
     }
 
+    /**
+     * Rolled-up cost of one unit assembled from its recipe: the sum of each
+     * component's unit cost × quantity consumed. A kit/box made of other
+     * products + packaging costs exactly what its contents cost. Returns 0.0
+     * for a product with no recipe lines.
+     */
+    public function recipeCost(): float
+    {
+        $lines = $this->relationLoaded('recipeLines')
+            ? $this->recipeLines
+            : $this->recipeLines()->with(['component', 'ingredient'])->get();
+
+        $sum = 0.0;
+        foreach ($lines as $line) {
+            $sum += $line->lineCost();
+        }
+
+        return round($sum, 4);
+    }
+
     public static function irModelDefinition(): ModelDefinition
     {
         return new ModelDefinition(

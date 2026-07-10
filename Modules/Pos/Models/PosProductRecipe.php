@@ -125,6 +125,31 @@ final class PosProductRecipe extends Model
     }
 
     /**
+     * Unit cost of this line's component. A product and an ingredient both
+     * carry a tracked `cost_price`; a condiment does not (no cost basis → 0).
+     */
+    public function componentUnitCost(): float
+    {
+        $component = $this->resolveComponent();
+
+        // A condiment carries no cost; a missing component contributes nothing.
+        if ($component === null || $component instanceof PosCondiment) {
+            return 0.0;
+        }
+
+        return (float) $component->cost_price;
+    }
+
+    /**
+     * What this line contributes to the parent product's cost: the component's
+     * unit cost × the quantity consumed per unit sold.
+     */
+    public function lineCost(): float
+    {
+        return round($this->componentUnitCost() * (float) $this->quantity_consumed, 4);
+    }
+
+    /**
      * The component's unit-of-measure suffix for display (e.g. 'L', 'kg') so a
      * recipe quantity reads in the component's own unit. Empty for a plain
      * count (`qty`), a condiment (untyped), or a missing component. Products

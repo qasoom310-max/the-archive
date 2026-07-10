@@ -93,6 +93,28 @@ final class PosRecipeEditor extends Component
 
         $this->componentKey = null;
         $this->quantity = '1';
+
+        $this->syncParentCost();
+    }
+
+    /**
+     * Roll the recipe up into the parent product's cost price: a product
+     * assembled from a bill of materials (a gift box of perfumes + packaging,
+     * a sandwich of ingredients…) costs exactly what its components cost. Runs
+     * after every recipe change so the cost stays in step. The product form is
+     * a separate Livewire island, so the top "Cost price" field reflects this
+     * on the next page load; the recipe panel shows it live.
+     */
+    private function syncParentCost(): void
+    {
+        $product = PosProduct::query()->find($this->productId);
+
+        if ($product === null) {
+            return;
+        }
+
+        $product->cost_price = $product->recipeCost();
+        $product->save();
     }
 
     /**
@@ -137,6 +159,8 @@ final class PosRecipeEditor extends Component
             ->where('id', $recipeId)
             ->where('parent_product_id', $this->productId)
             ->delete();
+
+        $this->syncParentCost();
     }
 
     /**
@@ -158,6 +182,8 @@ final class PosRecipeEditor extends Component
             ->where('id', $recipeId)
             ->where('parent_product_id', $this->productId)
             ->update(['quantity_consumed' => $value]);
+
+        $this->syncParentCost();
     }
 
     public function render(): View
@@ -208,6 +234,7 @@ final class PosRecipeEditor extends Component
 
         return view('pos::recipe-editor', [
             'lines' => $lines,
+            'recipeCost' => round($lines->sum(fn (PosProductRecipe $l): float => $l->lineCost()), 4),
             'componentOptions' => $componentOptions,
             'selectedUnit' => $selectedUnit,
             'product' => PosProduct::query()->find($this->productId),

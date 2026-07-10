@@ -16,6 +16,7 @@ use Modules\Pos\Livewire\PosIngredientCategoryForm;
 use Modules\Pos\Livewire\PosIngredientForm;
 use Modules\Pos\Livewire\PosIngredients;
 use Modules\Pos\Livewire\PosRecipeEditor;
+use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosIngredientCategory;
 use Modules\Pos\Models\PosOrder;
@@ -71,6 +72,64 @@ final class PosIngredientTest extends TestCase
             'component_ingredient_id' => $flour->id,
             'quantity_consumed' => 0.25,
         ]);
+    }
+
+    public function test_a_recipe_rolls_component_costs_into_the_product_cost(): void
+    {
+        $box = PosProduct::query()->create(['name' => 'Gift box', 'price' => 20, 'cost_price' => 0]);
+        $king = PosProduct::query()->create(['name' => 'King', 'price' => 12, 'cost_price' => 10]);
+        $storm = PosProduct::query()->create(['name' => 'Storm', 'price' => 12, 'cost_price' => 8]);
+        $carton = PosIngredient::query()->create(['name' => 'Carton', 'cost_price' => 2, 'stock_on_hand' => 100]);
+
+        Livewire::test(PosRecipeEditor::class, ['productId' => $box->id])
+            ->set('componentKey', 'p:' . $king->id)->set('quantity', '1')->call('addLine')
+            ->set('componentKey', 'p:' . $storm->id)->set('quantity', '1')->call('addLine')
+            ->set('componentKey', 'i:' . $carton->id)->set('quantity', '1')->call('addLine')
+            ->assertHasNoErrors();
+
+        // 10 + 8 + 2 = 20 → auto-saved as the box's cost price.
+        $this->assertEqualsWithDelta(20.0, (float) $box->fresh()?->cost_price, 0.001);
+        $this->assertEqualsWithDelta(20.0, $box->fresh()?->recipeCost() ?? 0.0, 0.001);
+    }
+
+    public function test_changing_a_recipe_quantity_or_removing_a_line_reprices_the_product(): void
+    {
+        $box = PosProduct::query()->create(['name' => 'Box', 'price' => 20, 'cost_price' => 0]);
+        $king = PosProduct::query()->create(['name' => 'King', 'price' => 12, 'cost_price' => 10]);
+        $storm = PosProduct::query()->create(['name' => 'Storm', 'price' => 12, 'cost_price' => 8]);
+
+        $c = Livewire::test(PosRecipeEditor::class, ['productId' => $box->id])
+            ->set('componentKey', 'p:' . $king->id)->set('quantity', '1')->call('addLine')
+            ->set('componentKey', 'p:' . $storm->id)->set('quantity', '1')->call('addLine');
+
+        $this->assertEqualsWithDelta(18.0, (float) $box->fresh()?->cost_price, 0.001);
+
+        $kingLine = PosProductRecipe::query()->where('parent_product_id', $box->id)
+            ->where('component_product_id', $king->id)->firstOrFail();
+        $stormLine = PosProductRecipe::query()->where('parent_product_id', $box->id)
+            ->where('component_product_id', $storm->id)->firstOrFail();
+
+        // King → qty 3: 10×3 + 8 = 38.
+        $c->call('updateLineQuantity', $kingLine->id, '3');
+        $this->assertEqualsWithDelta(38.0, (float) $box->fresh()?->cost_price, 0.001);
+
+        // Remove Storm → 30.
+        $c->call('removeLine', $stormLine->id);
+        $this->assertEqualsWithDelta(30.0, (float) $box->fresh()?->cost_price, 0.001);
+    }
+
+    public function test_recipe_cost_ignores_condiments_which_carry_no_cost(): void
+    {
+        $box = PosProduct::query()->create(['name' => 'Box', 'price' => 20, 'cost_price' => 0]);
+        $king = PosProduct::query()->create(['name' => 'King', 'price' => 12, 'cost_price' => 10]);
+        $wrap = PosCondiment::query()->create(['name' => 'Gift wrap', 'price' => 1]);
+
+        Livewire::test(PosRecipeEditor::class, ['productId' => $box->id])
+            ->set('componentKey', 'p:' . $king->id)->set('quantity', '1')->call('addLine')
+            ->set('componentKey', 'c:' . $wrap->id)->set('quantity', '1')->call('addLine');
+
+        // Condiment contributes nothing → cost = King only.
+        $this->assertEqualsWithDelta(10.0, (float) $box->fresh()?->cost_price, 0.001);
     }
 
     public function test_recipe_editor_offers_ingredients_in_the_picker(): void

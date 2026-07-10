@@ -26,6 +26,7 @@
                     <th class="py-1 text-start">{{ __('Component') }}</th>
                     <th class="py-1 text-end">{{ __('Qty / unit') }}</th>
                     <th class="py-1 text-end">{{ __('Component stock') }}</th>
+                    <th class="py-1 text-end">{{ __('Cost') }}</th>
                     <th class="py-1"></th>
                 </tr>
             </thead>
@@ -55,6 +56,9 @@
                         <td class="py-1.5 text-end text-chrome-500">
                             {{ rtrim(rtrim(number_format($line->componentStock() ?? 0, 3), '0'), '.') }}{{ $u !== '' ? ' ' . $u : '' }}
                         </td>
+                        <td class="py-1.5 text-end text-chrome-600">
+                            {{ \App\Erp\Views\ValueFormat::money($line->lineCost()) }}
+                        </td>
                         <td class="py-1.5 text-end">
                             <button wire:click="removeLine({{ $line->id }})"
                                 class="text-xs text-red-500 hover:underline">{{ __('remove') }}</button>
@@ -62,7 +66,21 @@
                     </tr>
                 @endforeach
             </tbody>
+            <tfoot>
+                <tr class="border-t border-chrome-200">
+                    <td colspan="3" class="py-2 text-end text-xs font-medium text-chrome-500">
+                        {{ __('Recipe cost (saved as this product’s cost price)') }}
+                    </td>
+                    <td class="py-2 text-end text-sm font-semibold text-chrome-800">
+                        {{ \App\Erp\Views\ValueFormat::money($recipeCost) }}
+                    </td>
+                    <td></td>
+                </tr>
+            </tfoot>
         </table>
+        <p class="mt-2 text-xs text-chrome-400">
+            {{ __('The cost price above updates automatically from these components. Reload the product to see it in the Cost price field.') }}
+        </p>
     @endif
 
     @php

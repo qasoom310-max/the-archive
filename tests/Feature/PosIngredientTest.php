@@ -11,6 +11,8 @@ use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
 use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Enums\SessionState;
+use Modules\Pos\Livewire\PosIngredientCategories;
+use Modules\Pos\Livewire\PosIngredientCategoryForm;
 use Modules\Pos\Livewire\PosIngredientForm;
 use Modules\Pos\Livewire\PosIngredients;
 use Modules\Pos\Livewire\PosRecipeEditor;
@@ -235,12 +237,12 @@ final class PosIngredientTest extends TestCase
     {
         $cat = PosIngredientCategory::query()->create(['name' => 'Caps', 'sequence' => 3]);
 
-        Livewire::test(FormView::class, [
-            'model' => PosIngredientCategory::class,
-            'modelKey' => 'pos.ingredient_category',
-            'recordId' => $cat->id,
-            'title' => 'Edit category',
-        ])->assertOk();
+        // The menu links to /app/pos/ingredient_category — these are the
+        // bespoke wrappers that path resolves to. (HTTP gets can't be used
+        // here: module routes register at boot, before the per-test install.)
+        Livewire::test(PosIngredientCategories::class)->assertOk();
+        Livewire::test(PosIngredientCategoryForm::class)->assertOk();               // new
+        Livewire::test(PosIngredientCategoryForm::class, ['id' => $cat->id])->assertOk(); // edit
 
         $this->assertSame('Caps', $cat->fresh()?->name);
     }

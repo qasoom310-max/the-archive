@@ -22,6 +22,8 @@ use Modules\Pos\Livewire\PosFloorForm;
 use Modules\Pos\Livewire\PosFloorPlan;
 use Modules\Pos\Livewire\PosFloors;
 use Modules\Pos\Livewire\PosHome;
+use Modules\Pos\Livewire\PosIngredientCategories;
+use Modules\Pos\Livewire\PosIngredientCategoryForm;
 use Modules\Pos\Livewire\PosIngredientForm;
 use Modules\Pos\Livewire\PosIngredients;
 use Modules\Pos\Livewire\PosOrders;
@@ -62,6 +64,12 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/pos/category', PosCategories::class)->name('pos.category.index');
     Route::get('/app/pos/condiment', PosCondiments::class)->name('pos.condiment.index');
     Route::get('/app/pos/ingredient', PosIngredients::class)->name('pos.ingredient.index');
+    // Managed ingredient categories (Oils, Bottles, Caps…). `/new` before the
+    // /{id} wildcard so it isn't captured as a numeric id.
+    Route::get('/app/pos/ingredient_category', PosIngredientCategories::class)->name('pos.ingredient_category.index');
+    Route::get('/app/pos/ingredient_category/new', PosIngredientCategoryForm::class)->name('pos.ingredient_category.create');
+    Route::get('/app/pos/ingredient_category/{id}', PosIngredientCategoryForm::class)
+        ->whereNumber('id')->name('pos.ingredient_category.edit');
 
     // Production & store (mixing) — perfumes POS. The screens re-check the
     // feature flag in mount(), so a stale link 404s when it's off.

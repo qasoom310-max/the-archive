@@ -10,6 +10,7 @@ use App\Erp\Modules\ModuleManager;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
+use Modules\Pos\Livewire\PosStockReport;
 use Modules\Pos\Livewire\ProductionForm;
 use Modules\Pos\Livewire\Productions;
 use Modules\Pos\Models\PosIngredient;
@@ -122,6 +123,21 @@ final class PosProductionTest extends TestCase
             ->assertHasErrors('move_qty');
 
         $this->assertEqualsWithDelta(5.0, $perfume->fresh()->store_stock, 0.001);
+    }
+
+    public function test_stock_report_splits_products_from_production_materials(): void
+    {
+        $this->enableProduction();
+        PosIngredient::query()->create(['name' => 'OilMaterialZ', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 1]);
+        PosProduct::query()->create(['name' => 'PerfumeSkuZ', 'price' => 5, 'stock_on_hand' => 10]);
+
+        Livewire::test(PosStockReport::class)
+            ->set('scope', 'products')
+            ->assertSee('PerfumeSkuZ')
+            ->assertDontSee('OilMaterialZ')
+            ->set('scope', 'materials')
+            ->assertSee('OilMaterialZ')
+            ->assertDontSee('PerfumeSkuZ');
     }
 
     public function test_the_production_screens_are_gated_to_the_feature(): void

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Pos\Livewire;
 
+use App\Erp\Business\Feature;
+use App\Erp\Business\Features;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
@@ -44,6 +46,14 @@ final class PosStockReport extends Component
     #[Url(except: '')]
     public string $search = '';
 
+    /**
+     * When Production is enabled (perfumes POS), the report splits into two
+     * inventories: 'products' (finished goods for sale) and 'materials' (raw
+     * materials used in production). Ignored when Production is off.
+     */
+    #[Url(except: 'products')]
+    public string $scope = 'products';
+
     /** Include discontinued (inactive) products. Default: active only. */
     #[Url(except: false)]
     public bool $includeInactive = false;
@@ -70,6 +80,12 @@ final class PosStockReport extends Component
 
     public function updatedSearch(): void
     {
+        $this->resetPage();
+    }
+
+    public function setScope(string $scope): void
+    {
+        $this->scope = $scope === 'materials' ? 'materials' : 'products';
         $this->resetPage();
     }
 
@@ -142,11 +158,35 @@ final class PosStockReport extends Component
     public function render(): View
     {
         $data = app(PosStockReportData::class);
+        $productionOn = Features::enabled(Feature::Production);
 
-        // Products + condiments are merged in PHP, so paginate the resulting
-        // collection by hand into a LengthAwarePaginator the compact links
-        // partial understands.
-        $rows = $data->rows($this->filter, $this->search, $this->includeInactive);
+        // Perfumes POS splits the catalogue into two inventories: finished
+        // products vs raw production materials (ingredients). The summary chips
+        // and value are recomputed for the active scope so they add up.
+        if ($productionOn) {
+            $all = $data->rows('', $this->search, $this->includeInactive)
+                ->filter(fn (\Modules\Pos\Support\StockRow $r): bool => $this->scope === 'materials' ? $r->isIngredient() : ! $r->isIngredient())
+                ->values();
+
+            $summary = [
+                'total' => $all->count(),
+                'in' => $all->filter(fn (\Modules\Pos\Support\StockRow $r): bool => $r->stock > 0)->count(),
+                'low' => $all->filter(fn (\Modules\Pos\Support\StockRow $r): bool => $r->status === 'low')->count(),
+                'out' => $all->filter(fn (\Modules\Pos\Support\StockRow $r): bool => $r->status === 'out')->count(),
+                'value' => round((float) $all->sum(fn (\Modules\Pos\Support\StockRow $r): float => $r->value), 2),
+            ];
+
+            $rows = (match ($this->filter) {
+                'in' => $all->filter(fn (\Modules\Pos\Support\StockRow $r): bool => $r->stock > 0),
+                'low' => $all->filter(fn (\Modules\Pos\Support\StockRow $r): bool => $r->status === 'low'),
+                'out' => $all->filter(fn (\Modules\Pos\Support\StockRow $r): bool => $r->status === 'out'),
+                default => $all,
+            })->values();
+        } else {
+            $rows = $data->rows($this->filter, $this->search, $this->includeInactive);
+            $summary = $data->summary($this->includeInactive);
+        }
+
         $page = Paginator::resolveCurrentPage();
         $paginator = new LengthAwarePaginator(
             $rows->forPage($page, self::PER_PAGE)->values(),
@@ -160,10 +200,12 @@ final class PosStockReport extends Component
 
         return view('pos::stock-report', [
             'rows' => $paginator,
-            'summary' => $data->summary($this->includeInactive),
+            'summary' => $summary,
             'threshold' => $data->threshold(),
             'purchasesInstalled' => Schema::hasTable('purchases'),
             'adjustName' => $adjust !== null ? (string) $adjust->name : null,
+            'showScope' => $productionOn,
+            'scope' => $this->scope,
         ]);
     }
 }

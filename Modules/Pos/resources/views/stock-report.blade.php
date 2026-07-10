@@ -43,6 +43,20 @@
         </div>
     </div>
 
+    {{-- Products vs Production (raw materials) — perfumes POS only. --}}
+    @if ($showScope ?? false)
+        <div class="mb-4 inline-flex rounded-xl border border-chrome-200 bg-white p-1">
+            @foreach (['products' => __('Products'), 'materials' => __('Production materials')] as $val => $label)
+                <button type="button" wire:click="setScope('{{ $val }}')"
+                    @class([
+                        'rounded-lg px-4 py-1.5 text-sm font-medium transition',
+                        'bg-primary-50 text-primary-700' => ($scope ?? 'products') === $val,
+                        'text-chrome-500 hover:text-chrome-800' => ($scope ?? 'products') !== $val,
+                    ])>{{ $label }}</button>
+            @endforeach
+        </div>
+    @endif
+
     {{-- Summary chips — also the status filter. --}}
     <div class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         @foreach ($chips as [$value, $label, $count, $tone])

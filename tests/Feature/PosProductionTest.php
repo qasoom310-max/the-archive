@@ -217,6 +217,16 @@ final class PosProductionTest extends TestCase
             ->assertDontSee('PerfumeSkuZ');
     }
 
+    public function test_the_pos_app_menu_links_to_production_when_enabled(): void
+    {
+        Livewire::test(\App\Livewire\Navigation\AppSwitcher::class)
+            ->assertDontSee('Production &amp; store');
+
+        $this->enableProduction();
+        Livewire::test(\App\Livewire\Navigation\AppSwitcher::class)
+            ->assertSee('Production &amp; store', false);
+    }
+
     public function test_the_production_screens_are_gated_to_the_feature(): void
     {
         // Off by default → the route 404s (the component aborts in mount()).

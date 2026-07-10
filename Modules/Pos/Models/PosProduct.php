@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Modules\Pos\Models;
 
 use App\Erp\Contracts\DefinesIrModel;
+use App\Erp\Contracts\ProvidesFormFieldHints;
 use App\Erp\Registry\FieldDefinition;
 use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
 use App\Erp\Translation\TranslatableModel;
+use App\Erp\Views\ValueFormat;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -42,7 +44,7 @@ use Spatie\Translatable\HasTranslations;
  * @property-read int|null $available_servings
  * @property-read float $profit
  */
-final class PosProduct extends Model implements DefinesIrModel, TranslatableModel
+final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFieldHints, TranslatableModel
 {
     use HasTranslations;
 
@@ -307,6 +309,20 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
         }
 
         return round($sum, 4);
+    }
+
+    /**
+     * Show the rolled-up recipe cost right under the Cost price field so it's
+     * visible without scrolling to the recipe editor. Only when this product
+     * is actually assembled from a recipe (its cost is recipe-driven).
+     */
+    public function formFieldHint(string $field): ?string
+    {
+        if ($field === 'cost_price' && $this->exists && $this->hasRecipe()) {
+            return __('Recipe cost: :cost', ['cost' => ValueFormat::money($this->recipeCost())]);
+        }
+
+        return null;
     }
 
     public static function irModelDefinition(): ModelDefinition

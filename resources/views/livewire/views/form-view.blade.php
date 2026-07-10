@@ -363,6 +363,7 @@
                 @error($key) <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 @error('uploads.' . $field->field) <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 @if ($field->help) <p class="mt-1 text-xs text-chrome-400">{{ $field->help }}</p> @endif
+                @if (! empty($hints[$field->field] ?? null)) <p class="mt-1 text-xs font-medium text-emerald-600">{{ $hints[$field->field] }}</p> @endif
             </div>
         @endforeach
     </div>

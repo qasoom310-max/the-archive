@@ -118,6 +118,38 @@ final class PosIngredientTest extends TestCase
         $this->assertEqualsWithDelta(30.0, (float) $box->fresh()?->cost_price, 0.001);
     }
 
+    public function test_the_cost_field_shows_the_recipe_cost_as_a_hint(): void
+    {
+        $box = PosProduct::query()->create(['name' => 'Gift box', 'price' => 20, 'cost_price' => 0]);
+        $king = PosProduct::query()->create(['name' => 'King', 'price' => 12, 'cost_price' => 6.65]);
+        PosProductRecipe::query()->create([
+            'parent_product_id' => $box->id,
+            'component_product_id' => $king->id,
+            'quantity_consumed' => 1,
+        ]);
+
+        // The model exposes the hint, formatted through the active currency.
+        $expected = 'Recipe cost: ' . \App\Erp\Views\ValueFormat::money(6.65);
+        $this->assertSame($expected, $box->fresh()?->formFieldHint('cost_price'));
+        $this->assertNull($box->fresh()?->formFieldHint('price'));
+
+        // ...and the engine form renders it under the Cost price field.
+        Livewire::test(FormView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+            'recordId' => $box->id,
+            'title' => 'Edit product',
+        ])->assertSee('Recipe cost:');
+    }
+
+    public function test_a_product_without_a_recipe_shows_no_cost_hint(): void
+    {
+        $plain = PosProduct::query()->create(['name' => 'Plain', 'price' => 5, 'cost_price' => 2]);
+
+        $this->assertNull($plain->formFieldHint('cost_price'));
+        $this->assertNull((new PosProduct())->formFieldHint('cost_price')); // unsaved
+    }
+
     public function test_recipe_cost_ignores_condiments_which_carry_no_cost(): void
     {
         $box = PosProduct::query()->create(['name' => 'Box', 'price' => 20, 'cost_price' => 0]);

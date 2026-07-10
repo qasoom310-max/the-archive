@@ -1047,6 +1047,7 @@
     "Component stock": "مخزون المكوّن",
     "Cost": "التكلفة",
     "Recipe cost (saved as this product’s cost price)": "تكلفة الوصفة (تُحفظ كتكلفة هذا المنتج)",
+    "Recipe cost: :cost": "تكلفة الوصفة: :cost",
     "The cost price above updates automatically from these components. Reload the product to see it in the Cost price field.": "تُحدَّث تكلفة المنتج أعلاه تلقائيًا من هذه المكوّنات. أعِد تحميل المنتج لرؤيتها في حقل التكلفة.",
     "Condiment": "إضافة/توابل",
     "Search a product or condiment…": "ابحث عن منتج أو إضافة…",

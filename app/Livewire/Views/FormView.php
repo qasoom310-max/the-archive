@@ -6,6 +6,7 @@ namespace App\Livewire\Views;
 
 use App\Erp\Activity\ActivityLogger;
 use App\Erp\Chatter\Chatterable;
+use App\Erp\Contracts\ProvidesFormFieldHints;
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\HasAccessControl;
 use App\Erp\Translation\TranslatableModel;
@@ -680,14 +681,30 @@ final class FormView extends Component
             }
         }
 
+        $record = $this->resolveRecord();
+
+        // Optional per-field, record-specific hints (computed live from the
+        // record, on top of the static `help`). E.g. a product's rolled-up
+        // recipe cost shown under its Cost price field.
+        $hints = [];
+        if ($record instanceof ProvidesFormFieldHints) {
+            foreach ($this->arch->formFields as $field) {
+                $hint = $record->formFieldHint($field->field);
+                if ($hint !== null && $hint !== '') {
+                    $hints[$field->field] = $hint;
+                }
+            }
+        }
+
         return view('livewire.views.form-view', [
             'fields' => $this->arch->formFields,
             'cols' => $this->arch->formCols,
-            'record' => $this->resolveRecord(),
+            'record' => $record,
             'options' => $options,
             'locales' => self::LOCALES,
             'prevId' => $this->prevId(),
             'nextId' => $this->nextId(),
+            'hints' => $hints,
         ]);
     }
 }

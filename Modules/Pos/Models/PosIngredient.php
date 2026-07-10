@@ -24,6 +24,7 @@ use Spatie\Translatable\HasTranslations;
  *
  * @property int $id
  * @property string $name   Translatable JSON envelope.
+ * @property int|null $pos_ingredient_category_id  Managed grouping (Oils, Bottles…)
  * @property float $cost_price
  * @property float $stock_on_hand  On-hand quantity (so an ingredient can be a recipe component)
  * @property float|null $reorder_point  Low-stock threshold; null = global default
@@ -44,7 +45,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
     public array $translatable = ['name'];
 
     /** @var list<string> */
-    protected $fillable = ['name', 'cost_price', 'stock_on_hand', 'reorder_point', 'unit', 'pack_size', 'ml_per_unit', 'supplier_id', 'active', 'sequence'];
+    protected $fillable = ['name', 'pos_ingredient_category_id', 'cost_price', 'stock_on_hand', 'reorder_point', 'unit', 'pack_size', 'ml_per_unit', 'supplier_id', 'active', 'sequence'];
 
     /** @var array<string, mixed> */
     protected $attributes = [
@@ -79,6 +80,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
     protected function casts(): array
     {
         return [
+            'pos_ingredient_category_id' => 'integer',
             'cost_price' => 'float',
             'stock_on_hand' => 'float',
             'reorder_point' => 'float',
@@ -131,6 +133,22 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
     }
 
     /**
+     * Managed grouping (Oils, Bottles, Caps…).
+     *
+     * @return BelongsTo<PosIngredientCategory, $this>
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(PosIngredientCategory::class, 'pos_ingredient_category_id');
+    }
+
+    /** Localised category name for the list view (null = uncategorised). */
+    public function getCategoryNameAttribute(): ?string
+    {
+        return $this->category?->name;
+    }
+
+    /**
      * Preferred vendor for restocking this ingredient.
      *
      * @return BelongsTo<Partner, $this>
@@ -150,6 +168,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
             module: 'pos',
             fields: [
                 new FieldDefinition('name', 'Name', 'char', required: true, sequence: 10),
+                new FieldDefinition('pos_ingredient_category_id', 'Category', 'many2one', relation: 'pos.ingredient_category', sequence: 15),
                 new FieldDefinition('cost_price', 'Cost Price', 'float', sequence: 20),
                 new FieldDefinition('stock_on_hand', 'Stock on hand', 'float', sequence: 25),
                 new FieldDefinition('reorder_point', 'Reorder point', 'float', sequence: 28),
@@ -162,6 +181,9 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
                 new ViewDefinition('POS Ingredients', 'list', [
                     'columns' => [
                         ['field' => 'name', 'label' => 'Name', 'sortable' => true],
+                        // `category_name` is an accessor reading through the category
+                        // relation; sorts by the underlying FK.
+                        ['field' => 'category_name', 'label' => 'Category', 'sort_field' => 'pos_ingredient_category_id'],
                         ['field' => 'cost_price', 'label' => 'Cost', 'format' => 'money', 'align' => 'right', 'sortable' => true],
                         ['field' => 'stock_on_hand', 'label' => 'Stock', 'format' => 'number', 'align' => 'right', 'sortable' => true],
                         ['field' => 'reorder_point', 'label' => 'Reorder point', 'format' => 'number', 'align' => 'right', 'sortable' => true, 'hidden_by_default' => true],
@@ -177,6 +199,18 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
                     'cols' => 2,
                     'fields' => [
                         ['field' => 'name', 'label' => 'Name', 'widget' => 'text', 'required' => true, 'translatable' => true, 'unique' => true],
+                        [
+                            'field' => 'pos_ingredient_category_id',
+                            'label' => 'Category',
+                            'widget' => 'select',
+                            'help' => 'Group this material (Oils, Bottles, Caps…). Manage the list under Ingredient categories.',
+                            'optionsFrom' => [
+                                'model' => PosIngredientCategory::class,
+                                'value' => 'id',
+                                'label' => 'name',
+                                'orderBy' => 'sequence',
+                            ],
+                        ],
                         ['field' => 'stock_on_hand', 'label' => 'How many in hand', 'widget' => 'number', 'help' => 'How many units / containers you have.'],
                         ['field' => 'pack_size', 'label' => 'Each unit is', 'widget' => 'number', 'help' => 'The size of one unit — e.g. 20 for a 20-litre drum. Use 1 if you just count in the unit itself.'],
                         ['field' => 'unit', 'label' => 'Unit', 'widget' => 'select', 'options' => PosProduct::UNIT_OPTIONS],

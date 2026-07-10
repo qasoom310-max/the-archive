@@ -14,6 +14,7 @@ use Modules\Pos\Livewire\PosStockReport;
 use Modules\Pos\Livewire\ProductionForm;
 use Modules\Pos\Livewire\Productions;
 use Modules\Pos\Models\PosIngredient;
+use Modules\Pos\Models\PosIngredientCategory;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Models\PosProduction;
 use Modules\Pos\Models\PosStockTransfer;
@@ -319,5 +320,142 @@ final class PosProductionTest extends TestCase
         // On → the component mounts and renders.
         $this->enableProduction();
         Livewire::test(Productions::class)->assertSee('Production & store');
+    }
+
+    public function test_packaging_is_deducted_per_bottle_and_added_to_cost(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 2]);
+        $bottle = PosIngredient::query()->create(['name' => 'Bottle 50ml', 'unit' => 'pcs', 'stock_on_hand' => 50, 'cost_price' => 0.30]);
+        $cap = PosIngredient::query()->create(['name' => 'Cap', 'unit' => 'pcs', 'stock_on_hand' => 60, 'cost_price' => 0.10]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50, 'store_stock' => 0]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->call('addPackaging')
+            ->set('packaging.0.ingredient_id', $bottle->id)
+            ->set('packaging.0.qty', 1)
+            ->call('addPackaging')
+            ->set('packaging.1.ingredient_id', $cap->id)
+            ->set('packaging.1.qty', 1)
+            ->set('produced_units', 10)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        // Liquid by ml, packaging by whole units × bottles produced.
+        $this->assertEqualsWithDelta(500.0, $oil->fresh()->stock_on_hand, 0.001);
+        $this->assertEqualsWithDelta(40.0, $bottle->fresh()->stock_on_hand, 0.001); // 50 − 10
+        $this->assertEqualsWithDelta(50.0, $cap->fresh()->stock_on_hand, 0.001);    // 60 − 10
+        $this->assertEqualsWithDelta(10.0, $perfume->fresh()->store_stock, 0.001);
+
+        // Cost = 500×2 (oil) + 10×0.30 (bottle) + 10×0.10 (cap) = 1004.
+        $run = PosProduction::query()->latest('id')->first();
+        $this->assertEqualsWithDelta(1004.0, $run->total_cost, 0.001);
+        $this->assertEqualsWithDelta(100.4, $perfume->fresh()->cost_price, 0.01);
+    }
+
+    public function test_packaging_short_stock_blocks_the_production(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 1]);
+        $bottle = PosIngredient::query()->create(['name' => 'Bottle', 'unit' => 'pcs', 'stock_on_hand' => 5, 'cost_price' => 0.30]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50, 'store_stock' => 0]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->call('addPackaging')
+            ->set('packaging.0.ingredient_id', $bottle->id)
+            ->set('packaging.0.qty', 1) // needs 10, only 5 in stock
+            ->set('produced_units', 10)
+            ->call('save')
+            ->assertHasErrors('packaging.0.qty');
+
+        $this->assertSame(0, PosProduction::query()->count());
+        $this->assertEqualsWithDelta(5.0, $bottle->fresh()->stock_on_hand, 0.001);   // untouched
+        $this->assertEqualsWithDelta(1000.0, $oil->fresh()->stock_on_hand, 0.001);   // untouched
+    }
+
+    public function test_a_saved_formula_auto_fills_packaging(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 2]);
+        $bottle = PosIngredient::query()->create(['name' => 'Bottle', 'unit' => 'pcs', 'stock_on_hand' => 100, 'cost_price' => 0.30]);
+        $perfume = PosProduct::query()->create(['name' => 'PF', 'price' => 5, 'bottle_size_ml' => 50]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->call('addPackaging')
+            ->set('packaging.0.ingredient_id', $bottle->id)
+            ->set('packaging.0.qty', 2)
+            ->call('saveAsFormula')
+            ->assertSet('formulaJustSaved', true);
+
+        $this->assertSame(2, $perfume->formulaLines()->count()); // one liquid + one packaging
+
+        // Re-opening splits the formula back into liquid lines + packaging.
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->assertCount('lines', 1)
+            ->assertCount('packaging', 1)
+            ->assertSet('lines.0.ml_used', '500')
+            ->assertSet('packaging.0.ingredient_id', (string) $bottle->id)
+            ->assertSet('packaging.0.qty', '2');
+    }
+
+    public function test_the_production_pickers_group_materials_by_category(): void
+    {
+        $this->enableProduction();
+        $oils = PosIngredientCategory::query()->create(['name' => 'CatOils', 'sequence' => 1]);
+        $bottles = PosIngredientCategory::query()->create(['name' => 'CatBottles', 'sequence' => 2]);
+        PosIngredient::query()->create(['name' => 'Rose oil', 'unit' => 'ml', 'stock_on_hand' => 100, 'cost_price' => 30, 'pos_ingredient_category_id' => $oils->id]);
+        PosIngredient::query()->create(['name' => 'Bottle 50', 'unit' => 'pcs', 'stock_on_hand' => 100, 'cost_price' => 0.3, 'pos_ingredient_category_id' => $bottles->id]);
+        PosIngredient::query()->create(['name' => 'Loose material', 'unit' => 'ml', 'stock_on_hand' => 100, 'cost_price' => 1]); // no category
+
+        Livewire::test(ProductionForm::class)
+            ->assertSee('CatOils')        // optgroup labels
+            ->assertSee('CatBottles')
+            ->assertSee('Uncategorised')  // fallback bucket
+            ->assertSee('Rose oil')
+            ->assertSee('Bottle 50');
+    }
+
+    public function test_editing_reverses_and_reapplies_packaging(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 2000, 'cost_price' => 1]);
+        $bottle = PosIngredient::query()->create(['name' => 'Bottle', 'unit' => 'pcs', 'stock_on_hand' => 50, 'cost_price' => 0.30]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50, 'store_stock' => 0]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->call('addPackaging')
+            ->set('packaging.0.ingredient_id', $bottle->id)
+            ->set('packaging.0.qty', 1)
+            ->set('produced_units', 10)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertEqualsWithDelta(40.0, $bottle->fresh()->stock_on_hand, 0.001); // 50 − 10
+        $run = PosProduction::query()->latest('id')->first();
+
+        // Edit to 20 bottles: reverse (→50) then reapply 20 → 30 left.
+        Livewire::test(ProductionForm::class, ['id' => $run->id])
+            ->assertCount('packaging', 1)
+            ->set('lines.0.ml_used', 1000)
+            ->set('produced_units', 20)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertEqualsWithDelta(30.0, $bottle->fresh()->stock_on_hand, 0.001); // 50 − 20
+        $this->assertEqualsWithDelta(20.0, $perfume->fresh()->store_stock, 0.001);
+        $this->assertSame(1, PosProduction::query()->count());
     }
 }

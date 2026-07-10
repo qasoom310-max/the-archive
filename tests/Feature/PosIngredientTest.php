@@ -15,6 +15,7 @@ use Modules\Pos\Livewire\PosIngredientForm;
 use Modules\Pos\Livewire\PosIngredients;
 use Modules\Pos\Livewire\PosRecipeEditor;
 use Modules\Pos\Models\PosIngredient;
+use Modules\Pos\Models\PosIngredientCategory;
 use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosPaymentMethod;
 use Modules\Pos\Models\PosProduct;
@@ -195,6 +196,53 @@ final class PosIngredientTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertSame(2, PosIngredient::query()->count());
+    }
+
+    public function test_an_ingredient_can_be_grouped_under_a_managed_category(): void
+    {
+        $oils = PosIngredientCategory::query()->create(['name' => 'Oils', 'sequence' => 1]);
+        $oil = PosIngredient::query()->create([
+            'name' => 'Rose oil', 'cost_price' => 30, 'stock_on_hand' => 5,
+            'pos_ingredient_category_id' => $oils->id,
+        ]);
+
+        $this->assertSame($oils->id, $oil->category?->id);
+        $this->assertSame('Oils', $oil->category_name);
+        $this->assertTrue($oils->ingredients->contains($oil));
+    }
+
+    public function test_the_ingredient_form_saves_a_category(): void
+    {
+        $bottles = PosIngredientCategory::query()->create(['name' => 'Bottles', 'sequence' => 2]);
+
+        Livewire::test(FormView::class, [
+            'model' => PosIngredient::class,
+            'modelKey' => 'pos.ingredient',
+            'recordId' => null,
+            'title' => 'New ingredient',
+        ])
+            ->set('form.name', 'Bottle 50ml')
+            ->set('form.pos_ingredient_category_id', $bottles->id)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $saved = PosIngredient::query()->where('pos_ingredient_category_id', $bottles->id)->first();
+        $this->assertNotNull($saved);
+        $this->assertSame('Bottle 50ml', $saved->name);
+    }
+
+    public function test_the_ingredient_category_list_and_form_pages_render(): void
+    {
+        $cat = PosIngredientCategory::query()->create(['name' => 'Caps', 'sequence' => 3]);
+
+        Livewire::test(FormView::class, [
+            'model' => PosIngredientCategory::class,
+            'modelKey' => 'pos.ingredient_category',
+            'recordId' => $cat->id,
+            'title' => 'Edit category',
+        ])->assertOk();
+
+        $this->assertSame('Caps', $cat->fresh()?->name);
     }
 
     public function test_resaving_an_ingredient_under_its_own_name_is_allowed(): void

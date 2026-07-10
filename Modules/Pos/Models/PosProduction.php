@@ -111,9 +111,16 @@ final class PosProduction extends Model
     {
         foreach ($this->lines as $line) {
             $ingredient = $line->ingredient;
-            if ($ingredient !== null) {
-                // Converts ML → units for container-tracked materials.
-                $ingredient->deductMl((float) $line->ml_used);
+            if ($ingredient === null) {
+                continue;
+            }
+            if ($line->kind === PosProductionLine::KIND_PACKAGING) {
+                // Per-bottle component: qty × bottles produced.
+                $ingredient->stock_on_hand = (float) $ingredient->stock_on_hand
+                    - (float) ($line->qty_per_unit ?? 0) * $this->produced_units;
+                $ingredient->save();
+            } else {
+                $ingredient->deductMl((float) $line->ml_used); // converts ML → stock units
             }
         }
 
@@ -136,7 +143,14 @@ final class PosProduction extends Model
     {
         foreach ($this->lines as $line) {
             $ingredient = $line->ingredient;
-            if ($ingredient !== null) {
+            if ($ingredient === null) {
+                continue;
+            }
+            if ($line->kind === PosProductionLine::KIND_PACKAGING) {
+                $ingredient->stock_on_hand = (float) $ingredient->stock_on_hand
+                    + (float) ($line->qty_per_unit ?? 0) * $this->produced_units;
+                $ingredient->save();
+            } else {
                 $per = $ingredient->mlPerUnit();
                 $ingredient->stock_on_hand = (float) $ingredient->stock_on_hand
                     + ($per > 0 ? (float) $line->ml_used / $per : (float) $line->ml_used);

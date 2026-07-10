@@ -13,7 +13,9 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosProduct;
+use Modules\Pos\Models\PosProductFormulaLine;
 use Modules\Pos\Models\PosProduction;
+use Modules\Pos\Models\PosProductionLine;
 use Modules\Pos\Services\PosSessionManager;
 
 /**
@@ -38,8 +40,19 @@ final class ProductionForm extends Component
     /** Set right after "Save as formula" so the view can confirm it. */
     public bool $formulaJustSaved = false;
 
-    /** @var list<array<string, string>> */
+    /**
+     * Liquid materials (mixed by ml).
+     *
+     * @var list<array<string, string>>
+     */
     public array $lines = [];
+
+    /**
+     * Packaging consumed per bottle (bottle, cap, pump…).
+     *
+     * @var list<array<string, string>>
+     */
+    public array $packaging = [];
 
     public function mount(?int $id = null): void
     {
@@ -53,10 +66,17 @@ final class ProductionForm extends Component
                 $this->produced_units = (string) $production->produced_units;
                 $this->notes = $production->notes ?? '';
                 $this->reference = $production->reference ?? '';
-                $this->lines = $production->lines->map(fn ($l): array => [
+
+                $liquid = $production->lines->where('kind', '!=', PosProductionLine::KIND_PACKAGING);
+                $pack = $production->lines->where('kind', PosProductionLine::KIND_PACKAGING);
+                $this->lines = $liquid->map(fn ($l): array => [
                     'ingredient_id' => (string) $l->pos_ingredient_id,
-                    'ml_used' => rtrim(rtrim(number_format((float) $l->ml_used, 3, '.', ''), '0'), '.'),
-                ])->all();
+                    'ml_used' => $this->trimNum((float) $l->ml_used),
+                ])->values()->all();
+                $this->packaging = $pack->map(fn ($l): array => [
+                    'ingredient_id' => (string) $l->pos_ingredient_id,
+                    'qty' => $this->trimNum((float) ($l->qty_per_unit ?? 0)),
+                ])->values()->all();
                 if ($this->lines === []) {
                     $this->lines = [$this->emptyLine()];
                 }
@@ -83,6 +103,20 @@ final class ProductionForm extends Component
         return ['ingredient_id' => '', 'ml_used' => ''];
     }
 
+    /**
+     * @return array<string, string>
+     */
+    private function emptyPack(): array
+    {
+        return ['ingredient_id' => '', 'qty' => '1'];
+    }
+
+    /** Format a number without trailing zeros for an input value. */
+    private function trimNum(float $value): string
+    {
+        return rtrim(rtrim(number_format($value, 3, '.', ''), '0'), '.');
+    }
+
     public function addLine(): void
     {
         $this->lines[] = $this->emptyLine();
@@ -97,6 +131,17 @@ final class ProductionForm extends Component
         }
     }
 
+    public function addPackaging(): void
+    {
+        $this->packaging[] = $this->emptyPack();
+    }
+
+    public function removePackaging(int $index): void
+    {
+        unset($this->packaging[$index]);
+        $this->packaging = array_values($this->packaging);
+    }
+
     public function updatedProductId(): void
     {
         $this->formulaJustSaved = false;
@@ -105,10 +150,18 @@ final class ProductionForm extends Component
         if ($this->product_id !== null) {
             $product = PosProduct::query()->with('formulaLines')->find($this->product_id);
             if ($product !== null && $product->formulaLines->isNotEmpty()) {
-                $this->lines = $product->formulaLines->map(fn ($f): array => [
+                $liquid = $product->formulaLines->where('kind', '!=', PosProductFormulaLine::KIND_PACKAGING);
+                $pack = $product->formulaLines->where('kind', PosProductFormulaLine::KIND_PACKAGING);
+                if ($liquid->isNotEmpty()) {
+                    $this->lines = $liquid->map(fn ($f): array => [
+                        'ingredient_id' => (string) $f->pos_ingredient_id,
+                        'ml_used' => $this->trimNum((float) $f->ml),
+                    ])->values()->all();
+                }
+                $this->packaging = $pack->map(fn ($f): array => [
                     'ingredient_id' => (string) $f->pos_ingredient_id,
-                    'ml_used' => rtrim(rtrim(number_format((float) $f->ml, 3, '.', ''), '0'), '.'),
-                ])->all();
+                    'qty' => $this->trimNum((float) ($f->qty_per_unit ?? 0)),
+                ])->values()->all();
             }
         }
 
@@ -159,7 +212,25 @@ final class ProductionForm extends Component
             if ($ingredientId <= 0 || $ml <= 0) {
                 continue;
             }
-            $product->formulaLines()->create(['pos_ingredient_id' => $ingredientId, 'ml' => $ml, 'sequence' => $i]);
+            $product->formulaLines()->create([
+                'pos_ingredient_id' => $ingredientId,
+                'kind' => PosProductFormulaLine::KIND_LIQUID,
+                'ml' => $ml,
+                'sequence' => $i,
+            ]);
+        }
+        foreach ($this->packaging as $i => $line) {
+            $ingredientId = (int) ($line['ingredient_id'] ?? 0);
+            $qty = (float) ($line['qty'] ?? 0);
+            if ($ingredientId <= 0 || $qty <= 0) {
+                continue;
+            }
+            $product->formulaLines()->create([
+                'pos_ingredient_id' => $ingredientId,
+                'kind' => PosProductFormulaLine::KIND_PACKAGING,
+                'qty_per_unit' => $qty,
+                'sequence' => 100 + $i,
+            ]);
         }
 
         $this->formulaJustSaved = true;
@@ -199,6 +270,9 @@ final class ProductionForm extends Component
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.ingredient_id' => ['required', 'integer', 'exists:pos_ingredients,id'],
             'lines.*.ml_used' => ['required', 'numeric', 'min:0.001'],
+            'packaging' => ['array'],
+            'packaging.*.ingredient_id' => ['required', 'integer', 'exists:pos_ingredients,id'],
+            'packaging.*.qty' => ['required', 'numeric', 'min:0.001'],
         ];
     }
 
@@ -213,31 +287,46 @@ final class ProductionForm extends Component
             return;
         }
 
+        $produced = (int) $this->produced_units;
+
         $ingredients = PosIngredient::query()
-            ->whereIn('id', array_filter(array_column($this->lines, 'ingredient_id')))
+            ->whereIn('id', array_filter(array_merge(
+                array_column($this->lines, 'ingredient_id'),
+                array_column($this->packaging, 'ingredient_id'),
+            )))
             ->get()->keyBy('id');
 
         // Not enough stock guard. When editing, the materials this run currently
         // consumes will be freed on save, so add that back to what's available.
-        $priorUsage = [];
+        // Liquid is compared in ML; packaging in whole units (qty × bottles).
+        $priorMl = [];
+        $priorPack = [];
         if ($this->id !== null) {
             $existing = PosProduction::query()->with('lines')->find($this->id);
             if ($existing !== null) {
                 foreach ($existing->lines as $l) {
-                    $priorUsage[$l->pos_ingredient_id] = ($priorUsage[$l->pos_ingredient_id] ?? 0) + (float) $l->ml_used;
+                    if ($l->kind === PosProductionLine::KIND_PACKAGING) {
+                        $priorPack[$l->pos_ingredient_id] = ($priorPack[$l->pos_ingredient_id] ?? 0)
+                            + (float) ($l->qty_per_unit ?? 0) * $existing->produced_units;
+                    } else {
+                        $priorMl[$l->pos_ingredient_id] = ($priorMl[$l->pos_ingredient_id] ?? 0) + (float) $l->ml_used;
+                    }
                 }
             }
         }
-        $usedByIngredient = [];
+
+        $short = false;
+
+        // Liquid materials (ML).
+        $usedMl = [];
         foreach ($this->lines as $line) {
             $id = (int) ($line['ingredient_id'] ?? 0);
             if ($id > 0) {
-                $usedByIngredient[$id] = ($usedByIngredient[$id] ?? 0) + (float) ($line['ml_used'] ?? 0);
+                $usedMl[$id] = ($usedMl[$id] ?? 0) + (float) ($line['ml_used'] ?? 0);
             }
         }
-        $short = false;
-        foreach ($usedByIngredient as $id => $used) {
-            $available = ($ingredients->get($id)?->availableMl() ?? 0) + ($priorUsage[$id] ?? 0);
+        foreach ($usedMl as $id => $used) {
+            $available = ($ingredients->get($id)?->availableMl() ?? 0) + ($priorMl[$id] ?? 0);
             if ($used > $available + 0.0001) {
                 $short = true;
                 foreach ($this->lines as $i => $line) {
@@ -248,17 +337,46 @@ final class ProductionForm extends Component
                 }
             }
         }
+
+        // Packaging materials (whole units × bottles produced).
+        $usedPack = [];
+        foreach ($this->packaging as $line) {
+            $id = (int) ($line['ingredient_id'] ?? 0);
+            if ($id > 0) {
+                $usedPack[$id] = ($usedPack[$id] ?? 0) + (float) ($line['qty'] ?? 0) * $produced;
+            }
+        }
+        foreach ($usedPack as $id => $need) {
+            $ing = $ingredients->get($id);
+            $available = (float) $ing->stock_on_hand + ($priorPack[$id] ?? 0);
+            if ($need > $available + 0.0001) {
+                $short = true;
+                foreach ($this->packaging as $i => $line) {
+                    if ((int) ($line['ingredient_id'] ?? 0) === $id) {
+                        $this->addError("packaging.$i.qty", __('Only :n :unit in stock.', [
+                            'n' => rtrim(rtrim(number_format($available, 1), '0'), '.'),
+                            'unit' => (string) $ing->unit,
+                        ]));
+                        break;
+                    }
+                }
+            }
+        }
+
         if ($short) {
             return;
         }
 
         $totalMix = $this->totalMix();
         $bottle = $this->bottleSize();
-        $produced = (int) $this->produced_units;
         $totalCost = 0.0;
         foreach ($this->lines as $line) {
             $ing = $ingredients->get((int) $line['ingredient_id']);
             $totalCost += (float) ($line['ml_used'] ?? 0) * ($ing?->costPerMl() ?? 0);
+        }
+        foreach ($this->packaging as $line) {
+            $ing = $ingredients->get((int) $line['ingredient_id']);
+            $totalCost += (float) ($line['qty'] ?? 0) * $produced * (float) $ing->cost_price;
         }
 
         // Editing: undo the previous stock effect before rewriting the run.
@@ -291,8 +409,24 @@ final class ProductionForm extends Component
             $ing = $ingredients->get((int) $line['ingredient_id']);
             $production->lines()->create([
                 'pos_ingredient_id' => (int) $line['ingredient_id'],
+                'kind' => PosProductionLine::KIND_LIQUID,
                 'ml_used' => (float) $line['ml_used'],
                 'unit_cost' => $ing?->costPerMl() ?? 0, // cost per ML
+            ]);
+        }
+        foreach ($this->packaging as $line) {
+            $id = (int) ($line['ingredient_id'] ?? 0);
+            $qty = (float) ($line['qty'] ?? 0);
+            if ($id <= 0 || $qty <= 0) {
+                continue;
+            }
+            $ing = $ingredients->get($id);
+            $production->lines()->create([
+                'pos_ingredient_id' => $id,
+                'kind' => PosProductionLine::KIND_PACKAGING,
+                'ml_used' => 0,
+                'qty_per_unit' => $qty,
+                'unit_cost' => (float) $ing->cost_price, // cost per unit
             ]);
         }
 
@@ -309,7 +443,9 @@ final class ProductionForm extends Component
     {
         return view('pos::production-form', [
             'products' => PosProduct::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'bottle_size_ml']),
-            'ingredients' => PosIngredient::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'unit', 'stock_on_hand', 'pack_size', 'ml_per_unit', 'cost_price']),
+            'ingredients' => PosIngredient::query()->where('active', true)->with('category')
+                ->orderBy('sequence')->orderBy('name')
+                ->get(['id', 'pos_ingredient_category_id', 'name', 'unit', 'stock_on_hand', 'pack_size', 'ml_per_unit', 'cost_price']),
             'totalMix' => $this->totalMix(),
             'bottleSize' => $this->bottleSize(),
             'expected' => $this->expectedUnits(),

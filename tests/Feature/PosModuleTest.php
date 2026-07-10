@@ -80,7 +80,7 @@ final class PosModuleTest extends TestCase
         $this->assertTrue(Schema::hasTable('partners')); // from the contacts dependency
 
         $this->assertEqualsCanonicalizing(
-            ['pos.product', 'pos.category', 'pos.condiment', 'pos.ingredient', 'pos.customer_discount', 'pos.floor', 'pos.table', 'pos.session', 'pos.order', 'pos.damage'],
+            ['pos.product', 'pos.category', 'pos.condiment', 'pos.ingredient_category', 'pos.ingredient', 'pos.customer_discount', 'pos.floor', 'pos.table', 'pos.session', 'pos.order', 'pos.damage'],
             IrModel::query()->where('module', 'pos')->pluck('model')->all(),
         );
         $this->assertTrue(

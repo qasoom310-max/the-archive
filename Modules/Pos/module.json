@@ -15,6 +15,7 @@
         "Modules\\Pos\\Models\\PosProduct",
         "Modules\\Pos\\Models\\PosCategory",
         "Modules\\Pos\\Models\\PosCondiment",
+        "Modules\\Pos\\Models\\PosIngredientCategory",
         "Modules\\Pos\\Models\\PosIngredient",
         "Modules\\Pos\\Models\\PosCustomerDiscount",
         "Modules\\Pos\\Models\\PosFloor",

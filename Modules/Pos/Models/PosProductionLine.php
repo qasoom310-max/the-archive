@@ -14,7 +14,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $id
  * @property int $pos_production_id
  * @property int $pos_ingredient_id
+ * @property string $kind  liquid (ml_used total) | packaging (qty_per_unit per bottle)
  * @property float $ml_used
+ * @property float|null $qty_per_unit
  * @property float $unit_cost
  * @property-read PosIngredient|null $ingredient
  */
@@ -22,8 +24,15 @@ final class PosProductionLine extends Model
 {
     protected $table = 'pos_production_lines';
 
+    public const KIND_LIQUID = 'liquid';
+
+    public const KIND_PACKAGING = 'packaging';
+
     /** @var list<string> */
-    protected $fillable = ['pos_production_id', 'pos_ingredient_id', 'ml_used', 'unit_cost'];
+    protected $fillable = ['pos_production_id', 'pos_ingredient_id', 'kind', 'ml_used', 'qty_per_unit', 'unit_cost'];
+
+    /** @var array<string, mixed> */
+    protected $attributes = ['kind' => self::KIND_LIQUID];
 
     /**
      * @return array<string, string>
@@ -34,6 +43,7 @@ final class PosProductionLine extends Model
             'pos_production_id' => 'integer',
             'pos_ingredient_id' => 'integer',
             'ml_used' => 'float',
+            'qty_per_unit' => 'float',
             'unit_cost' => 'float',
         ];
     }

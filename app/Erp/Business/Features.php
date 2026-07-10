@@ -46,6 +46,7 @@ final class Features
      */
     private const MODEL_FEATURE = [
         'pos.ingredient' => Feature::Recipes,
+        'pos.ingredient_category' => Feature::Recipes,
         // The damage / waste log is its own POS sub-feature (toggle in POS →
         // Settings). Its preset matches Inventory's old reach (Café / Retail /
         // Retail+Crafting) so configured databases keep it.

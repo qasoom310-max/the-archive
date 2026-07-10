@@ -334,7 +334,7 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
                         // doesn't surface margin; power users can toggle it on.
                         ['field' => 'profit', 'label' => 'Margin', 'format' => 'money', 'align' => 'right', 'hidden_by_default' => true],
                         ['field' => 'tax_rate', 'label' => 'Tax %', 'format' => 'number', 'align' => 'right', 'hidden_by_default' => true],
-                        ['field' => 'stock_on_hand', 'label' => 'Stock', 'format' => 'number', 'align' => 'right', 'sortable' => true, 'hidden_by_default' => true],
+                        ['field' => 'stock_on_hand', 'label' => 'Stock', 'format' => 'number', 'align' => 'right', 'sortable' => true],
                         ['field' => 'unit', 'label' => 'Unit', 'hidden_by_default' => true],
                         ['field' => 'available_servings', 'label' => 'Available Servings', 'align' => 'right'],
                         ['field' => 'barcode', 'label' => 'Barcode', 'hidden_by_default' => true],

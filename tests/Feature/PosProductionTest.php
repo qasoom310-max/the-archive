@@ -71,6 +71,8 @@ final class PosProductionTest extends TestCase
         $this->assertEqualsWithDelta(1800.0, $run->total_mix_ml, 0.001);
         $this->assertEqualsWithDelta(1065.0, $run->total_cost, 0.001); // 500×2 + 1300×0.05
         $this->assertNotNull($run->reference);
+        // The finished perfume adopts the per-bottle material cost (1065 ÷ 36).
+        $this->assertEqualsWithDelta(29.583, $perfume->fresh()->cost_price, 0.01);
     }
 
     public function test_a_saved_formula_auto_fills_the_next_production(): void

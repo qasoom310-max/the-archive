@@ -327,9 +327,9 @@ final class PosModuleTest extends TestCase
     public function test_pos_product_list_hides_default_hidden_columns_on_first_visit(): void
     {
         // Fresh user, no UserViewPreference row yet. The list arch marks
-        // profit / tax_rate / stock_on_hand / unit / barcode as hidden_by_default
-        // — those should be off out of the box, while name / category / price
-        // / cost / available_servings / active stay visible.
+        // profit / tax_rate / unit / barcode as hidden_by_default — those should
+        // be off out of the box, while name / category / price / cost / stock /
+        // available_servings / active stay visible.
         $this->installPos();
         $this->seed(PosSeeder::class);
 
@@ -341,7 +341,7 @@ final class PosModuleTest extends TestCase
         $hidden = $component->get('hiddenColumns');
         sort($hidden);
         $this->assertSame(
-            ['barcode', 'profit', 'stock_on_hand', 'tax_rate', 'unit'],
+            ['barcode', 'profit', 'tax_rate', 'unit'],
             $hidden,
             'Default hidden set must match the arch hidden_by_default flags.',
         );

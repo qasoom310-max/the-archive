@@ -120,6 +120,10 @@ final class PosProduction extends Model
         $product = $this->product;
         if ($product !== null) {
             $product->store_stock = (float) $product->store_stock + $this->produced_units;
+            // Give the finished perfume a real cost (material cost per bottle).
+            if ($this->unit_cost > 0) {
+                $product->cost_price = (float) $this->unit_cost;
+            }
             $product->save();
         }
     }

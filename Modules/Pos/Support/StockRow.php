@@ -33,6 +33,8 @@ final class StockRow
         public readonly string $status,
         public readonly bool $active,
         public readonly ?string $barcode,
+        /** Back-store stock (products with production); null when N/A. */
+        public readonly ?float $storeStock = null,
     ) {
     }
 

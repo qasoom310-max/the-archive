@@ -29,6 +29,9 @@ enum Feature: string
     case Damage = 'damage';
     case BarcodeScanning = 'barcode_scanning';
     case DailyReportCards = 'daily_report_cards';
+    // Manufacturing: mix raw materials into finished stock held in a store, then
+    // move it to the shop for sale. Opt-in — see Features::DEFAULT_OFF.
+    case Production = 'production';
     // Postpaid dine-in: fire items to the kitchen on add and pay at the end.
     // OFF (the default) = prepaid: pay first, then the order fires to the
     // kitchen. Opt-in — see Features::DEFAULT_OFF.
@@ -67,10 +70,11 @@ enum Feature: string
             self::Damage => 'Damage / waste log',
             self::BarcodeScanning => 'Barcode scanning (camera)',
             self::DailyReportCards => 'Daily sale & stock cards on dashboard',
+            self::Production => 'Production & store (mixing)',
             self::Postpaid => 'Postpaid (kitchen first, pay later)',
             self::ChartOfAccounts => 'Chart of accounts',
             self::JournalEntries => 'Journal entries',
-            self::RentalMaintenance => 'Vehicle maintenance',
+            self::RentalMaintenance => 'Car maintenance',
             self::RentalDrivers => 'Drivers',
             self::RentalQuotations => 'Rental quotations',
             self::RentalReplacements => 'Replacement vehicles',
@@ -94,6 +98,7 @@ enum Feature: string
             self::Damage => 'Record damaged or wasted stock so on-hand counts stay accurate.',
             self::BarcodeScanning => 'Show the camera scan button in the terminal search bar (USB scanners always work).',
             self::DailyReportCards => 'Show the Daily sale and Daily stock report cards on the main dashboard.',
+            self::Production => 'Mix raw materials into finished bottles held in a store, then move them to the shop for sale.',
             self::Postpaid => 'Send items to the kitchen as they are added and take payment at the end. Off = pay first, then the order fires to the kitchen.',
             self::ChartOfAccounts => 'The list of ledger accounts (assets, income, expenses…).',
             self::JournalEntries => 'Manual and automatic double-entry journal postings.',

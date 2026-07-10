@@ -114,6 +114,7 @@ final class PosStockReportData
                     status: $p->stockStatus($t),
                     active: (bool) $p->active,
                     barcode: ($p->barcode !== null && $p->barcode !== '') ? (string) $p->barcode : null,
+                    storeStock: (float) $p->store_stock,
                 );
             });
 

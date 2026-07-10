@@ -103,7 +103,12 @@
                             @unless ($row->active)<span class="ms-1 text-xs text-chrome-400">({{ __('inactive') }})</span>@endunless
                         </td>
                         <td class="px-4 py-2.5 text-chrome-500">{{ $row->category ?? '—' }}</td>
-                        <td class="px-4 py-2.5 text-end font-semibold tabular-nums text-chrome-900">{{ $fmt($row->stock) }}{{ $unit }}</td>
+                        <td class="px-4 py-2.5 text-end font-semibold tabular-nums text-chrome-900">
+                            {{ $fmt($row->stock) }}{{ $unit }}
+                            @if ($row->isProduct() && $row->storeStock !== null && $row->storeStock > 0 && \App\Erp\Business\Features::enabled(\App\Erp\Business\Feature::Production))
+                                <span class="block text-[11px] font-normal text-chrome-400">{{ __('store') }} {{ $fmt($row->storeStock) }}</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-2.5 text-end tabular-nums text-chrome-600">{{ $money($row->value) }}</td>
                         <td class="px-4 py-2.5 text-end">
                             <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ $statusMeta[1] }}">{{ $statusMeta[0] }}</span>

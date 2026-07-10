@@ -29,6 +29,8 @@ use Modules\Pos\Livewire\PosProductForm;
 use Modules\Pos\Livewire\PosProductImport;
 use Modules\Pos\Livewire\PosProducts;
 use Modules\Pos\Livewire\PosReporting;
+use Modules\Pos\Livewire\ProductionForm;
+use Modules\Pos\Livewire\Productions;
 use Modules\Pos\Livewire\PosSessionPage;
 use Modules\Pos\Livewire\PosStockReport;
 use Modules\Pos\Livewire\PosTableForm;
@@ -60,6 +62,11 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/pos/category', PosCategories::class)->name('pos.category.index');
     Route::get('/app/pos/condiment', PosCondiments::class)->name('pos.condiment.index');
     Route::get('/app/pos/ingredient', PosIngredients::class)->name('pos.ingredient.index');
+
+    // Production & store (mixing) — perfumes POS. The screens re-check the
+    // feature flag in mount(), so a stale link 404s when it's off.
+    Route::get('/app/pos/production/new', ProductionForm::class)->name('pos.production.create');
+    Route::get('/app/pos/production', Productions::class)->name('pos.production.index');
     // Damage / waste log — the bespoke Damage Report (date range + loss totals).
     // Export + new are registered before the bare index so the suffixes aren't
     // swallowed by it.

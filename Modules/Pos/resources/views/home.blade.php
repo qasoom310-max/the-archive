@@ -115,4 +115,20 @@
             @include('partials.module-tiles', ['tiles' => $tiles])
         </div>
     @endif
+
+    {{-- Production & store — mixing (perfumes POS only, feature-gated). --}}
+    @if (\App\Erp\Business\Features::enabled(\App\Erp\Business\Feature::Production))
+        <div class="mt-6">
+            <a href="{{ url('/app/pos/production') }}" wire:navigate
+                class="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/[0.06] transition hover:ring-primary-300">
+                <span class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
+                    <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4.75A1.75 1.75 0 0 1 4.75 3h10.5A1.75 1.75 0 0 1 17 4.75v2.5A1.75 1.75 0 0 1 15.25 9H4.75A1.75 1.75 0 0 1 3 7.25v-2.5ZM3 12.75A1.75 1.75 0 0 1 4.75 11h10.5A1.75 1.75 0 0 1 17 12.75v2.5A1.75 1.75 0 0 1 15.25 17H4.75A1.75 1.75 0 0 1 3 15.25v-2.5Z"/></svg>
+                </span>
+                <span>
+                    <span class="block text-sm font-semibold text-chrome-800">{{ __('Production & store') }}</span>
+                    <span class="block text-xs text-chrome-400">{{ __('Mix materials into store stock, then move it to the shop.') }}</span>
+                </span>
+            </a>
+        </div>
+    @endif
 </div>

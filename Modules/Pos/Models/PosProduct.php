@@ -33,7 +33,9 @@ use Spatie\Translatable\HasTranslations;
  * @property string|null $image_path
  * @property array<int, string>|null $gallery_images  Secondary photo paths (public disk)
  * @property bool $active
- * @property float $stock_on_hand
+ * @property float $stock_on_hand  Shop / display stock the register sells from
+ * @property float $store_stock  Back-store stock produced but not yet moved to the shop
+ * @property float|null $bottle_size_ml  Fill size of one finished bottle (perfumes)
  * @property string|null $unit  Unit of measure code: qty|kg|g|l|ml|pcs|box|pack|dozen
  * @property float|null $reorder_point  Low-stock threshold; null = global default
  * @property int|null $supplier_id  Preferred vendor (logical ref to partners)
@@ -59,6 +61,7 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
     protected $fillable = [
         'name', 'price', 'cost_price', 'tax_rate', 'barcode',
         'pos_category_id', 'image_path', 'gallery_images', 'active', 'stock_on_hand', 'unit', 'reorder_point', 'supplier_id',
+        'bottle_size_ml', 'store_stock',
     ];
 
     /**
@@ -106,6 +109,8 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
             'tax_rate' => 'float',
             'active' => 'boolean',
             'stock_on_hand' => 'float',
+            'store_stock' => 'float',
+            'bottle_size_ml' => 'float',
             'reorder_point' => 'float',
             'supplier_id' => 'integer',
             'gallery_images' => 'array',
@@ -288,6 +293,7 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
                 new FieldDefinition('tax_rate', 'Tax %', 'float', sequence: 30),
                 new FieldDefinition('barcode', 'Barcode', 'char', sequence: 40),
                 new FieldDefinition('stock_on_hand', 'Stock on hand', 'float', sequence: 50),
+                new FieldDefinition('bottle_size_ml', 'Bottle size (ml)', 'float', sequence: 51),
                 new FieldDefinition('unit', 'Unit', 'selection', sequence: 52),
                 new FieldDefinition('reorder_point', 'Reorder point', 'float', sequence: 54),
                 new FieldDefinition('pos_category_id', 'Category', 'many2one', relation: 'pos.category', sequence: 55),
@@ -390,6 +396,9 @@ final class PosProduct extends Model implements DefinesIrModel, TranslatableMode
                         // Unit of measure shown right beside "Stock on hand" so
                         // staff can stock by weight/volume (kg, L…) not just count.
                         ['field' => 'unit', 'label' => 'Unit', 'widget' => 'select', 'options' => self::UNIT_OPTIONS],
+                        // Perfume bottle fill size — production divides the mix by this
+                        // to work out how many bottles a batch yields.
+                        ['field' => 'bottle_size_ml', 'label' => 'Bottle size (ml)', 'widget' => 'number', 'help' => 'Fill size of one bottle. Used by Production to count bottles from a mix.'],
                         // Optional per-product low-stock level; blank = global default.
                         ['field' => 'reorder_point', 'label' => 'Reorder point', 'widget' => 'number', 'help' => 'Flag as low stock at or below this. Leave blank to use the global default.'],
                         ['field' => 'barcode', 'label' => 'Barcode', 'widget' => 'text'],

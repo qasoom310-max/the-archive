@@ -301,6 +301,16 @@ final class PosProductionTest extends TestCase
             ->assertSee('Production &amp; store', false);
     }
 
+    public function test_the_product_page_shortcut_preselects_the_product(): void
+    {
+        $this->enableProduction();
+        $perfume = PosProduct::query()->create(['name' => 'PreselectMe', 'price' => 5, 'bottle_size_ml' => 50]);
+
+        Livewire::withQueryParams(['product' => $perfume->id])
+            ->test(ProductionForm::class)
+            ->assertSet('product_id', $perfume->id);
+    }
+
     public function test_the_production_screens_are_gated_to_the_feature(): void
     {
         // Off by default → the route 404s (the component aborts in mount()).

@@ -66,6 +66,13 @@ final class ProductionForm extends Component
         }
 
         $this->lines = [$this->emptyLine()];
+
+        // Pre-select a product when arriving from its page (?product=<id>).
+        $preselect = (int) request()->query('product', 0);
+        if ($preselect > 0 && PosProduct::query()->whereKey($preselect)->exists()) {
+            $this->product_id = $preselect;
+            $this->updatedProductId(); // auto-fills the formula + expected count
+        }
     }
 
     /**

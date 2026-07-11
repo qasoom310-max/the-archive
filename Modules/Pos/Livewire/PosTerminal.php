@@ -19,6 +19,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Enums\PrepStatus;
+use Modules\Pos\Enums\SalesChannel;
 use Modules\Pos\Enums\SessionState;
 use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosCondiment;
@@ -87,6 +88,23 @@ final class PosTerminal extends Component
      */
     public string $localPhone = '';
 
+    /**
+     * Sales channel of the current order: 'shop' (walk-in) or 'remote'
+     * (phone / WhatsApp / delivery). Only meaningful when the Remote sales
+     * feature is on; the toggle is hidden otherwise.
+     */
+    public string $channel = 'shop';
+
+    /** Remote-order delivery capture (mirrored onto the order as it's typed). */
+    public string $customerName = '';
+
+    public string $deliveryAddress = '';
+
+    public string $deliveryFee = '';
+
+    /** Set when a remote order is missing its required customer name / phone. */
+    public string $channelError = '';
+
     public function mount(int $session, ?int $table = null): void
     {
         $pos = PosSession::query()->findOrFail($session);
@@ -104,8 +122,69 @@ final class PosTerminal extends Component
 
         $this->sessionId = $pos->id;
         $this->orderId = $this->resolveDraftOrder($pos)->id;
+        $this->hydrateChannelFields();
 
         app(PosSessionManager::class)->heartbeat($pos, $this->currentUserId());
+    }
+
+    /** Pull the current order's channel + delivery details into the form. */
+    private function hydrateChannelFields(): void
+    {
+        $order = $this->order();
+        $this->channel = $order->channel->value;
+        $this->customerName = $order->customer_name ?? '';
+        $this->deliveryAddress = $order->delivery_address ?? '';
+        $this->deliveryFee = $order->delivery_fee > 0
+            ? rtrim(rtrim(number_format((float) $order->delivery_fee, 2), '0'), '.')
+            : '';
+    }
+
+    /**
+     * Flip the current order between the shop (walk-in) and remote (delivery)
+     * channel. Returning to shop drops any delivery fee so the total is clean.
+     */
+    public function setChannel(string $channel): void
+    {
+        $this->guard(Permission::Write);
+        if (! Features::enabled(Feature::RemoteSales)) {
+            return;
+        }
+
+        $channel = $channel === 'remote' ? 'remote' : 'shop';
+        $this->channel = $channel;
+        $this->channelError = '';
+
+        $order = $this->order();
+        $order->channel = SalesChannel::from($channel);
+        if ($channel === 'shop') {
+            $order->delivery_fee = 0;
+            $this->deliveryFee = '';
+        }
+        $order->save();
+        $order->recalculate();
+    }
+
+    public function updatedCustomerName(): void
+    {
+        $order = $this->order();
+        $order->customer_name = trim($this->customerName) !== '' ? trim($this->customerName) : null;
+        $order->save();
+        $this->channelError = '';
+    }
+
+    public function updatedDeliveryAddress(): void
+    {
+        $order = $this->order();
+        $order->delivery_address = trim($this->deliveryAddress) !== '' ? trim($this->deliveryAddress) : null;
+        $order->save();
+    }
+
+    public function updatedDeliveryFee(): void
+    {
+        $order = $this->order();
+        $order->delivery_fee = max(0.0, round((float) $this->deliveryFee, 2));
+        $order->save();
+        $order->recalculate();
     }
 
     /**
@@ -544,6 +623,17 @@ final class PosTerminal extends Component
             return;
         }
 
+        // A remote / delivery order must name the customer and carry a phone
+        // before it can be taken to payment.
+        if ($order->isRemote()) {
+            if (trim($this->customerName) === '' || trim($this->localPhone) === '') {
+                $this->channelError = __('Enter the customer name and phone for a delivery order.');
+
+                return;
+            }
+            $this->channelError = '';
+        }
+
         $this->paymentMethodId = PosPaymentMethod::query()
             ->where('active', true)->orderBy('sequence')->value('id');
 
@@ -703,6 +793,8 @@ final class PosTerminal extends Component
         $this->search = '';
         $this->countryCode = PosWhatsAppCountries::DEFAULT_DIAL;
         $this->localPhone = '';
+        $this->channelError = '';
+        $this->hydrateChannelFields();
     }
 
     /**

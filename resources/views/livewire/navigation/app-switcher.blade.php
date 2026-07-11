@@ -104,6 +104,18 @@
                         </a>
                     @endif
 
+                    {{-- Remote / delivery sales — the fulfillment queue for
+                         phone / WhatsApp / delivery orders. Bespoke screen. --}}
+                    @if ($app->name === 'pos' && \App\Erp\Business\Features::enabled(\App\Erp\Business\Feature::RemoteSales))
+                        <a href="{{ url('/app/pos/remote') }}"
+                            class="flex items-center justify-between gap-3 px-3 py-1.5 text-sm text-chrome-700 hover:bg-chrome-100">
+                            <span>{{ __('Remote / delivery sales') }}</span>
+                            <svg class="size-3.5 shrink-0 text-chrome-300 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/>
+                            </svg>
+                        </a>
+                    @endif
+
                     {{-- App's own feature toggles (admins only — set in AppSwitcher). --}}
                     @if ($settingsUrl)
                         <div class="my-1 border-t border-chrome-100"></div>

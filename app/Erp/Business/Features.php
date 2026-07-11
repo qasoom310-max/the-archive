@@ -85,6 +85,7 @@ final class Features
             Feature::Restaurant, Feature::Recipes, Feature::Condiments,
             Feature::CustomerDiscounts, Feature::Damage, Feature::BarcodeScanning,
             Feature::Postpaid, Feature::DailyReportCards, Feature::Production,
+            Feature::RemoteSales,
         ],
         'accounting' => [Feature::ChartOfAccounts, Feature::JournalEntries],
         'rental' => [
@@ -105,7 +106,7 @@ final class Features
      *
      * @var list<Feature>
      */
-    private const DEFAULT_OFF = [Feature::Postpaid, Feature::Production];
+    private const DEFAULT_OFF = [Feature::Postpaid, Feature::Production, Feature::RemoteSales];
 
     /** The settings key holding manual per-feature overrides (JSON object). */
     private const OVERRIDES_KEY = 'features.overrides';

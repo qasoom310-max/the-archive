@@ -36,6 +36,10 @@ enum Feature: string
     // OFF (the default) = prepaid: pay first, then the order fires to the
     // kitchen. Opt-in — see Features::DEFAULT_OFF.
     case Postpaid = 'postpaid';
+    // Remote / delivery sales: ring an order up on the same register but tag it
+    // as remote (phone / WhatsApp / delivery), capture the delivery details,
+    // and work it through a fulfillment queue. Opt-in — see DEFAULT_OFF.
+    case RemoteSales = 'remote_sales';
 
     // Accounting sub-features.
     case ChartOfAccounts = 'chart_of_accounts';
@@ -72,6 +76,7 @@ enum Feature: string
             self::DailyReportCards => 'Daily sale & stock cards on dashboard',
             self::Production => 'Production & store (mixing)',
             self::Postpaid => 'Postpaid (kitchen first, pay later)',
+            self::RemoteSales => 'Remote / delivery sales',
             self::ChartOfAccounts => 'Chart of accounts',
             self::JournalEntries => 'Journal entries',
             self::RentalMaintenance => 'Car maintenance',
@@ -100,6 +105,7 @@ enum Feature: string
             self::DailyReportCards => 'Show the Daily sale and Daily stock report cards on the main dashboard.',
             self::Production => 'Mix raw materials into finished bottles held in a store, then move them to the shop for sale.',
             self::Postpaid => 'Send items to the kitchen as they are added and take payment at the end. Off = pay first, then the order fires to the kitchen.',
+            self::RemoteSales => 'Ring up phone / WhatsApp / delivery orders on the register, capture the delivery details, and track them through a fulfillment queue.',
             self::ChartOfAccounts => 'The list of ledger accounts (assets, income, expenses…).',
             self::JournalEntries => 'Manual and automatic double-entry journal postings.',
             self::RentalMaintenance => 'Log and schedule vehicle servicing and repairs.',

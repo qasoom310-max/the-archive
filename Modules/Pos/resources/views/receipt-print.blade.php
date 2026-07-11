@@ -58,8 +58,14 @@
             @endif
             <h1>{{ $companyName }}</h1>
             <div class="muted small">{{ $orderReference }} · {{ $orderedAt }}</div>
+            @if (($customerName ?? null) !== null)
+                <div class="muted small">{{ $customerName }}</div>
+            @endif
             @if ($customerPhone !== null)
                 <div class="muted small">{{ __('Phone:') }} +{{ $customerPhone }}</div>
+            @endif
+            @if (($deliveryAddress ?? null) !== null)
+                <div class="muted small">{{ $deliveryAddress }}</div>
             @endif
         </div>
 
@@ -87,6 +93,9 @@
             <tr><td class="muted">{{ __('Tax') }}</td><td class="r muted">{{ $taxTotal }}</td></tr>
             @if ($customerDiscount !== null)
                 <tr class="row-emerald"><td>{{ __('Customer discount') }} ({{ $customerDiscountPercent }}%)</td><td class="r">−{{ $customerDiscount }}</td></tr>
+            @endif
+            @if (($deliveryFee ?? null) !== null)
+                <tr><td class="muted">{{ __('Delivery fee') }}</td><td class="r muted">{{ $deliveryFee }}</td></tr>
             @endif
             <tr class="row-bold"><td>{{ __('Total') }}</td><td class="r">{{ $total }}</td></tr>
             @foreach ($payments as $p)

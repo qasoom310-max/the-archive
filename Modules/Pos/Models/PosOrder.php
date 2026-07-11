@@ -17,7 +17,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Modules\Contacts\Models\Partner;
+use Modules\Pos\Enums\FulfillmentStatus;
 use Modules\Pos\Enums\OrderState;
+use Modules\Pos\Enums\SalesChannel;
 use Modules\Pos\Events\PosOrderPaid;
 use Modules\Pos\Services\PosInventoryBridge;
 
@@ -38,7 +40,12 @@ use Modules\Pos\Services\PosInventoryBridge;
  * @property float $customer_discount_percent
  * @property float $customer_discount_total
  * @property bool $components_consumed
+ * @property SalesChannel $channel Walk-in shop sale vs a remote / delivery order
  * @property string|null $customer_phone International-format digits (no '+'), e.g. "97333123456"
+ * @property string|null $customer_name Remote customer's name (no Partner record needed)
+ * @property string|null $delivery_address Remote delivery address (free text)
+ * @property float $delivery_fee Added to the order total; not taxed
+ * @property FulfillmentStatus|null $fulfillment_status Delivery pipeline (remote orders only)
  * @property string|null $notes Order-level free-text note (e.g. set when split off another order)
  * @property Carbon|null $ordered_at
  * @property Carbon|null $created_at
@@ -61,10 +68,21 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
     /** @var list<string> */
     protected $fillable = [
         'reference', 'pos_session_id', 'pos_table_id', 'guest_count',
-        'partner_id', 'user_id', 'state',
+        'partner_id', 'user_id', 'state', 'channel',
         'subtotal', 'tax_total', 'total', 'paid_total', 'change_due',
         'customer_discount_percent', 'customer_discount_total',
-        'components_consumed', 'customer_phone', 'notes', 'ordered_at',
+        'components_consumed', 'customer_phone', 'customer_name',
+        'delivery_address', 'delivery_fee', 'fulfillment_status', 'notes', 'ordered_at',
+    ];
+
+    /**
+     * A fresh order defaults to the walk-in shop channel with no delivery fee.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'channel' => 'shop',
+        'delivery_fee' => 0,
     ];
 
     /**
@@ -74,11 +92,14 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
     {
         return [
             'state' => OrderState::class,
+            'channel' => SalesChannel::class,
+            'fulfillment_status' => FulfillmentStatus::class,
             'subtotal' => 'float',
             'tax_total' => 'float',
             'total' => 'float',
             'paid_total' => 'float',
             'change_due' => 'float',
+            'delivery_fee' => 'float',
             'customer_discount_percent' => 'float',
             'customer_discount_total' => 'float',
             'components_consumed' => 'boolean',
@@ -195,8 +216,37 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
         $percent = max(0.0, min(100.0, $this->customer_discount_percent));
 
         $this->customer_discount_total = round($gross * $percent / 100, 2);
-        $this->total = round($gross - $this->customer_discount_total, 2);
+        // Delivery fee (remote orders) is added after the discount and is not
+        // taxed — it's a flat charge on top of the goods.
+        $this->total = round($gross - $this->customer_discount_total + (float) $this->delivery_fee, 2);
         $this->save();
+    }
+
+    /** A remote / delivery order (vs a walk-in shop sale). */
+    public function isRemote(): bool
+    {
+        return $this->channel === SalesChannel::Remote;
+    }
+
+    /**
+     * Advance a remote order one step along the delivery pipeline
+     * (new → packed → out for delivery → delivered). No-op once delivered or
+     * for a shop order.
+     */
+    public function advanceFulfillment(): void
+    {
+        if (! $this->isRemote() || $this->fulfillment_status === null) {
+            return;
+        }
+
+        $next = $this->fulfillment_status->next();
+        if ($next === null) {
+            return;
+        }
+
+        $this->fulfillment_status = $next;
+        $this->save();
+        $this->logChange("Order {$this->reference} → {$next->label()}.");
     }
 
     /**
@@ -277,6 +327,10 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
         DB::transaction(function (): void {
             $this->markPaid();
             $this->state = OrderState::Done;
+            // A remote order now enters the delivery queue as "New".
+            if ($this->isRemote() && $this->fulfillment_status === null) {
+                $this->fulfillment_status = FulfillmentStatus::New;
+            }
             $this->save();
             $this->consumeComponents();
         });

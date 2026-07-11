@@ -37,6 +37,50 @@
             </div>
         </div>
 
+        {{-- Sales channel: walk-in shop vs a remote / delivery order. Switching
+             to Remote reveals the delivery capture panel; the delivery fee is
+             added to the order total. Hidden unless the feature is on. --}}
+        @if (\App\Erp\Business\Features::enabled(\App\Erp\Business\Feature::RemoteSales))
+        <div class="border-b border-chrome-200 px-4 py-2">
+            <div class="grid grid-cols-2 gap-1 rounded-lg bg-chrome-100 p-1">
+                <button type="button" wire:click="setChannel('shop')"
+                    class="rounded-md py-1.5 text-sm font-medium transition-colors {{ $channel === 'shop' ? 'bg-white text-chrome-900 shadow-sm' : 'text-chrome-500 hover:text-chrome-700' }}">
+                    {{ __('Shop') }}
+                </button>
+                <button type="button" wire:click="setChannel('remote')"
+                    class="rounded-md py-1.5 text-sm font-medium transition-colors {{ $channel === 'remote' ? 'bg-white text-chrome-900 shadow-sm' : 'text-chrome-500 hover:text-chrome-700' }}">
+                    {{ __('Remote / delivery') }}
+                </button>
+            </div>
+
+            @if ($channel === 'remote')
+                <div class="mt-2 space-y-2">
+                    <input type="text" wire:model.live.debounce.500ms="customerName"
+                        placeholder="{{ __('Customer name') }} *" class="o-input w-full text-sm">
+                    <div class="flex gap-2">
+                        <select wire:model="countryCode" class="o-input w-24 shrink-0 text-sm">
+                            @foreach ($whatsappCountries as $c)
+                                <option value="{{ $c['dial'] }}">{{ $c['dial'] }}</option>
+                            @endforeach
+                        </select>
+                        <input type="tel" inputmode="numeric" wire:model.live.debounce.500ms="localPhone"
+                            placeholder="{{ __('Phone') }} *" class="o-input w-full text-sm">
+                    </div>
+                    <textarea wire:model.live.debounce.500ms="deliveryAddress" rows="2"
+                        placeholder="{{ __('Delivery address') }}" class="o-input w-full text-sm"></textarea>
+                    <div class="flex items-center gap-2">
+                        <label class="shrink-0 text-xs font-medium text-chrome-500">{{ __('Delivery fee') }}</label>
+                        <input type="number" step="0.001" min="0" wire:model.live.debounce.500ms="deliveryFee"
+                            placeholder="0" class="o-input w-full text-sm text-end">
+                    </div>
+                    @if ($channelError !== '')
+                        <p class="text-xs font-medium text-red-600">{{ $channelError }}</p>
+                    @endif
+                </div>
+            @endif
+        </div>
+        @endif
+
         {{-- Customer discount — the cashier types a phone number and a
              matching per-phone discount applies. Nothing is saved as a
              customer; the same number is reused for the WhatsApp receipt at
@@ -160,6 +204,11 @@
                 <div class="flex justify-between text-sm font-medium text-emerald-600">
                     <span>{{ __('Customer discount') }} ({{ rtrim(rtrim(number_format($order->customer_discount_percent, 2), '0'), '.') }}%)</span>
                     <span>−{{ $money($order->customer_discount_total) }}</span>
+                </div>
+            @endif
+            @if ($order->delivery_fee > 0)
+                <div class="flex justify-between text-sm text-chrome-500">
+                    <span>{{ __('Delivery fee') }}</span><span>{{ $money($order->delivery_fee) }}</span>
                 </div>
             @endif
             <div class="mt-1 flex justify-between text-lg font-bold text-chrome-900">

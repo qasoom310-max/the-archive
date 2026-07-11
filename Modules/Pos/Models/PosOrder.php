@@ -216,9 +216,11 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
         $percent = max(0.0, min(100.0, $this->customer_discount_percent));
 
         $this->customer_discount_total = round($gross * $percent / 100, 2);
-        // Delivery fee (remote orders) is added after the discount and is not
-        // taxed — it's a flat charge on top of the goods.
-        $this->total = round($gross - $this->customer_discount_total + (float) $this->delivery_fee, 2);
+        // The customer pays for the goods only. The delivery fee is OUR cost
+        // (we pay the driver), booked as an operating expense — see
+        // {@see \Modules\Accounting\Listeners\RecordDeliveryCostInJournal}. It
+        // is deliberately NOT added to the customer total.
+        $this->total = round($gross - $this->customer_discount_total, 2);
         $this->save();
     }
 

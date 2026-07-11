@@ -69,10 +69,11 @@
                     <textarea wire:model.live.debounce.500ms="deliveryAddress" rows="2"
                         placeholder="{{ __('Delivery address') }}" class="o-input w-full text-sm"></textarea>
                     <div class="flex items-center gap-2">
-                        <label class="shrink-0 text-xs font-medium text-chrome-500">{{ __('Delivery fee') }}</label>
+                        <label class="shrink-0 text-xs font-medium text-chrome-500">{{ __('Delivery cost (we pay)') }}</label>
                         <input type="number" step="0.001" min="0" wire:model.live.debounce.500ms="deliveryFee"
                             placeholder="0" class="o-input w-full text-sm text-end">
                     </div>
+                    <p class="text-[11px] text-chrome-400">{{ __('Our cost per destination — not charged to the customer. Booked as an expense.') }}</p>
                     @if ($channelError !== '')
                         <p class="text-xs font-medium text-red-600">{{ $channelError }}</p>
                     @endif
@@ -206,14 +207,16 @@
                     <span>−{{ $money($order->customer_discount_total) }}</span>
                 </div>
             @endif
-            @if ($order->delivery_fee > 0)
-                <div class="flex justify-between text-sm text-chrome-500">
-                    <span>{{ __('Delivery fee') }}</span><span>{{ $money($order->delivery_fee) }}</span>
-                </div>
-            @endif
             <div class="mt-1 flex justify-between text-lg font-bold text-chrome-900">
                 <span>{{ __('Total') }}</span><span>{{ $money($order->total) }}</span>
             </div>
+            @if ($order->delivery_fee > 0)
+                {{-- Our delivery cost — informational, NOT part of what the
+                     customer pays. Booked as an operating expense. --}}
+                <div class="mt-1 flex justify-between text-xs text-chrome-400">
+                    <span>{{ __('Delivery cost (we pay)') }}</span><span>−{{ $money($order->delivery_fee) }}</span>
+                </div>
+            @endif
             <button wire:click="startPayment"
                 @disabled(! $canPay)
                 class="o-btn-primary mt-3 w-full justify-center py-2.5 text-base disabled:opacity-40">

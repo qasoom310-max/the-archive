@@ -129,6 +129,8 @@ final class RemoteOrders extends Component
             'counts' => $counts,
             'activeCount' => $activeCount,
             'unpaidCount' => $unpaidCount,
+            // Total we've spent on delivery (our cost, booked as an expense).
+            'deliveryCostTotal' => (float) $done()->sum('delivery_fee'),
             'startUrl' => $startUrl,
             'canCreate' => app(AccessControl::class)->allows(Auth::user(), 'pos.order', Permission::Create),
             'canFulfill' => app(AccessControl::class)->allows(Auth::user(), 'pos.order', Permission::Write),

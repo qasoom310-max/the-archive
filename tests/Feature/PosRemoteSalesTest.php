@@ -8,9 +8,13 @@ use App\Erp\Business\Feature;
 use App\Erp\Business\Features;
 use App\Erp\Modules\ModuleManager;
 use App\Models\User;
+use Database\Seeders\ChartOfAccountsSeeder;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\Event;
 use Livewire\Livewire;
+use Modules\Accounting\Models\Account;
+use Modules\Accounting\Models\JournalEntry;
+use Modules\Accounting\Providers\AccountingServiceProvider;
 use Modules\Pos\Enums\FulfillmentStatus;
 use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Enums\SalesChannel;
@@ -56,7 +60,7 @@ final class PosRemoteSalesTest extends TestCase
         ]);
     }
 
-    public function test_a_remote_sale_adds_the_delivery_fee_and_enters_the_queue(): void
+    public function test_a_remote_sale_keeps_delivery_off_the_customer_total(): void
     {
         $this->enableRemote();
         $session = $this->openSession();
@@ -76,13 +80,53 @@ final class PosRemoteSalesTest extends TestCase
 
         $order = PosOrder::query()->where('pos_session_id', $session->id)->firstOrFail();
         $this->assertSame(SalesChannel::Remote, $order->channel);
-        $this->assertSame(12.0, (float) $order->total);            // 10 goods + 2 delivery
+        // The customer pays for the goods only — the delivery fee is OUR cost.
+        $this->assertSame(10.0, (float) $order->total);
         $this->assertSame(2.0, (float) $order->delivery_fee);
         $this->assertSame('Ali Hasan', $order->customer_name);
         $this->assertSame('Block 338, Road 1, Manama', $order->delivery_address);
         $this->assertSame('97333123456', $order->customer_phone);
         $this->assertSame(FulfillmentStatus::New, $order->fulfillment_status);
         $this->assertSame(OrderState::Done, $order->state);
+    }
+
+    public function test_the_delivery_cost_is_booked_as_an_operating_expense(): void
+    {
+        $this->enableRemote();
+        app(ModuleManager::class)->install('accounting');
+        // Modules boot before setUp installs them, so re-register the provider
+        // to wire the PosOrderPaid listeners (the known module-boot gap).
+        $this->app->register(AccountingServiceProvider::class);
+        (new ChartOfAccountsSeeder())->run();
+
+        $session = $this->openSession();
+        PosPaymentMethod::query()->create(['name' => 'Cash', 'is_cash' => true, 'sequence' => 1]);
+        $order = PosOrder::query()->create([
+            'reference' => 'POS/1/0009',
+            'pos_session_id' => $session->id,
+            'state' => OrderState::Done,
+            'channel' => SalesChannel::Remote->value,
+            'fulfillment_status' => FulfillmentStatus::New->value,
+            'customer_name' => 'Ali',
+            'total' => 10,
+            'delivery_fee' => 2.8,
+            'paid_total' => 0,
+            'ordered_at' => now(),
+        ]);
+
+        // Collecting the money fires PosOrderPaid → sale + delivery-cost entries.
+        Livewire::test(RemoteOrders::class)->call('collectPayment', $order->id);
+
+        $entry = JournalEntry::query()->where('reference', 'DEL/POS/1/0009')->first();
+        $this->assertNotNull($entry);
+
+        $opex = Account::byCode('5030'); // operating expenses
+        $cash = Account::byCode('1010'); // cash
+        $this->assertNotNull($opex);
+        $this->assertNotNull($cash);
+        // Dr Operating Expenses 2.8 / Cr Cash 2.8 — the delivery paid from our pocket.
+        $this->assertSame(2.8, (float) $entry->items()->where('account_id', $opex->id)->sum('debit'));
+        $this->assertSame(2.8, (float) $entry->items()->where('account_id', $cash->id)->sum('credit'));
     }
 
     public function test_a_remote_order_cannot_be_paid_without_a_customer_name_and_phone(): void
@@ -191,7 +235,8 @@ final class PosRemoteSalesTest extends TestCase
         $this->assertSame(FulfillmentStatus::New, $order->fulfillment_status);
         $this->assertSame('unpaid', $order->paymentBadge());          // but not paid
         $this->assertSame(0.0, (float) $order->paid_total);
-        $this->assertSame(11.0, (float) $order->total);               // 10 + 1 delivery
+        $this->assertSame(10.0, (float) $order->total);               // goods only; delivery is our cost
+        $this->assertSame(1.0, (float) $order->delivery_fee);
         // No cash is booked until the money is collected.
         Event::assertNotDispatched(PosOrderPaid::class);
     }

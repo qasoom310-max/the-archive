@@ -29,6 +29,9 @@
         <div>
             <h1 class="text-xl font-bold text-chrome-900">{{ __('Remote / delivery sales') }}</h1>
             <p class="text-sm text-chrome-500">{{ __('The fulfillment queue for phone, WhatsApp and delivery orders.') }}</p>
+            @if ($deliveryCostTotal > 0)
+                <p class="mt-1 text-xs font-medium text-red-500">{{ __('Delivery costs (our expense)') }}: {{ $money($deliveryCostTotal) }}</p>
+            @endif
         </div>
         @if ($canCreate)
             <a href="{{ $startUrl }}" wire:navigate class="o-btn-primary shrink-0">
@@ -87,7 +90,7 @@
                             <p class="text-base font-bold text-chrome-900">{{ $money($order->total) }}</p>
                             <p class="text-xs text-chrome-400">
                                 {{ $order->lines_count }} {{ __('items') }}
-                                @if ($order->delivery_fee > 0) · {{ __('Delivery') }} {{ $money($order->delivery_fee) }}@endif
+                                @if ($order->delivery_fee > 0) · {{ __('Delivery cost') }} {{ $money($order->delivery_fee) }}@endif
                             </p>
                         </div>
                     </div>

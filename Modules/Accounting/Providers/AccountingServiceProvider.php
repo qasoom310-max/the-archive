@@ -8,6 +8,7 @@ use App\Events\ExpensePaid;
 use App\Events\SalaryPaid;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Modules\Accounting\Listeners\RecordDeliveryCostInJournal;
 use Modules\Accounting\Listeners\RecordExpenseInJournal;
 use Modules\Accounting\Listeners\RecordPosSaleInJournal;
 use Modules\Accounting\Listeners\RecordPurchaseInJournal;
@@ -48,6 +49,11 @@ final class AccountingServiceProvider extends ServiceProvider
         // resolves account ids lazily, so a missing COA row surfaces as a
         // useful "configure mapping" exception rather than a fatal boot).
         Event::listen(PosOrderPaid::class, [RecordPosSaleInJournal::class, 'handle']);
+
+        // A remote order's delivery fee is our cost (we pay the driver) — book
+        // it as an operating expense so the P&L reflects it. Same event as the
+        // sale; posts only when the order carries a delivery fee.
+        Event::listen(PosOrderPaid::class, [RecordDeliveryCostInJournal::class, 'handle']);
 
         // Purchase → Accounting. The Purchases module fires
         // `PurchaseInvoiceConfirmed` (carrying the Purchase as `$invoice`)

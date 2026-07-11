@@ -224,6 +224,17 @@ final class PosRemoteSalesTest extends TestCase
         Event::assertDispatched(PosOrderPaid::class);
     }
 
+    public function test_the_terminal_preselects_remote_from_the_query_param(): void
+    {
+        $this->enableRemote();
+        $session = $this->openSession();
+
+        // The dashboard's "New remote order" button links here with ?channel=remote.
+        Livewire::withQueryParams(['channel' => 'remote'])
+            ->test(PosTerminal::class, ['session' => $session->id])
+            ->assertSet('channel', 'remote');
+    }
+
     public function test_the_channel_toggle_and_dashboard_are_gated_to_the_feature(): void
     {
         $session = $this->openSession();

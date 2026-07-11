@@ -18,6 +18,7 @@ use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Enums\SalesChannel;
 use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosPaymentMethod;
+use Modules\Pos\Services\PosSessionManager;
 
 /**
  * Remote / delivery sales dashboard: the fulfillment queue for orders taken
@@ -116,11 +117,20 @@ final class RemoteOrders extends Component
             $query->where('fulfillment_status', $this->filter)->latest('ordered_at');
         }
 
+        // "New remote order" jumps to the register with the Remote channel
+        // pre-selected. If no session is open, land on the POS home to open one.
+        $active = app(PosSessionManager::class)->getActiveSession();
+        $startUrl = $active !== null
+            ? url('/app/pos/session/' . $active->id . '/terminal?channel=remote')
+            : url('/app/pos');
+
         return view('pos::remote-orders', [
             'orders' => $query->withCount('lines')->limit(200)->get(),
             'counts' => $counts,
             'activeCount' => $activeCount,
             'unpaidCount' => $unpaidCount,
+            'startUrl' => $startUrl,
+            'canCreate' => app(AccessControl::class)->allows(Auth::user(), 'pos.order', Permission::Create),
             'canFulfill' => app(AccessControl::class)->allows(Auth::user(), 'pos.order', Permission::Write),
         ]);
     }

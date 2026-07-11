@@ -1064,6 +1064,8 @@
     "Send out for delivery": "إرسال للتوصيل",
     "Mark delivered": "تحديد كمُسلَّم",
     "No remote orders here yet.": "لا توجد طلبات عن بُعد هنا بعد.",
+    "New remote order": "طلب عن بُعد جديد",
+    "Orders are rung up at the register, then tracked and delivered here.": "تُسجّل الطلبات من الكاشير، ثم تُتابَع وتُسلَّم من هنا.",
     "Confirm — pay on delivery": "تأكيد — الدفع عند الاستلام",
     "Collect": "تحصيل",
     "Part paid": "مدفوع جزئيًا",

@@ -124,6 +124,12 @@ final class PosTerminal extends Component
         $this->orderId = $this->resolveDraftOrder($pos)->id;
         $this->hydrateChannelFields();
 
+        // Arriving from the Remote sales dashboard's "New remote order" button
+        // (?channel=remote) pre-selects the remote channel on this draft.
+        if (request()->query('channel') === 'remote' && Features::enabled(Feature::RemoteSales)) {
+            $this->setChannel('remote');
+        }
+
         app(PosSessionManager::class)->heartbeat($pos, $this->currentUserId());
     }
 

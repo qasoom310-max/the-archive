@@ -55,7 +55,7 @@
 
             @if ($channel === 'remote')
                 <div class="mt-2 space-y-2">
-                    <input type="text" wire:model.live.debounce.500ms="customerName"
+                    <input type="text" wire:model.blur="customerName"
                         placeholder="{{ __('Customer name') }} *" class="o-input w-full text-sm">
                     <div class="flex gap-2">
                         <select wire:model="countryCode" class="o-input w-24 shrink-0 text-sm">
@@ -63,16 +63,16 @@
                                 <option value="{{ $c['dial'] }}">{{ $c['dial'] }}</option>
                             @endforeach
                         </select>
-                        <input type="tel" inputmode="numeric" wire:model.live.debounce.500ms="localPhone"
+                        <input type="tel" inputmode="numeric" wire:model.blur="localPhone"
                             placeholder="{{ __('Phone') }} *" class="o-input w-full text-sm">
                     </div>
-                    <textarea wire:model.live.debounce.500ms="deliveryAddress" rows="2"
+                    <textarea wire:model.blur="deliveryAddress" rows="2"
                         placeholder="{{ __('Delivery address') }}" class="o-input w-full text-sm"></textarea>
-                    <input type="text" wire:model.live.debounce.500ms="deliveryReference"
+                    <input type="text" wire:model.blur="deliveryReference"
                         placeholder="{{ __('Delivery reference (optional)') }}" class="o-input w-full text-sm">
                     <div class="flex items-center gap-2">
                         <label class="shrink-0 text-xs font-medium text-chrome-500">{{ __('Delivery cost (we pay)') }}</label>
-                        <input type="number" step="0.001" min="0" wire:model.live.debounce.500ms="deliveryFee"
+                        <input type="number" step="0.001" min="0" wire:model.blur="deliveryFee"
                             placeholder="0" class="o-input w-full text-sm text-end">
                     </div>
                     <p class="text-[11px] text-chrome-400">{{ __('Our cost per destination — not charged to the customer. Booked as an expense.') }}</p>

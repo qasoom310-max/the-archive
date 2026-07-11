@@ -1,0 +1,33 @@
+name: Run backfill logins
+
+# On-demand: link workspace-only users to a Main login. Dry run by default;
+# set apply=yes to actually write.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Type "yes" to actually write (default is a dry run)'
+        required: false
+        default: 'no'
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run backfill
+        run: |
+          FLAG=""
+          if [ "${{ github.event.inputs.apply }}" = "yes" ]; then FLAG="--apply"; fi
+          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && php artisan users:backfill-logins $FLAG"

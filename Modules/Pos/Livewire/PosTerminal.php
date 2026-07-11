@@ -102,6 +102,8 @@ final class PosTerminal extends Component
 
     public string $deliveryFee = '';
 
+    public string $deliveryReference = '';
+
     /** Set when a remote order is missing its required customer name / phone. */
     public string $channelError = '';
 
@@ -140,6 +142,7 @@ final class PosTerminal extends Component
         $this->channel = $order->channel->value;
         $this->customerName = $order->customer_name ?? '';
         $this->deliveryAddress = $order->delivery_address ?? '';
+        $this->deliveryReference = $order->delivery_reference ?? '';
         $this->deliveryFee = $order->delivery_fee > 0
             ? rtrim(rtrim(number_format((float) $order->delivery_fee, 2), '0'), '.')
             : '';
@@ -182,6 +185,13 @@ final class PosTerminal extends Component
     {
         $order = $this->order();
         $order->delivery_address = trim($this->deliveryAddress) !== '' ? trim($this->deliveryAddress) : null;
+        $order->save();
+    }
+
+    public function updatedDeliveryReference(): void
+    {
+        $order = $this->order();
+        $order->delivery_reference = trim($this->deliveryReference) !== '' ? trim($this->deliveryReference) : null;
         $order->save();
     }
 

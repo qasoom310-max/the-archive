@@ -85,6 +85,16 @@
                             @if ($order->delivery_address)
                                 <p class="mt-1 text-sm text-chrome-600">{{ $order->delivery_address }}</p>
                             @endif
+                            @if ($canFulfill)
+                                <div class="mt-1.5 flex items-center gap-2">
+                                    <label class="text-xs text-chrome-400">{{ __('Delivery ref') }}</label>
+                                    <input type="text" value="{{ $order->delivery_reference }}"
+                                        @change="$wire.setDeliveryReference({{ $order->id }}, $event.target.value)"
+                                        placeholder="{{ __('add') }}" class="o-input h-7 w-44 text-xs">
+                                </div>
+                            @elseif ($order->delivery_reference)
+                                <p class="mt-1 text-xs text-chrome-500">{{ __('Delivery ref') }}: {{ $order->delivery_reference }}</p>
+                            @endif
                         </div>
                         <div class="text-end">
                             <p class="text-base font-bold text-chrome-900">{{ $money($order->total) }}</p>

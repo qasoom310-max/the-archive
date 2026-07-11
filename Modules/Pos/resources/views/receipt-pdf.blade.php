@@ -59,6 +59,9 @@
         @if (($deliveryAddress ?? null) !== null)
             <div class="muted small">{{ $deliveryAddress }}</div>
         @endif
+        @if (($deliveryReference ?? null) !== null)
+            <div class="muted small">Delivery ref: {{ $deliveryReference }}</div>
+        @endif
     </div>
 
     <div class="sep"></div>

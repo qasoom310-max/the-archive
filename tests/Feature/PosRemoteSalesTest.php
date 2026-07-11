@@ -280,6 +280,42 @@ final class PosRemoteSalesTest extends TestCase
             ->assertSet('channel', 'remote');
     }
 
+    public function test_a_delivery_reference_is_captured_at_the_register(): void
+    {
+        $this->enableRemote();
+        $session = $this->openSession();
+        $product = PosProduct::query()->create(['name' => 'Perfume', 'price' => 10, 'tax_rate' => 0, 'active' => true]);
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('setChannel', 'remote')
+            ->call('addProduct', $product->id)
+            ->set('deliveryReference', 'ARMEX-99231');
+
+        $order = PosOrder::query()->where('pos_session_id', $session->id)->firstOrFail();
+        $this->assertSame('ARMEX-99231', $order->delivery_reference);
+    }
+
+    public function test_the_dashboard_can_set_a_delivery_reference(): void
+    {
+        $this->enableRemote();
+        $session = $this->openSession();
+        $order = PosOrder::query()->create([
+            'reference' => 'POS/1/0007',
+            'pos_session_id' => $session->id,
+            'state' => OrderState::Done,
+            'channel' => SalesChannel::Remote->value,
+            'fulfillment_status' => FulfillmentStatus::New->value,
+            'customer_name' => 'Noor',
+            'total' => 12,
+            'ordered_at' => now(),
+        ]);
+
+        Livewire::test(RemoteOrders::class)
+            ->call('setDeliveryReference', $order->id, 'DHL-5567');
+
+        $this->assertSame('DHL-5567', $order->fresh()?->delivery_reference);
+    }
+
     public function test_the_channel_toggle_and_dashboard_are_gated_to_the_feature(): void
     {
         $session = $this->openSession();

@@ -49,6 +49,23 @@ final class RemoteOrders extends Component
         $this->filter = $filter;
     }
 
+    /** Set / update a remote order's delivery reference (courier number). */
+    public function setDeliveryReference(int $orderId, string $reference): void
+    {
+        $this->guard(Permission::Write);
+
+        $order = PosOrder::query()
+            ->where('channel', SalesChannel::Remote->value)
+            ->find($orderId);
+
+        if ($order === null) {
+            return;
+        }
+
+        $order->delivery_reference = trim($reference) !== '' ? trim($reference) : null;
+        $order->save();
+    }
+
     /** Move a remote order one step along the delivery pipeline. */
     public function advance(int $orderId): void
     {

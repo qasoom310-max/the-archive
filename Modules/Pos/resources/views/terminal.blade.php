@@ -68,6 +68,8 @@
                     </div>
                     <textarea wire:model.live.debounce.500ms="deliveryAddress" rows="2"
                         placeholder="{{ __('Delivery address') }}" class="o-input w-full text-sm"></textarea>
+                    <input type="text" wire:model.live.debounce.500ms="deliveryReference"
+                        placeholder="{{ __('Delivery reference (optional)') }}" class="o-input w-full text-sm">
                     <div class="flex items-center gap-2">
                         <label class="shrink-0 text-xs font-medium text-chrome-500">{{ __('Delivery cost (we pay)') }}</label>
                         <input type="number" step="0.001" min="0" wire:model.live.debounce.500ms="deliveryFee"

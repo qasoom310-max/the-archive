@@ -142,6 +142,7 @@ class PosReceiptImageRenderer
             // Remote / delivery details — only meaningful on a remote order.
             'customerName' => $order->customer_name,
             'deliveryAddress' => $order->delivery_address,
+            'deliveryReference' => $order->delivery_reference,
             'deliveryFee' => $order->delivery_fee > 0 ? Currencies::format((float) $order->delivery_fee) : null,
             'lines' => $lines,
             'subtotal' => Currencies::format((float) $order->subtotal),

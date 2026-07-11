@@ -46,6 +46,7 @@ use Modules\Pos\Services\PosInventoryBridge;
  * @property string|null $delivery_address Remote delivery address (free text)
  * @property float $delivery_fee Added to the order total; not taxed
  * @property FulfillmentStatus|null $fulfillment_status Delivery pipeline (remote orders only)
+ * @property string|null $delivery_reference Courier / delivery-note number (remote orders)
  * @property string|null $notes Order-level free-text note (e.g. set when split off another order)
  * @property Carbon|null $ordered_at
  * @property Carbon|null $created_at
@@ -72,7 +73,8 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
         'subtotal', 'tax_total', 'total', 'paid_total', 'change_due',
         'customer_discount_percent', 'customer_discount_total',
         'components_consumed', 'customer_phone', 'customer_name',
-        'delivery_address', 'delivery_fee', 'fulfillment_status', 'notes', 'ordered_at',
+        'delivery_address', 'delivery_fee', 'fulfillment_status', 'delivery_reference',
+        'notes', 'ordered_at',
     ];
 
     /**

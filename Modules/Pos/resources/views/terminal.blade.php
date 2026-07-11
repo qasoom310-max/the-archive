@@ -528,6 +528,18 @@
                     class="o-btn-primary mt-4 w-full justify-center py-2.5 text-base disabled:opacity-40">
                     {{ __('Validate') }}
                 </button>
+
+                @if ($channel === 'remote')
+                    {{-- Cash on delivery: confirm the delivery order now, collect
+                         the money later from the Remote sales dashboard. --}}
+                    <div class="my-3 flex items-center gap-3 text-xs text-chrome-400">
+                        <div class="h-px flex-1 bg-chrome-100"></div>{{ __('or') }}<div class="h-px flex-1 bg-chrome-100"></div>
+                    </div>
+                    <button wire:click="confirmCod"
+                        class="w-full rounded-lg border border-primary-500 py-2.5 text-base font-semibold text-primary-700 hover:bg-primary-50">
+                        {{ __('Confirm — pay on delivery') }}
+                    </button>
+                @endif
             </div>
         </div>
     @endif

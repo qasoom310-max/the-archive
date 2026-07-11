@@ -9,11 +9,13 @@ use App\Erp\Business\Features;
 use App\Erp\Modules\ModuleManager;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Support\Facades\Event;
 use Livewire\Livewire;
 use Modules\Pos\Enums\FulfillmentStatus;
 use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Enums\SalesChannel;
 use Modules\Pos\Enums\SessionState;
+use Modules\Pos\Events\PosOrderPaid;
 use Modules\Pos\Livewire\PosTerminal;
 use Modules\Pos\Livewire\RemoteOrders;
 use Modules\Pos\Models\PosOrder;
@@ -167,6 +169,59 @@ final class PosRemoteSalesTest extends TestCase
             ->call('advance', $order->id);
 
         $this->assertSame(FulfillmentStatus::Packed, $order->fresh()?->fulfillment_status);
+    }
+
+    public function test_a_cod_order_is_confirmed_unpaid_without_booking_the_sale(): void
+    {
+        $this->enableRemote();
+        Event::fake([PosOrderPaid::class]);
+        $session = $this->openSession();
+        $product = PosProduct::query()->create(['name' => 'Perfume', 'price' => 10, 'tax_rate' => 0, 'active' => true, 'stock_on_hand' => 5]);
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('setChannel', 'remote')
+            ->call('addProduct', $product->id)
+            ->set('customerName', 'Ali')
+            ->set('localPhone', '33123456')
+            ->set('deliveryFee', '1')
+            ->call('confirmCod');
+
+        $order = PosOrder::query()->where('pos_session_id', $session->id)->firstOrFail();
+        $this->assertSame(OrderState::Done, $order->state);          // committed to the queue
+        $this->assertSame(FulfillmentStatus::New, $order->fulfillment_status);
+        $this->assertSame('unpaid', $order->paymentBadge());          // but not paid
+        $this->assertSame(0.0, (float) $order->paid_total);
+        $this->assertSame(11.0, (float) $order->total);               // 10 + 1 delivery
+        // No cash is booked until the money is collected.
+        Event::assertNotDispatched(PosOrderPaid::class);
+    }
+
+    public function test_collecting_payment_marks_a_cod_order_paid_and_books_the_sale(): void
+    {
+        $this->enableRemote();
+        $session = $this->openSession();
+        PosPaymentMethod::query()->create(['name' => 'Cash', 'is_cash' => true, 'sequence' => 1]);
+        $order = PosOrder::query()->create([
+            'reference' => 'POS/1/0003',
+            'pos_session_id' => $session->id,
+            'state' => OrderState::Done,
+            'channel' => SalesChannel::Remote->value,
+            'fulfillment_status' => FulfillmentStatus::New->value,
+            'customer_name' => 'Sara',
+            'total' => 15,
+            'paid_total' => 0,
+            'ordered_at' => now(),
+        ]);
+
+        Event::fake([PosOrderPaid::class]);
+        Livewire::test(RemoteOrders::class)->call('collectPayment', $order->id);
+
+        $order->refresh();
+        $this->assertTrue($order->isPaid());
+        $this->assertSame(15.0, (float) $order->paid_total);
+        $this->assertSame('paid', $order->paymentBadge());
+        // Now the sale posts to the journal / receipt goes out.
+        Event::assertDispatched(PosOrderPaid::class);
     }
 
     public function test_the_channel_toggle_and_dashboard_are_gated_to_the_feature(): void

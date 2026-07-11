@@ -296,6 +296,28 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
         return $this->paymentsTotal() + 0.0001 >= $this->total && $this->total > 0;
     }
 
+    /** Amount still owed on the order (0 once fully paid). */
+    public function outstanding(): float
+    {
+        return max(0.0, round((float) $this->total - $this->paymentsTotal(), 2));
+    }
+
+    /** Has the order been paid in full (a zero-total order counts as paid)? */
+    public function isPaid(): bool
+    {
+        return $this->paymentsTotal() + 0.0001 >= (float) $this->total;
+    }
+
+    /** Payment state for display: 'paid' | 'partial' | 'unpaid'. */
+    public function paymentBadge(): string
+    {
+        if ($this->isPaid()) {
+            return 'paid';
+        }
+
+        return $this->paymentsTotal() > 0 ? 'partial' : 'unpaid';
+    }
+
     /**
      * Finalise the order: requires full payment, computes change due.
      */
@@ -335,6 +357,57 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
             $this->consumeComponents();
         });
 
+        event(new PosOrderPaid($this));
+    }
+
+    /**
+     * Confirm a remote order for delivery WITHOUT collecting payment yet
+     * (cash on delivery): commit it as Done, consume stock and drop it into
+     * the fulfillment queue as "New" — but leave it unpaid. Crucially this does
+     * NOT fire {@see PosOrderPaid}, so no cash is booked to the journal until
+     * the money is actually collected (see {@see collectPayment()}).
+     */
+    public function confirmUnpaid(): void
+    {
+        DB::transaction(function (): void {
+            $this->paid_total = $this->paymentsTotal();
+            $this->change_due = 0.0;
+            $this->state = OrderState::Done;
+            $this->ordered_at = Carbon::now();
+            if ($this->isRemote() && $this->fulfillment_status === null) {
+                $this->fulfillment_status = FulfillmentStatus::New;
+            }
+            $this->save();
+            $this->consumeComponents();
+        });
+
+        $this->logChange("Order {$this->reference} confirmed — pay on delivery (total {$this->total}).");
+    }
+
+    /**
+     * Collect the money owed on a confirmed-but-unpaid order (the driver
+     * returns with the cash): record the outstanding amount against the given
+     * method, then fire {@see PosOrderPaid} so the sale is booked to the
+     * journal and the receipt goes out — now that payment is real. No-op if the
+     * order is already paid.
+     */
+    public function collectPayment(PosPaymentMethod $method): void
+    {
+        if ($this->isPaid()) {
+            return;
+        }
+
+        $outstanding = $this->outstanding();
+        DB::transaction(function () use ($method, $outstanding): void {
+            if ($outstanding > 0) {
+                $this->registerPayment($method, $outstanding);
+            }
+            $this->paid_total = $this->paymentsTotal();
+            $this->change_due = 0.0;
+            $this->save();
+        });
+
+        $this->logChange("Order {$this->reference} payment collected — {$this->paid_total} via {$method->name}.");
         event(new PosOrderPaid($this));
     }
 

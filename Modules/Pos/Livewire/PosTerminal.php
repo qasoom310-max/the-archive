@@ -659,6 +659,37 @@ final class PosTerminal extends Component
     }
 
     /**
+     * Confirm a remote / delivery order to be paid on delivery (COD): commit it
+     * to the fulfillment queue without taking payment now. The money is
+     * collected later from the Remote sales dashboard.
+     */
+    public function confirmCod(): void
+    {
+        $this->guard(Permission::Write);
+        $order = $this->order();
+
+        if (! $order->isRemote() || ! $this->canPay($order)) {
+            return;
+        }
+
+        if (trim($this->customerName) === '' || trim($this->localPhone) === '') {
+            $this->channelError = __('Enter the customer name and phone for a delivery order.');
+
+            return;
+        }
+        $this->channelError = '';
+
+        $order->customer_phone = PosWhatsAppCountries::compose($this->countryCode, $this->localPhone);
+        $order->user_id = $this->currentUserId();
+        $order->save();
+
+        $order->confirmUnpaid();
+
+        $this->receiptOrderId = $order->id;
+        $this->paying = false;
+    }
+
+    /**
      * Best-effort split of a stored phone string back into its (dial,
      * local) parts for the dropdown + input. Tolerant of multiple input
      * shapes:

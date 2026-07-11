@@ -17,6 +17,7 @@ use Modules\Pos\Enums\FulfillmentStatus;
 use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Enums\SalesChannel;
 use Modules\Pos\Models\PosOrder;
+use Modules\Pos\Models\PosPaymentMethod;
 
 /**
  * Remote / delivery sales dashboard: the fulfillment queue for orders taken
@@ -59,6 +60,35 @@ final class RemoteOrders extends Component
         $order?->advanceFulfillment();
     }
 
+    /**
+     * Collect the money on a pay-on-delivery order — records the outstanding
+     * amount against the default (cash) payment method and books the sale.
+     */
+    public function collectPayment(int $orderId): void
+    {
+        $this->guard(Permission::Write);
+
+        $order = PosOrder::query()
+            ->where('channel', SalesChannel::Remote->value)
+            ->find($orderId);
+
+        if ($order === null || $order->isPaid()) {
+            return;
+        }
+
+        $method = PosPaymentMethod::query()
+            ->where('active', true)
+            ->orderByDesc('is_cash')
+            ->orderBy('sequence')
+            ->first();
+
+        if ($method === null) {
+            return;
+        }
+
+        $order->collectPayment($method);
+    }
+
     public function render(): View
     {
         $done = fn () => PosOrder::query()
@@ -72,10 +102,14 @@ final class RemoteOrders extends Component
         }
         $active = ['new', 'packed', 'out_for_delivery'];
         $activeCount = ($counts['new'] ?? 0) + ($counts['packed'] ?? 0) + ($counts['out_for_delivery'] ?? 0);
+        // Outstanding cash: pay-on-delivery orders not yet collected.
+        $unpaidCount = $done()->whereRaw('paid_total < total - 0.001')->count();
 
         $query = $done()->with('partner');
         if ($this->filter === 'active') {
             $query->whereIn('fulfillment_status', $active)->oldest('ordered_at');
+        } elseif ($this->filter === 'unpaid') {
+            $query->whereRaw('paid_total < total - 0.001')->oldest('ordered_at');
         } elseif ($this->filter === 'all') {
             $query->latest('ordered_at');
         } else {
@@ -86,6 +120,7 @@ final class RemoteOrders extends Component
             'orders' => $query->withCount('lines')->limit(200)->get(),
             'counts' => $counts,
             'activeCount' => $activeCount,
+            'unpaidCount' => $unpaidCount,
             'canFulfill' => app(AccessControl::class)->allows(Auth::user(), 'pos.order', Permission::Write),
         ]);
     }

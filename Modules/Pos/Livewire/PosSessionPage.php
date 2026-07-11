@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Pos\Livewire;
 
+use App\Erp\Business\Feature;
+use App\Erp\Business\Features;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use App\Models\User;
@@ -41,10 +43,19 @@ final class PosSessionPage extends Component
         return $user instanceof User && $user->isAdmin();
     }
 
+    /**
+     * Who may count the drawer and close the shared register: a manager always,
+     * or any cashier when the business turns on "Cashiers can close the
+     * register" (POS → Settings). Off by default, so it stays manager-only.
+     */
+    private function canClose(): bool
+    {
+        return $this->isManager() || Features::enabled(Feature::CashierClose);
+    }
+
     public function closeSession(): void
     {
-        app(AccessControl::class)->authorize(Auth::user(), 'pos.session', Permission::Write);
-        abort_unless($this->isManager(), 403, 'Only a manager can close the register.');
+        abort_unless($this->canClose(), 403, 'You are not allowed to close the register.');
 
         $session = PosSession::query()->findOrFail($this->sessionId);
 
@@ -84,6 +95,7 @@ final class PosSessionPage extends Component
             'expectedCash' => $session->expectedCash(),
             'byMethod' => $byMethod,
             'isManager' => $this->isManager(),
+            'canClose' => $this->canClose(),
             'participants' => app(PosSessionManager::class)->activeParticipants($session),
         ]);
     }

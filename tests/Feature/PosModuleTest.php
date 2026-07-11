@@ -1177,6 +1177,23 @@ final class PosModuleTest extends TestCase
         $this->assertSame(SessionState::Closed, $session->refresh()->state);
     }
 
+    public function test_a_cashier_can_close_the_register_when_the_feature_is_on(): void
+    {
+        $this->installPos();
+        $this->seed(AuthSeeder::class);
+        $this->seed(PosSeeder::class);
+        \App\Erp\Business\Features::setOverrides([\App\Erp\Business\Feature::CashierClose->value => true]);
+
+        $session = $this->openSession();
+
+        // With "Cashiers can close" on, a non-manager cashier may close.
+        $this->actingAs(User::query()->where('email', 'sales@example.com')->sole());
+        Livewire::test(PosSessionPage::class, ['id' => $session->id])
+            ->set('countedCash', '0')
+            ->call('closeSession');
+        $this->assertSame(SessionState::Closed, $session->refresh()->state);
+    }
+
     public function test_install_registers_pos_category_and_hierarchy_columns(): void
     {
         $this->installPos();

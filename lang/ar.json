@@ -1059,6 +1059,8 @@
     "Recipe cost: :cost": "تكلفة الوصفة: :cost",
     "Remote / delivery": "بيع عن بُعد / توصيل",
     "Remote / delivery sales": "مبيعات عن بُعد / توصيل",
+    "Cashiers can close the register": "يمكن للكاشير إغلاق الصندوق",
+    "Allow any cashier to count the cash drawer and close the shared register. Off = only a manager (admin) can close.": "السماح لأي كاشير بعدّ درج النقد وإغلاق الصندوق المشترك. عند الإيقاف = المدير فقط يمكنه الإغلاق.",
     "The fulfillment queue for phone, WhatsApp and delivery orders.": "قائمة تجهيز طلبات الهاتف والواتساب والتوصيل.",
     "Ring up phone / WhatsApp / delivery orders on the register, capture the delivery details, and track them through a fulfillment queue.": "سجّل طلبات الهاتف / الواتساب / التوصيل من الكاشير، واحفظ تفاصيل التوصيل، وتابعها عبر قائمة تجهيز.",
     "Delivery address": "عنوان التوصيل",

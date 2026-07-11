@@ -62,7 +62,9 @@
             </div>
         </div>
 
-        <div class="space-y-6">
+        {{-- On phones/tablets the register controls come first (order-first);
+             on desktop this returns to the right-hand column. --}}
+        <div class="space-y-6 order-first lg:order-none">
             {{-- Close / reconciliation --}}
             <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
                 <h2 class="mb-2 text-sm font-semibold text-chrome-800">{{ __('Cash control') }}</h2>
@@ -73,7 +75,7 @@
                     <div class="flex justify-between text-sm text-chrome-500">
                         <span>{{ __('Expected in drawer') }}</span><span>{{ $money($expectedCash) }}</span>
                     </div>
-                    @if ($isManager)
+                    @if ($canClose)
                         <label class="mt-3 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Counted cash') }}</label>
                         <input type="number" step="0.01" wire:model="countedCash" class="o-input mt-1">
                         <button wire:click="closeSession"

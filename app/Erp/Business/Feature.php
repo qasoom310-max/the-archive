@@ -40,6 +40,9 @@ enum Feature: string
     // as remote (phone / WhatsApp / delivery), capture the delivery details,
     // and work it through a fulfillment queue. Opt-in — see DEFAULT_OFF.
     case RemoteSales = 'remote_sales';
+    // Let a cashier (not just a manager) count the drawer and close the shared
+    // register. OFF by default = manager-only. Opt-in — see DEFAULT_OFF.
+    case CashierClose = 'cashier_close';
 
     // Accounting sub-features.
     case ChartOfAccounts = 'chart_of_accounts';
@@ -77,6 +80,7 @@ enum Feature: string
             self::Production => 'Production & store (mixing)',
             self::Postpaid => 'Postpaid (kitchen first, pay later)',
             self::RemoteSales => 'Remote / delivery sales',
+            self::CashierClose => 'Cashiers can close the register',
             self::ChartOfAccounts => 'Chart of accounts',
             self::JournalEntries => 'Journal entries',
             self::RentalMaintenance => 'Car maintenance',
@@ -106,6 +110,7 @@ enum Feature: string
             self::Production => 'Mix raw materials into finished bottles held in a store, then move them to the shop for sale.',
             self::Postpaid => 'Send items to the kitchen as they are added and take payment at the end. Off = pay first, then the order fires to the kitchen.',
             self::RemoteSales => 'Ring up phone / WhatsApp / delivery orders on the register, capture the delivery details, and track them through a fulfillment queue.',
+            self::CashierClose => 'Allow any cashier to count the cash drawer and close the shared register. Off = only a manager (admin) can close.',
             self::ChartOfAccounts => 'The list of ledger accounts (assets, income, expenses…).',
             self::JournalEntries => 'Manual and automatic double-entry journal postings.',
             self::RentalMaintenance => 'Log and schedule vehicle servicing and repairs.',

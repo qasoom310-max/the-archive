@@ -47,6 +47,9 @@ final class WorkspacesPage extends Component
     public function mount(): void
     {
         abort_unless($this->isAdmin(), 403);
+        // A locked user runs inside one workspace only — they are not a
+        // landlord and may not create, switch or delete databases.
+        abort_if(Auth::user()?->isLockedToWorkspace() === true, 403);
     }
 
     public function create(): void

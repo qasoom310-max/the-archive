@@ -132,9 +132,10 @@
                         </svg>
                         {{ __('Profile') }}
                     </a>
-                    {{-- My database (multi-tenant) — admin-only. Opens the
-                         database manager to create/switch separate ERPs. --}}
-                    @if ($authUser?->isAdmin())
+                    {{-- My database (multi-tenant) — admin-only, and hidden for a
+                         user locked to a single workspace (they can't switch or
+                         manage databases). Opens the database manager. --}}
+                    @if ($authUser?->isAdmin() && ! $authUser->isLockedToWorkspace())
                         <a href="{{ url('/workspaces') }}" wire:navigate
                             class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-chrome-100">
                             {{-- Heroicons mini circle-stack (database) --}}

@@ -25,6 +25,7 @@ use Throwable;
  * @property bool $is_admin
  * @property bool $is_super_admin   Owner tier above admin (a strict superset of is_admin)
  * @property bool $is_accountant    May confirm payments (with super-admins); not even a regular admin can
+ * @property int|null $home_workspace_id  Locked to this workspace (database); null = unrestricted
  * @property string $password
  */
 final class User extends Authenticatable
@@ -44,6 +45,7 @@ final class User extends Authenticatable
         'is_admin',
         'is_super_admin',
         'is_accountant',
+        'home_workspace_id',
         'password',
     ];
 
@@ -101,6 +103,27 @@ final class User extends Authenticatable
     public function isAccountant(): bool
     {
         return ($this->getAttribute('is_accountant') ?? false) === true;
+    }
+
+    /**
+     * The workspace (database) this user is LOCKED to, or null when
+     * unrestricted. Column-guarded so a not-yet-migrated DB reads null.
+     */
+    public function homeWorkspaceId(): ?int
+    {
+        $value = $this->getAttribute('home_workspace_id');
+
+        return $value === null ? null : (int) $value;
+    }
+
+    /**
+     * A locked user may only ever operate in their home workspace: the tenancy
+     * layer forces them there, the database switcher is hidden, and switching
+     * or managing databases is refused.
+     */
+    public function isLockedToWorkspace(): bool
+    {
+        return $this->homeWorkspaceId() !== null;
     }
 
     /**

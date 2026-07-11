@@ -106,28 +106,59 @@
              account into each picked database). On edit the account already
              lives where it lives; name/email/password/apps update on Main. --}}
         @unless ($editingId)
-            <div>
-                <label class="mb-2 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Databases this user can access') }}</label>
-                <p class="mb-2 text-xs text-chrome-400">{{ __('Pick the databases to create this account in.') }}</p>
-                @if ($workspaceList->isEmpty())
-                    <p class="text-sm text-chrome-400">{{ __('No databases available.') }}</p>
-                @else
-                    <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                        @foreach ($workspaceList as $workspace)
-                            <label wire:key="ws-{{ $workspace->id }}"
-                                class="flex cursor-pointer items-center gap-2 rounded-lg border border-chrome-200 px-3 py-2 text-sm hover:bg-chrome-50">
-                                <input type="checkbox" wire:model="workspaces" value="{{ $workspace->id }}"
-                                    class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
-                                <span class="text-chrome-700">{{ $workspace->name }}</span>
-                                @if ($workspace->is_main)
-                                    <span class="ms-auto rounded-full bg-chrome-100 px-2 py-0.5 text-[10px] font-medium text-chrome-500">{{ __('Main') }}</span>
-                                @endif
-                            </label>
-                        @endforeach
-                    </div>
-                @endif
-                @error('workspaces') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-            </div>
+            {{-- Workspace-locked admin: full owner of ONE database, no access to
+                 any other. Only a super admin may mint one. --}}
+            @php $tenantWorkspaces = $workspaceList->where('is_main', false); @endphp
+            @if ($actorIsSuperAdmin && $tenantWorkspaces->isNotEmpty())
+                <div class="rounded-lg border border-chrome-200 p-3">
+                    <label class="flex cursor-pointer items-start gap-2">
+                        <input type="checkbox" wire:model.live="lockToWorkspace"
+                            class="mt-0.5 rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
+                        <span>
+                            <span class="block text-sm font-medium text-chrome-800">{{ __('Lock to one database (workspace admin)') }}</span>
+                            <span class="block text-xs text-chrome-400">{{ __('Full owner of a single database, with no access to any other and no database switcher. The role and app choices above don’t apply.') }}</span>
+                        </span>
+                    </label>
+                    @if ($lockToWorkspace)
+                        <div class="mt-3">
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Which database') }}</label>
+                            <select wire:model="lockWorkspaceId" class="o-input">
+                                <option value="">{{ __('— Select —') }}</option>
+                                @foreach ($tenantWorkspaces as $workspace)
+                                    <option value="{{ $workspace->id }}">{{ $workspace->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('lockWorkspaceId') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            @error('lockToWorkspace') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    @endif
+                </div>
+            @endif
+
+            @unless ($lockToWorkspace)
+                <div>
+                    <label class="mb-2 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Databases this user can access') }}</label>
+                    <p class="mb-2 text-xs text-chrome-400">{{ __('Pick the databases to create this account in.') }}</p>
+                    @if ($workspaceList->isEmpty())
+                        <p class="text-sm text-chrome-400">{{ __('No databases available.') }}</p>
+                    @else
+                        <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            @foreach ($workspaceList as $workspace)
+                                <label wire:key="ws-{{ $workspace->id }}"
+                                    class="flex cursor-pointer items-center gap-2 rounded-lg border border-chrome-200 px-3 py-2 text-sm hover:bg-chrome-50">
+                                    <input type="checkbox" wire:model="workspaces" value="{{ $workspace->id }}"
+                                        class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
+                                    <span class="text-chrome-700">{{ $workspace->name }}</span>
+                                    @if ($workspace->is_main)
+                                        <span class="ms-auto rounded-full bg-chrome-100 px-2 py-0.5 text-[10px] font-medium text-chrome-500">{{ __('Main') }}</span>
+                                    @endif
+                                </label>
+                            @endforeach
+                        </div>
+                    @endif
+                    @error('workspaces') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                </div>
+            @endunless
         @endunless
 
         <div class="flex items-center justify-end gap-2 border-t border-chrome-100 pt-4">
@@ -166,6 +197,9 @@
                         @endif
                         @if ($user->is_accountant)
                             <span class="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">{{ __('Accountant') }}</span>
+                        @endif
+                        @if ($user->home_workspace_id && ($workspaceNames[$user->home_workspace_id] ?? null))
+                            <span class="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700">{{ __('Locked') }}: {{ $workspaceNames[$user->home_workspace_id] }}</span>
                         @endif
                         <span class="min-w-0 truncate">
                             <span class="font-medium text-chrome-700">{{ $user->name }}</span>

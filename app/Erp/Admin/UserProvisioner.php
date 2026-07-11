@@ -89,6 +89,71 @@ final class UserProvisioner
     }
 
     /**
+     * Create a user LOCKED to a single workspace: full admin (optionally the
+     * owner tier) INSIDE that database, but with a bare non-admin shell on Main
+     * used only to authenticate. The tenancy layer forces them into the
+     * workspace on every request, so they can never touch Main or any other
+     * database. Returns the Main shell (or, if the tenancy tables are absent, a
+     * plain admin on the current DB).
+     *
+     * Re-running for the same email edits both rows in place.
+     */
+    public function provisionLocked(
+        string $name,
+        string $email,
+        string $plainPassword,
+        int $workspaceId,
+        bool $superAdmin = true,
+    ): User {
+        $hashed = Hash::make($plainPassword);
+
+        // No tenancy on disk → nothing to lock to; create a plain admin.
+        if (! Schema::hasTable('workspaces')) {
+            return $this->upsertLockedRow($name, $email, $hashed, null, true, $superAdmin);
+        }
+
+        $workspace = Workspace::query()->find($workspaceId);
+        // Locking to Main (the identity store) is meaningless — treat as a
+        // normal admin on Main rather than trapping them nowhere.
+        if ($workspace === null || $workspace->is_main) {
+            return $this->upsertLockedRow($name, $email, $hashed, null, true, $superAdmin);
+        }
+
+        // Main: a login shell only — NON-admin, but flagged locked so the
+        // tenancy middleware routes it straight into the workspace.
+        $mainUser = $this->upsertLockedRow($name, $email, $hashed, $workspaceId, false, false);
+
+        // Tenant: the real account — full owner within this one database.
+        $path = $workspace->databasePath();
+        if ($path !== null && is_file($path)) {
+            $this->workspaces->withTenant(
+                $path,
+                fn (): User => $this->upsertLockedRow($name, $email, $hashed, $workspaceId, true, $superAdmin),
+            );
+        }
+
+        return $mainUser;
+    }
+
+    /**
+     * Upsert a user row (by email) on the CURRENT connection with an explicit
+     * role + lock. `is_admin` is forced on for a super admin (a superset).
+     */
+    private function upsertLockedRow(string $name, string $email, string $hashedPassword, ?int $homeWorkspaceId, bool $isAdmin, bool $isSuperAdmin): User
+    {
+        return User::query()->updateOrCreate(
+            ['email' => $email],
+            [
+                'name' => $name,
+                'password' => $hashedPassword,
+                'is_admin' => $isAdmin || $isSuperAdmin,
+                'is_super_admin' => $isSuperAdmin,
+                'home_workspace_id' => $homeWorkspaceId,
+            ],
+        );
+    }
+
+    /**
      * Create/update the user, then (re)grant the apps — all on the CURRENT
      * default connection. An admin bypasses the ACL entirely, so no per-user
      * group / Read rules are created for one.

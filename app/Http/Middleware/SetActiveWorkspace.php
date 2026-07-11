@@ -53,11 +53,23 @@ final class SetActiveWorkspace
             return $next($request);
         }
 
-        $cookie = $request->cookie(Workspace::COOKIE);
+        $user = Auth::user();
 
-        // No cookie → Main. Return before touching the DB at all.
-        if (! is_string($cookie) || ! ctype_digit($cookie)) {
-            return $next($request);
+        // A LOCKED user is always routed to their home workspace — the cookie
+        // is ignored, so a Kaleem-only admin can never reach another business's
+        // database (nor Main). An unrestricted user follows the cookie as usual.
+        $lockedId = $user instanceof User ? $user->homeWorkspaceId() : null;
+
+        if ($lockedId !== null) {
+            $targetId = $lockedId;
+        } else {
+            $cookie = $request->cookie(Workspace::COOKIE);
+
+            // No cookie → Main. Return before touching the DB at all.
+            if (! is_string($cookie) || ! ctype_digit($cookie)) {
+                return $next($request);
+            }
+            $targetId = (int) $cookie;
         }
 
         try {
@@ -65,7 +77,7 @@ final class SetActiveWorkspace
                 return $next($request);
             }
 
-            $workspace = Workspace::query()->find((int) $cookie);
+            $workspace = Workspace::query()->find($targetId);
 
             if ($workspace === null || $workspace->is_main) {
                 return $next($request);

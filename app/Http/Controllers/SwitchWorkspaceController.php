@@ -23,6 +23,8 @@ final class SwitchWorkspaceController
     {
         $user = Auth::user();
         abort_unless($user instanceof User && $user->isAdmin(), 403);
+        // A locked user may never leave their home workspace.
+        abort_if($user->isLockedToWorkspace(), 403);
 
         $target = app(WorkspaceManager::class)->find($workspace);
         abort_if($target === null, 404);

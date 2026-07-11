@@ -59,6 +59,12 @@ final class UserManager extends Component
     /** @var list<int> Selected workspace ids to create the account in (create mode). */
     public array $workspaces = [];
 
+    /** Create the user LOCKED to a single database (workspace-only super admin). */
+    public bool $lockToWorkspace = false;
+
+    /** The single workspace to lock to when {@see $lockToWorkspace} is on. */
+    public ?int $lockWorkspaceId = null;
+
     public function mount(): void
     {
         $this->guardAdmin();
@@ -107,9 +113,11 @@ final class UserManager extends Component
             'role' => ['required', Rule::in(['staff', 'admin'])],
             'apps' => ['array'],
             'apps.*' => ['string'],
-            // At least one database when creating (Main is no longer implicit).
-            'workspaces' => $userId === null ? ['array', 'min:1'] : ['array'],
+            // At least one database when creating — unless the account is locked
+            // to a single workspace, which uses its own picker below.
+            'workspaces' => ($userId === null && ! $this->lockToWorkspace) ? ['array', 'min:1'] : ['array'],
             'workspaces.*' => ['integer'],
+            'lockWorkspaceId' => $this->lockToWorkspace ? ['required', 'integer'] : ['nullable', 'integer'],
         ];
     }
 
@@ -144,12 +152,14 @@ final class UserManager extends Component
         $this->roleLocked = $user->isSuperAdmin();
         $this->apps = $this->currentApps($user);
         $this->workspaces = [];
+        $this->lockToWorkspace = false;
+        $this->lockWorkspaceId = null;
         $this->resetValidation();
     }
 
     public function cancelEdit(): void
     {
-        $this->reset(['editingId', 'name', 'email', 'password', 'role', 'roleLocked', 'apps', 'workspaces']);
+        $this->reset(['editingId', 'name', 'email', 'password', 'role', 'roleLocked', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
         $this->resetValidation();
     }
 
@@ -195,18 +205,36 @@ final class UserManager extends Component
 
         $email = strtolower(trim($this->email));
 
-        app(UserProvisioner::class)->provision(
-            trim($this->name),
-            $email,
-            $this->password,
-            array_values($this->apps),
-            array_map('intval', array_values($this->workspaces)),
-            $this->role === 'admin',
-        );
+        if ($this->lockToWorkspace) {
+            // A workspace-locked owner is all-powerful inside that database, so
+            // only a super admin may mint one.
+            if (! $this->actorIsSuperAdmin()) {
+                $this->addError('lockToWorkspace', __('Only a super admin can create a workspace-locked admin.'));
+
+                return;
+            }
+
+            app(UserProvisioner::class)->provisionLocked(
+                trim($this->name),
+                $email,
+                $this->password,
+                (int) $this->lockWorkspaceId,
+                superAdmin: true,
+            );
+        } else {
+            app(UserProvisioner::class)->provision(
+                trim($this->name),
+                $email,
+                $this->password,
+                array_values($this->apps),
+                array_map('intval', array_values($this->workspaces)),
+                $this->role === 'admin',
+            );
+        }
 
         app(\App\Erp\Activity\ActivityLogger::class)->log('user_created', $email, __('Created :name', ['name' => trim($this->name)]));
 
-        $this->reset(['name', 'email', 'password', 'role', 'roleLocked', 'apps', 'workspaces']);
+        $this->reset(['name', 'email', 'password', 'role', 'roleLocked', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
         session()->flash('user_saved', __('User created.'));
     }
 
@@ -426,7 +454,9 @@ final class UserManager extends Component
             // properties (Livewire injects those into the view too).
             'appModules' => $apps,
             'workspaceList' => $workspaces,
-            'users' => User::query()->orderByDesc('is_super_admin')->orderByDesc('is_admin')->orderBy('name')->get(['id', 'name', 'email', 'is_admin', 'is_super_admin', 'is_accountant']),
+            // Id → name for the "locked to …" tag in the list.
+            'workspaceNames' => $workspaces->pluck('name', 'id'),
+            'users' => User::query()->orderByDesc('is_super_admin')->orderByDesc('is_admin')->orderBy('name')->get(['id', 'name', 'email', 'is_admin', 'is_super_admin', 'is_accountant', 'home_workspace_id']),
             'currentUserId' => Auth::id(),
             'adminCount' => User::query()->where('is_admin', true)->count(),
             'actorIsSuperAdmin' => $this->actorIsSuperAdmin(),

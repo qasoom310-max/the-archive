@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $description
  * @property float $quantity
  * @property float $unit_cost
+ * @property float|null $landed_unit_cost  Unit cost + this line's delivery share (set at confirm)
  * @property float $subtotal
  */
 final class PurchaseLine extends Model
@@ -28,7 +29,7 @@ final class PurchaseLine extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'purchase_id', 'pos_product_id', 'pos_condiment_id', 'pos_ingredient_id', 'description', 'quantity', 'unit_cost', 'subtotal',
+        'purchase_id', 'pos_product_id', 'pos_condiment_id', 'pos_ingredient_id', 'description', 'quantity', 'unit_cost', 'landed_unit_cost', 'subtotal',
     ];
 
     /**
@@ -39,8 +40,15 @@ final class PurchaseLine extends Model
         return [
             'quantity' => 'float',
             'unit_cost' => 'float',
+            'landed_unit_cost' => 'float',
             'subtotal' => 'float',
         ];
+    }
+
+    /** The cost used to value stock: landed cost if computed, else raw unit. */
+    public function effectiveUnitCost(): float
+    {
+        return (float) ($this->landed_unit_cost ?? $this->unit_cost);
     }
 
     protected static function booted(): void

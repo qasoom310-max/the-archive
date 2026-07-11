@@ -36,6 +36,7 @@ use Modules\Purchases\Enums\PurchaseState;
  * @property PurchaseState $state
  * @property bool $is_stock_purchase
  * @property float $total
+ * @property float $delivery_cost  Shipping we pay on top of the vendor invoice
  * @property string|null $notes
  * @property Carbon|null $confirmed_at
  * @property-read string|null $partner_name
@@ -49,7 +50,7 @@ final class Purchase extends Model implements Chatterable, DefinesIrModel
     /** @var list<string> */
     protected $fillable = [
         'reference', 'name', 'partner_id', 'user_id', 'date', 'expiry_date', 'state',
-        'is_stock_purchase', 'total', 'notes', 'confirmed_at',
+        'is_stock_purchase', 'total', 'delivery_cost', 'notes', 'confirmed_at',
     ];
 
     /** @var array<string, mixed> */
@@ -57,6 +58,7 @@ final class Purchase extends Model implements Chatterable, DefinesIrModel
         'state' => 'draft',
         'is_stock_purchase' => true,
         'total' => 0,
+        'delivery_cost' => 0,
     ];
 
     /**
@@ -70,6 +72,7 @@ final class Purchase extends Model implements Chatterable, DefinesIrModel
             'state' => PurchaseState::class,
             'is_stock_purchase' => 'boolean',
             'total' => 'float',
+            'delivery_cost' => 'float',
             'confirmed_at' => 'datetime',
         ];
     }
@@ -103,14 +106,20 @@ final class Purchase extends Model implements Chatterable, DefinesIrModel
         return $this->belongsTo(Partner::class, 'partner_id');
     }
 
+    /** Goods subtotal — the sum of the line subtotals, before delivery. */
+    public function goodsSubtotal(): float
+    {
+        return round((float) $this->lines()->sum('subtotal'), 2);
+    }
+
     /**
-     * Recompute the header total from the persisted lines. Called by the
-     * confirmer (and the form on every line edit) so `total` never drifts.
+     * Recompute the header total from the persisted lines PLUS the delivery
+     * cost. Called by the confirmer (and the form on every line edit) so
+     * `total` never drifts.
      */
     public function recomputeTotal(): void
     {
-        $sum = $this->lines()->sum('subtotal');
-        $this->total = round((float) $sum, 2);
+        $this->total = round($this->goodsSubtotal() + (float) $this->delivery_cost, 2);
     }
 
     public function isConfirmed(): bool

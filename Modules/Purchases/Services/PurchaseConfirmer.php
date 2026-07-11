@@ -62,6 +62,11 @@ final class PurchaseConfirmer
 
             $purchase->save();
 
+            // Fold the delivery cost into each line's landed unit cost (split by
+            // value) BEFORE stock is valued, so a material's cost price reflects
+            // what it truly cost to land here — not just the invoice unit price.
+            $this->applyLandedCosts($purchase);
+
             foreach ($purchase->lines as $line) {
                 if ($line->quantity <= 0) {
                     continue;
@@ -101,6 +106,29 @@ final class PurchaseConfirmer
         }
 
         return $purchase;
+    }
+
+    /**
+     * Fold the purchase's delivery cost into each line's `landed_unit_cost`,
+     * split BY VALUE (a line that is a bigger share of the goods total absorbs
+     * a bigger share of the delivery). With no delivery — or when every line is
+     * free (goods total 0) — the landed cost is just the unit cost.
+     */
+    private function applyLandedCosts(Purchase $purchase): void
+    {
+        $delivery = round((float) $purchase->delivery_cost, 2);
+        $goodsTotal = round((float) $purchase->lines->sum('subtotal'), 2);
+
+        foreach ($purchase->lines as $line) {
+            $qty = (float) $line->quantity;
+            $share = ($delivery > 0.0 && $goodsTotal > 0.0)
+                ? $delivery * ((float) $line->subtotal / $goodsTotal)
+                : 0.0;
+            $perUnit = $qty > 0.0 ? $share / $qty : 0.0;
+
+            $line->landed_unit_cost = round((float) $line->unit_cost + $perUnit, 4);
+            $line->save();
+        }
     }
 
     /**
@@ -152,10 +180,12 @@ final class PurchaseConfirmer
         }
 
         $ingredient->stock_on_hand = round((float) $ingredient->stock_on_hand + (float) $line->quantity, 3);
-        // Adopt the purchase price as the material's cost (latest cost), so a
-        // material bought for the first time stops valuing at 0.
-        if ((float) $line->unit_cost > 0) {
-            $ingredient->cost_price = (float) $line->unit_cost;
+        // Adopt the LANDED cost (invoice unit price + this line's delivery
+        // share) as the material's cost, so a material bought for the first
+        // time stops valuing at 0 and its cost reflects the real landed price.
+        $cost = $line->effectiveUnitCost();
+        if ($cost > 0) {
+            $ingredient->cost_price = $cost;
         }
         $ingredient->save();
     }

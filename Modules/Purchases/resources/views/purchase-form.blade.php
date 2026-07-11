@@ -231,6 +231,11 @@
                                 <td class="px-3 py-2 text-end">
                                     <input type="number" step="any" min="0" wire:model.live.debounce.400ms="lines.{{ $i }}.unit_cost"
                                         @disabled($isConfirmed) class="o-input w-28 text-end">
+                                    @if ($deliveryCost > 0 && ($landed[$i] ?? 0) > (float) ($line['unit_cost'] ?? 0))
+                                        <p class="mt-1 whitespace-nowrap text-[11px] text-primary-600" title="{{ __('Unit cost + delivery share') }}">
+                                            {{ __('Landed') }}: {{ Currencies::format($landed[$i]) }}
+                                        </p>
+                                    @endif
                                 </td>
                                 <td class="px-3 py-2 text-end font-medium text-chrome-700">
                                     {{ Currencies::format((float) ($line['quantity'] ?? 0) * (float) ($line['unit_cost'] ?? 0)) }}
@@ -248,10 +253,34 @@
                     </tbody>
                     <tfoot class="bg-chrome-50">
                         <tr>
+                            <td class="px-3 py-2 text-end text-chrome-500" colspan="3">{{ __('Goods subtotal') }}</td>
+                            <td class="px-3 py-2 text-end text-chrome-700">{{ Currencies::format($goodsTotal) }}</td>
+                            @unless ($isConfirmed) <td></td> @endunless
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-2 text-end text-chrome-500" colspan="3">{{ __('Delivery cost (we pay)') }}</td>
+                            <td class="px-3 py-2 text-end">
+                                @if ($isConfirmed)
+                                    <span class="font-medium text-chrome-700">{{ Currencies::format($deliveryCost) }}</span>
+                                @else
+                                    <input type="number" step="any" min="0" wire:model.live.debounce.400ms="form.delivery_cost"
+                                        class="o-input w-28 text-end" placeholder="0">
+                                @endif
+                            </td>
+                            @unless ($isConfirmed) <td></td> @endunless
+                        </tr>
+                        <tr>
                             <td class="px-3 py-2 text-end font-semibold text-chrome-600" colspan="3">{{ __('Total') }}</td>
                             <td class="px-3 py-2 text-end font-bold text-chrome-900">{{ Currencies::format($total) }}</td>
                             @unless ($isConfirmed) <td></td> @endunless
                         </tr>
+                        @if ($deliveryCost > 0)
+                            <tr>
+                                <td colspan="{{ $isConfirmed ? 4 : 5 }}" class="px-3 pb-2 text-end text-[11px] text-chrome-400">
+                                    {{ __('Delivery is split across the items by value and folded into each item’s cost.') }}
+                                </td>
+                            </tr>
+                        @endif
                     </tfoot>
                 </table>
             </div>

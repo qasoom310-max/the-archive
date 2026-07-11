@@ -54,6 +54,7 @@ final class PurchaseForm extends Component
         'date' => '',
         'expiry_date' => '',
         'is_stock_purchase' => true,
+        'delivery_cost' => 0,
         'notes' => '',
     ];
 
@@ -102,6 +103,7 @@ final class PurchaseForm extends Component
             'date' => $purchase->date->toDateString(),
             'expiry_date' => $purchase->expiry_date?->toDateString() ?? '',
             'is_stock_purchase' => (bool) $purchase->is_stock_purchase,
+            'delivery_cost' => (float) $purchase->delivery_cost,
             'notes' => (string) ($purchase->notes ?? ''),
         ];
 
@@ -170,6 +172,7 @@ final class PurchaseForm extends Component
             'form.date' => ['required', 'date'],
             'form.expiry_date' => ['nullable', 'date'],
             'form.reference' => ['nullable', 'string', 'max:255'],
+            'form.delivery_cost' => ['numeric', 'min:0'],
             'form.notes' => ['nullable', 'string'],
             'lines' => ['array'],
             'lines.*.component' => ['nullable', 'string'],
@@ -378,10 +381,10 @@ final class PurchaseForm extends Component
     }
 
     /**
-     * Live total of the editor rows (a plain method, not a Livewire computed
-     * property — render() passes the value to the view).
+     * Live goods subtotal of the editor rows (before delivery). A plain
+     * method — render() passes the value to the view.
      */
-    private function currentTotal(): float
+    private function goodsTotal(): float
     {
         $total = 0.0;
 
@@ -390,6 +393,41 @@ final class PurchaseForm extends Component
         }
 
         return round($total, 2);
+    }
+
+    private function deliveryCost(): float
+    {
+        return round((float) ($this->form['delivery_cost'] ?? 0), 2);
+    }
+
+    /** Goods + delivery — the full amount for this bill. */
+    private function currentTotal(): float
+    {
+        return round($this->goodsTotal() + $this->deliveryCost(), 2);
+    }
+
+    /**
+     * Live per-line landed unit cost (invoice unit + this line's delivery
+     * share, split by value) for the editor preview. Keyed by line index.
+     *
+     * @return array<int, float>
+     */
+    private function landedPreview(): array
+    {
+        $delivery = $this->deliveryCost();
+        $goods = $this->goodsTotal();
+        $preview = [];
+
+        foreach ($this->lines as $i => $line) {
+            $qty = (float) ($line['quantity'] ?? 0);
+            $unit = (float) ($line['unit_cost'] ?? 0);
+            $subtotal = $qty * $unit;
+            $share = ($delivery > 0.0 && $goods > 0.0) ? $delivery * ($subtotal / $goods) : 0.0;
+            $perUnit = $qty > 0.0 ? $share / $qty : 0.0;
+            $preview[$i] = round($unit + $perUnit, 4);
+        }
+
+        return $preview;
     }
 
     public function save(): void
@@ -467,6 +505,7 @@ final class PurchaseForm extends Component
             'date' => (string) $this->form['date'],
             'expiry_date' => $expiry,
             'is_stock_purchase' => (bool) ($this->form['is_stock_purchase'] ?? true),
+            'delivery_cost' => round((float) ($this->form['delivery_cost'] ?? 0), 2),
             'notes' => ($this->form['notes'] === '') ? null : (string) $this->form['notes'],
         ]);
         $purchase->save();
@@ -556,7 +595,10 @@ final class PurchaseForm extends Component
             'components' => $components,
             'categories' => PosCategory::query()->orderBy('name')->get(['id', 'name']),
             'unitOptions' => PosProduct::UNIT_OPTIONS,
+            'goodsTotal' => $this->goodsTotal(),
+            'deliveryCost' => $this->deliveryCost(),
             'total' => $this->currentTotal(),
+            'landed' => $this->landedPreview(),
             'isConfirmed' => $this->state === PurchaseState::Confirmed->value,
             'canWrite' => $access->allows($user, 'purchases.purchase', Permission::Write),
             'canCreate' => $access->allows($user, 'purchases.purchase', Permission::Create),

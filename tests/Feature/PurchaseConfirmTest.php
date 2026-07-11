@@ -116,6 +116,52 @@ final class PurchaseConfirmTest extends TestCase
         $this->assertSame(12.5, (float) $oil->cost_price);     // adopts the purchase price
     }
 
+    public function test_delivery_cost_is_split_by_value_into_each_item_landed_cost(): void
+    {
+        $bottle = PosIngredient::query()->create(['name' => 'Bottle', 'stock_on_hand' => 0, 'cost_price' => 0]);
+        $cap = PosIngredient::query()->create(['name' => 'Cap', 'stock_on_hand' => 0, 'cost_price' => 0]);
+
+        $purchase = Purchase::query()->create(['date' => '2026-06-12', 'is_stock_purchase' => true, 'delivery_cost' => 28]);
+        $purchase->lines()->create(['pos_ingredient_id' => $bottle->id, 'description' => 'Bottle', 'quantity' => 100, 'unit_cost' => 1.80]); // 180
+        $purchase->lines()->create(['pos_ingredient_id' => $cap->id, 'description' => 'Cap', 'quantity' => 100, 'unit_cost' => 1.00]);       // 100
+
+        app(PurchaseConfirmer::class)->confirm($purchase);
+
+        // Goods 280, delivery 28 split by value:
+        //   bottle 180/280 → 18 → 0.18/unit → landed 1.98
+        //   cap    100/280 → 10 → 0.10/unit → landed 1.10
+        $this->assertSame(1.98, (float) $bottle->fresh()?->cost_price);
+        $this->assertSame(1.10, (float) $cap->fresh()?->cost_price);
+
+        // The bill total is goods + delivery, and each line records its landed cost.
+        $fresh = $purchase->fresh(['lines']);
+        $this->assertNotNull($fresh);
+        $this->assertSame(308.0, (float) $fresh->total);
+        $lines = $fresh->lines->keyBy('pos_ingredient_id');
+        $this->assertSame(1.98, (float) $lines[$bottle->id]->landed_unit_cost);
+        $this->assertSame(1.10, (float) $lines[$cap->id]->landed_unit_cost);
+    }
+
+    public function test_the_form_confirms_a_bill_with_a_delivery_cost(): void
+    {
+        $bottle = PosIngredient::query()->create(['name' => 'Bottle', 'stock_on_hand' => 0, 'cost_price' => 0]);
+
+        Livewire::test(PurchaseForm::class)
+            ->set('form.date', '2026-06-12')
+            ->set('lines.0.component', 'i:' . $bottle->id)
+            ->set('lines.0.quantity', 100)
+            ->set('lines.0.unit_cost', 1.80)
+            ->set('form.delivery_cost', 20)
+            ->call('confirm')
+            ->assertSet('state', 'confirmed');
+
+        $purchase = Purchase::query()->latest('id')->firstOrFail();
+        $this->assertSame(20.0, (float) $purchase->delivery_cost);
+        $this->assertSame(200.0, (float) $purchase->total);       // 180 goods + 20 delivery
+        // The one line absorbs all delivery: 1.80 + 20/100 = 2.00.
+        $this->assertSame(2.0, (float) $bottle->fresh()?->cost_price);
+    }
+
     public function test_confirm_raises_pos_stock_warehouse_stock_and_posts_accounting(): void
     {
         $coal = $this->coal(stock: 4.0);

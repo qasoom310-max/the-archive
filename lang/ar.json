@@ -658,6 +658,8 @@
     "Which database": "أي قاعدة بيانات",
     "Locked": "مقيّد",
     "Only a super admin can create a workspace-locked admin.": "يمكن للمدير الأعلى فقط إنشاء مدير مقيّد بقاعدة بيانات.",
+    "Switch to the Main database to add users — a user created inside a workspace can’t sign in.": "انتقل إلى قاعدة البيانات الرئيسية لإضافة المستخدمين — المستخدم المُنشأ داخل قاعدة فرعية لا يمكنه تسجيل الدخول.",
+    "You’re inside a workspace. Users can only be added from the Main database (the login). Switch to Main from “My database”, then add the user there and lock them to this workspace.": "أنت داخل قاعدة فرعية. تُضاف المستخدمون فقط من قاعدة البيانات الرئيسية (بوابة الدخول). انتقل إلى الرئيسية من «قاعدة بياناتي»، ثم أضف المستخدم هناك وقيّده بهذه القاعدة.",
     "Super administrator": "مدير أعلى",
     "Make super admin": "تعيين كمدير أعلى",
     "Remove super admin": "إزالة المدير الأعلى",

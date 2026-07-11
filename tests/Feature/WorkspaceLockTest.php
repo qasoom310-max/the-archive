@@ -15,6 +15,7 @@ use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Livewire\Livewire;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
@@ -148,6 +149,29 @@ final class WorkspaceLockTest extends TestCase
                 User::query()->where('email', 'kmgr@erp.test')->where('is_super_admin', true)->exists(),
             );
         });
+    }
+
+    public function test_backfill_gives_a_workspace_only_user_a_main_login(): void
+    {
+        $ws = $this->kaleem();
+
+        // A user created ONLY inside Kaleem (not Main) — the footgun.
+        app(WorkspaceManager::class)->withTenant((string) $ws->databasePath(), static function (): void {
+            User::query()->create([
+                'name' => 'Hussain', 'email' => 'hussain@abc.test',
+                'password' => 'secret12345', 'is_admin' => true, 'is_super_admin' => true,
+            ]);
+        });
+        $this->assertNull(User::query()->where('email', 'hussain@abc.test')->first());
+
+        $this->artisan('users:backfill-logins --apply')->assertSuccessful();
+
+        $main = User::query()->where('email', 'hussain@abc.test')->first();
+        $this->assertNotNull($main);
+        $this->assertSame($ws->id, $main->homeWorkspaceId());   // locked to Kaleem
+        $this->assertFalse((bool) $main->is_admin);             // Main is only a login shell
+        // Their existing password still works (hash copied verbatim, not re-hashed).
+        $this->assertTrue(Hash::check('secret12345', (string) $main->password));
     }
 
     public function test_a_regular_admin_cannot_create_a_locked_admin(): void

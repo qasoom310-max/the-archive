@@ -76,6 +76,20 @@ final class UserManager extends Component
         abort_unless($user instanceof User && $user->isAdmin(), 403);
     }
 
+    /**
+     * Users must be created from the MAIN database — that's the only place a
+     * login lives. Creating one while switched inside a workspace would make an
+     * account that can't sign in (the footgun this guards against).
+     */
+    private function onMain(): bool
+    {
+        if (! Schema::hasTable('workspaces')) {
+            return true;
+        }
+
+        return app(WorkspaceManager::class)->current()->is_main;
+    }
+
     private function actor(): ?User
     {
         $user = Auth::user();
@@ -189,6 +203,15 @@ final class UserManager extends Component
     public function save(): void
     {
         $this->guardAdmin();
+
+        // Creating a user is only valid on Main (the login store). Inside a
+        // workspace it would make a login-less account, so refuse it there.
+        if ($this->editingId === null && ! $this->onMain()) {
+            $this->addError('name', __('Switch to the Main database to add users — a user created inside a workspace can’t sign in.'));
+
+            return;
+        }
+
         $this->validate();
 
         if ($this->editingId !== null) {
@@ -460,6 +483,7 @@ final class UserManager extends Component
             'currentUserId' => Auth::id(),
             'adminCount' => User::query()->where('is_admin', true)->count(),
             'actorIsSuperAdmin' => $this->actorIsSuperAdmin(),
+            'onMain' => $this->onMain(),
         ]);
     }
 }

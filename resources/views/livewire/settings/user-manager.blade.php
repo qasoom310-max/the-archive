@@ -14,6 +14,14 @@
         </p>
     @endif
 
+    @unless ($onMain)
+        {{-- Logins live in the Main database. Adding a user from inside a
+             workspace would make an account that can't sign in. --}}
+        <p class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">
+            {{ __('You’re inside a workspace. Users can only be added from the Main database (the login). Switch to Main from “My database”, then add the user there and lock them to this workspace.') }}
+        </p>
+    @endunless
+
     <form wire:submit="save" class="space-y-5">
         {{-- Credentials --}}
         <div class="grid gap-4 sm:grid-cols-3">

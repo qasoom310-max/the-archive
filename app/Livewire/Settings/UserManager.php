@@ -15,6 +15,7 @@ use App\Models\Ir\IrModule;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
@@ -83,11 +84,11 @@ final class UserManager extends Component
      */
     private function onMain(): bool
     {
-        if (! Schema::hasTable('workspaces')) {
-            return true;
-        }
-
-        return app(WorkspaceManager::class)->current()->is_main;
+        // The tenancy middleware routes a workspace request onto the shared
+        // 'tenant' connection; anything else means we're on Main. Using the
+        // active connection (not the cookie) reflects the database a new user
+        // would actually be written to.
+        return DB::getDefaultConnection() !== 'tenant';
     }
 
     private function actor(): ?User
@@ -152,6 +153,9 @@ final class UserManager extends Component
     public function editUser(int $id): void
     {
         $this->guardAdmin();
+        if (! $this->onMain()) {
+            return; // read-only inside a workspace
+        }
 
         $user = User::query()->find($id);
         if ($user === null || ! $this->actorCanManage($user)) {
@@ -204,10 +208,10 @@ final class UserManager extends Component
     {
         $this->guardAdmin();
 
-        // Creating a user is only valid on Main (the login store). Inside a
-        // workspace it would make a login-less account, so refuse it there.
-        if ($this->editingId === null && ! $this->onMain()) {
-            $this->addError('name', __('Switch to the Main database to add users — a user created inside a workspace can’t sign in.'));
+        // User management lives on Main only — inside a workspace the screen is
+        // read-only (a user created there couldn't even sign in).
+        if (! $this->onMain()) {
+            $this->addError('name', __('Switch to the Main database to add or change users — inside a workspace this screen is read-only.'));
 
             return;
         }
@@ -307,6 +311,9 @@ final class UserManager extends Component
     public function deleteUser(int $id): void
     {
         $this->guardAdmin();
+        if (! $this->onMain()) {
+            return; // read-only inside a workspace
+        }
 
         if (! $this->canDelete($id)) {
             return;
@@ -376,6 +383,9 @@ final class UserManager extends Component
     {
         $this->guardAdmin();
         abort_unless($this->actorIsSuperAdmin(), 403);
+        if (! $this->onMain()) {
+            return; // read-only inside a workspace
+        }
 
         $target = User::query()->find($id);
         if ($target === null || $target->getKey() === Auth::id()) {
@@ -409,6 +419,9 @@ final class UserManager extends Component
     {
         $this->guardAdmin();
         abort_unless($this->actorIsSuperAdmin(), 403);
+        if (! $this->onMain()) {
+            return; // read-only inside a workspace
+        }
 
         $target = User::query()->find($id);
         if ($target === null || $target->getKey() === Auth::id()) {

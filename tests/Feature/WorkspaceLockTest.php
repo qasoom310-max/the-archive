@@ -151,6 +151,30 @@ final class WorkspaceLockTest extends TestCase
         });
     }
 
+    public function test_user_management_is_read_only_inside_a_workspace(): void
+    {
+        $ws = $this->kaleem();
+        $mainConnection = DB::getDefaultConnection();
+
+        // Simulate being switched into Kaleem, then try to add a user.
+        app(WorkspaceManager::class)->activate($ws);
+        try {
+            Livewire::test(UserManager::class)
+                ->assertViewHas('onMain', false)
+                ->set('name', 'Inside User')
+                ->set('email', 'inside@abc.test')
+                ->set('password', 'password123')
+                ->call('save')
+                ->assertHasErrors('name');
+
+            $this->assertSame(0, User::query()->where('email', 'inside@abc.test')->count());
+        } finally {
+            config(['database.default' => $mainConnection]);
+            DB::setDefaultConnection($mainConnection);
+            DB::purge('tenant');
+        }
+    }
+
     public function test_backfill_gives_a_workspace_only_user_a_main_login(): void
     {
         $ws = $this->kaleem();

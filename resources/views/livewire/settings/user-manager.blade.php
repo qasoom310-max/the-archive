@@ -22,6 +22,7 @@
         </p>
     @endunless
 
+    @if ($onMain)
     <form wire:submit="save" class="space-y-5">
         {{-- Credentials --}}
         <div class="grid gap-4 sm:grid-cols-3">
@@ -182,6 +183,7 @@
             </button>
         </div>
     </form>
+    @endif
 
     {{-- All users (admins + staff) --}}
     <div class="border-t border-chrome-100 pt-5">
@@ -215,8 +217,11 @@
                         </span>
                     </span>
                     <span class="flex shrink-0 items-center gap-3">
+                        @unless ($onMain)
+                            <span class="text-xs text-chrome-300">{{ __('Managed on Main') }}</span>
+                        @endunless
                         {{-- Owner-only: promote/demote super admin. --}}
-                        @if ($actorIsSuperAdmin && ! $isSelf)
+                        @if ($onMain && $actorIsSuperAdmin && ! $isSelf)
                             <button type="button" wire:click="toggleSuperAdmin({{ $user->id }})"
                                 class="text-xs font-medium text-amber-700 hover:underline">
                                 {{ $user->is_super_admin ? __('Remove super admin') : __('Make super admin') }}
@@ -227,7 +232,7 @@
                                 {{ $user->is_accountant ? __('Remove accountant') : __('Make accountant') }}
                             </button>
                         @endif
-                        @if ($canManage)
+                        @if ($onMain && $canManage)
                             <button type="button" wire:click="editUser({{ $user->id }})"
                                 class="text-xs font-medium text-primary-700 hover:underline">{{ __('Edit') }}</button>
                             @if (! $isSelf && ! $isLastAdmin)

@@ -37,6 +37,10 @@
             </div>
         </div>
 
+        {{-- Everything between the header and the pay bar scrolls as one region,
+             so a tall delivery panel can't push the pay button off-screen on a
+             phone. The totals + pay bar below stays pinned to the bottom. --}}
+        <div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {{-- Sales channel: walk-in shop vs a remote / delivery order. Switching
              to Remote reveals the delivery capture panel; the delivery fee is
              added to the order total. Hidden unless the feature is on. --}}
@@ -120,7 +124,7 @@
         @endif
 
         {{-- Lines --}}
-        <div class="flex-1 overflow-y-auto">
+        <div class="flex-1">
             @forelse ($lines as $line)
                 {{-- Each cart row is its own Alpine island so the "note"
                      editor can collapse/expand without re-renders. The
@@ -194,6 +198,7 @@
                 <p class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('Cart is empty — tap products to add.') }}</p>
             @endforelse
         </div>
+        </div>{{-- end scroll region --}}
 
         {{-- Totals + pay --}}
         <div class="border-t border-chrome-200 px-4 py-3">

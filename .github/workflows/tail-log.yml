@@ -1,0 +1,27 @@
+name: Tail production log
+
+on:
+  workflow_dispatch:
+    inputs:
+      lines:
+        description: 'How many log lines to show'
+        required: false
+        default: '120'
+
+jobs:
+  tail:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Trust host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+      - name: Tail Laravel log
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "tail -n ${{ github.event.inputs.lines }} ${{ secrets.DEPLOY_PATH }}/storage/logs/laravel.log"

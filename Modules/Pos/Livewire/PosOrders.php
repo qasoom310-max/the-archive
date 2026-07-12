@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Pos\Livewire;
 
+use App\Erp\Business\Feature;
+use App\Erp\Business\Features;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
@@ -18,6 +20,7 @@ use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosPayment;
 use Modules\Pos\Models\PosTable;
+use Modules\Pos\Services\PosSaleEraser;
 
 /**
  * POS Orders browser — a SierraPOS-style actionable list: search by
@@ -79,6 +82,25 @@ final class PosOrders extends Component
         $order->state = OrderState::Cancelled;
         $order->save();
         $order->logChange(__('Order :ref cancelled.', ['ref' => $order->reference]));
+    }
+
+    /**
+     * Permanently delete an order and everything derived from it (lines,
+     * payments, journal entries) — an admin-only cleanup for TEST sales made
+     * while a shop is being set up. Unlike "cancel", this leaves no record and
+     * can't be undone. Stock is not restored (set it in the Stock Report).
+     */
+    public function deleteOrder(int $orderId): void
+    {
+        $this->guard(Permission::Write);
+        abort_unless(Auth::user()->isAdmin(), 403);
+
+        $order = PosOrder::query()->find($orderId);
+        if ($order === null) {
+            return;
+        }
+
+        app(PosSaleEraser::class)->erase($order);
     }
 
     /**
@@ -149,6 +171,9 @@ final class PosOrders extends Component
                 'reference' => $order->reference,
                 'table' => $tableLabel,
                 'type' => $order->pos_table_id !== null ? __('Dine-in') : __('Walk-in'),
+                // Shown instead of table/type on a walk-in-only shop (Restaurant off).
+                'cashier' => $order->processed_by,
+                'time' => $order->ordered_at?->isoFormat('MMM D, h:mm A') ?? '—',
                 'units' => $units,
                 'payment' => $methods !== '' ? $methods : '—',
                 'state' => $order->state,
@@ -165,6 +190,10 @@ final class PosOrders extends Component
         return view('pos::orders', [
             'orders' => $orders,
             'rows' => $rows,
+            // A walk-in-only shop (no dine-in) has no useful Table / Type, so the
+            // list shows who made the sale + when instead.
+            'dineIn' => Features::enabled(Feature::Restaurant),
+            'canDeleteSales' => Auth::user()->isAdmin(),
             'statuses' => [
                 '' => __('All statuses'),
                 'draft' => __('Draft'),

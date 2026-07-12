@@ -78,8 +78,13 @@
                 <thead class="bg-chrome-50 text-xs uppercase tracking-wide text-chrome-500">
                     <tr>
                         <th class="px-4 py-2.5 text-start font-semibold">{{ __('Order #') }}</th>
-                        <th class="px-4 py-2.5 text-start font-semibold">{{ __('Table') }}</th>
-                        <th class="px-4 py-2.5 text-start font-semibold">{{ __('Type') }}</th>
+                        @if ($dineIn)
+                            <th class="px-4 py-2.5 text-start font-semibold">{{ __('Table') }}</th>
+                            <th class="px-4 py-2.5 text-start font-semibold">{{ __('Type') }}</th>
+                        @else
+                            <th class="px-4 py-2.5 text-start font-semibold">{{ __('Cashier') }}</th>
+                            <th class="px-4 py-2.5 text-start font-semibold">{{ __('Time') }}</th>
+                        @endif
                         <th class="px-4 py-2.5 text-center font-semibold">{{ __('Items') }}</th>
                         <th class="px-4 py-2.5 text-start font-semibold">{{ __('Payment') }}</th>
                         <th class="px-4 py-2.5 text-start font-semibold">{{ __('Status') }}</th>
@@ -91,8 +96,13 @@
                     @forelse ($rows as $row)
                         <tr wire:key="order-{{ $row['id'] }}" class="hover:bg-chrome-50">
                             <td class="px-4 py-2.5 font-semibold text-chrome-900">{{ $row['reference'] }}</td>
-                            <td class="px-4 py-2.5 text-chrome-600">{{ $row['table'] ?? '—' }}</td>
-                            <td class="px-4 py-2.5 text-chrome-600">{{ $row['type'] }}</td>
+                            @if ($dineIn)
+                                <td class="px-4 py-2.5 text-chrome-600">{{ $row['table'] ?? '—' }}</td>
+                                <td class="px-4 py-2.5 text-chrome-600">{{ $row['type'] }}</td>
+                            @else
+                                <td class="px-4 py-2.5 text-chrome-600">{{ $row['cashier'] }}</td>
+                                <td class="px-4 py-2.5 whitespace-nowrap text-chrome-500">{{ $row['time'] }}</td>
+                            @endif
                             <td class="px-4 py-2.5 text-center tabular-nums text-chrome-600">{{ $row['units'] }}</td>
                             <td class="px-4 py-2.5 text-chrome-600">{{ $row['payment'] }}</td>
                             <td class="px-4 py-2.5">
@@ -138,6 +148,18 @@
                                             class="flex size-8 items-center justify-center rounded-lg text-chrome-500 hover:bg-primary-50 hover:text-primary-700">
                                             <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7.848 8.25l1.536.887M7.848 8.25a3 3 0 1 1-5.196-3 3 3 0 0 1 5.196 3Zm1.536.887a2.165 2.165 0 0 1 1.083 1.839v5.586m0 0a3 3 0 1 1-2.166 5.586 3 3 0 0 1 2.166-5.586Zm0 0V9m6.304-.75L13.84 11.4m4.312-3.15a3 3 0 1 0-5.196-3 3 3 0 0 0 5.196 3Zm1.536.887a2.165 2.165 0 0 0-1.083 1.839v5.586m0 0a3 3 0 1 0 2.166 5.586 3 3 0 0 0-2.166-5.586Zm0 0V9" />
+                                            </svg>
+                                        </button>
+                                    @endif
+                                    {{-- Admin-only: permanently delete an order (used to clear test
+                                         sales while setting the shop up). Irreversible — hence the confirm. --}}
+                                    @if ($canDeleteSales)
+                                        <button type="button" wire:click="deleteOrder({{ $row['id'] }})"
+                                            wire:confirm="{{ __('Permanently delete this order? This cannot be undone.') }}"
+                                            title="{{ __('Delete order') }}" aria-label="{{ __('Delete order') }}"
+                                            class="flex size-8 items-center justify-center rounded-lg text-chrome-500 hover:bg-red-50 hover:text-red-600">
+                                            <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                                             </svg>
                                         </button>
                                     @endif

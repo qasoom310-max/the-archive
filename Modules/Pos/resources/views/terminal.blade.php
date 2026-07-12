@@ -7,12 +7,15 @@
 
 <div class="flex h-[calc(100vh-3rem)] flex-col bg-chrome-100 lg:flex-row" wire:poll.30s="heartbeat">
     {{-- ───────────── Order / cart panel ─────────────
-         Mobile (`<lg`): stacked above the product grid, capped at 45vh so
-         the keyboard + product grid both stay reachable. Desktop (`lg+`):
-         a fixed-width column on the start edge, full viewport height.
+         Mobile (`<lg`): stacked above the product grid. A walk-in cart is
+         capped at 45vh so the product grid stays reachable, but a REMOTE
+         order carries a tall delivery form (name, phone, address, cost) that
+         a 45vh box would hide behind an internal scroll — so remote gets 85vh
+         and the whole form (incl. the required phone field) is visible.
+         Desktop (`lg+`): a fixed-width column on the start edge, full height.
          `border-e` is the logical equivalent of border-r so the divider
          flips to the correct side under RTL Arabic. --}}
-    <section class="flex max-h-[45vh] w-full shrink-0 flex-col border-b border-chrome-200 bg-white lg:max-h-none lg:w-[38%] lg:min-w-[340px] lg:border-b-0 lg:border-e">
+    <section class="flex {{ $channel === 'remote' ? 'max-h-[85vh]' : 'max-h-[45vh]' }} w-full shrink-0 flex-col border-b border-chrome-200 bg-white lg:max-h-none lg:w-[38%] lg:min-w-[340px] lg:border-b-0 lg:border-e">
         <div class="flex items-center justify-between border-b border-chrome-200 px-4 py-3">
             <div class="min-w-0">
                 @if ($table)
@@ -540,6 +543,45 @@
                             <li class="flex justify-between"><span>{{ $p->method?->name }}</span><span>{{ $money($p->amount) }}</span></li>
                         @endforeach
                     </ul>
+                @endif
+
+                @if ($proofEnabled)
+                    {{-- Proof of payment: attach a screenshot (Benefit / bank
+                         transfer) so the owner can verify the money came in.
+                         Optional; stored on the order, viewable from the Orders
+                         list. --}}
+                    @php $proofUrl = $order->paymentProofUrl(); @endphp
+                    <div class="mt-3" wire:key="proof-{{ $order->id }}">
+                        <label class="block text-xs font-semibold uppercase tracking-wide text-chrome-500">
+                            {{ __('Proof of payment') }}
+                            <span class="ms-1 font-normal normal-case tracking-normal text-chrome-400">{{ __('(optional)') }}</span>
+                        </label>
+                        @if ($proofUrl !== null)
+                            <div class="mt-1 flex items-center gap-3 rounded-lg border border-chrome-200 p-2">
+                                <a href="{{ $proofUrl }}" target="_blank" rel="noopener" class="shrink-0">
+                                    <img src="{{ $proofUrl }}" alt="{{ __('Proof of payment') }}"
+                                        class="size-14 rounded-md object-cover ring-1 ring-chrome-200">
+                                </a>
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate text-sm font-medium text-emerald-700">✓ {{ __('Proof attached') }}</p>
+                                    <a href="{{ $proofUrl }}" target="_blank" rel="noopener"
+                                        class="text-xs text-primary-600 hover:underline">{{ __('View full size') }}</a>
+                                </div>
+                                <button type="button" wire:click="removePaymentProof"
+                                    class="shrink-0 text-xs font-medium text-red-600 hover:underline">{{ __('Remove') }}</button>
+                            </div>
+                        @else
+                            <label class="mt-1 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-chrome-300 px-3 py-2.5 text-sm text-chrome-500 transition-colors hover:border-primary-400 hover:text-primary-700">
+                                <svg class="size-5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M1 8a2 2 0 0 1 2-2h.93a2 2 0 0 0 1.664-.89l.812-1.22A2 2 0 0 1 8.07 3h3.86a2 2 0 0 1 1.664.89l.812 1.22A2 2 0 0 0 16.07 6H17a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8Zm13.5 3a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM10 13.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" clip-rule="evenodd"/>
+                                </svg>
+                                <span wire:loading.remove wire:target="paymentProof">{{ __('Attach a photo') }}</span>
+                                <span wire:loading wire:target="paymentProof">{{ __('Uploading…') }}</span>
+                                <input type="file" accept="image/*" wire:model="paymentProof" class="hidden">
+                            </label>
+                        @endif
+                        @error('paymentProof') <p class="mt-1 text-xs font-medium text-red-600">{{ $message }}</p> @enderror
+                    </div>
                 @endif
 
                 <button wire:click="validateOrder"

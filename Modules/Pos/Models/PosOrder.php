@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Modules\Contacts\Models\Partner;
 use Modules\Pos\Enums\FulfillmentStatus;
 use Modules\Pos\Enums\OrderState;
@@ -43,6 +44,7 @@ use Modules\Pos\Services\PosInventoryBridge;
  * @property SalesChannel $channel Walk-in shop sale vs a remote / delivery order
  * @property string|null $customer_phone International-format digits (no '+'), e.g. "97333123456"
  * @property string|null $customer_name Remote customer's name (no Partner record needed)
+ * @property string|null $payment_proof_path Optional proof-of-payment photo (public disk)
  * @property string|null $delivery_address Remote delivery address (free text)
  * @property float $delivery_fee Added to the order total; not taxed
  * @property FulfillmentStatus|null $fulfillment_status Delivery pipeline (remote orders only)
@@ -72,7 +74,7 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
         'partner_id', 'user_id', 'state', 'channel',
         'subtotal', 'tax_total', 'total', 'paid_total', 'change_due',
         'customer_discount_percent', 'customer_discount_total',
-        'components_consumed', 'customer_phone', 'customer_name',
+        'components_consumed', 'customer_phone', 'customer_name', 'payment_proof_path',
         'delivery_address', 'delivery_fee', 'fulfillment_status', 'delivery_reference',
         'notes', 'ordered_at',
     ];
@@ -230,6 +232,30 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
     public function isRemote(): bool
     {
         return $this->channel === SalesChannel::Remote;
+    }
+
+    /** Whether a proof-of-payment photo is attached to this order. */
+    public function hasPaymentProof(): bool
+    {
+        return $this->payment_proof_path !== null && $this->payment_proof_path !== '';
+    }
+
+    /**
+     * Public URL of the proof-of-payment photo, or null when none is attached
+     * or the stored file has since gone missing (so a stale path renders no
+     * broken image).
+     */
+    public function paymentProofUrl(): ?string
+    {
+        if (! $this->hasPaymentProof()) {
+            return null;
+        }
+
+        $disk = Storage::disk('public');
+
+        return $disk->exists((string) $this->payment_proof_path)
+            ? $disk->url((string) $this->payment_proof_path)
+            : null;
     }
 
     /**

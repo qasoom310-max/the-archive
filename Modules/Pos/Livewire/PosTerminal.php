@@ -13,10 +13,12 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Enums\PrepStatus;
 use Modules\Pos\Enums\SalesChannel;
@@ -37,7 +39,19 @@ use Modules\Pos\Support\PosWhatsAppCountries;
 #[Title('Point of Sale')]
 final class PosTerminal extends Component
 {
+    use WithFileUploads;
+
     public int $sessionId;
+
+    /**
+     * Proof-of-payment photo the cashier attaches in the payment popup (a
+     * Benefit / bank-transfer screenshot). Transient temp upload — stored to
+     * the order's `payment_proof_path` in {@see updatedPaymentProof()} and then
+     * cleared. Only used when the PaymentProof feature is on.
+     *
+     * @var \Livewire\Features\SupportFileUploads\TemporaryUploadedFile|null
+     */
+    public $paymentProof = null;
 
     /** The table this terminal is serving — null = walk-in / quick sale. */
     public ?int $tableId = null;
@@ -706,6 +720,56 @@ final class PosTerminal extends Component
     }
 
     /**
+     * A proof-of-payment photo was picked in the payment popup: validate it,
+     * store it on the public disk, and stamp its path on the (draft) order so
+     * the owner can review it later. Replacing a proof deletes the old file so
+     * we don't orphan uploads. Gated by the PaymentProof feature.
+     */
+    public function updatedPaymentProof(): void
+    {
+        $this->guard(Permission::Write);
+
+        if (! Features::enabled(Feature::PaymentProof)) {
+            $this->paymentProof = null;
+
+            return;
+        }
+
+        // 8 MB covers a phone screenshot of a bank / Benefit confirmation; the
+        // file is stored as-is (no image processing), so no memory blow-up.
+        $this->validate([
+            'paymentProof' => ['image', 'max:8192', 'mimes:png,jpg,jpeg,webp'],
+        ]);
+
+        $order = $this->order();
+
+        if ($order->hasPaymentProof()) {
+            Storage::disk('public')->delete((string) $order->payment_proof_path);
+        }
+
+        $path = $this->paymentProof->store('pos/payment-proofs', 'public');
+        $order->payment_proof_path = is_string($path) ? $path : null;
+        $order->save();
+
+        $this->paymentProof = null;
+    }
+
+    /** Remove the attached proof-of-payment photo from the current order. */
+    public function removePaymentProof(): void
+    {
+        $this->guard(Permission::Write);
+        $order = $this->order();
+
+        if ($order->hasPaymentProof()) {
+            Storage::disk('public')->delete((string) $order->payment_proof_path);
+            $order->payment_proof_path = null;
+            $order->save();
+        }
+
+        $this->paymentProof = null;
+    }
+
+    /**
      * Best-effort split of a stored phone string back into its (dial,
      * local) parts for the dropdown + input. Tolerant of multiple input
      * shapes:
@@ -921,6 +985,7 @@ final class PosTerminal extends Component
                 : null,
             'now' => Carbon::now(),
             'whatsappCountries' => PosWhatsAppCountries::all(),
+            'proofEnabled' => Features::enabled(Feature::PaymentProof),
         ]);
     }
 }

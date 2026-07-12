@@ -156,6 +156,9 @@ final class PosOrders extends Component
                 'splittable' => in_array($order->state, [OrderState::Draft, OrderState::Done], true) && $units >= 2,
                 'cancellable' => $order->state === OrderState::Draft,
                 'printable' => $order->state === OrderState::Done,
+                // Proof-of-payment photo (null unless one was attached). Lets the
+                // owner open the Benefit / transfer screenshot from the list.
+                'proof_url' => $order->paymentProofUrl(),
             ];
         }
 

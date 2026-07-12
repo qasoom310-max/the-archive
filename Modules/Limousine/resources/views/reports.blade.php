@@ -50,8 +50,8 @@
     @endif
 
     @if ($tab === 'bookings')
-        <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
-            <table class="min-w-full divide-y divide-chrome-100 text-sm">
+        <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
+            <table class="w-full min-w-[640px] divide-y divide-chrome-100 text-sm">
                 <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                     <tr>
                         <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
@@ -89,8 +89,8 @@
     @endif
 
     @if ($tab === 'customers')
-        <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
-            <table class="min-w-full divide-y divide-chrome-100 text-sm">
+        <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
+            <table class="w-full min-w-[640px] divide-y divide-chrome-100 text-sm">
                 <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                     <tr>
                         <th class="px-4 py-2 text-start">{{ __('Customer') }}</th>

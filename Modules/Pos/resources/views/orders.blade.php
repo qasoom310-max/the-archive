@@ -9,13 +9,13 @@
 @endphp
 
 <div class="mx-auto max-w-7xl p-4 sm:p-6">
-    <div class="mb-4 flex items-center justify-between">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
             <h1 class="text-xl font-bold text-chrome-900">{{ __('Orders List') }}</h1>
             <p class="text-sm text-chrome-500">{{ __('Every order across all register sessions.') }}</p>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex shrink-0 items-center gap-2">
             <a href="{{ url('/app/pos') }}" wire:navigate class="o-btn-ghost">{{ __('Back to sessions') }}</a>
 
             <div x-data="{ open: false }" @click.outside="open = false" class="relative">
@@ -73,8 +73,8 @@
             </select>
         </div>
 
-        <div class="overflow-hidden rounded-xl border border-chrome-200 bg-white">
-            <table class="w-full text-sm">
+        <div class="overflow-x-auto rounded-xl border border-chrome-200 bg-white">
+            <table class="w-full min-w-[720px] text-sm">
                 <thead class="bg-chrome-50 text-xs uppercase tracking-wide text-chrome-500">
                     <tr>
                         <th class="px-4 py-2.5 text-start font-semibold">{{ __('Order #') }}</th>

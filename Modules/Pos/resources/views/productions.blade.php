@@ -61,9 +61,9 @@
                 </table>
             </div>
 
-            <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
+            <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
                 <div class="border-b border-chrome-100 bg-chrome-50/60 px-5 py-3"><h2 class="text-sm font-semibold text-chrome-800">{{ __('Recent productions') }}</h2></div>
-                <table class="min-w-full divide-y divide-chrome-100 text-sm">
+                <table class="w-full min-w-[640px] divide-y divide-chrome-100 text-sm">
                     <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                         <tr>
                             <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>

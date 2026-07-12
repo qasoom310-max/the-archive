@@ -179,8 +179,11 @@
                         </svg>
                     </button>
 
+                    {{-- Logical end-0/origin-top-end (RTL-correct) + viewport cap so
+                         this popover can't overflow off a phone when its "Custom…"
+                         chip wraps to the right of the filter row. --}}
                     <div x-show="open" x-cloak x-transition.opacity
-                        class="absolute left-0 z-30 mt-2 w-72 origin-top-left rounded-lg border border-chrome-200 bg-white p-3 shadow-pop">
+                        class="absolute end-0 z-30 mt-2 w-72 max-w-[calc(100vw-1.5rem)] origin-top-end rounded-lg border border-chrome-200 bg-white p-3 shadow-pop">
                         <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                             Pick a date range
                         </p>

@@ -46,7 +46,13 @@
                         if (open) {
                             const r = $event.currentTarget.getBoundingClientRect();
                             const rtl = document.documentElement.getAttribute('dir') === 'rtl';
-                            coords = { top: r.bottom + 4, left: r.left, right: window.innerWidth - r.right, rtl };
+                            // Clamp the anchor so a right-most (or, in RTL, left-most)
+                            // trigger can't push the ~14rem panel off-screen and force
+                            // horizontal page scroll on a phone.
+                            const margin = 8, panelW = 224, maxOff = window.innerWidth - panelW - margin;
+                            const left = Math.max(margin, Math.min(r.left, maxOff));
+                            const right = Math.max(margin, Math.min(window.innerWidth - r.right, maxOff));
+                            coords = { top: r.bottom + 4, left, right, rtl };
                         }
                     "
                     @class([
@@ -72,7 +78,7 @@
                      child of the root so @click.outside works. --}}
                 <div x-show="open" x-cloak x-transition.opacity.duration.100ms
                     :style="`top:${coords.top}px; ${coords.rtl ? 'right:' + coords.right + 'px' : 'left:' + coords.left + 'px'}`"
-                    class="fixed z-50 max-h-[70vh] min-w-[13rem] overflow-y-auto rounded-lg border border-chrome-200 bg-white py-1.5 shadow-pop">
+                    class="fixed z-50 max-h-[70vh] min-w-[13rem] max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-chrome-200 bg-white py-1.5 shadow-pop">
                     {{-- Open the app's home dashboard. --}}
                     <a href="{{ $homeUrl }}"
                         class="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-chrome-900 hover:bg-chrome-100">

@@ -127,8 +127,11 @@
 
             @error('lines') <p class="mb-2 text-xs text-red-600">{{ $message }}</p> @enderror
 
-            <div class="overflow-hidden rounded-lg ring-1 ring-chrome-200">
-                <table class="w-full text-sm">
+            {{-- overflow-x-auto (not -hidden): the fixed-width qty/cost inputs push
+                 this editor past a phone's width; without scroll the cost / subtotal /
+                 delete columns would be clipped and purchase entry breaks on mobile. --}}
+            <div class="overflow-x-auto rounded-lg ring-1 ring-chrome-200">
+                <table class="w-full min-w-[640px] text-sm">
                     <thead class="bg-chrome-50 text-xs uppercase tracking-wide text-chrome-500">
                         <tr>
                             <th class="px-3 py-2 text-start font-semibold">{{ __('Product') }}</th>

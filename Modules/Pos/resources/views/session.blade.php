@@ -15,12 +15,13 @@
 
     <div class="grid gap-6 lg:grid-cols-3">
         <div class="space-y-6 lg:col-span-2">
-            {{-- KPIs --}}
-            <div class="grid grid-cols-3 gap-4">
+            {{-- KPIs — 3 across, but the money values shrink and wrap instead of
+                 overflowing their ~100px column on a phone (register-close screen). --}}
+            <div class="grid grid-cols-3 gap-2 sm:gap-4">
                 @foreach ([[__('Orders'), $ordersCount], [__('Sales'), $money($salesTotal)], [__('Expected cash'), $money($expectedCash)]] as [$label, $value])
-                    <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
-                        <p class="text-2xl font-bold text-chrome-900">{{ $value }}</p>
-                        <p class="text-xs uppercase tracking-wide text-chrome-400">{{ $label }}</p>
+                    <div class="rounded-xl bg-white p-3 shadow-sm ring-1 ring-chrome-900/5 sm:p-4">
+                        <p class="break-words text-lg font-bold leading-tight tabular-nums text-chrome-900 sm:text-2xl">{{ $value }}</p>
+                        <p class="mt-1 text-xs uppercase tracking-wide text-chrome-400">{{ $label }}</p>
                     </div>
                 @endforeach
             </div>

@@ -20,7 +20,8 @@
             No recipe — this product does not consume any components.
         </p>
     @else
-        <table class="min-w-full divide-y divide-chrome-100 text-sm">
+        <div class="overflow-x-auto">
+        <table class="w-full min-w-[32rem] divide-y divide-chrome-100 text-sm">
             <thead class="text-xs uppercase tracking-wide text-chrome-400">
                 <tr>
                     <th class="py-1 text-start">{{ __('Component') }}</th>
@@ -78,6 +79,7 @@
                 </tr>
             </tfoot>
         </table>
+        </div>
         <p class="mt-2 text-xs text-chrome-400">
             {{ __('The cost price above updates automatically from these components. Reload the product to see it in the Cost price field.') }}
         </p>

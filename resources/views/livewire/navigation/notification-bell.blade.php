@@ -10,8 +10,11 @@
         @endif
     </button>
 
+    {{-- w-[min(20rem,…)] so the panel never exceeds the space to the left of the
+         bell on a phone (the bell isn't the right-most control) — avoids clipping
+         + horizontal page scroll. --}}
     <div x-show="open" x-cloak x-transition.origin.top.right @click.outside="open = false"
-        class="absolute end-0 z-50 mt-2 w-80 overflow-hidden rounded-xl bg-white text-chrome-700 shadow-pop ring-1 ring-chrome-900/5">
+        class="absolute end-0 z-50 mt-2 w-[min(20rem,calc(100vw-1rem))] overflow-hidden rounded-xl bg-white text-chrome-700 shadow-pop ring-1 ring-chrome-900/5">
         <div class="flex items-center justify-between border-b border-chrome-100 px-3 py-2.5">
             <span class="text-sm font-semibold text-chrome-800">{{ __('Notifications') }}</span>
             @if ($count > 0)

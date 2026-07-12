@@ -59,7 +59,11 @@
 
             @if ($channel === 'remote')
                 <div class="mt-2 space-y-2">
-                    <input type="text" wire:model.blur="customerName"
+                    {{-- .live (not .blur): confirmCod / Pay-now read these props, and a
+                         tap on the button can fire before a .blur commit lands, so the
+                         name/phone must sync as they're typed. deliveryFee stays .blur
+                         (a .live number input caused a Livewire property-sync error). --}}
+                    <input type="text" wire:model.live.debounce.500ms="customerName"
                         placeholder="{{ __('Customer name') }} *" class="o-input w-full text-sm">
                     <div class="flex gap-2">
                         <select wire:model="countryCode" class="o-input w-24 shrink-0 text-sm">
@@ -67,7 +71,7 @@
                                 <option value="{{ $c['dial'] }}">{{ $c['dial'] }}</option>
                             @endforeach
                         </select>
-                        <input type="tel" inputmode="numeric" wire:model.blur="localPhone"
+                        <input type="tel" inputmode="numeric" wire:model.live.debounce.500ms="localPhone"
                             placeholder="{{ __('Phone') }} *" class="o-input w-full text-sm">
                     </div>
                     <textarea wire:model.blur="deliveryAddress" rows="2"
@@ -469,8 +473,13 @@
 
     {{-- ───────────── Payment overlay ───────────── --}}
     @if ($paying)
-        <div class="fixed inset-0 z-40 flex items-center justify-center bg-chrome-900/40 p-4">
-            <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-pop">
+        {{-- Scrollable backdrop (overflow-y-auto + min-h-full wrapper) so the whole
+             panel — including the "Confirm — pay on delivery" button at the bottom —
+             stays reachable on a short phone screen. The panel itself keeps its
+             natural height so the country picker's absolute popover isn't clipped. --}}
+        <div class="fixed inset-0 z-40 overflow-y-auto bg-chrome-900/40 p-4">
+            <div class="flex min-h-full items-center justify-center">
+            <div class="my-8 w-full max-w-md rounded-2xl bg-white p-5 shadow-pop">
                 <div class="mb-3 flex items-center justify-between">
                     <h2 class="text-base font-bold text-chrome-900">{{ __('Payment') }}</h2>
                     <button wire:click="$set('paying', false)" class="text-sm text-chrome-400 hover:text-chrome-700">✕</button>
@@ -551,13 +560,17 @@
                     </button>
                 @endif
             </div>
+            </div>
         </div>
     @endif
 
     {{-- ───────────── Receipt overlay ───────────── --}}
     @if ($receipt)
-        <div class="fixed inset-0 z-40 flex items-center justify-center bg-chrome-900/40 p-4">
-            <div class="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-pop">
+        {{-- Scrollable backdrop so a long receipt (many lines/condiments) can't
+             push Print / New order off the bottom of a phone screen. --}}
+        <div class="fixed inset-0 z-40 overflow-y-auto bg-chrome-900/40 p-4">
+            <div class="flex min-h-full items-center justify-center">
+            <div class="relative my-8 w-full max-w-sm rounded-2xl bg-white p-5 shadow-pop">
                 {{-- Close: dismiss the receipt and reset this terminal to a
                      fresh empty order (no Done-order limbo). --}}
                 <button type="button" wire:click="newOrder"
@@ -626,6 +639,7 @@
                     <button onclick="window.print()" class="o-btn-ghost flex-1 justify-center">{{ __('Print') }}</button>
                     <button wire:click="finishToFloor" class="o-btn-primary flex-1 justify-center">{{ __('New order') }}</button>
                 </div>
+            </div>
             </div>
         </div>
     @endif

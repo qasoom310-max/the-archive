@@ -197,8 +197,8 @@
             <span class="h-px flex-1 bg-chrome-200"></span>
         </div>
         @if ($orders->isNotEmpty())
-            <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
-                <table class="min-w-full divide-y divide-chrome-100 text-sm">
+            <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
+                <table class="w-full min-w-[640px] divide-y divide-chrome-100 text-sm">
                     <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                         <tr>
                             <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
@@ -234,8 +234,8 @@
                 <h2 class="text-xs font-bold uppercase tracking-wider text-chrome-500">{{ __('Limousine bookings') }}</h2>
                 <span class="h-px flex-1 bg-chrome-200"></span>
             </div>
-            <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
-                <table class="min-w-full divide-y divide-chrome-100 text-sm">
+            <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
+                <table class="w-full min-w-[640px] divide-y divide-chrome-100 text-sm">
                     <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                         <tr>
                             <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>

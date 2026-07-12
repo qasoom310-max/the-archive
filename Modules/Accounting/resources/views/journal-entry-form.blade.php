@@ -24,7 +24,8 @@
                     {{ __('Credits') }}: <span class="font-medium text-chrome-900">{{ number_format($entry->totalCredit(), 2) }}</span>
                 </div>
             </div>
-            <table class="w-full text-sm">
+            <div class="overflow-x-auto">
+            <table class="w-full min-w-[520px] text-sm">
                 <thead class="border-b border-chrome-200 text-chrome-500">
                     <tr>
                         <th class="py-2 text-start">{{ __('Account') }}</th>
@@ -49,6 +50,7 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
 
         <livewire:chatter :chatterable="$entry" :key="'je-chatter-' . $entry->id" />

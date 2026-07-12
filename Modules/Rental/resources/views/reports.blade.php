@@ -78,8 +78,8 @@
 
     {{-- ── Orders ── --}}
     @if ($tab === 'orders')
-        <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
-            <table class="min-w-full divide-y divide-chrome-100 text-sm">
+        <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
+            <table class="w-full min-w-[640px] divide-y divide-chrome-100 text-sm">
                 <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                     <tr>
                         <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
@@ -118,8 +118,8 @@
 
     {{-- ── Vehicles ── --}}
     @if ($tab === 'vehicles')
-        <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
-            <table class="min-w-full divide-y divide-chrome-100 text-sm">
+        <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
+            <table class="w-full min-w-[640px] divide-y divide-chrome-100 text-sm">
                 <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                     <tr>
                         <th class="px-4 py-2 text-start">{{ __('Car') }}</th>
@@ -266,8 +266,8 @@
                 <span class="text-chrome-500">{{ __('No car has a monthly target set yet — set one on the car page.') }}</span>
             @endif
         </div>
-        <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
-            <table class="min-w-full divide-y divide-chrome-100 text-sm">
+        <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
+            <table class="w-full min-w-[640px] divide-y divide-chrome-100 text-sm">
                 <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                     <tr>
                         <th class="px-4 py-2 text-start">{{ __('Car') }}</th>
@@ -317,8 +317,8 @@
 
     {{-- ── Customers ── --}}
     @if ($tab === 'customers')
-        <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
-            <table class="min-w-full divide-y divide-chrome-100 text-sm">
+        <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
+            <table class="w-full min-w-[640px] divide-y divide-chrome-100 text-sm">
                 <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                     <tr>
                         <th class="px-4 py-2 text-start">{{ __('Customer') }}</th>

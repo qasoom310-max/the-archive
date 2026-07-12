@@ -83,8 +83,8 @@
         </div>
     </div>
 
-    <div class="overflow-hidden rounded-xl border border-chrome-200 bg-white">
-        <table class="w-full text-sm">
+    <div class="overflow-x-auto rounded-xl border border-chrome-200 bg-white">
+        <table class="w-full min-w-[600px] text-sm">
             <thead class="bg-chrome-50 text-xs uppercase tracking-wide text-chrome-500">
                 <tr>
                     <th class="px-4 py-2.5 text-start font-semibold">{{ __('Product') }}</th>

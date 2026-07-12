@@ -32,8 +32,8 @@
                     {{-- Items selector --}}
                     <div>
                         <h3 class="mb-2 text-sm font-semibold text-chrome-800">{{ __('Select Items to Split') }}</h3>
-                        <div class="overflow-hidden rounded-xl border border-chrome-200">
-                            <table class="w-full text-sm">
+                        <div class="overflow-x-auto rounded-xl border border-chrome-200">
+                            <table class="w-full min-w-[560px] text-sm">
                                 <thead class="bg-chrome-50 text-xs uppercase tracking-wide text-chrome-500">
                                     <tr>
                                         <th class="w-10 px-3 py-2"></th>

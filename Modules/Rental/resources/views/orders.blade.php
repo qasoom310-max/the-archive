@@ -53,8 +53,8 @@
     </div>
 
     {{-- Table --}}
-    <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
-        <table class="min-w-full divide-y divide-chrome-100 text-sm">
+    <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
+        <table class="w-full min-w-[760px] divide-y divide-chrome-100 text-sm">
             <thead class="bg-chrome-50 text-start text-xs font-semibold uppercase tracking-wide text-chrome-500">
                 <tr>
                     <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>

@@ -291,6 +291,23 @@ final class PosIngredientTest extends TestCase
         $this->assertSame(2, PosIngredient::query()->count());
     }
 
+    public function test_an_ingredient_can_carry_a_photo(): void
+    {
+        $ing = PosIngredient::query()->create([
+            'name' => 'Rose oil', 'cost_price' => 10, 'stock_on_hand' => 5,
+            'image_path' => 'ingredients/rose.jpg',
+        ]);
+        $this->assertSame('ingredients/rose.jpg', $ing->fresh()?->image_path);
+
+        // The ingredient form exposes a Photo upload field.
+        Livewire::test(FormView::class, [
+            'model' => PosIngredient::class,
+            'modelKey' => 'pos.ingredient',
+            'recordId' => $ing->id,
+            'title' => 'Edit ingredient',
+        ])->assertOk()->assertSee('Photo');
+    }
+
     public function test_an_ingredient_can_be_grouped_under_a_managed_category(): void
     {
         $oils = PosIngredientCategory::query()->create(['name' => 'Oils', 'sequence' => 1]);

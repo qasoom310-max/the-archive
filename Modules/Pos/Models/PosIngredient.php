@@ -24,6 +24,7 @@ use Spatie\Translatable\HasTranslations;
  *
  * @property int $id
  * @property string $name   Translatable JSON envelope.
+ * @property string|null $image_path  Photo of the material (public disk)
  * @property int|null $pos_ingredient_category_id  Managed grouping (Oils, Bottles…)
  * @property float $cost_price
  * @property float $stock_on_hand  On-hand quantity (so an ingredient can be a recipe component)
@@ -45,7 +46,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
     public array $translatable = ['name'];
 
     /** @var list<string> */
-    protected $fillable = ['name', 'pos_ingredient_category_id', 'cost_price', 'stock_on_hand', 'reorder_point', 'unit', 'pack_size', 'ml_per_unit', 'supplier_id', 'active', 'sequence'];
+    protected $fillable = ['name', 'image_path', 'pos_ingredient_category_id', 'cost_price', 'stock_on_hand', 'reorder_point', 'unit', 'pack_size', 'ml_per_unit', 'supplier_id', 'active', 'sequence'];
 
     /** @var array<string, mixed> */
     protected $attributes = [
@@ -168,6 +169,8 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
             module: 'pos',
             fields: [
                 new FieldDefinition('name', 'Name', 'char', required: true, sequence: 10),
+                // Registry type `binary` → the engine renders an image upload widget.
+                new FieldDefinition('image_path', 'Photo', 'binary', sequence: 12),
                 new FieldDefinition('pos_ingredient_category_id', 'Category', 'many2one', relation: 'pos.ingredient_category', sequence: 15),
                 new FieldDefinition('cost_price', 'Cost Price', 'float', sequence: 20),
                 new FieldDefinition('stock_on_hand', 'Stock on hand', 'float', sequence: 25),
@@ -199,6 +202,7 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
                     'cols' => 2,
                     'fields' => [
                         ['field' => 'name', 'label' => 'Name', 'widget' => 'text', 'required' => true, 'translatable' => true, 'unique' => true],
+                        ['field' => 'image_path', 'label' => 'Photo', 'widget' => 'image', 'help' => 'Upload a photo of this material (bottle, cap, oil…).'],
                         [
                             'field' => 'pos_ingredient_category_id',
                             'label' => 'Category',

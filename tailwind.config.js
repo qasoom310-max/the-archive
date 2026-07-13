@@ -29,18 +29,24 @@ export default {
                 // white. 400 is the exact brand colour — use it for solid brand
                 // fills with `text-chrome-900` on top (white text is unreadable
                 // on yellow).
+                // Accent (brand) palette — CSS-variable driven so a per-user
+                // "accent colour" choice can remap the whole app without editing
+                // views. The default ramp (bright lemon-yellow) lives in
+                // `:root` in app.css; each `[data-accent="…"]` swaps the RGB
+                // triplets. `400` is the bright fill (pair with text-chrome-900);
+                // `600+` stay dark for accent TEXT on white.
                 primary: {
-                    50: '#fefee8',
-                    100: '#fdfbc5',
-                    200: '#fbf690',
-                    300: '#f7ee51',
-                    400: '#f5ef1a', // brand — bright fill, pair with text-chrome-900
-                    500: '#d9c90a',
-                    600: '#a99107', // readable accent text on white
-                    700: '#86730c',
-                    800: '#6b5b10',
-                    900: '#594c13',
-                    950: '#332b08',
+                    50: 'rgb(var(--primary-50) / <alpha-value>)',
+                    100: 'rgb(var(--primary-100) / <alpha-value>)',
+                    200: 'rgb(var(--primary-200) / <alpha-value>)',
+                    300: 'rgb(var(--primary-300) / <alpha-value>)',
+                    400: 'rgb(var(--primary-400) / <alpha-value>)',
+                    500: 'rgb(var(--primary-500) / <alpha-value>)',
+                    600: 'rgb(var(--primary-600) / <alpha-value>)',
+                    700: 'rgb(var(--primary-700) / <alpha-value>)',
+                    800: 'rgb(var(--primary-800) / <alpha-value>)',
+                    900: 'rgb(var(--primary-900) / <alpha-value>)',
+                    950: 'rgb(var(--primary-950) / <alpha-value>)',
                 },
                 // Dense, cool-gray chrome like the Odoo 19 web client.
                 chrome: {

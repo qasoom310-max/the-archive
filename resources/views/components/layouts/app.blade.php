@@ -13,8 +13,12 @@
     // wire:navigate's <html> morph natively (no flash). `system` can only be
     // resolved client-side (matchMedia), so the head script handles that.
     $htmlClass = 'h-full' . ($themePref === 'dark' ? ' dark' : '');
+    // Per-user accent (brand) colour. Server-rendered on <html>; the CSS
+    // `[data-accent="…"]` remaps the `primary` palette immediately (no FOUC,
+    // and wire:navigate keeps the attribute). null = default yellow.
+    $accentPref = (auth()->user()?->accent ?? null) ?: 'yellow';
 @endphp
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}" data-theme="{{ $themePref }}" class="{{ $htmlClass }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}" data-theme="{{ $themePref }}" data-accent="{{ $accentPref }}" class="{{ $htmlClass }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -80,7 +84,8 @@
 <body class="h-full font-sans"
     x-data
     x-on:language-changed.window="window.location.reload()"
-    x-on:theme-changed.window="window.applyTheme($event.detail.value)">
+    x-on:theme-changed.window="window.applyTheme($event.detail.value)"
+    x-on:accent-changed.window="document.documentElement.setAttribute('data-accent', $event.detail.value)">
 @php
     $segments = request()->segments();
     $activeModule = ($segments[0] ?? null) === 'app' ? ($segments[1] ?? null) : null;

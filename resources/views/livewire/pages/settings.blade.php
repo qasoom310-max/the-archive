@@ -70,28 +70,60 @@
                     <div class="grid items-start gap-2 border-b border-chrome-100 pb-5 sm:grid-cols-3">
                         <label class="pt-2 text-sm font-medium text-chrome-800">
                             {{ __('Appearance') }}
-                            <span class="mt-0.5 block text-xs font-normal text-chrome-400">{{ __('Light, dark, or match your device.') }}</span>
+                            <span class="mt-0.5 block text-xs font-normal text-chrome-400">{{ __('Theme and accent colour for this account.') }}</span>
                         </label>
                         <div class="sm:col-span-2">
-                            <div class="inline-flex rounded-lg border border-chrome-300 bg-chrome-50 p-0.5">
+                            <div class="flex flex-wrap items-center gap-x-5 gap-y-3">
+                                {{-- Theme: light / dark / system --}}
+                                <div class="inline-flex rounded-lg border border-chrome-300 bg-chrome-50 p-0.5">
+                                    @php
+                                        $themeOptions = [
+                                            ['value' => 'light', 'label' => __('Light'), 'icon' => 'M10 3a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V4a1 1 0 0 1 1-1Zm0 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7-4a1 1 0 0 1-1 1h-1a1 1 0 1 1 0-2h1a1 1 0 0 1 1 1ZM5 10a1 1 0 0 1-1 1H3a1 1 0 1 1 0-2h1a1 1 0 0 1 1 1Zm10.66-5.66a1 1 0 0 1 0 1.41l-.7.71a1 1 0 1 1-1.42-1.42l.71-.7a1 1 0 0 1 1.41 0ZM6.46 13.54a1 1 0 0 1 0 1.41l-.71.71a1 1 0 0 1-1.41-1.42l.7-.7a1 1 0 0 1 1.42 0Zm9.19 1.41a1 1 0 0 1-1.41 0l-.71-.7a1 1 0 0 1 1.42-1.42l.7.71a1 1 0 0 1 0 1.41ZM6.46 6.46a1 1 0 0 1-1.42 0l-.7-.71a1 1 0 0 1 1.41-1.41l.71.7a1 1 0 0 1 0 1.42ZM10 15a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1Z'],
+                                            ['value' => 'dark', 'label' => __('Dark'), 'icon' => 'M7.5 2.9a1 1 0 0 1 .2 1.09A6 6 0 0 0 15 12.3a1 1 0 0 1 1.3 1.29A8 8 0 1 1 6.42 2.7a1 1 0 0 1 1.09.2Z'],
+                                            ['value' => 'system', 'label' => __('System'), 'icon' => 'M3 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-3v2h1a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2h1v-2H5a2 2 0 0 1-2-2V5Zm2 0v6h10V5H5Z'],
+                                        ];
+                                    @endphp
+                                    @foreach ($themeOptions as $opt)
+                                        <button type="button" wire:click="setTheme('{{ $opt['value'] }}')"
+                                            @class([
+                                                'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition',
+                                                'bg-primary-400 text-chrome-900 shadow-sm' => $theme === $opt['value'],
+                                                'text-chrome-600 hover:bg-chrome-200' => $theme !== $opt['value'],
+                                            ])>
+                                            <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="{{ $opt['icon'] }}" clip-rule="evenodd"/></svg>
+                                            {{ $opt['label'] }}
+                                        </button>
+                                    @endforeach
+                                </div>
+
+                                {{-- Accent colour swatches — sit BESIDE the theme control.
+                                     The hex is inline so each shows its true colour whatever
+                                     the current accent is; picking one calls setAccent() which
+                                     swaps `data-accent` on <html> and re-tints the app live. --}}
                                 @php
-                                    $themeOptions = [
-                                        ['value' => 'light', 'label' => __('Light'), 'icon' => 'M10 3a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V4a1 1 0 0 1 1-1Zm0 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7-4a1 1 0 0 1-1 1h-1a1 1 0 1 1 0-2h1a1 1 0 0 1 1 1ZM5 10a1 1 0 0 1-1 1H3a1 1 0 1 1 0-2h1a1 1 0 0 1 1 1Zm10.66-5.66a1 1 0 0 1 0 1.41l-.7.71a1 1 0 1 1-1.42-1.42l.71-.7a1 1 0 0 1 1.41 0ZM6.46 13.54a1 1 0 0 1 0 1.41l-.71.71a1 1 0 0 1-1.41-1.42l.7-.7a1 1 0 0 1 1.42 0Zm9.19 1.41a1 1 0 0 1-1.41 0l-.71-.7a1 1 0 0 1 1.42-1.42l.7.71a1 1 0 0 1 0 1.41ZM6.46 6.46a1 1 0 0 1-1.42 0l-.7-.71a1 1 0 0 1 1.41-1.41l.71.7a1 1 0 0 1 0 1.42ZM10 15a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1Z'],
-                                        ['value' => 'dark', 'label' => __('Dark'), 'icon' => 'M7.5 2.9a1 1 0 0 1 .2 1.09A6 6 0 0 0 15 12.3a1 1 0 0 1 1.3 1.29A8 8 0 1 1 6.42 2.7a1 1 0 0 1 1.09.2Z'],
-                                        ['value' => 'system', 'label' => __('System'), 'icon' => 'M3 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-3v2h1a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2h1v-2H5a2 2 0 0 1-2-2V5Zm2 0v6h10V5H5Z'],
+                                    $accentSwatches = [
+                                        ['value' => 'yellow', 'label' => __('Yellow'), 'hex' => '#f5ef1a'],
+                                        ['value' => 'amber', 'label' => __('Amber'), 'hex' => '#fbbf24'],
+                                        ['value' => 'orange', 'label' => __('Orange'), 'hex' => '#fb923c'],
+                                        ['value' => 'rose', 'label' => __('Rose'), 'hex' => '#fb7185'],
+                                        ['value' => 'pink', 'label' => __('Pink'), 'hex' => '#f472b6'],
+                                        ['value' => 'violet', 'label' => __('Violet'), 'hex' => '#a78bfa'],
+                                        ['value' => 'sky', 'label' => __('Sky'), 'hex' => '#38bdf8'],
+                                        ['value' => 'emerald', 'label' => __('Emerald'), 'hex' => '#34d399'],
                                     ];
                                 @endphp
-                                @foreach ($themeOptions as $opt)
-                                    <button type="button" wire:click="setTheme('{{ $opt['value'] }}')"
-                                        @class([
-                                            'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition',
-                                            'bg-primary-400 text-chrome-900 shadow-sm' => $theme === $opt['value'],
-                                            'text-chrome-600 hover:bg-chrome-200' => $theme !== $opt['value'],
-                                        ])>
-                                        <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="{{ $opt['icon'] }}" clip-rule="evenodd"/></svg>
-                                        {{ $opt['label'] }}
-                                    </button>
-                                @endforeach
+                                <div class="flex flex-wrap items-center gap-2">
+                                    @foreach ($accentSwatches as $sw)
+                                        <button type="button" wire:click="setAccent('{{ $sw['value'] }}')"
+                                            title="{{ $sw['label'] }}" aria-label="{{ $sw['label'] }}"
+                                            @class([
+                                                'size-6 rounded-full ring-offset-2 ring-offset-white transition dark:ring-offset-[#1e2126]',
+                                                'ring-2 ring-chrome-700 dark:ring-[#e2e5e9]' => $accent === $sw['value'],
+                                                'ring-1 ring-black/10 hover:ring-2 hover:ring-chrome-300 dark:hover:ring-[#3d434b]' => $accent !== $sw['value'],
+                                            ])
+                                            style="background-color: {{ $sw['hex'] }}"></button>
+                                    @endforeach
+                                </div>
                             </div>
                         </div>
                     </div>

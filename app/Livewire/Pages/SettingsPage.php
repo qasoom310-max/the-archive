@@ -111,6 +111,17 @@ final class SettingsPage extends Component
     public string $theme = 'system';
 
     /**
+     * Per-user accent (brand) colour. Personal (like theme). Applied live (no
+     * reload) by dispatching `accent-changed` to the layout's Alpine hook,
+     * which swaps `data-accent` on <html> → the CSS remaps the primary palette.
+     *
+     * @var list<string>
+     */
+    public const ACCENTS = ['yellow', 'amber', 'orange', 'rose', 'pink', 'violet', 'sky', 'emerald'];
+
+    public string $accent = 'yellow';
+
+    /**
      * New recipient email being added in the admin-only "Daily Report" tab.
      * The daily sales + stock PDF is mailed to every {@see ReportRecipient}.
      */
@@ -127,6 +138,9 @@ final class SettingsPage extends Component
         $this->theme = $user instanceof User && in_array($user->theme, ['light', 'dark', 'system'], true)
             ? $user->theme
             : 'system';
+        $this->accent = $user instanceof User && in_array($user->accent, self::ACCENTS, true)
+            ? $user->accent
+            : 'yellow';
 
         foreach (app(SettingManager::class)->grouped() as $params) {
             foreach ($params as $param) {
@@ -461,6 +475,31 @@ final class SettingsPage extends Component
         // The layout's Alpine hook toggles the `.dark` class from this — no
         // full-page reload needed (unlike a language flip).
         $this->dispatch('theme-changed', value: $theme);
+    }
+
+    /**
+     * Set the logged-in user's accent (brand) colour and apply it live.
+     * Personal (available to every user), fires immediately.
+     */
+    public function setAccent(string $accent): void
+    {
+        abort_unless(Auth::check(), 403);
+
+        if (! in_array($accent, self::ACCENTS, true)) {
+            return;
+        }
+
+        $user = Auth::user();
+        if ($user instanceof User && $user->accent !== $accent) {
+            $user->accent = $accent;
+            $user->save();
+        }
+
+        $this->accent = $accent;
+
+        // The layout swaps `data-accent` on <html> from this → the CSS remaps
+        // the whole primary palette instantly, no reload.
+        $this->dispatch('accent-changed', value: $accent);
     }
 
     public function updated(): void

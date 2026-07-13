@@ -85,4 +85,38 @@ final class ThemeSettingTest extends TestCase
         $res->assertOk();
         $this->assertDoesNotMatchRegularExpression('/<html[^>]*class="[^"]*\bdark\b/', $res->getContent());
     }
+
+    public function test_setting_an_accent_persists_and_dispatches_live(): void
+    {
+        $user = User::factory()->create(['is_admin' => true, 'accent' => null]);
+        $this->actingAs($user);
+
+        Livewire::test(SettingsPage::class)
+            ->assertSet('accent', 'yellow')   // null → default
+            ->call('setAccent', 'sky')
+            ->assertSet('accent', 'sky')
+            ->assertDispatched('accent-changed', value: 'sky');
+
+        $this->assertSame('sky', $user->fresh()?->accent);
+    }
+
+    public function test_an_invalid_accent_is_ignored(): void
+    {
+        $user = User::factory()->create(['is_admin' => true, 'accent' => 'emerald']);
+        $this->actingAs($user);
+
+        Livewire::test(SettingsPage::class)->call('setAccent', 'chartreuse');
+
+        $this->assertSame('emerald', $user->fresh()?->accent);
+    }
+
+    public function test_the_accent_renders_on_the_html_element(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'accent' => 'violet']));
+
+        $res = $this->get('/');
+
+        $res->assertOk();
+        $res->assertSee('data-accent="violet"', false);
+    }
 }

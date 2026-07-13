@@ -170,6 +170,82 @@
 .dark .bg-primary-50 { background-color: rgba(245, 239, 26, 0.12); }
 .dark .hover\:bg-primary-50:hover { background-color: rgba(245, 239, 26, 0.12); }
 
+/* ─── Semantic colours (status text + tinted banners/badges) ───────────────
+   Status text (`text-emerald-700`, `text-red-600`, `text-amber-700`, …) is
+   usually paired with a light tint background of the same family
+   (`bg-emerald-50`, `bg-red-100`, …). On a dark UI both must flip together:
+   the tint background darkens to a translucent wash of the family colour, and
+   the dark text brightens to a soft, eye-comfortable `-400` shade. Handled per
+   family so nothing readable is left as dark-on-dark. Solid coloured fills
+   (`bg-emerald-500` + `text-white`) are left alone — they read fine as-is. */
+
+/* Text → soft light shade (legible, not harsh) */
+.dark .text-black { color: #e2e5e9; }
+.dark .text-red-500, .dark .text-red-600, .dark .text-red-700, .dark .text-red-800, .dark .text-red-900,
+.dark .hover\:text-red-700:hover { color: #f87171; }
+.dark .text-emerald-500, .dark .text-emerald-600, .dark .text-emerald-700, .dark .text-emerald-800, .dark .text-emerald-900 { color: #34d399; }
+.dark .text-amber-500, .dark .text-amber-600, .dark .text-amber-700, .dark .text-amber-800, .dark .text-amber-900 { color: #fbbf24; }
+.dark .text-green-500, .dark .text-green-600, .dark .text-green-700, .dark .text-green-800, .dark .text-green-900 { color: #4ade80; }
+.dark .text-sky-500, .dark .text-sky-600, .dark .text-sky-700, .dark .text-sky-800, .dark .text-sky-900,
+.dark .hover\:text-sky-700:hover { color: #38bdf8; }
+.dark .text-blue-500, .dark .text-blue-600, .dark .text-blue-700, .dark .text-blue-800, .dark .text-blue-900,
+.dark .hover\:text-blue-700:hover { color: #60a5fa; }
+.dark .text-indigo-500, .dark .text-indigo-600, .dark .text-indigo-700, .dark .text-indigo-800, .dark .text-indigo-900 { color: #818cf8; }
+.dark .text-violet-500, .dark .text-violet-600, .dark .text-violet-700, .dark .text-violet-800, .dark .text-violet-900 { color: #a78bfa; }
+.dark .text-rose-500, .dark .text-rose-600, .dark .text-rose-700, .dark .text-rose-800, .dark .text-rose-900 { color: #fb7185; }
+.dark .text-orange-500, .dark .text-orange-600, .dark .text-orange-700, .dark .text-orange-800, .dark .text-orange-900 { color: #fb923c; }
+.dark .text-teal-500, .dark .text-teal-600, .dark .text-teal-700, .dark .text-teal-800, .dark .text-teal-900 { color: #2dd4bf; }
+.dark .text-cyan-500, .dark .text-cyan-600, .dark .text-cyan-700, .dark .text-cyan-800, .dark .text-cyan-900 { color: #22d3ee; }
+.dark .text-fuchsia-500, .dark .text-fuchsia-600, .dark .text-fuchsia-700, .dark .text-fuchsia-800, .dark .text-fuchsia-900 { color: #e879f9; }
+.dark .text-purple-500, .dark .text-purple-600, .dark .text-purple-700, .dark .text-purple-800, .dark .text-purple-900 { color: #c084fc; }
+.dark .text-pink-500, .dark .text-pink-600, .dark .text-pink-700, .dark .text-pink-800, .dark .text-pink-900 { color: #f472b6; }
+.dark .text-yellow-500, .dark .text-yellow-600, .dark .text-yellow-700, .dark .text-yellow-800, .dark .text-yellow-900 { color: #facc15; }
+/* Neutral off-brand greys → the same comfortable light chrome tones */
+.dark .text-gray-900, .dark .text-gray-800, .dark .text-gray-700,
+.dark .text-slate-900, .dark .text-slate-800, .dark .text-slate-700,
+.dark .text-zinc-900, .dark .text-zinc-800, .dark .text-zinc-700,
+.dark .text-neutral-900, .dark .text-neutral-800, .dark .text-neutral-700,
+.dark .text-stone-900, .dark .text-stone-800, .dark .text-stone-700 { color: #cbd0d6; }
+.dark .text-gray-600, .dark .text-gray-500, .dark .text-slate-600, .dark .text-slate-500,
+.dark .text-zinc-600, .dark .text-zinc-500, .dark .text-neutral-600, .dark .text-neutral-500,
+.dark .text-stone-600, .dark .text-stone-500 { color: #a4abb3; }
+.dark .text-gray-400, .dark .text-gray-300, .dark .text-slate-400, .dark .text-slate-300,
+.dark .text-zinc-400, .dark .text-neutral-400, .dark .text-stone-400 { color: #8a9199; }
+
+/* Tinted banner/badge backgrounds → translucent dark wash of the family */
+.dark .bg-red-50 { background-color: rgba(239, 68, 68, 0.12); }
+.dark .bg-red-100 { background-color: rgba(239, 68, 68, 0.20); }
+.dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.12); }
+.dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.20); }
+.dark .bg-amber-50 { background-color: rgba(245, 158, 11, 0.12); }
+.dark .bg-amber-100 { background-color: rgba(245, 158, 11, 0.20); }
+.dark .bg-green-50 { background-color: rgba(34, 197, 94, 0.12); }
+.dark .bg-green-100 { background-color: rgba(34, 197, 94, 0.20); }
+.dark .bg-sky-50 { background-color: rgba(14, 165, 233, 0.12); }
+.dark .bg-sky-100 { background-color: rgba(14, 165, 233, 0.20); }
+.dark .bg-blue-50 { background-color: rgba(59, 130, 246, 0.12); }
+.dark .bg-blue-100 { background-color: rgba(59, 130, 246, 0.20); }
+.dark .bg-indigo-50 { background-color: rgba(99, 102, 241, 0.12); }
+.dark .bg-indigo-100 { background-color: rgba(99, 102, 241, 0.20); }
+.dark .bg-violet-50 { background-color: rgba(139, 92, 246, 0.12); }
+.dark .bg-violet-100 { background-color: rgba(139, 92, 246, 0.20); }
+.dark .bg-rose-50 { background-color: rgba(244, 63, 94, 0.12); }
+.dark .bg-rose-100 { background-color: rgba(244, 63, 94, 0.20); }
+.dark .bg-orange-50 { background-color: rgba(249, 115, 22, 0.12); }
+.dark .bg-orange-100 { background-color: rgba(249, 115, 22, 0.20); }
+
+/* Banner borders/rings → translucent family colour so the edge still reads */
+.dark .border-red-200 { border-color: rgba(239, 68, 68, 0.30); }
+.dark .border-emerald-200 { border-color: rgba(16, 185, 129, 0.30); }
+.dark .border-amber-200 { border-color: rgba(245, 158, 11, 0.30); }
+.dark .border-sky-200 { border-color: rgba(14, 165, 233, 0.30); }
+.dark .border-indigo-200 { border-color: rgba(99, 102, 241, 0.30); }
+.dark .ring-red-200 { --tw-ring-color: rgba(239, 68, 68, 0.30); }
+.dark .ring-emerald-200 { --tw-ring-color: rgba(16, 185, 129, 0.30); }
+.dark .ring-amber-200 { --tw-ring-color: rgba(245, 158, 11, 0.30); }
+.dark .ring-sky-200 { --tw-ring-color: rgba(14, 165, 233, 0.30); }
+.dark .ring-indigo-200 { --tw-ring-color: rgba(99, 102, 241, 0.30); }
+
 /* Dark scrollbars */
 .dark * { scrollbar-color: #3d434b transparent; }
 .dark *::-webkit-scrollbar-thumb { background-color: #3d434b; }

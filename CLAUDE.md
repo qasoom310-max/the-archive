@@ -1456,6 +1456,51 @@ handled for them.
   refused, a global account stays read-only inside a workspace, deleting a
   workspace user removes their Main login too). AR keys added.
 
+**Roles: one mutually-exclusive choice (shipped 2026-07-13):**
+
+`App\Erp\Admin\StaffRole` (backed enum) is the **single source of truth** for what
+a user account is. **ONE role per account** — the old "admin who is also an
+accountant" combination is gone, and so are the inline `toggleSuperAdmin` /
+`toggleAccountant` row buttons (both tiers are now roles in the **Edit form**, so
+there's one place a role is set and one set of guards).
+
+| Role (`value`) | Flags | Grants on each chosen app |
+|---|---|---|
+| Staff (`staff`) | — | Read |
+| Supervisor (`supervisor`) | — | Read + **Write + Create** (never Delete) |
+| Accountant (`accountant`) | `is_accountant` | Read (+ `canConfirmPayments()`) |
+| Administrator (`admin`) | `is_admin` | n/a — bypasses the ACL |
+| Super admin (`super`) | `is_admin` + `is_super_admin` | n/a — bypasses the ACL |
+
+- **Supervisor is NOT a column** — it's the *shape* of the ACL rules the user's
+  per-user group carries (a Supervisor's rules have `perm_write`). So
+  `UserProvisioner::roleOf(User)` reads it back from the rules (the edit form's
+  radio would otherwise lie), and `UserManager::rolesFor()` resolves the whole
+  list's badges in ONE extra query rather than per row.
+- **Owner-only roles:** `StaffRole::needsSuperAdminToAssign()` → **Super admin**
+  and **Accountant** (confirming money was received is deliberately not in a
+  regular admin's gift — it preserves the old owner-only toggle's rule). Enforced
+  in the `role` validation rule (`Rule::in($this->assignableRoles())`), so a
+  crafted payload fails too, and the picker only renders the roles the actor may
+  assign.
+- **`UserManager::safeRole()`** is the demotion guard: you can't strip the **last
+  super admin** or the **last admin** of their tier, and you can't demote
+  **yourself** — the existing tier is kept instead. (This replaced the guards that
+  used to live inside the two toggles.)
+- `UserProvisioner` is role-aware end to end: `provision(..., StaffRole $role)`,
+  `provisionLocked(..., StaffRole $role, array $appNames)`, and
+  `grantApps(User, appNames, StaffRole)` writes `perm_*` from
+  `$role->permissions()`. The role owns all three flags in one place
+  (`upsertLockedRow` / `upsertWithAccess`), so they can't drift from the label the
+  admin picked.
+- Tests: `UserManagerTest` (supervisor can view/add/edit but **not delete**; edit
+  reads the supervisor role back + demote to staff; accountant may confirm
+  payments and is not an admin; a regular admin can't assign the owner-only roles;
+  the picker's options differ for admin vs super admin; the last super admin can't
+  be demoted) · `SuperAdminTest::test_only_a_super_admin_can_promote_another` and
+  `RentalPaymentConfirmationTest::test_only_a_super_admin_can_grant_the_accountant_role`
+  retargeted from the removed toggles to the role picker. AR keys added.
+
 **App lists must go through `Features::moduleAllowed()` (fixed 2026-07-13):**
 the business-type gate has to be applied at **every** surface that lists
 installed application modules, not just the app bar. Two were missing it and

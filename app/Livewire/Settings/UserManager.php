@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Settings;
 
+use App\Erp\Admin\StaffRole;
 use App\Erp\Admin\UserProvisioner;
 use App\Erp\Business\Features;
 use App\Erp\Enums\ModuleState;
@@ -47,16 +48,15 @@ final class UserManager extends Component
 
     public string $password = '';
 
-    /** Account role: 'staff' (view-only ACL) or 'admin' (full access). */
-    public string $role = 'staff';
-
     /**
-     * True while editing a super admin — their adminness is owned by the
-     * super-admin toggle, so the role selector is read-only for them.
+     * The ONE role this account holds — see {@see StaffRole}. Mutually
+     * exclusive: an Administrator is not also an Accountant. Held as the
+     * enum's string value because Livewire array/scalar props can't carry a
+     * BackedEnum safely (memory: livewire-backed-enum-in-array-prop).
      */
-    public bool $roleLocked = false;
+    public string $role = StaffRole::Staff->value;
 
-    /** @var list<string> Selected application module names (Read access). */
+    /** @var list<string> Selected application module names to grant. */
     public array $apps = [];
 
     /** @var list<int> Selected workspace ids to create the account in (create mode). */
@@ -164,6 +164,29 @@ final class UserManager extends Component
         return ! $target->isSuperAdmin() || $this->actorIsSuperAdmin();
     }
 
+    /** The role currently selected in the form. */
+    private function selectedRole(): StaffRole
+    {
+        return StaffRole::tryFrom($this->role) ?? StaffRole::Staff;
+    }
+
+    /**
+     * The roles this admin may hand out. Super admin and Accountant are
+     * owner-only (the latter can confirm money was received — deliberately not
+     * in a regular admin's gift, matching the old owner-only toggle).
+     *
+     * @return list<StaffRole>
+     */
+    private function assignableRoles(): array
+    {
+        $isSuper = $this->actorIsSuperAdmin();
+
+        return array_values(array_filter(
+            StaffRole::all(),
+            static fn (StaffRole $role): bool => $isSuper || ! $role->needsSuperAdminToAssign(),
+        ));
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -171,12 +194,19 @@ final class UserManager extends Component
     {
         $userId = $this->editingId;
 
+        $assignable = array_map(
+            static fn (StaffRole $role): string => $role->value,
+            $this->assignableRoles(),
+        );
+
         return [
             'name' => ['required', 'string', 'max:255', Rule::unique('users', 'name')->ignore($userId)],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($userId)],
             // Password required when creating; optional (blank = keep) when editing.
             'password' => [$userId === null ? 'required' : 'nullable', 'string', 'min:8', 'max:255'],
-            'role' => ['required', Rule::in(['staff', 'admin'])],
+            // Only roles this admin may actually assign — a crafted payload
+            // asking for `super` or `accountant` from a regular admin fails here.
+            'role' => ['required', Rule::in($assignable)],
             'apps' => ['array'],
             'apps.*' => ['string'],
             // At least one database when creating on Main — unless the account
@@ -196,6 +226,7 @@ final class UserManager extends Component
     {
         return [
             'workspaces.min' => __('Pick at least one database.'),
+            'role.in' => __('Only a super admin can assign that role.'),
         ];
     }
 
@@ -222,8 +253,9 @@ final class UserManager extends Component
         $this->name = (string) $user->name;
         $this->email = (string) $user->email;
         $this->password = '';
-        $this->role = $user->isAdmin() ? 'admin' : 'staff';
-        $this->roleLocked = $user->isSuperAdmin();
+        // The account's real role, read back from its flags + ACL rules (Staff
+        // vs Supervisor is only visible in the rules).
+        $this->role = app(UserProvisioner::class)->roleOf($user)->value;
         $this->apps = $this->currentApps($user);
         $this->workspaces = [];
         $this->lockToWorkspace = false;
@@ -233,7 +265,7 @@ final class UserManager extends Component
 
     public function cancelEdit(): void
     {
-        $this->reset(['editingId', 'name', 'email', 'password', 'role', 'roleLocked', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
+        $this->reset(['editingId', 'name', 'email', 'password', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
         $this->resetValidation();
     }
 
@@ -302,7 +334,7 @@ final class UserManager extends Component
                 $email,
                 $this->password,
                 (int) $this->lockWorkspaceId,
-                superAdmin: true,
+                role: StaffRole::SuperAdmin,
             );
         } else {
             app(UserProvisioner::class)->provision(
@@ -311,13 +343,13 @@ final class UserManager extends Component
                 $this->password,
                 array_values($this->apps),
                 array_map('intval', array_values($this->workspaces)),
-                $this->role === 'admin',
+                $this->selectedRole(),
             );
         }
 
         app(\App\Erp\Activity\ActivityLogger::class)->log('user_created', $email, __('Created :name', ['name' => trim($this->name)]));
 
-        $this->reset(['name', 'email', 'password', 'role', 'roleLocked', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
+        $this->reset(['name', 'email', 'password', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
         session()->flash('user_saved', __('User created.'));
     }
 
@@ -358,24 +390,30 @@ final class UserManager extends Component
 
     /**
      * Write the workspace-scoped account (both rows) and reset the form.
-     * A blank password keeps the existing one; a super admin keeps their tier
-     * (the role radio is read-only for them).
+     * A blank password keeps the existing one. On an edit the role is put
+     * through {@see safeRole()} so this can't strip the last admin / super
+     * admin of the database, or demote the person doing the editing.
      */
     private function writeWorkspaceUser(int $workspaceId, bool $updating): void
     {
         $email = strtolower(trim($this->email));
         $name = trim($this->name);
-        $isSuper = $updating && $this->roleLocked;
-        $isAdmin = $isSuper || $this->role === 'admin';
+
+        $role = $this->selectedRole();
+        if ($updating) {
+            $existing = User::query()->find($this->editingId);
+            if ($existing !== null) {
+                $role = $this->safeRole($existing, $role);
+            }
+        }
 
         app(UserProvisioner::class)->provisionLocked(
             $name,
             $email,
             $this->password !== '' ? $this->password : null,
             $workspaceId,
-            superAdmin: $isSuper,
-            isAdmin: $isAdmin,
-            appNames: $isAdmin ? [] : array_values($this->apps),
+            role: $role,
+            appNames: $role->grantsApps() ? array_values($this->apps) : [],
         );
 
         app(\App\Erp\Activity\ActivityLogger::class)->log(
@@ -384,7 +422,7 @@ final class UserManager extends Component
             $updating ? __('Updated :name', ['name' => $name]) : __('Created :name', ['name' => $name]),
         );
 
-        $this->reset(['editingId', 'name', 'email', 'password', 'role', 'roleLocked', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
+        $this->reset(['editingId', 'name', 'email', 'password', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
         session()->flash('user_saved', $updating ? __('User updated.') : __('User created.'));
     }
 
@@ -423,9 +461,37 @@ final class UserManager extends Component
     }
 
     /**
-     * Update the edited user on the current (Main) database. Never changes the
-     * admin flag; app grants are only (re)written for non-admins (admins bypass
-     * ACLs entirely).
+     * The role we'll actually write. The picked role is honoured EXCEPT where it
+     * would lock everyone out or let an admin demote themselves: you can't strip
+     * the last super admin or the last admin of their tier, and you can't demote
+     * yourself. In those cases the existing tier is kept.
+     */
+    private function safeRole(User $user, StaffRole $wanted): StaffRole
+    {
+        $isSelf = $user->getKey() === Auth::id();
+
+        if ($user->isSuperAdmin() && ! $wanted->isSuperAdmin()) {
+            $lastSuper = User::query()->where('is_super_admin', true)->count() <= 1;
+            if ($isSelf || $lastSuper) {
+                return StaffRole::SuperAdmin;
+            }
+        }
+
+        if ($user->isAdmin() && ! $wanted->isAdmin()) {
+            $lastAdmin = User::query()->where('is_admin', true)->count() <= 1;
+            if ($isSelf || $lastAdmin) {
+                return $user->isSuperAdmin() ? StaffRole::SuperAdmin : StaffRole::Admin;
+            }
+        }
+
+        return $wanted;
+    }
+
+    /**
+     * Update the edited user on the current (Main) database. The role owns all
+     * three flags (admin / super admin / accountant — mutually exclusive) and
+     * the permission level of the app grants; admins bypass the ACL, so no rules
+     * are written for them.
      */
     private function updateExisting(): void
     {
@@ -434,34 +500,28 @@ final class UserManager extends Component
             return;
         }
 
+        $role = $this->safeRole($user, $this->selectedRole());
+
         $user->name = trim($this->name);
         $user->email = strtolower(trim($this->email));
         if ($this->password !== '') {
             $user->password = Hash::make($this->password);
         }
 
-        // Role change — never for a super admin (owned by the super-admin
-        // toggle), and never demote yourself or the last admin out of admin.
-        if (! $user->isSuperAdmin()) {
-            $wantsAdmin = $this->role === 'admin';
-            $isSelf = $user->getKey() === Auth::id();
-            $isLastAdmin = $user->isAdmin() && User::query()->where('is_admin', true)->count() <= 1;
-            if (! $wantsAdmin && ($isSelf || $isLastAdmin)) {
-                $wantsAdmin = true;
-            }
-            $user->is_admin = $wantsAdmin;
-        }
+        $user->is_admin = $role->isAdmin();
+        $user->is_super_admin = $role->isSuperAdmin();
+        $user->is_accountant = $role->isAccountant();
 
         $user->save();
 
-        // Admins bypass the ACL — grants only matter (and are rebuilt) for staff.
-        if (! $user->isAdmin()) {
-            app(UserProvisioner::class)->grantApps($user, array_values($this->apps));
+        // Admins bypass the ACL — grants only matter (and are rebuilt) below that.
+        if ($role->grantsApps()) {
+            app(UserProvisioner::class)->grantApps($user, array_values($this->apps), $role);
         }
 
         app(\App\Erp\Activity\ActivityLogger::class)->log('user_updated', (string) $user->email, __('Updated :name', ['name' => (string) $user->name]));
 
-        $this->reset(['editingId', 'name', 'email', 'password', 'role', 'roleLocked', 'apps', 'workspaces']);
+        $this->reset(['editingId', 'name', 'email', 'password', 'role', 'apps', 'workspaces']);
         session()->flash('user_saved', __('User updated.'));
     }
 
@@ -544,77 +604,44 @@ final class UserManager extends Component
     }
 
     /**
-     * Promote or demote another user to super admin. Owner-only: just a super
-     * admin can do this (so the tier can't be self-granted by a regular admin).
-     * Promoting also raises `is_admin` (super admin is a superset); you can't
-     * demote yourself or the last super admin.
+     * The role badge for every row of the list, resolved in ONE extra query.
+     * Super admin / Admin / Accountant come straight off the flags; Supervisor
+     * is only visible in the ACL (their grants carry Write), so the per-user
+     * groups that hold a Write rule are fetched in bulk rather than per row.
+     *
+     * @param  \Illuminate\Support\Collection<int, User>  $users
+     * @return array<int, StaffRole>
      */
-    public function toggleSuperAdmin(int $id): void
+    private function rolesFor($users): array
     {
-        $this->guardAdmin();
-        abort_unless($this->actorIsSuperAdmin(), 403);
+        $codes = $users->map(static fn (User $u): string => 'user:' . $u->getKey())->all();
 
-        $target = User::query()->find($id);
-        if ($target === null || $target->getKey() === Auth::id()) {
-            return;
-        }
+        $supervisorCodes = Group::query()
+            ->whereIn('code', $codes)
+            ->whereIn('id', ModelAccess::query()->where('perm_write', true)->select('group_id'))
+            ->pluck('code')
+            ->flip();
 
-        // Inside a workspace only this database's own accounts are manageable.
-        $workspaceId = $this->currentWorkspaceId();
-        if ($workspaceId !== null && ! $this->belongsHere($target, $workspaceId)) {
-            return;
-        }
+        $roles = [];
 
-        if ($target->isSuperAdmin()) {
-            // Demote — but never strip the last super admin.
-            if (User::query()->where('is_super_admin', true)->count() <= 1) {
-                return;
+        foreach ($users as $user) {
+            $role = StaffRole::of($user);
+
+            if ($role === StaffRole::Staff && $supervisorCodes->has('user:' . $user->getKey())) {
+                $role = StaffRole::Supervisor;
             }
-            $target->is_super_admin = false;
-            $target->save();
-            app(\App\Erp\Activity\ActivityLogger::class)->log('user_updated', (string) $target->email, __('Removed super admin from :name', ['name' => (string) $target->name]));
 
-            return;
+            $roles[(int) $user->getKey()] = $role;
         }
 
-        $target->is_admin = true;
-        $target->is_super_admin = true;
-        $target->save();
-        app(\App\Erp\Activity\ActivityLogger::class)->log('user_updated', (string) $target->email, __('Made :name a super admin', ['name' => (string) $target->name]));
+        return $roles;
     }
 
-    /**
-     * Grant or revoke the Accountant role (may confirm payments). Owner-only —
-     * a sensitive financial power, so only a super admin can assign it, never a
-     * regular admin and never yourself.
-     */
-    public function toggleAccountant(int $id): void
-    {
-        $this->guardAdmin();
-        abort_unless($this->actorIsSuperAdmin(), 403);
-
-        $target = User::query()->find($id);
-        if ($target === null || $target->getKey() === Auth::id()) {
-            return;
-        }
-
-        // Inside a workspace only this database's own accounts are manageable.
-        $workspaceId = $this->currentWorkspaceId();
-        if ($workspaceId !== null && ! $this->belongsHere($target, $workspaceId)) {
-            return;
-        }
-
-        $target->is_accountant = ! $target->isAccountant();
-        $target->save();
-
-        app(\App\Erp\Activity\ActivityLogger::class)->log(
-            'user_updated',
-            (string) $target->email,
-            $target->is_accountant
-                ? __('Made :name an accountant', ['name' => (string) $target->name])
-                : __('Removed accountant from :name', ['name' => (string) $target->name]),
-        );
-    }
+    // NOTE: the old inline `toggleSuperAdmin` / `toggleAccountant` row buttons
+    // are GONE. Both tiers are now roles in the edit form's role picker (one
+    // mutually-exclusive choice per account), so there's a single place a role
+    // is set — and one set of guards (`safeRole()` + the `role.in` rule, which
+    // only lets a super admin assign the Super admin / Accountant roles).
 
     /**
      * Execute an action the email-OTP just confirmed (regular-admin path).
@@ -689,6 +716,12 @@ final class UserManager extends Component
             $workspaceName = $workspace === null ? (string) __('this database') : $workspace->name;
         }
 
+        $users = User::query()
+            ->orderByDesc('is_super_admin')
+            ->orderByDesc('is_admin')
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'is_admin', 'is_super_admin', 'is_accountant', 'home_workspace_id']);
+
         return view('livewire.settings.user-manager', [
             // NB: keys must NOT clash with the public $apps / $workspaces
             // properties (Livewire injects those into the view too).
@@ -696,11 +729,17 @@ final class UserManager extends Component
             'workspaceList' => $workspaces,
             // Id → name for the "locked to …" tag in the list.
             'workspaceNames' => $workspaces->pluck('name', 'id'),
-            'users' => User::query()->orderByDesc('is_super_admin')->orderByDesc('is_admin')->orderBy('name')->get(['id', 'name', 'email', 'is_admin', 'is_super_admin', 'is_accountant', 'home_workspace_id']),
+            'users' => $users,
+            // Id → the ONE role each holds, for the list badge.
+            'userRoles' => $this->rolesFor($users),
             'currentUserId' => Auth::id(),
             'adminCount' => User::query()->where('is_admin', true)->count(),
             'actorIsSuperAdmin' => $this->actorIsSuperAdmin(),
             'onMain' => $this->onMain(),
+            // The role picker: one mutually-exclusive choice. Super admin and
+            // Accountant only appear for a super admin (owner-only to assign).
+            'roleOptions' => $this->assignableRoles(),
+            'currentRole' => $this->selectedRole(),
             // Inside a workspace: its id + name, so the form can say which
             // database the new account will belong to and the list can gate
             // per-row actions to this database's own users.

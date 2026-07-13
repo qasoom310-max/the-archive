@@ -40,9 +40,9 @@ final class UserProvisioner
      * if its workspace is among the selections (no longer implicit). Returns
      * the Main user when Main was selected, else null.
      *
-     * @param  list<string>  $appNames      installed application module names to grant Read on
+     * @param  list<string>  $appNames      installed application module names to grant on
      * @param  list<int>     $workspaceIds  workspace ids (Main + tenants) to create the account in
-     * @param  bool          $isAdmin       create as a full admin (bypasses ACL — app grants ignored)
+     * @param  StaffRole     $role          the one role the account holds (drives flags + granted permissions)
      */
     public function provision(
         string $name,
@@ -50,13 +50,13 @@ final class UserProvisioner
         string $plainPassword,
         array $appNames,
         array $workspaceIds,
-        bool $isAdmin = false,
+        StaffRole $role = StaffRole::Staff,
     ): ?User {
         $hashed = Hash::make($plainPassword);
 
         // No workspace feature on disk → just create on the current connection.
         if (! Schema::hasTable('workspaces')) {
-            return $this->upsertWithAccess($name, $email, $hashed, $appNames, $isAdmin);
+            return $this->upsertWithAccess($name, $email, $hashed, $appNames, $role);
         }
 
         $mainUser = null;
@@ -72,7 +72,7 @@ final class UserProvisioner
             // a workspace.
             if ($workspace->is_main) {
                 $mainUser = $this->workspaces->withMain(
-                    fn (): User => $this->upsertWithAccess($name, $email, $hashed, $appNames, $isAdmin),
+                    fn (): User => $this->upsertWithAccess($name, $email, $hashed, $appNames, $role),
                 );
 
                 continue;
@@ -87,7 +87,7 @@ final class UserProvisioner
 
             $this->workspaces->withTenant(
                 $path,
-                fn (): User => $this->upsertWithAccess($name, $email, $hashed, $appNames, $isAdmin),
+                fn (): User => $this->upsertWithAccess($name, $email, $hashed, $appNames, $role),
             );
         }
 
@@ -111,31 +111,30 @@ final class UserProvisioner
      * Re-running for the same email edits both rows in place. A null/blank
      * password keeps the existing one (the edit path).
      *
-     * @param  list<string>  $appNames  apps to grant Read on — staff only (an admin bypasses the ACL)
+     * @param  list<string>  $appNames  apps to grant on — non-admin roles only (an admin bypasses the ACL)
      */
     public function provisionLocked(
         string $name,
         string $email,
         ?string $plainPassword,
         int $workspaceId,
-        bool $superAdmin = true,
-        bool $isAdmin = true,
+        StaffRole $role = StaffRole::SuperAdmin,
         array $appNames = [],
     ): User {
         $hashed = ($plainPassword === null || $plainPassword === '') ? null : Hash::make($plainPassword);
 
-        // No tenancy on disk → nothing to lock to; create a plain admin.
+        // No tenancy on disk → nothing to lock to; create the account plainly.
         if (! Schema::hasTable('workspaces')) {
-            return $this->upsertLockedRow($name, $email, $hashed, null, $isAdmin, $superAdmin);
+            return $this->upsertLockedRow($name, $email, $hashed, null, $role);
         }
 
         $workspace = Workspace::query()->find($workspaceId);
         // Locking to Main (the identity store) is meaningless — treat as a
         // normal account on Main rather than trapping them nowhere.
         if ($workspace === null || $workspace->is_main) {
-            $user = $this->upsertLockedRow($name, $email, $hashed, null, $isAdmin, $superAdmin);
-            if (! $isAdmin && ! $superAdmin) {
-                $this->grantApps($user, $appNames);
+            $user = $this->upsertLockedRow($name, $email, $hashed, null, $role);
+            if ($role->grantsApps()) {
+                $this->grantApps($user, $appNames, $role);
             }
 
             return $user;
@@ -144,18 +143,18 @@ final class UserProvisioner
         // Main: a login shell only — NEVER an admin there, and flagged locked
         // so the tenancy middleware routes it straight into the workspace.
         $mainUser = $this->workspaces->withMain(
-            fn (): User => $this->upsertLockedRow($name, $email, $hashed, $workspaceId, false, false),
+            fn (): User => $this->upsertLockedRow($name, $email, $hashed, $workspaceId, StaffRole::Staff),
         );
 
         // Tenant: the real account — the chosen role within this one database.
         $path = $workspace->databasePath();
         if ($path !== null && is_file($path)) {
-            $this->workspaces->withTenant($path, function () use ($name, $email, $hashed, $workspaceId, $isAdmin, $superAdmin, $appNames): void {
-                $user = $this->upsertLockedRow($name, $email, $hashed, $workspaceId, $isAdmin, $superAdmin);
+            $this->workspaces->withTenant($path, function () use ($name, $email, $hashed, $workspaceId, $role, $appNames): void {
+                $user = $this->upsertLockedRow($name, $email, $hashed, $workspaceId, $role);
 
-                // Admins bypass the ACL entirely — grants only matter for staff.
-                if (! $isAdmin && ! $superAdmin) {
-                    $this->grantApps($user, $appNames);
+                // Admins bypass the ACL entirely — grants only matter below that.
+                if ($role->grantsApps()) {
+                    $this->grantApps($user, $appNames, $role);
                 }
             });
         }
@@ -225,11 +224,13 @@ final class UserProvisioner
 
     /**
      * Upsert a user row (by email) on the CURRENT connection with an explicit
-     * role + lock. `is_admin` is forced on for a super admin (a superset). A
-     * null password keeps the existing one; a brand-new row with no password
-     * gets an unusable random hash rather than a null column.
+     * role + lock. The role owns all three flags — `is_admin` is forced on for a
+     * super admin (a superset), and `is_accountant` only for the Accountant role
+     * (they're mutually exclusive). A null password keeps the existing one; a
+     * brand-new row with no password gets an unusable random hash rather than a
+     * null column.
      */
-    private function upsertLockedRow(string $name, string $email, ?string $hashedPassword, ?int $homeWorkspaceId, bool $isAdmin, bool $isSuperAdmin): User
+    private function upsertLockedRow(string $name, string $email, ?string $hashedPassword, ?int $homeWorkspaceId, StaffRole $role): User
     {
         if ($hashedPassword === null && ! User::query()->where('email', $email)->exists()) {
             $hashedPassword = Hash::make(Str::random(40)); // unusable placeholder
@@ -237,8 +238,9 @@ final class UserProvisioner
 
         $values = [
             'name' => $name,
-            'is_admin' => $isAdmin || $isSuperAdmin,
-            'is_super_admin' => $isSuperAdmin,
+            'is_admin' => $role->isAdmin(),
+            'is_super_admin' => $role->isSuperAdmin(),
+            'is_accountant' => $role->isAccountant(),
             'home_workspace_id' => $homeWorkspaceId,
         ];
 
@@ -252,20 +254,26 @@ final class UserProvisioner
     /**
      * Create/update the user, then (re)grant the apps — all on the CURRENT
      * default connection. An admin bypasses the ACL entirely, so no per-user
-     * group / Read rules are created for one.
+     * group / access rules are created for one.
      *
      * @param  list<string>  $appNames
      */
-    private function upsertWithAccess(string $name, string $email, string $hashedPassword, array $appNames, bool $isAdmin = false): User
+    private function upsertWithAccess(string $name, string $email, string $hashedPassword, array $appNames, StaffRole $role = StaffRole::Staff): User
     {
-        return DB::transaction(function () use ($name, $email, $hashedPassword, $appNames, $isAdmin): User {
+        return DB::transaction(function () use ($name, $email, $hashedPassword, $appNames, $role): User {
             $user = User::query()->updateOrCreate(
                 ['email' => $email],
-                ['name' => $name, 'is_admin' => $isAdmin, 'password' => $hashedPassword],
+                [
+                    'name' => $name,
+                    'is_admin' => $role->isAdmin(),
+                    'is_super_admin' => $role->isSuperAdmin(),
+                    'is_accountant' => $role->isAccountant(),
+                    'password' => $hashedPassword,
+                ],
             );
 
-            if (! $isAdmin) {
-                $this->grantApps($user, $appNames);
+            if ($role->grantsApps()) {
+                $this->grantApps($user, $appNames, $role);
             }
 
             return $user;
@@ -273,9 +281,12 @@ final class UserProvisioner
     }
 
     /**
-     * Rebuild a user's per-user group + view-only Read rules to exactly match
-     * the given app selection (on the current connection). Used by both the
+     * Rebuild a user's per-user group + access rules to exactly match the given
+     * app selection AND role (on the current connection). Used by both the
      * create path and the edit path. Idempotent.
+     *
+     * The permission set comes from the role — Staff / Accountant get Read,
+     * a Supervisor also gets Write + Create. Delete is never granted here.
      *
      * Scoped to what the CURRENT database actually exposes: apps and models its
      * business type (or a manual feature toggle) hides here are dropped. Because
@@ -286,12 +297,12 @@ final class UserProvisioner
      *
      * @param  list<string>  $appNames
      */
-    public function grantApps(User $user, array $appNames): void
+    public function grantApps(User $user, array $appNames, StaffRole $role = StaffRole::Staff): void
     {
-        DB::transaction(function () use ($user, $appNames): void {
+        DB::transaction(function () use ($user, $appNames, $role): void {
             $group = Group::query()->updateOrCreate(
                 ['code' => 'user:' . $user->getKey()],
-                ['name' => $user->name . ' — access', 'description' => 'Per-user app access (view only)'],
+                ['name' => $user->name . ' — access', 'description' => 'Per-user app access (' . $role->value . ')'],
             );
 
             $user->groups()->syncWithoutDetaching([$group->id]);
@@ -315,18 +326,43 @@ final class UserProvisioner
                 ->unique()
                 ->filter(static fn (mixed $model): bool => is_string($model) && Features::modelAllowed($model));
 
+            $perms = $role->permissions();
+
             foreach ($models as $model) {
                 ModelAccess::query()->create([
-                    'name' => $user->name . ': view ' . $model,
+                    'name' => $user->name . ': ' . $role->value . ' ' . $model,
                     'model' => $model,
                     'group_id' => $group->id,
-                    'perm_read' => true,
-                    'perm_write' => false,
-                    'perm_create' => false,
-                    'perm_unlink' => false,
+                    'perm_read' => $perms['read'],
+                    'perm_write' => $perms['write'],
+                    'perm_create' => $perms['create'],
+                    'perm_unlink' => $perms['unlink'],
                 ]);
             }
         });
+    }
+
+    /**
+     * The role an existing account holds. The flags settle Super admin / Admin /
+     * Accountant, but Staff vs Supervisor is NOT a column — it's the shape of
+     * the ACL rules their per-user group carries (a Supervisor's grant Write).
+     * Read back here so the edit form's role radio tells the truth.
+     */
+    public function roleOf(User $user): StaffRole
+    {
+        $role = StaffRole::of($user);
+
+        if ($role !== StaffRole::Staff) {
+            return $role;
+        }
+
+        $group = Group::query()->where('code', 'user:' . $user->getKey())->first();
+
+        if ($group !== null && ModelAccess::query()->where('group_id', $group->id)->where('perm_write', true)->exists()) {
+            return StaffRole::Supervisor;
+        }
+
+        return StaffRole::Staff;
     }
 
     /**

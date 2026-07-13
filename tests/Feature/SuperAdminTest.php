@@ -163,22 +163,40 @@ final class SuperAdminTest extends TestCase
 
     public function test_only_a_super_admin_can_promote_another(): void
     {
+        // The role is set in the edit form now (there's no inline toggle).
         // Owner promotes a normal user, then demotes.
         $this->actingAs($this->superAdmin());
         $target = User::factory()->create(['is_admin' => false]);
 
-        Livewire::test(UserManager::class)->call('toggleSuperAdmin', $target->id);
+        Livewire::test(UserManager::class)
+            ->call('editUser', $target->id)
+            ->set('role', 'super')
+            ->call('save')
+            ->assertHasNoErrors();
+
         $target->refresh();
         $this->assertTrue($target->isSuperAdmin());
-        $this->assertTrue($target->isAdmin()); // promotion raises is_admin too
+        $this->assertTrue($target->isAdmin()); // the tier is a superset
 
-        Livewire::test(UserManager::class)->call('toggleSuperAdmin', $target->id);
+        Livewire::test(UserManager::class)
+            ->call('editUser', $target->id)
+            ->set('role', 'staff')
+            ->call('save')
+            ->assertHasNoErrors();
+
         $this->assertFalse($target->fresh()?->isSuperAdmin());
 
-        // A regular admin is forbidden from promoting.
+        // A regular admin can't hand out the owner tier — the role isn't even
+        // assignable for them, so validation rejects it.
         $this->actingAs($this->admin());
         $other = User::factory()->create(['is_admin' => false]);
-        Livewire::test(UserManager::class)->call('toggleSuperAdmin', $other->id)->assertForbidden();
+
+        Livewire::test(UserManager::class)
+            ->call('editUser', $other->id)
+            ->set('role', 'super')
+            ->call('save')
+            ->assertHasErrors('role');
+
         $this->assertFalse($other->fresh()?->isSuperAdmin());
     }
 

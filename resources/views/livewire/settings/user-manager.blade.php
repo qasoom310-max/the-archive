@@ -62,31 +62,32 @@
             </div>
         </div>
 
-        {{-- Role --}}
+        {{-- Role — ONE mutually-exclusive choice. Super admin + Accountant only
+             render for a super admin (owner-only to assign; the `role.in` rule
+             re-checks server-side). --}}
         <div>
             <label class="mb-2 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Role') }}</label>
-            <div class="grid gap-2 sm:max-w-md sm:grid-cols-2">
-                @foreach (['staff' => __('Staff (view only)'), 'admin' => __('Administrator')] as $value => $roleLabel)
-                    <label @class([
-                        'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm',
-                        'border-primary-500 bg-primary-50 text-chrome-800' => $role === $value,
-                        'border-chrome-200 text-chrome-700 hover:bg-chrome-50' => $role !== $value,
-                        'pointer-events-none opacity-60' => $roleLocked,
+            <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach ($roleOptions as $option)
+                    <label wire:key="role-{{ $option->value }}" @class([
+                        'flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm',
+                        'border-primary-500 bg-primary-50 text-chrome-800' => $role === $option->value,
+                        'border-chrome-200 text-chrome-700 hover:bg-chrome-50' => $role !== $option->value,
                     ])>
-                        <input type="radio" wire:model.live="role" value="{{ $value }}" @disabled($roleLocked)
-                            class="border-chrome-300 text-primary-600 focus:ring-primary-500">
-                        <span>{{ $roleLabel }}</span>
+                        <input type="radio" wire:model.live="role" value="{{ $option->value }}"
+                            class="mt-0.5 border-chrome-300 text-primary-600 focus:ring-primary-500">
+                        <span>
+                            <span class="block font-medium">{{ __($option->label()) }}</span>
+                            <span class="block text-xs text-chrome-400">{{ __($option->description()) }}</span>
+                        </span>
                     </label>
                 @endforeach
             </div>
-            @if ($roleLocked)
-                <p class="mt-1 text-xs text-chrome-400">{{ __('This user is a super admin; manage their role from the super-admin controls.') }}</p>
-            @endif
             @error('role') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
         </div>
 
-        {{-- App access — only for staff; admins bypass the ACL entirely. --}}
-        @if ($role === 'staff')
+        {{-- App access — every role below Administrator; admins bypass the ACL. --}}
+        @if ($currentRole->grantsApps())
             <div>
                 <label class="mb-2 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Apps this user can access') }}</label>
                 @if ($appModules->isEmpty())
@@ -206,16 +207,21 @@
                 @endphp
                 <li wire:key="user-{{ $user->id }}" class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                     <span class="flex min-w-0 items-center gap-2">
-                        @if ($user->is_super_admin)
-                            <span class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">{{ __('Super admin') }}</span>
-                        @elseif ($user->is_admin)
-                            <span class="shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-700">{{ __('Admin') }}</span>
-                        @else
-                            <span class="shrink-0 rounded-full bg-chrome-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-chrome-500">{{ __('Staff') }}</span>
-                        @endif
-                        @if ($user->is_accountant)
-                            <span class="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">{{ __('Accountant') }}</span>
-                        @endif
+                        {{-- One badge = the one role. Classes are written out in
+                             full so Tailwind's JIT scanner sees them. --}}
+                        @php
+                            $userRole = $userRoles[$user->id] ?? \App\Erp\Admin\StaffRole::Staff;
+                            $roleBadge = match ($userRole->color()) {
+                                'amber' => 'bg-amber-100 text-amber-700',
+                                'primary' => 'bg-primary-100 text-primary-700',
+                                'sky' => 'bg-sky-100 text-sky-700',
+                                'emerald' => 'bg-emerald-100 text-emerald-700',
+                                default => 'bg-chrome-100 text-chrome-500',
+                            };
+                        @endphp
+                        <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide {{ $roleBadge }}">
+                            {{ __($userRole->label()) }}
+                        </span>
                         @if ($user->home_workspace_id && ($workspaceNames[$user->home_workspace_id] ?? null))
                             <span class="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700">{{ __('Locked') }}: {{ $workspaceNames[$user->home_workspace_id] }}</span>
                         @endif
@@ -228,18 +234,8 @@
                         @unless ($inScope)
                             <span class="text-xs text-chrome-300">{{ __('Managed on Main') }}</span>
                         @endunless
-                        {{-- Owner-only: promote/demote super admin. --}}
-                        @if ($inScope && $actorIsSuperAdmin && ! $isSelf)
-                            <button type="button" wire:click="toggleSuperAdmin({{ $user->id }})"
-                                class="text-xs font-medium text-amber-700 hover:underline">
-                                {{ $user->is_super_admin ? __('Remove super admin') : __('Make super admin') }}
-                            </button>
-                            {{-- Owner-only: grant/revoke the Accountant role (confirm payments). --}}
-                            <button type="button" wire:click="toggleAccountant({{ $user->id }})"
-                                class="text-xs font-medium text-emerald-700 hover:underline">
-                                {{ $user->is_accountant ? __('Remove accountant') : __('Make accountant') }}
-                            </button>
-                        @endif
+                        {{-- Role changes (incl. super admin + accountant) happen in
+                             Edit now — one place, one set of guards. --}}
                         @if ($inScope && $canManage)
                             <button type="button" wire:click="editUser({{ $user->id }})"
                                 class="text-xs font-medium text-primary-700 hover:underline">{{ __('Edit') }}</button>

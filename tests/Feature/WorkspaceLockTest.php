@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Erp\Admin\StaffRole;
 use App\Erp\Admin\UserProvisioner;
 use App\Erp\Tenancy\WorkspaceManager;
 use App\Http\Middleware\SetActiveWorkspace;
@@ -61,7 +62,7 @@ final class WorkspaceLockTest extends TestCase
     {
         $ws = $this->kaleem();
 
-        $shell = app(UserProvisioner::class)->provisionLocked('K Owner', 'kadmin@erp.test', 'password123', $ws->id, true);
+        $shell = app(UserProvisioner::class)->provisionLocked('K Owner', 'kadmin@erp.test', 'password123', $ws->id, StaffRole::SuperAdmin);
 
         // Main: a non-admin login shell, locked to Kaleem.
         $this->assertNotNull($shell);
@@ -82,7 +83,7 @@ final class WorkspaceLockTest extends TestCase
     public function test_a_locked_user_is_forced_into_their_workspace_ignoring_the_cookie(): void
     {
         $ws = $this->kaleem();
-        $shell = app(UserProvisioner::class)->provisionLocked('K Owner', 'kadmin@erp.test', 'password123', $ws->id, true);
+        $shell = app(UserProvisioner::class)->provisionLocked('K Owner', 'kadmin@erp.test', 'password123', $ws->id, StaffRole::SuperAdmin);
         $this->assertNotNull($shell);
         $this->actingAs($shell);
 

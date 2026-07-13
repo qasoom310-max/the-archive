@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Erp\Admin\StaffRole;
 use App\Erp\Modules\ModuleManager;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
@@ -285,22 +286,158 @@ final class UserManagerTest extends TestCase
         $this->assertTrue($user->fresh()?->isAdmin());
     }
 
-    public function test_edit_never_changes_a_super_admins_role_via_the_selector(): void
+    public function test_edit_loads_a_super_admins_real_role_and_can_change_it(): void
     {
         $owner = User::factory()->create(['is_admin' => true, 'is_super_admin' => true]);
         $target = User::factory()->create(['is_admin' => true, 'is_super_admin' => true]);
         $this->actingAs($owner);
 
-        // The role selector is locked for a super admin — their adminness is
-        // owned by the super-admin toggle, so a staff selection is a no-op.
+        // The role picker now owns every tier — it loads the target's REAL role
+        // and another super admin can change it.
         Livewire::test(UserManager::class)
             ->call('editUser', $target->getKey())
-            ->assertSet('roleLocked', true)
+            ->assertSet('role', 'super')
+            ->set('role', 'staff')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertFalse($target->fresh()?->isSuperAdmin());
+        $this->assertFalse($target->fresh()?->isAdmin());
+    }
+
+    public function test_the_last_super_admin_cannot_be_demoted(): void
+    {
+        // Only ONE super admin exists — demoting them would lock the owner tier
+        // out of the database, so the role change is refused (tier kept).
+        $owner = User::factory()->create(['is_admin' => true, 'is_super_admin' => true]);
+        $this->actingAs($owner);
+
+        // Someone else must be admin so `owner` isn't also the last admin.
+        User::factory()->create(['is_admin' => true]);
+
+        Livewire::test(UserManager::class)
+            ->call('editUser', $owner->getKey())
             ->set('role', 'staff')
             ->call('save');
 
-        $this->assertTrue($target->fresh()?->isAdmin());
-        $this->assertTrue($target->fresh()?->isSuperAdmin());
+        $this->assertTrue($owner->fresh()?->isSuperAdmin());
+    }
+
+    public function test_a_supervisor_can_view_add_and_edit_but_not_delete(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        $this->installPos();
+
+        Livewire::test(UserManager::class)
+            ->set('name', 'Shift Lead')
+            ->set('email', 'lead@example.com')
+            ->set('password', 'secret12')
+            ->set('role', 'supervisor')
+            ->set('apps', ['pos'])
+            ->set('workspaces', [$this->mainId()])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $user = User::query()->where('email', 'lead@example.com')->firstOrFail();
+        $acl = app(AccessControl::class);
+
+        $this->assertFalse($user->isAdmin());
+        $this->assertTrue($acl->allows($user, 'pos.order', Permission::Read));
+        $this->assertTrue($acl->allows($user, 'pos.order', Permission::Write));
+        $this->assertTrue($acl->allows($user, 'pos.order', Permission::Create));
+        $this->assertFalse($acl->allows($user, 'pos.order', Permission::Unlink), 'A supervisor must never be able to delete.');
+    }
+
+    public function test_editing_reads_back_the_supervisor_role_and_can_demote_to_staff(): void
+    {
+        // Super admin actor: editing is OTP-gated for a regular admin (covered
+        // by SuperAdminTest); here we're testing the role logic itself.
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+        $this->installPos();
+
+        Livewire::test(UserManager::class)
+            ->set('name', 'Shift Lead')
+            ->set('email', 'lead@example.com')
+            ->set('password', 'secret12')
+            ->set('role', 'supervisor')
+            ->set('apps', ['pos'])
+            ->set('workspaces', [$this->mainId()])
+            ->call('save');
+
+        $user = User::query()->where('email', 'lead@example.com')->firstOrFail();
+
+        // Supervisor isn't a column — it's the shape of the ACL rules. The edit
+        // form must still read it back correctly.
+        Livewire::test(UserManager::class)
+            ->call('editUser', $user->getKey())
+            ->assertSet('role', 'supervisor')
+            ->set('role', 'staff')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertFalse(app(AccessControl::class)->allows($user->fresh(), 'pos.order', Permission::Write));
+    }
+
+    public function test_an_accountant_may_confirm_payments_and_is_not_an_admin(): void
+    {
+        // Owner-only to assign (it was an owner-only toggle before).
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+        $this->installPos();
+
+        Livewire::test(UserManager::class)
+            ->set('name', 'Book Keeper')
+            ->set('email', 'books@example.com')
+            ->set('password', 'secret12')
+            ->set('role', 'accountant')
+            ->set('apps', ['pos'])
+            ->set('workspaces', [$this->mainId()])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $user = User::query()->where('email', 'books@example.com')->firstOrFail();
+
+        $this->assertTrue($user->isAccountant());
+        $this->assertTrue($user->canConfirmPayments());
+        $this->assertFalse($user->isAdmin());
+        // View-level access to the apps they were granted; no editing.
+        $this->assertTrue(app(AccessControl::class)->allows($user, 'pos.order', Permission::Read));
+        $this->assertFalse(app(AccessControl::class)->allows($user, 'pos.order', Permission::Write));
+    }
+
+    public function test_a_regular_admin_cannot_assign_the_owner_only_roles(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => false]));
+        $this->installPos();
+
+        foreach (['accountant', 'super'] as $role) {
+            Livewire::test(UserManager::class)
+                ->set('name', 'Sneaky ' . $role)
+                ->set('email', $role . '@example.com')
+                ->set('password', 'secret12')
+                ->set('role', $role)
+                ->set('workspaces', [$this->mainId()])
+                ->call('save')
+                ->assertHasErrors('role');
+
+            $this->assertSame(0, User::query()->where('email', $role . '@example.com')->count());
+        }
+    }
+
+    public function test_the_roles_a_super_admin_can_assign_include_every_tier(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+
+        $roles = Livewire::test(UserManager::class)->viewData('roleOptions');
+        $values = array_map(static fn (StaffRole $r): string => $r->value, $roles);
+
+        $this->assertSame(['staff', 'supervisor', 'accountant', 'admin', 'super'], $values);
+
+        // A regular admin sees only the three they may hand out.
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => false]));
+        $roles = Livewire::test(UserManager::class)->viewData('roleOptions');
+        $values = array_map(static fn (StaffRole $r): string => $r->value, $roles);
+
+        $this->assertSame(['staff', 'supervisor', 'admin'], $values);
     }
 
     public function test_user_is_provisioned_only_into_the_selected_databases(): void

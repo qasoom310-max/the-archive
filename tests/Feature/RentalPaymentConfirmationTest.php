@@ -121,16 +121,27 @@ final class RentalPaymentConfirmationTest extends TestCase
 
     public function test_only_a_super_admin_can_grant_the_accountant_role(): void
     {
+        // Accountant is one of the ROLES in the edit form now (mutually
+        // exclusive with Staff / Supervisor / Administrator / Super admin).
         $target = User::factory()->create();
 
-        // A regular admin cannot.
+        // A regular admin cannot assign it — the role isn't in their gift, so
+        // validation rejects it.
         $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => false]));
-        Livewire::test(UserManager::class)->call('toggleAccountant', $target->id)->assertForbidden();
+        Livewire::test(UserManager::class)
+            ->call('editUser', $target->id)
+            ->set('role', 'accountant')
+            ->call('save')
+            ->assertHasErrors('role');
         $this->assertFalse($target->fresh()?->isAccountant());
 
         // A super-admin can.
         $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
-        Livewire::test(UserManager::class)->call('toggleAccountant', $target->id);
+        Livewire::test(UserManager::class)
+            ->call('editUser', $target->id)
+            ->set('role', 'accountant')
+            ->call('save')
+            ->assertHasNoErrors();
         $this->assertTrue($target->fresh()?->isAccountant());
     }
 }

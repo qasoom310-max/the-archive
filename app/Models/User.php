@@ -21,6 +21,7 @@ use Throwable;
  * @property string|null $avatar_path   Path on the `public` disk (nullable)
  * @property string|null $new_email     Pending email change awaiting verification
  * @property string|null $language      Personal language preference (`en`|`ar`); null = follow company.language
+ * @property string|null $theme         Personal appearance preference (`light`|`dark`|`system`); null = system
  * @property float|null $hourly_cost    Labour rate per hour (Project module); null = use project.default_hourly_cost
  * @property bool $is_admin
  * @property bool $is_super_admin   Owner tier above admin (a strict superset of is_admin)
@@ -41,6 +42,7 @@ final class User extends Authenticatable
         'avatar_path',
         'new_email',
         'language',
+        'theme',
         'hourly_cost',
         'is_admin',
         'is_super_admin',

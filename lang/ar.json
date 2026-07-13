@@ -1,6 +1,11 @@
 {
     "OpenERP": "OpenERP",
     "Gallery images": "صور المعرض",
+    "Appearance": "المظهر",
+    "Light, dark, or match your device.": "فاتح أو داكن أو مطابقة جهازك.",
+    "Light": "فاتح",
+    "Dark": "داكن",
+    "System": "النظام",
     "Slug": "المُعرّف (Slug)",
     "Used in links. Lowercase letters, numbers and dashes only — anything else is cleaned up on save. Leave blank to regenerate from the name.": "يُستخدم في الروابط. أحرف إنجليزية صغيرة وأرقام وشرطات فقط — أي شيء آخر يُنظَّف عند الحفظ. اتركه فارغًا لإعادة توليده من الاسم.",
     "Extra photos shown alongside the main photo. These are pushed to WooCommerce as additional product images.": "صور إضافية تُعرض بجانب الصورة الرئيسية. تُرسل إلى WooCommerce كصور إضافية للمنتج.",

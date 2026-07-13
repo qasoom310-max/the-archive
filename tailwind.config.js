@@ -4,6 +4,12 @@ import typography from '@tailwindcss/typography';
 
 /** @type {import('tailwindcss').Config} */
 export default {
+    // Dark mode is driven by a `.dark` class on <html> (toggled from the
+    // per-user theme preference by an inline script in the app layout). The
+    // actual dark styling is a surgical override block in resources/css/app.css
+    // that remaps the neutral chrome/white utilities under `.dark` — light
+    // mode stays byte-identical (zero regression).
+    darkMode: 'class',
     content: [
         './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
         './storage/framework/views/*.php',

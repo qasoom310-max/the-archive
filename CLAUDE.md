@@ -1503,6 +1503,23 @@ a professional table of who did what, when.
 | Tenant backfill | `App\Console\Commands\MigrateWorkspaces` (`workspaces:migrate`) runs, against every tenant SQLite file (resilient per-workspace try/catch): core `migrate --force` **AND** — per module installed in that tenant's `ir_module` — its `migrate --path=<manifest->migrationsPath()> --realpath --force` + `module:resync <slug>` (extended 2026-06-22). **Added to `deploy.yml`** right after the Main `migrate`. Fixes the general "tenants miss migrations added after provisioning" gap for **both** core (e.g. `activity_logs`) **and module** migrations — without this a tenant's `pos_*`/etc. schema froze at provision time and screens using a later column (e.g. POS `pos_x`/`pos_y`, translatable floor name) 500'd only inside tenants while Main was fine. Resync also lands later `irModelDefinition()` arch tweaks (translatable pills, new fields) in tenants |
 | Tests | `tests/Feature/ActivityLogTest.php` (6 — logger snapshot, login event audited, page admin-only, list + action filter, user-create audited, settings-save audited) |
 
+**Dark mode / per-user theme (shipped 2026-07-13):**
+
+A **light / dark / system** appearance picker in **Settings → General** (top of
+the tab, a segmented sun/moon/monitor control). It's a **per-user** preference
+(like language) — every user, not just admins, can set their own; applied
+**live, no reload**.
+
+| Concern | Location |
+|---|---|
+| Preference | `users.theme` (`nullable(10)` — `light\|dark\|system`; null = system), core migration `2026_07_13_110001` (Main via `migrate --force`, tenants via `workspaces:migrate`). `User` fillable + `@property`. |
+| Mechanism | An inline script in `components/layouts/app.blade.php` `<head>` (BEFORE `@vite`, so no light-flash) reads `<html data-theme="{{ auth theme ?: 'system' }}">`, resolves `system` via `matchMedia('(prefers-color-scheme: dark)')`, and toggles a **`.dark` class on `<html>`**. Exposed as `window.applyTheme(pref)`; tracks OS changes while in `system`. `tailwind.config.js` set `darkMode: 'class'`. |
+| Styling | **NOT `dark:` variants across the views.** Instead an **additive `.dark` override block at the end of `resources/css/app.css`** remaps the neutral utility CLASSES the whole app is built on — `bg-white`/`bg-chrome-*` → dark surfaces, `text-chrome-*` → light, `border/ring/divide-chrome-*`, `.o-input` + the forms-plugin inputs. **Light mode is byte-identical (every rule is scoped under `.dark`, zero regression).** Deliberately untouched: `text-white` (stays white on coloured badges) and `bg-chrome-900/40..70` modal scrims (kept a dark scrim). **Brand-yellow overload fix:** `bg-primary-400/500` fills stay yellow, so their `text-chrome-900` label is pinned dark via `.dark .bg-primary-400.text-chrome-900` (same-element) + descendant selectors + `.dark .o-btn-primary` — no Blade edits. Accent text (`text-primary-600/700`) is brightened to a legible gold. |
+| Control | `SettingsPage::$theme` + `setTheme(light\|dark\|system)` — validates, writes `users.theme`, dispatches `theme-changed` (value); the layout `<body>`'s `x-on:theme-changed.window` calls `applyTheme` for instant apply. Rendered at the top of the General panel in `settings.blade.php` (only when the General group is shown; every role sees General via `company.language`). |
+| Tests | `tests/Feature/ThemeSettingTest.php` (4 — persist + dispatch, mount reflects saved, invalid ignored, non-admin may set their own). AR keys: Appearance / Light / Dark / System / the help line. |
+
+Scope note: the **guest/login page stays light** (pre-auth, no user row) — dark mode is the authenticated app only. Coverage is broad (neutral surfaces/text/inputs/chrome across every screen), but bright *tinted* banners (`bg-emerald-50` etc.) and any bespoke non-chrome colours aren't remapped — refine per-screen if needed. To retune the palette, edit the values in the `.dark` block; to add a spot that needs hand-tuning, use a `dark:` Tailwind variant (now enabled).
+
 **Profile self-service (shipped 2026-05-21):**
 
 | Concern | Location |

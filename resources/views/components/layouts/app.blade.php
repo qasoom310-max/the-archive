@@ -6,8 +6,11 @@
     // the way the user reads. The middleware (SetLocale) has already
     // pushed the right code into app()->getLocale() by this point.
     $isRtl = in_array(app()->getLocale(), ['ar'], true);
+    // Per-user appearance preference (light|dark|system). null / missing
+    // column (pre-migration) falls back to following the OS.
+    $themePref = (auth()->user()?->theme ?? null) ?: 'system';
 @endphp
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}" class="h-full">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}" data-theme="{{ $themePref }}" class="h-full">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -31,12 +34,35 @@
             };
         })();
     </script>
+    {{-- Dark mode: apply the theme class BEFORE the stylesheet loads so there's
+         no light-mode flash. `applyTheme` is exposed globally so the settings
+         page can re-apply it live (via the `theme-changed` event) without a
+         page reload, and OS changes are tracked while in "system" mode. --}}
+    <script>
+        (function () {
+            window.applyTheme = function (pref) {
+                var mql = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+                var dark = pref === 'dark' || (pref !== 'light' && mql && mql.matches);
+                document.documentElement.classList.toggle('dark', dark);
+                document.documentElement.dataset.themePref = pref;
+            };
+            window.applyTheme(document.documentElement.getAttribute('data-theme') || 'system');
+            if (window.matchMedia) {
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+                    if ((document.documentElement.dataset.themePref || 'system') === 'system') {
+                        window.applyTheme('system');
+                    }
+                });
+            }
+        })();
+    </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>
 <body class="h-full font-sans"
     x-data
-    x-on:language-changed.window="window.location.reload()">
+    x-on:language-changed.window="window.location.reload()"
+    x-on:theme-changed.window="window.applyTheme($event.detail.value)">
 @php
     $segments = request()->segments();
     $activeModule = ($segments[0] ?? null) === 'app' ? ($segments[1] ?? null) : null;

@@ -104,6 +104,13 @@ final class SettingsPage extends Component
     public bool $saved = false;
 
     /**
+     * Per-user appearance preference: light | dark | system. Personal (like
+     * language), so every user — not just admins — may change it. Applied live
+     * (no reload) by dispatching `theme-changed` to the layout's Alpine hook.
+     */
+    public string $theme = 'system';
+
+    /**
      * New recipient email being added in the admin-only "Daily Report" tab.
      * The daily sales + stock PDF is mailed to every {@see ReportRecipient}.
      */
@@ -115,6 +122,11 @@ final class SettingsPage extends Component
         // Auth still required — guests get bounced to /login by route
         // middleware before we ever reach here.
         abort_unless(Auth::check(), 403);
+
+        $user = Auth::user();
+        $this->theme = $user instanceof User && in_array($user->theme, ['light', 'dark', 'system'], true)
+            ? $user->theme
+            : 'system';
 
         foreach (app(SettingManager::class)->grouped() as $params) {
             foreach ($params as $param) {
@@ -423,6 +435,32 @@ final class SettingsPage extends Component
 
         $user->language = $desired;
         $user->save();
+    }
+
+    /**
+     * Set the logged-in user's appearance preference and apply it live. Fires
+     * immediately (its own button group), independent of the top Save — like
+     * the Daily Report actions. Available to every user (a personal choice).
+     */
+    public function setTheme(string $theme): void
+    {
+        abort_unless(Auth::check(), 403);
+
+        if (! in_array($theme, ['light', 'dark', 'system'], true)) {
+            return;
+        }
+
+        $user = Auth::user();
+        if ($user instanceof User && $user->theme !== $theme) {
+            $user->theme = $theme;
+            $user->save();
+        }
+
+        $this->theme = $theme;
+
+        // The layout's Alpine hook toggles the `.dark` class from this — no
+        // full-page reload needed (unlike a language flip).
+        $this->dispatch('theme-changed', value: $theme);
     }
 
     public function updated(): void

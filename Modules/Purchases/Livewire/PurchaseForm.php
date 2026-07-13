@@ -9,6 +9,7 @@ use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -23,6 +24,7 @@ use Modules\Purchases\Enums\PurchaseState;
 use Modules\Purchases\Models\Purchase;
 use Modules\Purchases\Models\PurchaseLine;
 use Modules\Purchases\Services\PurchaseConfirmer;
+use Throwable;
 
 /**
  * Custom master/detail editor for a vendor bill: header (vendor, date) plus
@@ -479,11 +481,38 @@ final class PurchaseForm extends Component
      * Write the header + lines (delete-and-recreate the lines — a draft bill
      * is small and this keeps the editor stateless). Returns the persisted
      * Purchase and stamps `$this->id`.
+     *
+     * ATOMIC, and it must stay that way. The line rewrite is a DELETE followed
+     * by re-INSERTs; without a transaction the delete commits on its own, so
+     * anything that threw while re-inserting (a bad value, a constraint, any
+     * 500 mid-request) left the bill saved with ZERO lines — the buyer's whole
+     * day of entry silently wiped, with the header still sitting there looking
+     * fine. The transaction makes a failed save a no-op instead: the error
+     * surfaces and the previously saved lines are still on the bill.
      */
     private function persistRecord(): Purchase
     {
+        // Validate BEFORE opening the transaction — a validation error should
+        // never even reach the delete.
         $this->validate();
 
+        $previousId = $this->id;
+
+        try {
+            return DB::transaction(fn (): Purchase => $this->writeRecord());
+        } catch (Throwable $e) {
+            // The transaction rolled back, so a BRAND-NEW bill no longer exists.
+            // Don't leave the editor pointing at an id that was never committed
+            // (the next save would findOrFail on a row that isn't there).
+            $this->id = $previousId;
+
+            throw $e;
+        }
+    }
+
+    /** The actual header + line write. Always called inside a transaction. */
+    private function writeRecord(): Purchase
+    {
         $purchase = $this->id !== null
             ? Purchase::query()->findOrFail($this->id)
             : new Purchase();

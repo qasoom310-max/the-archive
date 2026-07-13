@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Pages;
 
+use App\Erp\Branding\Appearance;
 use App\Erp\Branding\Logo;
 use App\Erp\Business\BusinessType;
 use App\Erp\Money\Currencies;
@@ -69,6 +70,16 @@ final class SettingsPage extends Component
     public const SUPER_ADMIN_KEYS = ['company.business_type'];
 
     /**
+     * Settings that have a DEDICATED widget on this page and so must never also
+     * appear as a generic row in the form (they'd render as a raw text box and
+     * offer a second, unvalidated way to set them). The Appearance widget owns
+     * the database's theme + accent.
+     *
+     * @var list<string>
+     */
+    public const WIDGET_KEYS = [Appearance::THEME_KEY, Appearance::ACCENT_KEY];
+
+    /**
      * The one key that's actually a per-user preference. mount() and
      * save() route it to `users.language` instead of the system
      * settings table.
@@ -105,22 +116,16 @@ final class SettingsPage extends Component
     public bool $saved = false;
 
     /**
-     * Per-user appearance preference: light | dark | system. Personal (like
-     * language), so every user — not just admins — may change it. Applied live
-     * (no reload) by dispatching `theme-changed` to the layout's Alpine hook.
+     * The DATABASE's appearance — theme (light|dark|system) and accent colour.
+     * Branding, not a personal preference: every user of a database sees the
+     * same look, and each database keeps its own (Wanaan yellow + light, Kaleem
+     * its own colour + dark). Stored as per-workspace settings; only a SUPER
+     * admin may change them. Applied live (no reload) by dispatching
+     * `theme-changed` / `accent-changed` to the layout's Alpine hooks.
      */
-    public string $theme = 'system';
+    public string $theme = Appearance::DEFAULT_THEME;
 
-    /**
-     * Per-user accent (brand) colour. Personal (like theme). Applied live (no
-     * reload) by dispatching `accent-changed` to the layout's Alpine hook,
-     * which swaps `data-accent` on <html> → the CSS remaps the primary palette.
-     *
-     * @var list<string>
-     */
-    public const ACCENTS = ['yellow', 'amber', 'orange', 'red', 'pink', 'violet', 'sky', 'emerald'];
-
-    public string $accent = 'yellow';
+    public string $accent = Appearance::DEFAULT_ACCENT;
 
     /**
      * New recipient email being added in the admin-only "Daily Report" tab.
@@ -135,13 +140,10 @@ final class SettingsPage extends Component
         // middleware before we ever reach here.
         abort_unless(Auth::check(), 403);
 
-        $user = Auth::user();
-        $this->theme = $user instanceof User && in_array($user->theme, ['light', 'dark', 'system'], true)
-            ? $user->theme
-            : 'system';
-        $this->accent = $user instanceof User && in_array($user->accent, self::ACCENTS, true)
-            ? $user->accent
-            : 'yellow';
+        // This DATABASE's look (not the signed-in user's) — so switching database
+        // switches the theme + accent with it.
+        $this->theme = Appearance::theme();
+        $this->accent = Appearance::accent();
 
         foreach (app(SettingManager::class)->grouped() as $params) {
             foreach ($params as $param) {
@@ -333,6 +335,12 @@ final class SettingsPage extends Component
             return false;
         }
 
+        // Theme + accent are edited by the dedicated "Appearance" widget at the
+        // top of the General tab, so they must not ALSO render as raw text rows.
+        if (in_array($key, self::WIDGET_KEYS, true)) {
+            return false;
+        }
+
         if ($this->isSuperAdmin()) {
             return true;
         }
@@ -463,30 +471,21 @@ final class SettingsPage extends Component
     }
 
     /**
-     * Set the logged-in user's appearance preference and apply it live. Fires
-     * immediately (its own button group), independent of the top Save — like
-     * the Daily Report actions. Available to every user (a personal choice).
+     * Set THIS DATABASE's theme and apply it live. Fires immediately (its own
+     * button group), independent of the top Save — like the Daily Report
+     * actions. SUPER-ADMIN ONLY: the look of a business is an owner-level
+     * branding decision, not a per-user preference, so a regular admin or a
+     * cashier can't repaint the shop for everyone.
      */
     public function setTheme(string $theme): void
     {
-        abort_unless(Auth::check(), 403);
+        abort_unless($this->isSuperAdmin(), 403);
 
-        if (! in_array($theme, ['light', 'dark', 'system'], true)) {
+        if (! in_array($theme, Appearance::THEMES, true)) {
             return;
         }
 
-        // Persist on the CANONICAL Main row, not the active database's mirror:
-        // inside a workspace Auth::user() is that database's copy of the person,
-        // so writing there stranded the preference — switch database and dark
-        // mode reverted to light. Appearance is identity, not business data.
-        $user = Auth::user();
-        if ($user instanceof User) {
-            $target = $user->canonical() ?? $user;
-            if ($target->theme !== $theme) {
-                $target->theme = $theme;
-                $target->save();
-            }
-        }
+        Setting::set(Appearance::THEME_KEY, $theme);
 
         $this->theme = $theme;
 
@@ -496,26 +495,18 @@ final class SettingsPage extends Component
     }
 
     /**
-     * Set the logged-in user's accent (brand) colour and apply it live.
-     * Personal (available to every user), fires immediately.
+     * Set THIS DATABASE's accent (brand) colour and apply it live.
+     * Super-admin only — same reasoning as setTheme().
      */
     public function setAccent(string $accent): void
     {
-        abort_unless(Auth::check(), 403);
+        abort_unless($this->isSuperAdmin(), 403);
 
-        if (! in_array($accent, self::ACCENTS, true)) {
+        if (! in_array($accent, Appearance::ACCENTS, true)) {
             return;
         }
 
-        // Canonical Main row — same reasoning as setTheme().
-        $user = Auth::user();
-        if ($user instanceof User) {
-            $target = $user->canonical() ?? $user;
-            if ($target->accent !== $accent) {
-                $target->accent = $accent;
-                $target->save();
-            }
-        }
+        Setting::set(Appearance::ACCENT_KEY, $accent);
 
         $this->accent = $accent;
 
@@ -605,6 +596,9 @@ final class SettingsPage extends Component
             'tabs' => $tabs,
             'reportTab' => $reportTab,
             'userTab' => $userTab,
+            // The database's look is an owner-level branding decision — only a
+            // super admin sees (and can use) the Appearance widget.
+            'canSetAppearance' => $this->isSuperAdmin(),
             'recipients' => $reportTab
                 ? ReportRecipient::query()->orderBy('email')->get()
                 : collect(),

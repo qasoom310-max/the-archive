@@ -26,6 +26,13 @@ final class SettingSeeder extends Seeder
             // "not configured" → everything stays visible (see Features).
             ['key' => 'company.business_type', 'label' => 'Business Type', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 5, 'description' => 'Tailors which apps, menus, and features appear for this database (e.g. a perfume shop hides café recipes).'],
             ['key' => 'company.name', 'label' => 'Company Name', 'type' => 'string', 'group' => 'General', 'default' => 'OpenERP', 'sort' => 10, 'description' => 'Shown on receipts and documents.'],
+            // Look of THIS database (branding, not a personal preference): every
+            // user of the database sees the same theme + accent. Edited by the
+            // dedicated "Appearance" widget at the top of the General tab —
+            // hence SettingsPage::WIDGET_KEYS keeps them out of the generic
+            // form — and only a SUPER admin may change them.
+            ['key' => 'company.theme', 'label' => 'Theme', 'type' => 'string', 'group' => 'General', 'default' => 'light', 'sort' => 6, 'description' => 'Light, dark, or follow the device — for this database.'],
+            ['key' => 'company.accent', 'label' => 'Accent colour', 'type' => 'string', 'group' => 'General', 'default' => 'yellow', 'sort' => 7, 'description' => 'Brand colour for this database.'],
             // `image` is a UI-only flag — the column stores the path on
             // the public disk (e.g. `company/abc.webp`). Empty default;
             // admins upload via the Settings UI, the file lands in

@@ -63,14 +63,15 @@
         @foreach ($tabs as $group => $ids)
             <div x-show="tab === '{{ $group }}'" x-cloak
                 class="space-y-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-chrome-900/5">
-                {{-- Appearance (theme) — a per-user preference (like language),
-                     shown at the top of General for every user. Applies live
-                     via setTheme() → the layout's theme-changed hook. --}}
-                @if ($group === 'General')
+                {{-- Appearance — the look of THIS DATABASE (branding, not a personal
+                     preference): every user of the database sees it, and each database
+                     keeps its own. SUPER-ADMIN ONLY. Applies live via setTheme() /
+                     setAccent() → the layout's theme-changed / accent-changed hooks. --}}
+                @if ($group === 'General' && $canSetAppearance)
                     <div class="grid items-start gap-2 border-b border-chrome-100 pb-5 sm:grid-cols-3">
                         <label class="pt-2 text-sm font-medium text-chrome-800">
                             {{ __('Appearance') }}
-                            <span class="mt-0.5 block text-xs font-normal text-chrome-400">{{ __('Theme and accent colour for this account.') }}</span>
+                            <span class="mt-0.5 block text-xs font-normal text-chrome-400">{{ __('Theme and accent colour for this database. Everyone who uses it sees this.') }}</span>
                         </label>
                         <div class="sm:col-span-2">
                             <div class="flex flex-wrap items-center gap-x-5 gap-y-3">

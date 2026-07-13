@@ -21,8 +21,6 @@ use Throwable;
  * @property string|null $avatar_path   Path on the `public` disk (nullable)
  * @property string|null $new_email     Pending email change awaiting verification
  * @property string|null $language      Personal language preference (`en`|`ar`); null = follow company.language
- * @property string|null $theme         Personal appearance preference (`light`|`dark`|`system`); null = system
- * @property string|null $accent        Personal accent/brand colour (yellow|amber|orange|rose|pink|violet|sky|emerald); null = yellow
  * @property float|null $hourly_cost    Labour rate per hour (Project module); null = use project.default_hourly_cost
  * @property bool $is_admin
  * @property bool $is_super_admin   Owner tier above admin (a strict superset of is_admin)
@@ -43,8 +41,6 @@ final class User extends Authenticatable
         'avatar_path',
         'new_email',
         'language',
-        'theme',
-        'accent',
         'hourly_cost',
         'is_admin',
         'is_super_admin',
@@ -130,35 +126,6 @@ final class User extends Authenticatable
         return $this->homeWorkspaceId() !== null;
     }
 
-    /**
-     * The canonical MAIN-database record for this identity.
-     *
-     * Inside a workspace, `Auth::user()` is that database's MIRROR row — the
-     * same person, matched by email (see {@see \App\Http\Middleware\SetActiveWorkspace}).
-     * Anything that is *identity* rather than *business data* (appearance
-     * preferences: theme, accent) must be written to the Main row, or it is
-     * stranded in whichever database happened to be active and reads back as
-     * the default the moment the user switches database.
-     *
-     * Returns `$this` when we're already on Main (the common case — no extra
-     * query), and null when the identity can't be matched (no email).
-     */
-    public function canonical(): ?self
-    {
-        $main = Workspace::$landlordConnection;
-
-        if (DB::getDefaultConnection() === $main) {
-            return $this;
-        }
-
-        $email = $this->email;
-
-        if (! is_string($email) || $email === '') {
-            return null;
-        }
-
-        return self::on($main)->where('email', $email)->first();
-    }
 
     /**
      * Who may confirm that a payment was actually received: the Accountant and

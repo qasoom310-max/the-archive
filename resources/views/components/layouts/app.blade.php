@@ -6,17 +6,19 @@
     // the way the user reads. The middleware (SetLocale) has already
     // pushed the right code into app()->getLocale() by this point.
     $isRtl = in_array(app()->getLocale(), ['ar'], true);
-    // Per-user appearance preference (light|dark|system). null / missing
-    // column (pre-migration) falls back to following the OS.
-    $themePref = (auth()->user()?->theme ?? null) ?: 'system';
+    // The ACTIVE DATABASE's look — branding, not a personal preference, so
+    // switching database switches the theme + accent with it (Wanaan yellow +
+    // light, Kaleem its own). Null-safe: an unset/unseeded value falls back to
+    // the default rather than rendering a bogus theme.
+    $themePref = \App\Erp\Branding\Appearance::theme();
     // Render `.dark` server-side for an EXPLICIT dark choice so it survives
     // wire:navigate's <html> morph natively (no flash). `system` can only be
     // resolved client-side (matchMedia), so the head script handles that.
     $htmlClass = 'h-full' . ($themePref === 'dark' ? ' dark' : '');
-    // Per-user accent (brand) colour. Server-rendered on <html>; the CSS
-    // `[data-accent="…"]` remaps the `primary` palette immediately (no FOUC,
-    // and wire:navigate keeps the attribute). null = default yellow.
-    $accentPref = (auth()->user()?->accent ?? null) ?: 'yellow';
+    // The active database's accent (brand) colour. Server-rendered on <html>;
+    // the CSS `[data-accent="…"]` remaps the `primary` palette immediately (no
+    // FOUC, and wire:navigate keeps the attribute).
+    $accentPref = \App\Erp\Branding\Appearance::accent();
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}" data-theme="{{ $themePref }}" data-accent="{{ $accentPref }}" class="{{ $htmlClass }}">
 <head>

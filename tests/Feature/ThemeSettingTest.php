@@ -60,4 +60,29 @@ final class ThemeSettingTest extends TestCase
 
         $this->assertSame('system', $user->fresh()?->theme);
     }
+
+    public function test_explicit_dark_renders_the_class_server_side_and_reapplies_on_navigation(): void
+    {
+        // A dark user's page must carry `.dark` on <html> from the SERVER so
+        // wire:navigate's morph keeps it (else navigating reverts to light),
+        // and the head script must re-apply on livewire:navigated.
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'theme' => 'dark']));
+
+        $res = $this->get('/');
+
+        $res->assertOk();
+        $res->assertSee('data-theme="dark"', false);
+        $this->assertMatchesRegularExpression('/<html[^>]*class="[^"]*\bdark\b/', $res->getContent());
+        $res->assertSee('livewire:navigated', false);
+    }
+
+    public function test_light_does_not_render_the_dark_class(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'theme' => 'light']));
+
+        $res = $this->get('/');
+
+        $res->assertOk();
+        $this->assertDoesNotMatchRegularExpression('/<html[^>]*class="[^"]*\bdark\b/', $res->getContent());
+    }
 }

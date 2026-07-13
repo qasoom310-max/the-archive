@@ -9,8 +9,12 @@
     // Per-user appearance preference (light|dark|system). null / missing
     // column (pre-migration) falls back to following the OS.
     $themePref = (auth()->user()?->theme ?? null) ?: 'system';
+    // Render `.dark` server-side for an EXPLICIT dark choice so it survives
+    // wire:navigate's <html> morph natively (no flash). `system` can only be
+    // resolved client-side (matchMedia), so the head script handles that.
+    $htmlClass = 'h-full' . ($themePref === 'dark' ? ' dark' : '');
 @endphp
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}" data-theme="{{ $themePref }}" class="h-full">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}" data-theme="{{ $themePref }}" class="{{ $htmlClass }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -46,7 +50,21 @@
                 document.documentElement.classList.toggle('dark', dark);
                 document.documentElement.dataset.themePref = pref;
             };
-            window.applyTheme(document.documentElement.getAttribute('data-theme') || 'system');
+            var current = function () {
+                // Prefer the live preference set by a theme switch; fall back to
+                // the server-rendered attribute on <html>.
+                return document.documentElement.dataset.themePref
+                    || document.documentElement.getAttribute('data-theme')
+                    || 'system';
+            };
+            window.applyTheme(current());
+            // Livewire SPA navigation (wire:navigate) morphs <html> back to the
+            // server class (dropping our `.dark`) and does NOT re-run this head
+            // script — so re-apply after every navigation, else switching pages
+            // reverts to light mode.
+            document.addEventListener('livewire:navigated', function () {
+                window.applyTheme(current());
+            });
             if (window.matchMedia) {
                 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
                     if ((document.documentElement.dataset.themePref || 'system') === 'system') {

@@ -1456,6 +1456,35 @@ handled for them.
   refused, a global account stays read-only inside a workspace, deleting a
   workspace user removes their Main login too). AR keys added.
 
+**App lists must go through `Features::moduleAllowed()` (fixed 2026-07-13):**
+the business-type gate has to be applied at **every** surface that lists
+installed application modules, not just the app bar. Two were missing it and
+offered/navigated-to apps the database doesn't run (Rent A Car in a perfume
+shop):
+
+- `UserManager::render()` — the Users tab's "Apps this user can access"
+  checklist listed every **installed** module. Now filtered.
+- `CommandPalette::corpus()` — ⌘K would jump you into a hidden app. Now filtered.
+- Already correct: `AppSwitcher` (app bar), `Dashboard` (quick-launch),
+  `ModuleMenu` (tiles + app-bar dropdowns, filters **models** via
+  `Features::modelAllowed()`).
+- Deliberately NOT filtered: `Dashboard`'s `appCount` / `moduleCount` — those
+  are the **super-admin-only system cards** reporting what is *installed*, not
+  what is *visible*.
+- **`UserProvisioner::grantApps()` now filters too** (apps via `moduleAllowed`,
+  models via `modelAllowed`) — the UI filter alone isn't enough: a crafted
+  Livewire payload could tick a hidden app. More importantly, `grantApps` runs
+  **once per target database, inside that database's connection**, and `Features`
+  reads that database's own `company.business_type` — so ONE tick-box creates
+  grants matching **each** database independently (Main-as-café gets POS, a
+  rental tenant gets nothing from the same tick). Tests:
+  `UserManagerTest::{test_the_app_checklist_only_offers_apps_this_business_type_runs,
+  test_a_grant_for_an_app_the_business_type_hides_creates_no_access,
+  test_grants_are_scoped_per_database_by_each_ones_business_type}`.
+- **When adding a new surface that lists apps or models, route it through
+  `Features::moduleAllowed()` / `modelAllowed()`** — an unfiltered `IrModule`
+  query is the bug.
+
 **Super-admin tier + admin 2FA (shipped 2026-06-24):**
 
 An owner role **above** admin. A super admin is a **strict superset** — its

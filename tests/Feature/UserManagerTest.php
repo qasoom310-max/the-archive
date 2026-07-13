@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Erp\Modules\ModuleManager;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
+use App\Erp\Settings\Setting;
 use App\Erp\Tenancy\WorkspaceManager;
 use App\Livewire\Settings\UserManager;
 use App\Models\Auth\Group;
@@ -330,6 +331,89 @@ final class UserManagerTest extends TestCase
             $this->assertFalse($tenantUser->isAdmin());
             $this->assertTrue(app(AccessControl::class)->allows($tenantUser, 'pos.order', Permission::Read));
             $this->assertFalse(app(AccessControl::class)->allows($tenantUser, 'pos.order', Permission::Write));
+        });
+    }
+
+    // ── The app list follows the database's business type ────────────────────
+
+    public function test_the_app_checklist_only_offers_apps_this_business_type_runs(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        app(ModuleManager::class)->install('pos');
+        app(ModuleManager::class)->install('rental');
+
+        // A café runs POS; it does NOT run Rent A Car.
+        Setting::set('company.business_type', 'cafe');
+
+        $apps = Livewire::test(UserManager::class)->viewData('appModules');
+        $names = collect($apps)->pluck('name')->all();
+
+        $this->assertContains('pos', $names);
+        $this->assertNotContains('rental', $names, 'Rent A Car must not be offered on a café database.');
+    }
+
+    public function test_a_grant_for_an_app_the_business_type_hides_creates_no_access(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        app(ModuleManager::class)->install('pos');
+        app(ModuleManager::class)->install('rental');
+        Setting::set('company.business_type', 'cafe');
+
+        // Even a crafted payload ticking the hidden app grants nothing for it.
+        Livewire::test(UserManager::class)
+            ->set('name', 'Cafe Staff')
+            ->set('email', 'cafestaff@example.com')
+            ->set('password', 'secret12')
+            ->set('apps', ['pos', 'rental'])
+            ->set('workspaces', [$this->mainId()])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $user = User::query()->where('email', 'cafestaff@example.com')->firstOrFail();
+        $acl = app(AccessControl::class);
+
+        $this->assertTrue($acl->allows($user, 'pos.order', Permission::Read));
+        $this->assertFalse($acl->allows($user, 'rental.vehicle', Permission::Read));
+
+        // …and the dine-in models a café DOESN'T use are still granted (they're
+        // part of its preset) while a model hidden by feature is not: pos.floor
+        // is Restaurant-only, so a RETAIL database would drop it.
+        $this->assertTrue($acl->allows($user, 'pos.floor', Permission::Read));
+    }
+
+    public function test_grants_are_scoped_per_database_by_each_ones_business_type(): void
+    {
+        $owner = User::factory()->create(['is_admin' => true, 'is_super_admin' => true, 'email' => 'owner@erp.test']);
+        $this->actingAs($owner);
+        app(ModuleManager::class)->install('pos');
+
+        // Main is a café; the tenant is a rental company. One tick-box, two
+        // databases — each gets grants matching ITS OWN type.
+        Setting::set('company.business_type', 'cafe');
+        $workspace = app(WorkspaceManager::class)->provision('Rental Co', $owner, ['pos']);
+
+        app(WorkspaceManager::class)->withTenant((string) $workspace->databasePath(), static function (): void {
+            Setting::set('company.business_type', 'rental');
+        });
+
+        Livewire::test(UserManager::class)
+            ->set('name', 'Shared Staff')
+            ->set('email', 'shared@example.com')
+            ->set('password', 'secret12')
+            ->set('apps', ['pos'])
+            ->set('workspaces', [$this->mainId(), (int) $workspace->id])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        // Main (café) → POS access.
+        $mainUser = User::query()->where('email', 'shared@example.com')->firstOrFail();
+        $this->assertTrue(app(AccessControl::class)->allows($mainUser, 'pos.order', Permission::Read));
+
+        // Tenant (rental) → the same tick granted NO POS access, because a
+        // rental company doesn't run POS.
+        app(WorkspaceManager::class)->withTenant((string) $workspace->databasePath(), function (): void {
+            $tenantUser = User::query()->where('email', 'shared@example.com')->firstOrFail();
+            $this->assertFalse(app(AccessControl::class)->allows($tenantUser, 'pos.order', Permission::Read));
         });
     }
 

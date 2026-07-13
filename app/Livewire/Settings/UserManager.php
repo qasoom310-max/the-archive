@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Settings;
 
 use App\Erp\Admin\UserProvisioner;
+use App\Erp\Business\Features;
 use App\Erp\Enums\ModuleState;
 use App\Erp\Tenancy\WorkspaceManager;
 use App\Livewire\Concerns\ConfirmsWithEmailOtp;
@@ -662,12 +663,18 @@ final class UserManager extends Component
 
     public function render(): View
     {
+        // Only the apps this database's business type actually exposes — the
+        // same gate the top app bar and module menus use. Without it the tab
+        // offered Rent A Car / Limousine / … on a database that doesn't run
+        // them, and ticking one granted access to an app the user can't see.
         /** @var \Illuminate\Support\Collection<int, IrModule> $apps */
         $apps = IrModule::query()
             ->where('application', true)
             ->where('state', ModuleState::Installed)
             ->orderBy('sequence')
-            ->get();
+            ->get()
+            ->filter(static fn (IrModule $module): bool => Features::moduleAllowed((string) $module->name))
+            ->values();
 
         // All databases (Main + tenants) — Main is no longer implicit, the
         // admin picks it like any other.

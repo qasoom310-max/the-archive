@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Erp\Admin;
 
+use App\Erp\Business\Features;
 use App\Erp\Tenancy\WorkspaceManager;
 use App\Models\Auth\Group;
 use App\Models\Auth\ModelAccess;
@@ -276,6 +277,13 @@ final class UserProvisioner
      * the given app selection (on the current connection). Used by both the
      * create path and the edit path. Idempotent.
      *
+     * Scoped to what the CURRENT database actually exposes: apps and models its
+     * business type (or a manual feature toggle) hides here are dropped. Because
+     * this runs once per target database — inside that database's connection,
+     * and `Features` reads its own `company.business_type` — one account created
+     * across several databases gets grants matching EACH of them (a café's copy
+     * gets POS, a rental company's copy doesn't, from the same tick-box).
+     *
      * @param  list<string>  $appNames
      */
     public function grantApps(User $user, array $appNames): void
@@ -292,14 +300,20 @@ final class UserProvisioner
             // match the current choice.
             ModelAccess::query()->where('group_id', $group->id)->delete();
 
-            if ($appNames === []) {
+            $allowed = array_values(array_filter(
+                $appNames,
+                static fn (string $module): bool => Features::moduleAllowed($module),
+            ));
+
+            if ($allowed === []) {
                 return;
             }
 
             $models = IrModel::query()
-                ->whereIn('module', $appNames)
+                ->whereIn('module', $allowed)
                 ->pluck('model')
-                ->unique();
+                ->unique()
+                ->filter(static fn (mixed $model): bool => is_string($model) && Features::modelAllowed($model));
 
             foreach ($models as $model) {
                 ModelAccess::query()->create([

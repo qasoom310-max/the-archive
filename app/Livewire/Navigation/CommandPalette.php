@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Navigation;
 
+use App\Erp\Business\Features;
 use App\Erp\Enums\ModuleState;
 use App\Models\Ir\IrModule;
 use Illuminate\Contracts\View\View;
@@ -11,8 +12,9 @@ use Illuminate\Support\Str;
 use Livewire\Component;
 
 /**
- * Global ⌘K / Ctrl+K command palette: fuzzy-jump to any installed app or
- * navigation target. Designed to grow into record search & server actions.
+ * Global ⌘K / Ctrl+K command palette: fuzzy-jump to any app this database
+ * exposes, or a navigation target. Designed to grow into record search &
+ * server actions.
  */
 final class CommandPalette extends Component
 {
@@ -32,11 +34,15 @@ final class CommandPalette extends Component
             'url' => url('/'),
         ]];
 
+        // Only the apps this database's business type exposes — the same gate as
+        // the top app bar. Otherwise ⌘K would happily jump you into an app the
+        // database doesn't run (e.g. Rent A Car in a perfume shop).
         $apps = IrModule::query()
             ->where('application', true)
             ->where('state', ModuleState::Installed)
             ->orderBy('sequence')
-            ->get();
+            ->get()
+            ->filter(static fn (IrModule $app): bool => Features::moduleAllowed((string) $app->name));
 
         foreach ($apps as $app) {
             $items[] = [

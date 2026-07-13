@@ -146,9 +146,9 @@ final class SettingsPage extends Component
         }
 
         // Business-type picker — drives which apps/menus/features this database
-        // exposes (the "Business" tab). SUPER-ADMIN ONLY: reshaping the whole
-        // app surface is an owner-level decision, so it's gated by
-        // SUPER_ADMIN_KEYS (canSee hides the row + tab from regular admins).
+        // exposes (a row in the General tab). SUPER-ADMIN ONLY: reshaping the
+        // whole app surface is an owner-level decision, so it's gated by
+        // SUPER_ADMIN_KEYS (canSee hides the row from regular admins).
         // Uses the BusinessType enum so values stay valid for Features.
         if ($this->isSuperAdmin()) {
             $this->selects['company.business_type'] = array_map(

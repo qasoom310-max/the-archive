@@ -24,7 +24,7 @@ final class SettingSeeder extends Seeder
             // Business type drives which apps, menus and features appear for
             // THIS database (each workspace picks its own). Empty default =
             // "not configured" → everything stays visible (see Features).
-            ['key' => 'company.business_type', 'label' => 'Business Type', 'type' => 'string', 'group' => 'Business', 'default' => '', 'sort' => 10, 'description' => 'Tailors which apps, menus, and features appear for this database (e.g. a perfume shop hides café recipes).'],
+            ['key' => 'company.business_type', 'label' => 'Business Type', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 5, 'description' => 'Tailors which apps, menus, and features appear for this database (e.g. a perfume shop hides café recipes).'],
             ['key' => 'company.name', 'label' => 'Company Name', 'type' => 'string', 'group' => 'General', 'default' => 'OpenERP', 'sort' => 10, 'description' => 'Shown on receipts and documents.'],
             // `image` is a UI-only flag — the column stores the path on
             // the public disk (e.g. `company/abc.webp`). Empty default;

@@ -13,6 +13,7 @@ use App\Models\Auth\ModelAccess;
 use App\Models\Ir\IrModel;
 use App\Models\Ir\IrModule;
 use App\Models\User;
+use App\Models\Workspace;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -78,17 +79,66 @@ final class UserManager extends Component
     }
 
     /**
-     * Users must be created from the MAIN database — that's the only place a
-     * login lives. Creating one while switched inside a workspace would make an
-     * account that can't sign in (the footgun this guards against).
+     * Is the request on the MAIN database (the identity store)?
+     *
+     * The tenancy middleware routes a workspace request onto the shared
+     * 'tenant' connection; anything else means we're on Main. Using the active
+     * connection (not the cookie) reflects the database a new user would
+     * actually be written to.
      */
     private function onMain(): bool
     {
-        // The tenancy middleware routes a workspace request onto the shared
-        // 'tenant' connection; anything else means we're on Main. Using the
-        // active connection (not the cookie) reflects the database a new user
-        // would actually be written to.
         return DB::getDefaultConnection() !== 'tenant';
+    }
+
+    /**
+     * The workspace this screen is operating inside, or null on Main.
+     *
+     * Users CAN be added from inside a workspace — they're simply created as
+     * accounts that belong to it (locked): the real row + app grants live in
+     * this database, and a bare non-admin login shell is written to Main behind
+     * the scenes, because logins are only ever authenticated against Main. The
+     * admin never has to switch databases to do it.
+     */
+    private function currentWorkspaceId(): ?int
+    {
+        if ($this->onMain()) {
+            return null;
+        }
+
+        // Resolve the workspace from the ACTIVE tenant connection (its SQLite
+        // file) rather than the cookie: the connection is the database we'd
+        // actually be writing to, and a locked admin is routed here with no
+        // cookie at all. (`Workspace` is pinned to Main, so this reads the
+        // registry even though the default connection is a tenant.)
+        $path = config('database.connections.tenant.database');
+        if (is_string($path) && $path !== '') {
+            $workspace = Workspace::query()->where('database', basename($path))->first();
+            if ($workspace !== null) {
+                return (int) $workspace->id;
+            }
+        }
+
+        // Fallbacks: a locked admin's home workspace, then the cookie.
+        $locked = $this->actor()?->homeWorkspaceId();
+        if ($locked !== null) {
+            return $locked;
+        }
+
+        $workspace = app(WorkspaceManager::class)->current();
+
+        return $workspace->is_main ? null : (int) $workspace->id;
+    }
+
+    /**
+     * Does this user belong to the workspace we're inside? Only such accounts
+     * are editable from here — a global account (copied into every database,
+     * shown as "Managed on Main") stays read-only inside a tenant, since
+     * changing it here would silently affect every other database too.
+     */
+    private function belongsHere(User $user, int $workspaceId): bool
+    {
+        return (int) $user->home_workspace_id === $workspaceId;
     }
 
     private function actor(): ?User
@@ -128,9 +178,11 @@ final class UserManager extends Component
             'role' => ['required', Rule::in(['staff', 'admin'])],
             'apps' => ['array'],
             'apps.*' => ['string'],
-            // At least one database when creating — unless the account is locked
-            // to a single workspace, which uses its own picker below.
-            'workspaces' => ($userId === null && ! $this->lockToWorkspace) ? ['array', 'min:1'] : ['array'],
+            // At least one database when creating on Main — unless the account
+            // is locked to a single workspace, which uses its own picker below.
+            // Inside a workspace there's nothing to pick: the account belongs to
+            // the database you're in.
+            'workspaces' => ($userId === null && ! $this->lockToWorkspace && $this->onMain()) ? ['array', 'min:1'] : ['array'],
             'workspaces.*' => ['integer'],
             'lockWorkspaceId' => $this->lockToWorkspace ? ['required', 'integer'] : ['nullable', 'integer'],
         ];
@@ -153,12 +205,15 @@ final class UserManager extends Component
     public function editUser(int $id): void
     {
         $this->guardAdmin();
-        if (! $this->onMain()) {
-            return; // read-only inside a workspace
-        }
 
         $user = User::query()->find($id);
         if ($user === null || ! $this->actorCanManage($user)) {
+            return;
+        }
+
+        // Inside a workspace only this database's own accounts are editable.
+        $workspaceId = $this->currentWorkspaceId();
+        if ($workspaceId !== null && ! $this->belongsHere($user, $workspaceId)) {
             return;
         }
 
@@ -207,16 +262,16 @@ final class UserManager extends Component
     public function save(): void
     {
         $this->guardAdmin();
+        $this->validate();
 
-        // User management lives on Main only — inside a workspace the screen is
-        // read-only (a user created there couldn't even sign in).
-        if (! $this->onMain()) {
-            $this->addError('name', __('Switch to the Main database to add or change users — inside a workspace this screen is read-only.'));
+        // Inside a workspace the account belongs to THIS database (locked) —
+        // no database picker, no trip back to Main.
+        $workspaceId = $this->currentWorkspaceId();
+        if ($workspaceId !== null) {
+            $this->saveInWorkspace($workspaceId);
 
             return;
         }
-
-        $this->validate();
 
         if ($this->editingId !== null) {
             // Editing an existing user is a sensitive action — a regular admin
@@ -266,6 +321,107 @@ final class UserManager extends Component
     }
 
     /**
+     * Create or edit an account that belongs to the workspace we're inside.
+     * The identity still needs a row on Main (that's where logins are checked),
+     * so the provisioner writes a non-admin login shell there and the real
+     * account — role + app grants — in this database. To the admin it's just
+     * "add a user", no database switching.
+     */
+    private function saveInWorkspace(int $workspaceId): void
+    {
+        $email = strtolower(trim($this->email));
+
+        // Logins are keyed by email on Main. Refuse an email already owned by a
+        // global account or by another workspace's user rather than clobber it.
+        if (app(UserProvisioner::class)->mainEmailConflict($email, $workspaceId)) {
+            $this->addError('email', __('That email already belongs to another account. Use a different one.'));
+
+            return;
+        }
+
+        if ($this->editingId !== null) {
+            $target = User::query()->find($this->editingId);
+            if ($target === null || ! $this->actorCanManage($target) || ! $this->belongsHere($target, $workspaceId)) {
+                return;
+            }
+
+            // Editing a user is sensitive — a regular admin confirms an emailed
+            // code first (super admin is exempt).
+            if (! $this->requireOtp('user.update', ['id' => $this->editingId])) {
+                return;
+            }
+        }
+
+        $this->writeWorkspaceUser($workspaceId, updating: $this->editingId !== null);
+    }
+
+    /**
+     * Write the workspace-scoped account (both rows) and reset the form.
+     * A blank password keeps the existing one; a super admin keeps their tier
+     * (the role radio is read-only for them).
+     */
+    private function writeWorkspaceUser(int $workspaceId, bool $updating): void
+    {
+        $email = strtolower(trim($this->email));
+        $name = trim($this->name);
+        $isSuper = $updating && $this->roleLocked;
+        $isAdmin = $isSuper || $this->role === 'admin';
+
+        app(UserProvisioner::class)->provisionLocked(
+            $name,
+            $email,
+            $this->password !== '' ? $this->password : null,
+            $workspaceId,
+            superAdmin: $isSuper,
+            isAdmin: $isAdmin,
+            appNames: $isAdmin ? [] : array_values($this->apps),
+        );
+
+        app(\App\Erp\Activity\ActivityLogger::class)->log(
+            $updating ? 'user_updated' : 'user_created',
+            $email,
+            $updating ? __('Updated :name', ['name' => $name]) : __('Created :name', ['name' => $name]),
+        );
+
+        $this->reset(['editingId', 'name', 'email', 'password', 'role', 'roleLocked', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
+        session()->flash('user_saved', $updating ? __('User updated.') : __('User created.'));
+    }
+
+    /**
+     * Delete an account that belongs to this workspace — its row + grants here,
+     * and its Main login shell. Guarded so a global account (or the last admin
+     * of this database, or yourself) can never be removed from inside a tenant.
+     */
+    private function performWorkspaceDelete(int $id, int $workspaceId): void
+    {
+        $target = User::query()->find($id);
+
+        if ($target === null || ! $this->canDeleteHere($target, $workspaceId)) {
+            return;
+        }
+
+        $email = (string) $target->email;
+        $name = (string) $target->name;
+
+        app(UserProvisioner::class)->deleteLocked($email, $workspaceId);
+
+        app(\App\Erp\Activity\ActivityLogger::class)->log('user_deleted', $email, __('Deleted :name', ['name' => $name]));
+
+        if ($this->editingId === $id) {
+            $this->cancelEdit();
+        }
+    }
+
+    /** Shared guards for deleting a workspace-scoped account. */
+    private function canDeleteHere(User $target, int $workspaceId): bool
+    {
+        return $this->actorCanManage($target)
+            && $this->belongsHere($target, $workspaceId)
+            && $target->getKey() !== Auth::id()
+            && ! ($target->isAdmin() && User::query()->where('is_admin', true)->count() <= 1);
+    }
+
+    /**
      * Update the edited user on the current (Main) database. Never changes the
      * admin flag; app grants are only (re)written for non-admins (admins bypass
      * ACLs entirely).
@@ -311,8 +467,21 @@ final class UserManager extends Component
     public function deleteUser(int $id): void
     {
         $this->guardAdmin();
-        if (! $this->onMain()) {
-            return; // read-only inside a workspace
+
+        $workspaceId = $this->currentWorkspaceId();
+        if ($workspaceId !== null) {
+            $target = User::query()->find($id);
+            if ($target === null || ! $this->canDeleteHere($target, $workspaceId)) {
+                return;
+            }
+
+            if (! $this->requireOtp('user.delete', ['id' => $id])) {
+                return;
+            }
+
+            $this->performWorkspaceDelete($id, $workspaceId);
+
+            return;
         }
 
         if (! $this->canDelete($id)) {
@@ -383,12 +552,15 @@ final class UserManager extends Component
     {
         $this->guardAdmin();
         abort_unless($this->actorIsSuperAdmin(), 403);
-        if (! $this->onMain()) {
-            return; // read-only inside a workspace
-        }
 
         $target = User::query()->find($id);
         if ($target === null || $target->getKey() === Auth::id()) {
+            return;
+        }
+
+        // Inside a workspace only this database's own accounts are manageable.
+        $workspaceId = $this->currentWorkspaceId();
+        if ($workspaceId !== null && ! $this->belongsHere($target, $workspaceId)) {
             return;
         }
 
@@ -419,12 +591,15 @@ final class UserManager extends Component
     {
         $this->guardAdmin();
         abort_unless($this->actorIsSuperAdmin(), 403);
-        if (! $this->onMain()) {
-            return; // read-only inside a workspace
-        }
 
         $target = User::query()->find($id);
         if ($target === null || $target->getKey() === Auth::id()) {
+            return;
+        }
+
+        // Inside a workspace only this database's own accounts are manageable.
+        $workspaceId = $this->currentWorkspaceId();
+        if ($workspaceId !== null && ! $this->belongsHere($target, $workspaceId)) {
             return;
         }
 
@@ -460,11 +635,26 @@ final class UserManager extends Component
     private function confirmedUpdate(): void
     {
         $this->validate();
+
+        $workspaceId = $this->currentWorkspaceId();
+        if ($workspaceId !== null) {
+            $this->writeWorkspaceUser($workspaceId, updating: true);
+
+            return;
+        }
+
         $this->updateExisting();
     }
 
     private function confirmedDelete(int $id): void
     {
+        $workspaceId = $this->currentWorkspaceId();
+        if ($workspaceId !== null) {
+            $this->performWorkspaceDelete($id, $workspaceId);
+
+            return;
+        }
+
         if ($this->canDelete($id)) {
             $this->performDelete($id);
         }
@@ -485,6 +675,13 @@ final class UserManager extends Component
             ? app(WorkspaceManager::class)->all()
             : collect();
 
+        $workspaceId = $this->currentWorkspaceId();
+        $workspaceName = null;
+        if ($workspaceId !== null) {
+            $workspace = app(WorkspaceManager::class)->find($workspaceId);
+            $workspaceName = $workspace === null ? (string) __('this database') : $workspace->name;
+        }
+
         return view('livewire.settings.user-manager', [
             // NB: keys must NOT clash with the public $apps / $workspaces
             // properties (Livewire injects those into the view too).
@@ -497,6 +694,11 @@ final class UserManager extends Component
             'adminCount' => User::query()->where('is_admin', true)->count(),
             'actorIsSuperAdmin' => $this->actorIsSuperAdmin(),
             'onMain' => $this->onMain(),
+            // Inside a workspace: its id + name, so the form can say which
+            // database the new account will belong to and the list can gate
+            // per-row actions to this database's own users.
+            'workspaceId' => $workspaceId,
+            'workspaceName' => $workspaceName,
         ]);
     }
 }

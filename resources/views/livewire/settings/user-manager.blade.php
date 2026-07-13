@@ -4,7 +4,11 @@
             {{ $editingId ? __('Edit user') : __('Add user') }}
         </h2>
         <p class="mt-1 text-sm text-chrome-500">
-            {{ __('Create a staff account and choose which apps and databases they can see (view only).') }}
+            @if ($workspaceId)
+                {{ __('Create an account for this database and choose which apps it can see.') }}
+            @else
+                {{ __('Create a staff account and choose which apps and databases they can see (view only).') }}
+            @endif
         </p>
     </div>
 
@@ -14,15 +18,15 @@
         </p>
     @endif
 
-    @unless ($onMain)
-        {{-- Logins live in the Main database. Adding a user from inside a
-             workspace would make an account that can't sign in. --}}
-        <p class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">
-            {{ __('You’re inside a workspace. Users can only be added from the Main database (the login). Switch to Main from “My database”, then add the user there and lock them to this workspace.') }}
+    @if ($workspaceId)
+        {{-- Inside a workspace: the account belongs to THIS database and signs
+             straight into it. (A login shell is written to Main behind the
+             scenes — the admin never has to switch databases.) --}}
+        <p class="rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-800 ring-1 ring-sky-200">
+            {{ __('This user will belong to :database — they sign in straight into it and can’t reach any other database.', ['database' => $workspaceName]) }}
         </p>
-    @endunless
+    @endif
 
-    @if ($onMain)
     <form wire:submit="save" class="space-y-5">
         {{-- Credentials --}}
         <div class="grid gap-4 sm:grid-cols-3">
@@ -111,10 +115,11 @@
             </p>
         @endif
 
-        {{-- Database access — only meaningful when creating (it seeds the
-             account into each picked database). On edit the account already
-             lives where it lives; name/email/password/apps update on Main. --}}
-        @unless ($editingId)
+        {{-- Database access — only meaningful when creating FROM MAIN (it seeds
+             the account into each picked database). Inside a workspace there's
+             nothing to pick: the account belongs to the database you're in. On
+             edit the account already lives where it lives. --}}
+        @if (! $editingId && ! $workspaceId)
             {{-- Workspace-locked admin: full owner of ONE database, no access to
                  any other. Only a super admin may mint one. --}}
             @php $tenantWorkspaces = $workspaceList->where('is_main', false); @endphp
@@ -168,7 +173,7 @@
                     @error('workspaces') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
             @endunless
-        @endunless
+        @endif
 
         <div class="flex items-center justify-end gap-2 border-t border-chrome-100 pt-4">
             @if ($editingId)
@@ -183,7 +188,6 @@
             </button>
         </div>
     </form>
-    @endif
 
     {{-- All users (admins + staff) --}}
     <div class="border-t border-chrome-100 pt-5">
@@ -195,6 +199,10 @@
                     $isLastAdmin = $user->is_admin && $adminCount <= 1;
                     // A regular admin may not manage a super admin (escalation guard).
                     $canManage = ! $user->is_super_admin || $actorIsSuperAdmin;
+                    // Inside a workspace only this database's own accounts are
+                    // editable — a global account is shared with every other
+                    // database, so it stays read-only here ("Managed on Main").
+                    $inScope = ! $workspaceId || (int) $user->home_workspace_id === (int) $workspaceId;
                 @endphp
                 <li wire:key="user-{{ $user->id }}" class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                     <span class="flex min-w-0 items-center gap-2">
@@ -217,11 +225,11 @@
                         </span>
                     </span>
                     <span class="flex shrink-0 items-center gap-3">
-                        @unless ($onMain)
+                        @unless ($inScope)
                             <span class="text-xs text-chrome-300">{{ __('Managed on Main') }}</span>
                         @endunless
                         {{-- Owner-only: promote/demote super admin. --}}
-                        @if ($onMain && $actorIsSuperAdmin && ! $isSelf)
+                        @if ($inScope && $actorIsSuperAdmin && ! $isSelf)
                             <button type="button" wire:click="toggleSuperAdmin({{ $user->id }})"
                                 class="text-xs font-medium text-amber-700 hover:underline">
                                 {{ $user->is_super_admin ? __('Remove super admin') : __('Make super admin') }}
@@ -232,7 +240,7 @@
                                 {{ $user->is_accountant ? __('Remove accountant') : __('Make accountant') }}
                             </button>
                         @endif
-                        @if ($onMain && $canManage)
+                        @if ($inScope && $canManage)
                             <button type="button" wire:click="editUser({{ $user->id }})"
                                 class="text-xs font-medium text-primary-700 hover:underline">{{ __('Edit') }}</button>
                             @if (! $isSelf && ! $isLastAdmin)

@@ -119,6 +119,11 @@ final class WorkspaceManager
      * Run a callback with the default connection pointed at a tenant file,
      * restoring the previous default afterwards. Used while provisioning.
      *
+     * The tenant connection's PATH is restored too, not just the default
+     * connection name — otherwise a call made from *inside* a workspace would
+     * leave the shared `tenant` connection aimed at a different file for the
+     * rest of the request (the request would silently read another database).
+     *
      * @template T
      * @param  Closure(): T  $callback
      * @return T
@@ -126,6 +131,7 @@ final class WorkspaceManager
     public function withTenant(string $path, Closure $callback): mixed
     {
         $previous = DB::getDefaultConnection();
+        $previousPath = config('database.connections.tenant.database');
 
         config(['database.connections.tenant.database' => $path]);
         DB::purge('tenant');
@@ -135,9 +141,42 @@ final class WorkspaceManager
         try {
             return $callback();
         } finally {
-            config(['database.default' => $previous]);
+            config([
+                'database.default' => $previous,
+                'database.connections.tenant.database' => $previousPath,
+            ]);
             DB::setDefaultConnection($previous);
             DB::purge('tenant');
+        }
+    }
+
+    /**
+     * Run a callback against the MAIN (landlord) database, whatever workspace
+     * the request is currently on. Logins live only on Main, so any write that
+     * touches an identity must be able to reach it from inside a tenant.
+     * A no-op wrapper when Main is already the active connection.
+     *
+     * @template T
+     * @param  Closure(): T  $callback
+     * @return T
+     */
+    public function withMain(Closure $callback): mixed
+    {
+        $previous = DB::getDefaultConnection();
+        $landlord = Workspace::$landlordConnection;
+
+        if ($previous === $landlord) {
+            return $callback();
+        }
+
+        config(['database.default' => $landlord]);
+        DB::setDefaultConnection($landlord);
+
+        try {
+            return $callback();
+        } finally {
+            config(['database.default' => $previous]);
+            DB::setDefaultConnection($previous);
         }
     }
 

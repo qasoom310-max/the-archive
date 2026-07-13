@@ -13,6 +13,7 @@ use App\Models\Workspace;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 /**
  * Creates a non-admin staff user with **view-only** access to a chosen set of
@@ -65,9 +66,13 @@ final class UserProvisioner
                 continue;
             }
 
-            // Main = the current (default) connection.
+            // Main = the landlord connection. Written explicitly (not "whatever
+            // is currently default") so this also works when called from inside
+            // a workspace.
             if ($workspace->is_main) {
-                $mainUser = $this->upsertWithAccess($name, $email, $hashed, $appNames, $isAdmin);
+                $mainUser = $this->workspaces->withMain(
+                    fn (): User => $this->upsertWithAccess($name, $email, $hashed, $appNames, $isAdmin),
+                );
 
                 continue;
             }
@@ -89,68 +94,158 @@ final class UserProvisioner
     }
 
     /**
-     * Create a user LOCKED to a single workspace: full admin (optionally the
-     * owner tier) INSIDE that database, but with a bare non-admin shell on Main
-     * used only to authenticate. The tenancy layer forces them into the
-     * workspace on every request, so they can never touch Main or any other
-     * database. Returns the Main shell (or, if the tenancy tables are absent, a
-     * plain admin on the current DB).
+     * Create a user LOCKED to a single workspace: their real account (with the
+     * given role + app grants) lives INSIDE that database, while Main holds a
+     * bare non-admin shell used only to authenticate. The tenancy layer forces
+     * them into the workspace on every request, so they can never touch Main or
+     * any other database. Returns the Main shell (or, if the tenancy tables are
+     * absent, a plain admin on the current DB).
      *
-     * Re-running for the same email edits both rows in place.
+     * Connection-explicit on purpose: the Main shell is written through
+     * {@see WorkspaceManager::withMain()} and the real row through
+     * `withTenant()`, so this works identically whether it's called from Main
+     * OR from inside a workspace (the "add a user without switching to Main"
+     * path).
+     *
+     * Re-running for the same email edits both rows in place. A null/blank
+     * password keeps the existing one (the edit path).
+     *
+     * @param  list<string>  $appNames  apps to grant Read on — staff only (an admin bypasses the ACL)
      */
     public function provisionLocked(
         string $name,
         string $email,
-        string $plainPassword,
+        ?string $plainPassword,
         int $workspaceId,
         bool $superAdmin = true,
+        bool $isAdmin = true,
+        array $appNames = [],
     ): User {
-        $hashed = Hash::make($plainPassword);
+        $hashed = ($plainPassword === null || $plainPassword === '') ? null : Hash::make($plainPassword);
 
         // No tenancy on disk → nothing to lock to; create a plain admin.
         if (! Schema::hasTable('workspaces')) {
-            return $this->upsertLockedRow($name, $email, $hashed, null, true, $superAdmin);
+            return $this->upsertLockedRow($name, $email, $hashed, null, $isAdmin, $superAdmin);
         }
 
         $workspace = Workspace::query()->find($workspaceId);
         // Locking to Main (the identity store) is meaningless — treat as a
-        // normal admin on Main rather than trapping them nowhere.
+        // normal account on Main rather than trapping them nowhere.
         if ($workspace === null || $workspace->is_main) {
-            return $this->upsertLockedRow($name, $email, $hashed, null, true, $superAdmin);
+            $user = $this->upsertLockedRow($name, $email, $hashed, null, $isAdmin, $superAdmin);
+            if (! $isAdmin && ! $superAdmin) {
+                $this->grantApps($user, $appNames);
+            }
+
+            return $user;
         }
 
-        // Main: a login shell only — NON-admin, but flagged locked so the
-        // tenancy middleware routes it straight into the workspace.
-        $mainUser = $this->upsertLockedRow($name, $email, $hashed, $workspaceId, false, false);
+        // Main: a login shell only — NEVER an admin there, and flagged locked
+        // so the tenancy middleware routes it straight into the workspace.
+        $mainUser = $this->workspaces->withMain(
+            fn (): User => $this->upsertLockedRow($name, $email, $hashed, $workspaceId, false, false),
+        );
 
-        // Tenant: the real account — full owner within this one database.
+        // Tenant: the real account — the chosen role within this one database.
         $path = $workspace->databasePath();
         if ($path !== null && is_file($path)) {
-            $this->workspaces->withTenant(
-                $path,
-                fn (): User => $this->upsertLockedRow($name, $email, $hashed, $workspaceId, true, $superAdmin),
-            );
+            $this->workspaces->withTenant($path, function () use ($name, $email, $hashed, $workspaceId, $isAdmin, $superAdmin, $appNames): void {
+                $user = $this->upsertLockedRow($name, $email, $hashed, $workspaceId, $isAdmin, $superAdmin);
+
+                // Admins bypass the ACL entirely — grants only matter for staff.
+                if (! $isAdmin && ! $superAdmin) {
+                    $this->grantApps($user, $appNames);
+                }
+            });
         }
 
         return $mainUser;
     }
 
     /**
-     * Upsert a user row (by email) on the CURRENT connection with an explicit
-     * role + lock. `is_admin` is forced on for a super admin (a superset).
+     * Would writing this email as a workspace account clobber an existing MAIN
+     * identity that isn't ours? Logins are keyed by email on Main, so an email
+     * already owned by a global admin (or by a user locked to a DIFFERENT
+     * workspace) must be refused rather than silently overwritten.
      */
-    private function upsertLockedRow(string $name, string $email, string $hashedPassword, ?int $homeWorkspaceId, bool $isAdmin, bool $isSuperAdmin): User
+    public function mainEmailConflict(string $email, int $workspaceId): bool
     {
-        return User::query()->updateOrCreate(
-            ['email' => $email],
-            [
-                'name' => $name,
-                'password' => $hashedPassword,
-                'is_admin' => $isAdmin || $isSuperAdmin,
-                'is_super_admin' => $isSuperAdmin,
-                'home_workspace_id' => $homeWorkspaceId,
-            ],
-        );
+        if (! Schema::hasTable('workspaces')) {
+            return false;
+        }
+
+        return (bool) $this->workspaces->withMain(static function () use ($email, $workspaceId): bool {
+            $existing = User::query()->where('email', $email)->first();
+
+            if ($existing === null) {
+                return false;
+            }
+
+            // Only our own login shell for THIS workspace may be reused.
+            return (int) $existing->home_workspace_id !== $workspaceId;
+        });
+    }
+
+    /**
+     * Remove a user that belongs to a single workspace: their account + per-user
+     * group inside that database, plus the Main login shell — but only when that
+     * shell really is ours (locked to this workspace and not an admin), so a
+     * global account can never be deleted from inside a tenant.
+     */
+    public function deleteLocked(string $email, int $workspaceId): void
+    {
+        if (! Schema::hasTable('workspaces')) {
+            return;
+        }
+
+        $workspace = Workspace::query()->find($workspaceId);
+        if ($workspace === null || $workspace->is_main) {
+            return;
+        }
+
+        $path = $workspace->databasePath();
+        if ($path !== null && is_file($path)) {
+            $this->workspaces->withTenant($path, function () use ($email): void {
+                $user = User::query()->where('email', $email)->first();
+                if ($user !== null) {
+                    $this->deleteUser($user);
+                }
+            });
+        }
+
+        $this->workspaces->withMain(function () use ($email, $workspaceId): void {
+            $shell = User::query()->where('email', $email)->first();
+
+            if ($shell !== null && (int) $shell->home_workspace_id === $workspaceId && ! $shell->isAdmin()) {
+                $this->deleteUser($shell);
+            }
+        });
+    }
+
+    /**
+     * Upsert a user row (by email) on the CURRENT connection with an explicit
+     * role + lock. `is_admin` is forced on for a super admin (a superset). A
+     * null password keeps the existing one; a brand-new row with no password
+     * gets an unusable random hash rather than a null column.
+     */
+    private function upsertLockedRow(string $name, string $email, ?string $hashedPassword, ?int $homeWorkspaceId, bool $isAdmin, bool $isSuperAdmin): User
+    {
+        if ($hashedPassword === null && ! User::query()->where('email', $email)->exists()) {
+            $hashedPassword = Hash::make(Str::random(40)); // unusable placeholder
+        }
+
+        $values = [
+            'name' => $name,
+            'is_admin' => $isAdmin || $isSuperAdmin,
+            'is_super_admin' => $isSuperAdmin,
+            'home_workspace_id' => $homeWorkspaceId,
+        ];
+
+        if ($hashedPassword !== null) {
+            $values['password'] = $hashedPassword;
+        }
+
+        return User::query()->updateOrCreate(['email' => $email], $values);
     }
 
     /**

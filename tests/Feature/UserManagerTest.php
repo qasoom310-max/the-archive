@@ -12,6 +12,8 @@ use App\Livewire\Settings\UserManager;
 use App\Models\Auth\Group;
 use App\Models\Auth\ModelAccess;
 use App\Models\User;
+use App\Models\Workspace;
+use Closure;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -329,5 +331,171 @@ final class UserManagerTest extends TestCase
             $this->assertTrue(app(AccessControl::class)->allows($tenantUser, 'pos.order', Permission::Read));
             $this->assertFalse(app(AccessControl::class)->allows($tenantUser, 'pos.order', Permission::Write));
         });
+    }
+
+    // ── Adding users from INSIDE a workspace (no trip back to Main) ──────────
+
+    /**
+     * Provision a workspace, then run the callback with the request switched
+     * INTO it (default connection = that tenant), acting as its admin — the
+     * state an admin is in after picking a database from "My database".
+     *
+     * @param  Closure(Workspace): void  $callback
+     */
+    private function insideWorkspace(Closure $callback): Workspace
+    {
+        $owner = User::factory()->create(['is_admin' => true, 'is_super_admin' => true, 'email' => 'owner@erp.test']);
+        $this->actingAs($owner);
+
+        $workspace = app(WorkspaceManager::class)->provision('Kaleem', $owner, ['pos']);
+
+        app(WorkspaceManager::class)->withTenant((string) $workspace->databasePath(), function () use ($callback, $workspace, $owner): void {
+            // The tenancy middleware rebinds auth to the tenant copy (by email).
+            $tenantOwner = User::query()->where('email', $owner->email)->first();
+            $this->assertNotNull($tenantOwner);
+
+            // `seedAdmins` copies admins but not the super-admin tier — make the
+            // tenant copy the owner it represents, so these tests exercise the
+            // workspace user CRUD directly (the regular-admin email-OTP gate on
+            // edit/delete is covered by SuperAdminTest).
+            $tenantOwner->is_super_admin = true;
+            $tenantOwner->save();
+
+            $this->actingAs($tenantOwner);
+
+            $callback($workspace);
+        });
+
+        return $workspace;
+    }
+
+    protected function tearDown(): void
+    {
+        $dir = storage_path('app/workspaces');
+        if (is_dir($dir)) {
+            foreach (glob($dir . '/*.sqlite') ?: [] as $file) {
+                @unlink($file);
+            }
+        }
+
+        parent::tearDown();
+    }
+
+    public function test_a_user_can_be_added_from_inside_a_workspace(): void
+    {
+        $workspace = $this->insideWorkspace(function (Workspace $workspace): void {
+            // No database picker inside a workspace — the account belongs here.
+            Livewire::test(UserManager::class)
+                ->set('name', 'Kaleem Cashier')
+                ->set('email', 'kcashier@example.com')
+                ->set('password', 'secret12')
+                ->set('apps', ['pos'])
+                ->call('save')
+                ->assertHasNoErrors();
+
+            // The real account lives in THIS database, locked to it, view-only.
+            $user = User::query()->where('email', 'kcashier@example.com')->first();
+            $this->assertNotNull($user);
+            $this->assertFalse($user->isAdmin());
+            $this->assertSame((int) $workspace->id, (int) $user->home_workspace_id);
+            $this->assertTrue(app(AccessControl::class)->allows($user, 'pos.order', Permission::Read));
+            $this->assertFalse(app(AccessControl::class)->allows($user, 'pos.order', Permission::Write));
+        });
+
+        // Main got only a login shell — never an admin there, and locked to the
+        // workspace so signing in lands them straight inside it.
+        $shell = User::query()->where('email', 'kcashier@example.com')->first();
+        $this->assertNotNull($shell);
+        $this->assertFalse($shell->isAdmin());
+        $this->assertSame((int) $workspace->id, (int) $shell->home_workspace_id);
+    }
+
+    public function test_an_admin_added_inside_a_workspace_is_an_admin_only_there(): void
+    {
+        $workspace = $this->insideWorkspace(function (): void {
+            Livewire::test(UserManager::class)
+                ->set('name', 'Kaleem Manager')
+                ->set('email', 'kmanager@example.com')
+                ->set('password', 'secret12')
+                ->set('role', 'admin')
+                ->call('save')
+                ->assertHasNoErrors();
+
+            $user = User::query()->where('email', 'kmanager@example.com')->first();
+            $this->assertNotNull($user);
+            $this->assertTrue($user->isAdmin());   // full admin in THIS database
+        });
+
+        // …but a plain, non-admin login shell on Main — they can't roam.
+        $shell = User::query()->where('email', 'kmanager@example.com')->first();
+        $this->assertNotNull($shell);
+        $this->assertFalse($shell->isAdmin());
+        $this->assertFalse($shell->isSuperAdmin());
+        $this->assertSame((int) $workspace->id, (int) $shell->home_workspace_id);
+    }
+
+    public function test_an_email_owned_by_a_global_account_is_refused_inside_a_workspace(): void
+    {
+        // A global STAFF account on Main. It isn't copied into the workspace
+        // (only admins are), so the tenant's own unique-email rule can't catch
+        // the collision — the Main-identity guard is the only thing standing
+        // between this and silently overwriting the login they'd sign in with.
+        User::factory()->create(['is_admin' => false, 'email' => 'global@example.com', 'name' => 'Global Staff']);
+
+        $this->insideWorkspace(function (): void {
+            $this->assertSame(0, User::query()->where('email', 'global@example.com')->count());
+
+            Livewire::test(UserManager::class)
+                ->set('name', 'Impostor')
+                ->set('email', 'global@example.com')
+                ->set('password', 'secret12')
+                ->call('save')
+                ->assertHasErrors('email');
+
+            $this->assertSame(0, User::query()->where('email', 'global@example.com')->count());
+        });
+
+        // The Main account is untouched — same name, still not locked anywhere.
+        $global = User::query()->where('email', 'global@example.com')->first();
+        $this->assertNotNull($global);
+        $this->assertSame('Global Staff', $global->name);
+        $this->assertNull($global->home_workspace_id);
+    }
+
+    public function test_a_global_account_stays_read_only_inside_a_workspace(): void
+    {
+        $this->insideWorkspace(function (): void {
+            // The owner's tenant copy is a global account (no home workspace) —
+            // editing it from inside the workspace must be a no-op.
+            $global = User::query()->where('email', 'owner@erp.test')->first();
+            $this->assertNotNull($global);
+            $this->assertNull($global->home_workspace_id);
+
+            Livewire::test(UserManager::class)
+                ->call('editUser', $global->id)
+                ->assertSet('editingId', null);
+        });
+    }
+
+    public function test_deleting_a_workspace_user_removes_their_main_login_too(): void
+    {
+        $this->insideWorkspace(function (): void {
+            $component = Livewire::test(UserManager::class)
+                ->set('name', 'Temp Staff')
+                ->set('email', 'temp@example.com')
+                ->set('password', 'secret12')
+                ->call('save')
+                ->assertHasNoErrors();
+
+            $user = User::query()->where('email', 'temp@example.com')->first();
+            $this->assertNotNull($user);
+
+            $component->call('deleteUser', $user->id);
+
+            $this->assertSame(0, User::query()->where('email', 'temp@example.com')->count());
+        });
+
+        // The Main login shell is gone with them.
+        $this->assertSame(0, User::query()->where('email', 'temp@example.com')->count());
     }
 }

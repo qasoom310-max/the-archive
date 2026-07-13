@@ -1404,9 +1404,57 @@ to create a staff account (username + email + password) and grant it
 | UI component | `App\Livewire\Settings\UserManager` (+ `resources/views/livewire/settings/user-manager.blade.php`) — **admin-only** (`mount()` + every action re-`abort_unless(isAdmin)`). One form for **create AND edit** (`$editingId` toggles), `save()` branches: an apps multi-checkbox (installed `application` modules from `ir_module`) + (create only) a databases multi-checkbox (**ALL** workspaces incl. Main — Main is no longer implicit, **`workspaces` is `required\|min:1` on create**) + a list of **all** users (admins + staff, role badge) with **Edit** and **remove** per row. `editUser()` loads name/email + current app grants (derived from the per-user group's rules); `save()` on edit updates name/email/password (blank = keep) + rewrites app grants, **never touches `is_admin`**; `deleteUser()` blocks deleting yourself or the last admin. **Gotcha:** the public `$apps`/`$workspaces` props (selected values, for `wire:model`) would shadow same-named view vars — render() passes the option lists as `appModules`/`workspaceList` to avoid the collision (Livewire injects public props into the view) |
 | Provisioning | `App\Erp\Admin\UserProvisioner` — the sole creator. `provision(name,email,password,appNames[],workspaceIds[]): ?User`: hashes once, then for **each selected workspace** runs `upsertWithAccess()` — Main on the current connection, each tenant via `WorkspaceManager::withTenant()` (its own SQLite file), matched by **email**. Returns the Main user, or null if Main wasn't selected (an account can live only in tenant DBs). `upsertWithAccess()` (DB transaction): `updateOrCreate` user (`is_admin=false`) then `grantApps()`. `grantApps(User,appNames[])` (public, reused by the edit path) rebuilds the **dedicated per-user group** (`code = user:{id}`) + one **Read-only** `ir_model_access` rule per registered `ir_model` of every granted app (write/create/unlink=false). `deleteUser()` removes the user + their per-user group + its ACL rules (tenant copies left in place, harmless) |
 | Access model | App access = the existing ACL system: per-user group + `ir_model_access` Read rules. So a granted user can **open** the app's screens and read records but cannot add/edit/delete (engine List/Form gate mutations). Apps with **no** `DefinesIrModel` (Inventory custom screens, Settings, WhatsApp) have no models, so a grant on them creates no rules — view access there isn't ACL-expressible (note if asked). DB access is **provision-only**: the account is created in the chosen databases; **switching is unchanged (still admin-only)** — the tenancy security model (SetActiveWorkspace / SwitchWorkspaceController) was deliberately NOT touched. The list/edit/delete operate on the **current (Main)** database; a user created only in a tenant won't appear in the Main list |
-| Tests | `tests/Feature/UserManagerTest.php` (11 — view-only grants on selected apps, granted-apps-only (denies a non-granted installed app), create requires ≥1 database, non-admin 403, name/email/password validation, duplicate email rejected, edit renames + rewrites grants, edit keeps blank password, can delete a non-last admin but not yourself, delete removes user+group+rules, provision **only** into the selected databases — not Main when unselected) |
+| Tests | `tests/Feature/UserManagerTest.php` (19 — view-only grants on selected apps, granted-apps-only (denies a non-granted installed app), create requires ≥1 database, non-admin 403, name/email/password validation, duplicate email rejected, edit renames + rewrites grants, edit keeps blank password, can delete a non-last admin but not yourself, delete removes user+group+rules, provision **only** into the selected databases — not Main when unselected; + the 5 in-workspace tests listed below) |
 
 Decisions (chosen by the user): app access = **View only**; database access = **provision only** (no self-switching); Main is a normal pickable database (not auto-included); the list shows all users + admins and supports edit/delete. To widen later: change the `perm_*` flags in `UserProvisioner::grantApps()` (e.g. add Write/Create), or lift the admin-only switch gate for granted users (would need a `workspace_user_access` grant table + relaxed `SwitchWorkspaceController`/`SetActiveWorkspace` + a non-admin switcher UI — out of scope here).
+
+**Add users from INSIDE any database (shipped 2026-07-13):** the Users tab used
+to be **read-only inside a workspace** ("switch to Main to add a user") because
+logins are only ever authenticated against Main — a row created in a tenant
+alone could never sign in. That trip to Main is gone: an admin now adds/edits/
+deletes users **from whatever database they're in**, and the identity plumbing is
+handled for them.
+
+- **What a workspace-created account is:** the real row — role (`staff`/`admin`)
+  + app grants + `home_workspace_id` — lives **in that database**, and a bare
+  **non-admin login shell** (same email, `home_workspace_id` = that workspace) is
+  written to **Main** behind the scenes. `SetActiveWorkspace` already routes a
+  user with a `home_workspace_id` straight into their workspace ignoring the
+  cookie, so they sign in and land inside it and can never reach Main or another
+  database. **An "Administrator" created inside a workspace is an admin of THAT
+  database only** (their Main shell stays non-admin).
+- **`UserProvisioner::provisionLocked()` is the single path** (generalised from
+  the super-admin-only version): now takes `?string $plainPassword` (null/blank =
+  keep — the edit path), `bool $isAdmin`, and `list<string> $appNames`. It is
+  **connection-explicit** — the Main shell goes through the new
+  `WorkspaceManager::withMain()` and the real row through `withTenant()` — so it
+  behaves identically whether called from Main or from inside a tenant. New
+  siblings: `mainEmailConflict(email, workspaceId)` (refuse an email already
+  owned by a global account or another workspace's user, rather than silently
+  clobbering the login) and `deleteLocked(email, workspaceId)` (drop the tenant
+  row + grants AND the Main shell — but only when that shell really is ours:
+  locked to this workspace and not an admin).
+- **`WorkspaceManager::withMain(Closure)`** — run a callback on the landlord
+  connection from anywhere (no-op when Main is already active).
+  **`withTenant()` now also restores the tenant connection's PATH**, not just the
+  default connection name — otherwise a call made from *inside* a workspace left
+  the shared `tenant` connection aimed at another file for the rest of the
+  request.
+- **`UserManager`**: `onMain()` no longer gates anything; `currentWorkspaceId()`
+  resolves the active workspace **from the tenant connection's SQLite file**
+  (NOT the cookie — a locked admin is routed with no cookie, and the connection
+  is the DB we'd actually write to), falling back to the actor's home workspace
+  then the cookie. `belongsHere()` scopes every mutation inside a tenant to that
+  database's own accounts: a **global** account (copied into every DB, `home_workspace_id`
+  null) stays read-only there and still shows "Managed on Main" — editing it from
+  one database would silently change every other one. The database picker +
+  "lock to one database" checkbox are hidden inside a workspace (both implicit).
+  Edit/delete still go through the regular-admin email-OTP gate.
+- Tests: `UserManagerTest` (+5 — add a user from inside a workspace (tenant row
+  locked + view-only, Main gets a non-admin shell), an admin added inside a
+  workspace is admin **only** there, an email owned by a global account is
+  refused, a global account stays read-only inside a workspace, deleting a
+  workspace user removes their Main login too). AR keys added.
 
 **Super-admin tier + admin 2FA (shipped 2026-06-24):**
 

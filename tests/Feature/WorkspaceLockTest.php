@@ -151,28 +151,46 @@ final class WorkspaceLockTest extends TestCase
         });
     }
 
-    public function test_user_management_is_read_only_inside_a_workspace(): void
+    public function test_a_user_added_inside_a_workspace_belongs_to_it_and_still_gets_a_main_login(): void
     {
         $ws = $this->kaleem();
         $mainConnection = DB::getDefaultConnection();
 
-        // Simulate being switched into Kaleem, then try to add a user.
+        // Simulate being switched into Kaleem, then add a user from in there —
+        // no trip back to Main. (This used to be refused outright.)
         app(WorkspaceManager::class)->activate($ws);
         try {
+            $tenantOwner = User::query()->where('email', 'owner@erp.test')->first();
+            $this->assertNotNull($tenantOwner);
+            $tenantOwner->is_super_admin = true;   // OTP-exempt; the gate is covered by SuperAdminTest
+            $tenantOwner->save();
+            $this->actingAs($tenantOwner);
+
             Livewire::test(UserManager::class)
                 ->assertViewHas('onMain', false)
+                ->assertViewHas('workspaceId', (int) $ws->id)
                 ->set('name', 'Inside User')
                 ->set('email', 'inside@abc.test')
                 ->set('password', 'password123')
                 ->call('save')
-                ->assertHasErrors('name');
+                ->assertHasNoErrors();
 
-            $this->assertSame(0, User::query()->where('email', 'inside@abc.test')->count());
+            // The real account lives HERE, locked to this database.
+            $inside = User::query()->where('email', 'inside@abc.test')->first();
+            $this->assertNotNull($inside);
+            $this->assertSame((int) $ws->id, (int) $inside->home_workspace_id);
         } finally {
             config(['database.default' => $mainConnection]);
             DB::setDefaultConnection($mainConnection);
             DB::purge('tenant');
         }
+
+        // …and Main holds only a non-admin login shell locked to the workspace,
+        // so they can sign in and land straight inside it — never on Main.
+        $shell = User::query()->where('email', 'inside@abc.test')->first();
+        $this->assertNotNull($shell);
+        $this->assertFalse($shell->isAdmin());
+        $this->assertSame((int) $ws->id, (int) $shell->home_workspace_id);
     }
 
     public function test_backfill_gives_a_workspace_only_user_a_main_login(): void

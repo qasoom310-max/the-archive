@@ -160,10 +160,32 @@
    brand fill (same element or a descendant) is pinned dark; so is the primary
    button. Accent TEXT on dark surfaces is brightened to a legible gold. */
 .dark .o-btn-primary { color: #1a1a1a; }
+/* Text sitting on a brand-yellow fill stays dark — the topbar/app-bar links
+   (active `text-chrome-900`, inactive `text-chrome-800`, their `-700` icons)
+   and primary buttons. Covers same-element and descendant usage. */
 .dark .bg-primary-400.text-chrome-900,
 .dark .bg-primary-500.text-chrome-900,
+.dark .bg-primary-400.text-chrome-800,
+.dark .bg-primary-500.text-chrome-800,
 .dark .bg-primary-400 .text-chrome-900,
-.dark .bg-primary-500 .text-chrome-900 { color: #1a1a1a; }
+.dark .bg-primary-500 .text-chrome-900,
+.dark .bg-primary-400 .text-chrome-800,
+.dark .bg-primary-500 .text-chrome-800,
+.dark .bg-primary-400 .text-chrome-700,
+.dark .bg-primary-500 .text-chrome-700,
+.dark .bg-primary-400 .hover\:text-chrome-900:hover,
+.dark .bg-primary-500 .hover\:text-chrome-900:hover { color: #1a1a1a; }
+/* …BUT an elevated white panel nested inside a brand surface (the app-bar
+   dropdown menu is a DOM child of the yellow header) is itself a dark surface
+   in dark mode — its menu text goes light again. Scoped to "white panel inside
+   a brand fill" (4 classes) so it beats the brand pin above by specificity
+   WITHOUT touching a yellow tile/badge that itself sits inside a white card. */
+.dark .bg-primary-400 .bg-white .text-chrome-900,
+.dark .bg-primary-500 .bg-white .text-chrome-900 { color: #f3f5f7; }
+.dark .bg-primary-400 .bg-white .text-chrome-800,
+.dark .bg-primary-500 .bg-white .text-chrome-800 { color: #e2e5e9; }
+.dark .bg-primary-400 .bg-white .text-chrome-700,
+.dark .bg-primary-500 .bg-white .text-chrome-700 { color: #cbd0d6; }
 .dark .text-primary-600 { color: #e7d94b; }
 .dark .text-primary-700 { color: #e7d94b; }
 .dark .text-primary-800 { color: #d8c93f; }

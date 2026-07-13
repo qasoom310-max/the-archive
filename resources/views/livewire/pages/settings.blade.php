@@ -105,7 +105,7 @@
                                         ['value' => 'yellow', 'label' => __('Yellow'), 'hex' => '#f5ef1a'],
                                         ['value' => 'amber', 'label' => __('Amber'), 'hex' => '#fbbf24'],
                                         ['value' => 'orange', 'label' => __('Orange'), 'hex' => '#fb923c'],
-                                        ['value' => 'rose', 'label' => __('Rose'), 'hex' => '#fb7185'],
+                                        ['value' => 'red', 'label' => __('Red'), 'hex' => '#ef4444'],
                                         ['value' => 'pink', 'label' => __('Pink'), 'hex' => '#f472b6'],
                                         ['value' => 'violet', 'label' => __('Violet'), 'hex' => '#a78bfa'],
                                         ['value' => 'sky', 'label' => __('Sky'), 'hex' => '#38bdf8'],

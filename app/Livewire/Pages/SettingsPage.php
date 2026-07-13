@@ -117,7 +117,7 @@ final class SettingsPage extends Component
      *
      * @var list<string>
      */
-    public const ACCENTS = ['yellow', 'amber', 'orange', 'rose', 'pink', 'violet', 'sky', 'emerald'];
+    public const ACCENTS = ['yellow', 'amber', 'orange', 'red', 'pink', 'violet', 'sky', 'emerald'];
 
     public string $accent = 'yellow';
 

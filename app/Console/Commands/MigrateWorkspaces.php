@@ -8,6 +8,7 @@ use App\Erp\Enums\ModuleState;
 use App\Erp\Modules\ModuleManager;
 use App\Erp\Tenancy\WorkspaceManager;
 use App\Models\Ir\IrModule;
+use Database\Seeders\SettingSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Throwable;
@@ -53,6 +54,14 @@ final class MigrateWorkspaces extends Command
                 $manager->withTenant($path, function () use ($modules): void {
                     Artisan::call('migrate', ['--force' => true]); // core
                     $this->migrateInstalledModules($modules);
+
+                    // Settings are seeded at provision time, so a setting ADDED
+                    // later (e.g. company.logo_shape) never reaches an existing
+                    // workspace and its row is simply absent from that database's
+                    // Settings page. Re-seed here: the seeder is idempotent and
+                    // non-destructive — it refreshes label/type/group/sort but
+                    // leaves any value the admin already saved untouched.
+                    (new SettingSeeder())->run();
                 });
                 $this->info("Migrated workspace: {$workspace->name}");
             } catch (Throwable $e) {

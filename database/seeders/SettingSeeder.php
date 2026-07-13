@@ -36,6 +36,10 @@ final class SettingSeeder extends Seeder
             // How big the logo prints on documents (the agreement PDF): a percent
             // of the default size. 100 = default, larger zooms in (e.g. 150).
             ['key' => 'company.logo_scale', 'label' => 'Logo size on documents (%)', 'type' => 'string', 'group' => 'General', 'default' => '100', 'sort' => 16, 'description' => '100 = default. Enter a larger number to zoom the logo in (e.g. 150 or 200).'],
+            // How the logo is framed in the topbar: "normal" keeps the uploaded
+            // shape (letterboxed, nothing cropped); "circle" crops it to a round
+            // badge. Rendered via App\Erp\Branding\Logo::shape().
+            ['key' => 'company.logo_shape', 'label' => 'Logo style', 'type' => 'string', 'group' => 'General', 'default' => 'normal', 'sort' => 17, 'description' => 'How the logo appears in the top bar: Normal keeps its own shape, Circle crops it to a round badge.'],
             // Super-admin-only (the Settings page hides it from regular admins
             // via SettingsPage::SUPER_ADMIN_KEYS). Descriptive for now; can
             // later drive module suggestions / defaults.

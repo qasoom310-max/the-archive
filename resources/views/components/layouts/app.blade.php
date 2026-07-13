@@ -98,13 +98,29 @@
          everything in the bar uses dark (chrome-900/800) text and black/N
          translucent hover overlays instead of white/N. --}}
     <header class="flex h-12 shrink-0 items-center gap-1 bg-primary-400 px-2 text-chrome-900 sm:gap-2">
-        {{-- Brand: custom company logo when an admin has uploaded one,
-             else the OpenERP wordmark. Logo::url() is null-safe (missing
-             file → null → fallback to text). --}}
-        @php $brandLogoUrl = \App\Erp\Branding\Logo::url(); @endphp
-        <a href="{{ url('/') }}" wire:navigate class="ms-1 flex items-center" aria-label="{{ __('OpenERP') }}" title="{{ __('Home') }}">
+        {{-- Brand: custom company logo when an admin has uploaded one, else the
+             OpenERP wordmark. Logo::url() is null-safe (missing file → null →
+             fallback to text). Two styles, chosen per database in Settings →
+             General → Logo style:
+               · circle — cropped to a round badge, ringed so it reads against
+                 the bright brand-yellow bar;
+               · normal — the uploaded shape, letterboxed (nothing cropped),
+                 sat on a white rounded plate so a dark or transparent logo
+                 stays legible on the yellow.
+             Both are h-9 in the h-12 bar — as large as the chrome allows. --}}
+        @php
+            $brandLogoUrl = \App\Erp\Branding\Logo::url();
+            $brandIsCircle = \App\Erp\Branding\Logo::isCircle();
+        @endphp
+        <a href="{{ url('/') }}" wire:navigate class="ms-1 flex shrink-0 items-center" aria-label="{{ __('OpenERP') }}" title="{{ __('Home') }}">
             @if ($brandLogoUrl)
-                <img src="{{ $brandLogoUrl }}" alt="{{ __('OpenERP') }}" class="h-7 w-auto max-w-[8rem] object-contain">
+                @if ($brandIsCircle)
+                    <img src="{{ $brandLogoUrl }}" alt="{{ __('OpenERP') }}"
+                        class="size-9 shrink-0 rounded-full bg-white object-cover ring-2 ring-white shadow-sm">
+                @else
+                    <img src="{{ $brandLogoUrl }}" alt="{{ __('OpenERP') }}"
+                        class="h-9 w-auto max-w-[9rem] shrink-0 rounded-md bg-white/95 object-contain px-1.5 py-0.5 shadow-sm">
+                @endif
             @else
                 <span class="text-sm font-bold tracking-tight">{{ __('OpenERP') }}</span>
             @endif

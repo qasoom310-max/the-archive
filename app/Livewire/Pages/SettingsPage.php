@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Pages;
 
+use App\Erp\Branding\Logo;
 use App\Erp\Business\BusinessType;
 use App\Erp\Money\Currencies;
 use App\Erp\Settings\Setting;
@@ -197,6 +198,16 @@ final class SettingsPage extends Component
         // UTC offset).
         if ($this->isAdmin()) {
             $this->selects['company.timezone'] = $this->timezoneOptions();
+        }
+
+        // Logo style — how the brand logo is framed in the topbar for THIS
+        // database (each workspace picks its own). Admin-only, like the logo
+        // upload it sits beside.
+        if ($this->isAdmin()) {
+            $this->selects['company.logo_shape'] = [
+                ['value' => Logo::SHAPE_NORMAL, 'label' => __('Normal — keep the logo’s own shape')],
+                ['value' => Logo::SHAPE_CIRCLE, 'label' => __('Circle — crop to a round badge')],
+            ];
         }
     }
 

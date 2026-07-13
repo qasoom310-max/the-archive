@@ -27,6 +27,29 @@ use Illuminate\Support\Facades\Storage;
  */
 final class Logo
 {
+    /** Logo is cropped to a round badge in the topbar. */
+    public const SHAPE_CIRCLE = 'circle';
+
+    /** Logo keeps its uploaded shape (letterboxed — nothing cropped). */
+    public const SHAPE_NORMAL = 'normal';
+
+    /**
+     * How the logo is framed in the topbar, per database. Anything other than
+     * an explicit "circle" means normal, so an unseeded workspace (setting row
+     * absent) safely falls back to the uploaded shape.
+     */
+    public static function shape(): string
+    {
+        return Setting::get('company.logo_shape') === self::SHAPE_CIRCLE
+            ? self::SHAPE_CIRCLE
+            : self::SHAPE_NORMAL;
+    }
+
+    public static function isCircle(): bool
+    {
+        return self::shape() === self::SHAPE_CIRCLE;
+    }
+
     public static function url(): ?string
     {
         $path = Setting::get('company.logo');

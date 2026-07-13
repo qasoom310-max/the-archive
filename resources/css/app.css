@@ -180,12 +180,12 @@
    in dark mode — its menu text goes light again. Scoped to "white panel inside
    a brand fill" (4 classes) so it beats the brand pin above by specificity
    WITHOUT touching a yellow tile/badge that itself sits inside a white card. */
-.dark .bg-primary-400 .bg-white .text-chrome-900,
-.dark .bg-primary-500 .bg-white .text-chrome-900 { color: #f3f5f7; }
-.dark .bg-primary-400 .bg-white .text-chrome-800,
-.dark .bg-primary-500 .bg-white .text-chrome-800 { color: #e2e5e9; }
-.dark .bg-primary-400 .bg-white .text-chrome-700,
-.dark .bg-primary-500 .bg-white .text-chrome-700 { color: #cbd0d6; }
+.dark .bg-primary-400 .bg-white .text-chrome-900, .dark .bg-primary-400 .bg-white.text-chrome-900,
+.dark .bg-primary-500 .bg-white .text-chrome-900, .dark .bg-primary-500 .bg-white.text-chrome-900 { color: #f3f5f7; }
+.dark .bg-primary-400 .bg-white .text-chrome-800, .dark .bg-primary-400 .bg-white.text-chrome-800,
+.dark .bg-primary-500 .bg-white .text-chrome-800, .dark .bg-primary-500 .bg-white.text-chrome-800 { color: #e2e5e9; }
+.dark .bg-primary-400 .bg-white .text-chrome-700, .dark .bg-primary-400 .bg-white.text-chrome-700,
+.dark .bg-primary-500 .bg-white .text-chrome-700, .dark .bg-primary-500 .bg-white.text-chrome-700 { color: #cbd0d6; }
 .dark .text-primary-600 { color: #e7d94b; }
 .dark .text-primary-700 { color: #e7d94b; }
 .dark .text-primary-800 { color: #d8c93f; }

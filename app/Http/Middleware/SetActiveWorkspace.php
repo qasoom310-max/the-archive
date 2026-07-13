@@ -102,6 +102,17 @@ final class SetActiveWorkspace
                 : null;
 
             if ($tenantUser !== null) {
+                // Appearance (theme / accent) is IDENTITY, not business data: it
+                // lives on the Main row so it follows the person into every
+                // database. Carry it onto the mirror in memory — syncOriginal()
+                // leaves the model clean, so an unrelated save() can never write
+                // these into the tenant's users table.
+                if ($user instanceof User) {
+                    $tenantUser->theme = $user->theme;
+                    $tenantUser->accent = $user->accent;
+                    $tenantUser->syncOriginal();
+                }
+
                 Auth::setUser($tenantUser);
             } else {
                 config(['database.default' => $previous, 'cache.prefix' => $previousCachePrefix]);

@@ -131,6 +131,36 @@ final class User extends Authenticatable
     }
 
     /**
+     * The canonical MAIN-database record for this identity.
+     *
+     * Inside a workspace, `Auth::user()` is that database's MIRROR row — the
+     * same person, matched by email (see {@see \App\Http\Middleware\SetActiveWorkspace}).
+     * Anything that is *identity* rather than *business data* (appearance
+     * preferences: theme, accent) must be written to the Main row, or it is
+     * stranded in whichever database happened to be active and reads back as
+     * the default the moment the user switches database.
+     *
+     * Returns `$this` when we're already on Main (the common case — no extra
+     * query), and null when the identity can't be matched (no email).
+     */
+    public function canonical(): ?self
+    {
+        $main = Workspace::$landlordConnection;
+
+        if (DB::getDefaultConnection() === $main) {
+            return $this;
+        }
+
+        $email = $this->email;
+
+        if (! is_string($email) || $email === '') {
+            return null;
+        }
+
+        return self::on($main)->where('email', $email)->first();
+    }
+
+    /**
      * Who may confirm that a payment was actually received: the Accountant and
      * super-admins only — deliberately NOT regular admins.
      */

@@ -475,10 +475,17 @@ final class SettingsPage extends Component
             return;
         }
 
+        // Persist on the CANONICAL Main row, not the active database's mirror:
+        // inside a workspace Auth::user() is that database's copy of the person,
+        // so writing there stranded the preference — switch database and dark
+        // mode reverted to light. Appearance is identity, not business data.
         $user = Auth::user();
-        if ($user instanceof User && $user->theme !== $theme) {
-            $user->theme = $theme;
-            $user->save();
+        if ($user instanceof User) {
+            $target = $user->canonical() ?? $user;
+            if ($target->theme !== $theme) {
+                $target->theme = $theme;
+                $target->save();
+            }
         }
 
         $this->theme = $theme;
@@ -500,10 +507,14 @@ final class SettingsPage extends Component
             return;
         }
 
+        // Canonical Main row — same reasoning as setTheme().
         $user = Auth::user();
-        if ($user instanceof User && $user->accent !== $accent) {
-            $user->accent = $accent;
-            $user->save();
+        if ($user instanceof User) {
+            $target = $user->canonical() ?? $user;
+            if ($target->accent !== $accent) {
+                $target->accent = $accent;
+                $target->save();
+            }
         }
 
         $this->accent = $accent;

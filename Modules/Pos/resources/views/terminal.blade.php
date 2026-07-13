@@ -317,14 +317,25 @@
                     </div>
                 </div>
 
-                <button wire:click="$set('categoryId', null)"
-                    class="o-btn {{ $categoryId === null ? 'o-btn-primary' : 'o-btn-ghost' }}">{{ __('All') }}</button>
+                <button wire:click="selectCategory(null)"
+                    class="o-btn {{ $categoryId === null && ! $uncategorised ? 'o-btn-primary' : 'o-btn-ghost' }}">{{ __('All') }}</button>
                 @foreach ($categories as $cat)
-                    <button wire:click="$set('categoryId', {{ $cat->id }})"
-                        class="o-btn {{ $categoryId === $cat->id ? 'o-btn-primary' : 'o-btn-ghost' }}">
+                    <button wire:click="selectCategory({{ $cat->id }})"
+                        class="o-btn {{ $categoryId === $cat->id && ! $uncategorised ? 'o-btn-primary' : 'o-btn-ghost' }}">
                         @if ($cat->image)@if ($catIsImage($cat->image))<img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($cat->image) }}" class="me-1 inline-block size-4 rounded object-cover align-text-bottom" alt="">@else<span class="me-1">{{ $cat->image }}</span>@endif @endif{{ $cat->name }}
                     </button>
                 @endforeach
+                {{-- A product saved with no category belongs to none of the chips
+                     above, so without this it can only be found by typing its name.
+                     Only offered when such products actually exist. --}}
+                @if ($uncategorisedCount > 0)
+                    <button wire:click="selectUncategorised"
+                        title="{{ __('Products with no category') }}"
+                        class="o-btn {{ $uncategorised ? 'o-btn-primary' : 'o-btn-ghost' }}">
+                        {{ __('Uncategorised') }}
+                        <span class="ms-1 tabular-nums opacity-60">{{ $uncategorisedCount }}</span>
+                    </button>
+                @endif
             </div>
 
             @if ($subCategories->isNotEmpty())
@@ -339,6 +350,19 @@
                 </div>
             @endif
         </div>
+
+        {{-- The grid is capped, so say so. Silently showing the first 60 of, say,
+             80 products is how a cashier ends up insisting a product "isn't in the
+             system" when it's simply past the cut. --}}
+        @if ($productsTruncated)
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+                <svg class="size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M18 10A8 8 0 1 1 2 10a8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a1 1 0 0 0 0 2v3a1 1 0 0 0 1 1h1a1 1 0 1 0 0-2v-3a1 1 0 0 0-1-1H9Z" clip-rule="evenodd"/>
+                </svg>
+                <span>{{ __('Showing :shown of :total products.', ['shown' => $productsShown, 'total' => $productsMatching]) }}</span>
+                <span class="text-amber-700">{{ __('Search by name or pick a category to find the rest.') }}</span>
+            </div>
+        @endif
 
         <div class="grid flex-1 auto-rows-min grid-cols-2 gap-2 overflow-y-auto p-3 sm:gap-3 sm:grid-cols-3 sm:p-4 lg:grid-cols-4 xl:grid-cols-5">
             @forelse ($products as $product)

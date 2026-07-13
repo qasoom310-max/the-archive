@@ -9,6 +9,7 @@ use App\Erp\Business\Features;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -61,6 +62,21 @@ final class PosTerminal extends Component
     public string $search = '';
 
     public ?int $categoryId = null;
+
+    /**
+     * "Uncategorised" chip: show only products with no category. Without it a
+     * product that was saved without a category is unreachable from the grid —
+     * it sits under no chip at all, and the cashier can only find it by typing
+     * its name. Mutually exclusive with {@see $categoryId}.
+     */
+    public bool $uncategorised = false;
+
+    /**
+     * How many products the grid renders at once. Anything past this is NOT
+     * silently dropped — the cashier is told the list is capped and to search
+     * or pick a category (see `productsTruncated` in render()).
+     */
+    private const GRID_LIMIT = 60;
 
     public bool $paying = false;
 
@@ -928,24 +944,65 @@ final class PosTerminal extends Component
     /**
      * @return Collection<int, PosProduct>
      */
-    private function products(): Collection
+    /**
+     * Every active product matching the current chip + search — WITHOUT the
+     * display cap, so render() can count them and tell the cashier when the
+     * grid is showing only part of the catalogue.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<PosProduct>
+     */
+    private function productQuery(): Builder
     {
         return PosProduct::query()
-            ->with('recipeLines.component')
             ->where('active', true)
-            ->when($this->categoryId !== null, fn ($q) => $q->whereIn('pos_category_id', $this->categorySubtreeIds()))
+            // "Uncategorised" chip — products saved with no category. They belong
+            // to no other chip, so this is the only way to browse to them.
+            ->when($this->uncategorised, fn ($q) => $q->whereNull('pos_category_id'))
+            ->when(
+                ! $this->uncategorised && $this->categoryId !== null,
+                fn ($q) => $q->whereIn('pos_category_id', $this->categorySubtreeIds()),
+            )
             ->when($this->search !== '', fn ($q) => $q->where(function ($w): void {
                 $w->where('name', 'like', '%' . $this->search . '%')
                     ->orWhere('barcode', $this->search);
-            }))
+            }));
+    }
+
+    /**
+     * @return Collection<int, PosProduct>
+     */
+    private function products(): Collection
+    {
+        return $this->productQuery()
+            ->with('recipeLines.component')
             ->orderBy('name')
-            ->limit(60)
+            ->limit(self::GRID_LIMIT)
             ->get();
+    }
+
+    /** Pick a category chip (null = All). Clears the Uncategorised chip. */
+    public function selectCategory(?int $categoryId): void
+    {
+        $this->categoryId = $categoryId;
+        $this->uncategorised = false;
+    }
+
+    /** Show only products that have no category. */
+    public function selectUncategorised(): void
+    {
+        $this->categoryId = null;
+        $this->uncategorised = true;
     }
 
     public function render(): View
     {
         $order = $this->order();
+
+        $products = $this->products();
+        // How many products actually match vs how many we can show. The grid used
+        // to just `limit(60)`, so product #61 (alphabetically) was invisible with
+        // no hint — a cashier would swear the product "isn't there".
+        $matching = $this->productQuery()->count();
 
         $canPay = $this->canPay($order);
         // Dine-in table with items but the kitchen still working — drives the
@@ -965,7 +1022,14 @@ final class PosTerminal extends Component
             'session' => PosSession::query()->with('user')->findOrFail($this->sessionId),
             'cashier' => Auth::user(),
             'lines' => $order->lines()->latest('id')->get(),
-            'products' => $this->products(),
+            'products' => $products,
+            // Grid is capped — say so rather than silently hiding the rest.
+            'productsShown' => $products->count(),
+            'productsMatching' => $matching,
+            'productsTruncated' => $matching > $products->count(),
+            // Only offer the "Uncategorised" chip when such products exist.
+            'uncategorisedCount' => PosProduct::query()
+                ->where('active', true)->whereNull('pos_category_id')->count(),
             'categories' => PosCategory::query()->where('active', true)->whereNull('parent_id')
                 ->orderBy('sequence')->orderBy('name')->get(),
             'subCategories' => $this->categoryId !== null

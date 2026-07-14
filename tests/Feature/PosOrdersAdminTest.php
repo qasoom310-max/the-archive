@@ -92,25 +92,30 @@ final class PosOrdersAdminTest extends TestCase
         $this->assertDatabaseHas('pos_orders', ['id' => $order->id]);
     }
 
-    public function test_a_walk_in_shop_shows_cashier_and_time_instead_of_table_and_type(): void
+    public function test_a_walk_in_shop_drops_table_and_type(): void
     {
         $this->doneOrder();
         Features::setOverrides([Feature::Restaurant->value => false]);
 
         Livewire::test(PosOrders::class)
             ->assertSee('Cashier')
-            ->assertSee('Time')
+            ->assertSee('Date & time')
             ->assertSee('Aisha Cashier')
+            // Table / Type would read "—/Walk-in" on every row here.
             ->assertDontSee('Walk-in');
     }
 
-    public function test_a_dine_in_shop_keeps_table_and_type(): void
+    public function test_a_dine_in_shop_keeps_table_and_type_and_still_shows_cashier_and_time(): void
     {
         $this->doneOrder();
         Features::setOverrides([Feature::Restaurant->value => true]);
 
         Livewire::test(PosOrders::class)
             ->assertSee('Table')
-            ->assertSee('Walk-in');
+            ->assertSee('Walk-in')
+            // Who made the sale, and when, are useful on a dine-in list too.
+            ->assertSee('Cashier')
+            ->assertSee('Aisha Cashier')
+            ->assertSee('Date & time');
     }
 }

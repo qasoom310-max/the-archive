@@ -73,18 +73,20 @@
             </select>
         </div>
 
+        {{-- Who made the sale and when are useful on every shop, so Cashier + Time
+             are always shown. Table / Type are dine-in only — on a walk-in shop
+             they'd read "—/Walk-in" on every single row. --}}
         <div class="overflow-x-auto rounded-xl border border-chrome-200 bg-white">
-            <table class="w-full min-w-[720px] text-sm">
+            <table class="w-full {{ $dineIn ? 'min-w-[960px]' : 'min-w-[720px]' }} text-sm">
                 <thead class="bg-chrome-50 text-xs uppercase tracking-wide text-chrome-500">
                     <tr>
                         <th class="px-4 py-2.5 text-start font-semibold">{{ __('Order #') }}</th>
                         @if ($dineIn)
                             <th class="px-4 py-2.5 text-start font-semibold">{{ __('Table') }}</th>
                             <th class="px-4 py-2.5 text-start font-semibold">{{ __('Type') }}</th>
-                        @else
-                            <th class="px-4 py-2.5 text-start font-semibold">{{ __('Cashier') }}</th>
-                            <th class="px-4 py-2.5 text-start font-semibold">{{ __('Time') }}</th>
                         @endif
+                        <th class="px-4 py-2.5 text-start font-semibold">{{ __('Cashier') }}</th>
+                        <th class="px-4 py-2.5 text-start font-semibold">{{ __('Date & time') }}</th>
                         <th class="px-4 py-2.5 text-center font-semibold">{{ __('Items') }}</th>
                         <th class="px-4 py-2.5 text-start font-semibold">{{ __('Payment') }}</th>
                         <th class="px-4 py-2.5 text-start font-semibold">{{ __('Status') }}</th>
@@ -99,10 +101,9 @@
                             @if ($dineIn)
                                 <td class="px-4 py-2.5 text-chrome-600">{{ $row['table'] ?? '—' }}</td>
                                 <td class="px-4 py-2.5 text-chrome-600">{{ $row['type'] }}</td>
-                            @else
-                                <td class="px-4 py-2.5 text-chrome-600">{{ $row['cashier'] }}</td>
-                                <td class="px-4 py-2.5 whitespace-nowrap text-chrome-500">{{ $row['time'] }}</td>
                             @endif
+                            <td class="px-4 py-2.5 text-chrome-600">{{ $row['cashier'] }}</td>
+                            <td class="px-4 py-2.5 whitespace-nowrap text-chrome-500">{{ $row['time'] }}</td>
                             <td class="px-4 py-2.5 text-center tabular-nums text-chrome-600">{{ $row['units'] }}</td>
                             <td class="px-4 py-2.5 text-chrome-600">{{ $row['payment'] }}</td>
                             <td class="px-4 py-2.5">
@@ -168,7 +169,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-4 py-12 text-center text-sm text-chrome-400">{{ __('No orders found.') }}</td>
+                            <td colspan="{{ $dineIn ? 10 : 8 }}" class="px-4 py-12 text-center text-sm text-chrome-400">{{ __('No orders found.') }}</td>
                         </tr>
                     @endforelse
                 </tbody>

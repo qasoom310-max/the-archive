@@ -41,6 +41,14 @@ final class RemoteOrders extends Component
      */
     public string $period = 'month';
 
+    /**
+     * Order ids ticked for a bulk action — a delivery round comes back with a
+     * dozen orders to collect or move on at once.
+     *
+     * @var list<int>
+     */
+    public array $selectedOrders = [];
+
     public function mount(): void
     {
         // Remote sales off in THIS database (the feature toggled off, or — the
@@ -151,6 +159,94 @@ final class RemoteOrders extends Component
         $order->collectPayment($method);
     }
 
+    /**
+     * Collect the money on every ticked order at once. A delivery round comes
+     * back with a dozen collected orders; clicking Collect on each in turn is
+     * the same action a dozen times.
+     */
+    public function collectSelected(): void
+    {
+        $this->guard(Permission::Write);
+
+        $ids = array_map('intval', $this->selectedOrders);
+        if ($ids === []) {
+            return;
+        }
+
+        $collected = 0;
+        foreach ($ids as $id) {
+            $before = PosOrder::query()->find($id);
+            if ($before === null || $before->isPaid()) {
+                continue;   // already collected — never double-charge
+            }
+
+            $this->collectPayment($id);
+            $collected++;
+        }
+
+        $this->selectedOrders = [];
+        session()->flash('remote_status', trans_choice(
+            '{1}Collected :count order.|[2,*]Collected :count orders.',
+            $collected,
+            ['count' => $collected],
+        ));
+    }
+
+    /** Move every ticked order one step along the delivery pipeline. */
+    public function advanceSelected(): void
+    {
+        $this->guard(Permission::Write);
+
+        $ids = array_map('intval', $this->selectedOrders);
+        if ($ids === []) {
+            return;
+        }
+
+        foreach ($ids as $id) {
+            $this->advance($id);
+        }
+
+        $count = count($ids);
+        $this->selectedOrders = [];
+        session()->flash('remote_status', trans_choice(
+            '{1}Moved :count order forward.|[2,*]Moved :count orders forward.',
+            $count,
+            ['count' => $count],
+        ));
+    }
+
+    /** Tick every order currently listed. */
+    public function selectAllShown(): void
+    {
+        $this->selectedOrders = $this->visibleQuery()->limit(200)->pluck('id')
+            ->map(static fn ($id): int => (int) $id)->all();
+    }
+
+    /**
+     * The orders the current tab is showing — shared by render() and
+     * "select all" so the button can never tick something off-screen.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<PosOrder>
+     */
+    private function visibleQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = PosOrder::query()
+            ->where('channel', SalesChannel::Remote->value)
+            ->where('state', OrderState::Done);
+
+        return match ($this->filter) {
+            'active' => $query->whereIn('fulfillment_status', ['new', 'packed', 'out_for_delivery'])->oldest('ordered_at'),
+            'unpaid' => $query->whereRaw('paid_total < total - 0.001')->oldest('ordered_at'),
+            'all' => $query->latest('ordered_at'),
+            default => $query->where('fulfillment_status', $this->filter)->latest('ordered_at'),
+        };
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selectedOrders = [];
+    }
+
     public function render(): View
     {
         $done = fn () => PosOrder::query()
@@ -173,16 +269,7 @@ final class RemoteOrders extends Component
         // Outstanding cash: pay-on-delivery orders not yet collected.
         $unpaidCount = $done()->whereRaw('paid_total < total - 0.001')->count();
 
-        $query = $done()->with('partner');
-        if ($this->filter === 'active') {
-            $query->whereIn('fulfillment_status', $active)->oldest('ordered_at');
-        } elseif ($this->filter === 'unpaid') {
-            $query->whereRaw('paid_total < total - 0.001')->oldest('ordered_at');
-        } elseif ($this->filter === 'all') {
-            $query->latest('ordered_at');
-        } else {
-            $query->where('fulfillment_status', $this->filter)->latest('ordered_at');
-        }
+        $query = $this->visibleQuery()->with('partner');
 
         // "New remote order" jumps to the register with the Remote channel
         // pre-selected. If no session is open, land on the POS home to open one.
@@ -204,6 +291,12 @@ final class RemoteOrders extends Component
             'deliveryChargeTotal' => round((float) $inPeriod()->sum('delivery_charge'), 3),
             'periodLabel' => $periodLabel,
             'period' => $this->period,
+            // What the ticked orders are worth to collect — so the cashier can
+            // sanity-check the round's cash before committing it in one go.
+            'selectedUncollected' => $this->selectedOrders === [] ? 0.0 : round((float) PosOrder::query()
+                ->whereIn('id', $this->selectedOrders)
+                ->whereRaw('paid_total < total - 0.001')
+                ->sum('total'), 3),
             'startUrl' => $startUrl,
             'canCreate' => app(AccessControl::class)->allows(Auth::user(), 'pos.order', Permission::Create),
             'canFulfill' => app(AccessControl::class)->allows(Auth::user(), 'pos.order', Permission::Write),

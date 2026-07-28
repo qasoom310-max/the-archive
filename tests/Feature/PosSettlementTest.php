@@ -281,6 +281,65 @@ final class PosSettlementTest extends TestCase
         $this->assertTrue($second->fresh()?->isReceived());
     }
 
+    /**
+     * A delivery round comes back with a dozen collected orders. Collecting
+     * each singly is the same click a dozen times — and until they're collected
+     * nothing can even reach the settlement stage.
+     */
+    public function test_payment_can_be_collected_on_many_orders_at_once(): void
+    {
+        \Modules\Pos\Models\PosPaymentMethod::query()->create(['name' => 'Cash', 'is_cash' => true, 'sequence' => 1]);
+
+        $a = $this->collectedOrder('POS/1', 20.0, 1.1);
+        $b = $this->collectedOrder('POS/2', 30.0, 1.1);
+        $a->update(['paid_total' => 0]);
+        $b->update(['paid_total' => 0]);
+
+        Livewire::test(\Modules\Pos\Livewire\RemoteOrders::class)
+            ->set('selectedOrders', [$a->id, $b->id])
+            ->call('collectSelected')
+            ->assertSet('selectedOrders', []);
+
+        $this->assertTrue($a->fresh()?->isPaid());
+        $this->assertTrue($b->fresh()?->isPaid());
+
+        // Collected money is now with the delivery company, awaiting settlement.
+        $this->assertSame(2, app(PosSettlementService::class)->pendingSummary()['orders']);
+    }
+
+    public function test_bulk_collect_never_double_charges_an_already_paid_order(): void
+    {
+        \Modules\Pos\Models\PosPaymentMethod::query()->create(['name' => 'Cash', 'is_cash' => true, 'sequence' => 1]);
+
+        $paid = $this->collectedOrder('POS/1', 20.0, 1.1);       // already paid
+        $unpaid = $this->collectedOrder('POS/2', 30.0, 1.1);
+        $unpaid->update(['paid_total' => 0]);
+
+        Livewire::test(\Modules\Pos\Livewire\RemoteOrders::class)
+            ->set('selectedOrders', [$paid->id, $unpaid->id])
+            ->call('collectSelected');
+
+        // The already-paid order keeps exactly one payment's worth.
+        $this->assertSame(20.0, (float) $paid->fresh()?->paid_total);
+        $this->assertTrue($unpaid->fresh()?->isPaid());
+    }
+
+    public function test_many_orders_can_be_moved_along_the_pipeline_at_once(): void
+    {
+        $a = $this->collectedOrder('POS/1', 20.0, 1.1);
+        $b = $this->collectedOrder('POS/2', 30.0, 1.1);
+        $a->update(['fulfillment_status' => FulfillmentStatus::New->value]);
+        $b->update(['fulfillment_status' => FulfillmentStatus::New->value]);
+
+        Livewire::test(\Modules\Pos\Livewire\RemoteOrders::class)
+            ->set('selectedOrders', [$a->id, $b->id])
+            ->call('advanceSelected')
+            ->assertSet('selectedOrders', []);
+
+        $this->assertSame(FulfillmentStatus::Packed, $a->fresh()?->fulfillment_status);
+        $this->assertSame(FulfillmentStatus::Packed, $b->fresh()?->fulfillment_status);
+    }
+
     public function test_the_screen_is_gated_to_the_remote_sales_feature(): void
     {
         Features::setOverrides([Feature::RemoteSales->value => false]);

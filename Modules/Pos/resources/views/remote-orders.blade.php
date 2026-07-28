@@ -74,11 +74,48 @@
         @endforeach
     </div>
 
+    @if (session('remote_status'))
+        <div class="mb-4 rounded-lg bg-primary-50 px-4 py-2.5 text-sm font-medium text-chrome-800 ring-1 ring-primary-200">
+            {{ session('remote_status') }}
+        </div>
+    @endif
+
+    {{-- Bulk actions: a delivery round comes back with a dozen orders to
+         collect or move on, and doing each singly is the same click a dozen
+         times. Only shown once something is ticked. --}}
+    @if ($canFulfill && count($selectedOrders) > 0)
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-primary-50 p-3 ring-1 ring-primary-200">
+            <p class="text-sm font-medium text-chrome-800">
+                {{ trans_choice('{1}:count order selected|[2,*]:count orders selected', count($selectedOrders), ['count' => count($selectedOrders)]) }}
+                @if ($selectedUncollected > 0)
+                    · {{ __('to collect') }} <span class="font-bold">{{ $money($selectedUncollected) }}</span>
+                @endif
+            </p>
+            <div class="flex flex-wrap items-center gap-2">
+                @if ($selectedUncollected > 0)
+                    <button type="button" wire:click="collectSelected"
+                        wire:confirm="{{ __('Collect payment on the selected orders?') }}"
+                        class="o-btn-primary">{{ __('Collect') }} {{ $money($selectedUncollected) }}</button>
+                @endif
+                <button type="button" wire:click="advanceSelected" class="o-btn-ghost">{{ __('Move forward') }}</button>
+                <button type="button" wire:click="clearSelection" class="o-btn-ghost">{{ __('Clear') }}</button>
+            </div>
+        </div>
+    @endif
+
     @if ($orders->isEmpty())
         <div class="rounded-2xl border border-dashed border-chrome-300 bg-white p-10 text-center">
             <p class="text-sm text-chrome-400">{{ __('No remote orders here yet.') }}</p>
         </div>
     @else
+        @if ($canFulfill)
+            <div class="mb-2 flex items-center gap-3 text-xs">
+                <button type="button" wire:click="selectAllShown" class="font-medium text-primary-700 hover:underline">{{ __('Select all shown') }}</button>
+                @if (count($selectedOrders) > 0)
+                    <button type="button" wire:click="clearSelection" class="text-chrome-400 hover:text-chrome-700">{{ __('Clear') }}</button>
+                @endif
+            </div>
+        @endif
         <div class="space-y-3">
             @foreach ($orders as $order)
                 @php
@@ -86,10 +123,16 @@
                     $next = $status?->next();
                     $pay = $order->paymentBadge();
                 @endphp
-                <div wire:key="remote-{{ $order->id }}" class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-5">
+                <div wire:key="remote-{{ $order->id }}"
+                    class="rounded-2xl bg-white p-4 shadow-sm ring-1 sm:p-5 {{ in_array($order->id, $selectedOrders) ? 'ring-primary-400' : 'ring-chrome-900/[0.06]' }}">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div class="min-w-0">
                             <div class="flex flex-wrap items-center gap-2">
+                                @if ($canFulfill)
+                                    <input type="checkbox" wire:model.live="selectedOrders" value="{{ $order->id }}"
+                                        aria-label="{{ __('Select :ref', ['ref' => $order->reference]) }}"
+                                        class="size-4 shrink-0 rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
+                                @endif
                                 <span class="text-sm font-semibold text-chrome-900">{{ $order->customer_name ?: __('Customer') }}</span>
                                 @if ($status)
                                     <span class="rounded-full px-2 py-0.5 text-[11px] font-medium {{ $badge[$status->color()] ?? 'bg-chrome-100 text-chrome-600' }}">{{ $status->label() }}</span>

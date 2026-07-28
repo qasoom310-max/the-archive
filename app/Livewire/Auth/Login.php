@@ -53,7 +53,13 @@ final class Login extends Component
         RateLimiter::clear($key);
         session()->regenerate();
 
-        $this->redirectIntended('/', navigate: true);
+        // Land on the database chooser, not straight into the app: every sign-in
+        // gets to pick which business database to enter rather than being
+        // dropped into whichever one a stale cookie remembered. The chooser
+        // itself sends single-database / locked users straight in, so it only
+        // actually stops to ask when there's a real choice. A full redirect (not
+        // wire:navigate) so it lands on the plain GET controller cleanly.
+        $this->redirect(route('workspaces.choose'));
     }
 
     public function render(): View

@@ -6,6 +6,7 @@ use App\Http\Controllers\FormFileUploadController;
 use App\Http\Controllers\FormImageUploadController;
 use App\Http\Controllers\PayslipPdfController;
 use App\Http\Controllers\ProfileEmailVerificationController;
+use App\Http\Controllers\ChooseWorkspaceController;
 use App\Http\Controllers\SwitchWorkspaceController;
 use App\Livewire\Auth\Login;
 use App\Livewire\Pages\ActivityLog;
@@ -93,6 +94,13 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/workspaces', WorkspacesPage::class)->name('workspaces');
     Route::get('/workspaces/switch/{workspace}', SwitchWorkspaceController::class)
         ->whereNumber('workspace')->name('workspaces.switch');
+
+    // Post-login database chooser — every sign-in lands here so the user picks
+    // which business database to enter (instead of a stale cookie deciding).
+    // Plain GET controller so the workspace cookie rides the redirect.
+    Route::get('/choose', [ChooseWorkspaceController::class, 'index'])->name('workspaces.choose');
+    Route::get('/choose/{workspace}', [ChooseWorkspaceController::class, 'enter'])
+        ->whereNumber('workspace')->name('workspaces.enter');
 
     // Admin-only audit trail (topbar activity icon). Component gates on admin.
     Route::get('/activity', ActivityLog::class)->name('activity');

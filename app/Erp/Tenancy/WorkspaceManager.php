@@ -11,6 +11,7 @@ use Closure;
 use Database\Seeders\AuthSeeder;
 use Database\Seeders\SettingSeeder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -57,6 +58,65 @@ final class WorkspaceManager
     public function find(int $id): ?Workspace
     {
         return Workspace::query()->find($id);
+    }
+
+    /**
+     * The databases a user may sign into: Main (the landlord / owner data —
+     * admins only), plus every tenant workspace that has an account for this
+     * user's email. A LOCKED user may only ever enter their home workspace, so
+     * that is all they get.
+     *
+     * Pass the user's canonical MAIN row: locked-ness (home_workspace_id) and
+     * admin status live there, never on a tenant mirror — reading a mirror would
+     * mis-judge who can go where.
+     *
+     * @return SupportCollection<int, Workspace> Main first, then alphabetical.
+     */
+    public function accessibleFor(User $user): SupportCollection
+    {
+        // Locked → exactly one place to go, and no need to open any tenant file.
+        $homeId = $user->homeWorkspaceId();
+        if ($homeId !== null) {
+            $home = $this->find($homeId);
+
+            return new SupportCollection($home !== null ? [$home] : []);
+        }
+
+        $email = $user->email;
+
+        /** @var SupportCollection<int, Workspace> $out */
+        $out = new SupportCollection();
+
+        foreach ($this->all() as $workspace) {
+            if ($workspace->is_main) {
+                // Main holds the owner's landlord data — admins only.
+                if ($user->isAdmin()) {
+                    $out->push($workspace);
+                }
+
+                continue;
+            }
+
+            if (! is_string($email) || $email === '') {
+                continue; // no email to match into a tenant by
+            }
+
+            $path = $workspace->databasePath();
+            if ($path === null || ! is_file($path)) {
+                continue;
+            }
+
+            $hasAccount = $this->withTenant(
+                $path,
+                static fn (): bool => User::query()->where('email', $email)->exists(),
+            );
+
+            if ($hasAccount) {
+                $out->push($workspace);
+            }
+        }
+
+        return $out;
     }
 
     /** Find a workspace including trashed ones (for restore / purge). */

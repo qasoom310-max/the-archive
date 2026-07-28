@@ -43,11 +43,13 @@ final class AccessControlTest extends TestCase
     {
         $this->seed(AuthSeeder::class);
 
+        // Login lands on the database chooser (which sends single-database /
+        // locked users straight in) rather than dropping into a remembered one.
         Livewire::test(Login::class)
             ->set('email', 'admin@example.com')
             ->set('password', 'password')
             ->call('login')
-            ->assertRedirect('/');
+            ->assertRedirect(route('workspaces.choose'));
 
         $this->assertAuthenticated();
     }

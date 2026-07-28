@@ -35,7 +35,17 @@ final class RemoteOrders extends Component
 
     public function mount(): void
     {
-        abort_unless(Features::enabled(Feature::RemoteSales), 404);
+        // Remote sales off in THIS database (the feature toggled off, or — the
+        // real trap — a stale wire:navigate/bookmark to this URL, or a request
+        // that resolved against the wrong database). Send the user to the POS
+        // home instead of a jarring "404 page not found": a disabled feature is
+        // not a broken page.
+        if (! Features::enabled(Feature::RemoteSales)) {
+            $this->redirect(url('/app/pos'), navigate: true);
+
+            return;
+        }
+
         $this->guard(Permission::Read);
     }
 

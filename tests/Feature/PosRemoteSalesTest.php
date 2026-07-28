@@ -320,10 +320,11 @@ final class PosRemoteSalesTest extends TestCase
     {
         $session = $this->openSession();
 
-        // Off → the terminal shows no channel toggle, and the dashboard 404s.
+        // Off → the terminal shows no channel toggle, and the dashboard sends
+        // the user to the POS home instead of a jarring 404.
         Livewire::test(PosTerminal::class, ['session' => $session->id])
             ->assertDontSee('Remote / delivery');
-        $this->get('/app/pos/remote')->assertNotFound();
+        Livewire::test(RemoteOrders::class)->assertRedirect(url('/app/pos'));
 
         // On → the toggle appears.
         $this->enableRemote();

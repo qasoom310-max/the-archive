@@ -48,12 +48,16 @@
                 {{ __('Net delivery cost') }}: {{ $money($deliveryCostTotal - $deliveryChargeTotal) }} · {{ $periodLabel }}
             </p>
         </div>
-        @if ($canCreate)
-            <a href="{{ $startUrl }}" wire:navigate class="o-btn-primary shrink-0">
-                <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
-                {{ __('New remote order') }}
-            </a>
-        @endif
+        <div class="flex shrink-0 items-center gap-2">
+            {{-- Where the collected money is tracked until it reaches the bank. --}}
+            <a href="{{ url('/app/pos/settlements') }}" wire:navigate class="o-btn-ghost">{{ __('Delivery money') }}</a>
+            @if ($canCreate)
+                <a href="{{ $startUrl }}" wire:navigate class="o-btn-primary">
+                    <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
+                    {{ __('New remote order') }}
+                </a>
+            @endif
+        </div>
     </div>
     <p class="mb-4 -mt-2 text-xs text-chrome-400">{{ __('Orders are rung up at the register, then tracked and delivered here.') }}</p>
 

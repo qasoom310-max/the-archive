@@ -13,6 +13,7 @@ use Modules\Accounting\Listeners\RecordExpenseInJournal;
 use Modules\Accounting\Listeners\RecordPosSaleInJournal;
 use Modules\Accounting\Listeners\RecordPurchaseInJournal;
 use Modules\Accounting\Listeners\RecordSalaryInJournal;
+use Modules\Accounting\Listeners\RecordSettlementInJournal;
 use Modules\Accounting\Services\FinancialReports;
 use Modules\Accounting\Services\JournalPoster;
 use Modules\Accounting\Services\SequenceGenerator;
@@ -54,6 +55,11 @@ final class AccountingServiceProvider extends ServiceProvider
         // it as an operating expense so the P&L reflects it. Same event as the
         // sale; posts only when the order carries a delivery fee.
         Event::listen(PosOrderPaid::class, [RecordDeliveryCostInJournal::class, 'handle']);
+
+        // Delivery payout received → move the money out of "in transit" and
+        // into the bank, booking any shortfall. Registered by the string event
+        // name so Accounting keeps no compile-time dependency on POS internals.
+        Event::listen('Modules\Pos\Events\PosSettlementReceived', [RecordSettlementInJournal::class, 'handle']);
 
         // Purchase → Accounting. The Purchases module fires
         // `PurchaseInvoiceConfirmed` (carrying the Purchase as `$invoice`)

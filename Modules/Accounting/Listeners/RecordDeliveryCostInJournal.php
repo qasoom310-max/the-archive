@@ -44,6 +44,20 @@ final class RecordDeliveryCostInJournal
             $expense = Account::byCode((string) config('accounting.accounts.operating_expense'));
             $cash = Account::byCode((string) config('accounting.accounts.cash'));
 
+            // On a delivery sale we never hand over cash for this: the company
+            // keeps its fee out of what it collected, so the fee reduces what
+            // they still owe us ("money in transit") rather than our drawer.
+            // That also makes the transit balance settle to exactly the payout
+            // we expect. Falls back to cash when the account isn't present.
+            if ($order->isRemote()) {
+                $transitCode = (string) config('accounting.accounts.money_in_transit', '');
+                $transit = $transitCode !== '' ? Account::byCode($transitCode) : null;
+
+                if ($transit !== null) {
+                    $cash = $transit;
+                }
+            }
+
             if ($expense === null || $cash === null) {
                 return;
             }

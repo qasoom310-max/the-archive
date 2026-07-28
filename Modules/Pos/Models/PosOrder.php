@@ -48,6 +48,7 @@ use Modules\Pos\Services\PosInventoryBridge;
  * @property string|null $delivery_address Remote delivery address (free text)
  * @property float $delivery_fee Delivery cost WE absorb — our expense, NOT on the customer's bill
  * @property float $delivery_charge Delivery charged TO the customer — added to the total (revenue)
+ * @property int|null $pos_settlement_id Payout that brought this order's money into our account
  * @property FulfillmentStatus|null $fulfillment_status Delivery pipeline (remote orders only)
  * @property string|null $delivery_reference Courier / delivery-note number (remote orders)
  * @property string|null $notes Order-level free-text note (e.g. set when split off another order)
@@ -76,7 +77,8 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
         'subtotal', 'tax_total', 'total', 'paid_total', 'change_due',
         'customer_discount_percent', 'customer_discount_total',
         'components_consumed', 'customer_phone', 'customer_name', 'payment_proof_path',
-        'delivery_address', 'delivery_fee', 'delivery_charge', 'fulfillment_status', 'delivery_reference',
+        'delivery_address', 'delivery_fee', 'delivery_charge', 'pos_settlement_id',
+        'fulfillment_status', 'delivery_reference',
         'notes', 'ordered_at',
     ];
 
@@ -238,6 +240,17 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
     public function isRemote(): bool
     {
         return $this->channel === SalesChannel::Remote;
+    }
+
+    /**
+     * The payout that brought this order's money into our account (null while
+     * it is still held by the delivery company).
+     *
+     * @return BelongsTo<PosSettlement, $this>
+     */
+    public function settlement(): BelongsTo
+    {
+        return $this->belongsTo(PosSettlement::class, 'pos_settlement_id');
     }
 
     /** Whether a proof-of-payment photo is attached to this order. */

@@ -120,13 +120,20 @@ final class PosRemoteSalesTest extends TestCase
         $entry = JournalEntry::query()->where('reference', 'DEL/POS/1/0009')->first();
         $this->assertNotNull($entry);
 
-        $opex = Account::byCode('5030'); // operating expenses
-        $cash = Account::byCode('1010'); // cash
+        $opex = Account::byCode('5030');    // operating expenses
+        $cash = Account::byCode('1010');    // cash on hand
+        $transit = Account::byCode('1150'); // money in transit (delivery)
         $this->assertNotNull($opex);
         $this->assertNotNull($cash);
-        // Dr Operating Expenses 2.8 / Cr Cash 2.8 — the delivery paid from our pocket.
+        $this->assertNotNull($transit);
+
+        // Dr Operating Expenses 2.8 — the delivery is still our cost.
         $this->assertSame(2.8, (float) $entry->items()->where('account_id', $opex->id)->sum('debit'));
-        $this->assertSame(2.8, (float) $entry->items()->where('account_id', $cash->id)->sum('credit'));
+        // Cr Money in Transit, NOT cash: on a delivery sale the company keeps
+        // its fee out of what it collected, so nothing leaves our drawer — the
+        // fee just reduces what they still owe us.
+        $this->assertSame(2.8, (float) $entry->items()->where('account_id', $transit->id)->sum('credit'));
+        $this->assertSame(0.0, (float) $entry->items()->where('account_id', $cash->id)->sum('credit'));
     }
 
     public function test_a_remote_order_cannot_be_paid_without_a_customer_name_and_phone(): void

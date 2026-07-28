@@ -49,6 +49,9 @@ final class ChartOfAccountsSeeder extends Seeder
             ['code' => '1010', 'name' => ['en' => 'Cash on Hand', 'ar' => 'النقد في الصندوق'], 'type' => AccountType::Asset, 'parent' => '1000', 'reconcilable' => true],
             ['code' => '1020', 'name' => ['en' => 'Bank', 'ar' => 'البنك'], 'type' => AccountType::Asset, 'parent' => '1000', 'reconcilable' => true],
             ['code' => '1100', 'name' => ['en' => 'Accounts Receivable', 'ar' => 'الذمم المدينة'], 'type' => AccountType::Asset, 'parent' => '1000', 'reconcilable' => true],
+            // Delivery money collected for us but not yet in our account — cash
+            // the delivery company is holding, or a transfer still in flight.
+            ['code' => '1150', 'name' => ['en' => 'Money in Transit (delivery)', 'ar' => 'أموال قيد التحصيل (التوصيل)'], 'type' => AccountType::Asset, 'parent' => '1000', 'reconcilable' => true],
             ['code' => '1200', 'name' => ['en' => 'Inventory', 'ar' => 'المخزون'], 'type' => AccountType::Asset, 'parent' => '1000', 'reconcilable' => false],
 
             // Liabilities (2xxx)

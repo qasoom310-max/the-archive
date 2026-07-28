@@ -46,11 +46,25 @@ final class RecordPosSaleInJournal
 
     private function record(PosOrder $order): void
     {
+        // A DELIVERY sale's money never reaches us at the till — the delivery
+        // company collects it (or the customer transfers it), so it is held by
+        // someone else until the payout lands. Debit "money in transit" for
+        // those; a walk-in sale is real cash in the drawer. Falls back to cash
+        // if the transit account isn't in this database's chart of accounts.
         $cashCode = (string) config('accounting.accounts.cash');
         $salesCode = (string) config('accounting.accounts.sales_income');
 
         $cash = Account::byCode($cashCode);
         $sales = Account::byCode($salesCode);
+
+        if ($order->isRemote()) {
+            $transitCode = (string) config('accounting.accounts.money_in_transit', '');
+            $transit = $transitCode !== '' ? Account::byCode($transitCode) : null;
+
+            if ($transit !== null) {
+                $cash = $transit;
+            }
+        }
 
         if ($cash === null) {
             throw new \RuntimeException("Cash account '{$cashCode}' not found in Chart of Accounts.");

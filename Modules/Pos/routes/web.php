@@ -34,6 +34,7 @@ use Modules\Pos\Livewire\PosReporting;
 use Modules\Pos\Livewire\ProductionForm;
 use Modules\Pos\Livewire\Productions;
 use Modules\Pos\Livewire\PosSessionPage;
+use Modules\Pos\Livewire\PosSettlements;
 use Modules\Pos\Livewire\PosStockReport;
 use Modules\Pos\Livewire\PosTableForm;
 use Modules\Pos\Livewire\PosTables;
@@ -56,8 +57,13 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/pos/stock-report', PosStockReport::class)->name('pos.stock_report');
 
     // Remote / delivery sales — the fulfillment queue (perfume / retail).
-    // The screen re-checks the feature in mount(), so a stale link 404s when off.
+    // Both screens re-check the feature in mount() and redirect home when off,
+    // so a stale link or bookmark can't land on a dead page.
     Route::get('/app/pos/remote', RemoteOrders::class)->name('pos.remote.index');
+
+    // Delivery money: what the delivery company still holds, what we requested,
+    // and what actually landed (reconciled against the expected amount).
+    Route::get('/app/pos/settlements', PosSettlements::class)->name('pos.settlements.index');
 
     // Sidebar resource entries (driven by the registered ir_models):
     // pos.order / pos.product / pos.session → these index pages.

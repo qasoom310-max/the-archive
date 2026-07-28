@@ -26,6 +26,11 @@ return [
         // Asset — outstanding customer invoices.
         'accounts_receivable' => '1100',
 
+        // Asset — delivery money collected for us but not yet in our account:
+        // cash the delivery company is holding, or a bank transfer still in
+        // flight. Cleared when the payout is received (see PosSettlement).
+        'money_in_transit' => '1150',
+
         // Asset — inventory on hand. Debited when a purchase lands.
         'inventory' => '1200',
 

@@ -88,7 +88,11 @@
             <p class="text-sm font-medium text-chrome-800">
                 {{ trans_choice('{1}:count order selected|[2,*]:count orders selected', count($selectedOrders), ['count' => count($selectedOrders)]) }}
                 @if ($selectedUncollected > 0)
-                    · {{ __('to collect') }} <span class="font-bold">{{ $money($selectedUncollected) }}</span>
+                    · {{ __('customer pays') }} <span class="font-bold">{{ $money($selectedUncollected) }}</span>
+                    @if ($selectedFees > 0)
+                        <span class="text-chrome-500">− {{ __('their fees') }} {{ $money($selectedFees) }}</span>
+                        · <span class="font-bold text-emerald-600">{{ __('you receive') }} {{ $money($selectedUncollected - $selectedFees) }}</span>
+                    @endif
                 @endif
             </p>
             <div class="flex flex-wrap items-center gap-2">
@@ -159,11 +163,21 @@
                             @endif
                         </div>
                         <div class="text-end">
+                            {{-- Two different amounts, and confusing them is how
+                                 a payout gets checked against the wrong figure:
+                                 the customer hands the driver the full total,
+                                 then the company keeps its fee and remits the
+                                 rest. Show what should actually reach us. --}}
                             <p class="text-base font-bold text-chrome-900">{{ $money($order->total) }}</p>
                             <p class="text-xs text-chrome-400">
                                 {{ $order->lines_count }} {{ __('items') }}
-                                @if ($order->delivery_fee > 0) · {{ __('Delivery cost') }} {{ $money($order->delivery_fee) }}@endif
+                                @if ($order->delivery_fee > 0) · {{ __('Their fee') }} −{{ $money($order->delivery_fee) }}@endif
                             </p>
+                            @if ($order->delivery_fee > 0)
+                                <p class="mt-0.5 text-xs font-semibold text-emerald-600">
+                                    {{ __('You receive') }} {{ $money($order->total - $order->delivery_fee) }}
+                                </p>
+                            @endif
                         </div>
                     </div>
 

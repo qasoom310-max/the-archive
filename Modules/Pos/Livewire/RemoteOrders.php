@@ -297,6 +297,12 @@ final class RemoteOrders extends Component
                 ->whereIn('id', $this->selectedOrders)
                 ->whereRaw('paid_total < total - 0.001')
                 ->sum('total'), 3),
+            // The company keeps these out of what it collected, so the money
+            // that should actually reach us is the difference.
+            'selectedFees' => $this->selectedOrders === [] ? 0.0 : round((float) PosOrder::query()
+                ->whereIn('id', $this->selectedOrders)
+                ->whereRaw('paid_total < total - 0.001')
+                ->sum('delivery_fee'), 3),
             'startUrl' => $startUrl,
             'canCreate' => app(AccessControl::class)->allows(Auth::user(), 'pos.order', Permission::Create),
             'canFulfill' => app(AccessControl::class)->allows(Auth::user(), 'pos.order', Permission::Write),

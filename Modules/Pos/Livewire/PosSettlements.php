@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Modules\Pos\Enums\SettlementState;
 use Modules\Pos\Models\PosSettlement;
 use Modules\Pos\Services\PosSettlementService;
 
@@ -38,6 +39,19 @@ final class PosSettlements extends Component
     public string $receivedOn = '';
 
     public string $receiptNote = '';
+
+    public string $receiptReference = '';
+
+    /**
+     * Payout ids ticked for a BULK receipt — the delivery company often settles
+     * several requests with one transfer.
+     *
+     * @var list<int>
+     */
+    public array $selected = [];
+
+    /** Whether the bulk "one transfer covers these" form is open. */
+    public bool $bulkReceiving = false;
 
     public function mount(): void
     {
@@ -69,6 +83,85 @@ final class PosSettlements extends Component
             : __('Nothing is awaiting settlement.'));
     }
 
+    /**
+     * Open the bulk form: one transfer settling every ticked payout. Prefilled
+     * with their combined expected amount, the usual case.
+     */
+    public function openBulkReceive(): void
+    {
+        $this->guard(Permission::Write);
+
+        if ($this->selected === []) {
+            return;
+        }
+
+        $this->bulkReceiving = true;
+        $this->receivingId = null;
+        $this->receivedAmount = number_format($this->selectedExpected(), 3, '.', '');
+        $this->receivedMethod = 'bank_transfer';
+        $this->receivedOn = now()->toDateString();
+        $this->receiptReference = '';
+        $this->receiptNote = '';
+        $this->resetErrorBag();
+    }
+
+    public function cancelBulkReceive(): void
+    {
+        $this->bulkReceiving = false;
+        $this->receivedAmount = '';
+        $this->receiptReference = '';
+        $this->receiptNote = '';
+    }
+
+    /** Record ONE transfer that covers every ticked payout. */
+    public function confirmBulkReceive(): void
+    {
+        $this->guard(Permission::Write);
+
+        if ($this->selected === []) {
+            return;
+        }
+
+        $this->validate([
+            'receivedAmount' => ['required', 'numeric', 'min:0'],
+            'receivedOn' => ['nullable', 'date'],
+            'receiptReference' => ['nullable', 'string', 'max:100'],
+            'receiptNote' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $result = app(PosSettlementService::class)->recordBulkReceipt(
+            array_map('intval', $this->selected),
+            (float) $this->receivedAmount,
+            $this->receivedMethod,
+            $this->receivedOn,
+            $this->receiptNote,
+            $this->receiptReference !== '' ? $this->receiptReference : null,
+        );
+
+        $this->selected = [];
+        $this->cancelBulkReceive();
+
+        session()->flash('settlement_status', abs($result['difference']) >= 0.001
+            ? __(':count payouts recorded — but the transfer does NOT match what was requested (:diff). Check it.', [
+                'count' => $result['settlements'],
+                'diff' => \App\Erp\Money\Currencies::format($result['difference']),
+            ])
+            : __(':count payouts received and matched. Money is in your account.', ['count' => $result['settlements']]));
+    }
+
+    /** Combined amount owed on the ticked payouts. */
+    public function selectedExpected(): float
+    {
+        if ($this->selected === []) {
+            return 0.0;
+        }
+
+        return round((float) PosSettlement::query()
+            ->whereIn('id', $this->selected)
+            ->where('state', SettlementState::Requested->value)
+            ->sum('expected_amount'), 3);
+    }
+
     /** Open the "money arrived" form for a requested payout. */
     public function openReceive(int $settlementId): void
     {
@@ -79,7 +172,9 @@ final class PosSettlements extends Component
             return;
         }
 
+        $this->bulkReceiving = false;
         $this->receivingId = $settlementId;
+        $this->receiptReference = '';
         // Prefilled with what we expect — the common case is an exact match, and
         // the cashier only edits it when the transfer was wrong.
         $this->receivedAmount = number_format((float) $settlement->expected_amount, 3, '.', '');
@@ -122,6 +217,7 @@ final class PosSettlements extends Component
             $this->receivedMethod,
             $this->receivedOn,
             $this->receiptNote,
+            $this->receiptReference !== '' ? $this->receiptReference : null,
         );
 
         $this->cancelReceive();
@@ -162,6 +258,7 @@ final class PosSettlements extends Component
             'awaitingTransfer' => round((float) $settlements
                 ->reject(fn (PosSettlement $s): bool => $s->isReceived())
                 ->sum('expected_amount'), 3),
+            'selectedExpected' => $this->selectedExpected(),
             'canManage' => app(AccessControl::class)->allows(Auth::user(), 'pos.order', Permission::Write),
         ]);
     }

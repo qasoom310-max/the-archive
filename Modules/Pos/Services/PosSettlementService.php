@@ -116,6 +116,7 @@ final class PosSettlementService
         ?string $method = null,
         ?string $receivedOn = null,
         ?string $note = null,
+        ?string $receiptReference = null,
     ): PosSettlement {
         if ($settlement->isReceived()) {
             return $settlement;
@@ -129,6 +130,7 @@ final class PosSettlementService
             ? Carbon::parse($receivedOn)
             : Carbon::now();
         $settlement->method = $method;
+        $settlement->receipt_reference = $receiptReference;
         $settlement->state = SettlementState::Received;
 
         if ($note !== null && $note !== '') {
@@ -141,6 +143,72 @@ final class PosSettlementService
         PosSettlementReceived::dispatch($settlement);
 
         return $settlement;
+    }
+
+    /**
+     * ONE transfer that settles SEVERAL payout requests — the common case when
+     * the delivery company pays a few days' requests together.
+     *
+     * The lump is split across the selected payouts in proportion to what each
+     * was owed, so every payout keeps a coherent record and the split adds back
+     * up to the transfer EXACTLY (the last one absorbs the rounding, so no fils
+     * is invented or lost). A short transfer therefore shows up as a shortfall
+     * spread across the batch rather than being blamed on one arbitrary payout.
+     *
+     * @param  list<int>  $settlementIds
+     * @return array{settlements: int, expected: float, received: float, difference: float}
+     */
+    public function recordBulkReceipt(
+        array $settlementIds,
+        float $amount,
+        ?string $method = null,
+        ?string $receivedOn = null,
+        ?string $note = null,
+        ?string $receiptReference = null,
+    ): array {
+        /** @var \Illuminate\Database\Eloquent\Collection<int, PosSettlement> $settlements */
+        $settlements = PosSettlement::query()
+            ->whereIn('id', $settlementIds)
+            ->where('state', SettlementState::Requested->value)
+            ->orderBy('id')
+            ->get();
+
+        if ($settlements->isEmpty()) {
+            return ['settlements' => 0, 'expected' => 0.0, 'received' => 0.0, 'difference' => 0.0];
+        }
+
+        $received = round(max(0.0, $amount), 3);
+        $totalExpected = round((float) $settlements->sum('expected_amount'), 3);
+
+        $count = $settlements->count();
+        $running = 0.0;
+        $index = 0;
+
+        foreach ($settlements as $settlement) {
+            $index++;
+
+            if ($index === $count) {
+                // Last one takes whatever is left, so the parts sum to the
+                // transfer to the fils regardless of rounding.
+                $share = round($received - $running, 3);
+            } elseif ($totalExpected > 0.0) {
+                $share = round($received * ((float) $settlement->expected_amount / $totalExpected), 3);
+            } else {
+                // Nothing was expected (all-zero batch) — split evenly.
+                $share = round($received / $count, 3);
+            }
+
+            $running = round($running + $share, 3);
+
+            $this->recordReceipt($settlement, $share, $method, $receivedOn, $note, $receiptReference);
+        }
+
+        return [
+            'settlements' => $count,
+            'expected' => $totalExpected,
+            'received' => $received,
+            'difference' => round($received - $totalExpected, 3),
+        ];
     }
 
     /**

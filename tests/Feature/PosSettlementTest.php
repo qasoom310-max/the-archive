@@ -182,6 +182,105 @@ final class PosSettlementTest extends TestCase
         $this->assertTrue($settlement->fresh()?->isReceived());
     }
 
+    /**
+     * The delivery company usually settles a few days' requests with ONE
+     * transfer, so several payouts must be confirmable together.
+     */
+    public function test_one_transfer_can_settle_several_payouts(): void
+    {
+        $service = app(PosSettlementService::class);
+
+        $this->collectedOrder('POS/1', 20.0, 1.1);          // expected 18.9
+        $first = $service->requestPayout();
+        $this->collectedOrder('POS/2', 30.0, 1.1);          // expected 28.9
+        $second = $service->requestPayout();
+        $this->assertNotNull($first);
+        $this->assertNotNull($second);
+
+        // One transfer of 47.8 covers both.
+        $result = $service->recordBulkReceipt([$first->id, $second->id], 47.8, 'bank_transfer', null, null, 'TRF-99');
+
+        $this->assertSame(2, $result['settlements']);
+        $this->assertSame(47.8, $result['expected']);
+        $this->assertSame(0.0, $result['difference']);
+
+        $first->refresh();
+        $second->refresh();
+        $this->assertTrue($first->isReceived());
+        $this->assertTrue($second->isReceived());
+        // Each keeps a coherent record, and both carry the transfer reference
+        // so the bank line traces back to the orders it covered.
+        $this->assertSame(18.9, $first->received_amount);
+        $this->assertSame(28.9, $second->received_amount);
+        $this->assertSame('TRF-99', $first->receipt_reference);
+        $this->assertSame('TRF-99', $second->receipt_reference);
+        $this->assertFalse($first->hasDiscrepancy());
+        $this->assertFalse($second->hasDiscrepancy());
+    }
+
+    public function test_a_short_bulk_transfer_is_flagged_and_still_adds_up_exactly(): void
+    {
+        $service = app(PosSettlementService::class);
+
+        $this->collectedOrder('POS/1', 20.0, 1.1);   // expected 18.9
+        $first = $service->requestPayout();
+        $this->collectedOrder('POS/2', 30.0, 1.1);   // expected 28.9
+        $second = $service->requestPayout();
+        $this->assertNotNull($first);
+        $this->assertNotNull($second);
+
+        // 47.8 was owed but only 40 arrived.
+        $result = $service->recordBulkReceipt([$first->id, $second->id], 40.0);
+
+        $this->assertSame(-7.8, $result['difference']);
+
+        $first->refresh();
+        $second->refresh();
+        // The split must equal the transfer to the fils — no money invented or
+        // lost by rounding.
+        $this->assertSame(40.0, round($first->received_amount + $second->received_amount, 3));
+        $this->assertTrue($first->hasDiscrepancy());
+        $this->assertTrue($second->hasDiscrepancy());
+    }
+
+    public function test_a_bulk_receipt_ignores_payouts_that_were_already_received(): void
+    {
+        $service = app(PosSettlementService::class);
+
+        $this->collectedOrder('POS/1', 20.0, 1.1);
+        $settlement = $service->requestPayout();
+        $this->assertNotNull($settlement);
+        $service->recordReceipt($settlement, 18.9);
+
+        // Re-including it must not double-count or overwrite the receipt.
+        $result = $service->recordBulkReceipt([$settlement->id], 5.0);
+
+        $this->assertSame(0, $result['settlements']);
+        $this->assertSame(18.9, $settlement->fresh()?->received_amount);
+    }
+
+    public function test_the_screen_bulk_confirms_the_ticked_payouts(): void
+    {
+        $service = app(PosSettlementService::class);
+        $this->collectedOrder('POS/1', 20.0, 1.1);
+        $first = $service->requestPayout();
+        $this->collectedOrder('POS/2', 30.0, 1.1);
+        $second = $service->requestPayout();
+        $this->assertNotNull($first);
+        $this->assertNotNull($second);
+
+        Livewire::test(PosSettlements::class)
+            ->set('selected', [$first->id, $second->id])
+            ->call('openBulkReceive')
+            // Prefilled with the combined amount owed.
+            ->assertSet('receivedAmount', '47.800')
+            ->call('confirmBulkReceive')
+            ->assertSet('selected', []);
+
+        $this->assertTrue($first->fresh()?->isReceived());
+        $this->assertTrue($second->fresh()?->isReceived());
+    }
+
     public function test_the_screen_is_gated_to_the_remote_sales_feature(): void
     {
         Features::setOverrides([Feature::RemoteSales->value => false]);

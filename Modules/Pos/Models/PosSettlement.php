@@ -31,6 +31,7 @@ use Modules\Pos\Enums\SettlementState;
  * @property float $received_amount   What actually landed in our account
  * @property float $difference        received − expected (negative = short)
  * @property string|null $method
+ * @property string|null $receipt_reference Bank transfer ref; shared when one transfer settles several payouts
  * @property string|null $note
  * @property int|null $user_id
  */
@@ -42,7 +43,7 @@ final class PosSettlement extends Model
     protected $fillable = [
         'reference', 'state', 'requested_at', 'received_at',
         'collected_total', 'fees_deducted', 'expected_amount',
-        'received_amount', 'difference', 'method', 'note', 'user_id',
+        'received_amount', 'difference', 'method', 'receipt_reference', 'note', 'user_id',
     ];
 
     /** @var array<string, mixed> */

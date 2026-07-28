@@ -32,6 +32,9 @@
             @if ($deliveryCostTotal > 0)
                 <p class="mt-1 text-xs font-medium text-red-500">{{ __('Delivery costs (our expense)') }}: {{ $money($deliveryCostTotal) }}</p>
             @endif
+            @if ($deliveryChargeTotal > 0)
+                <p class="mt-0.5 text-xs font-medium text-emerald-600">{{ __('Delivery charged to customers') }}: {{ $money($deliveryChargeTotal) }}</p>
+            @endif
         </div>
         @if ($canCreate)
             <a href="{{ $startUrl }}" wire:navigate class="o-btn-primary shrink-0">

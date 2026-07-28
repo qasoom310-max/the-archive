@@ -130,7 +130,11 @@ final class PosTerminal extends Component
 
     public string $deliveryAddress = '';
 
+    /** Delivery cost WE absorb (our expense). */
     public string $deliveryFee = '';
+
+    /** Delivery charged TO the customer — added to their bill (revenue). */
+    public string $deliveryCharge = '';
 
     public string $deliveryReference = '';
 
@@ -176,6 +180,9 @@ final class PosTerminal extends Component
         $this->deliveryFee = $order->delivery_fee > 0
             ? rtrim(rtrim(number_format((float) $order->delivery_fee, 2), '0'), '.')
             : '';
+        $this->deliveryCharge = $order->delivery_charge > 0
+            ? rtrim(rtrim(number_format((float) $order->delivery_charge, 2), '0'), '.')
+            : '';
     }
 
     /**
@@ -197,7 +204,9 @@ final class PosTerminal extends Component
         $order->channel = SalesChannel::from($channel);
         if ($channel === 'shop') {
             $order->delivery_fee = 0;
+            $order->delivery_charge = 0;
             $this->deliveryFee = '';
+            $this->deliveryCharge = '';
         }
         $order->save();
         $order->recalculate();
@@ -229,6 +238,15 @@ final class PosTerminal extends Component
     {
         $order = $this->order();
         $order->delivery_fee = max(0.0, round((float) $this->deliveryFee, 2));
+        $order->save();
+        $order->recalculate();
+    }
+
+    /** Delivery amount charged to the customer — added to their bill. */
+    public function updatedDeliveryCharge(): void
+    {
+        $order = $this->order();
+        $order->delivery_charge = max(0.0, round((float) $this->deliveryCharge, 2));
         $order->save();
         $order->recalculate();
     }

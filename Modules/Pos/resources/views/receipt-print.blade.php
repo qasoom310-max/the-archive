@@ -97,6 +97,9 @@
             @if ($customerDiscount !== null)
                 <tr class="row-emerald"><td>{{ __('Customer discount') }} ({{ $customerDiscountPercent }}%)</td><td class="r">−{{ $customerDiscount }}</td></tr>
             @endif
+            @if ($deliveryCharge !== null)
+                <tr><td class="muted">{{ __('Delivery') }}</td><td class="r muted">{{ $deliveryCharge }}</td></tr>
+            @endif
             <tr class="row-bold"><td>{{ __('Total') }}</td><td class="r">{{ $total }}</td></tr>
             @foreach ($payments as $p)
                 <tr><td class="muted">{{ $p['method'] }}</td><td class="r muted">{{ $p['amount'] }}</td></tr>

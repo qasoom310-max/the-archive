@@ -86,7 +86,13 @@
                         <input type="number" step="0.001" min="0" wire:model.blur="deliveryFee"
                             placeholder="0" class="o-input w-full text-sm text-end">
                     </div>
-                    <p class="text-[11px] text-chrome-400">{{ __('Our cost per destination — not charged to the customer. Booked as an expense.') }}</p>
+                    <p class="text-[11px] text-chrome-400">{{ __('Our cost — not charged to the customer. Booked as an expense.') }}</p>
+                    <div class="flex items-center gap-2">
+                        <label class="shrink-0 text-xs font-medium text-chrome-500">{{ __('Delivery — customer pays') }}</label>
+                        <input type="number" step="0.001" min="0" wire:model.blur="deliveryCharge"
+                            placeholder="0" class="o-input w-full text-sm text-end">
+                    </div>
+                    <p class="text-[11px] text-chrome-400">{{ __('Added to the customer\'s bill — e.g. an urgent request. Leave 0 if delivery is on us.') }}</p>
                     @if ($channelError !== '')
                         <p class="text-xs font-medium text-red-600">{{ $channelError }}</p>
                     @endif
@@ -219,6 +225,12 @@
                 <div class="flex justify-between text-sm font-medium text-emerald-600">
                     <span>{{ __('Customer discount') }} ({{ rtrim(rtrim(number_format($order->customer_discount_percent, 2), '0'), '.') }}%)</span>
                     <span>−{{ $money($order->customer_discount_total) }}</span>
+                </div>
+            @endif
+            @if ($order->delivery_charge > 0)
+                {{-- Delivery the customer is paying for — part of the total. --}}
+                <div class="flex justify-between text-sm text-chrome-500">
+                    <span>{{ __('Delivery') }}</span><span>{{ $money($order->delivery_charge) }}</span>
                 </div>
             @endif
             <div class="mt-1 flex justify-between text-lg font-bold text-chrome-900">
@@ -693,6 +705,9 @@
                     <div class="flex justify-between text-chrome-500"><span>{{ __('Tax') }}</span><span>{{ $money($receipt->tax_total) }}</span></div>
                     @if ($receipt->customer_discount_total > 0)
                         <div class="flex justify-between text-emerald-600"><span>{{ __('Customer discount') }} ({{ rtrim(rtrim(number_format($receipt->customer_discount_percent, 2), '0'), '.') }}%)</span><span>−{{ $money($receipt->customer_discount_total) }}</span></div>
+                    @endif
+                    @if ($receipt->delivery_charge > 0)
+                        <div class="flex justify-between text-chrome-500"><span>{{ __('Delivery') }}</span><span>{{ $money($receipt->delivery_charge) }}</span></div>
                     @endif
                     <div class="flex justify-between font-bold"><span>{{ __('Total') }}</span><span>{{ $money($receipt->total) }}</span></div>
                     @foreach ($receipt->payments as $p)

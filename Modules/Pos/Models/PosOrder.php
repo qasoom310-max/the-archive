@@ -46,7 +46,8 @@ use Modules\Pos\Services\PosInventoryBridge;
  * @property string|null $customer_name Remote customer's name (no Partner record needed)
  * @property string|null $payment_proof_path Optional proof-of-payment photo (public disk)
  * @property string|null $delivery_address Remote delivery address (free text)
- * @property float $delivery_fee Added to the order total; not taxed
+ * @property float $delivery_fee Delivery cost WE absorb — our expense, NOT on the customer's bill
+ * @property float $delivery_charge Delivery charged TO the customer — added to the total (revenue)
  * @property FulfillmentStatus|null $fulfillment_status Delivery pipeline (remote orders only)
  * @property string|null $delivery_reference Courier / delivery-note number (remote orders)
  * @property string|null $notes Order-level free-text note (e.g. set when split off another order)
@@ -75,7 +76,7 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
         'subtotal', 'tax_total', 'total', 'paid_total', 'change_due',
         'customer_discount_percent', 'customer_discount_total',
         'components_consumed', 'customer_phone', 'customer_name', 'payment_proof_path',
-        'delivery_address', 'delivery_fee', 'fulfillment_status', 'delivery_reference',
+        'delivery_address', 'delivery_fee', 'delivery_charge', 'fulfillment_status', 'delivery_reference',
         'notes', 'ordered_at',
     ];
 
@@ -87,6 +88,7 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
     protected $attributes = [
         'channel' => 'shop',
         'delivery_fee' => 0,
+        'delivery_charge' => 0,
     ];
 
     /**
@@ -104,6 +106,7 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
             'paid_total' => 'float',
             'change_due' => 'float',
             'delivery_fee' => 'float',
+            'delivery_charge' => 'float',
             'customer_discount_percent' => 'float',
             'customer_discount_total' => 'float',
             'components_consumed' => 'boolean',
@@ -220,11 +223,14 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
         $percent = max(0.0, min(100.0, $this->customer_discount_percent));
 
         $this->customer_discount_total = round($gross * $percent / 100, 2);
-        // The customer pays for the goods only. The delivery fee is OUR cost
-        // (we pay the driver), booked as an operating expense — see
-        // {@see \Modules\Accounting\Listeners\RecordDeliveryCostInJournal}. It
-        // is deliberately NOT added to the customer total.
-        $this->total = round($gross - $this->customer_discount_total, 2);
+        // Two delivery amounts, deliberately different:
+        //   · delivery_fee     — OUR cost (we pay the driver). Booked as an
+        //     operating expense (see RecordDeliveryCostInJournal); NEVER on the
+        //     customer total.
+        //   · delivery_charge  — what the CUSTOMER pays for delivery (an urgent
+        //     request, or an offer without free delivery). Added to the total as
+        //     revenue. Not taxed (a flat charge on top).
+        $this->total = round($gross - $this->customer_discount_total + (float) $this->delivery_charge, 2);
         $this->save();
     }
 

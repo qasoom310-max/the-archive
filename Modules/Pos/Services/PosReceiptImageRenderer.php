@@ -144,6 +144,8 @@ class PosReceiptImageRenderer
             'deliveryAddress' => $order->delivery_address,
             'deliveryReference' => $order->delivery_reference,
             'deliveryFee' => $order->delivery_fee > 0 ? Currencies::format((float) $order->delivery_fee) : null,
+            // Delivery the CUSTOMER paid — a line on their bill (part of Total).
+            'deliveryCharge' => $order->delivery_charge > 0 ? Currencies::format((float) $order->delivery_charge) : null,
             'lines' => $lines,
             'subtotal' => Currencies::format((float) $order->subtotal),
             'taxTotal' => Currencies::format((float) $order->tax_total),

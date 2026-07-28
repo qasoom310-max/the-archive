@@ -62,6 +62,34 @@
         {{ __('Net Profit = Sales − Cost of goods sold − Expenses − Payroll − Delivery we paid. Delivery the customer paid is already inside Sales.') }}
     </p>
 
+    {{-- Profit ≠ cash. A sale counts the moment it's made, so a healthy month can
+         sit alongside money that hasn't arrived: a pay-on-delivery order is Done
+         before anyone hands over cash, and once collected the delivery company
+         holds it until the payout. Spell out where that money actually is. --}}
+    @if ($financials['not_in_account'] > 0)
+        <div class="mt-4 rounded-xl bg-amber-50 p-4 ring-1 ring-amber-200">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p class="text-sm font-bold text-amber-900">
+                        {{ __('Not in your account yet') }}: {{ $money($financials['not_in_account']) }}
+                    </p>
+                    <p class="mt-1 text-xs text-amber-800">
+                        {{ __('Sales counts an order when it is sold, not when the money arrives. Of the sales above, this much has not reached you yet:') }}
+                    </p>
+                    <ul class="mt-1.5 space-y-0.5 text-xs text-amber-800">
+                        @if ($financials['uncollected'] > 0)
+                            <li>• {{ __('Not yet collected from customers') }}: <span class="font-semibold">{{ $money($financials['uncollected']) }}</span></li>
+                        @endif
+                        @if ($financials['in_transit'] > 0)
+                            <li>• {{ __('Collected, still held by the delivery company') }}: <span class="font-semibold">{{ $money($financials['in_transit']) }}</span></li>
+                        @endif
+                    </ul>
+                </div>
+                <a href="{{ url('/app/pos/settlements') }}" wire:navigate class="o-btn-ghost shrink-0 text-sm">{{ __('Delivery money') }}</a>
+            </div>
+        </div>
+    @endif
+
     {{-- Recurring bills --}}
     <div class="mt-6 rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5">
         <div class="flex items-center justify-between border-b border-chrome-200 px-4 py-3">

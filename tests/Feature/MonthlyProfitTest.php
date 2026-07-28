@@ -117,6 +117,67 @@ final class MonthlyProfitTest extends TestCase
         $this->assertSame(8.4, $f['net']);
     }
 
+    /**
+     * Profit is not cash. A pay-on-delivery order is Done — and counted in
+     * Sales — before anyone hands over money, and once collected the delivery
+     * company holds it until the payout. The report must say how much of the
+     * month's sales has NOT reached the account, or the owner reads a healthy
+     * month and assumes the money is in the bank.
+     */
+    public function test_it_reports_how_much_of_the_sales_is_not_in_the_account_yet(): void
+    {
+        $month = Carbon::now()->format('Y-m');
+        $session = $this->openSession();
+        $perfume = PosProduct::query()->create(['name' => 'Perfume', 'price' => 20.0, 'cost_price' => 0, 'tax_rate' => 0, 'active' => true]);
+
+        $make = function (string $ref, float $total, float $paid, string $channel, float $fee = 0.0) use ($session, $perfume): PosOrder {
+            $order = PosOrder::query()->create([
+                'pos_session_id' => $session->id, 'reference' => $ref, 'state' => OrderState::Done,
+                'channel' => $channel, 'total' => $total, 'paid_total' => $paid,
+                'delivery_fee' => $fee, 'ordered_at' => now(),
+            ]);
+            $order->lines()->create(['pos_product_id' => $perfume->id, 'name' => 'Perfume', 'qty' => 1, 'unit_price' => $total, 'discount' => 0, 'tax_rate' => 0]);
+
+            return $order;
+        };
+
+        $make('POS/1', 100.0, 100.0, 'shop');            // walk-in cash — in hand
+        $make('POS/2', 60.0, 0.0, 'remote', 1.1);        // COD, customer hasn't paid
+        $make('POS/3', 40.0, 40.0, 'remote', 1.1);       // collected, company holds it
+
+        $f = app(MonthlyFinancials::class)->forMonth($month);
+
+        $this->assertSame(200.0, $f['sales']);           // all three are sales
+        $this->assertSame(60.0, $f['uncollected']);      // still owed by the customer
+        $this->assertSame(38.9, $f['in_transit']);       // 40 − their 1.1 fee
+        $this->assertSame(98.9, $f['not_in_account']);   // 60 + 38.9
+    }
+
+    public function test_money_already_settled_is_not_reported_as_outstanding(): void
+    {
+        $month = Carbon::now()->format('Y-m');
+        $session = $this->openSession();
+        $perfume = PosProduct::query()->create(['name' => 'Perfume', 'price' => 40.0, 'cost_price' => 0, 'tax_rate' => 0, 'active' => true]);
+
+        $order = PosOrder::query()->create([
+            'pos_session_id' => $session->id, 'reference' => 'POS/1', 'state' => OrderState::Done,
+            'channel' => 'remote', 'total' => 40.0, 'paid_total' => 40.0,
+            'delivery_fee' => 1.1, 'ordered_at' => now(),
+        ]);
+        $order->lines()->create(['pos_product_id' => $perfume->id, 'name' => 'Perfume', 'qty' => 1, 'unit_price' => 40.0, 'discount' => 0, 'tax_rate' => 0]);
+
+        // The payout arrived — the money is in the bank now.
+        $service = app(\Modules\Pos\Services\PosSettlementService::class);
+        $settlement = $service->requestPayout();
+        $this->assertNotNull($settlement);
+        $service->recordReceipt($settlement, 38.9);
+
+        $f = app(MonthlyFinancials::class)->forMonth($month);
+
+        $this->assertSame(0.0, $f['in_transit']);
+        $this->assertSame(0.0, $f['not_in_account']);
+    }
+
     public function test_a_month_with_no_deliveries_reports_zero(): void
     {
         $f = app(MonthlyFinancials::class)->forMonth(Carbon::now()->format('Y-m'));

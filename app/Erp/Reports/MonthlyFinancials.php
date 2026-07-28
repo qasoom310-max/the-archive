@@ -7,6 +7,7 @@ namespace App\Erp\Reports;
 use App\Models\ExpensePayment;
 use App\Models\Payslip;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosOrder;
@@ -33,7 +34,7 @@ use Modules\Pos\Models\PosProductRecipe;
 final class MonthlyFinancials
 {
     /**
-     * @return array{sales: float, cogs: float, gross: float, expenses: float, payroll: float, delivery: float, delivery_recovered: float, net: float}
+     * @return array{sales: float, cogs: float, gross: float, expenses: float, payroll: float, delivery: float, delivery_recovered: float, uncollected: float, in_transit: float, not_in_account: float, net: float}
      */
     public function forMonth(string $period): array
     {
@@ -52,6 +53,13 @@ final class MonthlyFinancials
         $delivery = 0.0;
         $deliveryRecovered = 0.0;
 
+        // Sales are counted when the sale HAPPENS, not when the cash lands (the
+        // accountant-correct basis for profit). That's why a month can show
+        // healthy sales while the money is still out there — so we also report
+        // how much of it hasn't reached the account yet.
+        $uncollected = 0.0;
+        $inTransit = 0.0;
+
         if (Schema::hasTable('pos_orders') && Schema::hasTable('pos_order_lines')) {
             $orderIds = PosOrder::query()
                 ->where('state', 'done')
@@ -67,6 +75,30 @@ final class MonthlyFinancials
             // database reports zero instead of erroring.
             if (Schema::hasColumn('pos_orders', 'delivery_charge')) {
                 $deliveryRecovered = round((float) PosOrder::query()->whereIn('id', $orderIds)->sum('delivery_charge'), 3);
+            }
+
+            // Still owed by customers — a pay-on-delivery order is Done (the
+            // sale happened) long before anyone hands over money.
+            $uncollected = round((float) PosOrder::query()
+                ->whereIn('id', $orderIds)
+                ->whereRaw('paid_total < total - 0.001')
+                ->sum(DB::raw('total - paid_total')), 3);
+
+            // Collected, but the delivery company is still holding it. Net of
+            // the fee they keep, so this is what should actually reach the bank.
+            if (Schema::hasColumn('pos_orders', 'pos_settlement_id')) {
+                $held = PosOrder::query()
+                    ->whereIn('id', $orderIds)
+                    ->where('channel', 'remote')
+                    ->whereRaw('paid_total >= total - 0.001')
+                    ->where(function ($q): void {
+                        $q->whereNull('pos_settlement_id')
+                            ->orWhereHas('settlement', function ($s): void {
+                                $s->where('state', '!=', 'received');
+                            });
+                    });
+
+                $inTransit = round((float) $held->sum('total') - (float) $held->sum('delivery_fee'), 3);
             }
         }
 
@@ -91,6 +123,11 @@ final class MonthlyFinancials
             'payroll' => $payroll,
             'delivery' => $delivery,
             'delivery_recovered' => $deliveryRecovered,
+            // Cash reality, kept OUT of the profit maths: profit is earned when
+            // the sale is made; these just say where the money currently is.
+            'uncollected' => $uncollected,
+            'in_transit' => $inTransit,
+            'not_in_account' => round($uncollected + $inTransit, 3),
             'net' => round($gross - $expenses - $payroll - $delivery, 3),
         ];
     }

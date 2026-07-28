@@ -18,7 +18,7 @@ use Modules\Pos\Models\PosProductRecipe;
  * The accountant-correct monthly P&L:
  *
  *   Gross Profit = Sales − COGS
- *   Net Profit   = Gross Profit − Operating Expenses
+ *   Net Profit   = Gross Profit − Operating Expenses − Payroll − Delivery absorbed
  *
  * where COGS (cost of goods *sold*) is the cost of what each sold product
  * actually consumed: its recipe components (ingredient/product cost; condiments
@@ -33,7 +33,7 @@ use Modules\Pos\Models\PosProductRecipe;
 final class MonthlyFinancials
 {
     /**
-     * @return array{sales: float, cogs: float, gross: float, expenses: float, payroll: float, net: float}
+     * @return array{sales: float, cogs: float, gross: float, expenses: float, payroll: float, delivery: float, delivery_recovered: float, net: float}
      */
     public function forMonth(string $period): array
     {
@@ -41,6 +41,16 @@ final class MonthlyFinancials
 
         $sales = 0.0;
         $cogs = 0.0;
+        // Delivery, the two halves. `delivery` is what WE absorbed (the driver
+        // we paid out of pocket) — a real operating cost that lived only in the
+        // accounting ledger until now, so this report understated it. It is
+        // subtracted below.
+        //
+        // `delivery_recovered` is what customers paid for delivery. It is
+        // display-only context: it already sits INSIDE `sales` (delivery_charge
+        // is part of the order total), so adding it again would double-count.
+        $delivery = 0.0;
+        $deliveryRecovered = 0.0;
 
         if (Schema::hasTable('pos_orders') && Schema::hasTable('pos_order_lines')) {
             $orderIds = PosOrder::query()
@@ -50,6 +60,14 @@ final class MonthlyFinancials
 
             $sales = round((float) PosOrder::query()->whereIn('id', $orderIds)->sum('total'), 3);
             $cogs = $this->costOfGoodsSold($orderIds->all());
+
+            $delivery = round((float) PosOrder::query()->whereIn('id', $orderIds)->sum('delivery_fee'), 3);
+
+            // Column added later than the others — guard so a not-yet-migrated
+            // database reports zero instead of erroring.
+            if (Schema::hasColumn('pos_orders', 'delivery_charge')) {
+                $deliveryRecovered = round((float) PosOrder::query()->whereIn('id', $orderIds)->sum('delivery_charge'), 3);
+            }
         }
 
         $expenses = 0.0;
@@ -71,7 +89,9 @@ final class MonthlyFinancials
             'gross' => $gross,
             'expenses' => $expenses,
             'payroll' => $payroll,
-            'net' => round($gross - $expenses - $payroll, 3),
+            'delivery' => $delivery,
+            'delivery_recovered' => $deliveryRecovered,
+            'net' => round($gross - $expenses - $payroll - $delivery, 3),
         ];
     }
 

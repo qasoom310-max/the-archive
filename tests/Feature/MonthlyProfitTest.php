@@ -79,6 +79,52 @@ final class MonthlyProfitTest extends TestCase
         $this->assertSame(-96.0, $f['net']);      // 4 − 100
     }
 
+    /**
+     * Delivery has two halves and they must land on opposite sides of the P&L:
+     * what we absorbed is an operating cost that reduces profit, while what the
+     * customer paid is ALREADY inside Sales (it's part of the order total) and
+     * must not be counted a second time.
+     */
+    public function test_delivery_we_absorbed_reduces_profit_and_the_customer_charge_is_not_double_counted(): void
+    {
+        $month = Carbon::now()->format('Y-m');
+        $session = $this->openSession();
+
+        // Resale product @ 10.00, own cost 2.00.
+        $perfume = PosProduct::query()->create(['name' => 'Perfume', 'price' => 10.0, 'cost_price' => 2.0, 'tax_rate' => 0, 'active' => true]);
+
+        // Goods 10.00 + delivery the customer paid 1.50 ⇒ total 11.50.
+        // We also paid a driver 1.10 out of our own pocket.
+        $order = PosOrder::query()->create([
+            'pos_session_id' => $session->id,
+            'reference' => 'POS/1',
+            'state' => OrderState::Done,
+            'total' => 11.5,
+            'delivery_fee' => 1.1,
+            'delivery_charge' => 1.5,
+            'ordered_at' => now(),
+        ]);
+        $order->lines()->create(['pos_product_id' => $perfume->id, 'name' => 'Perfume', 'qty' => 1, 'unit_price' => 10.0, 'discount' => 0, 'tax_rate' => 0]);
+
+        $f = app(MonthlyFinancials::class)->forMonth($month);
+
+        $this->assertSame(11.5, $f['sales']);              // the 1.50 is already in here
+        $this->assertSame(2.0, $f['cogs']);
+        $this->assertSame(9.5, $f['gross']);               // 11.5 − 2
+        $this->assertSame(1.1, $f['delivery']);            // our cost, an expense
+        $this->assertSame(1.5, $f['delivery_recovered']);  // context only
+        // 9.5 − 1.1 = 8.4. If the recovered 1.50 were added again it'd be 9.9.
+        $this->assertSame(8.4, $f['net']);
+    }
+
+    public function test_a_month_with_no_deliveries_reports_zero(): void
+    {
+        $f = app(MonthlyFinancials::class)->forMonth(Carbon::now()->format('Y-m'));
+
+        $this->assertSame(0.0, $f['delivery']);
+        $this->assertSame(0.0, $f['delivery_recovered']);
+    }
+
     public function test_marking_a_bill_paid_records_the_actual_amount(): void
     {
         $month = Carbon::now()->format('Y-m');

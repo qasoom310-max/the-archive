@@ -41,13 +41,25 @@
             <p class="text-[11px] font-semibold uppercase tracking-wide text-chrome-500">{{ __('Payroll') }}</p>
             <p class="mt-1 text-lg font-bold text-chrome-700">−{{ $money($financials['payroll']) }}</p>
         </div>
+        {{-- Delivery we absorbed (what we paid the driver). The delivery
+             customers paid for is shown underneath as context only — it is
+             already counted inside Sales, so it is NOT added again here. --}}
+        <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-chrome-500">{{ __('Delivery (we paid)') }}</p>
+            <p class="mt-1 text-lg font-bold text-chrome-700">−{{ $money($financials['delivery']) }}</p>
+            @if ($financials['delivery_recovered'] > 0)
+                <p class="mt-0.5 text-[11px] font-medium text-emerald-600">
+                    {{ __('Customers paid') }}: {{ $money($financials['delivery_recovered']) }}
+                </p>
+            @endif
+        </div>
         <div class="rounded-xl p-4 shadow-sm ring-1 {{ $netNeg ? 'bg-red-50 ring-red-200' : 'bg-emerald-50 ring-emerald-200' }}">
             <p class="text-[11px] font-semibold uppercase tracking-wide {{ $netNeg ? 'text-red-600' : 'text-emerald-700' }}">{{ __('Net Profit') }}</p>
             <p class="mt-1 text-lg font-bold {{ $netNeg ? 'text-red-600' : 'text-emerald-700' }}">{{ $money($financials['net']) }}</p>
         </div>
     </div>
     <p class="mt-2 text-xs text-chrome-400">
-        {{ __('Net Profit = Sales − Cost of goods sold − Expenses − Payroll.') }}
+        {{ __('Net Profit = Sales − Cost of goods sold − Expenses − Payroll − Delivery we paid. Delivery the customer paid is already inside Sales.') }}
     </p>
 
     {{-- Recurring bills --}}

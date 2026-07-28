@@ -10,8 +10,12 @@ use App\Erp\Modules\ModuleManager;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
+use Modules\Pos\Enums\FulfillmentStatus;
+use Modules\Pos\Enums\OrderState;
+use Modules\Pos\Enums\SalesChannel;
 use Modules\Pos\Enums\SessionState;
 use Modules\Pos\Livewire\PosTerminal;
+use Modules\Pos\Livewire\RemoteOrders;
 use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Models\PosSession;
@@ -82,6 +86,50 @@ final class PosDeliveryChargeTest extends TestCase
 
         $this->assertSame(20.0, (float) $order->total);
         $this->assertSame(0.0, (float) $order->delivery_charge);
+    }
+
+    /**
+     * The dashboard's delivery money is scoped to a period (default: this
+     * month). An all-time running total can't answer "what is delivery costing
+     * me now", so last month's spend must not bleed into this month's figure.
+     */
+    public function test_the_dashboard_delivery_totals_are_scoped_to_the_selected_period(): void
+    {
+        $session = $this->openSession();
+
+        $make = function (string $ref, float $fee, float $charge, string $when) use ($session): void {
+            PosOrder::query()->create([
+                'pos_session_id' => $session->id,
+                'reference' => $ref,
+                'state' => OrderState::Done->value,
+                'channel' => SalesChannel::Remote->value,
+                'fulfillment_status' => FulfillmentStatus::Delivered->value,
+                'total' => 10,
+                'delivery_fee' => $fee,
+                'delivery_charge' => $charge,
+                'ordered_at' => $when,
+            ]);
+        };
+
+        $make('POS/NOW', 1.1, 1.5, (string) now());
+        $make('POS/OLD', 2.2, 3.0, (string) now()->subMonthNoOverflow()->startOfMonth()->addDay());
+
+        $component = Livewire::test(RemoteOrders::class);
+
+        // Default = this month: only the recent order counts.
+        $component->assertSet('period', 'month')
+            ->assertViewHas('deliveryCostTotal', 1.1)
+            ->assertViewHas('deliveryChargeTotal', 1.5);
+
+        // Last month: only the older one.
+        $component->call('setPeriod', 'last')
+            ->assertViewHas('deliveryCostTotal', 2.2)
+            ->assertViewHas('deliveryChargeTotal', 3.0);
+
+        // All time: both.
+        $component->call('setPeriod', 'all')
+            ->assertViewHas('deliveryCostTotal', 3.3)
+            ->assertViewHas('deliveryChargeTotal', 4.5);
     }
 
     public function test_switching_back_to_shop_drops_the_customer_delivery_charge(): void

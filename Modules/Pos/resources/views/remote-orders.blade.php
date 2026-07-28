@@ -29,12 +29,24 @@
         <div>
             <h1 class="text-xl font-bold text-chrome-900">{{ __('Remote / delivery sales') }}</h1>
             <p class="text-sm text-chrome-500">{{ __('The fulfillment queue for phone, WhatsApp and delivery orders.') }}</p>
-            @if ($deliveryCostTotal > 0)
-                <p class="mt-1 text-xs font-medium text-red-500">{{ __('Delivery costs (our expense)') }}: {{ $money($deliveryCostTotal) }}</p>
-            @endif
-            @if ($deliveryChargeTotal > 0)
-                <p class="mt-0.5 text-xs font-medium text-emerald-600">{{ __('Delivery charged to customers') }}: {{ $money($deliveryChargeTotal) }}</p>
-            @endif
+            {{-- Delivery money for the chosen period (default: this month), so
+                 the figure answers "what is delivery costing me now" instead of
+                 being an ever-growing all-time total. --}}
+            <div class="mt-2 inline-flex flex-wrap items-center gap-1.5">
+                <span class="text-[11px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Delivery') }}</span>
+                @foreach ([['month', __('This month')], ['last', __('Last month')], ['all', __('All time')]] as [$key, $label])
+                    <button type="button" wire:click="setPeriod('{{ $key }}')"
+                        class="rounded-full px-2 py-0.5 text-[11px] font-medium transition
+                            {{ $period === $key ? 'bg-primary-400 text-chrome-900' : 'bg-chrome-100 text-chrome-500 hover:bg-chrome-200' }}">
+                        {{ $label }}
+                    </button>
+                @endforeach
+            </div>
+            <p class="mt-1 text-xs font-medium text-red-500">{{ __('Delivery costs (our expense)') }}: {{ $money($deliveryCostTotal) }}</p>
+            <p class="mt-0.5 text-xs font-medium text-emerald-600">{{ __('Delivery charged to customers') }}: {{ $money($deliveryChargeTotal) }}</p>
+            <p class="mt-0.5 text-[11px] text-chrome-400">
+                {{ __('Net delivery cost') }}: {{ $money($deliveryCostTotal - $deliveryChargeTotal) }} · {{ $periodLabel }}
+            </p>
         </div>
         @if ($canCreate)
             <a href="{{ $startUrl }}" wire:navigate class="o-btn-primary shrink-0">

@@ -9,6 +9,7 @@ use App\Erp\Business\Features;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -33,6 +34,13 @@ final class RemoteOrders extends Component
     /** active | new | packed | out_for_delivery | delivered | all */
     public string $filter = 'active';
 
+    /**
+     * Period the delivery money totals cover: month (this month) | last | all.
+     * Defaults to THIS MONTH — an all-time running total grows forever and
+     * can't answer "what is delivery costing me now".
+     */
+    public string $period = 'month';
+
     public function mount(): void
     {
         // Remote sales off in THIS database (the feature toggled off, or — the
@@ -52,6 +60,32 @@ final class RemoteOrders extends Component
     private function guard(Permission $permission): void
     {
         app(AccessControl::class)->authorize(Auth::user(), 'pos.order', $permission);
+    }
+
+    /** Switch the period the delivery money totals cover. */
+    public function setPeriod(string $period): void
+    {
+        $this->period = in_array($period, ['month', 'last', 'all'], true) ? $period : 'month';
+    }
+
+    /**
+     * Label + date window for the selected period. `null` window = all time.
+     *
+     * @return array{0: string, 1: ?Carbon, 2: ?Carbon}
+     */
+    private function periodWindow(): array
+    {
+        $now = Carbon::now();
+
+        return match ($this->period) {
+            'last' => [
+                __('Last month'),
+                $now->copy()->subMonthNoOverflow()->startOfMonth(),
+                $now->copy()->subMonthNoOverflow()->endOfMonth(),
+            ],
+            'all' => [__('All time'), null, null],
+            default => [__('This month'), $now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
+        };
     }
 
     public function setFilter(string $filter): void
@@ -123,6 +157,12 @@ final class RemoteOrders extends Component
             ->where('channel', SalesChannel::Remote->value)
             ->where('state', OrderState::Done);
 
+        // Same query, narrowed to the selected period (all time = no window).
+        [$periodLabel, $from, $to] = $this->periodWindow();
+        $inPeriod = fn () => $from === null
+            ? $done()
+            : $done()->whereBetween('ordered_at', [$from, $to]);
+
         // Per-status counts for the filter tabs.
         $counts = [];
         foreach (FulfillmentStatus::cases() as $status) {
@@ -156,10 +196,14 @@ final class RemoteOrders extends Component
             'counts' => $counts,
             'activeCount' => $activeCount,
             'unpaidCount' => $unpaidCount,
-            // Total we've spent on delivery (our cost, booked as an expense).
-            'deliveryCostTotal' => (float) $done()->sum('delivery_fee'),
-            // Total delivery the customers paid (charged on their bills, revenue).
-            'deliveryChargeTotal' => (float) $done()->sum('delivery_charge'),
+            // Delivery money for the selected period (default: this month) —
+            // an all-time running total can't answer "what is delivery costing
+            // me now".
+            // Rounded: summing floats leaves dust (1.1 + 2.2 = 3.3000000000000003).
+            'deliveryCostTotal' => round((float) $inPeriod()->sum('delivery_fee'), 3),
+            'deliveryChargeTotal' => round((float) $inPeriod()->sum('delivery_charge'), 3),
+            'periodLabel' => $periodLabel,
+            'period' => $this->period,
             'startUrl' => $startUrl,
             'canCreate' => app(AccessControl::class)->allows(Auth::user(), 'pos.order', Permission::Create),
             'canFulfill' => app(AccessControl::class)->allows(Auth::user(), 'pos.order', Permission::Write),

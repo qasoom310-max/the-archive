@@ -11,9 +11,9 @@ use Modules\Pos\Enums\PrepStation;
 use Modules\Pos\Models\PosProduct;
 
 /**
- * Sweileh Café late-night happy hour.
+ * Sweileh Café afternoon happy hour.
  *
- * Between midnight and 6 AM **Bahrain time**, and ONLY in the Sweileh Café
+ * Between noon (12 PM) and 6 PM **Bahrain time**, and ONLY in the Sweileh Café
  * database:
  *   - shisha (any product whose category routes to the KDS Shisha station)
  *     drops to a flat {@see SHISHA_PRICE} whatever its normal price;
@@ -21,9 +21,9 @@ use Modules\Pos\Models\PosProduct;
  *
  * The deal is applied per cart line at RING-UP (in
  * {@see \Modules\Pos\Livewire\PosTerminal::addProduct()}): the price you get is
- * the price in force the moment the item is added, so a line rung up at 00:30
- * keeps the deal even if the bill is settled after 06:00, and a line rung up at
- * 23:50 stays full price. Times are always evaluated in Asia/Bahrain, never the
+ * the price in force the moment the item is added, so a line rung up at 12:30
+ * keeps the deal even if the bill is settled after 18:00, and a line rung up at
+ * 11:50 stays full price. Times are always evaluated in Asia/Bahrain, never the
  * server/app timezone.
  *
  * Scope is hardcoded to Sweileh Café by matching the database's `company.name`
@@ -38,10 +38,10 @@ final class HappyHour
     /** Percentage off food & drinks during the window. */
     public const FOOD_DISCOUNT_PERCENT = 25.0;
 
-    /** Window is [START_HOUR, END_HOUR) in Bahrain local time. */
-    private const START_HOUR = 0;
+    /** Window is [START_HOUR, END_HOUR) in Bahrain local time — noon to 6 PM. */
+    private const START_HOUR = 12;
 
-    private const END_HOUR = 6;
+    private const END_HOUR = 18;
 
     /** Bahrain is UTC+03 year-round (no DST), so the hour test is stable. */
     private const TIMEZONE = 'Asia/Bahrain';
@@ -53,9 +53,9 @@ final class HappyHour
     }
 
     /**
-     * Is the given instant inside the midnight–6 AM window in Bahrain local
-     * time? Isolated from {@see active()} so it can be unit-tested without
-     * touching settings.
+     * Is the given instant inside the noon–6 PM window in Bahrain local time?
+     * Isolated from {@see active()} so it can be unit-tested without touching
+     * settings.
      */
     public function withinWindow(Carbon $instant): bool
     {

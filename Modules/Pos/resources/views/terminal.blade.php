@@ -40,13 +40,13 @@
             </div>
         </div>
 
-        {{-- Sweileh Café late-night happy hour is live (00:00–06:00 Bahrain):
+        {{-- Sweileh Café afternoon happy hour is live (12:00–18:00 Bahrain):
              shisha rings up at a flat price, food & drinks come off by a % —
              applied automatically as items are added. --}}
         @if ($happyHour)
             <div class="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-800">
                 <svg class="size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm1-12a1 1 0 1 0-2 0v4a1 1 0 0 0 .3.7l2.5 2.5a1 1 0 0 0 1.4-1.4L11 9.6V6Z" clip-rule="evenodd"/></svg>
-                <span>{{ __('Late-night happy hour: shisha :price · :percent% off food & drinks', ['price' => $money($happyHourShishaPrice), 'percent' => (int) $happyHourFoodPercent]) }}</span>
+                <span>{{ __('Happy hour: shisha :price · :percent% off food & drinks', ['price' => $money($happyHourShishaPrice), 'percent' => (int) $happyHourFoodPercent]) }}</span>
             </div>
         @endif
 

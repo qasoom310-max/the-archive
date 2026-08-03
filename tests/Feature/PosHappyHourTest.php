@@ -21,7 +21,7 @@ use Modules\Pos\Services\HappyHour;
 use Tests\TestCase;
 
 /**
- * Sweileh Café late-night happy hour (00:00–06:00 Bahrain, that database only):
+ * Sweileh Café afternoon happy hour (12:00–18:00 Bahrain, that database only):
  * shisha rings up at a flat 1.400, food & drinks come off by 25%.
  */
 final class PosHappyHourTest extends TestCase
@@ -82,24 +82,25 @@ final class PosHappyHourTest extends TestCase
 
     // ── The window + database gate ──────────────────────────────────────────
 
-    public function test_window_is_midnight_to_six_am_bahrain_time(): void
+    public function test_window_is_noon_to_six_pm_bahrain_time(): void
     {
         $hh = app(HappyHour::class);
 
-        $this->assertTrue($hh->withinWindow(Carbon::parse('2026-07-14 00:00', 'Asia/Bahrain')));
-        $this->assertTrue($hh->withinWindow(Carbon::parse('2026-07-14 02:30', 'Asia/Bahrain')));
-        $this->assertTrue($hh->withinWindow(Carbon::parse('2026-07-14 05:59', 'Asia/Bahrain')));
-        $this->assertFalse($hh->withinWindow(Carbon::parse('2026-07-14 06:00', 'Asia/Bahrain')));
-        $this->assertFalse($hh->withinWindow(Carbon::parse('2026-07-14 12:00', 'Asia/Bahrain')));
-        $this->assertFalse($hh->withinWindow(Carbon::parse('2026-07-13 23:59', 'Asia/Bahrain')));
+        $this->assertTrue($hh->withinWindow(Carbon::parse('2026-07-14 12:00', 'Asia/Bahrain')));
+        $this->assertTrue($hh->withinWindow(Carbon::parse('2026-07-14 14:30', 'Asia/Bahrain')));
+        $this->assertTrue($hh->withinWindow(Carbon::parse('2026-07-14 17:59', 'Asia/Bahrain')));
+        $this->assertFalse($hh->withinWindow(Carbon::parse('2026-07-14 18:00', 'Asia/Bahrain')));
+        $this->assertFalse($hh->withinWindow(Carbon::parse('2026-07-14 11:59', 'Asia/Bahrain')));
+        $this->assertFalse($hh->withinWindow(Carbon::parse('2026-07-14 02:00', 'Asia/Bahrain')));
+        $this->assertFalse($hh->withinWindow(Carbon::parse('2026-07-14 23:00', 'Asia/Bahrain')));
     }
 
     public function test_window_is_evaluated_in_bahrain_time_not_the_server_timezone(): void
     {
-        // 03:00 UTC is 06:00 in Bahrain (UTC+3) — the window has just CLOSED.
-        $this->assertFalse(app(HappyHour::class)->withinWindow(Carbon::parse('2026-07-14 03:00', 'UTC')));
-        // 00:00 UTC is 03:00 Bahrain — inside the window.
-        $this->assertTrue(app(HappyHour::class)->withinWindow(Carbon::parse('2026-07-14 00:00', 'UTC')));
+        // 15:00 UTC is 18:00 in Bahrain (UTC+3) — the window has just CLOSED.
+        $this->assertFalse(app(HappyHour::class)->withinWindow(Carbon::parse('2026-07-14 15:00', 'UTC')));
+        // 10:00 UTC is 13:00 Bahrain — inside the window.
+        $this->assertTrue(app(HappyHour::class)->withinWindow(Carbon::parse('2026-07-14 10:00', 'UTC')));
     }
 
     public function test_only_the_sweileh_cafe_database_qualifies(): void
@@ -119,7 +120,7 @@ final class PosHappyHourTest extends TestCase
     public function test_not_active_in_another_database_even_inside_the_window(): void
     {
         Setting::set('company.name', 'Kaleem Perfume W.L.L');
-        Carbon::setTestNow(Carbon::parse('2026-07-14 02:00', 'Asia/Bahrain'));
+        Carbon::setTestNow(Carbon::parse('2026-07-14 14:00', 'Asia/Bahrain'));
 
         $this->assertFalse(app(HappyHour::class)->active());
     }
@@ -128,7 +129,7 @@ final class PosHappyHourTest extends TestCase
 
     public function test_shisha_rings_up_at_the_flat_price_during_the_window(): void
     {
-        $this->beSweilehCafeAt('2026-07-14 02:00');
+        $this->beSweilehCafeAt('2026-07-14 14:00');
         $session = $this->openSession();
         $shisha = $this->shishaProduct(1.6);
 
@@ -144,7 +145,7 @@ final class PosHappyHourTest extends TestCase
 
     public function test_food_and_drinks_get_the_percentage_off_during_the_window(): void
     {
-        $this->beSweilehCafeAt('2026-07-14 02:00');
+        $this->beSweilehCafeAt('2026-07-14 14:00');
         $session = $this->openSession();
         $food = $this->foodProduct(2.0);
 
@@ -160,7 +161,7 @@ final class PosHappyHourTest extends TestCase
 
     public function test_repeated_taps_stack_onto_one_discounted_line(): void
     {
-        $this->beSweilehCafeAt('2026-07-14 02:00');
+        $this->beSweilehCafeAt('2026-07-14 14:00');
         $session = $this->openSession();
         $food = $this->foodProduct(2.0);
 
@@ -177,7 +178,7 @@ final class PosHappyHourTest extends TestCase
 
     public function test_outside_the_window_prices_are_normal(): void
     {
-        $this->beSweilehCafeAt('2026-07-14 12:00');   // midday — deal closed
+        $this->beSweilehCafeAt('2026-07-14 20:00');   // evening — deal closed
         $session = $this->openSession();
         $shisha = $this->shishaProduct(1.6);
         $food = $this->foodProduct(2.0);
@@ -200,7 +201,7 @@ final class PosHappyHourTest extends TestCase
 
     public function test_a_line_rung_up_in_the_window_keeps_its_price_after_it_closes(): void
     {
-        $this->beSweilehCafeAt('2026-07-14 02:00');
+        $this->beSweilehCafeAt('2026-07-14 14:00');
         $session = $this->openSession();
         $shisha = $this->shishaProduct(1.6);
 
@@ -209,7 +210,7 @@ final class PosHappyHourTest extends TestCase
 
         // The window closes; adding a SECOND unit now would be full price, so it
         // must land on a NEW line rather than merging into the 1.400 one.
-        Carbon::setTestNow(Carbon::parse('2026-07-14 07:00', 'Asia/Bahrain'));
+        Carbon::setTestNow(Carbon::parse('2026-07-14 19:00', 'Asia/Bahrain'));
         $component->call('addProduct', $shisha->id);
 
         $lines = PosOrder::query()->latest('id')->first()?->lines()->orderBy('id')->get();

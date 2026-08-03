@@ -857,18 +857,19 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
   admin-only ACL, 30-day window on create, findForPhone skips lapsed, paid-order
   renews window, sweep deactivates only expired, re-enable restarts window).
 
-**Sweileh Café late-night happy hour (shipped 2026-07-14):**
+**Sweileh Café afternoon happy hour (shipped 2026-07-14):**
 
 A time-of-day deal, hardcoded to the **Sweileh Café database only**: between
-**00:00 and 06:00 Bahrain time** (`Asia/Bahrain`, always — never the server/app
-tz), **shisha** rings up at a flat **1.400** whatever its normal price, and
-**food & drinks** get **25% off**.
+**12:00 (noon) and 18:00 (6 PM) Bahrain time** (`Asia/Bahrain`, always — never
+the server/app tz), **shisha** rings up at a flat **1.400** whatever its normal
+price, and **food & drinks** get **25% off**. (Window hours = `START_HOUR` /
+`END_HOUR` constants in `HappyHour`.)
 
 | Concern | Location |
 |---|---|
 | Engine | `Modules\Pos\Services\HappyHour` — `active()` = `isSweilehCafe() && withinWindow(now())`; `withinWindow($instant)` tests the Bahrain-local hour is in `[0,6)` (isolated for unit tests); `isSweilehCafe()` reads the per-database `company.name` setting, normalises to letters only, matches `sweileh`/`swelieh` (tolerant of "Café"/"Cafe" + the spelling transposition); `isShisha($product)` = the product's category routes to the KDS **Shisha** station (`PrepStation::Shisha` — same signal the KDS uses, no separate tagging); `priceLine($product)` returns `{unit_price, discount}` — shisha → `SHISHA_PRICE`/0, food → price/`FOOD_DISCOUNT_PERCENT`, and price/0 when the window's closed or it's another database. Constants `SHISHA_PRICE=1.4`, `FOOD_DISCOUNT_PERCENT=25.0` |
-| Application | `PosTerminal::addProduct()` calls `HappyHour::priceLine()` and stamps the new line's `unit_price`+`discount` — **at ring-up**, so a line added at 00:30 keeps the deal even if the bill is settled after 06:00, and a line added at 23:50 stays full price. The merge-into-existing-line check now matches on (product, unit_price, discount, no condiments) with PHP-side rounding — so identical happy-hour taps stack onto one line, but a full-price unit added after the window closes lands on a NEW line. Bill **split** copies `unit_price`/`discount` verbatim (`PosOrderSplitter`), so the deal survives a split |
-| UI | Terminal shows an amber **"Late-night happy hour"** banner while `active()` (so the cashier knows why prices dropped), and a small **`−25%`** badge on any discounted cart line. Shisha shows as a reduced unit price; food/drinks as the existing per-line discount (already in totals + receipt) |
+| Application | `PosTerminal::addProduct()` calls `HappyHour::priceLine()` and stamps the new line's `unit_price`+`discount` — **at ring-up**, so a line added at 12:30 keeps the deal even if the bill is settled after 18:00, and a line added at 11:50 stays full price. The merge-into-existing-line check now matches on (product, unit_price, discount, no condiments) with PHP-side rounding — so identical happy-hour taps stack onto one line, but a full-price unit added after the window closes lands on a NEW line. Bill **split** copies `unit_price`/`discount` verbatim (`PosOrderSplitter`), so the deal survives a split |
+| UI | Terminal shows an amber **"Happy hour"** banner while `active()` (so the cashier knows why prices dropped), and a small **`−25%`** badge on any discounted cart line. Shisha shows as a reduced unit price; food/drinks as the existing per-line discount (already in totals + receipt) |
 | Scope note | It's the **database identity** (company name), NOT the café **business type** — a different café won't get it. Renaming the Sweileh Café database's company name away from "sweileh…" silently turns it off (per the user's chosen trade-off over a toggle). To retune: change the constants / window hours in `HappyHour`, or the name match in `isSweilehCafe()`. Stacks with the per-phone customer discount (line-level deal, then order-level %) |
 | Tests | `tests/Feature/PosHappyHourTest.php` (9 — window bounds incl. Bahrain-vs-UTC, database gate + spelling tolerance, not-active-elsewhere, shisha flat price, food 25%, taps stack, normal outside window, a windowed line keeps its price after close). AR key added for the banner |
 

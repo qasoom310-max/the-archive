@@ -40,6 +40,16 @@
             </div>
         </div>
 
+        {{-- Sweileh Café late-night happy hour is live (00:00–06:00 Bahrain):
+             shisha rings up at a flat price, food & drinks come off by a % —
+             applied automatically as items are added. --}}
+        @if ($happyHour)
+            <div class="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-800">
+                <svg class="size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm1-12a1 1 0 1 0-2 0v4a1 1 0 0 0 .3.7l2.5 2.5a1 1 0 0 0 1.4-1.4L11 9.6V6Z" clip-rule="evenodd"/></svg>
+                <span>{{ __('Late-night happy hour: shisha :price · :percent% off food & drinks', ['price' => $money($happyHourShishaPrice), 'percent' => (int) $happyHourFoodPercent]) }}</span>
+            </div>
+        @endif
+
         {{-- Everything between the header and the pay bar scrolls as one region,
              so a tall delivery panel can't push the pay button off-screen on a
              phone. The totals + pay bar below stays pinned to the bottom. --}}
@@ -151,6 +161,9 @@
                             <p class="truncate text-sm font-medium text-chrome-800">{{ $line->name }}</p>
                             <p class="text-xs text-chrome-400">
                                 {{ $money($line->unit_price) }} {{ __('each') }}
+                                @if ($line->discount > 0)
+                                    <span class="ms-1 rounded bg-emerald-100 px-1 py-0.5 text-[10px] font-semibold text-emerald-700">−{{ rtrim(rtrim(number_format((float) $line->discount, 2), '0'), '.') }}%</span>
+                                @endif
                                 @if ($line->tax_rate > 0) · {{ __('tax') }} {{ number_format((float) $line->tax_rate, 2) }}% @endif
                             </p>
                             {{-- Attached condiments — name + surcharge (free ones show

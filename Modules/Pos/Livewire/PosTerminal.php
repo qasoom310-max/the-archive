@@ -32,6 +32,7 @@ use Modules\Pos\Models\PosPaymentMethod;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Models\PosSession;
 use Modules\Pos\Models\PosTable;
+use Modules\Pos\Services\HappyHour;
 use Modules\Pos\Services\KitchenRouter;
 use Modules\Pos\Services\PosSessionManager;
 use Modules\Pos\Support\PosWhatsAppCountries;
@@ -336,14 +337,21 @@ final class PosTerminal extends Component
         $product = PosProduct::query()->findOrFail($productId);
         $order = $this->order();
 
-        // Merge only into a PLAIN line (no discount, no condiments) — a line
-        // carrying condiments is distinct, so tapping the product again starts
-        // a fresh line rather than silently bumping the condiment'd one.
+        // Sweileh Café late-night happy hour (00:00–06:00 Bahrain): shisha drops
+        // to a flat price, food & drinks get a % off. Evaluated now, at ring-up
+        // — a no-op price/0% everywhere else and outside the window.
+        $pricing = app(HappyHour::class)->priceLine($product);
+
+        // Merge only into an IDENTICAL line — same product, same unit price,
+        // same discount, no condiments — so repeated taps stack. A line with a
+        // manual discount, a happy-hour price, or condiments stays distinct
+        // (matched in PHP with rounding to dodge float equality in SQL).
         $line = $order->lines()
             ->where('pos_product_id', $product->id)
-            ->where('discount', 0)
             ->get()
-            ->first(static fn (PosOrderLine $l): bool => empty($l->condiments));
+            ->first(static fn (PosOrderLine $l): bool => empty($l->condiments)
+                && round((float) $l->unit_price, 3) === round($pricing['unit_price'], 3)
+                && round((float) $l->discount, 3) === round($pricing['discount'], 3));
 
         if ($line !== null) {
             $line->qty += 1;
@@ -352,8 +360,8 @@ final class PosTerminal extends Component
                 'pos_product_id' => $product->id,
                 'name' => $product->name,
                 'qty' => 1,
-                'unit_price' => $product->price,
-                'discount' => 0,
+                'unit_price' => $pricing['unit_price'],
+                'discount' => $pricing['discount'],
                 'tax_rate' => $product->tax_rate,
             ]);
         }
@@ -1068,6 +1076,11 @@ final class PosTerminal extends Component
             'now' => Carbon::now(),
             'whatsappCountries' => PosWhatsAppCountries::all(),
             'proofEnabled' => Features::enabled(Feature::PaymentProof),
+            // Sweileh Café late-night deal is live → show the cashier a banner so
+            // they understand why shisha / food prices dropped.
+            'happyHour' => app(HappyHour::class)->active(),
+            'happyHourShishaPrice' => HappyHour::SHISHA_PRICE,
+            'happyHourFoodPercent' => HappyHour::FOOD_DISCOUNT_PERCENT,
         ]);
     }
 }

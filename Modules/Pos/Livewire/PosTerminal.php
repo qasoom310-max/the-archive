@@ -337,9 +337,9 @@ final class PosTerminal extends Component
         $product = PosProduct::query()->findOrFail($productId);
         $order = $this->order();
 
-        // Sweileh Café afternoon happy hour (12:00–18:00 Bahrain): shisha drops
-        // to a flat price, food & drinks get a % off. Evaluated now, at ring-up
-        // — a no-op price/0% everywhere else and outside the window.
+        // Sweileh Café afternoon happy hour (12:00–18:00 Bahrain): shisha is
+        // capped at the deal price, food gets a % off, drinks are excluded.
+        // Evaluated now, at ring-up — a no-op everywhere else / outside the window.
         $pricing = app(HappyHour::class)->priceLine($product);
 
         // Merge only into an IDENTICAL line — same product, same unit price,

@@ -33,6 +33,7 @@ use Spatie\Translatable\HasTranslations;
  * @property string|null $slug
  * @property string|null $image
  * @property bool $active
+ * @property bool $is_drink   Drinks are excluded from the happy-hour food discount
  * @property int $sequence
  * @property PrepStation|null $station Kitchen Display routing key — when a
  *                                     sale finalises, each line's product →
@@ -46,7 +47,7 @@ final class PosCategory extends Model implements DefinesIrModel, TranslatableMod
     protected $table = 'pos_categories';
 
     /** @var list<string> */
-    protected $fillable = ['name', 'parent_id', 'slug', 'image', 'active', 'sequence', 'station'];
+    protected $fillable = ['name', 'parent_id', 'slug', 'image', 'active', 'is_drink', 'sequence', 'station'];
 
     /**
      * Default a fresh category to active. The DB column already defaults true
@@ -78,6 +79,7 @@ final class PosCategory extends Model implements DefinesIrModel, TranslatableMod
             'sequence' => 'integer',
             'parent_id' => 'integer',
             'active' => 'boolean',
+            'is_drink' => 'boolean',
             // `station` is intentionally NOT cast here — the Attribute
             // mutator below handles both directions, including the engine
             // FormView's empty-string "None" choice which the standard
@@ -295,6 +297,7 @@ final class PosCategory extends Model implements DefinesIrModel, TranslatableMod
                         ],
                         ['field' => 'sequence', 'label' => 'Sequence', 'widget' => 'number'],
                         ['field' => 'active', 'label' => 'Active', 'widget' => 'checkbox', 'help' => 'Inactive categories are hidden from the register.'],
+                        ['field' => 'is_drink', 'label' => 'Drinks category', 'widget' => 'checkbox', 'help' => 'Drinks are excluded from the happy-hour food discount.'],
                     ],
                 ]),
             ],

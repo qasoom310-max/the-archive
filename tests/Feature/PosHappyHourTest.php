@@ -22,7 +22,8 @@ use Tests\TestCase;
 
 /**
  * Sweileh Café afternoon happy hour (12:00–18:00 Bahrain, that database only):
- * shisha rings up at a flat 1.400, food & drinks come off by 25%.
+ * shisha is capped at 1.400 (never raised), food comes off by 25%, drinks are
+ * excluded.
  */
 final class PosHappyHourTest extends TestCase
 {
@@ -63,7 +64,19 @@ final class PosHappyHourTest extends TestCase
     private function foodProduct(float $price = 2.0): PosProduct
     {
         $category = PosCategory::query()->create([
-            'name' => 'Hot Drinks', 'slug' => 'hot-drinks', 'active' => true, // no station
+            'name' => 'Grill', 'slug' => 'grill', 'active' => true, // not a drink
+        ]);
+
+        return PosProduct::query()->create([
+            'name' => 'Shawarma', 'price' => $price, 'tax_rate' => 0.0,
+            'active' => true, 'pos_category_id' => $category->id,
+        ]);
+    }
+
+    private function drinkProduct(float $price = 0.8): PosProduct
+    {
+        $category = PosCategory::query()->create([
+            'name' => 'Hot Drinks', 'slug' => 'hot-drinks', 'active' => true, 'is_drink' => true,
         ]);
 
         return PosProduct::query()->create([
@@ -143,7 +156,7 @@ final class PosHappyHourTest extends TestCase
         $this->assertSame(1.4, round((float) $line->total, 2));
     }
 
-    public function test_food_and_drinks_get_the_percentage_off_during_the_window(): void
+    public function test_food_gets_the_percentage_off_during_the_window(): void
     {
         $this->beSweilehCafeAt('2026-07-14 14:00');
         $session = $this->openSession();
@@ -157,6 +170,38 @@ final class PosHappyHourTest extends TestCase
         $this->assertSame(2.0, round((float) $line->unit_price, 2));   // price unchanged…
         $this->assertSame(25.0, round((float) $line->discount, 2));    // …25% off
         $this->assertSame(1.5, round((float) $line->total, 2));        // 2.00 − 25%
+    }
+
+    public function test_drinks_are_excluded_from_the_discount(): void
+    {
+        $this->beSweilehCafeAt('2026-07-14 14:00');
+        $session = $this->openSession();
+        $drink = $this->drinkProduct(0.8);
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('addProduct', $drink->id);
+
+        $line = PosOrder::query()->latest('id')->first()?->lines()->first();
+        $this->assertNotNull($line);
+        $this->assertSame(0.8, round((float) $line->unit_price, 2));   // full price…
+        $this->assertSame(0.0, round((float) $line->discount, 2));     // …no discount
+        $this->assertSame(0.8, round((float) $line->total, 2));
+    }
+
+    public function test_a_shisha_cheaper_than_the_cap_keeps_its_price(): void
+    {
+        // Zaglol shisha at 1.200 must NOT be raised to the 1.400 cap.
+        $this->beSweilehCafeAt('2026-07-14 14:00');
+        $session = $this->openSession();
+        $zaglol = $this->shishaProduct(1.2);
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('addProduct', $zaglol->id);
+
+        $line = PosOrder::query()->latest('id')->first()?->lines()->first();
+        $this->assertNotNull($line);
+        $this->assertSame(1.2, round((float) $line->unit_price, 2));   // left as it is
+        $this->assertSame(0.0, round((float) $line->discount, 2));
     }
 
     public function test_repeated_taps_stack_onto_one_discounted_line(): void

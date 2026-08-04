@@ -15,9 +15,12 @@ use Modules\Pos\Models\PosProduct;
  *
  * Between noon (12 PM) and 6 PM **Bahrain time**, and ONLY in the Sweileh Café
  * database:
- *   - shisha (any product whose category routes to the KDS Shisha station)
- *     drops to a flat {@see SHISHA_PRICE} whatever its normal price;
- *   - everything else — food & drinks — gets {@see FOOD_DISCOUNT_PERCENT}% off.
+ *   - shisha (any product whose category routes to the KDS Shisha station) is
+ *     CAPPED at {@see SHISHA_PRICE} — a 1.600 shisha drops to 1.400, but one
+ *     already priced below the cap (e.g. Zaglol at 1.200) keeps its price. The
+ *     deal only ever lowers a price, never raises it;
+ *   - food gets {@see FOOD_DISCOUNT_PERCENT}% off;
+ *   - drinks (a category flagged `is_drink`) are EXCLUDED — no discount.
  *
  * The deal is applied per cart line at RING-UP (in
  * {@see \Modules\Pos\Livewire\PosTerminal::addProduct()}): the price you get is
@@ -32,10 +35,10 @@ use Modules\Pos\Models\PosProduct;
  */
 final class HappyHour
 {
-    /** Flat price every shisha item drops to during the window (BHD). */
+    /** Price cap for shisha during the window (BHD) — never raises a cheaper one. */
     public const SHISHA_PRICE = 1.4;
 
-    /** Percentage off food & drinks during the window. */
+    /** Percentage off FOOD during the window (drinks are excluded). */
     public const FOOD_DISCOUNT_PERCENT = 25.0;
 
     /** Window is [START_HOUR, END_HOUR) in Bahrain local time — noon to 6 PM. */
@@ -91,6 +94,15 @@ final class HappyHour
     }
 
     /**
+     * A drink is a product in a category flagged `is_drink` — excluded from the
+     * food discount. Everything that isn't shisha or a drink counts as food.
+     */
+    public function isDrink(PosProduct $product): bool
+    {
+        return $product->category?->is_drink === true;
+    }
+
+    /**
      * The (unit price, line discount %) a NEW cart line for this product should
      * carry. When the window is closed (or this isn't Sweileh Café) it's simply
      * the product's own price at 0% — i.e. unchanged behaviour.
@@ -99,14 +111,24 @@ final class HappyHour
      */
     public function priceLine(PosProduct $product): array
     {
+        $price = (float) $product->price;
+
         if (! $this->active()) {
-            return ['unit_price' => (float) $product->price, 'discount' => 0.0];
+            return ['unit_price' => $price, 'discount' => 0.0];
         }
 
+        // Shisha: cap at the deal price, but never RAISE a cheaper one (Zaglol
+        // at 1.200 stays 1.200; a 1.600 shisha drops to 1.400).
         if ($this->isShisha($product)) {
-            return ['unit_price' => self::SHISHA_PRICE, 'discount' => 0.0];
+            return ['unit_price' => min($price, self::SHISHA_PRICE), 'discount' => 0.0];
         }
 
-        return ['unit_price' => (float) $product->price, 'discount' => self::FOOD_DISCOUNT_PERCENT];
+        // Drinks are excluded from the food discount.
+        if ($this->isDrink($product)) {
+            return ['unit_price' => $price, 'discount' => 0.0];
+        }
+
+        // Food.
+        return ['unit_price' => $price, 'discount' => self::FOOD_DISCOUNT_PERCENT];
     }
 }

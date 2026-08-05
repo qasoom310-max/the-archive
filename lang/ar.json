@@ -1457,6 +1457,8 @@
     "On-hand quantity, decremented when a product using this ingredient is sold.": "الكمية المتوفرة، تُخصم عند بيع منتج يستخدم هذا المكوّن.",
     "Lower numbers show first in the recipe picker.": "الأرقام الأقل تظهر أولاً في منتقي الوصفة.",
     "Customer discount": "خصم العميل",
+    "Prepaid credit": "رصيد مدفوع مسبقًا",
+    "Prepaid balance": "الرصيد المدفوع مسبقًا",
     "Customer Discounts": "خصومات العملاء",
     "Customer Discount": "خصم العميل",
     "Discount %": "نسبة الخصم %",

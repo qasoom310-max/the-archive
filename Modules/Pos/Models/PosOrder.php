@@ -40,6 +40,9 @@ use Modules\Pos\Services\PosInventoryBridge;
  * @property float $change_due
  * @property float $customer_discount_percent
  * @property float $customer_discount_total
+ * @property int|null $customer_discount_id  Which discount row the prepaid credit belongs to
+ * @property float $credit_applied  Prepaid credit this order consumes (drawn from the discount's balance)
+ * @property bool $credit_consumed  True once the wallet has been decremented (double-spend guard)
  * @property bool $components_consumed
  * @property SalesChannel $channel Walk-in shop sale vs a remote / delivery order
  * @property string|null $customer_phone International-format digits (no '+'), e.g. "97333123456"
@@ -76,6 +79,7 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
         'partner_id', 'user_id', 'state', 'channel',
         'subtotal', 'tax_total', 'total', 'paid_total', 'change_due',
         'customer_discount_percent', 'customer_discount_total',
+        'customer_discount_id', 'credit_applied', 'credit_consumed',
         'components_consumed', 'customer_phone', 'customer_name', 'payment_proof_path',
         'delivery_address', 'delivery_fee', 'delivery_charge', 'pos_settlement_id',
         'fulfillment_status', 'delivery_reference',
@@ -111,6 +115,9 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
             'delivery_charge' => 'float',
             'customer_discount_percent' => 'float',
             'customer_discount_total' => 'float',
+            'customer_discount_id' => 'integer',
+            'credit_applied' => 'float',
+            'credit_consumed' => 'boolean',
             'components_consumed' => 'boolean',
             'ordered_at' => 'datetime',
             'pos_table_id' => 'integer',
@@ -207,12 +214,17 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
     }
 
     /**
-     * Recompute order totals from its lines, then apply the order-level
-     * customer discount (a percentage off the gross). `subtotal`/`tax_total`
-     * stay as the raw line sums for display; the discount is shown as its
-     * own line and only the final `total` is reduced. The percentage itself
-     * persists on the row (set by {@see applyCustomerDiscount()}), so adding
-     * more products keeps the discount applied.
+     * Recompute order totals from its lines. The customer benefit is applied in
+     * two stages, in this order:
+     *   1. **Prepaid credit** ({@see $credit_applied}) draws down the customer's
+     *      wallet at FULL price — the goods it covers are effectively free.
+     *   2. The customer **discount %** then applies to WHATEVER GOODS REMAIN
+     *      after the credit — i.e. only what the customer actually pays out of
+     *      pocket, which is exactly "after the balance reaches 0 they pay with
+     *      the discount".
+     * `subtotal`/`tax_total` stay the raw line sums for display; the credit and
+     * the discount each show as their own line and only the final `total` moves.
+     * The wallet itself is decremented once, at checkout ({@see consumeCustomerCredit()}).
      */
     public function recalculate(): void
     {
@@ -224,16 +236,70 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
         $gross = round((float) $lines->sum('total'), 2);
         $percent = max(0.0, min(100.0, $this->customer_discount_percent));
 
-        $this->customer_discount_total = round($gross * $percent / 100, 2);
+        // Stage 1 — prepaid credit. While the wallet hasn't been drawn yet
+        // (draft), preview against its LIVE balance; once consumed the stored
+        // amount is frozen so a Done order never re-reads a changed balance.
+        if (! $this->credit_consumed) {
+            $available = $this->availableCredit();
+            $this->credit_applied = round(min($available, $gross), 2);
+        }
+        $creditApplied = round(min((float) $this->credit_applied, $gross), 2);
+
+        // Stage 2 — the % applies to the goods left after the credit.
+        $remainingGoods = round($gross - $creditApplied, 2);
+        $this->customer_discount_total = round($remainingGoods * $percent / 100, 2);
+
         // Two delivery amounts, deliberately different:
         //   · delivery_fee     — OUR cost (we pay the driver). Booked as an
         //     operating expense (see RecordDeliveryCostInJournal); NEVER on the
         //     customer total.
         //   · delivery_charge  — what the CUSTOMER pays for delivery (an urgent
         //     request, or an offer without free delivery). Added to the total as
-        //     revenue. Not taxed (a flat charge on top).
-        $this->total = round($gross - $this->customer_discount_total + (float) $this->delivery_charge, 2);
+        //     revenue. Not taxed (a flat charge on top). Credit does not cover it.
+        $this->total = round($remainingGoods - $this->customer_discount_total + (float) $this->delivery_charge, 2);
         $this->save();
+    }
+
+    /**
+     * The prepaid credit currently available to this order — the live balance of
+     * the matched discount row (0 when none). Read at recalculate time so the
+     * preview always reflects the real wallet.
+     */
+    private function availableCredit(): float
+    {
+        if ($this->customer_discount_id === null) {
+            return 0.0;
+        }
+
+        $discount = PosCustomerDiscount::query()->find($this->customer_discount_id);
+
+        return $discount !== null ? max(0.0, (float) $discount->prepaid_balance) : 0.0;
+    }
+
+    /**
+     * Draw this order's {@see $credit_applied} out of the matched discount's
+     * wallet — ONCE (guarded by {@see $credit_consumed}). Reconciles the applied
+     * amount to what the wallet could actually cover, in case the live balance
+     * dropped below the previewed figure. Called inside the finalise transaction.
+     */
+    public function consumeCustomerCredit(): void
+    {
+        if ($this->credit_consumed) {
+            return;
+        }
+
+        $this->credit_consumed = true;
+
+        if ($this->customer_discount_id === null || (float) $this->credit_applied <= 0.0) {
+            $this->credit_applied = 0.0;
+
+            return;
+        }
+
+        $discount = PosCustomerDiscount::query()->find($this->customer_discount_id);
+        $this->credit_applied = $discount !== null
+            ? $discount->drawCredit((float) $this->credit_applied)
+            : 0.0;
     }
 
     /** A remote / delivery order (vs a walk-in shop sale). */
@@ -308,15 +374,23 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
     public function applyCustomerDiscount(?string $phone): void
     {
         $percent = 0.0;
+        $discountId = null;
 
         if ($phone !== null && $phone !== '') {
             $match = PosCustomerDiscount::findForPhone($phone);
 
             if ($match !== null) {
                 $percent = max(0.0, min(100.0, $match->discount_percent));
+                // Remember which row the prepaid wallet belongs to, so the
+                // credit is drawn from the right one at checkout.
+                $discountId = (int) $match->getKey();
             }
         }
 
+        // Don't move the credit pointer once it's been drawn (a finalised order).
+        if (! $this->credit_consumed) {
+            $this->customer_discount_id = $discountId;
+        }
         $this->customer_discount_percent = round($percent, 2);
         $this->recalculate();
     }
@@ -402,6 +476,7 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
             if ($this->isRemote() && $this->fulfillment_status === null) {
                 $this->fulfillment_status = FulfillmentStatus::New;
             }
+            $this->consumeCustomerCredit();
             $this->save();
             $this->consumeComponents();
         });
@@ -426,6 +501,7 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
             if ($this->isRemote() && $this->fulfillment_status === null) {
                 $this->fulfillment_status = FulfillmentStatus::New;
             }
+            $this->consumeCustomerCredit();
             $this->save();
             $this->consumeComponents();
         });

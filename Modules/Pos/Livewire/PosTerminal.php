@@ -26,6 +26,7 @@ use Modules\Pos\Enums\SalesChannel;
 use Modules\Pos\Enums\SessionState;
 use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosCondiment;
+use Modules\Pos\Models\PosCustomerDiscount;
 use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosOrderLine;
 use Modules\Pos\Models\PosPaymentMethod;
@@ -667,6 +668,22 @@ final class PosTerminal extends Component
     }
 
     /**
+     * The live prepaid-credit balance on the order's matched discount (0 when
+     * there's none). Shown in the customer panel so the cashier sees how much
+     * store credit the customer has left.
+     */
+    private function customerBalance(PosOrder $order): float
+    {
+        if ($order->customer_discount_id === null) {
+            return 0.0;
+        }
+
+        $discount = PosCustomerDiscount::query()->find($order->customer_discount_id);
+
+        return $discount !== null ? max(0.0, (float) $discount->prepaid_balance) : 0.0;
+    }
+
+    /**
      * May the cashier take payment right now? Always needs items + a positive
      * total. In POSTPAID mode a DINE-IN table additionally requires the kitchen
      * to be done (green) — "Pay now" stays locked while the order is red (sent)
@@ -676,7 +693,10 @@ final class PosTerminal extends Component
      */
     private function canPay(PosOrder $order): bool
     {
-        if ($order->lines->isEmpty() || $order->total <= 0) {
+        // Block only an empty cart. A total of exactly 0 is payable — prepaid
+        // credit (or a 100% discount) can legitimately cover the whole bill,
+        // and the cashier still needs to close it out.
+        if ($order->lines->isEmpty() || $order->total < 0) {
             return false;
         }
 
@@ -869,7 +889,9 @@ final class PosTerminal extends Component
             return;
         }
 
-        if (! $order->isFullyPaid()) {
+        // isPaid (not isFullyPaid) so a fully-credit-covered 0-total order —
+        // which needs no tendered cash — can be closed too.
+        if (! $order->isPaid()) {
             return;
         }
 
@@ -1081,6 +1103,9 @@ final class PosTerminal extends Component
             'happyHour' => app(HappyHour::class)->active(),
             'happyHourShishaPrice' => HappyHour::SHISHA_PRICE,
             'happyHourFoodPercent' => HappyHour::FOOD_DISCOUNT_PERCENT,
+            // Live prepaid-credit balance on the matched discount (0 when none),
+            // so the cashier can see how much store credit the customer has left.
+            'customerBalance' => $this->customerBalance($order),
         ]);
     }
 }

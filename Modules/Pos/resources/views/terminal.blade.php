@@ -122,7 +122,11 @@
                 <div class="flex items-center justify-between">
                     <div class="min-w-0">
                         <p class="truncate text-sm font-medium text-chrome-800 tabular-nums">{{ $countryCode }} {{ $localPhone }}</p>
-                        @if ($order->customer_discount_percent > 0)
+                        @if ($customerBalance > 0)
+                            <p class="truncate text-xs font-medium text-emerald-600">
+                                {{ __('Prepaid balance') }}: {{ $money($customerBalance) }}
+                            </p>
+                        @elseif ($order->customer_discount_percent > 0)
                             <p class="truncate text-xs font-medium text-emerald-600">
                                 {{ rtrim(rtrim(number_format($order->customer_discount_percent, 2), '0'), '.') }}% {{ __('discount applied') }}
                             </p>
@@ -234,6 +238,13 @@
             <div class="flex justify-between text-sm text-chrome-500">
                 <span>{{ __('Tax') }}</span><span>{{ $money($order->tax_total) }}</span>
             </div>
+            @if ($order->credit_applied > 0)
+                {{-- Prepaid credit covering the bill (drawn from the customer's balance). --}}
+                <div class="flex justify-between text-sm font-medium text-emerald-600">
+                    <span>{{ __('Prepaid credit') }}</span>
+                    <span>−{{ $money($order->credit_applied) }}</span>
+                </div>
+            @endif
             @if ($order->customer_discount_total > 0)
                 <div class="flex justify-between text-sm font-medium text-emerald-600">
                     <span>{{ __('Customer discount') }} ({{ rtrim(rtrim(number_format($order->customer_discount_percent, 2), '0'), '.') }}%)</span>
@@ -539,6 +550,12 @@
 
                 @php $remaining = round($order->total - $order->paymentsTotal(), 2); @endphp
                 <div class="rounded-xl bg-chrome-50 p-3 text-sm">
+                    @if ($order->credit_applied > 0)
+                        <div class="flex justify-between text-emerald-600">
+                            <span>{{ __('Prepaid credit') }}</span>
+                            <span>−{{ $money($order->credit_applied) }}</span>
+                        </div>
+                    @endif
                     @if ($order->customer_discount_total > 0)
                         <div class="flex justify-between text-emerald-600">
                             <span>{{ __('Customer discount') }} ({{ rtrim(rtrim(number_format($order->customer_discount_percent, 2), '0'), '.') }}%)</span>
@@ -634,7 +651,7 @@
                 @endif
 
                 <button wire:click="validateOrder"
-                    @disabled(! $order->isFullyPaid())
+                    @disabled(! $order->isPaid())
                     class="o-btn-primary mt-4 w-full justify-center py-2.5 text-base disabled:opacity-40">
                     {{ __('Validate') }}
                 </button>
@@ -716,6 +733,9 @@
                 <div class="space-y-0.5 text-sm">
                     <div class="flex justify-between text-chrome-500"><span>{{ __('Subtotal') }}</span><span>{{ $money($receipt->subtotal) }}</span></div>
                     <div class="flex justify-between text-chrome-500"><span>{{ __('Tax') }}</span><span>{{ $money($receipt->tax_total) }}</span></div>
+                    @if ($receipt->credit_applied > 0)
+                        <div class="flex justify-between text-emerald-600"><span>{{ __('Prepaid credit') }}</span><span>−{{ $money($receipt->credit_applied) }}</span></div>
+                    @endif
                     @if ($receipt->customer_discount_total > 0)
                         <div class="flex justify-between text-emerald-600"><span>{{ __('Customer discount') }} ({{ rtrim(rtrim(number_format($receipt->customer_discount_percent, 2), '0'), '.') }}%)</span><span>−{{ $money($receipt->customer_discount_total) }}</span></div>
                     @endif

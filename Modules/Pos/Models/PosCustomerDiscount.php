@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property string $phone
  * @property float $discount_percent
+ * @property float $prepaid_balance  Store credit — orders draw this down at full price before the % applies
  * @property string|null $label
  * @property bool $active
  * @property Carbon|null $expires_at
@@ -38,12 +39,13 @@ final class PosCustomerDiscount extends Model implements DefinesIrModel
     protected $table = 'pos_customer_discounts';
 
     /** @var list<string> */
-    protected $fillable = ['phone', 'discount_percent', 'label', 'active', 'expires_at'];
+    protected $fillable = ['phone', 'discount_percent', 'prepaid_balance', 'label', 'active', 'expires_at'];
 
     /** @var array<string, mixed> */
     protected $attributes = [
         'active' => true,
         'discount_percent' => 0,
+        'prepaid_balance' => 0,
     ];
 
     /**
@@ -53,6 +55,7 @@ final class PosCustomerDiscount extends Model implements DefinesIrModel
     {
         return [
             'discount_percent' => 'float',
+            'prepaid_balance' => 'float',
             'active' => 'boolean',
             'expires_at' => 'datetime',
         ];
@@ -64,6 +67,9 @@ final class PosCustomerDiscount extends Model implements DefinesIrModel
             // Clamp the open number to a sane percentage range so a typo
             // (e.g. 1000) can't zero out or invert an order total.
             $discount->discount_percent = round(max(0.0, min(100.0, $discount->discount_percent)), 2);
+
+            // A prepaid balance can never go negative.
+            $discount->prepaid_balance = round(max(0.0, (float) $discount->prepaid_balance), 2);
 
             // Start (or restart) the 90-day clock whenever the discount is
             // active but has no live window — i.e. on first create and when
@@ -82,6 +88,27 @@ final class PosCustomerDiscount extends Model implements DefinesIrModel
     public function isWithinWindow(): bool
     {
         return $this->expires_at === null || $this->expires_at->isFuture();
+    }
+
+    /**
+     * Draw up to `$amount` from the prepaid balance and persist. Returns the
+     * amount actually taken (clamped to what's available), so a caller can
+     * reconcile if the live balance turned out lower than expected. Bypasses the
+     * `saving` hook (`saveQuietly`) so decrementing the wallet can't restart the
+     * rolling window.
+     */
+    public function drawCredit(float $amount): float
+    {
+        $taken = round(max(0.0, min($amount, (float) $this->prepaid_balance)), 2);
+
+        if ($taken <= 0.0) {
+            return 0.0;
+        }
+
+        $this->prepaid_balance = round((float) $this->prepaid_balance - $taken, 2);
+        $this->saveQuietly();
+
+        return $taken;
     }
 
     /**
@@ -183,6 +210,7 @@ final class PosCustomerDiscount extends Model implements DefinesIrModel
             fields: [
                 new FieldDefinition('phone', 'Phone', 'char', required: true, sequence: 10),
                 new FieldDefinition('discount_percent', 'Discount %', 'float', required: true, sequence: 20),
+                new FieldDefinition('prepaid_balance', 'Prepaid balance', 'float', sequence: 25),
                 new FieldDefinition('label', 'Label', 'char', sequence: 30),
                 new FieldDefinition('active', 'Active', 'boolean', sequence: 40),
                 new FieldDefinition('expires_at', 'Expires', 'datetime', sequence: 50),
@@ -193,6 +221,7 @@ final class PosCustomerDiscount extends Model implements DefinesIrModel
                         ['field' => 'phone', 'label' => 'Phone', 'sortable' => true],
                         ['field' => 'label', 'label' => 'Label', 'sortable' => true],
                         ['field' => 'discount_percent', 'label' => 'Discount %', 'align' => 'right', 'sortable' => true],
+                        ['field' => 'prepaid_balance', 'label' => 'Balance', 'format' => 'money', 'align' => 'right', 'sortable' => true],
                         ['field' => 'expires_at', 'label' => 'Expires', 'format' => 'datetime', 'sortable' => true],
                         ['field' => 'active', 'label' => 'Active', 'format' => 'toggle'],
                     ],
@@ -205,7 +234,8 @@ final class PosCustomerDiscount extends Model implements DefinesIrModel
                     'cols' => 2,
                     'fields' => [
                         ['field' => 'phone', 'label' => 'Phone', 'widget' => 'text', 'required' => true, 'placeholder' => '+973 33123456', 'help' => 'The customer phone this discount applies to. Country code optional — it matches with or without it.'],
-                        ['field' => 'discount_percent', 'label' => 'Discount %', 'widget' => 'number', 'required' => true, 'help' => 'Percent off the whole order total (0–100). Applied when this customer is added at the register.'],
+                        ['field' => 'discount_percent', 'label' => 'Discount %', 'widget' => 'number', 'required' => true, 'help' => 'Percent off the whole order total (0–100). Applies once the prepaid balance below is used up.'],
+                        ['field' => 'prepaid_balance', 'label' => 'Prepaid balance', 'widget' => 'number', 'help' => 'Store credit. Each order draws this down at full price; the customer pays nothing until it reaches 0, then the discount % above applies. Top it up any time.'],
                         ['field' => 'label', 'label' => 'Label', 'widget' => 'text', 'placeholder' => 'e.g. VIP — Abu Ali', 'help' => 'Optional note so you recognise this number. Never shown to the customer.'],
                         ['field' => 'active', 'label' => 'Active', 'widget' => 'checkbox', 'help' => 'Auto-expires 30 days after activation if the customer doesn\'t buy. Each purchase within the window renews it for another 30 days. Re-enabling a lapsed one starts a fresh 30 days.'],
                     ],

@@ -856,6 +856,33 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
   suffix match, inactive skipped, percent clamp, apply-on-add, persist + clear,
   admin-only ACL, 30-day window on create, findForPhone skips lapsed, paid-order
   renews window, sweep deactivates only expired, re-enable restarts window).
+  - **Prepaid balance / store credit (shipped 2026-08-04).** A per-phone discount
+    can carry a **`prepaid_balance`** (migration `2026_08_04_700055`, a "Prepaid
+    balance" number field + a **Balance** money column on the engine list). Each
+    order draws the wallet down at **FULL price** until it reaches 0; only the
+    part the customer actually pays out of pocket (after the credit) gets the
+    discount %. So: credit 30, order 8 → pays 0, balance → 22; once balance 0 →
+    the 50% applies. A bill bigger than the balance splits: credit covers its
+    amount at full price, the remainder gets the %. Order-side snapshot columns
+    (migration `2026_08_04_700056`): `pos_orders.{customer_discount_id, credit_applied,
+    credit_consumed}`. `PosOrder::recalculate()` = stage 1 credit (`min(available,
+    gross)`, previewed against the LIVE balance while `!credit_consumed`, frozen
+    after), stage 2 `%` on the goods remaining after credit. `applyCustomerDiscount()`
+    snapshots the matched discount id. The wallet is decremented **once** at
+    checkout via `PosOrder::consumeCustomerCredit()` (guarded by `credit_consumed`;
+    calls `PosCustomerDiscount::drawCredit()` which `saveQuietly()`s so it can't
+    restart the rolling window), wired into `finalizeSale()` + `confirmUnpaid()`.
+    Because a fully-covered order has **total 0**, `PosTerminal::canPay()` no longer
+    blocks a 0 total (only an empty cart) and `validateOrder()` uses `isPaid()` (not
+    `isFullyPaid()`) + the overlay's Validate button too — so the cashier can close
+    a no-cash order. Terminal shows a **"Prepaid credit −X"** line in the cart totals
+    + payment overlay + on-screen receipt, and the customer panel shows the live
+    **"Prepaid balance: X"**. Arch change ⇒ `module:resync pos` (deploy runs it);
+    both migrations auto-apply via deploy's POS migrate step. Test:
+    `tests/Feature/PosCustomerCreditTest.php` (6 — covers-whole-bill, draws-wallet-
+    once + idempotent, bill-bigger-than-balance splits credit-then-%, balance-0 →
+    discount applies, 0-total order closes at the register, balance never negative).
+    AR keys: Prepaid credit / Prepaid balance.
 
 **Sweileh Café afternoon happy hour (shipped 2026-07-14):**
 

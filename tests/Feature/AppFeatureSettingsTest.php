@@ -44,8 +44,36 @@ final class AppFeatureSettingsTest extends TestCase
 
         Livewire::test(AppFeatureSettings::class, ['module' => 'pos'])
             ->assertOk()
-            ->assertSee('Dine-in')   // Restaurant feature label
-            ->assertSee('Recipes');  // Recipes feature label
+            ->assertSee('Floor plan & tables')     // Restaurant feature label
+            ->assertSee('Kitchen & shisha display') // Kitchen feature label
+            ->assertSee('Recipes');                 // Recipes feature label
+    }
+
+    public function test_kitchen_and_shisha_toggle_is_independent_of_floor_and_tables(): void
+    {
+        $this->actingAs($this->admin());
+        $this->bootPos();
+
+        // Café enables both floor plan/tables AND the kitchen/shisha screens.
+        Setting::set('company.business_type', 'cafe');
+        app(SettingManager::class)->flush();
+        $this->assertTrue(Features::enabled(Feature::Restaurant));
+        $this->assertTrue(Features::enabled(Feature::Kitchen));
+
+        // Turn the kitchen/shisha screens OFF while keeping the floor plan.
+        Livewire::test(AppFeatureSettings::class, ['module' => 'pos'])
+            ->assertSet('toggles.kitchen', true)
+            ->set('toggles.kitchen', false)
+            ->call('save')
+            ->assertSet('saved', true);
+
+        app(SettingManager::class)->flush();
+
+        $this->assertFalse(Features::enabled(Feature::Kitchen));
+        // Floors & tables are untouched by the kitchen toggle.
+        $this->assertTrue(Features::enabled(Feature::Restaurant));
+        $this->assertTrue(Features::modelAllowed('pos.floor'));
+        $this->assertTrue(Features::modelAllowed('pos.table'));
     }
 
     public function test_turning_dine_in_off_hides_floors_and_tables_even_in_a_cafe(): void

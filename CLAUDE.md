@@ -1601,7 +1601,14 @@ preset** (the override wins). E.g. POS → toggle **Dine-in** (floors/tables/
 kitchen/shisha) and **Recipes** independent of the chosen business type.
 
 **Toggle set (expanded 2026-06-24):**
-- **POS** (`pos`): **Dine-in** (`Restaurant` → `pos.floor`/`pos.table`),
+- **POS** (`pos`): **Floor plan & tables** (`Restaurant` → `pos.floor`/`pos.table`
+  + the floor plan + table-service ordering) and **Kitchen & shisha display**
+  (`Kitchen` → the KDS screens `/app/pos/kitchen/{station}` + the POS-home
+  Kitchen/Shisha deep-link buttons via `PosHome::showStations`) — **split into two
+  independent toggles 2026-08-08** (was one "Dine-in (tables, kitchen, shisha)"
+  `Restaurant` feature); a shop can now run the kitchen/shisha screens without
+  floors/tables or vice-versa. Both are in the **Café** preset; `KitchenDisplay::mount`
+  `abort_unless(Feature::Kitchen)` so turning it off hides the screen by direct URL too,
   **Recipes & ingredients** (`Recipes` → `pos.ingredient` + the product-form
   recipe editor), **Condiments & add-ons** (`Condiments` → `pos.condiment` +
   the terminal cart "add-ons" button + the product-form condiment editor),

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Pos\Livewire;
 
+use App\Erp\Business\Feature;
+use App\Erp\Business\Features;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Layout;
@@ -50,6 +52,7 @@ final class KitchenDisplay extends Component
      */
     public function mount(PrepStation $station): void
     {
+        abort_unless(Features::enabled(Feature::Kitchen), 404);
         $this->station = $station;
     }
 

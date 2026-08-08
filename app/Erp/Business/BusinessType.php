@@ -55,7 +55,7 @@ enum BusinessType: string
             self::Cafe => [
                 Feature::Pos, Feature::Recipes, Feature::Inventory,
                 Feature::Purchases, Feature::Hr, Feature::Accounting,
-                Feature::Restaurant,
+                Feature::Restaurant, Feature::Kitchen,
                 Feature::Condiments, Feature::CustomerDiscounts,
                 Feature::Damage, Feature::BarcodeScanning,
                 Feature::ChartOfAccounts, Feature::JournalEntries,

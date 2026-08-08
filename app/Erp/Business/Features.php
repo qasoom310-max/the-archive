@@ -82,7 +82,7 @@ final class Features
      */
     private const APP_FEATURES = [
         'pos' => [
-            Feature::Restaurant, Feature::Recipes, Feature::Condiments,
+            Feature::Restaurant, Feature::Kitchen, Feature::Recipes, Feature::Condiments,
             Feature::CustomerDiscounts, Feature::Damage, Feature::BarcodeScanning,
             Feature::Postpaid, Feature::DailyReportCards, Feature::Production,
             Feature::RemoteSales, Feature::CashierClose, Feature::PaymentProof,

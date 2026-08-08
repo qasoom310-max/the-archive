@@ -82,9 +82,9 @@ final class PosHome extends Component
                 ->latest('closed_at')->limit(10)->get(),
             'isManager' => $user instanceof User && $user->isAdmin(),
             'tiles' => $tiles,
-            // Dine-in only: the Kitchen / Shisha screens make no sense for a
-            // retail or crafting shop, so hide them outside Restaurant databases.
-            'showStations' => Features::enabled(Feature::Restaurant),
+            // The Kitchen / Shisha screens are their own feature (separate from
+            // floor plan & tables), so a shop can run either independently.
+            'showStations' => Features::enabled(Feature::Kitchen),
         ]);
     }
 }

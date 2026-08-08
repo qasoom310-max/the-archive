@@ -69,6 +69,7 @@ final class BusinessTypeTest extends TestCase
 
         Setting::set('company.business_type', 'cafe');
         $this->assertTrue(Features::enabled(Feature::Restaurant));
+        $this->assertTrue(Features::enabled(Feature::Kitchen));
         $this->assertTrue(Features::modelAllowed('pos.floor'));
         $this->assertTrue(Features::modelAllowed('pos.table'));
 
@@ -77,6 +78,7 @@ final class BusinessTypeTest extends TestCase
             Setting::set('company.business_type', $type);
 
             $this->assertFalse(Features::enabled(Feature::Restaurant), $type);
+            $this->assertFalse(Features::enabled(Feature::Kitchen), $type);
             $this->assertFalse(Features::modelAllowed('pos.floor'), $type);
             $this->assertFalse(Features::modelAllowed('pos.table'), $type);
             // The register itself still works in retail/crafting.

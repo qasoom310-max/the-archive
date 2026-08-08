@@ -21,7 +21,11 @@ enum Feature: string
     case Bookings = 'bookings';
     case Limousine = 'limousine';
     case Projects = 'projects';
+    // Floor plan + tables (table-service ordering). Separate from the kitchen &
+    // shisha display screens below, so a shop can run one without the other.
     case Restaurant = 'restaurant';
+    // The kitchen & shisha display screens (KDS) and the buttons that open them.
+    case Kitchen = 'kitchen';
 
     // POS sub-features (toggled from POS → Settings).
     case Condiments = 'condiments';
@@ -75,7 +79,8 @@ enum Feature: string
             self::Bookings => 'Bookings & rentals',
             self::Limousine => 'Limousine',
             self::Projects => 'Projects',
-            self::Restaurant => 'Dine-in (tables, kitchen, shisha)',
+            self::Restaurant => 'Floor plan & tables',
+            self::Kitchen => 'Kitchen & shisha display',
             self::Condiments => 'Condiments & add-ons',
             self::CustomerDiscounts => 'Customer discounts',
             self::Damage => 'Damage / waste log',
@@ -105,7 +110,8 @@ enum Feature: string
     public function description(): string
     {
         return match ($this) {
-            self::Restaurant => 'Floor plan, tables, and the kitchen & shisha display screens.',
+            self::Restaurant => 'Floor plan and tables for table-service ordering.',
+            self::Kitchen => 'The kitchen and shisha display screens (KDS) and the buttons that open them.',
             self::Recipes => "Build products from ingredients and consume their stock on each sale.",
             self::Condiments => 'Let cashiers attach paid or free add-ons (extra cheese, no ice) to a cart line.',
             self::CustomerDiscounts => "Apply a percentage discount to an order from the customer's phone number.",

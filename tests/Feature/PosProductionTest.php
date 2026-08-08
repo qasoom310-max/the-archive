@@ -76,6 +76,27 @@ final class PosProductionTest extends TestCase
         $this->assertEqualsWithDelta(29.583, $perfume->fresh()->cost_price, 0.01);
     }
 
+    public function test_the_form_previews_material_and_packaging_costs_in_the_yield(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 2]);
+        $bottle = PosIngredient::query()->create(['name' => 'Bottle', 'unit' => 'pcs', 'stock_on_hand' => 1000, 'cost_price' => 0.30]);
+        $perfume = PosProduct::query()->create(['name' => 'Perfume X', 'price' => 5, 'bottle_size_ml' => 50, 'store_stock' => 0]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)      // 500 ml × 2 = 1000
+            ->call('addPackaging')
+            ->set('packaging.0.ingredient_id', $bottle->id)
+            ->set('packaging.0.qty', 1)        // 1 per bottle
+            ->set('produced_units', 10)        // × 10 bottles × 0.30 = 3.00
+            ->assertViewHas('materialsCost', 1000.0)
+            ->assertViewHas('packagingCost', 3.0)
+            ->assertViewHas('totalCost', 1003.0)
+            ->assertViewHas('unitCost', 100.3); // 1003 ÷ 10
+    }
+
     public function test_a_saved_formula_auto_fills_the_next_production(): void
     {
         $this->enableProduction();

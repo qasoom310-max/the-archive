@@ -5,6 +5,7 @@
         $lbl = 'mb-1 block text-sm font-medium text-chrome-700';
         $unitLabel = fn (?string $u) => collect(\Modules\Pos\Models\PosProduct::UNIT_OPTIONS)->firstWhere('value', $u)['label'] ?? $u;
         $variance = max(0, $expected - (int) ($produced_units === '' ? 0 : $produced_units));
+        $money = fn ($v) => \App\Erp\Views\ValueFormat::money((float) $v);
     @endphp
 
     {{-- Product --}}
@@ -83,6 +84,7 @@
                         <input type="number" step="0.001" min="0" wire:model.live="lines.{{ $i }}.ml_used" class="o-input w-full" placeholder="{{ __('ml') }}">
                         @if ($sel)
                             <p class="mt-1 text-xs {{ $left < 0 ? 'font-medium text-red-600' : 'text-chrome-400' }}">{{ __('In stock') }}: {{ $numf($avail) }} · {{ __('Left') }}: {{ $numf($left) }} ml</p>
+                            <p class="mt-0.5 text-xs text-chrome-500">{{ __('Cost') }}: {{ $money($used * $sel->costPerMl()) }}</p>
                         @endif
                         @error('lines.'.$i.'.ml_used') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
@@ -139,6 +141,7 @@
                             <input type="number" step="0.001" min="0" wire:model.live="packaging.{{ $i }}.qty" class="o-input w-full" placeholder="{{ __('per bottle') }}">
                             @if ($psel)
                                 <p class="mt-1 text-xs {{ $pleft < 0 ? 'font-medium text-red-600' : 'text-chrome-400' }}">{{ __('Need') }}: {{ $numf($need) }} · {{ __('In stock') }}: {{ $numf($pstock) }}</p>
+                                <p class="mt-0.5 text-xs text-chrome-500">{{ __('Cost') }}: {{ $money($need * (float) $psel->cost_price) }}</p>
                             @endif
                             @error('packaging.'.$i.'.qty') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
@@ -165,6 +168,14 @@
             <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Total mix') }}</dt><dd class="font-medium text-chrome-800">{{ rtrim(rtrim(number_format($totalMix, 3), '0'), '.') }} ml</dd></div>
             <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Bottle size') }}</dt><dd class="text-chrome-600">{{ $bottleSize > 0 ? rtrim(rtrim(number_format($bottleSize, 3), '0'), '.') . ' ml' : '—' }}</dd></div>
             <div class="flex items-center justify-between rounded-lg bg-primary-50 px-3 py-2"><dt class="font-semibold text-primary-800">{{ __('Expected bottles') }}</dt><dd class="text-lg font-bold text-primary-700">{{ $expected }}</dd></div>
+        </dl>
+
+        {{-- Cost breakdown --}}
+        <dl class="mt-3 space-y-2 border-t border-chrome-100 pt-3 text-sm">
+            <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Materials cost') }}</dt><dd class="font-medium text-chrome-800">{{ $money($materialsCost) }}</dd></div>
+            <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Packaging cost') }}</dt><dd class="text-chrome-600">{{ $money($packagingCost) }}</dd></div>
+            <div class="flex items-center justify-between rounded-lg bg-chrome-50 px-3 py-2"><dt class="font-semibold text-chrome-700">{{ __('Total cost') }}</dt><dd class="text-base font-bold text-chrome-900">{{ $money($totalCost) }}</dd></div>
+            <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Cost per bottle') }}</dt><dd class="font-medium text-chrome-800">{{ $unitCost > 0 ? $money($unitCost) : '—' }}</dd></div>
         </dl>
 
         <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">

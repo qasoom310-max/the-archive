@@ -441,14 +441,48 @@ final class ProductionForm extends Component
 
     public function render(): View
     {
+        $ingredients = PosIngredient::query()->where('active', true)->with('category')
+            ->orderBy('sequence')->orderBy('name')
+            ->get(['id', 'pos_ingredient_category_id', 'name', 'unit', 'stock_on_hand', 'pack_size', 'ml_per_unit', 'cost_price']);
+        $ingById = $ingredients->keyBy('id');
+
+        // Live cost preview — the same maths save() commits, so the figures the
+        // cashier sees match the recorded run: liquid = ml × cost-per-ml,
+        // packaging = per-bottle × bottles produced × unit cost.
+        $produced = (int) ($this->produced_units === '' ? 0 : $this->produced_units);
+
+        $materialsCost = 0.0;
+        foreach ($this->lines as $line) {
+            $ing = $ingById->get((int) ($line['ingredient_id'] ?? 0));
+            if ($ing === null) {
+                continue;
+            }
+            $ml = (float) (($line['ml_used'] ?? '') === '' ? 0 : $line['ml_used']);
+            $materialsCost += $ml * $ing->costPerMl();
+        }
+
+        $packagingCost = 0.0;
+        foreach ($this->packaging as $line) {
+            $ing = $ingById->get((int) ($line['ingredient_id'] ?? 0));
+            if ($ing === null) {
+                continue;
+            }
+            $per = (float) (($line['qty'] ?? '') === '' ? 0 : $line['qty']);
+            $packagingCost += $per * $produced * (float) $ing->cost_price;
+        }
+
+        $totalCost = round($materialsCost + $packagingCost, 3);
+
         return view('pos::production-form', [
             'products' => PosProduct::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'bottle_size_ml']),
-            'ingredients' => PosIngredient::query()->where('active', true)->with('category')
-                ->orderBy('sequence')->orderBy('name')
-                ->get(['id', 'pos_ingredient_category_id', 'name', 'unit', 'stock_on_hand', 'pack_size', 'ml_per_unit', 'cost_price']),
+            'ingredients' => $ingredients,
             'totalMix' => $this->totalMix(),
             'bottleSize' => $this->bottleSize(),
             'expected' => $this->expectedUnits(),
+            'materialsCost' => round($materialsCost, 3),
+            'packagingCost' => round($packagingCost, 3),
+            'totalCost' => $totalCost,
+            'unitCost' => $produced > 0 ? round($totalCost / $produced, 4) : 0.0,
             'hasFormula' => $this->product_id !== null
                 && PosProduct::query()->whereKey($this->product_id)->has('formulaLines')->exists(),
             'isEditing' => $this->id !== null,

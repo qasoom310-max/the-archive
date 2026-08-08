@@ -73,6 +73,7 @@
                             <th class="px-4 py-2 text-end">{{ __('Produced') }}</th>
                             <th class="px-4 py-2 text-end">{{ __('Shortfall') }}</th>
                             <th class="px-4 py-2 text-start">{{ __('When') }}</th>
+                            <th class="px-4 py-2 text-end">{{ __('Edit') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-chrome-50">
@@ -85,9 +86,16 @@
                                 <td class="px-4 py-2 text-end tabular-nums font-medium text-chrome-800">{{ $r->produced_units }}</td>
                                 <td class="px-4 py-2 text-end tabular-nums {{ $r->variance() > 0 ? 'font-semibold text-red-600' : 'text-chrome-400' }}">{{ $r->variance() > 0 ? $r->variance() : '—' }}</td>
                                 <td class="px-4 py-2 text-chrome-500">{{ $r->created_at?->isoFormat('MMM D · h:mm A') }}</td>
+                                <td class="px-4 py-2 text-end" onclick="event.stopPropagation()">
+                                    <a href="{{ url('/app/pos/production/' . $r->id) }}" wire:navigate
+                                        class="inline-flex items-center gap-1 rounded-lg bg-chrome-100 px-2.5 py-1 text-xs font-medium text-chrome-700 hover:bg-primary-400 hover:text-chrome-900">
+                                        <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-8.5 8.5A1 1 0 0 1 7.5 15H5a1 1 0 0 1-1-1v-2.5a1 1 0 0 1 .293-.707l8.5-8.5Z"/></svg>
+                                        {{ __('Edit') }}
+                                    </a>
+                                </td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="px-4 py-8 text-center text-sm text-chrome-400">{{ __('No productions yet.') }}</td></tr>
+                            <tr><td colspan="8" class="px-4 py-8 text-center text-sm text-chrome-400">{{ __('No productions yet.') }}</td></tr>
                         @endforelse
                     </tbody>
                 </table>

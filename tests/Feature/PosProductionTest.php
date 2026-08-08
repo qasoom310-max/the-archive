@@ -246,6 +246,27 @@ final class PosProductionTest extends TestCase
         $this->assertSame(0, PosProduction::query()->count());
     }
 
+    public function test_the_list_shows_an_edit_link_for_each_production(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 1]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50, 'store_stock' => 0]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->set('produced_units', 10)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $run = PosProduction::query()->latest('id')->firstOrFail();
+
+        Livewire::test(Productions::class)
+            ->assertSee(__('Edit'))
+            ->assertSeeHtml('/app/pos/production/' . $run->id);
+    }
+
     public function test_moving_stock_from_store_to_shop(): void
     {
         $this->enableProduction();

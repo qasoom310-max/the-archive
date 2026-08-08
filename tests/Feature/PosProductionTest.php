@@ -97,6 +97,36 @@ final class PosProductionTest extends TestCase
             ->assertViewHas('unitCost', 100.3); // 1003 ÷ 10
     }
 
+    public function test_production_cost_recomputes_the_last_run_at_current_material_prices(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 10000, 'cost_price' => 2]);
+        $bottle = PosIngredient::query()->create(['name' => 'Bottle', 'unit' => 'pcs', 'stock_on_hand' => 1000, 'cost_price' => 0.30]);
+        $perfume = PosProduct::query()->create(['name' => 'Perfume X', 'price' => 20, 'bottle_size_ml' => 50, 'cost_price' => 0]);
+
+        // Record a run: 500 ml oil (×2) + 1 bottle/bottle (×0.30), 10 bottles.
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->call('addPackaging')
+            ->set('packaging.0.ingredient_id', $bottle->id)
+            ->set('packaging.0.qty', 1)
+            ->set('produced_units', 10)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        // (500×2 + 1×10×0.30) ÷ 10 = 100.3 — snapshotted onto the product.
+        $this->assertEqualsWithDelta(100.30, $perfume->fresh()->cost_price, 0.001);
+        $this->assertEqualsWithDelta(100.30, $perfume->fresh()->productionCost(), 0.001);
+
+        // A material's price rises: the production-cost hint recomputes at the
+        // NEW price (150.3), even though the stored cost_price stays the old snapshot.
+        $oil->update(['cost_price' => 3]);
+        $this->assertEqualsWithDelta(150.30, $perfume->fresh()->productionCost(), 0.001); // (500×3 + 3) ÷ 10
+        $this->assertEqualsWithDelta(100.30, $perfume->fresh()->cost_price, 0.001);        // unchanged snapshot
+    }
+
     public function test_a_produced_product_shows_its_production_cost_hint(): void
     {
         $this->enableProduction();

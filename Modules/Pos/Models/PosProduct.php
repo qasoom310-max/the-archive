@@ -313,51 +313,82 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
 
     /**
      * Per-bottle production cost for a made-in-house product (a perfume mixed
-     * from oils, bottled and packaged): the cost of one finished bottle. Taken
-     * from the standard formula when it has one — liquid materials ÷ the bottles
-     * the mix yields, plus per-bottle packaging (the same maths a production run
-     * commits) — otherwise the most recent recorded run's unit cost. Null when
-     * the product isn't produced in-house.
+     * from oils, bottled and packaged): the cost of one finished bottle.
+     *
+     * Recomputed from the MOST RECENT production run at TODAY's material prices —
+     * exactly the maths the production form commits: (liquid ml × cost-per-ml +
+     * per-bottle packaging × bottles) ÷ bottles produced. Using current prices
+     * (not the run's stored snapshot) keeps the figure honest when a material's
+     * cost has changed since that run. Falls back to the standard formula for a
+     * product with a recipe but no run yet. Null when it isn't produced in-house.
      */
     public function productionCost(): ?float
+    {
+        $run = PosProduction::query()
+            ->with('lines.ingredient')
+            ->where('pos_product_id', $this->getKey())
+            ->latest('id')
+            ->first();
+
+        if ($run !== null && $run->produced_units > 0) {
+            $total = 0.0;
+            foreach ($run->lines as $line) {
+                $ing = $line->ingredient;
+                if ($line->kind === PosProductionLine::KIND_PACKAGING) {
+                    // Per-bottle unit × bottles produced × current unit cost
+                    // (snapshot if the ingredient is gone).
+                    $unitCost = $ing !== null ? (float) $ing->cost_price : (float) $line->unit_cost;
+                    $total += (float) ($line->qty_per_unit ?? 0) * $run->produced_units * $unitCost;
+                } else {
+                    // Total ml mixed × current cost per ml (snapshot if gone).
+                    $perMl = $ing !== null ? $ing->costPerMl() : (float) $line->unit_cost;
+                    $total += (float) $line->ml_used * $perMl;
+                }
+            }
+
+            return round($total / $run->produced_units, 4);
+        }
+
+        return $this->formulaCost();
+    }
+
+    /**
+     * Estimated per-bottle cost from the standard formula (before any run): the
+     * liquid materials divided by the bottles the mix yields, plus per-bottle
+     * packaging. Null when there's no formula or no bottle size.
+     */
+    private function formulaCost(): ?float
     {
         $formula = $this->relationLoaded('formulaLines')
             ? $this->formulaLines
             : $this->formulaLines()->with('ingredient')->get();
 
         $bottle = (float) ($this->bottle_size_ml ?? 0);
-
-        if ($formula->isNotEmpty() && $bottle > 0) {
-            $liquidCost = 0.0;
-            $totalMix = 0.0;
-            $packagingPerBottle = 0.0;
-
-            foreach ($formula as $line) {
-                $ing = $line->ingredient;
-                if ($ing === null) {
-                    continue;
-                }
-                if ($line->kind === PosProductFormulaLine::KIND_PACKAGING) {
-                    $packagingPerBottle += (float) ($line->qty_per_unit ?? 0) * (float) $ing->cost_price;
-                } else {
-                    $liquidCost += (float) $line->ml * $ing->costPerMl();
-                    $totalMix += (float) $line->ml;
-                }
-            }
-
-            $bottles = (int) floor($totalMix / $bottle);
-            $liquidPerBottle = $bottles > 0 ? $liquidCost / $bottles : 0.0;
-
-            return round($liquidPerBottle + $packagingPerBottle, 4);
+        if ($formula->isEmpty() || $bottle <= 0) {
+            return null;
         }
 
-        // No formula yet → fall back to the last actual production run's cost.
-        $lastUnitCost = PosProduction::query()
-            ->where('pos_product_id', $this->getKey())
-            ->latest('id')
-            ->value('unit_cost');
+        $liquidCost = 0.0;
+        $totalMix = 0.0;
+        $packagingPerBottle = 0.0;
 
-        return $lastUnitCost !== null ? round((float) $lastUnitCost, 4) : null;
+        foreach ($formula as $line) {
+            $ing = $line->ingredient;
+            if ($ing === null) {
+                continue;
+            }
+            if ($line->kind === PosProductFormulaLine::KIND_PACKAGING) {
+                $packagingPerBottle += (float) ($line->qty_per_unit ?? 0) * (float) $ing->cost_price;
+            } else {
+                $liquidCost += (float) $line->ml * $ing->costPerMl();
+                $totalMix += (float) $line->ml;
+            }
+        }
+
+        $bottles = (int) floor($totalMix / $bottle);
+        $liquidPerBottle = $bottles > 0 ? $liquidCost / $bottles : 0.0;
+
+        return round($liquidPerBottle + $packagingPerBottle, 4);
     }
 
     /**

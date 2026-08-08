@@ -1096,6 +1096,7 @@
     "Cost": "التكلفة",
     "Recipe cost (saved as this product’s cost price)": "تكلفة الوصفة (تُحفظ كتكلفة هذا المنتج)",
     "Recipe cost: :cost": "تكلفة الوصفة: :cost",
+    "Production cost: :cost": "تكلفة الإنتاج: :cost",
     "Remote / delivery": "بيع عن بُعد / توصيل",
     "Remote / delivery sales": "مبيعات عن بُعد / توصيل",
     "Cashiers can close the register": "يمكن للكاشير إغلاق الصندوق",

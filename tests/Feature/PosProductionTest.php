@@ -97,6 +97,32 @@ final class PosProductionTest extends TestCase
             ->assertViewHas('unitCost', 100.3); // 1003 ÷ 10
     }
 
+    public function test_a_produced_product_shows_its_production_cost_hint(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 2]);
+        $bottle = PosIngredient::query()->create(['name' => 'Bottle', 'unit' => 'pcs', 'stock_on_hand' => 1000, 'cost_price' => 0.30]);
+        $perfume = PosProduct::query()->create(['name' => 'Perfume X', 'price' => 20, 'bottle_size_ml' => 50, 'cost_price' => 0]);
+
+        // Standard formula: 500 ml oil per batch (yields floor(500/50)=10 bottles),
+        // 1 bottle of packaging per finished bottle.
+        $perfume->formulaLines()->create(['pos_ingredient_id' => $oil->id, 'kind' => 'liquid', 'ml' => 500, 'sequence' => 0]);
+        $perfume->formulaLines()->create(['pos_ingredient_id' => $bottle->id, 'kind' => 'packaging', 'qty_per_unit' => 1, 'sequence' => 100]);
+
+        // liquid 500×2 = 1000 over 10 bottles = 100/bottle; packaging 1×0.30 = 0.30.
+        $this->assertEqualsWithDelta(100.30, $perfume->fresh()->productionCost(), 0.001);
+
+        // The hint surfaces it under Cost Price (mirrors the recipe-cost hint).
+        $hint = $perfume->fresh()->formFieldHint('cost_price');
+        $this->assertNotNull($hint);
+        $this->assertStringContainsString('Production cost', $hint);
+
+        // A plain product (no formula, no runs, no bottle size) has no hint.
+        $plain = PosProduct::query()->create(['name' => 'Soda', 'price' => 1, 'cost_price' => 0]);
+        $this->assertNull($plain->productionCost());
+        $this->assertNull($plain->formFieldHint('cost_price'));
+    }
+
     public function test_a_saved_formula_auto_fills_the_next_production(): void
     {
         $this->enableProduction();

@@ -312,14 +312,72 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
     }
 
     /**
-     * Show the rolled-up recipe cost right under the Cost price field so it's
-     * visible without scrolling to the recipe editor. Only when this product
-     * is actually assembled from a recipe (its cost is recipe-driven).
+     * Per-bottle production cost for a made-in-house product (a perfume mixed
+     * from oils, bottled and packaged): the cost of one finished bottle. Taken
+     * from the standard formula when it has one — liquid materials ÷ the bottles
+     * the mix yields, plus per-bottle packaging (the same maths a production run
+     * commits) — otherwise the most recent recorded run's unit cost. Null when
+     * the product isn't produced in-house.
+     */
+    public function productionCost(): ?float
+    {
+        $formula = $this->relationLoaded('formulaLines')
+            ? $this->formulaLines
+            : $this->formulaLines()->with('ingredient')->get();
+
+        $bottle = (float) ($this->bottle_size_ml ?? 0);
+
+        if ($formula->isNotEmpty() && $bottle > 0) {
+            $liquidCost = 0.0;
+            $totalMix = 0.0;
+            $packagingPerBottle = 0.0;
+
+            foreach ($formula as $line) {
+                $ing = $line->ingredient;
+                if ($ing === null) {
+                    continue;
+                }
+                if ($line->kind === PosProductFormulaLine::KIND_PACKAGING) {
+                    $packagingPerBottle += (float) ($line->qty_per_unit ?? 0) * (float) $ing->cost_price;
+                } else {
+                    $liquidCost += (float) $line->ml * $ing->costPerMl();
+                    $totalMix += (float) $line->ml;
+                }
+            }
+
+            $bottles = (int) floor($totalMix / $bottle);
+            $liquidPerBottle = $bottles > 0 ? $liquidCost / $bottles : 0.0;
+
+            return round($liquidPerBottle + $packagingPerBottle, 4);
+        }
+
+        // No formula yet → fall back to the last actual production run's cost.
+        $lastUnitCost = PosProduction::query()
+            ->where('pos_product_id', $this->getKey())
+            ->latest('id')
+            ->value('unit_cost');
+
+        return $lastUnitCost !== null ? round((float) $lastUnitCost, 4) : null;
+    }
+
+    /**
+     * Show the rolled-up cost right under the Cost price field so it's visible
+     * without scrolling. A recipe-assembled product shows its recipe cost; a
+     * product mixed in Production shows its per-bottle production cost.
      */
     public function formFieldHint(string $field): ?string
     {
-        if ($field === 'cost_price' && $this->exists && $this->hasRecipe()) {
+        if ($field !== 'cost_price' || ! $this->exists) {
+            return null;
+        }
+
+        if ($this->hasRecipe()) {
             return __('Recipe cost: :cost', ['cost' => ValueFormat::money($this->recipeCost())]);
+        }
+
+        $production = $this->productionCost();
+        if ($production !== null && $production > 0) {
+            return __('Production cost: :cost', ['cost' => ValueFormat::money($production)]);
         }
 
         return null;

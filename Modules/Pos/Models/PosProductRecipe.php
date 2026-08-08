@@ -127,6 +127,13 @@ final class PosProductRecipe extends Model
     /**
      * Unit cost of this line's component. A product and an ingredient both
      * carry a tracked `cost_price`; a condiment does not (no cost basis → 0).
+     *
+     * For a PRODUCED product (a perfume mixed in-house) the stored `cost_price`
+     * is only a snapshot from its last run — it lags today's material prices and
+     * is 0 before the first run. So a product component prefers its LIVE
+     * per-bottle production cost, keeping a recipe built from produced items
+     * (e.g. a gift box of perfumes) priced at current costs. Ingredients and
+     * bought-in products keep their tracked `cost_price`.
      */
     public function componentUnitCost(): float
     {
@@ -135,6 +142,13 @@ final class PosProductRecipe extends Model
         // A condiment carries no cost; a missing component contributes nothing.
         if ($component === null || $component instanceof PosCondiment) {
             return 0.0;
+        }
+
+        if ($component instanceof PosProduct) {
+            $production = $component->productionCost();
+            if ($production !== null && $production > 0.0) {
+                return $production;
+            }
         }
 
         return (float) $component->cost_price;

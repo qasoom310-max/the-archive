@@ -127,6 +127,57 @@ final class PosProductionTest extends TestCase
         $this->assertEqualsWithDelta(100.30, $perfume->fresh()->cost_price, 0.001);        // unchanged snapshot
     }
 
+    public function test_a_recipe_prices_a_produced_component_at_its_live_cost_not_a_stale_snapshot(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 10000, 'cost_price' => 2]);
+        $perfume = PosProduct::query()->create(['name' => 'Perfume', 'price' => 20, 'bottle_size_ml' => 50, 'cost_price' => 0]);
+
+        // Produce the perfume: 500 ml oil, 10 bottles → 100/bottle, snapshotted.
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->set('produced_units', 10)
+            ->call('save')
+            ->assertHasNoErrors();
+        $this->assertEqualsWithDelta(100.0, $perfume->fresh()->cost_price, 0.01);
+
+        // Oil price doubles → the perfume now really costs 200/bottle to make,
+        // but its stored cost_price is still the old 100 snapshot.
+        $oil->update(['cost_price' => 4]);
+
+        // A gift box whose recipe uses one of that perfume.
+        $box = PosProduct::query()->create(['name' => 'Gift box', 'price' => 50, 'cost_price' => 0]);
+        $box->recipeLines()->create(['component_product_id' => $perfume->id, 'quantity_consumed' => 1]);
+
+        // The recipe reflects the CURRENT production cost (200), not the 100 snapshot.
+        $this->assertEqualsWithDelta(200.0, $box->fresh()->recipeCost(), 0.01);
+    }
+
+    public function test_opening_the_recipe_editor_refreshes_a_stale_offer_cost(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 10000, 'cost_price' => 2]);
+        $perfume = PosProduct::query()->create(['name' => 'Perfume', 'price' => 20, 'bottle_size_ml' => 50, 'cost_price' => 0]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->set('produced_units', 10)
+            ->call('save');
+
+        $box = PosProduct::query()->create(['name' => 'Gift box', 'price' => 50, 'cost_price' => 100]);
+        $box->recipeLines()->create(['component_product_id' => $perfume->id, 'quantity_consumed' => 1]);
+
+        $oil->update(['cost_price' => 4]); // perfume now 200/bottle
+
+        // Just opening the offer's recipe editor snaps its saved cost to 200.
+        Livewire::test(\Modules\Pos\Livewire\PosRecipeEditor::class, ['productId' => $box->id]);
+        $this->assertEqualsWithDelta(200.0, $box->fresh()->cost_price, 0.01);
+    }
+
     public function test_a_produced_product_shows_its_production_cost_hint(): void
     {
         $this->enableProduction();

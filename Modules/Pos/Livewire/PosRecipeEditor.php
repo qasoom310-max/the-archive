@@ -43,6 +43,20 @@ final class PosRecipeEditor extends Component
     {
         $this->guard(Permission::Read);
         $this->productId = $productId;
+
+        // Self-heal an existing offer: refresh its saved cost price from the
+        // recipe at TODAY's component costs, so a recipe whose ingredients' costs
+        // moved since it was built reflects the new total the moment it's opened
+        // (the live table below already shows current costs). Quiet + only when
+        // it actually drifted, so opening a product isn't a needless write.
+        $product = PosProduct::query()->find($productId);
+        if ($product !== null && $product->hasRecipe()) {
+            $current = $product->recipeCost();
+            if (abs((float) $product->cost_price - $current) > 0.00005) {
+                $product->cost_price = $current;
+                $product->saveQuietly();
+            }
+        }
     }
 
     private function guard(Permission $permission): void

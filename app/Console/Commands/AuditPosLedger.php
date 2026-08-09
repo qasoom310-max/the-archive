@@ -157,7 +157,7 @@ final class AuditPosLedger extends Command
             $rows[] = [
                 $entry->number,
                 $reference,
-                $entry->date?->toDateString() ?? '—',
+                $entry->date->toDateString(),
                 number_format($debit, 2),
             ];
         }

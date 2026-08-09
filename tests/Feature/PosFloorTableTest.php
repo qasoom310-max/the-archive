@@ -224,6 +224,30 @@ final class PosFloorTableTest extends TestCase
         $term->call('startPayment')->assertSet('paying', true);
     }
 
+    public function test_dine_in_pays_immediately_when_the_kitchen_screens_are_off(): void
+    {
+        // Postpaid ON but the kitchen & shisha screens are turned off: nobody can
+        // mark an order ready, so the green-gate must NOT hold payment.
+        $this->enablePostpaid();
+        \App\Erp\Business\Features::setOverrides(['postpaid' => true, 'kitchen' => false]);
+        app(\App\Erp\Settings\SettingManager::class)->flush();
+
+        $session = $this->openSession();
+        $table = $this->table();
+        $cat = PosCategory::query()->create(['name' => 'Kitchen', 'station' => 'kitchen']);
+        $burger = PosProduct::query()->create([
+            'name' => 'Burger', 'price' => 5.0, 'tax_rate' => 0.0,
+            'active' => true, 'pos_category_id' => $cat->id,
+        ]);
+
+        // A kitchen item is added but stays pending (no screen to advance it);
+        // the cashier can still take payment.
+        Livewire::test(PosTerminal::class, ['session' => $session->id, 'table' => $table->id])
+            ->call('addProduct', $burger->id)
+            ->call('startPayment')
+            ->assertSet('paying', true);
+    }
+
     public function test_prepaid_mode_skips_auto_send_and_lets_dine_in_pay_immediately(): void
     {
         // Default mode is PREPAID — no enablePostpaid(). A kitchen item is NOT

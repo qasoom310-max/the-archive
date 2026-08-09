@@ -704,6 +704,13 @@ final class PosTerminal extends Component
             return true;
         }
 
+        // The postpaid gate waits for the kitchen to mark the order ready. With
+        // the kitchen & shisha screens turned off there is nobody to do that, so
+        // the gate would never open — don't hold payment on it.
+        if (! Features::enabled(Feature::Kitchen)) {
+            return true;
+        }
+
         return $this->tableId === null || $this->orderKitchenReady($order);
     }
 

@@ -10,6 +10,7 @@ use App\Erp\Tenancy\WorkspaceManager;
 use App\Http\Middleware\SetActiveWorkspace;
 use App\Livewire\WorkspacesPage;
 use App\Models\Ir\IrModule;
+use App\Models\Ir\IrUiView;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
@@ -146,6 +147,58 @@ final class WorkspaceTest extends TestCase
             );
             $this->assertTrue(
                 IrModule::query()->where('name', 'rental')->where('state', ModuleState::Installed)->exists(),
+            );
+        });
+    }
+
+    /**
+     * Regression (2026-08-09): a layout change shipped to Main but never to a
+     * tenant. `install()` returns early for an already-installed module, and
+     * `ir_ui_view` is per-database, so a tenant kept the arch frozen at
+     * provisioning time — a field made read-only in code stayed editable in
+     * Kaleem, and the stock it was meant to protect went on being overwritten.
+     * The backfill step must RESYNC, not just install.
+     */
+    public function test_install_modules_refreshes_stale_stored_views_in_tenants(): void
+    {
+        $owner = Auth::user();
+        $this->assertInstanceOf(User::class, $owner);
+
+        $workspace = app(WorkspaceManager::class)->provision('Stale views', $owner, ['pos']);
+        $path = $workspace->databasePath();
+        $this->assertNotNull($path);
+
+        // Simulate the drift: the tenant's stored form arch predates a code
+        // change, so it still marks the stock field editable.
+        app(WorkspaceManager::class)->withTenant($path, function (): void {
+            $view = IrUiView::query()->where('model', 'pos.ingredient')->where('type', 'form')->first();
+            $this->assertNotNull($view, 'POS should have registered an ingredient form view.');
+
+            $arch = $view->arch;
+            $arch['fields'] = [['field' => 'name', 'label' => 'Name', 'widget' => 'text']];
+            $view->arch = $arch;
+            $view->save();
+        });
+
+        Artisan::call('workspaces:install-modules');
+
+        app(WorkspaceManager::class)->withTenant($path, function (): void {
+            $view = IrUiView::query()->where('model', 'pos.ingredient')->where('type', 'form')->first();
+            $this->assertNotNull($view);
+
+            $fields = $view->arch['fields'] ?? [];
+            $stock = null;
+            foreach ($fields as $field) {
+                if (($field['field'] ?? null) === 'stock_on_hand') {
+                    $stock = $field;
+                    break;
+                }
+            }
+
+            $this->assertNotNull($stock, 'The stale arch must be re-reflected from the code definition.');
+            $this->assertTrue(
+                ($stock['readonly'] ?? false) === true,
+                'A field made read-only in code must reach tenant databases, not just Main.',
             );
         });
     }

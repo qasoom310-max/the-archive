@@ -26,12 +26,21 @@ use Throwable;
  * existing workspace. `ModuleManager::install()` is idempotent — already-
  * installed modules return early — so it is safe to run on every deploy.
  * Resilient: a failure on one workspace or module never aborts the rest.
+ *
+ * It then RESYNCS each module's registry into that workspace, which is a
+ * separate job from installing. Views (`ir_ui_view`) are stored per database,
+ * and `install()`'s early return means an already-installed module never
+ * refreshes them — so every edit to a model's `irModelDefinition()` reached Main
+ * (the deploy runs `module:resync` there) but NEVER reached a tenant. Kaleem was
+ * rendering the layout frozen at provisioning time: a form field made read-only
+ * in code stayed editable there, and new fields never appeared. Resyncing here
+ * is what makes a layout change actually ship to every database.
  */
 final class InstallModulesInWorkspaces extends Command
 {
     protected $signature = 'workspaces:install-modules {name? : Limit to one module; omit to install all discovered}';
 
-    protected $description = 'Install every (or one) module into each existing tenant workspace database (idempotent).';
+    protected $description = 'Install + resync every (or one) module into each existing tenant workspace database (idempotent).';
 
     public function handle(WorkspaceManager $manager, ModuleManager $modules): int
     {
@@ -59,12 +68,20 @@ final class InstallModulesInWorkspaces extends Command
                     foreach ($targets as $module) {
                         try {
                             $modules->install($module);
+
+                            // Separate step, and the one that matters for an
+                            // ALREADY-installed module: install() returned early
+                            // above, so without this the tenant keeps the stored
+                            // views it was provisioned with and no layout change
+                            // ever reaches it. No-ops when the module isn't
+                            // installed here.
+                            $modules->resyncRegistry($module);
                         } catch (Throwable $e) {
                             $this->warn("  {$workspace->name}: {$module} → {$e->getMessage()}");
                         }
                     }
                 });
-                $this->info("Installed modules into workspace: {$workspace->name}");
+                $this->info("Installed + resynced modules into workspace: {$workspace->name}");
             } catch (Throwable $e) {
                 // Never abort the deploy because one workspace failed.
                 $this->error("Failed on {$workspace->name}: {$e->getMessage()}");

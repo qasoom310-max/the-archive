@@ -49,6 +49,8 @@ final class ActivityLog extends Model
         'user_updated' => 'Updated user',
         'user_deleted' => 'Deleted user',
         'settings_updated' => 'Updated settings',
+        'backup_created' => 'Created backup',
+        'backup_restored' => 'Restored backup',
         // Record workflow actions (orders, work orders, …).
         'started' => 'Started',
         'returned' => 'Returned',
@@ -79,6 +81,8 @@ final class ActivityLog extends Model
         'user_updated' => 'bg-amber-100 text-amber-700',
         'user_deleted' => 'bg-red-100 text-red-700',
         'settings_updated' => 'bg-violet-100 text-violet-700',
+        'backup_created' => 'bg-sky-100 text-sky-700',
+        'backup_restored' => 'bg-amber-100 text-amber-700',
         'started' => 'bg-sky-100 text-sky-700',
         'returned' => 'bg-emerald-100 text-emerald-700',
         'closed' => 'bg-emerald-100 text-emerald-700',

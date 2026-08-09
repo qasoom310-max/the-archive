@@ -1677,6 +1677,25 @@ a professional table of who did what, when.
 | Tenant backfill | `App\Console\Commands\MigrateWorkspaces` (`workspaces:migrate`) runs, against every tenant SQLite file (resilient per-workspace try/catch): core `migrate --force` **AND** — per module installed in that tenant's `ir_module` — its `migrate --path=<manifest->migrationsPath()> --realpath --force` + `module:resync <slug>` (extended 2026-06-22). **Added to `deploy.yml`** right after the Main `migrate`. Fixes the general "tenants miss migrations added after provisioning" gap for **both** core (e.g. `activity_logs`) **and module** migrations — without this a tenant's `pos_*`/etc. schema froze at provision time and screens using a later column (e.g. POS `pos_x`/`pos_y`, translatable floor name) 500'd only inside tenants while Main was fine. Resync also lands later `irModelDefinition()` arch tweaks (translatable pills, new fields) in tenants |
 | Tests | `tests/Feature/ActivityLogTest.php` (6 — logger snapshot, login event audited, page admin-only, list + action filter, user-create audited, settings-save audited) |
 
+**In-app database backups — daily snapshots + restore (shipped 2026-08-09):**
+
+A "Hostinger-style" backup built into the ERP: a **daily whole-database snapshot**,
+kept **14 days**, restorable from the app — so any change (add / edit / delete, to
+any table) can be undone by rolling the **whole database** back to an earlier day
+(a point-in-time rollback, **not** a per-record undo). **Per database** — Main
+(MySQL) and each tenant workspace (SQLite) each snapshot themselves.
+
+| Concern | Location |
+|---|---|
+| Engine | `App\Erp\Backup\DatabaseBackup` — engine-agnostic (query-builder, works for MySQL + SQLite). `snapshot()` dumps every business table to a **gzipped JSON file** under `storage/app/backups/<db-key>/<Y-m-d_His>_<rand>.json.gz` (`db-key` = `sha1` of the connection's database name, so tenants can't see each other's). `restore($path)` empties + repopulates each captured table inside ONE transaction with `Schema::disableForeignKeyConstraints()` (disabled BEFORE the transaction — SQLite ignores the PRAGMA inside one); columns added by later migrations default, dropped ones are ignored (`array_intersect_key` vs `getColumnListing`). `list()`/`owns()`/`delete()`/`purge()`. **`EXCLUDED`** infra tables (`migrations`, `sessions`, `cache*`, `jobs*`, `failed_jobs`, `password_reset_tokens`) are never dumped/restored — excluding `sessions` means a restore doesn't log the admin out. **Backups are FILES, not a DB table**, so a restore never disturbs the backup catalogue |
+| Daily backup | `App\Console\Commands\BackupDatabases` (`backups:run`) — snapshots EVERY database (Main + each tenant via `WorkspaceManager::withTenant`, like `workspaces:migrate`) then `purge()`s past-retention files. Scheduled `dailyAt('02:30')` in `routes/console.php`. **Depends on the hPanel `schedule:run` cron** (`[[hostinger-cron-needed-for-queue-worker]]`) |
+| UI | `App\Livewire\Pages\DatabaseBackups` (`/app/backups`, route `backups`, **admin-only**) — lists the CURRENT database's snapshots (date / size), **Back up now**, **Download**, **Delete**, and **Restore**. Restore is **password-gated** (`Hash::check` the admin's own password, mirroring workspace delete) because it overwrites every table; a stern amber warning + confirm modal. Menu entry in the topbar user dropdown next to "My database" (admin-only). Both actions audited (`activity_logs` `backup_created` / `backup_restored`) |
+| Download | `App\Http\Controllers\BackupDownloadController` (GET `/app/backups/download?file=`, admin-only) — streams a snapshot; `owns()`-gated so no cross-workspace path access. Registered before the `/app/{module}` wildcard |
+| Deploy | `storage/app/backups/` added to `deploy.yml`'s rsync `--exclude` (like `storage/app/workspaces/`) — else `--delete` wipes every snapshot on each push (`[[rsync-delete-wipes-user-uploads]]`). The command is scheduled (no deploy.yml step needed) |
+| Tests | `tests/Feature/DatabaseBackupTest.php` (8 — snapshot creates a listed file, restore rolls back a delete / an add / an edit, purge honours the window, page backs-up + restores with the password, wrong password refused, page admin-only) |
+
+**Scope / caveats:** restore is a **full rollback** (everything after the snapshot is lost) — by design, like Hostinger. Snapshots are **logical JSON dumps** (fine for small POS/retail data; a very large table loads into memory on snapshot/restore). Schema **rolls forward** (a later migration's new table isn't in an old snapshot and is left as-is; old rows insert only into columns that still exist). To retune retention change `DatabaseBackup::RETENTION_DAYS`.
+
 **Dark mode / per-user theme (shipped 2026-07-13):**
 
 A **light / dark / system** appearance picker in **Settings → General** (top of

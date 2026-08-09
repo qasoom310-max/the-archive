@@ -11,7 +11,11 @@ use App\Erp\Registry\ViewDefinition;
 use App\Erp\Translation\TranslatableModel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Modules\Contacts\Models\Partner;
+use Modules\Pos\Enums\IngredientMoveKind;
 use Spatie\Translatable\HasTranslations;
 
 /**
@@ -116,11 +120,103 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
     }
 
     /** Deduct `$ml` of consumption from stock, converting to stock units. */
-    public function deductMl(float $ml): void
+    public function deductMl(float $ml, IngredientMoveKind $kind, ?string $reference = null): void
     {
         $per = $this->mlPerUnit();
-        $this->stock_on_hand = (float) $this->stock_on_hand - ($per > 0 ? $ml / $per : $ml);
-        $this->save();
+        $this->applyStockDelta(-($per > 0 ? $ml / $per : $ml), $kind, $reference);
+    }
+
+    /**
+     * The single way an ingredient's stock is allowed to move: apply `$delta`
+     * (signed, in stock units) and record WHY in `pos_ingredient_moves`.
+     *
+     * Every caller goes through here so the ledger can never disagree with the
+     * on-hand figure — sum the moves and you get `stock_on_hand` back. Before
+     * this, five separate places nudged the number directly and nothing recorded
+     * the reason, so "how much did we use?" was unanswerable and a stale form
+     * write was indistinguishable from a real deduction.
+     *
+     * A zero delta writes nothing: a no-op move is noise in the history.
+     */
+    public function applyStockDelta(float $delta, IngredientMoveKind $kind, ?string $reference = null): void
+    {
+        $delta = round($delta, 3);
+        if (abs($delta) < 0.0005) {
+            return;
+        }
+
+        DB::transaction(function () use ($delta, $kind, $reference): void {
+            $this->stock_on_hand = round((float) $this->stock_on_hand + $delta, 3);
+            $this->save();
+
+            $this->moves()->create([
+                'qty' => $delta,
+                'kind' => $kind->value,
+                'reference' => $reference,
+                'balance_after' => (float) $this->stock_on_hand,
+                'user_id' => Auth::id(),
+            ]);
+        });
+    }
+
+    /**
+     * Set on-hand to an absolute `$qty`, recording the difference as a move.
+     * For re-counts (the Stock Report's Adjust), where the operator knows the
+     * true figure rather than the change.
+     */
+    public function setStockTo(float $qty, IngredientMoveKind $kind, ?string $reference = null): void
+    {
+        $this->applyStockDelta(round($qty, 3) - (float) $this->stock_on_hand, $kind, $reference);
+    }
+
+    /**
+     * Accessors so the metadata-driven form can show these as ordinary
+     * (read-only) fields — FormView reads values via `getAttribute()`, and the
+     * readonly flag keeps them off the save path, so no column is needed.
+     */
+    public function getPurchasedTotalAttribute(): float
+    {
+        return $this->purchasedTotal();
+    }
+
+    public function getUsedTotalAttribute(): float
+    {
+        return $this->usedTotal();
+    }
+
+    /**
+     * @return HasMany<PosIngredientMove, $this>
+     */
+    public function moves(): HasMany
+    {
+        return $this->hasMany(PosIngredientMove::class, 'pos_ingredient_id');
+    }
+
+    /**
+     * Total ever bought, in stock units. Purchases only — an upward adjustment
+     * is a re-count, not a purchase, and counting it here would overstate spend.
+     */
+    public function purchasedTotal(): float
+    {
+        return round((float) $this->moves()
+            ->where('kind', IngredientMoveKind::Purchase->value)
+            ->sum('qty'), 3);
+    }
+
+    /**
+     * Total ever consumed, in stock units, as a POSITIVE number. Production,
+     * sales and damages — the three real ways stock leaves. Adjustments are
+     * excluded for the same reason as above.
+     */
+    public function usedTotal(): float
+    {
+        $kinds = [
+            IngredientMoveKind::Production->value,
+            IngredientMoveKind::Sale->value,
+            IngredientMoveKind::Damage->value,
+        ];
+
+        return round(abs((float) $this->moves()->whereIn('kind', $kinds)->sum('qty')), 3);
     }
 
     /**
@@ -215,7 +311,33 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
                                 'orderBy' => 'sequence',
                             ],
                         ],
-                        ['field' => 'stock_on_hand', 'label' => 'How many in hand', 'widget' => 'number', 'help' => 'How many units / containers you have.'],
+                        // Read-only on purpose. This form auto-saves on every
+                        // keystroke, so a typed on-hand read when the page
+                        // opened would flush back over whatever a purchase,
+                        // sale or production had moved since — silently undoing
+                        // a real deduction. Stock changes through those events,
+                        // or the Stock Report's Adjust for a re-count.
+                        [
+                            'field' => 'stock_on_hand',
+                            'label' => 'How many in hand',
+                            'widget' => 'number',
+                            'readonly' => true,
+                            'help' => 'Moves on its own: purchases add, sales and production subtract. To correct a count, use Adjust in the Stock Report.',
+                        ],
+                        [
+                            'field' => 'purchased_total',
+                            'label' => 'Bought in total',
+                            'widget' => 'number',
+                            'readonly' => true,
+                            'help' => 'Everything ever received from confirmed purchases.',
+                        ],
+                        [
+                            'field' => 'used_total',
+                            'label' => 'Used in total',
+                            'widget' => 'number',
+                            'readonly' => true,
+                            'help' => 'Consumed by production, sales and damages. Re-counts are not counted here.',
+                        ],
                         ['field' => 'pack_size', 'label' => 'Each unit is', 'widget' => 'number', 'help' => 'The size of one unit — e.g. 20 for a 20-litre drum. Use 1 if you just count in the unit itself.'],
                         ['field' => 'unit', 'label' => 'Unit', 'widget' => 'select', 'options' => PosProduct::UNIT_OPTIONS],
                         ['field' => 'cost_price', 'label' => 'Cost per unit', 'widget' => 'number', 'help' => 'What one unit costs. Drives stock valuation.'],

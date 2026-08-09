@@ -11,6 +11,7 @@ use App\Erp\Registry\ViewDefinition;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Auth;
+use Modules\Pos\Enums\IngredientMoveKind;
 use Modules\Pos\Services\PosInventoryBridge;
 
 /**
@@ -153,8 +154,11 @@ final class PosDamage extends Model implements DefinesIrModel
             case 'ingredient':
                 $ingredient = PosIngredient::query()->find($this->pos_ingredient_id);
                 if ($ingredient !== null) {
-                    $ingredient->stock_on_hand = (float) $ingredient->stock_on_hand + $delta;
-                    $ingredient->save();
+                    $ingredient->applyStockDelta(
+                        $delta,
+                        IngredientMoveKind::Damage,
+                        'Damage ' . ($this->reference ?? ''),
+                    );
 
                     // Audit move on the Inventory dashboard for the draw-down only.
                     if ($delta < 0) {

@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Modules\Pos\Enums\IngredientMoveKind;
 
 /**
  * A production run (perfumes POS): raw materials (ingredients, in ML) mixed into
@@ -107,6 +108,19 @@ final class PosProduction extends Model
      * and add the produced bottles to the product's STORE stock. Call once,
      * after the lines have been created.
      */
+    /**
+     * How this run identifies itself in an ingredient's movement history.
+     * Prefers the human reference when the run has one, else the id — the
+     * ledger's `reference` is free text with no FK, so it must stay readable
+     * even after the run itself is gone.
+     */
+    public function moveReference(): string
+    {
+        $reference = trim((string) ($this->reference ?? ''));
+
+        return $reference !== '' ? "Production {$reference}" : 'Production #' . $this->getKey();
+    }
+
     public function applyStock(): void
     {
         foreach ($this->lines as $line) {
@@ -116,11 +130,14 @@ final class PosProduction extends Model
             }
             if ($line->kind === PosProductionLine::KIND_PACKAGING) {
                 // Per-bottle component: qty × bottles produced.
-                $ingredient->stock_on_hand = (float) $ingredient->stock_on_hand
-                    - (float) ($line->qty_per_unit ?? 0) * $this->produced_units;
-                $ingredient->save();
+                $ingredient->applyStockDelta(
+                    -((float) ($line->qty_per_unit ?? 0) * $this->produced_units),
+                    IngredientMoveKind::Production,
+                    $this->moveReference(),
+                );
             } else {
-                $ingredient->deductMl((float) $line->ml_used); // converts ML → stock units
+                // converts ML → stock units
+                $ingredient->deductMl((float) $line->ml_used, IngredientMoveKind::Production, $this->moveReference());
             }
         }
 
@@ -146,15 +163,21 @@ final class PosProduction extends Model
             if ($ingredient === null) {
                 continue;
             }
+            // Reversal is recorded as a Production move too, just positive: the
+            // history should show the run being undone, not silently rewind.
             if ($line->kind === PosProductionLine::KIND_PACKAGING) {
-                $ingredient->stock_on_hand = (float) $ingredient->stock_on_hand
-                    + (float) ($line->qty_per_unit ?? 0) * $this->produced_units;
-                $ingredient->save();
+                $ingredient->applyStockDelta(
+                    (float) ($line->qty_per_unit ?? 0) * $this->produced_units,
+                    IngredientMoveKind::Production,
+                    $this->moveReference() . ' (reversed)',
+                );
             } else {
                 $per = $ingredient->mlPerUnit();
-                $ingredient->stock_on_hand = (float) $ingredient->stock_on_hand
-                    + ($per > 0 ? (float) $line->ml_used / $per : (float) $line->ml_used);
-                $ingredient->save();
+                $ingredient->applyStockDelta(
+                    $per > 0 ? (float) $line->ml_used / $per : (float) $line->ml_used,
+                    IngredientMoveKind::Production,
+                    $this->moveReference() . ' (reversed)',
+                );
             }
         }
 

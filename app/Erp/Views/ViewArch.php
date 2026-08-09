@@ -244,6 +244,7 @@ final readonly class ViewArch
                 translatable: ($entry['translatable'] ?? false) === true,
                 unique: ($entry['unique'] ?? false) === true,
                 accept: self::str($entry, 'accept'),
+                readonly: ($entry['readonly'] ?? false) === true,
             );
         }
 

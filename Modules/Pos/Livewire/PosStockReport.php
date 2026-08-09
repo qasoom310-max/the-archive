@@ -18,6 +18,7 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Modules\Pos\Enums\IngredientMoveKind;
 use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosProduct;
@@ -139,8 +140,18 @@ final class PosStockReport extends Component
             return;
         }
 
-        $model->stock_on_hand = max(0.0, round((float) $this->adjustQty, 3));
-        $model->save();
+        $target = max(0.0, round((float) $this->adjustQty, 3));
+
+        // An ingredient's stock only ever moves through the model, so the
+        // re-count is recorded as an Adjustment in its movement history rather
+        // than silently replacing the number. Products and condiments have no
+        // such ledger — they keep the direct write.
+        if ($model instanceof PosIngredient) {
+            $model->setStockTo($target, IngredientMoveKind::Adjustment, __('Stock Report re-count'));
+        } else {
+            $model->stock_on_hand = $target;
+            $model->save();
+        }
 
         $this->closeAdjust();
     }

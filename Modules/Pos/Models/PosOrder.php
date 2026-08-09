@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Modules\Contacts\Models\Partner;
 use Modules\Pos\Enums\FulfillmentStatus;
+use Modules\Pos\Enums\IngredientMoveKind;
 use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Enums\SalesChannel;
 use Modules\Pos\Events\PosOrderPaid;
@@ -578,9 +579,18 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
                 }
 
                 if ($row->component_ingredient_id !== null) {
-                    PosIngredient::query()
-                        ->whereKey($row->component_ingredient_id)
-                        ->decrement('stock_on_hand', $decrement);
+                    // Routed through the model (not a `decrement()`) so the draw
+                    // -down lands in pos_ingredient_moves and counts toward the
+                    // ingredient's "used" figure. A raw decrement moved the
+                    // number and left no trace of what consumed it.
+                    $ingredient = PosIngredient::query()->find($row->component_ingredient_id);
+                    if ($ingredient !== null) {
+                        $ingredient->applyStockDelta(
+                            -$decrement,
+                            IngredientMoveKind::Sale,
+                            "POS sale {$this->reference}",
+                        );
+                    }
 
                     // Ingredients aren't on the product-keyed quant ledger, but
                     // the usage IS posted as a Done audit move below so the

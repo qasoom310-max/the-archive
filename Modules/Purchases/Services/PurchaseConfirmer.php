@@ -13,6 +13,7 @@ use Modules\Inventory\Enums\MoveState;
 use Modules\Inventory\Models\StockLocation;
 use Modules\Inventory\Models\StockMove;
 use Modules\Inventory\Models\StockOperationType;
+use Modules\Pos\Enums\IngredientMoveKind;
 use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosProduct;
@@ -179,15 +180,25 @@ final class PurchaseConfirmer
             return;
         }
 
-        $ingredient->stock_on_hand = round((float) $ingredient->stock_on_hand + (float) $line->quantity, 3);
         // Adopt the LANDED cost (invoice unit price + this line's delivery
         // share) as the material's cost, so a material bought for the first
         // time stops valuing at 0 and its cost reflects the real landed price.
         $cost = $line->effectiveUnitCost();
         if ($cost > 0) {
             $ingredient->cost_price = $cost;
+            $ingredient->save();
         }
-        $ingredient->save();
+
+        // The quantity goes through applyStockDelta so the receipt is recorded
+        // in the material's movement history — this is the only thing that
+        // counts toward its "purchased" total.
+        $ingredient->applyStockDelta(
+            (float) $line->quantity,
+            IngredientMoveKind::Purchase,
+            // Larastan reads the magic relation accessor as non-null, so `?->`
+            // is rejected here — same pattern as PosOrder::getProcessedByAttribute.
+            trim('Purchase ' . (string) ($line->purchase->reference ?? '')),
+        );
     }
 
     /**

@@ -41,6 +41,16 @@ final readonly class FormFieldDef
          * (rejects images too); null = the controller's default (PDF + images).
          */
         public ?string $accept = null,
+        /**
+         * Display the value but never write it back. The field renders
+         * disabled AND `FormView::save()` skips it entirely — the server-side
+         * half is the one that matters: this form auto-saves on every
+         * keystroke, writing every field it knows about, so a value the page
+         * loaded minutes ago would otherwise overwrite whatever changed in the
+         * meantime. Use for columns owned by a process rather than the user
+         * (e.g. a stock level that purchases, sales and production move).
+         */
+        public bool $readonly = false,
     ) {}
 
     public function isImage(): bool

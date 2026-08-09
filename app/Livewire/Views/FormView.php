@@ -349,6 +349,17 @@ final class FormView extends Component
                 continue;
             }
 
+            // Read-only fields are shown, never written. This save() runs on
+            // every keystroke and writes every field it knows about, so a value
+            // read when the page opened would otherwise be flushed back over
+            // whatever changed since — silently undoing, say, the stock a
+            // production had just consumed. Skipping here (not only disabling
+            // the input) is what makes it safe: a crafted request can't write
+            // it either.
+            if ($field->readonly) {
+                continue;
+            }
+
             $value = $this->form[$field->field] ?? null;
 
             // Translatable field — flush the in-progress edit for the
@@ -500,6 +511,14 @@ final class FormView extends Component
             // FormFileUploadController, which validates server-side — there's
             // no Livewire-bound value to rule over here.
             if ($field->isFile()) {
+                continue;
+            }
+
+            // Read-only fields are never written, so there is nothing to
+            // validate. Ruling over them would also let a computed display
+            // value (an accessor with no column behind it) fail a save the
+            // user has no way to fix.
+            if ($field->readonly) {
                 continue;
             }
 

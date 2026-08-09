@@ -355,9 +355,20 @@
                              `.live.debounce.500ms` powers auto-save: each pause
                              after a keystroke syncs the value to the server
                              and runs autoSave() once the record exists. --}}
+                        {{-- A read-only field is shown but never sent back: no
+                             wire:model, so a keystroke elsewhere can't flush a
+                             stale value over whatever moved it meanwhile. The
+                             server skips it in save() regardless — this is
+                             presentation, not the guarantee. --}}
                         <input type="{{ $field->widget === 'datetime' ? 'datetime-local' : $field->widget }}"
                             @if ($field->widget === 'number') step="any" @endif
-                            wire:model.live.debounce.500ms="{{ $key }}" placeholder="{{ $field->placeholder }}" class="o-input">
+                            @if ($field->readonly)
+                                value="{{ $form[$field->field] ?? '' }}" disabled
+                                class="o-input cursor-not-allowed bg-chrome-50 text-chrome-500"
+                            @else
+                                wire:model.live.debounce.500ms="{{ $key }}" class="o-input"
+                            @endif
+                            placeholder="{{ $field->placeholder }}">
                 @endswitch
 
                 @error($key) <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror

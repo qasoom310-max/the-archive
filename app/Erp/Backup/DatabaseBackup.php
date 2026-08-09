@@ -116,7 +116,10 @@ final class DatabaseBackup
                 'path' => $file,
                 'name' => basename($file),
                 'size' => $this->disk()->size($file),
-                'created_at' => Carbon::createFromTimestamp($this->disk()->lastModified($file)),
+                // createFromTimestamp() defaults to UTC (Carbon 3); render in the
+                // app's configured timezone (AppServiceProvider sets this to the
+                // company timezone) so it matches the activity-log times.
+                'created_at' => Carbon::createFromTimestamp($this->disk()->lastModified($file), (string) config('app.timezone', 'UTC')),
             ];
         }
 

@@ -45,6 +45,16 @@ final class DatabaseBackupTest extends TestCase
         $this->assertTrue($this->backup()->owns($path));
     }
 
+    public function test_listed_backup_time_uses_the_app_timezone(): void
+    {
+        config(['app.timezone' => 'Asia/Bahrain']);
+
+        $this->backup()->snapshot();
+
+        $created = $this->backup()->list()[0]['created_at'];
+        $this->assertSame('Asia/Bahrain', $created->timezone->getName());
+    }
+
     public function test_restore_brings_back_a_deleted_record(): void
     {
         $victim = User::factory()->create(['name' => 'Deleted Later', 'is_admin' => false]);

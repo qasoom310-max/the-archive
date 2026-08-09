@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
@@ -343,8 +344,25 @@ final class ListView extends Component
             $this->access()->authorize(Auth::user(), $this->modelKey, Permission::Unlink);
         }
 
-        $count = count($this->selected);
-        $this->model::query()->whereKey($this->selected)->delete();
+        // Delete record-by-record so Eloquent's `deleting`/`deleted` events fire.
+        //
+        // This was `$this->model::query()->whereKey($this->selected)->delete()` —
+        // one query, but a query-builder mass delete bypasses model events
+        // entirely. Any model that unwinds derived records in a `deleting` hook
+        // (POS orders unwind their journal entries; see PosOrder::booted) had
+        // that cleanup silently skipped here, so deleting sales from a list
+        // screen left Accounting counting revenue for orders that were gone.
+        //
+        // Selections are bounded by the page size, so the extra queries cost
+        // little; one transaction keeps a mid-way failure from half-deleting.
+        $records = $this->model::query()->whereKey($this->selected)->get();
+        $count = $records->count();
+
+        DB::transaction(static function () use ($records): void {
+            foreach ($records as $record) {
+                $record->delete();
+            }
+        });
 
         $label = \Illuminate\Support\Str::headline(\Illuminate\Support\Str::afterLast($this->modelKey, '.'));
         app(\App\Erp\Activity\ActivityLogger::class)->log(

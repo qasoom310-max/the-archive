@@ -24,6 +24,7 @@ use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Enums\SalesChannel;
 use Modules\Pos\Events\PosOrderPaid;
 use Modules\Pos\Services\PosInventoryBridge;
+use Modules\Pos\Services\PosSaleEraser;
 
 /**
  * @property int $id
@@ -124,6 +125,29 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
             'pos_table_id' => 'integer',
             'guest_count' => 'integer',
         ];
+    }
+
+    /**
+     * Unwind everything an order derived — its journal entries, payments and
+     * lines — whenever one is deleted, whatever deleted it.
+     *
+     * This hangs off the model rather than the caller on purpose. The cleanup
+     * used to live only inside `PosSaleEraser::erase()`, so any delete path that
+     * did not go through that service removed the order and left its ledger
+     * entries orphaned; Accounting then went on counting revenue for sales that
+     * no longer existed, and nothing errored to say so. The engine's generic
+     * `ListView` bulk delete was exactly such a path. A model event cannot be
+     * forgotten by a future caller the way a service call can.
+     *
+     * NOTE: this only fires for deletes that go through an Eloquent *model*.
+     * A query-builder mass delete (`Model::query()->...->delete()`) still
+     * bypasses it — see the matching comment in `ListView::bulkDelete()`.
+     */
+    protected static function booted(): void
+    {
+        static::deleting(static function (PosOrder $order): void {
+            app(PosSaleEraser::class)->purgeDerived($order);
+        });
     }
 
     /**

@@ -195,7 +195,9 @@ final class PurchaseConfirmer
         $ingredient->applyStockDelta(
             (float) $line->quantity,
             IngredientMoveKind::Purchase,
-            trim('Purchase ' . (string) ($line->purchase?->reference ?? '')),
+            // Larastan reads the magic relation accessor as non-null, so `?->`
+            // is rejected here — same pattern as PosOrder::getProcessedByAttribute.
+            trim('Purchase ' . (string) ($line->purchase->reference ?? '')),
         );
     }
 

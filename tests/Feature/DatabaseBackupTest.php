@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Erp\Backup\DatabaseBackup;
-use App\Livewire\Pages\DatabaseBackups;
+use App\Livewire\Pages\ActivityLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\Storage;
@@ -103,12 +103,12 @@ final class DatabaseBackupTest extends TestCase
         // Password the factory uses is "password".
         $victim = User::factory()->create(['name' => 'Gone', 'is_admin' => false]);
 
-        Livewire::test(DatabaseBackups::class)->call('backupNow');
+        Livewire::test(ActivityLog::class)->call('backupNow');
         $path = $this->backup()->list()[0]['path'];
 
         $victim->delete();
 
-        Livewire::test(DatabaseBackups::class)
+        Livewire::test(ActivityLog::class)
             ->call('confirmRestore', $path)
             ->set('restorePassword', 'password')
             ->call('restore');
@@ -123,7 +123,7 @@ final class DatabaseBackupTest extends TestCase
         $path = $this->backup()->snapshot();
         $victim->delete();
 
-        Livewire::test(DatabaseBackups::class)
+        Livewire::test(ActivityLog::class)
             ->call('confirmRestore', $path)
             ->set('restorePassword', 'wrong-password')
             ->call('restore')
@@ -136,6 +136,6 @@ final class DatabaseBackupTest extends TestCase
     {
         $this->actingAs(User::factory()->create(['is_admin' => false]));
 
-        Livewire::test(DatabaseBackups::class)->assertForbidden();
+        Livewire::test(ActivityLog::class)->assertForbidden();
     }
 }

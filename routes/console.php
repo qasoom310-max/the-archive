@@ -122,8 +122,8 @@ Schedule::call(function (): void {
 
 // Daily whole-database backup (the in-app "Hostinger backup"): snapshot EVERY
 // database (Main + each tenant workspace) to a gzipped file and prune snapshots
-// past the 14-day retention window. Restorable from Settings → Backups. Runs
-// in-process, so withoutOverlapping() is safe. Depends on the same hPanel
-// schedule:run cron as the other daily tasks.
+// past the 14-day retention window. Restorable from the Activity Log. Fires just
+// after midnight. Runs in-process, so withoutOverlapping() is safe. Depends on
+// the same hPanel schedule:run cron as the other daily tasks.
 Schedule::command('backups:run')
-    ->dailyAt('02:30')->name('backup-databases')->withoutOverlapping();
+    ->dailyAt('00:05')->name('backup-databases')->withoutOverlapping();

@@ -105,9 +105,8 @@ Route::middleware('auth')->group(function (): void {
     // Admin-only audit trail (topbar activity icon). Component gates on admin.
     Route::get('/activity', ActivityLog::class)->name('activity');
 
-    // Admin-only in-app database backups (daily snapshots + restore). The
-    // download route sits before the /app/{module} wildcard so it isn't shadowed.
-    Route::get('/app/backups', \App\Livewire\Pages\DatabaseBackups::class)->name('backups');
+    // Admin-only database-backup download (the list + restore UI lives in the
+    // Activity Log page). Before the /app/{module} wildcard so it isn't shadowed.
     Route::get('/app/backups/download', \App\Http\Controllers\BackupDownloadController::class)->name('backups.download');
 
     // Explicit before the /app/{module} wildcard so it wins.

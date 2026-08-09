@@ -210,15 +210,6 @@
                             {{ __('My database') }}
                         </a>
                     @endif
-                    {{-- Backups (admin-only) — daily database snapshots + restore. --}}
-                    @if ($authUser?->isAdmin())
-                        <a href="{{ url('/app/backups') }}" wire:navigate
-                            class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-chrome-100">
-                            {{-- Heroicons mini archive-box --}}
-                            <svg class="size-4 text-chrome-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M2 3.75A.75.75 0 0 1 2.75 3h14.5a.75.75 0 0 1 .75.75v2.5a.75.75 0 0 1-.75.75H2.75A.75.75 0 0 1 2 6.25v-2.5Z"/><path fill-rule="evenodd" d="M3 8.5h14v6.75A1.75 1.75 0 0 1 15.25 17H4.75A1.75 1.75 0 0 1 3 15.25V8.5Zm4.75 1.5a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-4.5Z" clip-rule="evenodd"/></svg>
-                            {{ __('Backups') }}
-                        </a>
-                    @endif
                     {{-- Settings lives here (not the sidebar). Shown to every
                          authenticated user; SettingsPage enforces what each
                          role may actually edit (admins all, others language). --}}

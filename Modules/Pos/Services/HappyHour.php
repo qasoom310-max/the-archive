@@ -20,7 +20,8 @@ use Modules\Pos\Models\PosProduct;
  *     already priced below the cap (e.g. Zaglol at 1.200) keeps its price. The
  *     deal only ever lowers a price, never raises it;
  *   - food gets {@see FOOD_DISCOUNT_PERCENT}% off;
- *   - drinks (a category flagged `is_drink`) are EXCLUDED — no discount.
+ *   - drinks (any product in a category NAMED "Drinks") are EXCLUDED — no
+ *     discount.
  *
  * The deal is applied per cart line at RING-UP (in
  * {@see \Modules\Pos\Livewire\PosTerminal::addProduct()}): the price you get is
@@ -94,12 +95,35 @@ final class HappyHour
     }
 
     /**
-     * A drink is a product in a category flagged `is_drink` — excluded from the
-     * food discount. Everything that isn't shisha or a drink counts as food.
+     * A drink is a product whose category is NAMED "Drinks" (case-insensitive,
+     * any locale — so "Drinks", "drinks", "Hot Drinks", "Cold Drinks" all match)
+     * — excluded from the food discount. Everything that isn't shisha or a drink
+     * counts as food.
+     *
+     * Matching on the name rather than a per-category flag keeps this a
+     * Sweileh-only concept: `isDrink()` is only ever consulted while the
+     * (Sweileh-gated) window is active, so no other database sees any effect and
+     * no category checkbox is needed anywhere.
      */
     public function isDrink(PosProduct $product): bool
     {
-        return $product->category?->is_drink === true;
+        $category = $product->category;
+        if ($category === null) {
+            return false;
+        }
+
+        // The name is a translatable JSON envelope; check every locale value
+        // (plus the resolved active-locale name, in case of a plain-string row).
+        $names = array_values($category->getTranslations('name'));
+        $names[] = (string) $category->name;
+
+        foreach ($names as $name) {
+            if (str_contains(Str::lower((string) $name), 'drink')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

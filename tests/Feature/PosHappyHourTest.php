@@ -75,8 +75,9 @@ final class PosHappyHourTest extends TestCase
 
     private function drinkProduct(float $price = 0.8): PosProduct
     {
+        // Excluded by the category NAME containing "Drinks" — no flag needed.
         $category = PosCategory::query()->create([
-            'name' => 'Hot Drinks', 'slug' => 'hot-drinks', 'active' => true, 'is_drink' => true,
+            'name' => 'Hot Drinks', 'slug' => 'hot-drinks', 'active' => true,
         ]);
 
         return PosProduct::query()->create([

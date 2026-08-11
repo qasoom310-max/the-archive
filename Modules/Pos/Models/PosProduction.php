@@ -26,6 +26,9 @@ use Modules\Pos\Enums\IngredientMoveKind;
  * @property int $produced_units
  * @property float $total_cost
  * @property float $unit_cost
+ * @property string $state          done | draft | reversed
+ * @property \Illuminate\Support\Carbon|null $reversed_at
+ * @property int|null $reversed_by_user_id
  * @property string|null $notes
  * @property int|null $produced_by_user_id
  * @property-read PosProduct|null $product
@@ -37,12 +40,24 @@ final class PosProduction extends Model
 
     protected $table = 'pos_productions';
 
+    /** Recorded — materials deducted, bottles in the store. The normal state. */
+    public const STATE_DONE = 'done';
+
+    /** Reopened for editing — stock is NOT applied while it's a draft. */
+    public const STATE_DRAFT = 'draft';
+
+    /** Undone + locked — kept for the audit trail, can't sell/edit it. */
+    public const STATE_REVERSED = 'reversed';
+
     /** @var list<string> */
     protected $fillable = [
         'reference', 'pos_product_id', 'pos_session_id', 'bottle_size_ml',
         'total_mix_ml', 'expected_units', 'produced_units', 'total_cost',
-        'unit_cost', 'notes', 'produced_by_user_id',
+        'unit_cost', 'state', 'reversed_at', 'reversed_by_user_id', 'notes', 'produced_by_user_id',
     ];
+
+    /** @var array<string, mixed> */
+    protected $attributes = ['state' => self::STATE_DONE];
 
     /**
      * @return array<string, string>
@@ -58,6 +73,8 @@ final class PosProduction extends Model
             'produced_units' => 'integer',
             'total_cost' => 'float',
             'unit_cost' => 'float',
+            'reversed_at' => 'datetime',
+            'reversed_by_user_id' => 'integer',
             'produced_by_user_id' => 'integer',
         ];
     }
@@ -65,6 +82,43 @@ final class PosProduction extends Model
     public function referencePrefix(): string
     {
         return 'PRD';
+    }
+
+    public function isDone(): bool
+    {
+        return $this->state === self::STATE_DONE;
+    }
+
+    public function isDraft(): bool
+    {
+        return $this->state === self::STATE_DRAFT;
+    }
+
+    public function isReversed(): bool
+    {
+        return $this->state === self::STATE_REVERSED;
+    }
+
+    /** A locked/queued run's inputs must not be edited in place. */
+    public function isEditable(): bool
+    {
+        return ! $this->exists || $this->isDraft();
+    }
+
+    /**
+     * Whether this run's finished bottles have already left the store (moved to
+     * the shop or sold), so the store can no longer give them all back. Reversing
+     * or reopening a DONE run is blocked in that case — the bottles must be pulled
+     * back from the shop first (the "block until returned" rule).
+     */
+    public function outputHasLeftStore(): bool
+    {
+        $product = $this->product;
+        if ($product === null) {
+            return false;
+        }
+
+        return (float) $product->store_stock < (float) $this->produced_units - 0.0001;
     }
 
     /** Expected bottles from a mix of `$totalMl` at `$bottleMl` per bottle. */
@@ -186,5 +240,23 @@ final class PosProduction extends Model
             $product->store_stock = max(0.0, (float) $product->store_stock - $this->produced_units);
             $product->save();
         }
+    }
+
+    /**
+     * Reverse a DONE run and lock it: undo its stock effect (materials back,
+     * bottles out of the store) and stamp it REVERSED. A no-op on a run that
+     * isn't currently DONE. The caller must have checked {@see outputHasLeftStore()}.
+     */
+    public function reverse(?int $userId): void
+    {
+        if (! $this->isDone()) {
+            return;
+        }
+
+        $this->reverseStock();
+        $this->state = self::STATE_REVERSED;
+        $this->reversed_at = now();
+        $this->reversed_by_user_id = $userId;
+        $this->save();
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Pos\Livewire;
 
+use App\Erp\Activity\ActivityLogger;
 use App\Erp\Business\Feature;
 use App\Erp\Business\Features;
 use Illuminate\Contracts\View\View;
@@ -37,6 +38,9 @@ final class ProductionForm extends Component
 
     public string $reference = '';
 
+    /** Lifecycle state of the loaded run: done | draft | reversed (new = editable). */
+    public string $state = PosProduction::STATE_DONE;
+
     /** Set right after "Save as formula" so the view can confirm it. */
     public bool $formulaJustSaved = false;
 
@@ -66,6 +70,7 @@ final class ProductionForm extends Component
                 $this->produced_units = (string) $production->produced_units;
                 $this->notes = $production->notes ?? '';
                 $this->reference = $production->reference ?? '';
+                $this->state = $production->state;
 
                 $liquid = $production->lines->where('kind', '!=', PosProductionLine::KIND_PACKAGING);
                 $pack = $production->lines->where('kind', PosProductionLine::KIND_PACKAGING);
@@ -169,7 +174,7 @@ final class ProductionForm extends Component
         $this->produced_units = $this->expectedUnits() > 0 ? (string) $this->expectedUnits() : $this->produced_units;
     }
 
-    /** Delete this production, reversing its stock effect first. */
+    /** Delete this production, reversing its stock effect first if still applied. */
     public function delete(): void
     {
         abort_unless(Features::enabled(Feature::Production), 404);
@@ -182,8 +187,17 @@ final class ProductionForm extends Component
             return;
         }
 
-        $production->reverseStock(); // materials back, bottles out of the store
-        $production->delete();        // lines cascade
+        // Only a DONE run still has stock applied. A draft/reversed run was
+        // already unwound, so reversing again would wrongly return materials.
+        if ($production->isDone()) {
+            if ($production->outputHasLeftStore()) {
+                $this->addError('state', __('Some bottles have already left the store (moved to the shop or sold). Return them to the store before deleting.'));
+
+                return;
+            }
+            $production->reverseStock(); // materials back, bottles out of the store
+        }
+        $production->delete();            // lines cascade
 
         session()->flash('toast', __('Production deleted.'));
         $this->redirect('/app/pos/production', navigate: true);
@@ -279,6 +293,13 @@ final class ProductionForm extends Component
     public function save(): void
     {
         abort_unless(Features::enabled(Feature::Production), 404);
+
+        // A recorded (done) or reversed run is not editable in place — it must be
+        // reopened first (which reverses its stock and turns it into a draft).
+        if ($this->id !== null && $this->state !== PosProduction::STATE_DRAFT) {
+            abort(403);
+        }
+
         $this->validate();
 
         if ($this->bottleSize() <= 0) {
@@ -296,25 +317,10 @@ final class ProductionForm extends Component
             )))
             ->get()->keyBy('id');
 
-        // Not enough stock guard. When editing, the materials this run currently
-        // consumes will be freed on save, so add that back to what's available.
-        // Liquid is compared in ML; packaging in whole units (qty × bottles).
-        $priorMl = [];
-        $priorPack = [];
-        if ($this->id !== null) {
-            $existing = PosProduction::query()->with('lines')->find($this->id);
-            if ($existing !== null) {
-                foreach ($existing->lines as $l) {
-                    if ($l->kind === PosProductionLine::KIND_PACKAGING) {
-                        $priorPack[$l->pos_ingredient_id] = ($priorPack[$l->pos_ingredient_id] ?? 0)
-                            + (float) ($l->qty_per_unit ?? 0) * $existing->produced_units;
-                    } else {
-                        $priorMl[$l->pos_ingredient_id] = ($priorMl[$l->pos_ingredient_id] ?? 0) + (float) $l->ml_used;
-                    }
-                }
-            }
-        }
-
+        // Not-enough-stock guard. A draft's materials were already returned to
+        // stock when it was reopened, so `availableMl()` already reflects them —
+        // no prior-consumption add-back is needed. Liquid is compared in ML,
+        // packaging in whole units (qty × bottles).
         $short = false;
 
         // Liquid materials (ML).
@@ -326,7 +332,7 @@ final class ProductionForm extends Component
             }
         }
         foreach ($usedMl as $id => $used) {
-            $available = ($ingredients->get($id)?->availableMl() ?? 0) + ($priorMl[$id] ?? 0);
+            $available = $ingredients->get($id)?->availableMl() ?? 0;
             if ($used > $available + 0.0001) {
                 $short = true;
                 foreach ($this->lines as $i => $line) {
@@ -348,7 +354,7 @@ final class ProductionForm extends Component
         }
         foreach ($usedPack as $id => $need) {
             $ing = $ingredients->get($id);
-            $available = (float) $ing->stock_on_hand + ($priorPack[$id] ?? 0);
+            $available = (float) $ing->stock_on_hand;
             if ($need > $available + 0.0001) {
                 $short = true;
                 foreach ($this->packaging as $i => $line) {
@@ -379,17 +385,17 @@ final class ProductionForm extends Component
             $totalCost += (float) ($line['qty'] ?? 0) * $produced * (float) $ing->cost_price;
         }
 
-        // Editing: undo the previous stock effect before rewriting the run.
+        // New run, or a reopened DRAFT being re-recorded. A draft's stock was
+        // already reversed when it was reopened, so we only ever APPLY here —
+        // never reverse (that would double-count).
         $production = $this->id !== null
             ? PosProduction::query()->with('lines.ingredient', 'product')->find($this->id)
             : new PosProduction();
         if ($production === null) {
             return;
         }
-        if ($production->exists) {
-            $production->reverseStock();
-        }
 
+        $wasReopened = $production->exists;
         $production->pos_product_id = $this->product_id;
         $production->bottle_size_ml = $bottle;
         $production->total_mix_ml = $totalMix;
@@ -397,6 +403,9 @@ final class ProductionForm extends Component
         $production->produced_units = $produced;
         $production->total_cost = round($totalCost, 3);
         $production->unit_cost = $produced > 0 ? round($totalCost / $produced, 4) : 0;
+        $production->state = PosProduction::STATE_DONE;
+        $production->reversed_at = null;
+        $production->reversed_by_user_id = null;
         $production->notes = trim($this->notes) !== '' ? trim($this->notes) : null;
         if (! $production->exists) {
             $production->pos_session_id = app(PosSessionManager::class)->getActiveSession()?->id;
@@ -433,10 +442,81 @@ final class ProductionForm extends Component
         $production->load('lines.ingredient', 'product');
         $production->applyStock();
 
-        session()->flash('toast', $this->id !== null
-            ? __('Production updated.')
+        if ($wasReopened) {
+            app(ActivityLogger::class)->log('production_reopened', $production->reference, __('Re-recorded after reopening.'));
+        }
+
+        session()->flash('toast', $wasReopened
+            ? __('Production re-recorded.')
             : __('Production recorded — :n bottles added to the store.', ['n' => $produced]));
         $this->redirect('/app/pos/production', navigate: true);
+    }
+
+    /**
+     * Reverse a completed run: undo its stock effect (materials back, bottles out
+     * of the store) and lock it as REVERSED, kept for the record. Blocked when the
+     * bottles have already left the store (moved to the shop or sold) — pull them
+     * back first.
+     */
+    public function reverse(): void
+    {
+        abort_unless(Features::enabled(Feature::Production), 404);
+        if ($this->id === null) {
+            return;
+        }
+
+        $production = PosProduction::query()->with('lines.ingredient', 'product')->find($this->id);
+        if ($production === null || ! $production->isDone()) {
+            return;
+        }
+
+        if ($production->outputHasLeftStore()) {
+            $this->addError('state', __('Some bottles have already left the store (moved to the shop or sold). Return them to the store before reversing.'));
+
+            return;
+        }
+
+        $production->reverse(Auth::id());
+        app(ActivityLogger::class)->log('production_reversed', $production->reference, __('Reversed — materials returned, bottles removed from the store.'));
+
+        session()->flash('toast', __('Production reversed.'));
+        $this->redirect('/app/pos/production', navigate: true);
+    }
+
+    /**
+     * Reopen a run for editing: a DONE run is reversed first (blocked if its
+     * bottles have left the store), a REVERSED run is simply unlocked. Either way
+     * it becomes an editable DRAFT with no stock applied; saving re-records it.
+     */
+    public function reopen(): void
+    {
+        abort_unless(Features::enabled(Feature::Production), 404);
+        if ($this->id === null) {
+            return;
+        }
+
+        $production = PosProduction::query()->with('lines.ingredient', 'product')->find($this->id);
+        if ($production === null || $production->isDraft()) {
+            return;
+        }
+
+        if ($production->isDone()) {
+            if ($production->outputHasLeftStore()) {
+                $this->addError('state', __('Some bottles have already left the store (moved to the shop or sold). Return them to the store before reopening.'));
+
+                return;
+            }
+            $production->reverseStock(); // materials back, bottles out of the store
+        }
+
+        $production->state = PosProduction::STATE_DRAFT;
+        $production->reversed_at = null;
+        $production->reversed_by_user_id = null;
+        $production->save();
+
+        $this->state = PosProduction::STATE_DRAFT;
+        session()->flash('toast', __('Production reopened for editing.'));
+        $this->redirect('/app/pos/production/' . $production->id, navigate: true);
     }
 
     public function render(): View
@@ -486,6 +566,12 @@ final class ProductionForm extends Component
             'hasFormula' => $this->product_id !== null
                 && PosProduct::query()->whereKey($this->product_id)->has('formulaLines')->exists(),
             'isEditing' => $this->id !== null,
+            'state' => $this->state,
+            'editable' => $this->id === null || $this->state === PosProduction::STATE_DRAFT,
+            // Whether this run's bottles have already left the store — blocks
+            // reverse/reopen/delete of a done run (the "return them first" rule).
+            'outputLeft' => $this->id !== null && $this->state === PosProduction::STATE_DONE
+                && (PosProduction::query()->with('product')->find($this->id)?->outputHasLeftStore() ?? false),
         ]);
     }
 }

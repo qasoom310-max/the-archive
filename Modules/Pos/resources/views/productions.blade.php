@@ -117,7 +117,14 @@
                     <tbody class="divide-y divide-chrome-50">
                         @forelse ($productions as $r)
                             <tr class="cursor-pointer hover:bg-chrome-50" onclick="window.location='{{ url('/app/pos/production/' . $r->id) }}'">
-                                <td class="px-4 py-2 font-medium text-primary-700">{{ $r->reference }}</td>
+                                <td class="px-4 py-2 font-medium text-primary-700">
+                                    {{ $r->reference }}
+                                    @if ($r->state === 'reversed')
+                                        <span class="ms-1 inline-flex items-center rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700">{{ __('Reversed') }}</span>
+                                    @elseif ($r->state === 'draft')
+                                        <span class="ms-1 inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">{{ __('Draft') }}</span>
+                                    @endif
+                                </td>
                                 <td class="px-4 py-2 text-chrome-700">{{ $r->product?->name ?? '—' }}</td>
                                 <td class="px-4 py-2 text-end tabular-nums text-chrome-600">{{ $num($r->total_mix_ml) }}</td>
                                 <td class="px-4 py-2 text-end tabular-nums text-chrome-600">{{ $r->expected_units }}</td>

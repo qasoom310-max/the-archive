@@ -63,6 +63,8 @@ final class ActivityLog extends Model
         'completed' => 'Completed',
         'invoiced' => 'Invoiced',
         'car_replaced' => 'Car replaced',
+        'production_reversed' => 'Reversed production',
+        'production_reopened' => 'Reopened production',
     ];
 
     /**
@@ -94,6 +96,8 @@ final class ActivityLog extends Model
         'completed' => 'bg-emerald-100 text-emerald-700',
         'invoiced' => 'bg-indigo-100 text-indigo-700',
         'car_replaced' => 'bg-orange-100 text-orange-700',
+        'production_reversed' => 'bg-red-100 text-red-700',
+        'production_reopened' => 'bg-amber-100 text-amber-700',
     ];
 
     /**

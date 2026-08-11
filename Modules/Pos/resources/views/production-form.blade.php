@@ -8,13 +8,32 @@
         $money = fn ($v) => \App\Erp\Views\ValueFormat::money((float) $v);
     @endphp
 
+    {{-- Lifecycle banner --}}
+    @if ($isEditing && $state === 'reversed')
+        <div class="mb-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 ring-1 ring-red-100">
+            <svg class="size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm-1.5-5.5 5-5-1-1-5 5 1 1Z" clip-rule="evenodd"/></svg>
+            {{ __('This production is reversed — kept for the record. Reopen it to edit and re-record.') }}
+        </div>
+    @elseif ($isEditing && $state === 'draft')
+        <div class="mb-4 flex items-center gap-2 rounded-lg bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-700 ring-1 ring-amber-100">
+            <svg class="size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-8.5 8.5A1 1 0 0 1 7.5 15H5a1 1 0 0 1-1-1v-2.5a1 1 0 0 1 .293-.707l8.5-8.5Z"/></svg>
+            {{ __('Reopened for editing — the stock was returned. Re-record to apply it again.') }}
+        </div>
+    @elseif ($isEditing && $state === 'done')
+        <div class="mb-4 flex items-center gap-2 rounded-lg bg-chrome-50 px-4 py-2.5 text-sm text-chrome-600 ring-1 ring-chrome-100">
+            <svg class="size-4 shrink-0 text-chrome-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-4a1 1 0 0 0-1 1v3a1 1 0 0 0 .293.707l2 2 1.414-1.414L11 9.586V7a1 1 0 0 0-1-1Z" clip-rule="evenodd"/></svg>
+            {{ __('This production is recorded. To correct it, Reverse it or Reopen it to edit — don’t edit the stock directly.') }}
+        </div>
+    @endif
+    @error('state') <p class="mb-4 rounded-lg bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700">{{ $message }}</p> @enderror
+
     {{-- Product --}}
     <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6">
         <h2 class="mb-4 text-sm font-semibold text-chrome-800">{{ __('What are we making?') }}</h2>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
                 <label class="{{ $lbl }}">{{ __('Product') }} *</label>
-                <select wire:model.live="product_id" class="o-input w-full">
+                <select wire:model.live="product_id" @disabled(! $editable) class="o-input w-full disabled:bg-chrome-50 disabled:text-chrome-500">
                     <option value="">{{ __('— Select —') }}</option>
                     @foreach ($products as $p)
                         <option value="{{ $p->id }}">{{ $p->name }}@if ($p->bottle_size_ml) · {{ rtrim(rtrim(number_format((float) $p->bottle_size_ml, 1), '0'), '.') }} ml @endif</option>
@@ -42,9 +61,11 @@
                     <p class="mt-1 text-xs text-emerald-600">{{ __('Auto-filled from this product’s saved formula — adjust if needed.') }}</p>
                 @endif
             </div>
-            <button type="button" wire:click="saveAsFormula" class="shrink-0 rounded-lg border border-chrome-200 px-2.5 py-1 text-xs font-medium text-chrome-600 hover:bg-chrome-50">
-                {{ $hasFormula ? __('Update formula') : __('Save as formula') }}
-            </button>
+            @if ($editable)
+                <button type="button" wire:click="saveAsFormula" class="shrink-0 rounded-lg border border-chrome-200 px-2.5 py-1 text-xs font-medium text-chrome-600 hover:bg-chrome-50">
+                    {{ $hasFormula ? __('Update formula') : __('Save as formula') }}
+                </button>
+            @endif
         </div>
         @if ($formulaJustSaved)
             <p class="mb-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">{{ __('Formula saved — it will auto-fill next time.') }}</p>
@@ -67,7 +88,7 @@
                 <div wire:key="pline-{{ $i }}" class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr,10rem,auto] sm:items-start">
                     <div>
                         <label class="{{ $lbl }} sm:sr-only">{{ __('Material') }}</label>
-                        <select wire:model.live="lines.{{ $i }}.ingredient_id" class="o-input w-full">
+                        <select wire:model.live="lines.{{ $i }}.ingredient_id" @disabled(! $editable) class="o-input w-full disabled:bg-chrome-50 disabled:text-chrome-500">
                             <option value="">{{ __('— Select material —') }}</option>
                             @foreach ($grouped as $groupName => $groupIngs)
                                 <optgroup label="{{ $groupName }}">
@@ -81,7 +102,7 @@
                     </div>
                     <div>
                         <label class="{{ $lbl }} sm:sr-only">{{ __('ML used') }}</label>
-                        <input type="number" step="0.001" min="0" wire:model.live="lines.{{ $i }}.ml_used" class="o-input w-full" placeholder="{{ __('ml') }}">
+                        <input type="number" step="0.001" min="0" wire:model.live="lines.{{ $i }}.ml_used" @disabled(! $editable) class="o-input w-full disabled:bg-chrome-50 disabled:text-chrome-500" placeholder="{{ __('ml') }}">
                         @if ($sel)
                             <p class="mt-1 text-xs {{ $left < 0 ? 'font-medium text-red-600' : 'text-chrome-400' }}">{{ __('In stock') }}: {{ $numf($avail) }} · {{ __('Left') }}: {{ $numf($left) }} ml</p>
                             <p class="mt-0.5 text-xs text-chrome-500">{{ __('Cost') }}: {{ $money($used * $sel->costPerMl()) }}</p>
@@ -89,7 +110,7 @@
                         @error('lines.'.$i.'.ml_used') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div class="pt-2">
-                        @if (count($lines) > 1)
+                        @if ($editable && count($lines) > 1)
                             <button type="button" wire:click="removeLine({{ $i }})" class="text-xs font-medium text-red-600 hover:text-red-700">{{ __('Remove') }}</button>
                         @endif
                     </div>
@@ -97,10 +118,12 @@
             @endforeach
         </div>
 
-        <button type="button" wire:click="addLine" class="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary-700 hover:text-primary-800">
-            <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
-            {{ __('Add material') }}
-        </button>
+        @if ($editable)
+            <button type="button" wire:click="addLine" class="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary-700 hover:text-primary-800">
+                <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
+                {{ __('Add material') }}
+            </button>
+        @endif
     </div>
 
     {{-- Packaging (per bottle) --}}
@@ -124,7 +147,7 @@
                     <div wire:key="ppack-{{ $i }}" class="grid grid-cols-1 gap-3 sm:grid-cols-[1fr,8rem,auto] sm:items-start">
                         <div>
                             <label class="{{ $lbl }} sm:sr-only">{{ __('Packaging') }}</label>
-                            <select wire:model.live="packaging.{{ $i }}.ingredient_id" class="o-input w-full">
+                            <select wire:model.live="packaging.{{ $i }}.ingredient_id" @disabled(! $editable) class="o-input w-full disabled:bg-chrome-50 disabled:text-chrome-500">
                                 <option value="">{{ __('— Select packaging —') }}</option>
                                 @foreach ($grouped as $groupName => $groupIngs)
                                     <optgroup label="{{ $groupName }}">
@@ -138,7 +161,7 @@
                         </div>
                         <div>
                             <label class="{{ $lbl }} sm:sr-only">{{ __('Per bottle') }}</label>
-                            <input type="number" step="0.001" min="0" wire:model.live="packaging.{{ $i }}.qty" class="o-input w-full" placeholder="{{ __('per bottle') }}">
+                            <input type="number" step="0.001" min="0" wire:model.live="packaging.{{ $i }}.qty" @disabled(! $editable) class="o-input w-full disabled:bg-chrome-50 disabled:text-chrome-500" placeholder="{{ __('per bottle') }}">
                             @if ($psel)
                                 <p class="mt-1 text-xs {{ $pleft < 0 ? 'font-medium text-red-600' : 'text-chrome-400' }}">{{ __('Need') }}: {{ $numf($need) }} · {{ __('In stock') }}: {{ $numf($pstock) }}</p>
                                 <p class="mt-0.5 text-xs text-chrome-500">{{ __('Cost') }}: {{ $money($need * (float) $psel->cost_price) }}</p>
@@ -146,7 +169,9 @@
                             @error('packaging.'.$i.'.qty') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
                         <div class="pt-2">
-                            <button type="button" wire:click="removePackaging({{ $i }})" class="text-xs font-medium text-red-600 hover:text-red-700">{{ __('Remove') }}</button>
+                            @if ($editable)
+                                <button type="button" wire:click="removePackaging({{ $i }})" class="text-xs font-medium text-red-600 hover:text-red-700">{{ __('Remove') }}</button>
+                            @endif
                         </div>
                     </div>
                 @endforeach
@@ -155,10 +180,12 @@
             <p class="mt-3 text-xs text-chrome-400">{{ __('No packaging yet — add the bottle, cap, and anything else each bottle uses.') }}</p>
         @endif
 
-        <button type="button" wire:click="addPackaging" class="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary-700 hover:text-primary-800">
-            <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
-            {{ __('Add packaging') }}
-        </button>
+        @if ($editable)
+            <button type="button" wire:click="addPackaging" class="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary-700 hover:text-primary-800">
+                <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
+                {{ __('Add packaging') }}
+            </button>
+        @endif
     </div>
 
     {{-- Yield --}}
@@ -181,7 +208,7 @@
         <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
                 <label class="{{ $lbl }}">{{ __('Bottles actually produced') }} *</label>
-                <input type="number" min="0" wire:model.live="produced_units" class="o-input w-full">
+                <input type="number" min="0" wire:model.live="produced_units" @disabled(! $editable) class="o-input w-full disabled:bg-chrome-50 disabled:text-chrome-500">
                 @error('produced_units') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
             <div>
@@ -192,16 +219,34 @@
         </div>
         <div class="mt-4">
             <label class="{{ $lbl }}">{{ __('Notes') }}</label>
-            <textarea wire:model="notes" rows="2" class="o-input w-full"></textarea>
+            <textarea wire:model="notes" rows="2" @disabled(! $editable) class="o-input w-full disabled:bg-chrome-50 disabled:text-chrome-500"></textarea>
         </div>
 
-        <button wire:click="save" class="o-btn-primary mt-5 w-full justify-center py-2.5">
-            <span wire:loading.remove wire:target="save">{{ $isEditing ? __('Save changes') : __('Record production → store') }}</span>
-            <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
-        </button>
-        <a href="{{ url('/app/pos/production') }}" wire:navigate class="mt-2 block text-center text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</a>
+        @if ($editable)
+            {{-- New run, or a reopened draft being re-recorded. --}}
+            <button wire:click="save" class="o-btn-primary mt-5 w-full justify-center py-2.5">
+                <span wire:loading.remove wire:target="save">{{ $isEditing ? __('Re-record production → store') : __('Record production → store') }}</span>
+                <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
+            </button>
+            <a href="{{ url('/app/pos/production') }}" wire:navigate class="mt-2 block text-center text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</a>
+        @else
+            {{-- Recorded (done) or reversed run: correct it through Reverse / Reopen, never by editing stock directly. --}}
+            <div class="mt-5 space-y-2">
+                @if ($state === 'done')
+                    <button type="button" wire:click="reverse" wire:confirm="{{ __('Reverse this production? Materials go back to stock and the bottles leave the store. It stays on record as reversed.') }}"
+                        class="w-full justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-100">
+                        {{ __('Reverse production') }}
+                    </button>
+                @endif
+                <button type="button" wire:click="reopen" wire:confirm="{{ __('Reopen this production for editing? Its stock effect is undone until you re-record it.') }}"
+                    class="o-btn-primary w-full justify-center py-2.5">
+                    {{ __('Reopen to edit') }}
+                </button>
+            </div>
+            <a href="{{ url('/app/pos/production') }}" wire:navigate class="mt-2 block text-center text-sm text-chrome-500 hover:text-chrome-700">{{ __('Back') }}</a>
+        @endif
         @if ($isEditing)
-            <button type="button" wire:click="delete" wire:confirm="{{ __('Delete this production? The materials go back and the bottles leave the store.') }}"
+            <button type="button" wire:click="delete" wire:confirm="{{ __('Delete this production permanently? This cannot be undone.') }}"
                 class="mt-3 block w-full text-center text-sm font-medium text-red-600 hover:underline">{{ __('Delete production') }}</button>
         @endif
     </div>

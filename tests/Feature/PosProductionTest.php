@@ -320,7 +320,7 @@ final class PosProductionTest extends TestCase
         $this->assertEqualsWithDelta(30.0, $perfume->fresh()->store_stock, 0.001);
     }
 
-    public function test_editing_a_production_reverses_then_reapplies_stock(): void
+    public function test_reopening_then_re_recording_reverses_then_reapplies_stock(): void
     {
         $this->enableProduction();
         $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 1]);
@@ -338,8 +338,18 @@ final class PosProductionTest extends TestCase
         $this->assertEqualsWithDelta(10.0, $perfume->fresh()->store_stock, 0.001);
         $run = PosProduction::query()->latest('id')->first();
 
-        // Edit: 800 ml, 16 bottles. Reverses (→1000 / 0) then reapplies (→200 / 16).
+        // A done run can't be edited in place — reopen first (undoes stock → draft).
         Livewire::test(ProductionForm::class, ['id' => $run->id])
+            ->assertViewHas('editable', false)
+            ->call('reopen')
+            ->assertHasNoErrors();
+        $this->assertSame('draft', $run->fresh()->state);
+        $this->assertEqualsWithDelta(1000.0, $oil->fresh()->stock_on_hand, 0.001); // materials returned
+        $this->assertEqualsWithDelta(0.0, $perfume->fresh()->store_stock, 0.001);  // bottles removed
+
+        // Now editable: re-record 800 ml, 16 bottles → applies fresh (200 / 16).
+        Livewire::test(ProductionForm::class, ['id' => $run->id])
+            ->assertViewHas('editable', true)
             ->set('lines.0.ml_used', 800)
             ->set('produced_units', 16)
             ->call('save')
@@ -347,7 +357,82 @@ final class PosProductionTest extends TestCase
 
         $this->assertEqualsWithDelta(200.0, $oil->fresh()->stock_on_hand, 0.001); // 1000 − 800
         $this->assertEqualsWithDelta(16.0, $perfume->fresh()->store_stock, 0.001);
+        $this->assertSame('done', $run->fresh()->state);
         $this->assertSame(1, PosProduction::query()->count()); // updated, not duplicated
+    }
+
+    public function test_a_recorded_run_cannot_be_saved_without_reopening(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 1]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50, 'store_stock' => 0]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->set('produced_units', 10)
+            ->call('save');
+        $run = PosProduction::query()->latest('id')->first();
+
+        // A done run rejects a direct save (must reopen first).
+        Livewire::test(ProductionForm::class, ['id' => $run->id])
+            ->set('produced_units', 99)
+            ->call('save')
+            ->assertForbidden();
+
+        $this->assertSame(10, $run->fresh()->produced_units); // untouched
+    }
+
+    public function test_reversing_a_run_undoes_its_stock_and_locks_it(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 1]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50, 'store_stock' => 0]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->set('produced_units', 10)
+            ->call('save');
+        $run = PosProduction::query()->latest('id')->first();
+
+        Livewire::test(ProductionForm::class, ['id' => $run->id])
+            ->call('reverse')
+            ->assertHasNoErrors();
+
+        $this->assertSame('reversed', $run->fresh()->state);
+        $this->assertEqualsWithDelta(1000.0, $oil->fresh()->stock_on_hand, 0.001); // materials back
+        $this->assertEqualsWithDelta(0.0, $perfume->fresh()->store_stock, 0.001);  // bottles gone
+        $this->assertDatabaseHas('activity_logs', ['action' => 'production_reversed']);
+    }
+
+    public function test_reversing_is_blocked_when_bottles_have_left_the_store(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 1]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50, 'store_stock' => 0]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->set('produced_units', 10)
+            ->call('save');
+        $run = PosProduction::query()->latest('id')->first();
+
+        // Move 4 of the 10 bottles to the shop — the store can no longer give them all back.
+        Livewire::test(Productions::class)
+            ->set('move_product_id', $perfume->id)
+            ->set('move_qty', 4)
+            ->call('moveToShop');
+
+        Livewire::test(ProductionForm::class, ['id' => $run->id])
+            ->call('reverse')
+            ->assertHasErrors('state');
+
+        $this->assertSame('done', $run->fresh()->state); // still recorded, not reversed
     }
 
     public function test_deleting_a_production_reverses_its_stock(): void
@@ -650,7 +735,10 @@ final class PosProductionTest extends TestCase
         $this->assertEqualsWithDelta(40.0, $bottle->fresh()->stock_on_hand, 0.001); // 50 − 10
         $run = PosProduction::query()->latest('id')->first();
 
-        // Edit to 20 bottles: reverse (→50) then reapply 20 → 30 left.
+        // Reopen (packaging returned → 50), then re-record 20 bottles → 30 left.
+        Livewire::test(ProductionForm::class, ['id' => $run->id])->call('reopen');
+        $this->assertEqualsWithDelta(50.0, $bottle->fresh()->stock_on_hand, 0.001);
+
         Livewire::test(ProductionForm::class, ['id' => $run->id])
             ->assertCount('packaging', 1)
             ->set('lines.0.ml_used', 1000)

@@ -902,6 +902,38 @@ constants in `HappyHour`.)
 | Scope note | It's the **database identity** (company name), NOT the café **business type** — a different café won't get it. Renaming the Sweileh Café database's company name away from "sweileh…" silently turns it off (per the user's chosen trade-off over a toggle). To retune: change the constants / window hours in `HappyHour`, or the name match in `isSweilehCafe()`. Stacks with the per-phone customer discount (line-level deal, then order-level %) |
 | Tests | `tests/Feature/PosHappyHourTest.php` (11 — window bounds incl. Bahrain-vs-UTC, database gate + spelling tolerance, not-active-elsewhere, shisha cap, **shisha cheaper than the cap keeps its price (Zaglol)**, food 25%, **drinks excluded by category name**, taps stack, normal outside window, a windowed line keeps its price after close). AR keys added for the banner |
 
+**Production lifecycle — reverse / reopen (shipped 2026-08-11):**
+
+A completed production run is corrected through a **state machine keyed to its
+reference (`PRD/…`)**, never by editing stock directly. `pos_productions.state`
+(`done | draft | reversed`, migration `2026_08_11_700059`, + `reversed_at` /
+`reversed_by_user_id`; existing rows backfill to `done`) via `PosProduction::{isDone,
+isDraft,isReversed,isEditable,outputHasLeftStore,reverse}`. A **done** run is
+**read-only** in `ProductionForm` (all inputs disabled) with two actions:
+
+- **Reverse production** (`ProductionForm::reverse()`, done → reversed): undoes the
+  run's stock effect (materials back to ingredient stock via the ledger, bottles out
+  of the STORE) and **locks** it — kept in the list read-only with a red **Reversed**
+  badge for the audit trail. `PosProduction::reverse($userId)` stamps `reversed_at` +
+  actor; logged to `activity_logs` (`production_reversed`).
+- **Reopen to edit** (`ProductionForm::reopen()`): a **done** run is reversed first
+  (→ draft, stock undone) so you edit from a clean slate; a **reversed** run is simply
+  unlocked (no stock change). Either way it becomes an editable **draft** (amber badge);
+  **saving re-records it** (`state → done`, applies stock, logs `production_reopened`).
+  `save()` **aborts 403 on a done/reversed run** — you can't edit one in place — and
+  no longer reverses-then-reapplies (a draft's stock was already returned on reopen, so
+  the old `priorMl`/`priorPack` add-back is gone; short-stock is checked against live
+  `availableMl()`).
+- **Block until returned:** reverse / reopen / delete of a **done** run is refused when
+  `outputHasLeftStore()` (`store_stock < produced_units` — bottles moved to the shop or
+  sold), with an inline `state` error telling the user to pull them back from the shop
+  first. So a reversal can never drive STORE stock negative.
+- `delete()` is state-aware (only reverses if still `done`, else the run's stock was
+  already unwound). Tests: `PosProductionTest::{test_reopening_then_re_recording_reverses_then_reapplies_stock,
+  test_a_recorded_run_cannot_be_saved_without_reopening, test_reversing_a_run_undoes_its_stock_and_locks_it,
+  test_reversing_is_blocked_when_bottles_have_left_the_store}` (+ the old "editing" tests
+  retargeted through reopen). AR keys + `ActivityLog` labels/colors added.
+
 **Production & store — move provenance + store correction (shipped 2026-08-11):**
 
 The perfumes-POS Production feature mixes raw materials into finished bottles

@@ -16,12 +16,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $id
  * @property string|null $reference
  * @property int $pos_product_id
+ * @property int|null $pos_production_id  The production run these bottles came from (store→shop moves)
  * @property int|null $pos_session_id
  * @property float $quantity
  * @property string $direction
  * @property string|null $notes
  * @property int|null $moved_by_user_id
  * @property-read PosProduct|null $product
+ * @property-read PosProduction|null $production
  */
 final class PosStockTransfer extends Model
 {
@@ -33,9 +35,12 @@ final class PosStockTransfer extends Model
 
     public const SHOP_TO_STORE = 'shop_to_store';
 
+    /** A correction: take bottles OUT of the store without adding to the shop. */
+    public const STORE_REMOVE = 'store_remove';
+
     /** @var list<string> */
     protected $fillable = [
-        'reference', 'pos_product_id', 'pos_session_id', 'quantity',
+        'reference', 'pos_product_id', 'pos_production_id', 'pos_session_id', 'quantity',
         'direction', 'notes', 'moved_by_user_id',
     ];
 
@@ -49,6 +54,7 @@ final class PosStockTransfer extends Model
     {
         return [
             'pos_product_id' => 'integer',
+            'pos_production_id' => 'integer',
             'pos_session_id' => 'integer',
             'quantity' => 'float',
             'moved_by_user_id' => 'integer',
@@ -68,6 +74,16 @@ final class PosStockTransfer extends Model
         return $this->belongsTo(PosProduct::class, 'pos_product_id');
     }
 
+    /**
+     * The production run these bottles came from (store→shop moves only).
+     *
+     * @return BelongsTo<PosProduction, $this>
+     */
+    public function production(): BelongsTo
+    {
+        return $this->belongsTo(PosProduction::class, 'pos_production_id');
+    }
+
     /** Apply the move to the product's two stock buckets. */
     public function applyMove(): void
     {
@@ -80,6 +96,10 @@ final class PosStockTransfer extends Model
         if ($this->direction === self::SHOP_TO_STORE) {
             $product->stock_on_hand = max(0.0, (float) $product->stock_on_hand - $qty);
             $product->store_stock = (float) $product->store_stock + $qty;
+        } elseif ($this->direction === self::STORE_REMOVE) {
+            // A correction: bottles leave the store and are NOT added to the shop
+            // (and no materials return — that's what deleting the run is for).
+            $product->store_stock = max(0.0, (float) $product->store_stock - $qty);
         } else {
             $product->store_stock = max(0.0, (float) $product->store_stock - $qty);
             $product->stock_on_hand = (float) $product->stock_on_hand + $qty;

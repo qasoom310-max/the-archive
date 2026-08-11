@@ -30,12 +30,50 @@
                     </select>
                     @error('move_product_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
+                @if ($move_product_id && $productionOptions->isNotEmpty())
+                    <div class="mt-3">
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('From production') }} <span class="font-normal text-chrome-400">({{ __('optional') }})</span></label>
+                        <select wire:model="move_production_id" class="o-input w-full">
+                            <option value="">{{ __('— Not from a specific run —') }}</option>
+                            @foreach ($productionOptions as $run)
+                                <option value="{{ $run->id }}">{{ $run->reference }} · {{ $run->produced_units }} {{ __('bottles') }} · {{ $run->created_at?->isoFormat('MMM D') }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-chrome-400">{{ __('Tags this move with the run it came from — the date + ID show in the history.') }}</p>
+                    </div>
+                @endif
                 <div class="mt-3">
                     <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Quantity') }}</label>
                     <input type="number" step="0.001" min="0" wire:model="move_qty" class="o-input w-full">
                     @error('move_qty') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
                 <button wire:click="moveToShop" class="o-btn-primary mt-4 w-full justify-center">{{ __('Move to shop') }}</button>
+
+                @if ($isAdmin)
+                    <div class="mt-5 border-t border-chrome-100 pt-4">
+                        <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Remove from store') }}</h3>
+                        <p class="mb-3 text-xs text-chrome-400">{{ __('Take bottles entered by mistake out of the store. Materials are not returned — to also put them back, delete the production run instead.') }}</p>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Product') }}</label>
+                            <select wire:model="remove_product_id" class="o-input w-full">
+                                <option value="">{{ __('— Select —') }}</option>
+                                @foreach ($stocked as $p)
+                                    <option value="{{ $p->id }}">{{ $p->name }} · {{ __('store') }} {{ $num($p->store_stock) }}</option>
+                                @endforeach
+                            </select>
+                            @error('remove_product_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div class="mt-3">
+                            <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Quantity') }}</label>
+                            <input type="number" step="0.001" min="0" wire:model="remove_qty" class="o-input w-full">
+                            @error('remove_qty') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <button wire:click="removeFromStore" wire:confirm="{{ __('Remove these bottles from the store? This cannot be undone.') }}"
+                            class="mt-4 w-full justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">
+                            {{ __('Remove from store') }}
+                        </button>
+                    </div>
+                @endif
             </div>
         </div>
 
@@ -102,15 +140,30 @@
             </div>
 
             @if ($transfers->isNotEmpty())
-                <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
-                    <div class="border-b border-chrome-100 bg-chrome-50/60 px-5 py-3"><h2 class="text-sm font-semibold text-chrome-800">{{ __('Recent moves to shop') }}</h2></div>
+                <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
+                    <div class="border-b border-chrome-100 bg-chrome-50/60 px-5 py-3"><h2 class="text-sm font-semibold text-chrome-800">{{ __('Recent stock moves') }}</h2></div>
                     <table class="min-w-full divide-y divide-chrome-100 text-sm">
                         <tbody class="divide-y divide-chrome-50">
                             @foreach ($transfers as $t)
+                                @php
+                                    $dir = match ($t->direction) {
+                                        'store_to_shop' => __('store → shop'),
+                                        'shop_to_store' => __('shop → store'),
+                                        'store_remove' => __('removed from store'),
+                                        default => $t->direction,
+                                    };
+                                @endphp
                                 <tr>
                                     <td class="px-4 py-2 text-chrome-700">{{ $t->product?->name ?? '—' }}</td>
                                     <td class="px-4 py-2 text-end tabular-nums font-medium text-chrome-800">{{ $num($t->quantity) }}</td>
-                                    <td class="px-4 py-2 text-chrome-500">{{ $t->direction === 'store_to_shop' ? __('store → shop') : __('shop → store') }}</td>
+                                    <td class="px-4 py-2 {{ $t->direction === 'store_remove' ? 'text-red-600' : 'text-chrome-500' }}">{{ $dir }}</td>
+                                    <td class="px-4 py-2 text-chrome-500">
+                                        @if ($t->production)
+                                            <span class="font-medium text-primary-700">{{ $t->production->reference }}</span>
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-2 text-chrome-500">{{ $t->created_at?->isoFormat('MMM D · h:mm A') }}</td>
                                 </tr>
                             @endforeach

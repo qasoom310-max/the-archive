@@ -426,6 +426,61 @@ final class PosProductionTest extends TestCase
         $this->assertEqualsWithDelta(5.0, $perfume->fresh()->store_stock, 0.001);
     }
 
+    public function test_a_move_to_shop_can_be_tagged_with_a_production(): void
+    {
+        $this->enableProduction();
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'store_stock' => 36, 'stock_on_hand' => 0]);
+        $run = PosProduction::query()->create([
+            'pos_product_id' => $perfume->id, 'bottle_size_ml' => 50, 'total_mix_ml' => 1800,
+            'expected_units' => 36, 'produced_units' => 36,
+        ]);
+
+        Livewire::test(Productions::class)
+            ->set('move_product_id', $perfume->id)
+            ->set('move_production_id', $run->id)
+            ->set('move_qty', 8)
+            ->call('moveToShop')
+            ->assertHasNoErrors();
+
+        $transfer = PosStockTransfer::query()->latest('id')->first();
+        $this->assertNotNull($transfer);
+        $this->assertSame($run->id, $transfer->pos_production_id);
+        $this->assertEqualsWithDelta(8.0, $perfume->fresh()->stock_on_hand, 0.001);
+    }
+
+    public function test_remove_from_store_takes_bottles_out_without_touching_the_shop(): void
+    {
+        $this->enableProduction();
+        // Happiness: 8 in the store by mistake, 105 already in the shop.
+        $perfume = PosProduct::query()->create(['name' => 'Happiness', 'price' => 5, 'store_stock' => 8, 'stock_on_hand' => 105]);
+
+        Livewire::test(Productions::class)
+            ->set('remove_product_id', $perfume->id)
+            ->set('remove_qty', 8)
+            ->call('removeFromStore')
+            ->assertHasNoErrors();
+
+        $perfume->refresh();
+        $this->assertEqualsWithDelta(0.0, $perfume->store_stock, 0.001);   // the 8 are gone
+        $this->assertEqualsWithDelta(105.0, $perfume->stock_on_hand, 0.001); // shop untouched
+        $this->assertSame(1, PosStockTransfer::query()->where('direction', PosStockTransfer::STORE_REMOVE)->count());
+    }
+
+    public function test_remove_from_store_is_admin_only(): void
+    {
+        $this->enableProduction();
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'store_stock' => 8, 'stock_on_hand' => 0]);
+
+        Livewire::test(Productions::class)
+            ->set('remove_product_id', $perfume->id)
+            ->set('remove_qty', 8)
+            ->call('removeFromStore')
+            ->assertForbidden();
+
+        $this->assertEqualsWithDelta(8.0, $perfume->fresh()->store_stock, 0.001); // untouched
+    }
+
     public function test_stock_report_splits_products_from_production_materials(): void
     {
         $this->enableProduction();

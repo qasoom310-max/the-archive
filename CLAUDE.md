@@ -902,6 +902,33 @@ constants in `HappyHour`.)
 | Scope note | It's the **database identity** (company name), NOT the café **business type** — a different café won't get it. Renaming the Sweileh Café database's company name away from "sweileh…" silently turns it off (per the user's chosen trade-off over a toggle). To retune: change the constants / window hours in `HappyHour`, or the name match in `isSweilehCafe()`. Stacks with the per-phone customer discount (line-level deal, then order-level %) |
 | Tests | `tests/Feature/PosHappyHourTest.php` (11 — window bounds incl. Bahrain-vs-UTC, database gate + spelling tolerance, not-active-elsewhere, shisha cap, **shisha cheaper than the cap keeps its price (Zaglol)**, food 25%, **drinks excluded by category name**, taps stack, normal outside window, a windowed line keeps its price after close). AR keys added for the banner |
 
+**Production & store — move provenance + store correction (shipped 2026-08-11):**
+
+The perfumes-POS Production feature mixes raw materials into finished bottles
+that land in a product's **STORE** (`pos_products.store_stock`); a **"Move to
+shop"** action (`Modules\Pos\Livewire\Productions`) then transfers bottles
+STORE → SHOP (`stock_on_hand`, what the register sells), logging a
+`PosStockTransfer` (ref `TRF/…`, qty, direction, user, date). Two additions:
+
+- **Move-to-shop is taggable with a production run.** `pos_stock_transfers.pos_production_id`
+  (nullable **logical ref**, migration `2026_08_11_700058`, auto-applied by
+  deploy's POS migrate step + tenants via `workspaces:migrate`). The "Move to
+  shop" card shows a **"From production (optional)"** picker of the selected
+  product's runs (ref · bottles · date); the chosen run is validated to belong
+  to that product and stored on the transfer, and the **"Recent stock moves"**
+  history shows its `PRD/…` reference + date. `PosStockTransfer::production()`
+  belongsTo `PosProduction`. Not a `DefinesIrModel` ⇒ no resync.
+- **"Remove from store" correction (admin-only).** `Productions::removeFromStore()`
+  (`abort_unless(isAdmin, 403)`) takes bottles a run put in the STORE by mistake
+  back OUT — **without** adding them to the shop and **without** returning
+  materials (to also restore materials, delete the production run instead). New
+  `PosStockTransfer::STORE_REMOVE` direction; `applyMove()` reduces `store_stock`
+  only. Logged as a transfer (red "removed from store" row) so it's auditable.
+  Confirm dialog + amber warning in the card. Tests:
+  `PosProductionTest::{test_a_move_to_shop_can_be_tagged_with_a_production,
+  test_remove_from_store_takes_bottles_out_without_touching_the_shop,
+  test_remove_from_store_is_admin_only}`. AR keys added.
+
 **POS product secondary (gallery) images (shipped 2026-06-25):**
 
 - A product can carry **extra photos** on top of the single primary

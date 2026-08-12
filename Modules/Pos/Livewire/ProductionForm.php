@@ -151,6 +151,14 @@ final class ProductionForm extends Component
     {
         $this->formulaJustSaved = false;
 
+        // Formula auto-fill + the expected-count default are for a NEW run only.
+        // On an existing/reopened run the materials AND packaging come from the
+        // run itself — replacing them from the formula would silently drop the
+        // packaging the run was actually made with.
+        if ($this->id !== null) {
+            return;
+        }
+
         // Auto-fill the materials from this product's saved formula (if any).
         if ($this->product_id !== null) {
             $product = PosProduct::query()->with('formulaLines')->find($this->product_id);
@@ -163,10 +171,14 @@ final class ProductionForm extends Component
                         'ml_used' => $this->trimNum((float) $f->ml),
                     ])->values()->all();
                 }
-                $this->packaging = $pack->map(fn ($f): array => [
-                    'ingredient_id' => (string) $f->pos_ingredient_id,
-                    'qty' => $this->trimNum((float) ($f->qty_per_unit ?? 0)),
-                ])->values()->all();
+                // Only fill packaging when the formula actually declares some —
+                // never WIPE manually-entered packaging for a liquid-only formula.
+                if ($pack->isNotEmpty()) {
+                    $this->packaging = $pack->map(fn ($f): array => [
+                        'ingredient_id' => (string) $f->pos_ingredient_id,
+                        'qty' => $this->trimNum((float) ($f->qty_per_unit ?? 0)),
+                    ])->values()->all();
+                }
             }
         }
 

@@ -17,6 +17,7 @@ use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosIngredientCategory;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Models\PosProduction;
+use Modules\Pos\Models\PosProductionLine;
 use Modules\Pos\Models\PosStockTransfer;
 use Tests\TestCase;
 
@@ -695,6 +696,67 @@ final class PosProductionTest extends TestCase
             ->assertSet('lines.0.ml_used', '500')
             ->assertSet('packaging.0.ingredient_id', (string) $bottle->id)
             ->assertSet('packaging.0.qty', '2');
+    }
+
+    public function test_picking_a_product_does_not_wipe_manually_added_packaging(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 2]);
+        $bottle = PosIngredient::query()->create(['name' => 'Bottle', 'unit' => 'pcs', 'stock_on_hand' => 100, 'cost_price' => 0.30]);
+        $perfume = PosProduct::query()->create(['name' => 'PF', 'price' => 5, 'bottle_size_ml' => 50]);
+
+        // A LIQUID-ONLY formula (no packaging declared).
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->call('saveAsFormula');
+        $this->assertSame(1, $perfume->formulaLines()->count());
+
+        // Add packaging by hand, then re-trigger the product auto-fill (by
+        // re-selecting the product): a liquid-only formula must NOT wipe the
+        // manually-added packaging.
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->call('addPackaging')
+            ->set('packaging.0.ingredient_id', $bottle->id)
+            ->set('packaging.0.qty', 1)
+            ->set('product_id', null)          // fires updatedProductId (skips)
+            ->set('product_id', $perfume->id)  // fires again → must NOT wipe
+            ->assertCount('packaging', 1);
+    }
+
+    public function test_a_reopened_run_keeps_its_packaging(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 2000, 'cost_price' => 1]);
+        $bottle = PosIngredient::query()->create(['name' => 'Bottle', 'unit' => 'pcs', 'stock_on_hand' => 50, 'cost_price' => 0.30]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->call('addPackaging')
+            ->set('packaging.0.ingredient_id', $bottle->id)
+            ->set('packaging.0.qty', 1)
+            ->set('produced_units', 10)
+            ->call('save');
+        $run = PosProduction::query()->latest('id')->first();
+
+        // Reopen, then re-trigger the product field (re-select) — the run's
+        // packaging must survive: the formula auto-fill is skipped for an
+        // existing run, so re-recording keeps the packaging it was made with.
+        Livewire::test(ProductionForm::class, ['id' => $run->id])->call('reopen');
+        Livewire::test(ProductionForm::class, ['id' => $run->id])
+            ->assertCount('packaging', 1)
+            ->set('product_id', null)
+            ->set('product_id', $perfume->id)
+            ->assertCount('packaging', 1)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame(1, $run->fresh()->lines()->where('kind', PosProductionLine::KIND_PACKAGING)->count());
     }
 
     public function test_the_production_pickers_group_materials_by_category(): void

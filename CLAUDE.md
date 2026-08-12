@@ -961,6 +961,21 @@ STORE → SHOP (`stock_on_hand`, what the register sells), logging a
   test_remove_from_store_takes_bottles_out_without_touching_the_shop,
   test_remove_from_store_is_admin_only}`. AR keys added.
 
+**Production packaging no longer wiped by the product auto-fill (fixed 2026-08-12):**
+`ProductionForm::updatedProductId()` overwrote `$this->packaging` from the product's
+FORMULA **unconditionally** (unlike `$this->lines`, which was guarded by
+`if ($liquid->isNotEmpty())`). So picking a product whose formula was **liquid-only**
+**wiped any manually-added packaging**, and re-recording then saved the run without it
+(reported: "where are the packaging materials — they were there when we made a
+production?"). Two guards: (a) the auto-fill is skipped entirely for an **existing**
+run (`$this->id !== null` — a reopened run's materials/packaging come from the run,
+never the formula); (b) packaging is only overwritten `if ($pack->isNotEmpty())`, so a
+liquid-only formula never clears manual packaging on a new run either. Tests:
+`PosProductionTest::{test_picking_a_product_does_not_wipe_manually_added_packaging,
+test_a_reopened_run_keeps_its_packaging}`. NOTE: a run whose packaging was already lost
+must have it **re-added** (reopen → add packaging → re-record) — the fix prevents
+future loss, it can't restore a run recorded without packaging lines.
+
 **Production costs follow material prices (shipped 2026-08-12):**
 
 A perfume's/offer's **stored `cost_price` now tracks the live material cost**, so a

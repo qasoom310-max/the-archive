@@ -40,6 +40,22 @@ final class Productions extends Component
         abort_unless(Features::enabled(Feature::Production), 404);
     }
 
+    /**
+     * Re-derive every perfume + offer cost from CURRENT material prices — the
+     * one-click cleanup after a mistyped material cost (e.g. ethanol) is fixed.
+     * Admin-only; also runs automatically when a material's cost changes.
+     */
+    public function recomputeCosts(): void
+    {
+        abort_unless(Features::enabled(Feature::Production), 404);
+        abort_unless(Auth::user()?->isAdmin() === true, 403);
+
+        $changed = app(\Modules\Pos\Services\ProductionCostSync::class)->refreshAll();
+        app(\App\Erp\Activity\ActivityLogger::class)->log('updated', __('Product costs'), __('Recomputed :n product costs from current material prices.', ['n' => $changed]));
+
+        session()->flash('toast', __(':n product costs recomputed from current material prices.', ['n' => $changed]));
+    }
+
     /** Reset the production tag whenever the product changes (its runs differ). */
     public function updatedMoveProductId(): void
     {

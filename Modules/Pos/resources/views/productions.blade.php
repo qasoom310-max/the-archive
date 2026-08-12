@@ -1,6 +1,14 @@
 <div class="mx-auto max-w-6xl p-4 sm:p-6">
     <x-page-header :title="__('Production & store')" :subtitle="__('Mix materials into store stock, then move it to the shop.')" icon="box" accent="primary">
         <x-slot:actions>
+            @if ($isAdmin)
+                <button type="button" wire:click="recomputeCosts"
+                    wire:confirm="{{ __('Recompute every perfume and offer cost from current material prices?') }}"
+                    class="inline-flex items-center gap-1.5 rounded-lg border border-chrome-200 bg-white px-3 py-2 text-sm font-medium text-chrome-700 hover:bg-chrome-50">
+                    <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 2a1 1 0 0 1 1 1v2.101a7.002 7.002 0 0 1 11.601 2.566 1 1 0 1 1-1.885.666A5.002 5.002 0 0 0 5.999 7H9a1 1 0 0 1 0 2H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Zm.008 9.057a1 1 0 0 1 1.276.61A5.002 5.002 0 0 0 14.001 13H11a1 1 0 1 1 0-2h5a1 1 0 0 1 1 1v5a1 1 0 1 1-2 0v-2.101a7.002 7.002 0 0 1-11.601-2.566 1 1 0 0 1 .61-1.276Z" clip-rule="evenodd"/></svg>
+                    {{ __('Recompute costs') }}
+                </button>
+            @endif
             <a href="{{ url('/app/pos/production/new') }}" wire:navigate class="o-btn-primary">
                 <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
                 {{ __('New production') }}

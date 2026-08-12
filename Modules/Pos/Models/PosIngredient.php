@@ -77,6 +77,18 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
                 default => null,
             };
         });
+
+        // Correcting a material's cost (e.g. a mistyped ethanol price) must flow
+        // through to the perfumes + offers made from it, so their stored cost
+        // never disagrees with the live figure. Idempotent + quiet, so no loop.
+        static::saved(function (self $ingredient): void {
+            // On a genuine cost EDIT only. `wasChanged()` is false on a fresh
+            // insert, so a brand-new material (nothing depends on it yet) never
+            // triggers this — it fires only when an existing cost actually moves.
+            if ($ingredient->wasChanged('cost_price')) {
+                app(\Modules\Pos\Services\ProductionCostSync::class)->refreshAll();
+            }
+        });
     }
 
     /**

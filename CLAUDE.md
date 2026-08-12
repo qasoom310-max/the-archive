@@ -961,6 +961,31 @@ STORE → SHOP (`stock_on_hand`, what the register sells), logging a
   test_remove_from_store_takes_bottles_out_without_touching_the_shop,
   test_remove_from_store_is_admin_only}`. AR keys added.
 
+**Production costs follow material prices (shipped 2026-08-12):**
+
+A perfume's/offer's **stored `cost_price` now tracks the live material cost**, so a
+corrected material price (e.g. a mistyped ethanol cost) can't leave stale,
+confusing figures behind. `Modules\Pos\Services\ProductionCostSync::refreshAll()`
+re-derives every made-in-house `cost_price` from CURRENT prices — a **perfume**
+(has a production run) from `PosProduct::productionCost()` (recomputes its latest
+run at today's ingredient prices), an **offer** (has a recipe) from `recipeCost()`
+(whose lines already read each component's live production cost). Idempotent
+(writes only changed rows) + `saveQuietly()` (no hooks/loops). Run two ways:
+
+- **Automatically:** `PosIngredient::saved` fires `refreshAll()` when `wasChanged('cost_price')`
+  (false on a fresh insert, so only a genuine cost EDIT triggers it). So fixing the
+  ethanol cost flows straight through to every perfume + offer.
+- **Manually:** an admin **"Recompute costs"** button on the Production & store page
+  (`Productions::recomputeCosts()`, `pos` admin, activity-logged) for a one-click
+  cleanup. Both flash the count changed.
+
+Behaviour change: the old design deliberately kept a perfume's `cost_price` as a
+**stale snapshot** while `productionCost()` showed live — that mismatch WAS the
+"why is my cost wrong" confusion. Now the stored value follows. Tests:
+`PosProductionTest::{test_correcting_a_material_cost_re_derives_the_perfume_cost,
+test_the_recompute_costs_button_re_derives_costs_and_is_admin_only}` (+ the
+recompute test updated to assert the stored cost now follows). AR keys added.
+
 **POS product secondary (gallery) images (shipped 2026-06-25):**
 
 - A product can carry **extra photos** on top of the single primary

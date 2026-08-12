@@ -120,11 +120,12 @@ final class PosProductionTest extends TestCase
         $this->assertEqualsWithDelta(100.30, $perfume->fresh()->cost_price, 0.001);
         $this->assertEqualsWithDelta(100.30, $perfume->fresh()->productionCost(), 0.001);
 
-        // A material's price rises: the production-cost hint recomputes at the
-        // NEW price (150.3), even though the stored cost_price stays the old snapshot.
+        // A material's price rises: the production cost recomputes at the NEW
+        // price (150.3), and the stored cost_price now FOLLOWS it — the cascade
+        // keeps the snapshot honest so it can't disagree with the live figure.
         $oil->update(['cost_price' => 3]);
         $this->assertEqualsWithDelta(150.30, $perfume->fresh()->productionCost(), 0.001); // (500×3 + 3) ÷ 10
-        $this->assertEqualsWithDelta(100.30, $perfume->fresh()->cost_price, 0.001);        // unchanged snapshot
+        $this->assertEqualsWithDelta(150.30, $perfume->fresh()->cost_price, 0.001);        // followed the material price
     }
 
     public function test_a_recipe_prices_a_produced_component_at_its_live_cost_not_a_stale_snapshot(): void
@@ -143,8 +144,7 @@ final class PosProductionTest extends TestCase
             ->assertHasNoErrors();
         $this->assertEqualsWithDelta(100.0, $perfume->fresh()->cost_price, 0.01);
 
-        // Oil price doubles → the perfume now really costs 200/bottle to make,
-        // but its stored cost_price is still the old 100 snapshot.
+        // Oil price doubles → the perfume now really costs 200/bottle to make.
         $oil->update(['cost_price' => 4]);
 
         // A gift box whose recipe uses one of that perfume.
@@ -749,5 +749,52 @@ final class PosProductionTest extends TestCase
         $this->assertEqualsWithDelta(30.0, $bottle->fresh()->stock_on_hand, 0.001); // 50 − 20
         $this->assertEqualsWithDelta(20.0, $perfume->fresh()->store_stock, 0.001);
         $this->assertSame(1, PosProduction::query()->count());
+    }
+
+    public function test_correcting_a_material_cost_re_derives_the_perfume_cost(): void
+    {
+        $this->enableProduction();
+        $ethanol = PosIngredient::query()->create(['name' => 'Ethanol', 'unit' => 'ml', 'stock_on_hand' => 100000, 'cost_price' => 0.01]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50, 'cost_price' => 0]);
+
+        // 1000 ml at 0.01/ml over 20 bottles → 0.50 per bottle.
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $ethanol->id)
+            ->set('lines.0.ml_used', 1000)
+            ->set('produced_units', 20)
+            ->call('save')
+            ->assertHasNoErrors();
+        $this->assertEqualsWithDelta(0.5, $perfume->fresh()->cost_price, 0.001);
+
+        // Manager fixes the ethanol cost to 0.02/ml — the perfume cost follows.
+        $ethanol->update(['cost_price' => 0.02]);
+
+        $this->assertEqualsWithDelta(1.0, $perfume->fresh()->cost_price, 0.001);
+    }
+
+    public function test_the_recompute_costs_button_re_derives_costs_and_is_admin_only(): void
+    {
+        $this->enableProduction();
+        $ethanol = PosIngredient::query()->create(['name' => 'Ethanol', 'unit' => 'ml', 'stock_on_hand' => 100000, 'cost_price' => 0.02]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50]);
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $ethanol->id)
+            ->set('lines.0.ml_used', 1000)
+            ->set('produced_units', 20)
+            ->call('save');
+
+        // Drift the stored cost (as if recorded at a wrong ethanol price), quietly
+        // so the auto-cascade doesn't fix it first.
+        $perfume->cost_price = 99;
+        $perfume->saveQuietly();
+
+        Livewire::test(Productions::class)->call('recomputeCosts')->assertHasNoErrors();
+        $this->assertEqualsWithDelta(1.0, $perfume->fresh()->cost_price, 0.001); // (1000×0.02)/20
+
+        // Non-admin can't run it.
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+        Livewire::test(Productions::class)->call('recomputeCosts')->assertForbidden();
     }
 }

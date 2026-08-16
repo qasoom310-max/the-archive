@@ -164,6 +164,36 @@ final class PosProductRecipe extends Model
     }
 
     /**
+     * Where this line's unit cost actually comes from, so the recipe's COST
+     * column is auditable rather than an opaque number. A produced perfume
+     * shows the reference of the completed run that priced it; a perfume with
+     * NO completed run is flagged (its cost is a stale saved price / formula
+     * estimate, not a real batch — the thing to fix). An ingredient or
+     * bought-in product just uses its own tracked price, so no note.
+     *
+     * @return array{note: string, warn: bool}
+     */
+    public function componentCostSource(): array
+    {
+        $component = $this->resolveComponent();
+
+        if (! $component instanceof PosProduct) {
+            return ['note' => '', 'warn' => false];
+        }
+
+        $run = $component->latestDoneRun();
+        if ($run !== null) {
+            $ref = trim((string) ($run->reference ?? ''));
+
+            return ['note' => $ref !== '' ? $ref : '#' . $run->getKey(), 'warn' => false];
+        }
+
+        // No completed production run backs this perfume, so componentUnitCost()
+        // fell back to its saved price — surface that instead of hiding it.
+        return ['note' => __('no completed production'), 'warn' => true];
+    }
+
+    /**
      * The component's unit-of-measure suffix for display (e.g. 'L', 'kg') so a
      * recipe quantity reads in the component's own unit. Empty for a plain
      * count (`qty`), a condiment (untyped), or a missing component. Products

@@ -1114,6 +1114,7 @@
     "Component stock": "مخزون المكوّن",
     "Cost": "التكلفة",
     "Recipe cost (saved as this product’s cost price)": "تكلفة الوصفة (تُحفظ كتكلفة هذا المنتج)",
+    "no completed production": "لا يوجد إنتاج مكتمل",
     "Recipe cost: :cost": "تكلفة الوصفة: :cost",
     "Production cost: :cost": "تكلفة الإنتاج: :cost",
     "Remote / delivery": "بيع عن بُعد / توصيل",

@@ -59,6 +59,12 @@
                         </td>
                         <td class="py-1.5 text-end text-chrome-600">
                             {{ \App\Erp\Views\ValueFormat::money($line->lineCost()) }}
+                            @php $src = $line->componentCostSource(); @endphp
+                            @if ($src['note'] !== '')
+                                <span class="block text-[10px] {{ $src['warn'] ? 'font-medium text-amber-600' : 'text-chrome-400' }}">
+                                    @if ($src['warn'])⚠ @endif{{ $src['note'] }}
+                                </span>
+                            @endif
                         </td>
                         <td class="py-1.5 text-end">
                             <button wire:click="removeLine({{ $line->id }})"

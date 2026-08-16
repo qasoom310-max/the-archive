@@ -329,6 +329,20 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
      * built from that perfume would price it off an undone/half-edited run and
      * disagree with what the production screen shows for the actual batch.
      */
+    /**
+     * The most recent COMPLETED production run for this product, or null when it
+     * has none (never produced, or every run reversed/reopened). This is the run
+     * that legitimately drives the perfume's cost — see {@see productionCost()}.
+     */
+    public function latestDoneRun(): ?PosProduction
+    {
+        return PosProduction::query()
+            ->where('pos_product_id', $this->getKey())
+            ->where('state', PosProduction::STATE_DONE)
+            ->latest('id')
+            ->first();
+    }
+
     public function productionCost(): ?float
     {
         $run = PosProduction::query()

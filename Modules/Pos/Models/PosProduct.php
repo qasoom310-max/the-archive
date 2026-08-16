@@ -354,9 +354,11 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
 
         if ($run !== null && $run->produced_units > 0) {
             $total = 0.0;
+            $runHasPackaging = false;
             foreach ($run->lines as $line) {
                 $ing = $line->ingredient;
                 if ($line->kind === PosProductionLine::KIND_PACKAGING) {
+                    $runHasPackaging = true;
                     // Per-bottle unit × bottles produced × current unit cost
                     // (snapshot if the ingredient is gone).
                     $unitCost = $ing !== null ? (float) $ing->cost_price : (float) $line->unit_cost;
@@ -368,10 +370,43 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
                 }
             }
 
+            // If this batch recorded no packaging (common for older runs, and for
+            // any run reopening is blocked on), fall back to the product's
+            // standard per-bottle packaging from its formula — so the bottle /
+            // cap / bag still lands in the cost instead of showing zero. A run
+            // that DID record its own packaging is left exactly as entered.
+            if (! $runHasPackaging) {
+                $total += $this->formulaPackagingPerBottle() * $run->produced_units;
+            }
+
             return round($total / $run->produced_units, 4);
         }
 
         return $this->formulaCost();
+    }
+
+    /**
+     * The product's standard packaging cost for ONE bottle, summed from its
+     * formula's packaging lines (bottle, cap, box…) at current material prices.
+     * 0.0 when the product has no packaging defined on its formula. This is the
+     * per-bottle packaging the production cost uses when a run didn't record its
+     * own — so packaging is counted everywhere it's defined, without editing a
+     * locked run.
+     */
+    public function formulaPackagingPerBottle(): float
+    {
+        $formula = $this->relationLoaded('formulaLines')
+            ? $this->formulaLines
+            : $this->formulaLines()->with('ingredient')->get();
+
+        $sum = 0.0;
+        foreach ($formula as $line) {
+            if ($line->kind === PosProductFormulaLine::KIND_PACKAGING && $line->ingredient !== null) {
+                $sum += (float) ($line->qty_per_unit ?? 0) * (float) $line->ingredient->cost_price;
+            }
+        }
+
+        return $sum;
     }
 
     /**
@@ -392,25 +427,20 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
 
         $liquidCost = 0.0;
         $totalMix = 0.0;
-        $packagingPerBottle = 0.0;
 
         foreach ($formula as $line) {
             $ing = $line->ingredient;
-            if ($ing === null) {
+            if ($ing === null || $line->kind === PosProductFormulaLine::KIND_PACKAGING) {
                 continue;
             }
-            if ($line->kind === PosProductFormulaLine::KIND_PACKAGING) {
-                $packagingPerBottle += (float) ($line->qty_per_unit ?? 0) * (float) $ing->cost_price;
-            } else {
-                $liquidCost += (float) $line->ml * $ing->costPerMl();
-                $totalMix += (float) $line->ml;
-            }
+            $liquidCost += (float) $line->ml * $ing->costPerMl();
+            $totalMix += (float) $line->ml;
         }
 
         $bottles = (int) floor($totalMix / $bottle);
         $liquidPerBottle = $bottles > 0 ? $liquidCost / $bottles : 0.0;
 
-        return round($liquidPerBottle + $packagingPerBottle, 4);
+        return round($liquidPerBottle + $this->formulaPackagingPerBottle(), 4);
     }
 
     /**

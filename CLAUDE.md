@@ -994,6 +994,22 @@ run at today's ingredient prices), an **offer** (has a recipe) from `recipeCost(
   (`Productions::recomputeCosts()`, `pos` admin, activity-logged) for a one-click
   cleanup. Both flash the count changed.
 
+**Production cost falls back to the formula's packaging (fixed 2026-08-16):**
+`productionCost()` sums the RUN's own lines — so a batch recorded with **no
+packaging lines** (older runs, and any run reopening is blocked on because its
+bottles left the store) counted **zero packaging**, understating each perfume's
+cost (materials only, no bottle/cap/bag). Now when a Done run has no packaging
+line, the cost adds the product's **standard per-bottle packaging** from its
+formula (`PosProduct::formulaPackagingPerBottle()` — the packaging KIND lines ×
+current material price), so packaging is counted everywhere it's defined without
+editing a locked run. A run that DID record its own packaging is left exactly as
+entered (no double-count). `formulaCost()` reuses the same helper. So the fix
+per perfume is a **data** step the owner does on the editable product page: add
+the bottle/cap/bag to the product's **formula**, then the cost includes it on
+every run (old locked ones included) + the "Recompute costs" button applies it.
+Tests: `PosProductionTest::{test_a_run_without_packaging_falls_back_to_the_formula_packaging,
+test_a_run_with_its_own_packaging_is_not_double_counted}`.
+
 **Cost is derived from the latest DONE run only (fixed 2026-08-16):** both
 `PosProduct::productionCost()` and `ProductionCostSync::refreshAll()` filter
 `where('state', PosProduction::STATE_DONE)` before picking the latest run. Before

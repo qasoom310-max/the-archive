@@ -860,6 +860,57 @@ final class PosProductionTest extends TestCase
         Livewire::test(Productions::class)->call('recomputeCosts')->assertForbidden();
     }
 
+    public function test_a_run_without_packaging_falls_back_to_the_formula_packaging(): void
+    {
+        // A batch recorded with no packaging lines (older runs / runs that can't
+        // be reopened) must still count the product's standard bottle/cap so the
+        // cost isn't understated. The packaging comes from the product's formula.
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 100000, 'cost_price' => 0.01]);
+        $bottle = PosIngredient::query()->create(['name' => 'Bottle', 'unit' => 'pcs', 'stock_on_hand' => 1000, 'cost_price' => 0.20]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50, 'cost_price' => 0]);
+
+        // The product's standard packaging: one bottle @ 0.20 each.
+        $perfume->formulaLines()->create(['pos_ingredient_id' => $bottle->id, 'kind' => 'packaging', 'qty_per_unit' => 1, 'sequence' => 100]);
+
+        // Record a run with liquid only, no packaging: 1000 ml @ 0.01/ml over 20
+        // bottles → 0.50 materials. Packaging must add 0.20 → 0.70 per bottle.
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 1000)
+            ->set('produced_units', 20)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertEqualsWithDelta(0.70, $perfume->fresh()->productionCost(), 0.001);
+    }
+
+    public function test_a_run_with_its_own_packaging_is_not_double_counted(): void
+    {
+        // When a run DID record packaging, the formula fallback must not fire —
+        // the run's own packaging is authoritative.
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 100000, 'cost_price' => 0.01]);
+        $bottle = PosIngredient::query()->create(['name' => 'Bottle', 'unit' => 'pcs', 'stock_on_hand' => 1000, 'cost_price' => 0.20]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50, 'cost_price' => 0]);
+        $perfume->formulaLines()->create(['pos_ingredient_id' => $bottle->id, 'kind' => 'packaging', 'qty_per_unit' => 1, 'sequence' => 100]);
+
+        // Run records its own packaging (2 bottles/unit @ 0.20 → 0.40), liquid
+        // 0.50 → 0.90. The formula's 0.20 must NOT be added on top.
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 1000)
+            ->set('packaging.0.ingredient_id', $bottle->id)
+            ->set('packaging.0.qty', 2)
+            ->set('produced_units', 20)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertEqualsWithDelta(0.90, $perfume->fresh()->productionCost(), 0.001);
+    }
+
     public function test_reversing_a_run_stops_it_driving_the_cost(): void
     {
         // An offer built from a perfume must price that perfume off its real

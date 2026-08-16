@@ -859,4 +859,40 @@ final class PosProductionTest extends TestCase
         $this->actingAs(User::factory()->create(['is_admin' => false]));
         Livewire::test(Productions::class)->call('recomputeCosts')->assertForbidden();
     }
+
+    public function test_reversing_a_run_stops_it_driving_the_cost(): void
+    {
+        // An offer built from a perfume must price that perfume off its real
+        // (Done) batch — never off a run that was reversed/reopened. Otherwise
+        // the offer's component cost disagrees with the production screen.
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 1]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50, 'store_stock' => 0]);
+
+        // 500 ml at 1/ml over 10 bottles → 50.0 per bottle (a real Done run).
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->set('produced_units', 10)
+            ->call('save');
+        $run = PosProduction::query()->latest('id')->first();
+
+        $this->assertEqualsWithDelta(50.0, $perfume->fresh()->productionCost(), 0.001);
+
+        // Reverse it. This perfume has no saved FORMULA, so with the only run
+        // undone there is nothing to cost from — productionCost() must go null,
+        // proving the reversed run's 50.0 is no longer used.
+        Livewire::test(ProductionForm::class, ['id' => $run->id])
+            ->call('reverse')
+            ->assertHasNoErrors();
+
+        $this->assertSame('reversed', $run->fresh()->state);
+        $this->assertNull($perfume->fresh()->productionCost());
+        $this->assertNotContains(
+            $perfume->id,
+            PosProduction::query()->where('state', PosProduction::STATE_DONE)->pluck('pos_product_id')->all(),
+            'A reversed run must not count as a produced perfume for cost recompute.',
+        );
+    }
 }

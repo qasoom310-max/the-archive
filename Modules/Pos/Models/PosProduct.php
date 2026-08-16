@@ -315,18 +315,26 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
      * Per-bottle production cost for a made-in-house product (a perfume mixed
      * from oils, bottled and packaged): the cost of one finished bottle.
      *
-     * Recomputed from the MOST RECENT production run at TODAY's material prices —
-     * exactly the maths the production form commits: (liquid ml × cost-per-ml +
-     * per-bottle packaging × bottles) ÷ bottles produced. Using current prices
-     * (not the run's stored snapshot) keeps the figure honest when a material's
-     * cost has changed since that run. Falls back to the standard formula for a
-     * product with a recipe but no run yet. Null when it isn't produced in-house.
+     * Recomputed from the most recent COMPLETED (Done) production run at TODAY's
+     * material prices — exactly the maths the production form commits: (liquid ml
+     * × cost-per-ml + per-bottle packaging × bottles) ÷ bottles produced. Using
+     * current prices (not the run's stored snapshot) keeps the figure honest when
+     * a material's cost has changed since that run. Falls back to the standard
+     * formula for a product with a recipe but no run yet. Null when it isn't
+     * produced in-house.
+     *
+     * Only DONE runs count: a run that was REVERSED (its stock effect undone) or
+     * REOPENED to a DRAFT (mid-edit, stock already returned) does not represent a
+     * real batch, so it must not drive the perfume's cost — otherwise an offer
+     * built from that perfume would price it off an undone/half-edited run and
+     * disagree with what the production screen shows for the actual batch.
      */
     public function productionCost(): ?float
     {
         $run = PosProduction::query()
             ->with('lines.ingredient')
             ->where('pos_product_id', $this->getKey())
+            ->where('state', PosProduction::STATE_DONE)
             ->latest('id')
             ->first();
 

@@ -994,6 +994,18 @@ run at today's ingredient prices), an **offer** (has a recipe) from `recipeCost(
   (`Productions::recomputeCosts()`, `pos` admin, activity-logged) for a one-click
   cleanup. Both flash the count changed.
 
+**Cost is derived from the latest DONE run only (fixed 2026-08-16):** both
+`PosProduct::productionCost()` and `ProductionCostSync::refreshAll()` filter
+`where('state', PosProduction::STATE_DONE)` before picking the latest run. Before
+this they used `latest('id')` regardless of state, so a perfume whose most recent
+run had been **reopened (draft)** or **reversed** was priced off that undone /
+mid-edit run — while the production screen still showed the real Done batch. An
+**offer** built from such a perfume (e.g. SHABH OFFER) then displayed a component
+cost that disagreed with the perfume's actual production ("its not the same
+cost"). Now a perfume with no Done run falls back to `formulaCost()` (or its
+stored price) and is left out of the recompute entirely. Test:
+`PosProductionTest::test_reversing_a_run_stops_it_driving_the_cost`.
+
 Behaviour change: the old design deliberately kept a perfume's `cost_price` as a
 **stale snapshot** while `productionCost()` showed live — that mismatch WAS the
 "why is my cost wrong" confusion. Now the stored value follows. Tests:

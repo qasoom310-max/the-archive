@@ -30,8 +30,14 @@ final class ProductionCostSync
     {
         $changed = 0;
 
-        // Perfumes — those with at least one production run.
-        $producedIds = PosProduction::query()->distinct()->pluck('pos_product_id')->all();
+        // Perfumes — those with at least one COMPLETED run. A perfume whose only
+        // runs are reversed/draft has no real batch to cost from, so it's left
+        // alone (its cost stays whatever its last Done run or manual price set).
+        $producedIds = PosProduction::query()
+            ->where('state', PosProduction::STATE_DONE)
+            ->distinct()
+            ->pluck('pos_product_id')
+            ->all();
         foreach (PosProduct::query()->whereIn('id', $producedIds)->get() as $perfume) {
             $cost = $perfume->productionCost();
             if ($cost !== null) {

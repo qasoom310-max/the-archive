@@ -232,6 +232,35 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
     }
 
     /**
+     * Cancel this ingredient's recorded consumption out of "Used in total"
+     * WITHOUT changing the on-hand count — for usage a since-deleted production
+     * recorded, where there's no run left to reverse. Posts a credit that zeroes
+     * the consumption tally, plus an equal, opposite Adjustment so the count
+     * stays exactly where it is (adjustments aren't counted in "used"). Returns
+     * how much was cleared. No-op when nothing is recorded as used.
+     */
+    public function cancelRecordedUsage(?string $reference = null): float
+    {
+        $signed = round((float) $this->moves()->whereIn('kind', [
+            IngredientMoveKind::Production->value,
+            IngredientMoveKind::Sale->value,
+            IngredientMoveKind::Damage->value,
+        ])->sum('qty'), 3);
+
+        if (abs($signed) < 0.0005) {
+            return 0.0;
+        }
+
+        // Consumption is negative, so -$signed is a positive Production credit
+        // that brings the tally to zero; the opposite Adjustment undoes its
+        // effect on the count, leaving on-hand untouched.
+        $this->applyStockDelta(-$signed, IngredientMoveKind::Production, $reference);
+        $this->applyStockDelta($signed, IngredientMoveKind::Adjustment, $reference);
+
+        return round(abs($signed), 3);
+    }
+
+    /**
      * On-hand value = stock × cost price. Drives the Stock Report valuation
      * column + the total inventory value (ingredients, unlike condiments, do
      * carry a tracked cost).

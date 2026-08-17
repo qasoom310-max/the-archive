@@ -164,8 +164,8 @@
                     class="o-input mt-1 w-full text-sm tabular-nums">
                 @if ($adjustType === 'ingredient')
                     <label class="mt-3 flex items-start gap-2 text-xs text-chrome-600">
-                        <input type="checkbox" wire:model="adjustAsReturn" class="mt-0.5 rounded border-chrome-300 text-primary-600">
-                        <span>{{ __('This stock was wrongly used by a production that no longer exists — return it and remove it from “Used in total”.') }}</span>
+                        <input type="checkbox" wire:model="adjustClearUsed" class="mt-0.5 rounded border-chrome-300 text-primary-600">
+                        <span>{{ __('Clear this item’s “Used in total” — usage recorded by a production that was deleted. This does NOT change the count above.') }}</span>
                     </label>
                 @endif
                 <div class="mt-4 flex gap-2">

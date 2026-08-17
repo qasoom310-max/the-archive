@@ -950,18 +950,20 @@ STORE → SHOP (`stock_on_hand`, what the register sells), logging a
   to that product and stored on the transfer, and the **"Recent stock moves"**
   history shows its `PRD/…` reference + date. `PosStockTransfer::production()`
   belongsTo `PosProduction`. Not a `DefinesIrModel` ⇒ no resync.
-- **Ingredient Adjust — "return wrongly-used stock" (clears "Used in total").**
+- **Ingredient Adjust — "clear Used in total" (keeps the count).**
   The Stock Report ingredient Adjust posts an `Adjustment` move (excluded from
   `PosIngredient::usedTotal()`), so it raises on-hand but leaves "Used in total"
   untouched — correct for a re-count. But stock a **since-deleted production
   consumed** leaves an orphaned negative `Production` move (no run left to
-  reverse), stuck in "used" forever. New `PosStockReport::$adjustAsReturn` (an
-  ingredient-only checkbox in the Adjust modal): when ticked, the delta is posted
-  as a **positive `Production` move** (`__('Correction: returned wrongly-used
-  stock')`) instead of an Adjustment — it both raises on-hand AND cancels the
-  phantom consumption out of "used" (usedTotal is `abs(sum)` of Production/Sale/
-  Damage). Write-gated like Adjust. Tests:
-  `PosStockReportTest::{test_adjust_as_return_clears_the_quantity_from_used_in_total,
+  reverse), stuck in "used" forever. `PosStockReport::$adjustClearUsed` (an
+  ingredient-only checkbox in the Adjust modal): when ticked, saving calls
+  `PosIngredient::cancelRecordedUsage()` — which posts a `Production` **credit**
+  that zeroes the consumption tally (`usedTotal` is `abs(sum)` of Production/Sale/
+  Damage) **plus an equal, opposite `Adjustment`** so the **on-hand count is
+  unchanged** (the typed on-hand is ignored in this mode). This is deliberately
+  NOT a return-to-stock — the owner's case was "those bottles are gone, just
+  remove them from the tally." Write-gated like Adjust. Tests:
+  `PosStockReportTest::{test_clear_used_removes_it_from_used_total_without_changing_the_count,
   test_a_plain_ingredient_adjust_is_a_recount_and_leaves_used_untouched}`.
 - **"Move back to store" (shop → store).** `Productions::moveToStore()` — the
   reverse of "Move to shop": pulls finished bottles off the register

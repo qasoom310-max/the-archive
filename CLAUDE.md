@@ -950,6 +950,15 @@ STORE → SHOP (`stock_on_hand`, what the register sells), logging a
   to that product and stored on the transfer, and the **"Recent stock moves"**
   history shows its `PRD/…` reference + date. `PosStockTransfer::production()`
   belongsTo `PosProduction`. Not a `DefinesIrModel` ⇒ no resync.
+- **"Move back to store" (shop → store).** `Productions::moveToStore()` — the
+  reverse of "Move to shop": pulls finished bottles off the register
+  (`stock_on_hand`) back into the STORE (`store_stock`), so bottles that already
+  left can be returned (e.g. to unblock reopening/reversing a run). Uses the
+  existing `PosStockTransfer::SHOP_TO_STORE` direction (`applyMove()` already
+  handled it — only the UI action + card were missing); qty is guarded against
+  the shop's on-hand and it's logged as a shop→store transfer. Not admin-gated
+  (mirrors "Move to shop"). Tests: `PosProductionTest::{test_moving_stock_from_shop_back_to_store,
+  test_cannot_move_back_more_than_the_shop_holds}`.
 - **"Remove from store" correction (admin-only).** `Productions::removeFromStore()`
   (`abort_unless(isAdmin, 403)`) takes bottles a run put in the STORE by mistake
   back OUT — **without** adding them to the shop and **without** returning

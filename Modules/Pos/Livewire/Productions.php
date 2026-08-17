@@ -31,6 +31,10 @@ final class Productions extends Component
     /** Optional: which production run the moved bottles came from. */
     public ?int $move_production_id = null;
 
+    public ?int $back_product_id = null;
+
+    public string $back_qty = '';
+
     public ?int $remove_product_id = null;
 
     public string $remove_qty = '';
@@ -102,6 +106,46 @@ final class Productions extends Component
 
         $this->reset('move_product_id', 'move_qty', 'move_production_id');
         session()->flash('toast', __('Moved :n to the shop.', ['n' => rtrim(rtrim(number_format($qty, 3), '0'), '.')]));
+    }
+
+    /**
+     * Move finished bottles from the SHOP back to the STORE — the reverse of
+     * {@see moveToShop()}. Used to pull stock back off the register, e.g. to
+     * return a run's bottles to the store so it can be reopened/reversed. Draws
+     * down the shop's `stock_on_hand` and raises `store_stock`; logged as a
+     * shop→store transfer so the history shows it.
+     */
+    public function moveToStore(): void
+    {
+        abort_unless(Features::enabled(Feature::Production), 404);
+        $this->validate([
+            'back_product_id' => ['required', 'integer', 'exists:pos_products,id'],
+            'back_qty' => ['required', 'numeric', 'min:0.001'],
+        ]);
+
+        $product = PosProduct::query()->find($this->back_product_id);
+        if ($product === null) {
+            return;
+        }
+
+        $qty = (float) $this->back_qty;
+        if ($qty > (float) $product->stock_on_hand) {
+            $this->addError('back_qty', __('Only :n in the shop.', ['n' => rtrim(rtrim(number_format((float) $product->stock_on_hand, 3), '0'), '.')]));
+
+            return;
+        }
+
+        $transfer = PosStockTransfer::query()->create([
+            'pos_product_id' => $product->id,
+            'pos_session_id' => app(PosSessionManager::class)->getActiveSession()?->id,
+            'quantity' => $qty,
+            'direction' => PosStockTransfer::SHOP_TO_STORE,
+            'moved_by_user_id' => Auth::id(),
+        ]);
+        $transfer->applyMove();
+
+        $this->reset('back_product_id', 'back_qty');
+        session()->flash('toast', __('Moved :n back to the store.', ['n' => rtrim(rtrim(number_format($qty, 3), '0'), '.')]));
     }
 
     /**

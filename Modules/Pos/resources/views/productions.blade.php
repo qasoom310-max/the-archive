@@ -57,6 +57,30 @@
                 </div>
                 <button wire:click="moveToShop" class="o-btn-primary mt-4 w-full justify-center">{{ __('Move to shop') }}</button>
 
+                <div class="mt-5 border-t border-chrome-100 pt-4">
+                    <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Move back to store') }}</h3>
+                    <p class="mb-3 text-xs text-chrome-400">{{ __('Pull bottles off the register back into the store — e.g. to return a run’s bottles so it can be reopened or reversed.') }}</p>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Product') }}</label>
+                        <select wire:model="back_product_id" class="o-input w-full">
+                            <option value="">{{ __('— Select —') }}</option>
+                            @foreach ($stocked as $p)
+                                <option value="{{ $p->id }}">{{ $p->name }} · {{ __('shop') }} {{ $num($p->stock_on_hand) }}</option>
+                            @endforeach
+                        </select>
+                        @error('back_product_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="mt-3">
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Quantity') }}</label>
+                        <input type="number" step="0.001" min="0" wire:model="back_qty" class="o-input w-full">
+                        @error('back_qty') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <button wire:click="moveToStore"
+                        class="mt-4 w-full justify-center rounded-lg border border-chrome-200 bg-white px-4 py-2 text-sm font-semibold text-chrome-700 hover:bg-chrome-50">
+                        {{ __('Move back to store') }}
+                    </button>
+                </div>
+
                 @if ($isAdmin)
                     <div class="mt-5 border-t border-chrome-100 pt-4">
                         <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Remove from store') }}</h3>

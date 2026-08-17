@@ -498,6 +498,38 @@ final class PosProductionTest extends TestCase
         $this->assertSame(1, PosStockTransfer::query()->count());
     }
 
+    public function test_moving_stock_from_shop_back_to_store(): void
+    {
+        $this->enableProduction();
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'store_stock' => 0, 'stock_on_hand' => 20]);
+
+        Livewire::test(Productions::class)
+            ->set('back_product_id', $perfume->id)
+            ->set('back_qty', 8)
+            ->call('moveToStore')
+            ->assertHasNoErrors();
+
+        $perfume->refresh();
+        $this->assertEqualsWithDelta(8.0, $perfume->store_stock, 0.001);   // returned to store
+        $this->assertEqualsWithDelta(12.0, $perfume->stock_on_hand, 0.001); // pulled off the shop
+        $this->assertSame(PosStockTransfer::SHOP_TO_STORE, PosStockTransfer::query()->latest('id')->first()?->direction);
+    }
+
+    public function test_cannot_move_back_more_than_the_shop_holds(): void
+    {
+        $this->enableProduction();
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'store_stock' => 0, 'stock_on_hand' => 5]);
+
+        Livewire::test(Productions::class)
+            ->set('back_product_id', $perfume->id)
+            ->set('back_qty', 20)
+            ->call('moveToStore')
+            ->assertHasErrors('back_qty');
+
+        $this->assertEqualsWithDelta(5.0, $perfume->fresh()->stock_on_hand, 0.001);
+        $this->assertEqualsWithDelta(0.0, $perfume->fresh()->store_stock, 0.001);
+    }
+
     public function test_cannot_move_more_than_the_store_holds(): void
     {
         $this->enableProduction();

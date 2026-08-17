@@ -8,8 +8,10 @@ use App\Erp\Modules\ModuleManager;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
+use Modules\Pos\Enums\IngredientMoveKind;
 use Modules\Pos\Livewire\PosStockReport;
 use Modules\Pos\Models\PosCondiment;
+use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosProduct;
 use Tests\TestCase;
 
@@ -174,5 +176,49 @@ final class PosStockReportTest extends TestCase
             ->call('saveAdjust');
 
         $this->assertEqualsWithDelta(25.0, $condiment->fresh()?->stock_on_hand, 0.001);
+    }
+
+    public function test_adjust_as_return_clears_the_quantity_from_used_in_total(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        app(ModuleManager::class)->install('pos');
+
+        // A bottle with 3185 in stock that a (since-deleted) production consumed
+        // 105 of: stock 3080, "used in total" 105.
+        $bottle = PosIngredient::query()->create(['name' => 'Bottle 100ml', 'unit' => 'pcs', 'stock_on_hand' => 3185, 'cost_price' => 0.2]);
+        $bottle->applyStockDelta(-105, IngredientMoveKind::Production, 'Old production');
+        $this->assertEqualsWithDelta(3080.0, $bottle->fresh()->stock_on_hand, 0.001);
+        $this->assertEqualsWithDelta(105.0, $bottle->fresh()->usedTotal(), 0.001);
+
+        // Return the 105 as a correction: set stock back to 3185 with the
+        // "wrongly used" box ticked → posts a Production credit.
+        Livewire::test(PosStockReport::class)
+            ->call('openAdjust', $bottle->id, 'ingredient')
+            ->set('adjustQty', '3185')
+            ->set('adjustAsReturn', true)
+            ->call('saveAdjust');
+
+        $fresh = $bottle->fresh();
+        $this->assertEqualsWithDelta(3185.0, $fresh->stock_on_hand, 0.001); // back in hand
+        $this->assertEqualsWithDelta(0.0, $fresh->usedTotal(), 0.001);       // and cleared from "used"
+    }
+
+    public function test_a_plain_ingredient_adjust_is_a_recount_and_leaves_used_untouched(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        app(ModuleManager::class)->install('pos');
+
+        $bottle = PosIngredient::query()->create(['name' => 'Bottle 100ml', 'unit' => 'pcs', 'stock_on_hand' => 3185, 'cost_price' => 0.2]);
+        $bottle->applyStockDelta(-105, IngredientMoveKind::Production, 'Old production');
+
+        // Default (box unticked) = a re-count: raises stock but "used" stays 105.
+        Livewire::test(PosStockReport::class)
+            ->call('openAdjust', $bottle->id, 'ingredient')
+            ->set('adjustQty', '3185')
+            ->call('saveAdjust');
+
+        $fresh = $bottle->fresh();
+        $this->assertEqualsWithDelta(3185.0, $fresh->stock_on_hand, 0.001);
+        $this->assertEqualsWithDelta(105.0, $fresh->usedTotal(), 0.001); // unchanged
     }
 }

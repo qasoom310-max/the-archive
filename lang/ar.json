@@ -1892,6 +1892,8 @@
     "Consumed by production, sales and damages. Re-counts are not counted here.": "ما استهلكه الإنتاج والمبيعات والتوالف. لا تُحتسب عمليات إعادة الجرد هنا.",
     "Moves on its own: purchases add, sales and production subtract. To correct a count, use Adjust in the Stock Report.": "يتغيّر تلقائيًا: المشتريات تزيده، والمبيعات والإنتاج تنقصه. لتصحيح الكمية استخدم «تعديل» في تقرير المخزون.",
     "Stock Report re-count": "إعادة جرد من تقرير المخزون",
+    "Correction: returned wrongly-used stock": "تصحيح: إرجاع مخزون استُهلك بالخطأ",
+    "This stock was wrongly used by a production that no longer exists — return it and remove it from “Used in total”.": "تم استهلاك هذا المخزون بالخطأ بواسطة إنتاج لم يعد موجودًا — أرجِعه واحذفه من «إجمالي المستخدم».",
     "Each unit is": "حجم الوحدة الواحدة",
     "Cost per unit": "التكلفة لكل وحدة",
     "Production": "الإنتاج",

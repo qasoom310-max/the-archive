@@ -162,6 +162,12 @@
                 <input type="number" step="any" min="0" autofocus
                     wire:model="adjustQty" wire:keydown.enter="saveAdjust"
                     class="o-input mt-1 w-full text-sm tabular-nums">
+                @if ($adjustType === 'ingredient')
+                    <label class="mt-3 flex items-start gap-2 text-xs text-chrome-600">
+                        <input type="checkbox" wire:model="adjustAsReturn" class="mt-0.5 rounded border-chrome-300 text-primary-600">
+                        <span>{{ __('This stock was wrongly used by a production that no longer exists — return it and remove it from “Used in total”.') }}</span>
+                    </label>
+                @endif
                 <div class="mt-4 flex gap-2">
                     <button type="button" wire:click="closeAdjust" class="o-btn-ghost flex-1 justify-center">{{ __('Cancel') }}</button>
                     <button type="button" wire:click="saveAdjust" class="o-btn-primary flex-1 justify-center">{{ __('Save') }}</button>

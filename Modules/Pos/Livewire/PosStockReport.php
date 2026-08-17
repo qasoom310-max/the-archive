@@ -67,6 +67,15 @@ final class PosStockReport extends Component
 
     public string $adjustQty = '';
 
+    /**
+     * Ingredient only: when true, the adjustment is recorded as a production
+     * RETURN (a positive Production move) instead of a re-count. That both
+     * raises on-hand AND cancels the quantity out of "Used in total" — used to
+     * undo stock a since-deleted production wrongly consumed, where there's no
+     * run left to reverse.
+     */
+    public bool $adjustAsReturn = false;
+
     private const PER_PAGE = 30;
 
     public function mount(): void
@@ -112,6 +121,7 @@ final class PosStockReport extends Component
         $this->adjustId = $id;
         $this->adjustType = $type;
         $this->adjustQty = rtrim(rtrim(number_format((float) $model->stock_on_hand, 3, '.', ''), '0'), '.');
+        $this->adjustAsReturn = false;
     }
 
     public function closeAdjust(): void
@@ -119,6 +129,7 @@ final class PosStockReport extends Component
         $this->adjustId = null;
         $this->adjustType = 'product';
         $this->adjustQty = '';
+        $this->adjustAsReturn = false;
     }
 
     /**
@@ -147,7 +158,14 @@ final class PosStockReport extends Component
         // than silently replacing the number. Products and condiments have no
         // such ledger — they keep the direct write.
         if ($model instanceof PosIngredient) {
-            $model->setStockTo($target, IngredientMoveKind::Adjustment, __('Stock Report re-count'));
+            // A plain re-count is an Adjustment (excluded from "Used in total").
+            // A "wrongly used — return it" correction is posted as a Production
+            // move so it ALSO cancels the phantom consumption out of "used" —
+            // for stock a since-deleted run consumed with no run left to reverse.
+            [$kind, $reference] = $this->adjustAsReturn
+                ? [IngredientMoveKind::Production, __('Correction: returned wrongly-used stock')]
+                : [IngredientMoveKind::Adjustment, __('Stock Report re-count')];
+            $model->setStockTo($target, $kind, $reference);
         } else {
             $model->stock_on_hand = $target;
             $model->save();

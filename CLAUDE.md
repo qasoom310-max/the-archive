@@ -928,6 +928,15 @@ isDraft,isReversed,isEditable,outputHasLeftStore,reverse}`. A **done** run is
   `outputHasLeftStore()` (`store_stock < produced_units` — bottles moved to the shop or
   sold), with an inline `state` error telling the user to pull them back from the shop
   first. So a reversal can never drive STORE stock negative.
+- **Admin force override (shipped 2026-08-17):** when a run's output can NEVER be fully
+  returned (bottles sold, or an over-entered `produced_units` that exceeds the bottles
+  that physically exist), the lock is unsatisfiable and the run is stuck forever.
+  `ProductionForm::{reverse,reopen,delete}` now take a `bool $force`; `mayForce($force)`
+  = `$force && Auth::user()->isAdmin()` bypasses `outputHasLeftStore()`. Safe because
+  `reverseStock()` floors `store_stock` at `max(0, …)`. The blocked-run panel shows an
+  admin-only red **"Reverse anyway" / "Delete anyway"** box (`$outputLeft && $isAdmin`),
+  each behind a `wire:confirm`. Tests: `PosProductionTest::{test_an_admin_can_force_reverse_when_bottles_have_left_the_store,
+  test_a_non_admin_cannot_force_reverse}`.
 - `delete()` is state-aware (only reverses if still `done`, else the run's stock was
   already unwound). Tests: `PosProductionTest::{test_reopening_then_re_recording_reverses_then_reapplies_stock,
   test_a_recorded_run_cannot_be_saved_without_reopening, test_reversing_a_run_undoes_its_stock_and_locks_it,

@@ -409,6 +409,66 @@ final class PosProductionTest extends TestCase
         $this->assertDatabaseHas('activity_logs', ['action' => 'production_reversed']);
     }
 
+    public function test_an_admin_can_force_reverse_when_bottles_have_left_the_store(): void
+    {
+        // A run whose output can no longer be returned (sold / over-entered
+        // produced count) is normally locked. An admin can force it; store stock
+        // floors at zero rather than going negative.
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 1]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50, 'store_stock' => 0]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->set('produced_units', 10)
+            ->call('save');
+        $run = PosProduction::query()->latest('id')->first();
+
+        // All 10 bottles move to the shop → the store can't give them back.
+        Livewire::test(Productions::class)
+            ->set('move_product_id', $perfume->id)
+            ->set('move_qty', 10)
+            ->call('moveToShop');
+        $this->assertTrue($run->fresh()->outputHasLeftStore());
+
+        // Plain reverse is blocked; force reverse (admin) goes through.
+        Livewire::test(ProductionForm::class, ['id' => $run->id])
+            ->call('reverse')
+            ->assertHasErrors('state');
+        Livewire::test(ProductionForm::class, ['id' => $run->id])
+            ->call('reverse', true)
+            ->assertHasNoErrors();
+
+        $this->assertSame('reversed', $run->fresh()->state);
+        $this->assertEqualsWithDelta(1000.0, $oil->fresh()->stock_on_hand, 0.001); // materials back
+        $this->assertEqualsWithDelta(0.0, $perfume->fresh()->store_stock, 0.001);  // floored at zero
+    }
+
+    public function test_a_non_admin_cannot_force_reverse(): void
+    {
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 1]);
+        $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'bottle_size_ml' => 50, 'store_stock' => 0]);
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->set('produced_units', 10)
+            ->call('save');
+        $run = PosProduction::query()->latest('id')->first();
+        Livewire::test(Productions::class)
+            ->set('move_product_id', $perfume->id)->set('move_qty', 10)->call('moveToShop');
+
+        // A user granted POS access but not admin can't override the lock.
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+        Livewire::test(ProductionForm::class, ['id' => $run->id])
+            ->call('reverse', true)
+            ->assertHasErrors('state');
+        $this->assertSame('done', $run->fresh()->state);
+    }
+
     public function test_reversing_is_blocked_when_bottles_have_left_the_store(): void
     {
         $this->enableProduction();

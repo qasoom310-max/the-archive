@@ -243,6 +243,23 @@
                     {{ __('Reopen to edit') }}
                 </button>
             </div>
+
+            {{-- Admin override when the run is locked because its bottles already
+                 left the store and can't all be returned (sold, or an over-entered
+                 produced count). Reversing then floors store stock at zero. --}}
+            @if ($outputLeft && $isAdmin)
+                <div class="mt-3 rounded-lg border border-red-200 bg-red-50/60 p-3">
+                    <p class="mb-2 text-xs font-medium text-red-700">{{ __('These bottles already left the store, so this run can’t be returned normally. As an admin you can force it — the store count is floored at zero and the materials go back to stock.') }}</p>
+                    <button type="button" wire:click="reverse(true)" wire:confirm="{{ __('Force-reverse this production even though its bottles have left the store? The store count is floored at zero and materials return to stock. This cannot be undone.') }}"
+                        class="w-full justify-center rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">
+                        {{ __('Reverse anyway') }}
+                    </button>
+                    <button type="button" wire:click="delete(true)" wire:confirm="{{ __('Force-delete this production even though its bottles have left the store? This permanently removes it and cannot be undone.') }}"
+                        class="mt-2 w-full justify-center rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">
+                        {{ __('Delete anyway') }}
+                    </button>
+                </div>
+            @endif
             <a href="{{ url('/app/pos/production') }}" wire:navigate class="mt-2 block text-center text-sm text-chrome-500 hover:text-chrome-700">{{ __('Back') }}</a>
         @endif
         @if ($isEditing)

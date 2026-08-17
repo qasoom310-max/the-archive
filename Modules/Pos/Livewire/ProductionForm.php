@@ -186,8 +186,14 @@ final class ProductionForm extends Component
         $this->produced_units = $this->expectedUnits() > 0 ? (string) $this->expectedUnits() : $this->produced_units;
     }
 
-    /** Delete this production, reversing its stock effect first if still applied. */
-    public function delete(): void
+    /**
+     * Delete this production, reversing its stock effect first if still applied.
+     * `$force` (admin only) removes it even when its bottles have already left
+     * the store — used to clean up a wrong run whose output was sold or whose
+     * produced count was over-entered, so the store can never hold them all
+     * again. Safe: reverseStock() clamps store stock at zero (never negative).
+     */
+    public function delete(bool $force = false): void
     {
         abort_unless(Features::enabled(Feature::Production), 404);
         if ($this->id === null) {
@@ -202,7 +208,7 @@ final class ProductionForm extends Component
         // Only a DONE run still has stock applied. A draft/reversed run was
         // already unwound, so reversing again would wrongly return materials.
         if ($production->isDone()) {
-            if ($production->outputHasLeftStore()) {
+            if ($production->outputHasLeftStore() && ! $this->mayForce($force)) {
                 $this->addError('state', __('Some bottles have already left the store (moved to the shop or sold). Return them to the store before deleting.'));
 
                 return;
@@ -470,7 +476,18 @@ final class ProductionForm extends Component
      * bottles have already left the store (moved to the shop or sold) — pull them
      * back first.
      */
-    public function reverse(): void
+    /**
+     * Whether the "bottles left the store" lock may be overridden — only when an
+     * admin explicitly asked to force it. Reversing then clamps store stock at
+     * zero, so it can't go negative; it's a deliberate cleanup of a run whose
+     * output can no longer be returned (sold, or an over-entered produced count).
+     */
+    private function mayForce(bool $force): bool
+    {
+        return $force && Auth::user()?->isAdmin() === true;
+    }
+
+    public function reverse(bool $force = false): void
     {
         abort_unless(Features::enabled(Feature::Production), 404);
         if ($this->id === null) {
@@ -482,7 +499,7 @@ final class ProductionForm extends Component
             return;
         }
 
-        if ($production->outputHasLeftStore()) {
+        if ($production->outputHasLeftStore() && ! $this->mayForce($force)) {
             $this->addError('state', __('Some bottles have already left the store (moved to the shop or sold). Return them to the store before reversing.'));
 
             return;
@@ -500,7 +517,7 @@ final class ProductionForm extends Component
      * bottles have left the store), a REVERSED run is simply unlocked. Either way
      * it becomes an editable DRAFT with no stock applied; saving re-records it.
      */
-    public function reopen(): void
+    public function reopen(bool $force = false): void
     {
         abort_unless(Features::enabled(Feature::Production), 404);
         if ($this->id === null) {
@@ -513,7 +530,7 @@ final class ProductionForm extends Component
         }
 
         if ($production->isDone()) {
-            if ($production->outputHasLeftStore()) {
+            if ($production->outputHasLeftStore() && ! $this->mayForce($force)) {
                 $this->addError('state', __('Some bottles have already left the store (moved to the shop or sold). Return them to the store before reopening.'));
 
                 return;
@@ -584,6 +601,7 @@ final class ProductionForm extends Component
             // reverse/reopen/delete of a done run (the "return them first" rule).
             'outputLeft' => $this->id !== null && $this->state === PosProduction::STATE_DONE
                 && (PosProduction::query()->with('product')->find($this->id)?->outputHasLeftStore() ?? false),
+            'isAdmin' => Auth::user()?->isAdmin() === true,
         ]);
     }
 }

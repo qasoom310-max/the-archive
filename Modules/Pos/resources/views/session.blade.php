@@ -92,6 +92,24 @@
         {{-- On phones/tablets the register controls come first (order-first);
              on desktop this returns to the right-hand column. --}}
         <div class="space-y-6 order-first lg:order-none">
+            @if (session('toast'))
+                <div class="rounded-lg bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 ring-1 ring-emerald-100">{{ session('toast') }}</div>
+            @endif
+
+            {{-- Business date: move this session (and its orders) onto the day
+                 the sales really happened — for catching up a paper log. --}}
+            @if ($isManager)
+                <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
+                    <h2 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Session date') }}</h2>
+                    <p class="mb-3 text-xs text-chrome-400">{{ __('The day these sales belong to. Changing it moves this session and all its orders to that date, so the reports show them on the right day.') }}</p>
+                    <input type="date" wire:model="sessionDate" class="o-input w-full">
+                    @error('sessionDate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    <button wire:click="setSessionDate"
+                        wire:confirm="{{ __('Move this session and all its orders to this date?') }}"
+                        class="o-btn-primary mt-3 w-full justify-center">{{ __('Apply date') }}</button>
+                </div>
+            @endif
+
             {{-- Close / reconciliation --}}
             <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
                 <h2 class="mb-2 text-sm font-semibold text-chrome-800">{{ __('Cash control') }}</h2>

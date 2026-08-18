@@ -934,6 +934,8 @@ final class PosTerminal extends Component
      */
     public function openSplit(): void
     {
+        abort_unless(Features::enabled(Feature::SplitOrder), 404);
+
         $this->dispatch('open-split-order', orderId: $this->orderId);
     }
 

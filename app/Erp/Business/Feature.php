@@ -33,6 +33,9 @@ enum Feature: string
     case Damage = 'damage';
     case BarcodeScanning = 'barcode_scanning';
     case DailyReportCards = 'daily_report_cards';
+    // Split the bill: move items off an order onto a new one (a second table /
+    // separate payer). Off hides the split action everywhere and refuses it.
+    case SplitOrder = 'split_order';
     // Manufacturing: mix raw materials into finished stock held in a store, then
     // move it to the shop for sale. Opt-in — see Features::DEFAULT_OFF.
     case Production = 'production';
@@ -86,6 +89,7 @@ enum Feature: string
             self::Damage => 'Damage / waste log',
             self::BarcodeScanning => 'Barcode scanning (camera)',
             self::DailyReportCards => 'Daily sale & stock cards on dashboard',
+            self::SplitOrder => 'Split order',
             self::Production => 'Production & store (mixing)',
             self::Postpaid => 'Postpaid (kitchen first, pay later)',
             self::RemoteSales => 'Remote / delivery sales',
@@ -118,6 +122,7 @@ enum Feature: string
             self::Damage => 'Record damaged or wasted stock so on-hand counts stay accurate.',
             self::BarcodeScanning => 'Show the camera scan button in the terminal search bar (USB scanners always work).',
             self::DailyReportCards => 'Show the Daily sale and Daily stock report cards on the main dashboard.',
+            self::SplitOrder => 'Let staff move items off an order onto a new one — splitting a bill between payers or tables.',
             self::Production => 'Mix raw materials into finished bottles held in a store, then move them to the shop for sale.',
             self::Postpaid => 'Send items to the kitchen as they are added and take payment at the end. Off = pay first, then the order fires to the kitchen.',
             self::RemoteSales => 'Ring up phone / WhatsApp / delivery orders on the register, capture the delivery details, and track them through a fulfillment queue.',

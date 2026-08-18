@@ -265,6 +265,35 @@ final class PosOrderSplitTest extends TestCase
         $this->assertSame(OrderState::Cancelled, $order->fresh()?->state);
     }
 
+    public function test_turning_split_order_off_hides_and_refuses_it(): void
+    {
+        $session = $this->openSession();
+        $a = $this->product('Espresso', 2.0);
+        $order = $this->draft($session, [[$a, 2]]);
+
+        // On by default: the row offers the split action.
+        Livewire::test(PosOrders::class)
+            ->assertOk()
+            ->assertViewHas('rows', fn (array $rows): bool => (bool) $rows[0]['splittable']);
+
+        \App\Erp\Business\Features::setOverrides([\App\Erp\Business\Feature::SplitOrder->value => false]);
+
+        // Off: the action is gone from the list…
+        Livewire::test(PosOrders::class)
+            ->assertOk()
+            ->assertViewHas('rows', fn (array $rows): bool => ! $rows[0]['splittable']);
+
+        // …the modal refuses to open…
+        Livewire::test(SplitOrderModal::class)
+            ->call('openFor', $order->id)
+            ->assertSet('open', false);
+
+        // …and a crafted submit is refused outright.
+        Livewire::test(PosOrders::class)
+            ->call('openSplit', $order->id)
+            ->assertNotFound();
+    }
+
     public function test_changing_one_orders_date_leaves_the_others_alone(): void
     {
         // Entering a paper log after the fact: each order must land on its own

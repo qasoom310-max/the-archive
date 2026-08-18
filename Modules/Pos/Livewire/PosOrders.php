@@ -68,6 +68,8 @@ final class PosOrders extends Component
 
     public function openSplit(int $orderId): void
     {
+        abort_unless(Features::enabled(Feature::SplitOrder), 404);
+
         $this->dispatch('open-split-order', orderId: $orderId);
     }
 
@@ -248,7 +250,8 @@ final class PosOrders extends Component
                 'payment' => $methods !== '' ? $methods : '—',
                 'state' => $order->state,
                 'total' => (float) $order->total,
-                'splittable' => in_array($order->state, [OrderState::Draft, OrderState::Done], true) && $units >= 2,
+                'splittable' => Features::enabled(Feature::SplitOrder)
+                    && in_array($order->state, [OrderState::Draft, OrderState::Done], true) && $units >= 2,
                 'cancellable' => $order->state === OrderState::Draft,
                 'printable' => $order->state === OrderState::Done,
                 // Proof-of-payment photo (null unless one was attached). Lets the

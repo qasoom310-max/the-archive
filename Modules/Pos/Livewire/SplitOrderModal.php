@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Pos\Livewire;
 
+use App\Erp\Business\Feature;
+use App\Erp\Business\Features;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
@@ -51,6 +53,12 @@ final class SplitOrderModal extends Component
     #[On('open-split-order')]
     public function openFor(int $orderId): void
     {
+        // Turned off in POS → Settings: the modal must not open even if a stale
+        // page still shows the button.
+        if (! Features::enabled(Feature::SplitOrder)) {
+            return;
+        }
+
         $this->guard(Permission::Read);
 
         $order = PosOrder::query()->with('lines')->find($orderId);
@@ -104,6 +112,8 @@ final class SplitOrderModal extends Component
 
     public function submit(): void
     {
+        abort_unless(Features::enabled(Feature::SplitOrder), 404);
+
         $this->guard(Permission::Write);
         $this->error = '';
 

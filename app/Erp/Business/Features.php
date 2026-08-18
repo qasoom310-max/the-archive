@@ -86,6 +86,7 @@ final class Features
             Feature::CustomerDiscounts, Feature::Damage, Feature::BarcodeScanning,
             Feature::Postpaid, Feature::DailyReportCards, Feature::Production,
             Feature::RemoteSales, Feature::CashierClose, Feature::PaymentProof,
+            Feature::SplitOrder,
         ],
         'accounting' => [Feature::ChartOfAccounts, Feature::JournalEntries],
         'rental' => [

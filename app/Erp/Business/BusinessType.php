@@ -57,7 +57,7 @@ enum BusinessType: string
                 Feature::Purchases, Feature::Hr, Feature::Accounting,
                 Feature::Restaurant, Feature::Kitchen,
                 Feature::Condiments, Feature::CustomerDiscounts,
-                Feature::Damage, Feature::BarcodeScanning,
+                Feature::Damage, Feature::BarcodeScanning, Feature::SplitOrder,
                 Feature::ChartOfAccounts, Feature::JournalEntries,
             ],
             // A shop sells finished goods — same POS/stock chain, but no
@@ -66,7 +66,7 @@ enum BusinessType: string
                 Feature::Pos, Feature::Inventory,
                 Feature::Purchases, Feature::Hr, Feature::Accounting,
                 Feature::Condiments, Feature::CustomerDiscounts,
-                Feature::Damage, Feature::BarcodeScanning,
+                Feature::Damage, Feature::BarcodeScanning, Feature::SplitOrder,
                 Feature::ChartOfAccounts, Feature::JournalEntries,
             ],
             // A shop that BOTH resells bought goods AND crafts its own from
@@ -77,7 +77,7 @@ enum BusinessType: string
                 Feature::Pos, Feature::Recipes, Feature::Inventory,
                 Feature::Purchases, Feature::Hr, Feature::Accounting,
                 Feature::Condiments, Feature::CustomerDiscounts,
-                Feature::Damage, Feature::BarcodeScanning,
+                Feature::Damage, Feature::BarcodeScanning, Feature::SplitOrder,
                 Feature::ChartOfAccounts, Feature::JournalEntries,
             ],
             // Rentals revolve around bookings of assets, not a sales counter.

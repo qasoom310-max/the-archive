@@ -33,7 +33,7 @@
             </div>
             <div class="flex items-center gap-3">
                 @include('pos::partials.user-chip', ['user' => $cashier, 'sub' => __('Cashier')])
-                @if ((int) $lines->sum('qty') >= 2)
+                @if ((int) $lines->sum('qty') >= 2 && \App\Erp\Business\Features::enabled(\App\Erp\Business\Feature::SplitOrder))
                     <button wire:click="openSplit" class="o-btn-ghost text-xs" title="{{ __('Split this order') }}">{{ __('Split') }}</button>
                 @endif
                 <button wire:click="newOrder" class="o-btn-ghost text-xs">{{ __('New order') }}</button>

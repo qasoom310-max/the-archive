@@ -61,6 +61,32 @@
                 </table>
                 </div>
             </div>
+
+            {{-- Purchases recorded during this session (Purchases module). --}}
+            @if ($purchases->isNotEmpty())
+                @php $pcolor = ['confirmed' => 'emerald', 'draft' => 'amber', 'cancelled' => 'red']; @endphp
+                <div class="rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5">
+                    <div class="flex items-center justify-between border-b border-chrome-200 px-4 py-2">
+                        <span class="text-sm font-semibold text-chrome-800">{{ __('Purchases') }}</span>
+                        <span class="text-sm font-semibold text-chrome-700">{{ $money($purchasesTotal) }}</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-chrome-100 text-sm">
+                        <tbody class="divide-y divide-chrome-100">
+                            @foreach ($purchases as $p)
+                                <tr class="hover:bg-chrome-50 cursor-pointer" onclick="window.location='{{ url('/app/purchases/purchase/' . $p->id) }}'">
+                                    <td class="px-4 py-2 font-medium text-primary-700">{{ $p->reference ?? ('#' . $p->id) }}</td>
+                                    <td class="px-4 py-2 text-chrome-500">{{ $p->name ?? '—' }}</td>
+                                    <td class="px-4 py-2"><span class="o-chip bg-{{ $pcolor[$p->state] ?? 'chrome' }}-50 text-{{ $pcolor[$p->state] ?? 'chrome' }}-700">{{ __(ucfirst($p->state)) }}</span></td>
+                                    <td class="px-4 py-2 text-end">{{ $money($p->total) }}</td>
+                                    <td class="px-4 py-2 text-end text-chrome-400">{{ \Illuminate\Support\Carbon::parse($p->date)->isoFormat('MMM D') }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                    </div>
+                </div>
+            @endif
         </div>
 
         {{-- On phones/tablets the register controls come first (order-first);

@@ -11,6 +11,8 @@ use App\Erp\Security\Permission;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -87,6 +89,16 @@ final class PosSessionPage extends Component
             $byMethod[$name] = round(($byMethod[$name] ?? 0.0) + $payment->amount, 2);
         }
 
+        // Purchases tagged to this session (when the Purchases module is
+        // installed). Queried via the table to keep POS decoupled from it.
+        $purchases = collect();
+        if (Schema::hasTable('purchases')) {
+            $purchases = DB::table('purchases')
+                ->where('pos_session_id', $session->id)
+                ->orderByDesc('id')
+                ->get(['id', 'reference', 'name', 'date', 'total', 'state']);
+        }
+
         return view('pos::session', [
             'session' => $session,
             'orders' => $orders,
@@ -97,6 +109,8 @@ final class PosSessionPage extends Component
             'isManager' => $this->isManager(),
             'canClose' => $this->canClose(),
             'participants' => app(PosSessionManager::class)->activeParticipants($session),
+            'purchases' => $purchases,
+            'purchasesTotal' => round((float) $purchases->sum('total'), 2),
         ]);
     }
 }

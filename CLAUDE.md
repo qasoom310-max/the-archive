@@ -1542,6 +1542,23 @@ the credit sits in Accounts Payable, no payment/bank reconciliation yet).
   the two existing form tests retargeted from `lines.*.pos_product_id` → `lines.*.component`).
   AR keys: Purchase name / Expiry date / Location / City / area / the name placeholder.
 
+**Phase 16 increment shipped 2026-08-18 — purchases tagged with the POS session:**
+
+- A purchase is **tagged with the POS session it was recorded in**, so a shift's
+  purchases show alongside its sales. `purchases.pos_session_id` (nullable logical
+  ref, migration `2026_08_18_100007`, auto-applied by deploy's Purchases migrate
+  step + tenants via `workspaces:migrate`; **not** an `irModelDefinition()` change
+  ⇒ no resync). `Purchase::session()` belongsTo `PosSession`. Stamped in
+  `PurchaseForm::persistRecord()` **on create only** (an edit keeps its original
+  session) from `PosSessionManager::getActiveSession()?->id` — null when no session
+  is open. Surfaced on the **POS session page** (`PosSessionPage` → `pos::session`):
+  a "Purchases" card lists this session's bills (ref · name · state · total · date,
+  row → the bill) with a total. POS reads them via `DB::table('purchases')` guarded
+  by `Schema::hasTable` (keeps POS decoupled from the Purchases module — the card
+  only renders when the module is installed and the session has purchases). Tests:
+  `PurchaseConfirmTest::{test_a_purchase_is_tagged_with_the_open_pos_session,
+  test_a_purchase_raised_with_no_open_session_has_no_session}`.
+
 **Phase 17 — WooCommerce sync (`Modules/WooCommerce/`, Phase A shipped 2026-06-24):**
 
 One-way **ERP → WooCommerce** product push, mirroring the WhatsApp module's

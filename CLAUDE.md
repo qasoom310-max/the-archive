@@ -1558,6 +1558,21 @@ the order's Chatter via `logChange()`. Tests:
 `PosOrderSplitTest::{test_changing_one_orders_date_leaves_the_others_alone,
 test_changing_an_order_date_is_admin_only}`.
 
+**POS — mark an order delivered + record the driver's cost (shipped 2026-08-18):**
+
+An admin-only **truck action** per row in the Orders List (beside the calendar):
+`PosOrders::{openDelivery,saveDelivery,clearDelivery,closeDelivery}` sets
+`channel = SalesChannel::Remote` and `delivery_fee` on that order.
+**`delivery_fee` is OUR cost (we pay the driver) and deliberately does NOT feed
+the order total** — that's `delivery_charge` — so tagging an **already-paid**
+order leaves its total and `paid_total` untouched and it stays balanced (the
+owner chose this meaning explicitly over charging the customer). Saved with
+`saveQuietly()` + no `recalculate()`, logged to the order's Chatter. The row
+shows a sky "Delivered · −fee" line under the total; "Not a delivery" reverts to
+`Shop` with fee 0. Independent of the `RemoteSales` feature (which gates the
+fuller remote-order workflow). Tests: `PosOrderSplitTest::{test_marking_a_paid_order_delivered_records_our_cost_without_touching_the_total,
+test_a_mis_tagged_delivery_can_be_cleared, test_marking_an_order_delivered_is_admin_only}`.
+
 **Deliberately per-order, NOT per-session.** A first attempt put the date on the
 POS *session* and moved every order in it — rejected by the owner: the manager
 needs to know what sold **on each day**, so orders must keep their own dates. A

@@ -6,6 +6,7 @@ namespace Modules\Pos\Livewire;
 
 use App\Erp\Business\Feature;
 use App\Erp\Business\Features;
+use App\Erp\Money\Currencies;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
@@ -18,6 +19,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Modules\Pos\Enums\OrderState;
+use Modules\Pos\Enums\SalesChannel;
 use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosPayment;
 use Modules\Pos\Models\PosTable;
@@ -50,6 +52,12 @@ final class PosOrders extends Component
     public ?int $dateOrderId = null;
 
     public string $orderDate = '';
+
+    /** The order being marked as delivered (null = the box is closed). */
+    public ?int $deliveryOrderId = null;
+
+    /** What we pay the driver for that order — our cost, not the customer's. */
+    public string $deliveryFee = '';
 
     public function mount(): void
     {
@@ -97,6 +105,92 @@ final class PosOrders extends Component
     {
         $this->dateOrderId = null;
         $this->orderDate = '';
+    }
+
+    /**
+     * Open the "mark as delivered" box for one order. The fee recorded here is
+     * what WE pay the driver — our cost, never on the customer's bill — so it
+     * is safe on an order that is already paid: the total and the payment taken
+     * are untouched, only the profit on that order drops.
+     */
+    public function openDelivery(int $orderId): void
+    {
+        $this->guard(Permission::Write);
+        abort_unless(Auth::user()->isAdmin(), 403);
+
+        $order = PosOrder::query()->find($orderId);
+        if ($order === null || $order->state === OrderState::Cancelled) {
+            return;
+        }
+
+        $this->deliveryOrderId = $orderId;
+        $this->deliveryFee = $order->delivery_fee > 0
+            ? rtrim(rtrim(number_format((float) $order->delivery_fee, 3, '.', ''), '0'), '.')
+            : '';
+    }
+
+    public function closeDelivery(): void
+    {
+        $this->deliveryOrderId = null;
+        $this->deliveryFee = '';
+    }
+
+    /**
+     * Flag the order as a delivery and record what the driver cost. Saved
+     * quietly and WITHOUT recalculating: `delivery_fee` is our expense and
+     * deliberately does not feed the order total (that's `delivery_charge`),
+     * so an already-settled order stays balanced.
+     */
+    public function saveDelivery(): void
+    {
+        $this->guard(Permission::Write);
+        abort_unless(Auth::user()->isAdmin(), 403);
+
+        if ($this->deliveryOrderId === null) {
+            return;
+        }
+
+        $this->validate(['deliveryFee' => ['required', 'numeric', 'min:0']]);
+
+        $order = PosOrder::query()->find($this->deliveryOrderId);
+        if ($order === null) {
+            $this->closeDelivery();
+
+            return;
+        }
+
+        $fee = round((float) $this->deliveryFee, 3);
+        $order->channel = SalesChannel::Remote;
+        $order->delivery_fee = $fee;
+        $order->saveQuietly();
+
+        $order->logChange(__('Order :ref marked delivered — delivery cost :fee.', [
+            'ref' => $order->reference,
+            'fee' => Currencies::format($fee),
+        ]));
+
+        $this->closeDelivery();
+    }
+
+    /** Undo a mis-tagged delivery: back to a shop sale with no delivery cost. */
+    public function clearDelivery(): void
+    {
+        $this->guard(Permission::Write);
+        abort_unless(Auth::user()->isAdmin(), 403);
+
+        if ($this->deliveryOrderId === null) {
+            return;
+        }
+
+        $order = PosOrder::query()->find($this->deliveryOrderId);
+        if ($order !== null) {
+            $order->channel = SalesChannel::Shop;
+            $order->delivery_fee = 0;
+            $order->saveQuietly();
+            $order->logChange(__('Order :ref is no longer marked as delivered.', ['ref' => $order->reference]));
+        }
+
+        $this->closeDelivery();
     }
 
     /**
@@ -253,6 +347,9 @@ final class PosOrders extends Component
                 'splittable' => Features::enabled(Feature::SplitOrder)
                     && in_array($order->state, [OrderState::Draft, OrderState::Done], true) && $units >= 2,
                 'cancellable' => $order->state === OrderState::Draft,
+                // Marked as a delivery + what the driver cost us (0 = not set).
+                'delivered' => $order->channel === SalesChannel::Remote,
+                'deliveryFee' => (float) $order->delivery_fee,
                 'printable' => $order->state === OrderState::Done,
                 // Proof-of-payment photo (null unless one was attached). Lets the
                 // owner open the Benefit / transfer screenshot from the list.

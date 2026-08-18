@@ -111,7 +111,15 @@
                                     {{ __($row['state']->label()) }}
                                 </span>
                             </td>
-                            <td class="px-4 py-2.5 text-end font-semibold tabular-nums text-chrome-900">{{ $money($row['total']) }}</td>
+                            <td class="px-4 py-2.5 text-end font-semibold tabular-nums text-chrome-900">
+                                {{ $money($row['total']) }}
+                                @if ($row['delivered'])
+                                    {{-- Our delivery cost on this order (not charged to the customer). --}}
+                                    <span class="block text-[10px] font-medium text-sky-600">
+                                        {{ __('Delivered') }}@if ($row['deliveryFee'] > 0) · −{{ $money($row['deliveryFee']) }}@endif
+                                    </span>
+                                @endif
+                            </td>
                             <td class="px-4 py-2.5">
                                 <div class="flex items-center justify-end gap-1">
                                     @if (!empty($row['proof_url']))
@@ -149,6 +157,17 @@
                                             class="flex size-8 items-center justify-center rounded-lg text-chrome-500 hover:bg-primary-50 hover:text-primary-700">
                                             <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7.848 8.25l1.536.887M7.848 8.25a3 3 0 1 1-5.196-3 3 3 0 0 1 5.196 3Zm1.536.887a2.165 2.165 0 0 1 1.083 1.839v5.586m0 0a3 3 0 1 1-2.166 5.586 3 3 0 0 1 2.166-5.586Zm0 0V9m6.304-.75L13.84 11.4m4.312-3.15a3 3 0 1 0-5.196-3 3 3 0 0 0 5.196 3Zm1.536.887a2.165 2.165 0 0 0-1.083 1.839v5.586m0 0a3 3 0 1 0 2.166 5.586 3 3 0 0 0-2.166-5.586Zm0 0V9" />
+                                            </svg>
+                                        </button>
+                                    @endif
+                                    {{-- Admin-only: flag this order as delivered and record what the
+                                         driver cost us. Our expense — the customer's total is untouched. --}}
+                                    @if ($canDeleteSales && $row['state'] !== \Modules\Pos\Enums\OrderState::Cancelled)
+                                        <button type="button" wire:click="openDelivery({{ $row['id'] }})"
+                                            title="{{ __('Delivery') }}" aria-label="{{ __('Delivery') }}"
+                                            class="flex size-8 items-center justify-center rounded-lg {{ $row['delivered'] ? 'text-sky-600 hover:bg-sky-50' : 'text-chrome-500 hover:bg-chrome-100 hover:text-chrome-800' }}">
+                                            <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
                                             </svg>
                                         </button>
                                     @endif
@@ -206,6 +225,31 @@
                     <button type="button" wire:click="closeDate" class="o-btn-ghost flex-1 justify-center">{{ __('Cancel') }}</button>
                     <button type="button" wire:click="saveDate" class="o-btn-primary flex-1 justify-center">{{ __('Save') }}</button>
                 </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Mark an order as delivered + record what the driver cost us (admin).
+         This is OUR expense — the customer's total and payment are untouched. --}}
+    @if ($deliveryOrderId !== null)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-chrome-900/40 p-4">
+            <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-pop">
+                <div class="mb-3 flex items-center justify-between">
+                    <h2 class="text-base font-bold text-chrome-900">{{ __('Delivered order') }}</h2>
+                    <button type="button" wire:click="closeDelivery" class="text-sm text-chrome-400 hover:text-chrome-700">✕</button>
+                </div>
+                <p class="mb-3 text-xs text-chrome-400">{{ __('What you paid the driver for this order. It is your cost — the customer’s total and payment stay exactly as they are.') }}</p>
+                <label class="block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Delivery cost') }}</label>
+                <input type="number" step="0.001" min="0" autofocus
+                    wire:model="deliveryFee" wire:keydown.enter="saveDelivery"
+                    class="o-input mt-1 w-full text-sm tabular-nums">
+                @error('deliveryFee') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                <div class="mt-4 flex gap-2">
+                    <button type="button" wire:click="closeDelivery" class="o-btn-ghost flex-1 justify-center">{{ __('Cancel') }}</button>
+                    <button type="button" wire:click="saveDelivery" class="o-btn-primary flex-1 justify-center">{{ __('Save') }}</button>
+                </div>
+                <button type="button" wire:click="clearDelivery"
+                    class="mt-3 block w-full text-center text-xs font-medium text-red-600 hover:underline">{{ __('Not a delivery') }}</button>
             </div>
         </div>
     @endif

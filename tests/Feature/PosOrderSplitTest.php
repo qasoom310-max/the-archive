@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
 use Modules\Pos\Enums\OrderState;
+use Modules\Pos\Enums\SalesChannel;
 use Modules\Pos\Enums\SessionState;
 use Modules\Pos\Exceptions\PosOrderSplitException;
 use Modules\Pos\Http\Controllers\PosReceiptPrintController;
@@ -292,6 +293,74 @@ final class PosOrderSplitTest extends TestCase
         Livewire::test(PosOrders::class)
             ->call('openSplit', $order->id)
             ->assertNotFound();
+    }
+
+    public function test_marking_a_paid_order_delivered_records_our_cost_without_touching_the_total(): void
+    {
+        $session = $this->openSession();
+        $cash = PosPaymentMethod::query()->create(['name' => 'Cash', 'is_cash' => true, 'sequence' => 1, 'active' => true]);
+        $coffee = $this->product('Coffee', 20.0);
+        $order = $this->draft($session, [[$coffee, 1]]);
+        $order->registerPayment($cash, 20.0);
+        $order->finalizeSale();
+        $order->refresh();
+
+        Livewire::test(PosOrders::class)
+            ->call('openDelivery', $order->id)
+            ->set('deliveryFee', '1.5')
+            ->call('saveDelivery')
+            ->assertHasNoErrors()
+            ->assertSet('deliveryOrderId', null);
+
+        $fresh = $order->fresh();
+        $this->assertSame(SalesChannel::Remote, $fresh?->channel);
+        $this->assertEqualsWithDelta(1.5, (float) $fresh?->delivery_fee, 0.001);
+        // The customer's bill is untouched — the fee is OUR cost, so an already
+        // settled order stays balanced.
+        $this->assertEqualsWithDelta(20.0, (float) $fresh?->total, 0.001);
+        $this->assertEqualsWithDelta(20.0, (float) $fresh?->paid_total, 0.001);
+    }
+
+    public function test_a_mis_tagged_delivery_can_be_cleared(): void
+    {
+        $session = $this->openSession();
+        $coffee = $this->product('Coffee', 20.0);
+        $order = $this->draft($session, [[$coffee, 1]]);
+
+        $component = Livewire::test(PosOrders::class)
+            ->call('openDelivery', $order->id)
+            ->set('deliveryFee', '2')
+            ->call('saveDelivery');
+        $this->assertSame(SalesChannel::Remote, $order->fresh()?->channel);
+
+        $component->call('openDelivery', $order->id)->call('clearDelivery');
+
+        $fresh = $order->fresh();
+        $this->assertSame(SalesChannel::Shop, $fresh?->channel);
+        $this->assertEqualsWithDelta(0.0, (float) $fresh?->delivery_fee, 0.001);
+    }
+
+    public function test_marking_an_order_delivered_is_admin_only(): void
+    {
+        $session = $this->openSession();
+        $coffee = $this->product('Coffee', 20.0);
+        $order = $this->draft($session, [[$coffee, 1]]);
+
+        \App\Models\Auth\ModelAccess::query()->create([
+            'name' => 'pos.order all',
+            'model' => 'pos.order',
+            'group_id' => null,
+            'perm_read' => true,
+            'perm_write' => true,
+            'perm_create' => true,
+            'perm_unlink' => false,
+        ]);
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+
+        Livewire::test(PosOrders::class)
+            ->assertOk()
+            ->call('openDelivery', $order->id)
+            ->assertForbidden();
     }
 
     public function test_changing_one_orders_date_leaves_the_others_alone(): void

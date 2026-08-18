@@ -20,7 +20,6 @@ use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Models\PosProductRecipe;
-use Modules\Pos\Services\PosSessionManager;
 use Modules\Purchases\Enums\PurchaseState;
 use Modules\Purchases\Livewire\PurchaseForm;
 use Modules\Purchases\Models\Purchase;
@@ -141,36 +140,6 @@ final class PurchaseConfirmTest extends TestCase
         $lines = $fresh->lines->keyBy('pos_ingredient_id');
         $this->assertSame(1.98, (float) $lines[$bottle->id]->landed_unit_cost);
         $this->assertSame(1.10, (float) $lines[$cap->id]->landed_unit_cost);
-    }
-
-    public function test_a_purchase_is_tagged_with_the_open_pos_session(): void
-    {
-        $bottle = PosIngredient::query()->create(['name' => 'Bottle', 'stock_on_hand' => 0, 'cost_price' => 0]);
-        $session = app(PosSessionManager::class)->openOrResume(0.0, null);
-
-        Livewire::test(PurchaseForm::class)
-            ->set('form.date', '2026-08-18')
-            ->set('lines.0.component', 'i:' . $bottle->id)
-            ->set('lines.0.quantity', 10)
-            ->set('lines.0.unit_cost', 1.0)
-            ->call('confirm');
-
-        $purchase = Purchase::query()->latest('id')->firstOrFail();
-        $this->assertSame($session->id, $purchase->pos_session_id);
-    }
-
-    public function test_a_purchase_raised_with_no_open_session_has_no_session(): void
-    {
-        $bottle = PosIngredient::query()->create(['name' => 'Bottle', 'stock_on_hand' => 0, 'cost_price' => 0]);
-
-        Livewire::test(PurchaseForm::class)
-            ->set('form.date', '2026-08-18')
-            ->set('lines.0.component', 'i:' . $bottle->id)
-            ->set('lines.0.quantity', 10)
-            ->set('lines.0.unit_cost', 1.0)
-            ->call('confirm');
-
-        $this->assertNull(Purchase::query()->latest('id')->firstOrFail()->pos_session_id);
     }
 
     public function test_the_form_confirms_a_bill_with_a_delivery_cost(): void

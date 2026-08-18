@@ -265,6 +265,62 @@ final class PosOrderSplitTest extends TestCase
         $this->assertSame(OrderState::Cancelled, $order->fresh()?->state);
     }
 
+    public function test_changing_one_orders_date_leaves_the_others_alone(): void
+    {
+        // Entering a paper log after the fact: each order must land on its own
+        // day, so the manager can still see what sold on each date.
+        $session = $this->openSession();
+        $a = $this->product('Espresso', 2.0);
+
+        $first = $this->draft($session, [[$a, 1]], seq: 1);
+        $second = $this->draft($session, [[$a, 1]], seq: 2);
+        $first->ordered_at = now()->setTime(14, 30);
+        $first->saveQuietly();
+        $second->ordered_at = now()->setTime(16, 0);
+        $second->saveQuietly();
+        $secondWas = $second->fresh()?->ordered_at?->toDateTimeString();
+
+        Livewire::test(PosOrders::class)
+            ->call('openDate', $first->id)
+            ->set('orderDate', '2026-08-08')
+            ->call('saveDate')
+            ->assertHasNoErrors()
+            ->assertSet('dateOrderId', null);
+
+        // Only the picked order moved, and it kept its time of day.
+        $moved = $first->fresh();
+        $this->assertSame('2026-08-08', $moved?->ordered_at?->toDateString());
+        $this->assertSame('14:30', $moved?->ordered_at?->format('H:i'));
+
+        // The sibling is untouched — this is the whole point.
+        $this->assertSame($secondWas, $second->fresh()?->ordered_at?->toDateTimeString());
+    }
+
+    public function test_changing_an_order_date_is_admin_only(): void
+    {
+        $session = $this->openSession();
+        $a = $this->product('Espresso', 2.0);
+        $order = $this->draft($session, [[$a, 1]]);
+
+        // A cashier: may read AND write orders, but is not an admin — so they
+        // can open the list yet must not be able to re-date a sale.
+        \App\Models\Auth\ModelAccess::query()->create([
+            'name' => 'pos.order all',
+            'model' => 'pos.order',
+            'group_id' => null,
+            'perm_read' => true,
+            'perm_write' => true,
+            'perm_create' => true,
+            'perm_unlink' => false,
+        ]);
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+
+        Livewire::test(PosOrders::class)
+            ->assertOk()
+            ->call('openDate', $order->id)
+            ->assertForbidden();
+    }
+
     public function test_receipt_print_renders_for_a_paid_order(): void
     {
         $session = $this->openSession();

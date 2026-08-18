@@ -537,14 +537,6 @@ final class PurchaseForm extends Component
             'delivery_cost' => round((float) ($this->form['delivery_cost'] ?? 0), 2),
             'notes' => ($this->form['notes'] === '') ? null : (string) $this->form['notes'],
         ]);
-
-        // Tag a NEW bill with the session it was recorded in, so a shift's
-        // purchases show alongside its sales in reporting. Only on create — an
-        // edit keeps the session it was first raised in.
-        if (! $purchase->exists) {
-            $purchase->pos_session_id = app(\Modules\Pos\Services\PosSessionManager::class)->getActiveSession()?->id;
-        }
-
         $purchase->save();
 
         $this->id = (int) $purchase->getKey();

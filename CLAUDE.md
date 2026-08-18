@@ -1542,22 +1542,30 @@ the credit sits in Accounts Payable, no payment/bank reconciliation yet).
   the two existing form tests retargeted from `lines.*.pos_product_id` → `lines.*.component`).
   AR keys: Purchase name / Expiry date / Location / City / area / the name placeholder.
 
-**Phase 16 increment shipped 2026-08-18 — purchases tagged with the POS session:**
+**POS — re-date a single order (shipped 2026-08-18):**
 
-- A purchase is **tagged with the POS session it was recorded in**, so a shift's
-  purchases show alongside its sales. `purchases.pos_session_id` (nullable logical
-  ref, migration `2026_08_18_100007`, auto-applied by deploy's Purchases migrate
-  step + tenants via `workspaces:migrate`; **not** an `irModelDefinition()` change
-  ⇒ no resync). `Purchase::session()` belongsTo `PosSession`. Stamped in
-  `PurchaseForm::persistRecord()` **on create only** (an edit keeps its original
-  session) from `PosSessionManager::getActiveSession()?->id` — null when no session
-  is open. Surfaced on the **POS session page** (`PosSessionPage` → `pos::session`):
-  a "Purchases" card lists this session's bills (ref · name · state · total · date,
-  row → the bill) with a total. POS reads them via `DB::table('purchases')` guarded
-  by `Schema::hasTable` (keeps POS decoupled from the Purchases module — the card
-  only renders when the module is installed and the session has purchases). Tests:
-  `PurchaseConfirmTest::{test_a_purchase_is_tagged_with_the_open_pos_session,
-  test_a_purchase_raised_with_no_open_session_has_no_session}`.
+Sales entered **after the fact** (typing up a paper log of past days) are stamped
+`ordered_at = now()` by the register, so a week of back-dated takings all pile
+onto today and the day-by-day reports are wrong. `PosOrders` (the Orders List)
+gained an **admin-only per-order "Change date"** action (calendar icon, gated by
+the same `$canDeleteSales` = `pos.order` Write **+ `isAdmin()`**): `openDate($id)`
+/ `saveDate()` / `closeDate()` with a small date modal. `saveDate()` moves **only
+that order's** `ordered_at` onto the chosen day, **keeping its time of day**
+(`->setDate(...)`), and `saveQuietly()`s — a re-dating is not a re-sale and must
+not re-fire order hooks (stock consumption, receipts, journal entries). Logged to
+the order's Chatter via `logChange()`. Tests:
+`PosOrderSplitTest::{test_changing_one_orders_date_leaves_the_others_alone,
+test_changing_an_order_date_is_admin_only}`.
+
+**Deliberately per-order, NOT per-session.** A first attempt put the date on the
+POS *session* and moved every order in it — rejected by the owner: the manager
+needs to know what sold **on each day**, so orders must keep their own dates. A
+session-wide re-date is the wrong shape for this business; don't re-add it.
+(That `PosSessionPage::setSessionDate` control was removed the same day, as was a
+short-lived `purchases.pos_session_id` tag — migration `2026_08_18_100007` added
+it, `2026_08_18_100008` drops it. **SQLite gotcha:** dropping an indexed column
+needs the index dropped in a SEPARATE `Schema::table` call first, or it fails with
+"error in index … after drop column".)
 
 **Phase 17 — WooCommerce sync (`Modules/WooCommerce/`, Phase A shipped 2026-06-24):**
 

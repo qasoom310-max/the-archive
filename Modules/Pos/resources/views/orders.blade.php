@@ -152,6 +152,17 @@
                                             </svg>
                                         </button>
                                     @endif
+                                    {{-- Admin-only: put this ONE order on the day it really happened
+                                         (entering a paper log after the fact). Other orders are untouched. --}}
+                                    @if ($canDeleteSales)
+                                        <button type="button" wire:click="openDate({{ $row['id'] }})"
+                                            title="{{ __('Change date') }}" aria-label="{{ __('Change date') }}"
+                                            class="flex size-8 items-center justify-center rounded-lg text-chrome-500 hover:bg-primary-50 hover:text-primary-700">
+                                            <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                                            </svg>
+                                        </button>
+                                    @endif
                                     {{-- Admin-only: permanently delete an order (used to clear test
                                          sales while setting the shop up). Irreversible — hence the confirm. --}}
                                     @if ($canDeleteSales)
@@ -177,6 +188,26 @@
         </div>
 
         <div class="mt-4">{{ $orders->links('vendor.pagination.compact') }}</div>
+    @endif
+
+    {{-- Change ONE order's date (admin). Only the picked order moves, so the
+         day-by-day sales reports stay accurate. --}}
+    @if ($dateOrderId !== null)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-chrome-900/40 p-4">
+            <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-pop">
+                <div class="mb-3 flex items-center justify-between">
+                    <h2 class="text-base font-bold text-chrome-900">{{ __('Order date') }}</h2>
+                    <button type="button" wire:click="closeDate" class="text-sm text-chrome-400 hover:text-chrome-700">✕</button>
+                </div>
+                <p class="mb-3 text-xs text-chrome-400">{{ __('The day this order belongs to. Only this order moves — the others keep their dates.') }}</p>
+                <input type="date" wire:model="orderDate" wire:keydown.enter="saveDate" class="o-input w-full text-sm">
+                @error('orderDate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                <div class="mt-4 flex gap-2">
+                    <button type="button" wire:click="closeDate" class="o-btn-ghost flex-1 justify-center">{{ __('Cancel') }}</button>
+                    <button type="button" wire:click="saveDate" class="o-btn-primary flex-1 justify-center">{{ __('Save') }}</button>
+                </div>
+            </div>
+        </div>
     @endif
 
     {{-- Shared split-order overlay (opened by the per-row split icon).

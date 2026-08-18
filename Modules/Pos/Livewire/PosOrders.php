@@ -9,6 +9,7 @@ use App\Erp\Business\Features;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
@@ -45,6 +46,11 @@ final class PosOrders extends Component
     #[Url(except: '')]
     public string $status = '';
 
+    /** The order whose date is being changed (null = the box is closed). */
+    public ?int $dateOrderId = null;
+
+    public string $orderDate = '';
+
     public function mount(): void
     {
         $this->guard(Permission::Read);
@@ -63,6 +69,70 @@ final class PosOrders extends Component
     public function openSplit(int $orderId): void
     {
         $this->dispatch('open-split-order', orderId: $orderId);
+    }
+
+    /**
+     * Open the "change date" box for ONE order. Sales entered after the fact
+     * (catching up a paper log) are stamped "now" by the register, so a week of
+     * back-dated takings all land on today. Re-dating is per-order on purpose:
+     * each order keeps its own day, so the day-by-day reports stay true.
+     */
+    public function openDate(int $orderId): void
+    {
+        $this->guard(Permission::Write);
+        abort_unless(Auth::user()->isAdmin(), 403);
+
+        $order = PosOrder::query()->find($orderId);
+        if ($order === null) {
+            return;
+        }
+
+        $this->dateOrderId = $orderId;
+        $this->orderDate = ($order->ordered_at ?? Carbon::now())->toDateString();
+    }
+
+    public function closeDate(): void
+    {
+        $this->dateOrderId = null;
+        $this->orderDate = '';
+    }
+
+    /**
+     * Move this ONE order onto the chosen day, keeping its time of day, so the
+     * reporting screens (which bucket by `ordered_at`) show it there. Saved
+     * quietly — a re-dating is not a re-sale and must not re-fire order hooks
+     * (stock consumption, receipts, journal entries).
+     */
+    public function saveDate(): void
+    {
+        $this->guard(Permission::Write);
+        abort_unless(Auth::user()->isAdmin(), 403);
+
+        if ($this->dateOrderId === null) {
+            return;
+        }
+
+        $this->validate(['orderDate' => ['required', 'date']]);
+
+        $order = PosOrder::query()->find($this->dateOrderId);
+        if ($order === null) {
+            $this->closeDate();
+
+            return;
+        }
+
+        $date = Carbon::parse($this->orderDate);
+        $at = ($order->ordered_at ?? Carbon::now())->copy()->setDate($date->year, $date->month, $date->day);
+
+        $order->ordered_at = $at;
+        $order->saveQuietly();
+
+        $order->logChange(__('Order :ref moved to :date.', [
+            'ref' => $order->reference,
+            'date' => $at->toDateString(),
+        ]));
+
+        $this->closeDate();
     }
 
     /**

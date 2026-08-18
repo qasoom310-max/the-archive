@@ -1153,51 +1153,6 @@ final class PosModuleTest extends TestCase
             ->assertSee($sales->name);
     }
 
-    public function test_setting_the_session_date_moves_its_orders(): void
-    {
-        // Catching up a paper log: sales rung today that really happened on the
-        // 8th must move to the 8th so the reports bucket them there.
-        $this->installPos();
-        $this->seed(AuthSeeder::class);
-        $this->seed(PosSeeder::class);
-
-        $session = $this->openSession();
-        $order = PosOrder::query()->create([
-            'pos_session_id' => $session->id,
-            'reference' => 'POS/0001',
-            'state' => OrderState::Done,
-            'total' => 10,
-            'ordered_at' => now()->setTime(14, 30),
-        ]);
-
-        $this->actingAs(User::query()->where('email', 'admin@example.com')->sole());
-        Livewire::test(PosSessionPage::class, ['id' => $session->id])
-            ->set('sessionDate', '2026-08-08')
-            ->call('setSessionDate')
-            ->assertHasNoErrors();
-
-        // The order moved onto the 8th, keeping its 14:30 time of day.
-        $moved = $order->fresh();
-        $this->assertSame('2026-08-08', $moved->ordered_at?->toDateString());
-        $this->assertSame('14:30', $moved->ordered_at?->format('H:i'));
-        $this->assertSame('2026-08-08', $session->fresh()->opened_at?->toDateString());
-    }
-
-    public function test_setting_the_session_date_is_manager_only(): void
-    {
-        $this->installPos();
-        $this->seed(AuthSeeder::class);
-        $this->seed(PosSeeder::class);
-
-        $session = $this->openSession();
-
-        $this->actingAs(User::query()->where('email', 'sales@example.com')->sole());
-        Livewire::test(PosSessionPage::class, ['id' => $session->id])
-            ->set('sessionDate', '2026-08-08')
-            ->call('setSessionDate')
-            ->assertForbidden();
-    }
-
     public function test_close_register_is_manager_only(): void
     {
         $this->installPos();

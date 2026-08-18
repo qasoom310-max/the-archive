@@ -31,7 +31,6 @@ use Modules\Purchases\Enums\PurchaseState;
  * @property string|null $name
  * @property int|null $partner_id
  * @property int|null $user_id
- * @property int|null $pos_session_id  The POS session this bill was recorded in
  * @property Carbon $date
  * @property Carbon|null $expiry_date
  * @property PurchaseState $state
@@ -50,7 +49,7 @@ final class Purchase extends Model implements Chatterable, DefinesIrModel
 
     /** @var list<string> */
     protected $fillable = [
-        'reference', 'name', 'partner_id', 'user_id', 'pos_session_id', 'date', 'expiry_date', 'state',
+        'reference', 'name', 'partner_id', 'user_id', 'date', 'expiry_date', 'state',
         'is_stock_purchase', 'total', 'delivery_cost', 'notes', 'confirmed_at',
     ];
 
@@ -105,16 +104,6 @@ final class Purchase extends Model implements Chatterable, DefinesIrModel
     public function partner(): BelongsTo
     {
         return $this->belongsTo(Partner::class, 'partner_id');
-    }
-
-    /**
-     * The POS session this bill was recorded in (null when raised outside one).
-     *
-     * @return BelongsTo<\Modules\Pos\Models\PosSession, $this>
-     */
-    public function session(): BelongsTo
-    {
-        return $this->belongsTo(\Modules\Pos\Models\PosSession::class, 'pos_session_id');
     }
 
     /** Goods subtotal — the sum of the line subtotals, before delivery. */

@@ -663,6 +663,15 @@ final class PosTerminal extends Component
      */
     private function syncCustomerDiscount(): void
     {
+        // A background re-sync, not an action the cashier asked for (it fires
+        // from the phone field's updated hooks and when the modal closes). On a
+        // closed order it should simply do nothing rather than raise an error
+        // the cashier didn't ask for — the actions that MATTER (startPayment,
+        // clearPhone) are guarded in their own right.
+        if ($this->order()->state !== OrderState::Draft) {
+            return;
+        }
+
         $this->editableOrder()->applyCustomerDiscount($this->resolveDiscountPhone());
     }
 

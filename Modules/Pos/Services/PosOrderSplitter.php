@@ -87,6 +87,15 @@ final class PosOrderSplitter
                 }
             }
 
+            if ($source->state === OrderState::Done) {
+                // Split the already-drawn prepaid credit between the two orders
+                // BEFORE either is re-priced. Without this the new order carried
+                // no credit (so it re-priced at full price and came out unpaid,
+                // inventing revenue on a settled sale) while the original kept
+                // credit for goods it no longer holds.
+                $this->apportionCredit($source, $destination);
+            }
+
             $source->recalculate();
             $destination->recalculate();
 
@@ -237,6 +246,41 @@ final class PosOrderSplitter
         $line->qty -= $moveQty;
         $line->recompute();
         $line->save();
+    }
+
+    /**
+     * Share the source's already-consumed prepaid credit across the two orders
+     * in proportion to the goods each now holds, and mark BOTH as consumed so
+     * neither draws the wallet again. The combined credit — and therefore the
+     * combined amount owed — is unchanged by a split.
+     */
+    private function apportionCredit(PosOrder $source, PosOrder $destination): void
+    {
+        $credit = round((float) $source->credit_applied, 2);
+
+        $destination->customer_discount_id = $source->customer_discount_id;
+        $destination->credit_consumed = true;
+
+        if ($credit <= 0.0) {
+            $destination->credit_applied = 0.0;
+            $destination->save();
+
+            return;
+        }
+
+        $sourceGoods = round((float) $source->lines()->sum('total'), 2);
+        $destGoods = round((float) $destination->lines()->sum('total'), 2);
+        $combined = round($sourceGoods + $destGoods, 2);
+
+        $destCredit = $combined > 0.0
+            ? round($credit * ($destGoods / $combined), 2)
+            : 0.0;
+
+        $destination->credit_applied = $destCredit;
+        $destination->save();
+
+        $source->credit_applied = round($credit - $destCredit, 2);
+        $source->save();
     }
 
     /**

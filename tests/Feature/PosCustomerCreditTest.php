@@ -158,4 +158,50 @@ final class PosCustomerCreditTest extends TestCase
 
         $this->assertSame(0.0, round((float) $discount->fresh()?->prepaid_balance, 2));
     }
+
+    public function test_a_wallet_spent_on_another_terminal_re_prices_the_order_at_checkout(): void
+    {
+        // Two terminals ring up the same phone. Both previewed the same 30.00
+        // balance; the first sale drains it. Without reconciling the TOTAL (not
+        // just the applied figure) the second order's goods walked out free.
+        $session = $this->openSession();
+        $discount = $this->discount(percent: 0, balance: 30.0);
+        $order = $this->orderWithGoods($session, 20.0);
+        $order->applyCustomerDiscount('33445566');
+
+        $this->assertSame(20.0, round((float) $order->credit_applied, 2));
+        $this->assertSame(0.0, round((float) $order->total, 2));
+
+        // The other terminal empties the wallet first.
+        $discount->prepaid_balance = 0.0;
+        $discount->saveQuietly();
+
+        $order->consumeCustomerCredit();
+        $order->save();
+
+        $fresh = $order->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame(0.0, round((float) $fresh->credit_applied, 2), 'no credit was actually drawn');
+        $this->assertSame(20.0, round((float) $fresh->total, 2), 'the goods must be charged for');
+    }
+
+    public function test_a_partly_spent_wallet_charges_only_the_shortfall(): void
+    {
+        $session = $this->openSession();
+        $discount = $this->discount(percent: 0, balance: 30.0);
+        $order = $this->orderWithGoods($session, 20.0);
+        $order->applyCustomerDiscount('33445566');
+
+        $discount->prepaid_balance = 5.0;   // another terminal spent 25 of it
+        $discount->saveQuietly();
+
+        $order->consumeCustomerCredit();
+        $order->save();
+
+        $fresh = $order->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertSame(5.0, round((float) $fresh->credit_applied, 2));
+        $this->assertSame(15.0, round((float) $fresh->total, 2));
+        $this->assertSame(0.0, round((float) $discount->fresh()?->prepaid_balance, 2));
+    }
 }

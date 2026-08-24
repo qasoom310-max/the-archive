@@ -9,6 +9,7 @@ use App\Erp\Business\Features;
 use App\Erp\Modules\ModuleManager;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Modules\Pos\Livewire\PosStockReport;
 use Modules\Pos\Livewire\ProductionForm;
@@ -16,6 +17,7 @@ use Modules\Pos\Livewire\Productions;
 use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosIngredientCategory;
 use Modules\Pos\Models\PosProduct;
+use Modules\Pos\Models\PosProductRecipe;
 use Modules\Pos\Models\PosProduction;
 use Modules\Pos\Models\PosProductionLine;
 use Modules\Pos\Models\PosStockTransfer;
@@ -1035,5 +1037,59 @@ final class PosProductionTest extends TestCase
             PosProduction::query()->where('state', PosProduction::STATE_DONE)->pluck('pos_product_id')->all(),
             'A reversed run must not count as a produced perfume for cost recompute.',
         );
+    }
+
+    public function test_a_cost_refresh_does_not_re_price_the_same_perfume_once_per_offer(): void
+    {
+        // Correcting a material price re-prices every perfume AND every offer,
+        // and each offer reads its perfume components' production cost. Without
+        // memoising, the same perfume's run + material prices were re-read once
+        // per offer — hundreds of queries, on every keystroke. That was the 504.
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 100000, 'cost_price' => 2]);
+        $perfume = PosProduct::query()->create(['name' => 'Perfume X', 'price' => 20, 'bottle_size_ml' => 50, 'cost_price' => 0]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 500)
+            ->set('produced_units', 10)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        // Eight offers, every one of them built from the same perfume.
+        for ($i = 1; $i <= 8; $i++) {
+            $offer = PosProduct::query()->create(['name' => "Offer {$i}", 'price' => 30]);
+            PosProductRecipe::query()->create([
+                'parent_product_id' => $offer->id,
+                'component_product_id' => $perfume->id,
+                'quantity_consumed' => 1,
+            ]);
+        }
+
+        $queries = 0;
+        DB::listen(static function () use (&$queries): void {
+            $queries++;
+        });
+
+        app(\Modules\Pos\Services\ProductionCostSync::class)->refreshAll();
+
+        // Before memoising this was ~40+ and grew with every offer; the perfume's
+        // run is now read once for the whole pass.
+        $this->assertLessThan(25, $queries, "cost refresh used {$queries} queries");
+    }
+
+    public function test_saving_a_material_cost_twice_in_one_request_refreshes_once(): void
+    {
+        $this->enableProduction();
+        $sync = app(\Modules\Pos\Services\ProductionCostSync::class);
+        $oil = PosIngredient::query()->create(['name' => 'Oil', 'unit' => 'ml', 'stock_on_hand' => 1000, 'cost_price' => 2]);
+
+        // First keystroke's save runs it (via the model hook).
+        $oil->cost_price = 3;
+        $oil->save();
+
+        // Every later keystroke in the same request is a no-op.
+        $this->assertSame(0, $sync->refreshOncePerRequest());
     }
 }

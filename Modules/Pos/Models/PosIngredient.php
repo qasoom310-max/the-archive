@@ -86,7 +86,11 @@ final class PosIngredient extends Model implements DefinesIrModel, TranslatableM
             // insert, so a brand-new material (nothing depends on it yet) never
             // triggers this — it fires only when an existing cost actually moves.
             if ($ingredient->wasChanged('cost_price')) {
-                app(\Modules\Pos\Services\ProductionCostSync::class)->refreshAll();
+                // Once per request: the engine form autosaves per keystroke, so
+                // typing a price is several saves and each one changed the cost.
+                // Re-pricing the whole catalogue on every one of them is what
+                // pushed this request past nginx's timeout (a 504).
+                app(\Modules\Pos\Services\ProductionCostSync::class)->refreshOncePerRequest();
             }
         });
     }

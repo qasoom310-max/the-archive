@@ -297,10 +297,27 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
             return;
         }
 
+        $previewed = round((float) $this->credit_applied, 2);
         $discount = PosCustomerDiscount::query()->find($this->customer_discount_id);
         $this->credit_applied = $discount !== null
-            ? $discount->drawCredit((float) $this->credit_applied)
+            ? $discount->drawCredit($previewed)
             : 0.0;
+
+        // The wallet moved between the preview and checkout — another terminal
+        // rang the same phone number up and spent it first. The total was
+        // computed against the previewed credit, so without re-pricing here the
+        // goods would leave for FREE with no credit and no cash taken. Re-price
+        // against what the wallet actually gave (credit_consumed is already
+        // true, so recalculate() keeps this reconciled figure) and leave a note.
+        if (abs(round((float) $this->credit_applied, 2) - $previewed) >= 0.01) {
+            $this->recalculate();
+            $this->logChange(sprintf(
+                'Prepaid credit reduced from %.2f to %.2f at checkout — the balance was spent elsewhere. Order re-priced to %.2f.',
+                $previewed,
+                (float) $this->credit_applied,
+                (float) $this->total,
+            ));
+        }
     }
 
     /** A remote / delivery order (vs a walk-in shop sale). */
@@ -471,13 +488,16 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
     public function finalizeSale(): void
     {
         DB::transaction(function (): void {
+            // Draw the wallet FIRST: it can re-price the order (if the balance
+            // was spent on another terminal), and markPaid() must see the final
+            // total when it computes paid_total / change_due.
+            $this->consumeCustomerCredit();
             $this->markPaid();
             $this->state = OrderState::Done;
             // A remote order now enters the delivery queue as "New".
             if ($this->isRemote() && $this->fulfillment_status === null) {
                 $this->fulfillment_status = FulfillmentStatus::New;
             }
-            $this->consumeCustomerCredit();
             $this->save();
             $this->consumeComponents();
         });
@@ -495,6 +515,7 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
     public function confirmUnpaid(): void
     {
         DB::transaction(function (): void {
+            $this->consumeCustomerCredit();
             $this->paid_total = $this->paymentsTotal();
             $this->change_due = 0.0;
             $this->state = OrderState::Done;
@@ -502,7 +523,6 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
             if ($this->isRemote() && $this->fulfillment_status === null) {
                 $this->fulfillment_status = FulfillmentStatus::New;
             }
-            $this->consumeCustomerCredit();
             $this->save();
             $this->consumeComponents();
         });

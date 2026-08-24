@@ -30,12 +30,47 @@ use Modules\Inventory\Models\StockQuant;
 final class PosInventoryBridge
 {
     /**
+     * While true, {@see sync()} is a no-op. Set by {@see withoutQuantSync()}
+     * around an operation that posts its OWN warehouse move for the same
+     * quantity — a purchase receipt, for instance. Without it the quant moved
+     * twice: once by the generic on-hand mirror below (fired by the product's
+     * `saved` hook) and once by the receipt.
+     */
+    private static bool $suppressed = false;
+
+    /**
+     * Run `$callback` with the generic on-hand → quant mirror switched off.
+     * ONLY the quant mirror is suppressed; every other `saved` listener (the
+     * WooCommerce push, for one) still fires.
+     *
+     * @template TReturn
+     *
+     * @param  \Closure(): TReturn  $callback
+     * @return TReturn
+     */
+    public static function withoutQuantSync(\Closure $callback): mixed
+    {
+        $previous = self::$suppressed;
+        self::$suppressed = true;
+
+        try {
+            return $callback();
+        } finally {
+            self::$suppressed = $previous;
+        }
+    }
+
+    /**
      * Mirror `$targetQty` onto the product's on-hand quant at the main Stock
      * location, posting a Done adjustment move for the delta. No-op when
      * Inventory is absent, there's no internal location, or nothing changed.
      */
     public function sync(int $productId, float $targetQty, string $reason): void
     {
+        if (self::$suppressed) {
+            return;
+        }
+
         if (! Schema::hasTable('stock_quants') || ! Schema::hasTable('stock_locations')) {
             return;
         }

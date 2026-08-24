@@ -80,7 +80,15 @@ final class PurchaseConfirmer
                 // only — it never touches the product-keyed quants). A condiment
                 // just raises its on-hand (not surfaced in Inventory).
                 if ($line->pos_product_id !== null) {
-                    $this->raisePosStock($line);
+                    // The warehouse receipt below IS this line's quant
+                    // movement. Raising the product's on-hand also fires the
+                    // POS→Inventory mirror (PosProduct::saved), which would
+                    // apply the SAME quantity to the same quant a second time
+                    // — 4 on hand + a 10 kg bill showed 24, not 14. Suppress
+                    // only the mirror; other saved-listeners still run.
+                    PosInventoryBridge::withoutQuantSync(function () use ($line): void {
+                        $this->raisePosStock($line);
+                    });
                     $this->receiveIntoWarehouse($purchase, $line);
                 } elseif ($line->pos_condiment_id !== null) {
                     $this->raiseCondimentStock($line);

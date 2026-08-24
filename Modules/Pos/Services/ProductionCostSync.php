@@ -34,8 +34,46 @@ use Modules\Pos\Models\PosProduction;
  */
 final class ProductionCostSync
 {
+    /**
+     * Container key marking that a refresh already ran in this request. Held in
+     * the container (not a static) so it is naturally scoped to one request —
+     * and to one test, since the container is rebuilt between them.
+     */
+    private const RAN_KEY = 'pos.production-cost-sync.ran';
+
     /** Recompute all made-in-house costs. Returns how many rows changed. */
     public function refreshAll(): int
+    {
+        app()->instance(self::RAN_KEY, true);
+
+        // Memoise each perfume's production cost for the length of this pass:
+        // offers read their perfume components' costs, and the same perfume is
+        // typically a component of several offers.
+        PosProduct::beginCostBatch();
+
+        try {
+            return $this->compute();
+        } finally {
+            PosProduct::endCostBatch();
+        }
+    }
+
+    /**
+     * Run a refresh unless one already ran in this request. Used by the
+     * automatic (per-save) trigger — the engine form autosaves per keystroke,
+     * so typing a price is several saves and each one changed the cost. The
+     * manual "Recompute costs" button always calls {@see refreshAll()} directly.
+     */
+    public function refreshOncePerRequest(): int
+    {
+        if (app()->bound(self::RAN_KEY)) {
+            return 0;
+        }
+
+        return $this->refreshAll();
+    }
+
+    private function compute(): int
     {
         // Pass 1 — compute every target cost with reads only (no write lock).
         // [productId => [product, newCost]]
@@ -49,7 +87,7 @@ final class ProductionCostSync
             ->distinct()
             ->pluck('pos_product_id')
             ->all();
-        foreach (PosProduct::query()->whereIn('id', $producedIds)->get() as $perfume) {
+        foreach (PosProduct::query()->whereIn('id', $producedIds)->with('formulaLines.ingredient')->get() as $perfume) {
             $cost = $perfume->productionCost();
             if ($cost !== null) {
                 $targets[$perfume->getKey()] = [$perfume, round($cost, 4)];
@@ -57,7 +95,7 @@ final class ProductionCostSync
         }
 
         // Offers — those with a recipe (their line costs read live component costs).
-        foreach (PosProduct::query()->whereHas('recipeLines')->get() as $offer) {
+        foreach (PosProduct::query()->whereHas('recipeLines')->with(['recipeLines.component', 'recipeLines.ingredient'])->get() as $offer) {
             $targets[$offer->getKey()] = [$offer, round($offer->recipeCost(), 4)];
         }
 

@@ -15,6 +15,7 @@ use Modules\Pos\Exceptions\PosOrderSplitException;
 use Modules\Pos\Http\Controllers\PosReceiptPrintController;
 use Modules\Pos\Livewire\PosOrders;
 use Modules\Pos\Livewire\SplitOrderModal;
+use Modules\Pos\Models\PosCustomerDiscount;
 use Modules\Pos\Models\PosFloor;
 use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosPaymentMethod;
@@ -434,5 +435,47 @@ final class PosOrderSplitTest extends TestCase
         $view = $controller(app(PosReceiptImageRenderer::class), (int) $order->id);
 
         $this->assertStringContainsString($order->reference, $view->render());
+    }
+
+    public function test_splitting_an_order_paid_with_store_credit_leaves_both_settled(): void
+    {
+        // A wallet-covered sale (customer paid nothing) split in two. Before
+        // the fix the new order carried no credit, so it re-priced at full
+        // price and came out UNPAID — inventing revenue on a settled sale.
+        $session = $this->openSession();
+        $dest = $this->table('2');
+        $a = $this->product('Espresso', 2.0);
+        $b = $this->product('Banana Juice', 3.0);
+
+        PosCustomerDiscount::query()->create([
+            'phone' => '33445566', 'discount_percent' => 0.0,
+            'prepaid_balance' => 30.0, 'active' => true,
+        ]);
+
+        $order = $this->draft($session, [[$a, 1], [$b, 1]]);
+        $order->applyCustomerDiscount('33445566');
+        $this->assertSame(0.0, round((float) $order->total, 2));
+
+        $order->finalizeSale();
+        $order->refresh();
+        $this->assertSame(5.0, round((float) $order->credit_applied, 2));
+
+        $lineB = $order->lines()->where('pos_product_id', $b->id)->firstOrFail();
+        $new = $this->splitter()->split($order, [$lineB->id => 1], $dest->id, null);
+
+        $order->refresh();
+
+        // Each order carries the credit for the goods it actually holds …
+        $this->assertSame(2.0, round((float) $order->credit_applied, 2));
+        $this->assertSame(3.0, round((float) $new->credit_applied, 2));
+        $this->assertSame(5.0, round((float) $order->credit_applied + (float) $new->credit_applied, 2));
+
+        // … so both are still fully settled, and neither draws the wallet again.
+        $this->assertSame(0.0, round((float) $order->total, 2));
+        $this->assertSame(0.0, round((float) $new->total, 2));
+        $this->assertTrue((bool) $new->credit_consumed);
+
+        $new->consumeCustomerCredit();
+        $this->assertSame(25.0, round((float) PosCustomerDiscount::query()->firstOrFail()->prepaid_balance, 2));
     }
 }

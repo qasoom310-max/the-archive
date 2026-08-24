@@ -6,6 +6,8 @@ namespace Modules\WhatsApp\Services;
 
 use Illuminate\Contracts\Bus\Dispatcher;
 use Modules\WhatsApp\Exceptions\WhatsAppException;
+use App\Erp\Tenancy\WorkspaceManager;
+use Illuminate\Support\Facades\Schema;
 use Modules\WhatsApp\Jobs\SendWhatsAppMessage;
 use Modules\WhatsApp\Models\WhatsAppConfiguration;
 use Modules\WhatsApp\Models\WhatsAppMessageLog;
@@ -94,7 +96,7 @@ final class WhatsAppService
             'payload' => $payload,
         ]);
 
-        $this->bus->dispatch(new SendWhatsAppMessage($recipient, $payload, $log->id));
+        $this->bus->dispatch(new SendWhatsAppMessage($recipient, $payload, $log->id, $this->currentWorkspaceId()));
     }
 
     /**
@@ -126,5 +128,24 @@ final class WhatsAppService
     private function normalizeNumber(string $raw): string
     {
         return preg_replace('/\D+/', '', $raw) ?? '';
+    }
+
+    /**
+     * Which database this message belongs to. The queue runs against Main, so
+     * the job needs to be told to come back here before it reads the
+     * credentials or stamps the message log. Null (= run as-is) when the
+     * workspaces feature isn't present.
+     */
+    private function currentWorkspaceId(): ?int
+    {
+        if (! Schema::hasTable('workspaces')) {
+            return null;
+        }
+
+        try {
+            return (int) app(WorkspaceManager::class)->current()->id;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

@@ -20,6 +20,7 @@ use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Models\PosProductRecipe;
+use Modules\Pos\Providers\PosServiceProvider;
 use Modules\Purchases\Enums\PurchaseState;
 use Modules\Purchases\Livewire\PurchaseForm;
 use Modules\Purchases\Models\Purchase;
@@ -444,5 +445,28 @@ final class PurchaseConfirmTest extends TestCase
         $this->get('/app/purchases')
             ->assertOk()
             ->assertSeeHtml('href="' . url('/app/purchases/purchase') . '"');
+    }
+
+    public function test_confirming_a_purchase_does_not_count_the_warehouse_stock_twice(): void
+    {
+        // Registering the POS provider wires PosProduct::saved → the POS→
+        // Inventory quant mirror, exactly as production does (module providers
+        // boot before a request; this suite installs modules inside setUp).
+        // Without it this bug is invisible: the mirror moved the quant to the
+        // product's new on-hand AND the receipt then added the quantity again,
+        // so 4 on hand + a 10-unit bill showed 24 in Inventory instead of 14.
+        $this->app->register(PosServiceProvider::class);
+
+        $coal = $this->coal(stock: 4.0);
+        app(\Modules\Pos\Services\PosInventoryBridge::class)
+            ->sync((int) $coal->id, 4.0, 'opening count');
+
+        $this->assertSame(4.0, $this->quantAt($this->stockLocationId, (int) $coal->id));
+
+        app(PurchaseConfirmer::class)->confirm($this->draftBill($coal, 10.0, 0.5));
+
+        $coal->refresh();
+        $this->assertSame(14.0, (float) $coal->stock_on_hand);
+        $this->assertSame(14.0, $this->quantAt($this->stockLocationId, (int) $coal->id));
     }
 }

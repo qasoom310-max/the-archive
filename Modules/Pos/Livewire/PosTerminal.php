@@ -15,7 +15,9 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -44,6 +46,7 @@ final class PosTerminal extends Component
 {
     use WithFileUploads;
 
+    #[Locked]
     public int $sessionId;
 
     /**
@@ -57,8 +60,10 @@ final class PosTerminal extends Component
     public $paymentProof = null;
 
     /** The table this terminal is serving — null = walk-in / quick sale. */
+    #[Locked]
     public ?int $tableId = null;
 
+    #[Locked]
     public int $orderId;
 
     public string $search = '';
@@ -104,6 +109,7 @@ final class PosTerminal extends Component
 
     public string $tendered = '';
 
+    #[Locked]
     public ?int $receiptOrderId = null;
 
     /**
@@ -202,7 +208,7 @@ final class PosTerminal extends Component
         $this->channel = $channel;
         $this->channelError = '';
 
-        $order = $this->order();
+        $order = $this->editableOrder();
         $order->channel = SalesChannel::from($channel);
         if ($channel === 'shop') {
             $order->delivery_fee = 0;
@@ -216,7 +222,7 @@ final class PosTerminal extends Component
 
     public function updatedCustomerName(): void
     {
-        $order = $this->order();
+        $order = $this->editableOrder();
         $order->customer_name = trim($this->customerName) !== '' ? trim($this->customerName) : null;
         $order->save();
         $this->channelError = '';
@@ -224,21 +230,21 @@ final class PosTerminal extends Component
 
     public function updatedDeliveryAddress(): void
     {
-        $order = $this->order();
+        $order = $this->editableOrder();
         $order->delivery_address = trim($this->deliveryAddress) !== '' ? trim($this->deliveryAddress) : null;
         $order->save();
     }
 
     public function updatedDeliveryReference(): void
     {
-        $order = $this->order();
+        $order = $this->editableOrder();
         $order->delivery_reference = trim($this->deliveryReference) !== '' ? trim($this->deliveryReference) : null;
         $order->save();
     }
 
     public function updatedDeliveryFee(): void
     {
-        $order = $this->order();
+        $order = $this->editableOrder();
         $order->delivery_fee = max(0.0, round((float) $this->deliveryFee, 2));
         $order->save();
         $order->recalculate();
@@ -247,7 +253,7 @@ final class PosTerminal extends Component
     /** Delivery amount charged to the customer — added to their bill. */
     public function updatedDeliveryCharge(): void
     {
-        $order = $this->order();
+        $order = $this->editableOrder();
         $order->delivery_charge = max(0.0, round((float) $this->deliveryCharge, 2));
         $order->save();
         $order->recalculate();
@@ -332,11 +338,36 @@ final class PosTerminal extends Component
         return PosOrder::query()->with('lines', 'partner')->findOrFail($this->orderId);
     }
 
+    /**
+     * The cart, refusing anything that is no longer a draft.
+     *
+     * A terminal tab left open across a checkout — or on a table another
+     * cashier settled — still holds the old order id. Without this guard,
+     * adding an item silently rewrote a PAID order's total while its payment
+     * record and its journal entry stayed at the old figure, and the added
+     * item's stock was never consumed. Every mutating action goes through
+     * here; the read paths (mount, render, receipt) keep using order().
+     *
+     * @throws ValidationException
+     */
+    private function editableOrder(): PosOrder
+    {
+        $order = $this->order();
+
+        if ($order->state !== OrderState::Draft) {
+            throw ValidationException::withMessages([
+                'cart' => __('This order is already closed. Start a new order.'),
+            ]);
+        }
+
+        return $order;
+    }
+
     public function addProduct(int $productId): void
     {
         $this->guard(Permission::Write);
         $product = PosProduct::query()->findOrFail($productId);
-        $order = $this->order();
+        $order = $this->editableOrder();
 
         // Sweileh Café afternoon happy hour (12:00–18:00 Bahrain): shisha is
         // capped at the deal price, food gets a % off, drinks are excluded.
@@ -423,7 +454,7 @@ final class PosTerminal extends Component
     public function updateQuantity(int $lineId, bool $increment): void
     {
         $this->guard(Permission::Write);
-        $order = $this->order();
+        $order = $this->editableOrder();
         $line = $order->lines()->whereKey($lineId)->first();
 
         if ($line === null) {
@@ -445,7 +476,7 @@ final class PosTerminal extends Component
     public function setDiscount(int $lineId, float $percent): void
     {
         $this->guard(Permission::Write);
-        $order = $this->order();
+        $order = $this->editableOrder();
         $line = $order->lines()->whereKey($lineId)->first();
 
         if ($line === null) {
@@ -461,7 +492,7 @@ final class PosTerminal extends Component
     public function removeLine(int $lineId): void
     {
         $this->guard(Permission::Write);
-        $order = $this->order();
+        $order = $this->editableOrder();
         $order->lines()->whereKey($lineId)->delete();
         $order->recalculate();
     }
@@ -474,7 +505,7 @@ final class PosTerminal extends Component
     public function setLineNotes(int $lineId, string $notes): void
     {
         $this->guard(Permission::Write);
-        $order = $this->order();
+        $order = $this->editableOrder();
         $line = $order->lines()->whereKey($lineId)->first();
 
         if ($line === null) {
@@ -547,7 +578,7 @@ final class PosTerminal extends Component
             return;
         }
 
-        $order = $this->order();
+        $order = $this->editableOrder();
         $line = $order->lines()->whereKey($this->condimentLineId)->first();
 
         if ($line === null) {
@@ -598,7 +629,7 @@ final class PosTerminal extends Component
         $this->localPhone = '';
         $this->enteringPhone = false;
 
-        $order = $this->order();
+        $order = $this->editableOrder();
         $order->customer_phone = null;
         $order->save();
 
@@ -632,7 +663,7 @@ final class PosTerminal extends Component
      */
     private function syncCustomerDiscount(): void
     {
-        $this->order()->applyCustomerDiscount($this->resolveDiscountPhone());
+        $this->editableOrder()->applyCustomerDiscount($this->resolveDiscountPhone());
     }
 
     private function resolveDiscountPhone(): ?string
@@ -716,7 +747,7 @@ final class PosTerminal extends Component
 
     public function startPayment(): void
     {
-        $order = $this->order();
+        $order = $this->editableOrder();
 
         if (! $this->canPay($order)) {
             return;
@@ -765,7 +796,7 @@ final class PosTerminal extends Component
     public function confirmCod(): void
     {
         $this->guard(Permission::Write);
-        $order = $this->order();
+        $order = $this->editableOrder();
 
         if (! $order->isRemote() || ! $this->canPay($order)) {
             return;
@@ -867,7 +898,7 @@ final class PosTerminal extends Component
     public function addPayment(): void
     {
         $this->guard(Permission::Write);
-        $order = $this->order();
+        $order = $this->editableOrder();
         $amount = round((float) $this->tendered, 2);
 
         if ($this->paymentMethodId === null || $amount <= 0) {
@@ -886,7 +917,7 @@ final class PosTerminal extends Component
     public function validateOrder(): void
     {
         $this->guard(Permission::Write);
-        $order = $this->order();
+        $order = $this->editableOrder();
 
         // Already finalised — just show the receipt again (no re-consume).
         if ($order->state === OrderState::Done) {

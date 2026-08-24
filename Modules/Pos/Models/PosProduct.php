@@ -343,7 +343,50 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
             ->first();
     }
 
+    /**
+     * Request-scoped memo for {@see productionCost()}, active only inside a
+     * cost batch. An offer's cost reads each perfume component's production
+     * cost, and the same perfume is typically a component of several offers —
+     * without this, one catalogue-wide refresh recomputed the same runs and
+     * material prices dozens of times (this is what made an ingredient-cost
+     * edit slow enough to hit nginx's timeout).
+     *
+     * @var array<int, float|null>|null
+     */
+    private static ?array $productionCostMemo = null;
+
+    /**
+     * Memoise production costs until {@see endCostBatch()}. Only for a batch
+     * that reads costs and does not change any material price mid-way.
+     */
+    public static function beginCostBatch(): void
+    {
+        self::$productionCostMemo = [];
+    }
+
+    public static function endCostBatch(): void
+    {
+        self::$productionCostMemo = null;
+    }
+
     public function productionCost(): ?float
+    {
+        $key = (int) $this->getKey();
+
+        if (self::$productionCostMemo !== null && array_key_exists($key, self::$productionCostMemo)) {
+            return self::$productionCostMemo[$key];
+        }
+
+        $cost = $this->computeProductionCost();
+
+        if (self::$productionCostMemo !== null) {
+            self::$productionCostMemo[$key] = $cost;
+        }
+
+        return $cost;
+    }
+
+    private function computeProductionCost(): ?float
     {
         $run = PosProduction::query()
             ->with('lines.ingredient')

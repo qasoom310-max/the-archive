@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\WhatsApp\Jobs;
 
+use App\Erp\Tenancy\WorkspaceManager;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -19,6 +20,12 @@ use Modules\WhatsApp\Models\WhatsAppMessageLog;
  * never blocks on Meta. The fully-built message body is passed in; the
  * job only resolves the (latest) credentials and POSTs. A non-2xx
  * response throws so the job retries, then lands in `failed_jobs`.
+ *
+ * The queue connection is pinned to the Main database, so a message queued from
+ * a tenant workspace RUNS in Main's context. It therefore carries the
+ * originating `workspaceId` and re-activates that workspace before sending —
+ * otherwise it would send with Main's WhatsApp credentials and stamp
+ * sent/failed onto an unrelated message row (the same bug WooCommerce fixed).
  */
 final class SendWhatsAppMessage implements ShouldQueue
 {
@@ -36,10 +43,18 @@ final class SendWhatsAppMessage implements ShouldQueue
         public readonly string $to,
         public readonly array $payload,
         public readonly ?int $logId = null,
+        public readonly ?int $workspaceId = null,
     ) {
     }
 
     public function handle(HttpFactory $http): void
+    {
+        app(WorkspaceManager::class)->runFor($this->workspaceId, function () use ($http): void {
+            $this->send($http);
+        });
+    }
+
+    private function send(HttpFactory $http): void
     {
         $config = WhatsAppConfiguration::current();
 

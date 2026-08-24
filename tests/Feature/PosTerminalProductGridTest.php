@@ -8,9 +8,11 @@ use App\Erp\Modules\ModuleManager;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
+use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Enums\SessionState;
 use Modules\Pos\Livewire\PosTerminal;
 use Modules\Pos\Models\PosCategory;
+use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Models\PosSession;
 use Tests\TestCase;
@@ -106,5 +108,52 @@ final class PosTerminalProductGridTest extends TestCase
 
         Livewire::test(PosTerminal::class, ['session' => $session->id])
             ->assertDontSee('Search by name or pick a category to find the rest.');
+    }
+
+    public function test_a_stale_tab_cannot_change_an_order_that_is_already_closed(): void
+    {
+        // A terminal left open across a checkout (or on a table another cashier
+        // settled) still holds the old order id. Rewriting a PAID order's total
+        // here left its payment record and its journal entry at the old figure,
+        // and the added item's stock was never consumed.
+        $session = $this->openSession();
+        $product = PosProduct::query()->create([
+            'name' => 'Espresso', 'price' => 2.0, 'tax_rate' => 0, 'active' => true,
+        ]);
+
+        $component = Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('addProduct', $product->id);
+
+        $order = PosOrder::query()->findOrFail($component->get('orderId'));
+        $this->assertSame(2.0, round((float) $order->total, 2));
+
+        // Someone else settles it while this tab sits idle.
+        $order->state = OrderState::Done;
+        $order->save();
+
+        $component->call('addProduct', $product->id)->assertHasErrors('cart');
+        $component->call('setDiscount', (int) $order->lines()->firstOrFail()->id, 50.0)->assertHasErrors('cart');
+        $component->call('removeLine', (int) $order->lines()->firstOrFail()->id)->assertHasErrors('cart');
+
+        $order->refresh();
+        $this->assertSame(1, $order->lines()->count());
+        $this->assertSame(2.0, round((float) $order->total, 2));
+    }
+
+    public function test_the_terminal_cannot_be_repointed_at_another_order(): void
+    {
+        // orderId / sessionId / tableId identify the record every action writes
+        // to, so the browser must not be able to set them.
+        $session = $this->openSession();
+        $component = Livewire::test(PosTerminal::class, ['session' => $session->id]);
+
+        foreach (['orderId', 'sessionId', 'tableId'] as $property) {
+            try {
+                $component->set($property, 99);
+                $this->fail("Property [{$property}] should be locked against client updates.");
+            } catch (\Throwable $e) {
+                $this->assertStringContainsString('locked', mb_strtolower($e->getMessage()));
+            }
+        }
     }
 }

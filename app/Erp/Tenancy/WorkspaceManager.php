@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -208,6 +209,42 @@ final class WorkspaceManager
             DB::setDefaultConnection($previous);
             DB::purge('tenant');
         }
+    }
+
+    /**
+     * Run a callback against the database of workspace `$workspaceId`, whatever
+     * database is active right now. Built for QUEUED JOBS: the `queue`
+     * connection is pinned to Main, so a job dispatched from a tenant runs in
+     * MAIN's context — it would otherwise read Main's integration credentials
+     * and Main's records, silently acting on the wrong business.
+     *
+     * A null id, a missing registry, an unknown/main workspace, or a missing
+     * database file all fall through to running as-is (never fail the job over
+     * tenancy plumbing).
+     *
+     * @template T
+     * @param  Closure(): T  $callback
+     * @return T
+     */
+    public function runFor(?int $workspaceId, Closure $callback): mixed
+    {
+        if ($workspaceId === null || ! Schema::hasTable('workspaces')) {
+            return $callback();
+        }
+
+        $workspace = $this->findAny($workspaceId);
+
+        if ($workspace === null || $workspace->is_main) {
+            return $callback();
+        }
+
+        $path = $workspace->databasePath();
+
+        if ($path === null || ! is_file($path)) {
+            return $callback();
+        }
+
+        return $this->withTenant($path, $callback);
     }
 
     /**

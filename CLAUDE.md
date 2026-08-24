@@ -434,6 +434,50 @@ an `ir_model_access` row for the model owned by one of the user's groups (or a g
 `->assertForbidden()`). The app now requires login: `migrate:fresh --seed` runs
 `AuthSeeder` first, then sign in at `/login`.
 
+**Engine hardening — privilege escalation closed (2026-08-24).** A code review found
+the engine view components could be repointed by the browser into a full account
+takeover. Three defences, all now required whenever this code is touched:
+
+1. **`HasAccessControl::may()` DENIES on an empty `$modelKey`.** It used to
+   short-circuit to *allow* — which made a blank key a wildcard past every
+   permission check. All 45 `<livewire:views.*>` call sites pass an explicit
+   `model-key`, so a blank key only ever means tampered/misconfigured.
+2. **`#[Locked]` on the binding properties** — `$model`, `$modelKey`, `$recordId`
+   (+ `$redirectTo` on FormView) in `FormView`/`ListView`/`KanbanView`. Livewire 3
+   lets the browser set ANY unlocked public property, so without this a user could
+   point a form they may legitimately open at `App\Models\User` row 1. **Any new
+   public property that identifies a record or drives a permission check must be
+   `#[Locked]`.**
+3. **`FormView::save()` whitelists the upload buffers.** `$imagePaths`/`$filePaths`/
+   `$uploads` are public properties, so their KEYS are attacker-controlled; each is
+   now matched against the arch's declared `isImage()`/`isFile()` fields before
+   `setAttribute()`. Without it, anyone with legitimate Write on a model could set
+   any column of it (a settled order's `total`, a user's `is_admin`), bypassing the
+   `readonly` skip and every recompute hook.
+
+Tests: `AccessControlTest::{test_an_empty_model_key_denies_instead_of_allowing,
+test_the_binding_properties_cannot_be_repointed_by_the_browser,
+test_upload_paths_cannot_write_undeclared_attributes}`.
+
+**Screens that were missing their ACL (2026-08-24).** `mount()`-only gates are not
+gates — Livewire runs `mount()` once and then dispatches straight to methods, so
+**every mutating action re-checks**:
+
+- `ProductionForm` (mount + `save`/`delete`/`reverse`/`reopen`/`saveAsFormula`) and
+  `Productions` (mount + `moveToShop`/`moveToStore`) → **`pos.product`** Read/Write,
+  the same key the recipe editor uses. Cashiers hold no `pos.product` grant, so
+  production stays with managers — previously any logged-in account could deduct raw
+  materials, rewrite `cost_price` and inflate `store_stock`. (`recomputeCosts` /
+  `removeFromStore` keep their extra `isAdmin()` check.)
+- `KitchenDisplay` (mount + `advance`/`markOrderPreparing`/`markOrderReady`/
+  `completeOrder`) → **`pos.session`**, which the `pos_user` cashier group holds and
+  an unrelated staff account does not. Previously anyone logged in could clear the
+  whole kitchen queue (and, in postpaid mode, unlock the dine-in pay gate).
+
+Test: `PosKitchenRoutingTest::test_the_kitchen_screen_requires_pos_session_access`.
+NOTE: the three existing "non-admin is blocked" production tests now assert
+`->assertForbidden()` on the **mount**, not on the action — the gate fires earlier.
+
 **Phase 7 — Point of Sale module (`Modules/Pos/`, depends on `contacts`):**
 
 | Concern | Location |
@@ -578,7 +622,13 @@ php artisan db:seed --class="Database\Seeders\PosSeeder"
   `.github/workflows/deploy.yml`** — without an exclude, `rsync --delete` wipes
   the directory on every push and leaves DB rows pointing at gone files (was
   the cause of the 2026-05-24 "Qassim avatar broken-icon" regression — only
-  `pos_products/` was protected). Returns
+  `pos_products/` was protected). **This is NOT only about this controller's
+  whitelist**: any `->store('<dir>', 'public')` anywhere creates a bucket with the
+  same requirement. It bit again on 2026-08-24 — `PosTerminal` stores proof-of-payment
+  photos under `storage/app/public/pos/payment-proofs/`, a NESTED path that none of the
+  flat top-level excludes covered, so every deploy wiped them. Fixed by excluding the
+  whole `storage/app/public/pos/` subtree. When adding an upload of any kind, grep
+  `->store(` and cross-check the exclude list. Returns
   `{path, url}` JSON. `FormView::$imagePaths` holds `<attribute => path>` and
   `save()` writes those straight onto the record. The Blade `image` widget is an
   Alpine block that `fetch()`-POSTs and assigns `$wire.imagePaths.<field>` on

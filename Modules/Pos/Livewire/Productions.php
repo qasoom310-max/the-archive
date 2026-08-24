@@ -6,6 +6,8 @@ namespace Modules\Pos\Livewire;
 
 use App\Erp\Business\Feature;
 use App\Erp\Business\Features;
+use App\Erp\Security\AccessControl;
+use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -39,9 +41,20 @@ final class Productions extends Component
 
     public string $remove_qty = '';
 
+    /**
+     * Gated on the PRODUCT permission, like {@see ProductionForm}: these actions
+     * move finished stock between the store and the shop. Re-checked per action —
+     * mount() runs once, then Livewire dispatches straight to methods.
+     */
+    private function guard(Permission $permission): void
+    {
+        app(AccessControl::class)->authorize(Auth::user(), 'pos.product', $permission);
+    }
+
     public function mount(): void
     {
         abort_unless(Features::enabled(Feature::Production), 404);
+        $this->guard(Permission::Read);
     }
 
     /**
@@ -69,6 +82,7 @@ final class Productions extends Component
     public function moveToShop(): void
     {
         abort_unless(Features::enabled(Feature::Production), 404);
+        $this->guard(Permission::Write);
         $this->validate([
             'move_product_id' => ['required', 'integer', 'exists:pos_products,id'],
             'move_qty' => ['required', 'numeric', 'min:0.001'],
@@ -118,6 +132,7 @@ final class Productions extends Component
     public function moveToStore(): void
     {
         abort_unless(Features::enabled(Feature::Production), 404);
+        $this->guard(Permission::Write);
         $this->validate([
             'back_product_id' => ['required', 'integer', 'exists:pos_products,id'],
             'back_qty' => ['required', 'numeric', 'min:0.001'],

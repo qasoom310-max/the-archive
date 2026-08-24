@@ -156,4 +156,69 @@ final class AccessControlTest extends TestCase
         Livewire::test(ListView::class, ['model' => DemoTicket::class, 'modelKey' => 'secret.model'])
             ->assertSee('Access denied');
     }
+
+    // ---- Engine hardening -------------------------------------------------
+
+    public function test_an_empty_model_key_denies_instead_of_allowing(): void
+    {
+        // The permission check used to short-circuit to ALLOW on a blank key.
+        // Since `modelKey` is a Livewire property, that made a blank key a
+        // wildcard past every check. It must fail closed.
+        $this->actAsSalesUser();
+
+        Livewire::test(ListView::class, ['model' => DemoTicket::class, 'modelKey' => ''])
+            ->assertSee('Access denied');
+
+        $ticket = DemoTicket::query()->create(['subject' => 'Untouched', 'stage' => 'New']);
+
+        Livewire::test(KanbanView::class, ['model' => DemoTicket::class, 'modelKey' => ''])
+            ->call('moveCard', $ticket->id, 'Done')
+            ->assertForbidden();
+
+        $this->assertSame('New', $ticket->fresh()?->stage);
+    }
+
+    public function test_the_binding_properties_cannot_be_repointed_by_the_browser(): void
+    {
+        // #[Locked] on model / modelKey / recordId: without it a user could
+        // repoint a form they may legitimately open at another model or row.
+        $this->actAsSalesUser();
+
+        foreach (['model', 'modelKey', 'recordId'] as $property) {
+            $component = Livewire::test(FormView::class, [
+                'model' => Partner::class,
+                'modelKey' => 'contacts.partner',
+            ]);
+
+            try {
+                $component->set($property, $property === 'recordId' ? 1 : 'App\\Models\\User');
+                $this->fail("Property [{$property}] should be locked against client updates.");
+            } catch (\Throwable $e) {
+                $this->assertStringContainsString('locked', mb_strtolower($e->getMessage()));
+            }
+        }
+    }
+
+    public function test_upload_paths_cannot_write_undeclared_attributes(): void
+    {
+        // The image/file buffers are public properties, so their KEYS are
+        // attacker-controlled. Only attributes declared as an image/file field
+        // in the arch may be written — otherwise a user with legitimate Write
+        // on a model could set any column of it.
+        $this->actAsSalesUser();
+        $partner = Partner::query()->create(['name' => 'Acme']);
+
+        Livewire::test(FormView::class, [
+            'model' => Partner::class,
+            'modelKey' => 'contacts.partner',
+            'recordId' => $partner->id,
+        ])
+            ->set('imagePaths', ['name' => 'HACKED', 'email' => 'hacked@example.com'])
+            ->set('filePaths', ['name' => 'HACKED-TOO'])
+            ->call('save');
+
+        $fresh = $partner->fresh();
+        $this->assertSame('Acme', $fresh?->name);
+        $this->assertNotSame('hacked@example.com', $fresh?->email);
+    }
 }

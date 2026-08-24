@@ -7,6 +7,8 @@ namespace Modules\Pos\Livewire;
 use App\Erp\Activity\ActivityLogger;
 use App\Erp\Business\Feature;
 use App\Erp\Business\Features;
+use App\Erp\Security\AccessControl;
+use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -58,9 +60,22 @@ final class ProductionForm extends Component
      */
     public array $packaging = [];
 
+    /**
+     * A production run consumes raw materials and rewrites a product's stock and
+     * cost price, so it is gated on the PRODUCT permission — the same key the
+     * recipe editor uses. Cashiers hold no `pos.product` grant, so this stays
+     * with managers, which is the documented intent. Every mutating action
+     * re-checks: Livewire runs mount() once, then dispatches straight to methods.
+     */
+    private function guard(Permission $permission): void
+    {
+        app(AccessControl::class)->authorize(Auth::user(), 'pos.product', $permission);
+    }
+
     public function mount(?int $id = null): void
     {
         abort_unless(Features::enabled(Feature::Production), 404);
+        $this->guard(Permission::Read);
 
         if ($id !== null) {
             $production = PosProduction::query()->with('lines')->find($id);
@@ -196,6 +211,7 @@ final class ProductionForm extends Component
     public function delete(bool $force = false): void
     {
         abort_unless(Features::enabled(Feature::Production), 404);
+        $this->guard(Permission::Write);
         if ($this->id === null) {
             return;
         }
@@ -225,6 +241,7 @@ final class ProductionForm extends Component
     public function saveAsFormula(): void
     {
         abort_unless(Features::enabled(Feature::Production), 404);
+        $this->guard(Permission::Write);
 
         if ($this->product_id === null) {
             $this->addError('product_id', __('Pick a product first.'));
@@ -311,6 +328,7 @@ final class ProductionForm extends Component
     public function save(): void
     {
         abort_unless(Features::enabled(Feature::Production), 404);
+        $this->guard(Permission::Write);
 
         // A recorded (done) or reversed run is not editable in place — it must be
         // reopened first (which reverses its stock and turns it into a draft).
@@ -490,6 +508,7 @@ final class ProductionForm extends Component
     public function reverse(bool $force = false): void
     {
         abort_unless(Features::enabled(Feature::Production), 404);
+        $this->guard(Permission::Write);
         if ($this->id === null) {
             return;
         }
@@ -520,6 +539,7 @@ final class ProductionForm extends Component
     public function reopen(bool $force = false): void
     {
         abort_unless(Features::enabled(Feature::Production), 404);
+        $this->guard(Permission::Write);
         if ($this->id === null) {
             return;
         }

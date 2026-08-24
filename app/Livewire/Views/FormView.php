@@ -17,6 +17,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
@@ -34,14 +35,21 @@ final class FormView extends Component
     use WithFileUploads;
 
     /** @var class-string<Model> */
+    #[Locked]
     public string $model;
 
+    // Locked: these bind the component to a record and drive the permission
+    // check. They are set once at mount; a browser must never be able to
+    // repoint the component at another model, key or row.
+    #[Locked]
     public string $modelKey = '';
 
+    #[Locked]
     public ?int $recordId = null;
 
     public string $title = '';
 
+    #[Locked]
     public string $redirectTo = '';
 
     /**
@@ -390,11 +398,26 @@ final class FormView extends Component
             $record->setAttribute($field->field, $value);
         }
 
+        // Which attributes the upload buffers are allowed to write. These are
+        // public Livewire properties, so their KEYS are attacker-controlled —
+        // without this whitelist a user with Write on any model could set any
+        // column of it (a settled order's total, a user's is_admin), bypassing
+        // the readonly skip above and every recompute hook.
+        $imageFields = [];
+        $fileFields = [];
+        foreach ($this->arch->formFields as $field) {
+            if ($field->isImage()) {
+                $imageFields[] = $field->field;
+            } elseif ($field->isFile()) {
+                $fileFields[] = $field->field;
+            }
+        }
+
         // Direct-upload paths populated by FormImageUploadController via
         // Alpine in the Blade. Empty string from the Alpine wrapper means
         // "no change" (vs an explicit clear, which isn't a feature yet).
         foreach ($this->imagePaths as $attribute => $path) {
-            if ($path !== '') {
+            if ($path !== '' && in_array($attribute, $imageFields, true)) {
                 $record->setAttribute($attribute, $path);
             }
         }
@@ -402,7 +425,7 @@ final class FormView extends Component
         // Document (`file` widget) upload paths from FormFileUploadController.
         // Same contract: empty string = "no change".
         foreach ($this->filePaths as $attribute => $path) {
-            if ($path !== '') {
+            if ($path !== '' && in_array($attribute, $fileFields, true)) {
                 $record->setAttribute($attribute, $path);
             }
         }
@@ -411,6 +434,11 @@ final class FormView extends Component
         // hasn't been migrated to the direct controller upload. Empty
         // array on the normal POS path so this loop is a no-op.
         foreach ($this->uploads as $attribute => $file) {
+            // Same whitelist reasoning as the two buffers above.
+            if (! in_array($attribute, $imageFields, true) && ! in_array($attribute, $fileFields, true)) {
+                continue;
+            }
+
             $stored = $file->store($record->getTable(), 'public');
 
             if ($stored !== false) {

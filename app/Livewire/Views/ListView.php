@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -36,8 +37,11 @@ final class ListView extends Component
     use WithPagination;
 
     /** @var class-string<Model> */
+    #[Locked]
     public string $model;
 
+    // Locked: bound at mount and drives the permission check — never client-writable.
+    #[Locked]
     public string $modelKey = '';
 
     public string $title = '';

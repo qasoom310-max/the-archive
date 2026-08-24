@@ -6,8 +6,11 @@ namespace Modules\Pos\Livewire;
 
 use App\Erp\Business\Feature;
 use App\Erp\Business\Features;
+use App\Erp\Security\AccessControl;
+use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -44,6 +47,18 @@ final class KitchenDisplay extends Component
     public PrepStation $station;
 
     /**
+     * Kitchen staff work the register's orders, so the screen is gated on the
+     * SESSION permission — the `pos_user` cashier group holds it, an unrelated
+     * account (a view-only staff user) does not. Re-checked on every action:
+     * mount() runs once, then Livewire dispatches straight to the methods, so a
+     * mount-only gate would leave the ticket buttons open to anyone logged in.
+     */
+    private function guard(Permission $permission): void
+    {
+        app(AccessControl::class)->authorize(Auth::user(), 'pos.session', $permission);
+    }
+
+    /**
      * Livewire/Laravel resolves the `{station}` route segment via the typed
      * property below — the string from the URL is converted to `PrepStation`
      * before `mount()` runs. Typing the param as `PrepStation` (not `string`)
@@ -53,6 +68,7 @@ final class KitchenDisplay extends Component
     public function mount(PrepStation $station): void
     {
         abort_unless(Features::enabled(Feature::Kitchen), 404);
+        $this->guard(Permission::Read);
         $this->station = $station;
     }
 
@@ -62,6 +78,8 @@ final class KitchenDisplay extends Component
      */
     public function advance(int $lineId): void
     {
+        $this->guard(Permission::Write);
+
         $line = PosOrderLine::query()->find($lineId);
 
         if ($line === null) {
@@ -83,6 +101,8 @@ final class KitchenDisplay extends Component
      */
     public function markOrderPreparing(int $orderId): void
     {
+        $this->guard(Permission::Write);
+
         $lines = $this->stationLinesForOrder($orderId)
             ->filter(static fn (PosOrderLine $l) => $l->prep_status === PrepStatus::Pending);
 
@@ -101,6 +121,8 @@ final class KitchenDisplay extends Component
      */
     public function markOrderReady(int $orderId): void
     {
+        $this->guard(Permission::Write);
+
         $lines = $this->stationLinesForOrder($orderId)
             ->filter(static fn (PosOrderLine $l) => in_array($l->prep_status, [PrepStatus::Pending, PrepStatus::Preparing], true));
 
@@ -123,6 +145,8 @@ final class KitchenDisplay extends Component
      */
     public function completeOrder(int $orderId): void
     {
+        $this->guard(Permission::Write);
+
         $lines = $this->stationLinesForOrder($orderId);
 
         foreach ($lines as $line) {

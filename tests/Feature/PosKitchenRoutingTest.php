@@ -8,6 +8,7 @@ use App\Erp\Modules\ModuleManager;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\Event;
+use Livewire\Livewire;
 use Modules\Pos\Enums\OrderState;
 use Modules\Pos\Enums\PrepStation;
 use Modules\Pos\Enums\PrepStatus;
@@ -267,5 +268,17 @@ final class PosKitchenRoutingTest extends TestCase
         $line = PosOrderLine::query()->first();
         $this->assertSame(PrepStatus::Preparing, $line->prep_status);
         $this->assertEquals($firstSentAt?->toDateTimeString(), $line->prep_sent_at?->toDateTimeString());
+    }
+
+    public function test_the_kitchen_screen_requires_pos_session_access(): void
+    {
+        // The KDS mutates live orders, so it must not be reachable by anyone who
+        // merely holds a login. Cashiers hold pos.session; an unrelated staff
+        // account does not — and used to be able to clear the whole queue.
+        $this->installPos();
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+
+        Livewire::test(KitchenDisplay::class, ['station' => PrepStation::Kitchen])
+            ->assertForbidden();
     }
 }

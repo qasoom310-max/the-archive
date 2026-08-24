@@ -461,11 +461,11 @@ final class PosProductionTest extends TestCase
         Livewire::test(Productions::class)
             ->set('move_product_id', $perfume->id)->set('move_qty', 10)->call('moveToShop');
 
-        // A user granted POS access but not admin can't override the lock.
+        // A plain user can't reach the production screen at all (it needs
+        // pos.product), so the force override is out of reach twice over.
         $this->actingAs(User::factory()->create(['is_admin' => false]));
         Livewire::test(ProductionForm::class, ['id' => $run->id])
-            ->call('reverse', true)
-            ->assertHasErrors('state');
+            ->assertForbidden();
         $this->assertSame('done', $run->fresh()->state);
     }
 
@@ -650,11 +650,9 @@ final class PosProductionTest extends TestCase
         $this->actingAs(User::factory()->create(['is_admin' => false]));
         $perfume = PosProduct::query()->create(['name' => 'P', 'price' => 5, 'store_stock' => 8, 'stock_on_hand' => 0]);
 
-        Livewire::test(Productions::class)
-            ->set('remove_product_id', $perfume->id)
-            ->set('remove_qty', 8)
-            ->call('removeFromStore')
-            ->assertForbidden();
+        // Blocked at the door: the screen needs pos.product, which a plain user
+        // has no grant for — so the removal can't be reached.
+        Livewire::test(Productions::class)->assertForbidden();
 
         $this->assertEqualsWithDelta(8.0, $perfume->fresh()->store_stock, 0.001); // untouched
     }
@@ -947,9 +945,9 @@ final class PosProductionTest extends TestCase
         Livewire::test(Productions::class)->call('recomputeCosts')->assertHasNoErrors();
         $this->assertEqualsWithDelta(1.0, $perfume->fresh()->cost_price, 0.001); // (1000×0.02)/20
 
-        // Non-admin can't run it.
+        // Non-admin can't even open the screen (it needs pos.product).
         $this->actingAs(User::factory()->create(['is_admin' => false]));
-        Livewire::test(Productions::class)->call('recomputeCosts')->assertForbidden();
+        Livewire::test(Productions::class)->assertForbidden();
     }
 
     public function test_a_run_without_packaging_falls_back_to_the_formula_packaging(): void

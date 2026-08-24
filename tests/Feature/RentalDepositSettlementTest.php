@@ -31,6 +31,10 @@ final class RentalDepositSettlementTest extends TestCase
     {
         parent::setUp();
         app(ModuleManager::class)->install('rental');
+
+        // Bespoke rental screens are ACL-gated; these tests are about the role
+        // rules on top of that, so put the user where a granted staff account is.
+        $this->grantEveryone('rental.order');
     }
 
     /** A closed order whose deposit hold has elapsed by default (returned 15d ago). */

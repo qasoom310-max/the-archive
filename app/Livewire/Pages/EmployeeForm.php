@@ -40,10 +40,22 @@ final class EmployeeForm extends Component
     /** Relative path of the uploaded agreement (set by the JS uploader). */
     public ?string $agreementPath = null;
 
-    public function mount(?int $id = null): void
+    /**
+     * Payroll and company expenses are admin-only. Re-checked on EVERY action:
+     * mount() runs once and Livewire then dispatches straight to methods, so a
+     * mount-only gate leaves a page that is already open fully usable by someone
+     * who has since been demoted.
+     */
+    private function guardAdmin(): void
     {
         $user = Auth::user();
+
         abort_unless($user instanceof User && $user->isAdmin(), 403);
+    }
+
+    public function mount(?int $id = null): void
+    {
+        $this->guardAdmin();
 
         $this->id = $id;
 
@@ -66,6 +78,7 @@ final class EmployeeForm extends Component
 
     public function save(): void
     {
+        $this->guardAdmin();
         $this->validate([
             'form.name' => ['required', 'string', 'max:255'],
             'form.position' => ['nullable', 'string', 'max:255'],

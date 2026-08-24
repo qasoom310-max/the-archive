@@ -26,6 +26,10 @@ final class RentalReturnToServiceTest extends TestCase
     {
         parent::setUp();
         app(ModuleManager::class)->install('rental');
+
+        // Bespoke rental screens are ACL-gated; these tests are about the role
+        // rules on top of that, so put the user where a granted staff account is.
+        $this->grantEveryone('rental.vehicle', 'rental.maintenance');
     }
 
     public function test_a_manager_returns_a_maintenance_car_to_service_and_closes_the_replacement(): void

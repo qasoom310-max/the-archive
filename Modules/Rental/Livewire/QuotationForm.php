@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Security\Permission;
+use App\Livewire\Concerns\GuardsModelAccess;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Rental\Models\Branch;
@@ -25,6 +28,15 @@ use Modules\Rental\Models\Vehicle;
 #[Title('Quotation')]
 final class QuotationForm extends Component
 {
+    use GuardsModelAccess;
+
+    protected function accessModelKey(): string
+    {
+        return 'rental.quotation';
+    }
+
+    /** The record being edited — server-set only; the browser must not repoint it. */
+    #[Locked]
     public ?int $id = null;
 
     public ?int $customer_id = null;
@@ -59,6 +71,7 @@ final class QuotationForm extends Component
 
     public function mount(?int $id = null): void
     {
+        $this->guardAccess(Permission::Read);
         if ($id !== null) {
             $quote = RentalQuotation::query()->find($id);
             if ($quote !== null) {
@@ -142,6 +155,7 @@ final class QuotationForm extends Component
 
     public function save(): void
     {
+        $this->guardSave($this->id === null);
         $this->validate();
 
         $quote = $this->id !== null ? RentalQuotation::query()->find($this->id) : new RentalQuotation();
@@ -170,16 +184,19 @@ final class QuotationForm extends Component
 
     public function markSent(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->setStatus(RentalQuotation::STATUS_SENT);
     }
 
     public function markAccepted(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->setStatus(RentalQuotation::STATUS_ACCEPTED);
     }
 
     public function markDeclined(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->setStatus(RentalQuotation::STATUS_DECLINED);
     }
 
@@ -194,6 +211,7 @@ final class QuotationForm extends Component
     /** Convert to a draft order and jump straight to it. */
     public function convert(): void
     {
+        $this->guardAccess(Permission::Write);
         if ($this->id === null) {
             return;
         }

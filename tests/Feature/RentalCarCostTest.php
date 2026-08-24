@@ -25,6 +25,10 @@ final class RentalCarCostTest extends TestCase
     {
         parent::setUp();
         app(ModuleManager::class)->install('rental');
+
+        // Bespoke rental screens are ACL-gated; these tests are about the role
+        // rules on top of that, so put the user where a granted staff account is.
+        $this->grantEveryone('rental.vehicle');
     }
 
     public function test_an_accountant_saves_cost_and_attached_documents(): void

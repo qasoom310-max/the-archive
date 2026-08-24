@@ -44,10 +44,22 @@ final class MonthlyProfit extends Component
 
     public string $payDate = '';
 
-    public function mount(): void
+    /**
+     * Payroll and company expenses are admin-only. Re-checked on EVERY action:
+     * mount() runs once and Livewire then dispatches straight to methods, so a
+     * mount-only gate leaves a page that is already open fully usable by someone
+     * who has since been demoted.
+     */
+    private function guardAdmin(): void
     {
         $user = Auth::user();
+
         abort_unless($user instanceof User && $user->isAdmin(), 403);
+    }
+
+    public function mount(): void
+    {
+        $this->guardAdmin();
 
         if ($this->month === '') {
             $this->month = Carbon::now()->format('Y-m');
@@ -56,6 +68,7 @@ final class MonthlyProfit extends Component
 
     public function openAddBill(): void
     {
+        $this->guardAdmin();
         $this->newBill = ['name' => '', 'category' => 'other', 'amount' => '', 'due_day' => ''];
         $this->resetValidation();
         $this->addingBill = true;
@@ -63,6 +76,7 @@ final class MonthlyProfit extends Component
 
     public function addBill(): void
     {
+        $this->guardAdmin();
         $this->validate([
             'newBill.name' => ['required', 'string', 'max:255'],
             'newBill.category' => ['required', 'string', 'max:50'],
@@ -82,11 +96,13 @@ final class MonthlyProfit extends Component
 
     public function removeBill(int $expenseId): void
     {
+        $this->guardAdmin();
         Expense::query()->whereKey($expenseId)->delete();
     }
 
     public function openPay(int $expenseId): void
     {
+        $this->guardAdmin();
         $expense = Expense::query()->find($expenseId);
         if ($expense === null) {
             return;
@@ -110,6 +126,7 @@ final class MonthlyProfit extends Component
 
     public function savePay(): void
     {
+        $this->guardAdmin();
         if ($this->payingExpenseId === null) {
             return;
         }
@@ -151,6 +168,7 @@ final class MonthlyProfit extends Component
 
     public function unmarkPaid(int $expenseId): void
     {
+        $this->guardAdmin();
         ExpensePayment::query()
             ->where('expense_id', $expenseId)
             ->where('period', $this->month)

@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Security\Permission;
+use App\Livewire\Concerns\GuardsModelAccess;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Rental\Models\RentalInvoice;
@@ -21,6 +24,15 @@ use Modules\Rental\Models\RentalReceipt;
 #[Title('Receipt')]
 final class ReceiptForm extends Component
 {
+    use GuardsModelAccess;
+
+    protected function accessModelKey(): string
+    {
+        return 'rental.receipt';
+    }
+
+    /** The record being edited — server-set only; the browser must not repoint it. */
+    #[Locked]
     public ?int $id = null;
 
     public ?int $invoice_id = null;
@@ -37,6 +49,7 @@ final class ReceiptForm extends Component
 
     public function mount(?int $id = null): void
     {
+        $this->guardAccess(Permission::Read);
         if ($id !== null) {
             $receipt = RentalReceipt::query()->find($id);
             if ($receipt !== null) {
@@ -92,6 +105,7 @@ final class ReceiptForm extends Component
 
     public function save(): void
     {
+        $this->guardSave($this->id === null);
         $this->validate();
 
         $invoice = RentalInvoice::query()->find($this->invoice_id);

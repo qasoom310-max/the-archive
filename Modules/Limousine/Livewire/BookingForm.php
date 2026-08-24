@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire;
 
+use App\Erp\Security\Permission;
+use App\Livewire\Concerns\GuardsModelAccess;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Limousine\Livewire\Concerns\HandlesTripLegs;
@@ -23,8 +26,17 @@ use Modules\Limousine\Models\LimoCustomer;
 #[Title('Booking')]
 final class BookingForm extends Component
 {
+    use GuardsModelAccess;
+
+    protected function accessModelKey(): string
+    {
+        return 'limousine.booking';
+    }
+
     use HandlesTripLegs;
 
+    /** The record being edited — server-set only; the browser must not repoint it. */
+    #[Locked]
     public ?int $id = null;
 
     public string $reference = '';
@@ -67,6 +79,7 @@ final class BookingForm extends Component
 
     public function mount(?int $id = null): void
     {
+        $this->guardAccess(Permission::Read);
         if ($id !== null) {
             $booking = LimoBooking::query()->with('legs')->find($id);
             if ($booking !== null) {
@@ -121,6 +134,7 @@ final class BookingForm extends Component
 
     public function save(): void
     {
+        $this->guardSave($this->id === null);
         $this->validate();
 
         $booking = $this->id !== null ? LimoBooking::query()->find($this->id) : new LimoBooking();
@@ -175,6 +189,7 @@ final class BookingForm extends Component
 
     public function saveCustomer(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->validate([
             'newCustomer.name' => ['required', 'string', 'max:255'],
             'newCustomer.phone' => ['required', 'string', 'max:50'],
@@ -195,21 +210,25 @@ final class BookingForm extends Component
 
     public function confirm(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->transition(LimoBooking::STATUS_CONFIRMED);
     }
 
     public function start(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->transition(LimoBooking::STATUS_ACTIVE);
     }
 
     public function complete(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->transition(LimoBooking::STATUS_COMPLETED);
     }
 
     public function cancelBooking(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->transition(LimoBooking::STATUS_CANCELLED);
     }
 
@@ -222,6 +241,7 @@ final class BookingForm extends Component
 
     public function createInvoice(): void
     {
+        $this->guardAccess(Permission::Write);
         if ($this->id === null) {
             return;
         }
@@ -238,6 +258,7 @@ final class BookingForm extends Component
 
     public function markPaid(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->withBooking(function (LimoBooking $b): void {
             $b->payment_status = LimoBooking::PAYMENT_PAID;
             $b->save();
@@ -246,6 +267,7 @@ final class BookingForm extends Component
 
     public function markUnpaid(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->withBooking(function (LimoBooking $b): void {
             $b->payment_status = LimoBooking::PAYMENT_UNPAID;
             $b->save();

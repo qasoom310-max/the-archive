@@ -47,10 +47,22 @@ final class EmployeePayroll extends Component
 
     public string $absType = 'absent';
 
-    public function mount(int $id): void
+    /**
+     * Payroll and company expenses are admin-only. Re-checked on EVERY action:
+     * mount() runs once and Livewire then dispatches straight to methods, so a
+     * mount-only gate leaves a page that is already open fully usable by someone
+     * who has since been demoted.
+     */
+    private function guardAdmin(): void
     {
         $user = Auth::user();
+
         abort_unless($user instanceof User && $user->isAdmin(), 403);
+    }
+
+    public function mount(int $id): void
+    {
+        $this->guardAdmin();
 
         $this->id = $id;
         Employee::query()->findOrFail($id);
@@ -64,6 +76,7 @@ final class EmployeePayroll extends Component
 
     public function addOvertime(): void
     {
+        $this->guardAdmin();
         $this->validate([
             'otDate' => ['required', 'date'],
             'otStart' => ['required', 'date_format:H:i'],
@@ -83,11 +96,13 @@ final class EmployeePayroll extends Component
 
     public function removeOvertime(int $overtimeId): void
     {
+        $this->guardAdmin();
         EmployeeOvertime::query()->where('id', $overtimeId)->where('employee_id', $this->id)->delete();
     }
 
     public function addAbsence(): void
     {
+        $this->guardAdmin();
         $this->validate([
             'absDate' => ['required', 'date'],
             'absType' => ['required', 'in:absent,sick'],
@@ -103,11 +118,13 @@ final class EmployeePayroll extends Component
 
     public function removeAbsence(int $absenceId): void
     {
+        $this->guardAdmin();
         EmployeeAbsence::query()->where('id', $absenceId)->where('employee_id', $this->id)->delete();
     }
 
     public function markPaid(): void
     {
+        $this->guardAdmin();
         $employee = Employee::query()->find($this->id);
         if ($employee === null) {
             return;
@@ -141,6 +158,7 @@ final class EmployeePayroll extends Component
 
     public function unmarkPaid(): void
     {
+        $this->guardAdmin();
         $employee = Employee::query()->find($this->id);
         Payslip::query()->where('employee_id', $this->id)->where('period', $this->month)->delete();
 

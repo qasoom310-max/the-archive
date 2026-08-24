@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Security\Permission;
+use App\Livewire\Concerns\GuardsModelAccess;
 use App\Erp\Activity\ActivityLogger;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Rental\Models\RentalReplacement;
@@ -18,6 +21,15 @@ use Modules\Rental\Models\Vehicle;
 #[Title('Car')]
 final class VehicleForm extends Component
 {
+    use GuardsModelAccess;
+
+    protected function accessModelKey(): string
+    {
+        return 'rental.vehicle';
+    }
+
+    /** The record being edited — server-set only; the browser must not repoint it. */
+    #[Locked]
     public ?int $id = null;
 
     /** Inline monthly-target editor value (BHD). */
@@ -35,6 +47,7 @@ final class VehicleForm extends Component
 
     public function mount(?int $id = null): void
     {
+        $this->guardAccess(Permission::Read);
         $this->id = $id;
 
         if ($id !== null) {
@@ -55,6 +68,7 @@ final class VehicleForm extends Component
      */
     public function saveCost(): void
     {
+        $this->guardAccess(Permission::Write);
         $user = Auth::user();
         abort_unless($user instanceof User && ($user->isAccountant() || $user->canApproveMaintenance()), 403);
 
@@ -87,6 +101,7 @@ final class VehicleForm extends Component
     /** Set / clear this car's monthly sales target. Manager-gated. */
     public function saveTarget(): void
     {
+        $this->guardAccess(Permission::Write);
         $user = Auth::user();
         abort_unless($user instanceof User && $user->canApproveMaintenance(), 403);
 
@@ -116,6 +131,7 @@ final class VehicleForm extends Component
      */
     public function returnToService(): void
     {
+        $this->guardAccess(Permission::Write);
         $user = Auth::user();
         abort_unless($user instanceof User && $user->canApproveMaintenance(), 403);
 

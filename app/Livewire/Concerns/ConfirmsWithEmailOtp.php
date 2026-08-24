@@ -51,7 +51,14 @@ trait ConfirmsWithEmailOtp
             return true;
         }
 
-        $gate->challenge($user, $action);
+        if (! $gate->challenge($user, $action)) {
+            // Too many codes requested for this action — refuse rather than
+            // opening a prompt that can never be satisfied.
+            $this->addError('otpCode', __('Too many codes requested. Please try again later.'));
+            $this->otpOpen = false;
+
+            return false;
+        }
 
         $this->otpAction = $action;
         $this->otpArgs = $args;

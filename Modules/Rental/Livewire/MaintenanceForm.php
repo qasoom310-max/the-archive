@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Security\Permission;
+use App\Livewire\Concerns\GuardsModelAccess;
 use App\Erp\Activity\ActivityLogger;
 use App\Models\User;
 use Closure;
@@ -11,6 +13,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Rental\Models\RentalMaintenance;
@@ -24,6 +27,15 @@ use Modules\Rental\Models\Vehicle;
 #[Title('Maintenance')]
 final class MaintenanceForm extends Component
 {
+    use GuardsModelAccess;
+
+    protected function accessModelKey(): string
+    {
+        return 'rental.maintenance';
+    }
+
+    /** The record being edited — server-set only; the browser must not repoint it. */
+    #[Locked]
     public ?int $id = null;
 
     public ?int $vehicle_id = null;
@@ -48,6 +60,7 @@ final class MaintenanceForm extends Component
 
     public function mount(?int $id = null): void
     {
+        $this->guardAccess(Permission::Read);
         if ($id !== null) {
             $record = RentalMaintenance::query()->find($id);
             if ($record !== null) {
@@ -102,6 +115,7 @@ final class MaintenanceForm extends Component
      */
     public function save(): void
     {
+        $this->guardSave($this->id === null);
         $this->validate();
 
         $record = $this->id !== null ? RentalMaintenance::query()->find($this->id) : new RentalMaintenance();
@@ -159,6 +173,7 @@ final class MaintenanceForm extends Component
     /** Pending → Approved. Manager authorises the work / spend. */
     public function approveMaintenance(): void
     {
+        $this->guardAccess(Permission::Write);
         abort_unless($this->canApprove(), 403);
 
         $user = Auth::user();
@@ -176,6 +191,7 @@ final class MaintenanceForm extends Component
     /** Pending → Declined. Manager refuses the work. */
     public function declineMaintenance(): void
     {
+        $this->guardAccess(Permission::Write);
         abort_unless($this->canApprove(), 403);
 
         $user = Auth::user();
@@ -193,6 +209,7 @@ final class MaintenanceForm extends Component
     /** Approved → In progress. Blocked unless the car is free at the branch. */
     public function startMaintenance(): void
     {
+        $this->guardAccess(Permission::Write);
         if ($this->id === null) {
             return;
         }
@@ -219,6 +236,7 @@ final class MaintenanceForm extends Component
     /** In progress → Done. Frees the car back to Available. */
     public function completeMaintenance(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->withRecord(function (RentalMaintenance $r): void {
             $r->complete();
             app(ActivityLogger::class)->logFor($r, 'completed');
@@ -229,6 +247,7 @@ final class MaintenanceForm extends Component
     /** Pending / Approved → Cancelled. */
     public function cancelMaintenance(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->withRecord(function (RentalMaintenance $r): void {
             $r->cancelRecord();
             app(ActivityLogger::class)->logFor($r, 'cancelled');

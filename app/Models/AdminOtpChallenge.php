@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $user_id
  * @property string $action
  * @property string $code_hash
+ * @property int $attempts
  * @property \Illuminate\Support\Carbon $expires_at
  */
 final class AdminOtpChallenge extends Model
@@ -22,7 +23,7 @@ final class AdminOtpChallenge extends Model
     protected $table = 'admin_otp_challenges';
 
     /** @var list<string> */
-    protected $fillable = ['user_id', 'action', 'code_hash', 'expires_at'];
+    protected $fillable = ['user_id', 'action', 'code_hash', 'attempts', 'expires_at'];
 
     /**
      * @return array<string, string>
@@ -30,6 +31,7 @@ final class AdminOtpChallenge extends Model
     protected function casts(): array
     {
         return [
+            'attempts' => 'integer',
             'expires_at' => 'datetime',
         ];
     }

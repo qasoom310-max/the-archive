@@ -29,6 +29,10 @@ final class RentalPaymentConfirmationTest extends TestCase
     {
         parent::setUp();
         app(ModuleManager::class)->install('rental');
+
+        // Bespoke rental screens are ACL-gated; these tests are about the role
+        // rules on top of that, so put the user where a granted staff account is.
+        $this->grantEveryone('rental.order');
     }
 
     /** A fully-paid order: 5 days × 10 = 50 + 10% VAT = 55, advance 55. */

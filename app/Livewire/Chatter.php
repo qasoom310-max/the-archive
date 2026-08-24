@@ -6,6 +6,9 @@ namespace App\Livewire;
 
 use App\Erp\Chatter\ActivityBucket;
 use App\Erp\Chatter\Chatterable;
+use App\Erp\Contracts\DefinesIrModel;
+use App\Erp\Security\AccessControl;
+use App\Erp\Security\Permission;
 use App\Models\Mail\MailActivity;
 use App\Models\Mail\MailActivityType;
 use App\Models\User;
@@ -14,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
@@ -23,8 +27,10 @@ use Livewire\Component;
 final class Chatter extends Component
 {
     /** @var class-string<Model&Chatterable> */
+    #[Locked]
     public string $modelClass;
 
+    #[Locked]
     public int $modelId;
 
     public string $tab = 'log';
@@ -50,9 +56,47 @@ final class Chatter extends Component
         $this->activityDue = now()->toDateString();
     }
 
+    /**
+     * The `ir_model` key of the record this panel is attached to, e.g.
+     * `pos.order`. Null for a model outside the registry (a demo/support model
+     * with no ACL of its own) — those fall back to the record's own gate.
+     */
+    private function modelKey(): ?string
+    {
+        if (! is_subclass_of($this->modelClass, DefinesIrModel::class)) {
+            return null;
+        }
+
+        return $this->modelClass::irModelDefinition()->model;
+    }
+
+    /**
+     * The Chatter IS the audit trail, so it takes the same permissions as the
+     * record it hangs off: you must be able to READ the record to see its
+     * history, and to WRITE it to post a note or schedule an activity.
+     *
+     * Without this the panel had no check at all while its target came
+     * straight off the browser — so any logged-in user could read the notes and
+     * history of records they have no access to, and post forged entries into
+     * them. `modelClass` / `modelId` are `#[Locked]` too, so the target can
+     * only be set server-side by the page that embeds the panel.
+     */
+    private function guard(Permission $permission): void
+    {
+        $key = $this->modelKey();
+
+        if ($key === null) {
+            return;
+        }
+
+        app(AccessControl::class)->authorize(Auth::user(), $key, $permission);
+    }
+
     #[Computed]
     public function record(): Model&Chatterable
     {
+        $this->guard(Permission::Read);
+
         $record = $this->modelClass::query()->findOrFail($this->modelId);
         assert($record instanceof Chatterable);
 
@@ -61,6 +105,7 @@ final class Chatter extends Component
 
     public function postEntry(): void
     {
+        $this->guard(Permission::Write);
         $this->validate(['body' => ['required', 'string', 'min:1']]);
 
         $author = $this->currentUserName();
@@ -75,6 +120,7 @@ final class Chatter extends Component
 
     public function scheduleActivity(): void
     {
+        $this->guard(Permission::Write);
         $this->validate([
             'activityTypeId' => ['required', 'integer', 'exists:mail_activity_types,id'],
             'activitySummary' => ['required', 'string', 'max:255'],
@@ -96,6 +142,7 @@ final class Chatter extends Component
 
     public function completeActivity(int $activityId): void
     {
+        $this->guard(Permission::Write);
         $activity = $this->record()->activities()
             ->whereKey($activityId)
             ->first();

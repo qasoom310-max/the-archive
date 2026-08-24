@@ -29,6 +29,10 @@ final class RentalTrafficFinesTest extends TestCase
     {
         parent::setUp();
         app(ModuleManager::class)->install('rental');
+
+        // Bespoke rental screens are ACL-gated; these tests are about the role
+        // rules on top of that, so put the user where a granted staff account is.
+        $this->grantEveryone('rental.order');
     }
 
     private function heldOrder(int $returnedDaysAgo = 2, float $deposit = 50): RentalOrder

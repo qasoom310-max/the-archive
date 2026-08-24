@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Security\Permission;
+use App\Livewire\Concerns\GuardsModelAccess;
 use App\Erp\Activity\ActivityLogger;
 use App\Erp\Settings\Setting;
 use App\Models\User;
@@ -17,6 +19,7 @@ use Illuminate\Validation\ValidationException;
 use Modules\Rental\Mail\RentalAgreementMail;
 use Modules\Rental\Services\RentalAgreementPdf;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Rental\Models\Branch;
@@ -36,6 +39,15 @@ use Modules\Rental\Models\Vehicle;
 #[Title('Order')]
 final class OrderForm extends Component
 {
+    use GuardsModelAccess;
+
+    protected function accessModelKey(): string
+    {
+        return 'rental.order';
+    }
+
+    /** The record being edited — server-set only; the browser must not repoint it. */
+    #[Locked]
     public ?int $id = null;
 
     public string $order_date = '';
@@ -178,6 +190,7 @@ final class OrderForm extends Component
 
     public function mount(?int $id = null): void
     {
+        $this->guardAccess(Permission::Read);
         if ($id !== null) {
             $order = RentalOrder::query()->find($id);
             if ($order !== null) {
@@ -332,6 +345,7 @@ final class OrderForm extends Component
 
     public function save(): void
     {
+        $this->guardSave($this->id === null);
         // A closed order is locked: only a super-admin may edit it after the
         // fact. (The UI also hides the Save button + disables the fields, but
         // this is the authoritative server-side guard.)
@@ -454,6 +468,7 @@ final class OrderForm extends Component
     /** Persist a shared customer and select it on the order. */
     public function saveCustomer(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->validate([
             'newCustomer.name' => ['required', 'string', 'max:255'],
             'newCustomer.phone' => ['nullable', 'string', 'max:50'],
@@ -493,6 +508,7 @@ final class OrderForm extends Component
     /** Start rental → open the handover capture modal (pre-fill the KM). */
     public function startRental(): void
     {
+        $this->guardAccess(Permission::Write);
         if ($this->id === null) {
             return;
         }
@@ -517,6 +533,7 @@ final class OrderForm extends Component
     /** Record the handover details, then hand the car over (draft → active). */
     public function confirmHandover(): void
     {
+        $this->guardAccess(Permission::Write);
         if ($this->id === null) {
             return;
         }
@@ -602,6 +619,7 @@ final class OrderForm extends Component
      */
     public function recordFines(): void
     {
+        $this->guardAccess(Permission::Write);
         abort_unless(Auth::check(), 403);
 
         if ($this->id === null) {
@@ -635,6 +653,7 @@ final class OrderForm extends Component
     /** Record the return details, then receive the car back (active → closed). */
     public function confirmReturn(): void
     {
+        $this->guardAccess(Permission::Write);
         if ($this->id === null) {
             return;
         }
@@ -685,6 +704,7 @@ final class OrderForm extends Component
 
     public function cancelOrder(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->withOrder(function (RentalOrder $o): void {
             $o->cancelOrder();
             app(ActivityLogger::class)->logFor($o, 'cancelled');
@@ -694,6 +714,7 @@ final class OrderForm extends Component
     /** Raise an invoice from this order and jump to it. */
     public function createInvoice(): void
     {
+        $this->guardAccess(Permission::Write);
         if ($this->id === null) {
             return;
         }
@@ -712,6 +733,7 @@ final class OrderForm extends Component
     /** Email the self-contained agreement PDF to the customer on file. */
     public function emailAgreement(): void
     {
+        $this->guardAccess(Permission::Write);
         if ($this->id === null) {
             return;
         }
@@ -755,6 +777,7 @@ final class OrderForm extends Component
     /** Accountant / super-admin confirms a fully-paid order's payment. */
     public function confirmPayment(): void
     {
+        $this->guardAccess(Permission::Write);
         abort_unless($this->canConfirmPayments(), 403);
 
         $user = Auth::user();
@@ -771,6 +794,7 @@ final class OrderForm extends Component
     /** Revoke a payment confirmation (same gate). */
     public function unconfirmPayment(): void
     {
+        $this->guardAccess(Permission::Write);
         abort_unless($this->canConfirmPayments(), 403);
 
         $this->withOrder(function (RentalOrder $o): void {
@@ -789,6 +813,7 @@ final class OrderForm extends Component
     /** Open the deposit-settlement modal (accountant / super-admin only). */
     public function settleDeposit(): void
     {
+        $this->guardAccess(Permission::Write);
         abort_unless($this->canConfirmPayments(), 403);
 
         // The deposit is held for 14 days — only a super-admin may settle early.
@@ -815,6 +840,7 @@ final class OrderForm extends Component
     /** Direct-upload callback: append an uploaded evidence-photo path. */
     public function addDepositPhoto(string $path): void
     {
+        $this->guardAccess(Permission::Write);
         if ($path !== '' && count($this->depositPhotoPaths) < 10) {
             $this->depositPhotoPaths[] = $path;
         }
@@ -823,6 +849,7 @@ final class OrderForm extends Component
     /** Record the deposit outcome — refund / deduct part / forfeit — with reason + photos. */
     public function confirmDeposit(): void
     {
+        $this->guardAccess(Permission::Write);
         abort_unless($this->canConfirmPayments(), 403);
 
         $user = Auth::user();

@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire;
 
+use App\Erp\Security\Permission;
+use App\Livewire\Concerns\GuardsModelAccess;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Limousine\Livewire\Concerns\HandlesTripLegs;
@@ -22,8 +25,17 @@ use Modules\Limousine\Models\LimoQuotation;
 #[Title('Quotation')]
 final class QuotationForm extends Component
 {
+    use GuardsModelAccess;
+
+    protected function accessModelKey(): string
+    {
+        return 'limousine.quotation';
+    }
+
     use HandlesTripLegs;
 
+    /** The record being edited — server-set only; the browser must not repoint it. */
+    #[Locked]
     public ?int $id = null;
 
     public string $reference = '';
@@ -56,6 +68,7 @@ final class QuotationForm extends Component
 
     public function mount(?int $id = null): void
     {
+        $this->guardAccess(Permission::Read);
         if ($id !== null) {
             $quote = LimoQuotation::query()->with('legs')->find($id);
             if ($quote !== null) {
@@ -102,6 +115,7 @@ final class QuotationForm extends Component
 
     public function save(): void
     {
+        $this->guardSave($this->id === null);
         $this->validate();
 
         $quote = $this->id !== null ? LimoQuotation::query()->find($this->id) : new LimoQuotation();
@@ -152,6 +166,7 @@ final class QuotationForm extends Component
 
     public function saveCustomer(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->validate([
             'newCustomer.name' => ['required', 'string', 'max:255'],
             'newCustomer.phone' => ['required', 'string', 'max:50'],
@@ -172,16 +187,19 @@ final class QuotationForm extends Component
 
     public function markSent(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->setStatus(LimoQuotation::STATUS_SENT);
     }
 
     public function markAccepted(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->setStatus(LimoQuotation::STATUS_ACCEPTED);
     }
 
     public function markDeclined(): void
     {
+        $this->guardAccess(Permission::Write);
         $this->setStatus(LimoQuotation::STATUS_DECLINED);
     }
 
@@ -195,6 +213,7 @@ final class QuotationForm extends Component
 
     public function convert(): void
     {
+        $this->guardAccess(Permission::Write);
         if ($this->id === null) {
             return;
         }

@@ -226,4 +226,37 @@ final class SuperAdminTest extends TestCase
         $component->set('otpCode', (string) $code)->call('submitOtp')->assertSet('otpOpen', false);
         $this->assertSame('New name', $ws->fresh()?->name);
     }
+
+    public function test_the_admin_code_cannot_be_guessed_indefinitely(): void
+    {
+        // The 6-digit code guards user + database deletion, so it is only ever
+        // reached by someone who already holds an admin session — exactly the
+        // case it exists to stop. Unlimited guesses made it decoration.
+        $admin = User::factory()->create(['is_admin' => true, 'is_super_admin' => false]);
+        $gate = app(\App\Erp\Security\TwoFactorGate::class);
+
+        $this->assertTrue($gate->challenge($admin, 'user.delete'));
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->assertFalse($gate->verify($admin, 'user.delete', '000000'));
+        }
+
+        // The challenge is gone, so even the right code no longer works —
+        // a new (rate-limited) one has to be requested.
+        $this->assertSame(0, \App\Models\AdminOtpChallenge::query()->count());
+    }
+
+    public function test_fresh_codes_are_rate_limited(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true, 'is_super_admin' => false]);
+        $gate = app(\App\Erp\Security\TwoFactorGate::class);
+
+        for ($i = 0; $i < 6; $i++) {
+            $this->assertTrue($gate->challenge($admin, 'user.delete'), "code {$i} should be issued");
+        }
+
+        $this->assertFalse($gate->challenge($admin, 'user.delete'), 'the 7th request must be refused');
+        // A different action is unaffected.
+        $this->assertTrue($gate->challenge($admin, 'workspace.delete'));
+    }
 }

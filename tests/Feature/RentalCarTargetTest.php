@@ -28,6 +28,10 @@ final class RentalCarTargetTest extends TestCase
         parent::setUp();
         $this->actingAs(User::factory()->create(['is_admin' => true]));
         app(ModuleManager::class)->install('rental');
+
+        // Bespoke rental screens are ACL-gated; these tests are about the role
+        // rules on top of that, so put the user where a granted staff account is.
+        $this->grantEveryone('rental.vehicle');
     }
 
     private function orderFor(Vehicle $car, float $total, Carbon $start, string $state = RentalOrder::STATE_CLOSED): RentalOrder

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Security\Permission;
+use App\Livewire\Concerns\GuardsModelAccess;
 use App\Erp\Activity\ActivityLogger;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
@@ -11,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Rental\Models\RentalOrder;
@@ -27,6 +30,15 @@ use Modules\Rental\Models\Vehicle;
 #[Title('Car replacement')]
 final class ReplacementForm extends Component
 {
+    use GuardsModelAccess;
+
+    protected function accessModelKey(): string
+    {
+        return 'rental.replacement';
+    }
+
+    /** The record being edited — server-set only; the browser must not repoint it. */
+    #[Locked]
     public ?int $id = null;
 
     public ?int $order_id = null;
@@ -66,6 +78,7 @@ final class ReplacementForm extends Component
 
     public function mount(?int $id = null, ?int $order = null): void
     {
+        $this->guardAccess(Permission::Read);
         if ($id !== null) {
             $this->loadExisting($id);
 
@@ -157,6 +170,7 @@ final class ReplacementForm extends Component
 
     public function save(): void
     {
+        $this->guardSave($this->id === null);
         if ($this->id !== null || $this->blocked) {
             return; // existing replacements are read-only; the swap already happened
         }
@@ -232,6 +246,7 @@ final class ReplacementForm extends Component
 
     public function close(): void
     {
+        $this->guardAccess(Permission::Write);
         if ($this->id === null) {
             return;
         }

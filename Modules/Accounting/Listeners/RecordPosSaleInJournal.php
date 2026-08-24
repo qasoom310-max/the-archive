@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Accounting\Listeners;
 
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use Modules\Accounting\Models\Account;
 use Modules\Accounting\Services\JournalPoster;
 use Modules\Pos\Events\PosOrderPaid;
@@ -15,8 +16,8 @@ use Throwable;
  * Auto-posting: every paid POS order books
  *
  *     Dr  Cash               total
- *         Cr  Sales income            subtotal
  *         Cr  Sales tax payable*      tax_total   (only when configured)
+ *         Cr  Sales income            total - tax
  *
  * *Tax is posted only when an `accounting.accounts.sales_tax_payable`
  * mapping exists; otherwise the tax amount is folded into sales income
@@ -40,6 +41,12 @@ final class RecordPosSaleInJournal
         try {
             $this->record($order);
         } catch (Throwable $e) {
+            // Also to the application log: a note on one order is easy to miss,
+            // and a silently unposted sale drifts the books with no warning.
+            Log::error('POS sale not posted to the journal', [
+                'order' => $order->reference,
+                'error' => $e->getMessage(),
+            ]);
             $order->logChange("Accounting entry skipped: {$e->getMessage()}");
         }
     }
@@ -74,7 +81,6 @@ final class RecordPosSaleInJournal
         }
 
         $total = round((float) $order->total, 2);
-        $subtotal = round((float) $order->subtotal, 2);
         $tax = round((float) $order->tax_total, 2);
 
         if ($total <= 0.0) {
@@ -95,17 +101,31 @@ final class RecordPosSaleInJournal
         $taxAccount = $taxAccountCode !== '' ? Account::byCode($taxAccountCode) : null;
 
         if ($tax > 0.0 && $taxAccount !== null) {
-            // Split: net to sales, tax to payable. The sum (subtotal+tax)
-            // equals total, keeping the entry balanced without juggling.
-            $lines[] = [
-                'account_id' => (int) $sales->id,
-                'credit' => $subtotal,
-                'partner_id' => $order->partner_id,
-                'memo' => "POS sale {$order->reference}",
-            ];
+            // Split: tax to the payable, the REST to sales.
+            //
+            // The credit side must add up to what was actually collected, and
+            // `subtotal` + `tax` is the list price — it ignores the customer
+            // discount, the prepaid credit drawn, and any delivery charge. Any
+            // one of those made the entry unbalanced, so JournalPoster refused
+            // it and the sale posted NOTHING (the error was only ever written
+            // to the order's notes). Deriving sales income from the total keeps
+            // the tax figure honest and the entry always balanced: a discount
+            // simply reduces recognised revenue, which is what it is.
+            $taxLeg = min($tax, $total);
+            $salesLeg = round($total - $taxLeg, 2);
+
+            if ($salesLeg > 0.0) {
+                $lines[] = [
+                    'account_id' => (int) $sales->id,
+                    'credit' => $salesLeg,
+                    'partner_id' => $order->partner_id,
+                    'memo' => "POS sale {$order->reference}",
+                ];
+            }
+
             $lines[] = [
                 'account_id' => (int) $taxAccount->id,
-                'credit' => $tax,
+                'credit' => $taxLeg,
                 'partner_id' => $order->partner_id,
                 'memo' => "Sales tax on {$order->reference}",
             ];

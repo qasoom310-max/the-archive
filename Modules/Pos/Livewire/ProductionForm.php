@@ -11,6 +11,7 @@ use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -424,59 +425,73 @@ final class ProductionForm extends Component
         // New run, or a reopened DRAFT being re-recorded. A draft's stock was
         // already reversed when it was reopened, so we only ever APPLY here —
         // never reverse (that would double-count).
-        $production = $this->id !== null
-            ? PosProduction::query()->with('lines.ingredient', 'product')->find($this->id)
-            : new PosProduction();
-        if ($production === null) {
+        //
+        // The run, its lines and the stock it moves are ONE operation. Without
+        // that, a failure part-way through left a run marked complete with only
+        // some of its materials taken — and nothing said so.
+        $saved = DB::transaction(function () use ($ingredients, $produced, $bottle, $totalMix, $totalCost): ?array {
+            $production = $this->id !== null
+                ? PosProduction::query()->with('lines.ingredient', 'product')->find($this->id)
+                : new PosProduction();
+            if ($production === null) {
+                return null;
+            }
+
+            $wasReopened = $production->exists;
+            $production->pos_product_id = $this->product_id;
+            $production->bottle_size_ml = $bottle;
+            $production->total_mix_ml = $totalMix;
+            $production->expected_units = PosProduction::expectedUnits($totalMix, $bottle);
+            $production->produced_units = $produced;
+            $production->total_cost = round($totalCost, 3);
+            $production->unit_cost = $produced > 0 ? round($totalCost / $produced, 4) : 0;
+            $production->state = PosProduction::STATE_DONE;
+            $production->reversed_at = null;
+            $production->reversed_by_user_id = null;
+            $production->notes = trim($this->notes) !== '' ? trim($this->notes) : null;
+            if (! $production->exists) {
+                $production->pos_session_id = app(PosSessionManager::class)->getActiveSession()?->id;
+                $production->produced_by_user_id = Auth::id();
+            }
+            $production->save();
+
+            $production->lines()->delete();
+            foreach ($this->lines as $line) {
+                $ing = $ingredients->get((int) $line['ingredient_id']);
+                $production->lines()->create([
+                    'pos_ingredient_id' => (int) $line['ingredient_id'],
+                    'kind' => PosProductionLine::KIND_LIQUID,
+                    'ml_used' => (float) $line['ml_used'],
+                    'unit_cost' => $ing?->costPerMl() ?? 0, // cost per ML
+                ]);
+            }
+            foreach ($this->packaging as $line) {
+                $id = (int) ($line['ingredient_id'] ?? 0);
+                $qty = (float) ($line['qty'] ?? 0);
+                if ($id <= 0 || $qty <= 0) {
+                    continue;
+                }
+                $ing = $ingredients->get($id);
+                $production->lines()->create([
+                    'pos_ingredient_id' => $id,
+                    'kind' => PosProductionLine::KIND_PACKAGING,
+                    'ml_used' => 0,
+                    'qty_per_unit' => $qty,
+                    'unit_cost' => (float) $ing->cost_price, // cost per unit
+                ]);
+            }
+
+            $production->load('lines.ingredient', 'product');
+            $production->applyStock();
+
+            return [$production, $wasReopened];
+        });
+
+        if ($saved === null) {
             return;
         }
 
-        $wasReopened = $production->exists;
-        $production->pos_product_id = $this->product_id;
-        $production->bottle_size_ml = $bottle;
-        $production->total_mix_ml = $totalMix;
-        $production->expected_units = PosProduction::expectedUnits($totalMix, $bottle);
-        $production->produced_units = $produced;
-        $production->total_cost = round($totalCost, 3);
-        $production->unit_cost = $produced > 0 ? round($totalCost / $produced, 4) : 0;
-        $production->state = PosProduction::STATE_DONE;
-        $production->reversed_at = null;
-        $production->reversed_by_user_id = null;
-        $production->notes = trim($this->notes) !== '' ? trim($this->notes) : null;
-        if (! $production->exists) {
-            $production->pos_session_id = app(PosSessionManager::class)->getActiveSession()?->id;
-            $production->produced_by_user_id = Auth::id();
-        }
-        $production->save();
-
-        $production->lines()->delete();
-        foreach ($this->lines as $line) {
-            $ing = $ingredients->get((int) $line['ingredient_id']);
-            $production->lines()->create([
-                'pos_ingredient_id' => (int) $line['ingredient_id'],
-                'kind' => PosProductionLine::KIND_LIQUID,
-                'ml_used' => (float) $line['ml_used'],
-                'unit_cost' => $ing?->costPerMl() ?? 0, // cost per ML
-            ]);
-        }
-        foreach ($this->packaging as $line) {
-            $id = (int) ($line['ingredient_id'] ?? 0);
-            $qty = (float) ($line['qty'] ?? 0);
-            if ($id <= 0 || $qty <= 0) {
-                continue;
-            }
-            $ing = $ingredients->get($id);
-            $production->lines()->create([
-                'pos_ingredient_id' => $id,
-                'kind' => PosProductionLine::KIND_PACKAGING,
-                'ml_used' => 0,
-                'qty_per_unit' => $qty,
-                'unit_cost' => (float) $ing->cost_price, // cost per unit
-            ]);
-        }
-
-        $production->load('lines.ingredient', 'product');
-        $production->applyStock();
+        [$production, $wasReopened] = $saved;
 
         if ($wasReopened) {
             app(ActivityLogger::class)->log('production_reopened', $production->reference, __('Re-recorded after reopening.'));

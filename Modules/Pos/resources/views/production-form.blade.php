@@ -224,7 +224,7 @@
 
         @if ($editable)
             {{-- New run, or a reopened draft being re-recorded. --}}
-            <button wire:click="save" class="o-btn-primary mt-5 w-full justify-center py-2.5">
+            <button wire:click="save" wire:loading.attr="disabled" wire:target="save" class="o-btn-primary mt-5 w-full justify-center py-2.5 disabled:opacity-60">
                 <span wire:loading.remove wire:target="save">{{ $isEditing ? __('Re-record production → store') : __('Record production → store') }}</span>
                 <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
             </button>

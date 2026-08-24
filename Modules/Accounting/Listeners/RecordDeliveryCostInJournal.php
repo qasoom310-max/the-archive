@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Accounting\Listeners;
 
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Modules\Accounting\Models\Account;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Accounting\Services\JournalPoster;
@@ -39,7 +40,6 @@ final class RecordDeliveryCostInJournal
             }
 
             $reference = "DEL/{$order->reference}";
-            $this->clear($reference);
 
             $expense = Account::byCode((string) config('accounting.accounts.operating_expense'));
             $cash = Account::byCode((string) config('accounting.accounts.cash'));
@@ -63,16 +63,25 @@ final class RecordDeliveryCostInJournal
             }
 
             $memo = "Delivery cost {$order->reference}";
-            $entry = $this->poster->record(
-                date: Carbon::parse($order->ordered_at ?? Carbon::now()),
-                lines: [
-                    ['account_id' => (int) $expense->id, 'debit' => $fee, 'partner_id' => $order->partner_id, 'memo' => $memo],
-                    ['account_id' => (int) $cash->id, 'credit' => $fee, 'partner_id' => $order->partner_id, 'memo' => $memo],
-                ],
-                reference: $reference,
-                narration: $memo,
-                prefix: (string) config('accounting.sequences.expense', 'EXP'),
-            );
+
+            // Replacing the previous entry deletes a POSTED one, so the delete
+            // and the rewrite have to be a single operation — outside a
+            // transaction a rewrite that stopped part-way left the books
+            // permanently short an entry and silently moved the Trial Balance.
+            $entry = DB::transaction(function () use ($order, $expense, $cash, $fee, $reference, $memo): JournalEntry {
+                $this->clear($reference);
+
+                return $this->poster->record(
+                    date: Carbon::parse($order->ordered_at ?? Carbon::now()),
+                    lines: [
+                        ['account_id' => (int) $expense->id, 'debit' => $fee, 'partner_id' => $order->partner_id, 'memo' => $memo],
+                        ['account_id' => (int) $cash->id, 'credit' => $fee, 'partner_id' => $order->partner_id, 'memo' => $memo],
+                    ],
+                    reference: $reference,
+                    narration: $memo,
+                    prefix: (string) config('accounting.sequences.expense', 'EXP'),
+                );
+            });
 
             $order->logChange("Accounting: delivery cost posted {$entry->number} ({$fee}).");
         } catch (Throwable $e) {

@@ -1092,4 +1092,37 @@ final class PosProductionTest extends TestCase
         // Every later keystroke in the same request is a no-op.
         $this->assertSame(0, $sync->refreshOncePerRequest());
     }
+
+    public function test_reversing_returns_exactly_what_the_run_took_after_a_pack_size_correction(): void
+    {
+        // The reversal used to recompute quantities from the material's CURRENT
+        // pack size. Correct "Each unit is" between the run and the reversal and
+        // it handed back a different amount than it took — the difference gone.
+        $this->enableProduction();
+        $oil = PosIngredient::query()->create([
+            'name' => 'Oil', 'unit' => 'l', 'pack_size' => 1, 'stock_on_hand' => 10, 'cost_price' => 2,
+        ]);
+        $perfume = PosProduct::query()->create(['name' => 'Perfume X', 'price' => 20, 'bottle_size_ml' => 50]);
+
+        Livewire::test(ProductionForm::class)
+            ->set('product_id', $perfume->id)
+            ->set('lines.0.ingredient_id', $oil->id)
+            ->set('lines.0.ml_used', 2000)     // 2 litres of a 1000 ml unit = 2 units
+            ->set('produced_units', 10)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertEqualsWithDelta(8.0, (float) $oil->fresh()->stock_on_hand, 0.001);
+
+        // Someone corrects the pack size afterwards (it is 500 ml a bottle).
+        $oil->refresh();
+        $oil->pack_size = 0.5;
+        $oil->save();
+
+        $run = PosProduction::query()->latest('id')->firstOrFail();
+        $run->reverse(null);
+
+        // Exactly the 2 units taken come back — not the 4 the new pack size implies.
+        $this->assertEqualsWithDelta(10.0, (float) $oil->fresh()->stock_on_hand, 0.001);
+    }
 }

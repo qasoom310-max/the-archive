@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Accounting\Listeners;
 
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Modules\Accounting\Models\Account;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Accounting\Services\JournalPoster;
@@ -53,7 +54,6 @@ final class RecordSettlementInJournal
             }
 
             $reference = "STL/{$settlement->reference}";
-            $this->clear($reference);
 
             $bank = Account::byCode((string) config('accounting.accounts.bank'));
             $transitCode = (string) config('accounting.accounts.money_in_transit', '');
@@ -80,13 +80,21 @@ final class RecordSettlementInJournal
                     : ['account_id' => (int) $expense->id, 'credit' => abs($gap), 'memo' => "Overpayment on {$settlement->reference}"];
             }
 
-            $this->poster->record(
-                date: Carbon::parse($settlement->received_at ?? Carbon::now()),
-                lines: $lines,
-                reference: $reference,
-                narration: $memo,
-                prefix: (string) config('accounting.sequences.misc', 'MISC'),
-            );
+            // Replacing the previous entry deletes a POSTED one, so the delete
+            // and the rewrite have to be a single operation. Outside a
+            // transaction a rewrite that stopped part-way left the books
+            // permanently short an entry, and the Trial Balance silently moved.
+            DB::transaction(function () use ($settlement, $lines, $reference, $memo): void {
+                $this->clear($reference);
+
+                $this->poster->record(
+                    date: Carbon::parse($settlement->received_at ?? Carbon::now()),
+                    lines: $lines,
+                    reference: $reference,
+                    narration: $memo,
+                    prefix: (string) config('accounting.sequences.misc', 'MISC'),
+                );
+            });
         } catch (Throwable) {
             // Never break recording the money because the books hiccuped; the
             // settlement itself is already saved.

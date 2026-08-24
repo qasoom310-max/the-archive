@@ -182,17 +182,21 @@ final class PosProduction extends Model
             if ($ingredient === null) {
                 continue;
             }
-            if ($line->kind === PosProductionLine::KIND_PACKAGING) {
-                // Per-bottle component: qty × bottles produced.
-                $ingredient->applyStockDelta(
-                    -((float) ($line->qty_per_unit ?? 0) * $this->produced_units),
-                    IngredientMoveKind::Production,
-                    $this->moveReference(),
-                );
-            } else {
-                // converts ML → stock units
-                $ingredient->deductMl((float) $line->ml_used, IngredientMoveKind::Production, $this->moveReference());
-            }
+            // Work out the stock units this line takes, then RECORD it on the
+            // line. A reversal returns exactly this figure instead of deriving
+            // it again from the material's pack size — which, if someone
+            // corrected "Each unit is" in between, gave back a different amount
+            // than was taken and lost the difference for good.
+            $qty = $line->kind === PosProductionLine::KIND_PACKAGING
+                ? (float) ($line->qty_per_unit ?? 0) * $this->produced_units
+                : (float) $line->ml_used / $ingredient->mlPerUnit();
+
+            $qty = round($qty, 3);
+
+            $ingredient->applyStockDelta(-$qty, IngredientMoveKind::Production, $this->moveReference());
+
+            $line->stock_qty = $qty;
+            $line->save();
         }
 
         $product = $this->product;
@@ -219,20 +223,28 @@ final class PosProduction extends Model
             }
             // Reversal is recorded as a Production move too, just positive: the
             // history should show the run being undone, not silently rewind.
-            if ($line->kind === PosProductionLine::KIND_PACKAGING) {
-                $ingredient->applyStockDelta(
-                    (float) ($line->qty_per_unit ?? 0) * $this->produced_units,
-                    IngredientMoveKind::Production,
-                    $this->moveReference() . ' (reversed)',
-                );
+            //
+            // Give back exactly what was TAKEN (recorded on the line when the
+            // run was applied). Recomputing it used the material's CURRENT pack
+            // size, so a corrected "Each unit is" between the run and the
+            // reversal returned the wrong amount and lost the difference.
+            // Lines recorded before that figure existed fall back to the old maths.
+            $recorded = $line->stock_qty;
+
+            if ($recorded !== null) {
+                $qty = (float) $recorded;
+            } elseif ($line->kind === PosProductionLine::KIND_PACKAGING) {
+                $qty = (float) ($line->qty_per_unit ?? 0) * $this->produced_units;
             } else {
                 $per = $ingredient->mlPerUnit();
-                $ingredient->applyStockDelta(
-                    $per > 0 ? (float) $line->ml_used / $per : (float) $line->ml_used,
-                    IngredientMoveKind::Production,
-                    $this->moveReference() . ' (reversed)',
-                );
+                $qty = $per > 0 ? (float) $line->ml_used / $per : (float) $line->ml_used;
             }
+
+            $ingredient->applyStockDelta(
+                round($qty, 3),
+                IngredientMoveKind::Production,
+                $this->moveReference() . ' (reversed)',
+            );
         }
 
         $product = $this->product;

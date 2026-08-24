@@ -38,6 +38,11 @@ final class DatabaseBackup
     private const EXCLUDED = [
         'migrations', 'sessions', 'cache', 'cache_locks',
         'jobs', 'job_batches', 'failed_jobs', 'password_reset_tokens',
+        // The tenancy registry points at real SQLite FILES on disk. Rolling it
+        // back would make databases created since the snapshot unreachable, and
+        // bring deleted ones back pointing at files that are gone. It describes
+        // the estate, not this database's business data.
+        'workspaces',
     ];
 
     private function disk(): \Illuminate\Contracts\Filesystem\Filesystem

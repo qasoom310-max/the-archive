@@ -574,6 +574,11 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
                     // envelope, which is fine until Arabic translations land
                     // (then we'll widen to per-locale json_extract paths).
                     'searchable' => ['name', 'barcode'],
+                    // Relations the row cells read. The "Category" and
+                    // "Available servings" columns are accessors, so without
+                    // this each one queried per row — around a hundred lookups
+                    // on a 20-row page, on every sort and every keystroke.
+                    'eager' => ['category', 'recipeLines.component', 'recipeLines.condiment', 'recipeLines.ingredient'],
                     // Category chip row above the table — one chip per
                     // PosCategory row, ordered by sequence then alphabetic
                     // by the localised name. Tap a chip → list scopes to

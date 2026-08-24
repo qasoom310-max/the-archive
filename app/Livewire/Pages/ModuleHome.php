@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Pages;
 
+use App\Erp\Business\Features;
 use App\Erp\Enums\ModuleState;
 use App\Erp\Navigation\ModuleMenu;
 use App\Models\Ir\IrModule;
@@ -28,6 +29,11 @@ final class ModuleHome extends Component
             ->exists();
 
         abort_unless($exists, 404);
+
+        // Every menu respects the database's business type; this generic
+        // landing page didn't, so typing the address opened Rent A Car inside
+        // a perfume shop. An app the business type hides does not exist here.
+        abort_unless(Features::moduleAllowed($module), 404);
 
         $this->moduleName = $module;
     }

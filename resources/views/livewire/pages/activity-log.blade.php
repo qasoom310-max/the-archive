@@ -67,7 +67,7 @@
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-chrome-900/50 p-4" wire:key="restore-modal">
             <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
                 <h2 class="text-lg font-semibold text-chrome-900">{{ __('Restore this backup?') }}</h2>
-                <p class="mt-2 text-sm text-chrome-600">{{ __('This rewrites the entire database to :name. Everything since then is lost. Enter your password to confirm.', ['name' => basename($restorePath)]) }}</p>
+                <p class="mt-2 text-sm text-chrome-600">{{ __('This rewrites the entire database to :name. Everything since then is lost — including staff accounts, passwords and roles changed since. Your list of databases is left alone. Enter your password to confirm.', ['name' => basename($restorePath)]) }}</p>
                 <div class="mt-4">
                     <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Your password') }}</label>
                     <input type="password" wire:model="restorePassword" wire:keydown.enter="restore" class="o-input w-full" autocomplete="current-password">

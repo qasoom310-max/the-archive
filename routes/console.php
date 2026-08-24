@@ -63,12 +63,16 @@ Schedule::call(function (): void {
 // (The register stops applying it the moment it expires regardless — see
 // `PosCustomerDiscount::findForPhone()` — so a missed cron tick is harmless.)
 // Guarded so it no-ops when the POS module isn't installed.
+// Runs against EVERY database (Main + each workspace) — a second database's
+// lapsed discounts otherwise kept showing as active for ever.
 Schedule::call(function (): void {
-    if (! \Illuminate\Support\Facades\Schema::hasTable('pos_customer_discounts')) {
-        return;
-    }
+    \App\Erp\Tenancy\EachDatabase::run(static function (): void {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('pos_customer_discounts')) {
+            return;
+        }
 
-    \Modules\Pos\Models\PosCustomerDiscount::deactivateLapsed();
+        \Modules\Pos\Models\PosCustomerDiscount::deactivateLapsed();
+    });
 })->daily()->name('expire-customer-discounts')->withoutOverlapping();
 
 // Automated daily sales + stock PDF report. The cafe trades noon → 6 AM, so
@@ -90,17 +94,19 @@ try {
     // Settings unavailable (e.g. pre-migration) — fall back to app timezone.
 }
 
+// Sent for EVERY database (Main + each workspace), each with its own
+// recipients, its own trading window and its own timezone — a second database
+// never received its report at all. The schedule's own timezone is still Main's
+// (one fixed fire time); each database's window maths uses its own setting.
 Schedule::call(function (): void {
-    if (! \Illuminate\Support\Facades\Schema::hasTable('pos_orders')
-        || ! \Illuminate\Support\Facades\Schema::hasTable('report_recipients')) {
-        return;
-    }
+    \App\Erp\Tenancy\EachDatabase::run(static function (): void {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('pos_orders')
+            || ! \Illuminate\Support\Facades\Schema::hasTable('report_recipients')) {
+            return;
+        }
 
-    try {
         app(\Modules\Pos\Services\DailyReport::class)->sendLastClosedReport();
-    } catch (\Throwable $e) {
-        \Illuminate\Support\Facades\Log::error('Daily report send failed: ' . $e->getMessage());
-    }
+    });
 })->dailyAt('06:10')->timezone($reportTimezone)->name('daily-pos-report')->withoutOverlapping();
 
 // Daily: permanently purge trashed (soft-deleted) workspaces whose 14-day

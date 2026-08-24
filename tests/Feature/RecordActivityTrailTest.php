@@ -28,6 +28,10 @@ final class RecordActivityTrailTest extends TestCase
     {
         parent::setUp();
         app(ModuleManager::class)->install('rental');
+
+        // The rental screens are ACL-gated; this test is about the ACTIVITY TRAIL,
+        // so put its accountant where a granted staff account would be.
+        $this->grantEveryone('rental.order');
     }
 
     private function newOrder(User $actor): RentalOrder

@@ -32,6 +32,9 @@ use Modules\WooCommerce\Models\WooCommerceProductLink;
  */
 final class WooCommerceService
 {
+    /** Seconds the manual "sync all" may spend before handing the rest back. */
+    private const SYNC_ALL_BUDGET_SECONDS = 20.0;
+
     public function __construct(private readonly Dispatcher $bus)
     {
     }
@@ -78,19 +81,33 @@ final class WooCommerceService
      * Synchronously push every active product to the store, in the CURRENT
      * database context. Returns a tally for immediate UI feedback.
      *
-     * @return array{synced: int, failed: int, error: ?string}
+     * @return array{synced: int, failed: int, remaining: int, error: ?string}
      */
     public function syncAllActiveNow(): array
     {
         if (! WooCommerceConfiguration::current()->isConfigured()) {
-            return ['synced' => 0, 'failed' => 0, 'error' => null];
+            return ['synced' => 0, 'failed' => 0, 'remaining' => 0, 'error' => null];
         }
 
         $synced = 0;
         $failed = 0;
+        $remaining = 0;
         $error = null;
 
-        foreach (PosProduct::query()->where('active', true)->get() as $product) {
+        // The store can take seconds per product, so a big catalogue ran past
+        // the web server's timeout and died mid-way with nothing recorded.
+        // Work to a time budget instead and report what is left, so the admin
+        // presses the button again and picks up where it stopped (products
+        // already pushed are cheap updates).
+        $deadline = microtime(true) + self::SYNC_ALL_BUDGET_SECONDS;
+
+        foreach (PosProduct::query()->where('active', true)->cursor() as $product) {
+            if (microtime(true) >= $deadline) {
+                $remaining++;
+
+                continue;
+            }
+
             $result = $this->pushNow((int) $product->id, 'sync');
 
             if ($result['ok']) {
@@ -101,7 +118,7 @@ final class WooCommerceService
             }
         }
 
-        return ['synced' => $synced, 'failed' => $failed, 'error' => $error];
+        return ['synced' => $synced, 'failed' => $failed, 'remaining' => $remaining, 'error' => $error];
     }
 
     /**
@@ -138,6 +155,19 @@ final class WooCommerceService
 
         $payload = $this->buildPayload($product, $config);
 
+        // A create whose reply never arrived (slow store, timeout) still made
+        // the product ON the store — retrying would make it a second and third
+        // time. Look for the existing listing first and adopt it, so a retry
+        // updates rather than duplicates.
+        if ($link->woo_id === null) {
+            $existing = $this->findRemoteId($product, $config);
+
+            if ($existing !== null) {
+                $link->woo_id = $existing;
+                $link->save();
+            }
+        }
+
         $response = $link->woo_id !== null
             ? $this->client($config)->put($config->apiBase() . '/products/' . $link->woo_id, $payload)
             : $this->client($config)->post($config->apiBase() . '/products', $payload);
@@ -150,6 +180,60 @@ final class WooCommerceService
         }
 
         return $this->finish($link, $response, 'synced');
+    }
+
+    /**
+     * Find this product's existing listing on the store, so a retried create
+     * adopts it instead of duplicating. Matched on SKU (WooCommerce keeps those
+     * unique) and, failing that, on an exact name. Best effort — any problem
+     * returns null and the caller creates as before.
+     */
+    private function findRemoteId(PosProduct $product, WooCommerceConfiguration $config): ?int
+    {
+        try {
+            $sku = trim((string) ($product->barcode ?? ''));
+
+            if ($sku !== '') {
+                $response = $this->client($config)->get($config->apiBase() . '/products', ['sku' => $sku]);
+                $id = $response->successful() ? $response->json('0.id') : null;
+
+                return is_int($id) ? $id : null;
+            }
+
+            $name = $product->getTranslation('name', 'en');
+            if ($name === '') {
+                $name = (string) $product->name;
+            }
+            if ($name === '') {
+                return null;
+            }
+
+            $response = $this->client($config)->get($config->apiBase() . '/products', [
+                'search' => $name,
+                'per_page' => 20,
+            ]);
+
+            if (! $response->successful()) {
+                return null;
+            }
+
+            /** @var array<int, array<string, mixed>> $rows */
+            $rows = $response->json() ?? [];
+
+            foreach ($rows as $row) {
+                if (is_array($row)
+                    && is_string($row['name'] ?? null)
+                    && mb_strtolower($row['name']) === mb_strtolower($name)
+                    && is_int($row['id'] ?? null)
+                ) {
+                    return $row['id'];
+                }
+            }
+
+            return null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

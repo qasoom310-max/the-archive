@@ -148,4 +148,24 @@ final class DatabaseBackupTest extends TestCase
 
         Livewire::test(ActivityLog::class)->assertForbidden();
     }
+
+    public function test_restoring_does_not_roll_back_the_list_of_databases(): void
+    {
+        // The workspaces table points at real SQLite files. Rewinding it made a
+        // database created since the snapshot unreachable, and brought deleted
+        // ones back pointing at files that no longer exist.
+        $backup = app(\App\Erp\Backup\DatabaseBackup::class);
+        $path = $backup->snapshot();
+
+        \App\Models\Workspace::query()->create([
+            'name' => 'Added later', 'slug' => 'added-later', 'database' => 'later.sqlite',
+        ]);
+
+        $backup->restore($path);
+
+        $this->assertNotNull(
+            \App\Models\Workspace::query()->where('slug', 'added-later')->first(),
+            'a database created after the snapshot must survive a restore',
+        );
+    }
 }

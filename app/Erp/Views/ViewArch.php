@@ -29,6 +29,7 @@ final readonly class ViewArch
      * @param ?string                                        $customDateField  column the "Custom…" range filters on
      * @param list<string>                                   $searchable   list-view free-text search fields
      * @param list<DynamicFilterDef>                         $dynamicFilters list-view filter chips loaded from another model
+     * @param list<string>                                   $eager        relations to eager-load when listing (N+1 guard)
      */
     private function __construct(
         public array $columns,
@@ -45,6 +46,7 @@ final readonly class ViewArch
         public ?string $customDateField,
         public array $searchable,
         public array $dynamicFilters,
+        public array $eager,
     ) {}
 
     /**
@@ -67,6 +69,7 @@ final readonly class ViewArch
             customDateField: self::str($arch, 'custom_date_field'),
             searchable: self::parseSearchable($arch),
             dynamicFilters: self::parseDynamicFilters($arch),
+            eager: self::parseStringList($arch, 'eager'),
         );
     }
 
@@ -140,7 +143,19 @@ final readonly class ViewArch
      */
     private static function parseSearchable(array $arch): array
     {
-        $raw = $arch['searchable'] ?? [];
+        return self::parseStringList($arch, 'searchable');
+    }
+
+    /**
+     * A plain list-of-strings arch key. Non-string entries are dropped
+     * silently so a typo in arch can't crash the view.
+     *
+     * @param array<string, mixed> $arch
+     * @return list<string>
+     */
+    private static function parseStringList(array $arch, string $key): array
+    {
+        $raw = $arch[$key] ?? [];
 
         if (! is_array($raw)) {
             return [];

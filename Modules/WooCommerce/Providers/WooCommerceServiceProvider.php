@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\WooCommerce\Providers;
 
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Modules\Pos\Events\PosOrderPaid;
@@ -66,17 +67,29 @@ final class WooCommerceServiceProvider extends ServiceProvider
         });
 
         Event::listen(PosOrderPaid::class, function (PosOrderPaid $event): void {
-            if (! $this->storeReady()) {
-                return;
-            }
-
-            $service = $this->app->make(WooCommerceService::class);
-
-            foreach ($event->order->lines as $line) {
-                $product = PosProduct::query()->find($line->pos_product_id);
-                if ($product !== null && $product->active) {
-                    $service->syncProduct($product);
+            // Never let the online store break a completed sale. Every other
+            // checkout listener swallows its own errors for this reason; this
+            // one didn't, so a database missing its WooCommerce tables showed
+            // the cashier an error screen AFTER the money was taken, and no
+            // receipt went out.
+            try {
+                if (! $this->storeReady()) {
+                    return;
                 }
+
+                $service = $this->app->make(WooCommerceService::class);
+
+                foreach ($event->order->lines as $line) {
+                    $product = PosProduct::query()->find($line->pos_product_id);
+                    if ($product !== null && $product->active) {
+                        $service->syncProduct($product);
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::error('WooCommerce stock push skipped after a sale', [
+                    'order' => $event->order->reference,
+                    'error' => $e->getMessage(),
+                ]);
             }
         });
     }

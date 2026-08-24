@@ -380,6 +380,14 @@ final class ListView extends Component
     {
         $query = $this->model::query();
 
+        // Relations the row cells read (a category name, a recipe's components).
+        // Without this each accessor queried per row — a 20-row page of products
+        // ran around a hundred lookups, repeated on every sort click and every
+        // keystroke in the search box.
+        if ($this->arch->eager !== []) {
+            $query->with($this->arch->eager);
+        }
+
         $this->applyFilter($query);
         $this->applyDynamicFilters($query);
         $this->applySearch($query);

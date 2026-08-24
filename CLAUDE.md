@@ -478,6 +478,143 @@ Test: `PosKitchenRoutingTest::test_the_kitchen_screen_requires_pos_session_acces
 NOTE: the three existing "non-admin is blocked" production tests now assert
 `->assertForbidden()` on the **mount**, not on the action — the gate fires earlier.
 
+**Audit follow-up — high & medium findings closed (2026-08-24).** A full-codebase
+review produced a ranked list; the critical two shipped first (above), then these.
+Each has a regression test that fails without the fix.
+
+*Money & stock*
+
+- **Purchase confirm counted warehouse stock twice.** `raisePosStock()` fires
+  `PosProduct::saved` → the POS→Inventory quant mirror, and `receiveIntoWarehouse()`
+  then applied the SAME quantity again (4 on hand + a 10-unit bill showed 24, not 14).
+  New `PosInventoryBridge::withoutQuantSync(Closure)` suppresses **only** the mirror
+  (the WooCommerce push and every other `saved` listener still fire); `PurchaseConfirmer`
+  wraps the product leg in it. **Rule: code that posts its own stock move for a
+  quantity must not also let the generic mirror apply it.** Test:
+  `PurchaseConfirmTest::test_confirming_a_purchase_does_not_count_the_warehouse_stock_twice`
+  (registers `PosServiceProvider` so the hook is live — without that the bug is invisible).
+- **Prepaid credit could be spent twice.** `consumeCustomerCredit()` reconciled
+  `credit_applied` down to what `drawCredit()` actually gave but left `total` computed
+  against the PREVIEWED credit — so if another terminal emptied the wallet first, the
+  goods left for free. It now `recalculate()`s (the frozen `credit_consumed` figure is
+  used) and logs the re-pricing to Chatter; `finalizeSale()`/`confirmUnpaid()` draw the
+  wallet **before** `markPaid()` so `paid_total`/`change_due` see the final total.
+- **Splitting a credit-paid order invented revenue.** The new order carried no credit,
+  re-priced at full price and came out unpaid. `PosOrderSplitter::apportionCredit()`
+  shares the consumed credit across both orders by the goods each holds and marks both
+  `credit_consumed` (neither draws the wallet again). Done-splits only; a draft split
+  still previews live and is reconciled at checkout by the fix above.
+- **A stale terminal tab could rewrite a PAID order.** Every mutating `PosTerminal`
+  action goes through `editableOrder()`, which throws a `ValidationException`
+  ("This order is already closed") unless the order is Draft; the read paths (`mount`,
+  `render`, receipt) keep using `order()`. `$sessionId` / `$orderId` / `$tableId` /
+  `$receiptOrderId` are `#[Locked]`.
+- **A discounted sale stopped reaching the books.** With `sales_tax_payable` mapped,
+  `RecordPosSaleInJournal` credited `subtotal + tax` (list price) while debiting the
+  total — so any discount / prepaid credit / delivery charge unbalanced the entry,
+  `JournalPoster` refused it and the sale posted NOTHING (the error went only to the
+  order's notes). Sales income is now `total − tax`, so it always balances, and a
+  failure is `Log::error`'d as well. Test: `tests/Feature/PosSaleJournalTest.php` (3).
+- **Two accounting listeners deleted a POSTED entry outside a transaction**
+  (`RecordSettlementInJournal`, `RecordDeliveryCostInJournal`) — a rewrite that stopped
+  part-way lost the entry for good. Both wrap clear + record in one `DB::transaction`.
+- **Money in Transit (1150) existed only in `ChartOfAccountsSeeder`**, which no deploy
+  runs, so affected databases silently skipped the delivery postings. Data migration
+  `2026_08_24_400010_add_missing_core_accounts` inserts it (and its parents) **only if
+  absent** — an existing account, renames and all, is left untouched.
+
+*Production*
+
+- **Reversing recomputed quantities from the CURRENT pack size.** Correct "Each unit
+  is" between the run and the reversal and it handed back a different amount than it
+  took, losing the difference. `pos_production_lines.stock_qty` (migration
+  `2026_08_24_700070`) records what `applyStock()` actually deducted and `reverseStock()`
+  returns exactly that; lines from before the column fall back to the old maths.
+- **Recording a run was not atomic** and the button stayed live while saving. The run,
+  its lines and its stock are one `DB::transaction` now, and the Record button carries
+  `wire:loading.attr="disabled"`.
+
+*Access control (see also the two sections above)*
+
+- **Rental + Limousine bespoke screens had NO permission check** — 12 hand-written
+  forms (orders, quotations, invoices, receipts, bookings, maintenance, replacements,
+  car costs) that manage records themselves instead of embedding the engine's
+  list/form. New shared trait **`App\Livewire\Concerns\GuardsModelAccess`**
+  (`accessModelKey()` + `guardAccess()` / `mayAccess()` / `guardSave(bool $isNew)`):
+  Read to open, Write to act, Create for a new record. Their `$id` is `#[Locked]`.
+  **Any new bespoke module screen must use this trait** — an engine-free screen is
+  otherwise protected by nothing but `auth`. Test: `tests/Feature/RentalAccessControlTest.php`.
+  New helper `Tests\TestCase::grantEveryone(...$models)` for tests whose subject is a
+  ROLE rule (accountant / manager) rather than the ACL itself.
+- **Payroll / employee / monthly-profit screens** checked admin only in `mount()`;
+  every action re-checks via a shared `guardAdmin()`.
+- **The Chatter panel had no check at all** and its target came off the browser, so any
+  logged-in user could read the history of records they cannot access and post forged
+  notes into them. It now takes the same permissions as the record it hangs off
+  (Read to view, Write to post) via the model's `irModelDefinition()->model` key, and
+  `$modelClass` / `$modelId` are `#[Locked]`. A model outside the registry has no key
+  and falls through as before.
+- **The admin email OTP could be guessed indefinitely.** `admin_otp_challenges.attempts`
+  (migration `2026_08_24_100001`): five wrong codes destroy the challenge, and
+  `TwoFactorGate::challenge()` is rate-limited to 6 fresh codes per (user, action) per
+  hour — it now returns `bool`, and `ConfirmsWithEmailOtp` refuses to open a prompt it
+  cannot satisfy.
+
+*Performance & multi-database*
+
+- **Editing a material cost re-priced the whole catalogue on every keystroke** (the
+  ethanol-cost 504). Two fixes: `PosProduct::{beginCostBatch,endCostBatch}` memoise
+  `productionCost()` for the pass (an offer reads its perfume components' costs, and the
+  same perfume backs several offers), and `ProductionCostSync::refreshOncePerRequest()`
+  coalesces the per-save trigger to one run per request (the flag lives in the
+  **container**, so it is naturally per-request and per-test). The manual "Recompute
+  costs" button still calls `refreshAll()` directly.
+- **List views eager-load what their cells read.** New arch key **`'eager' => [...]`**
+  (parsed by `ViewArch`, applied in `ListView::buildQuery()`). `PosProduct` declares
+  `category` + `recipeLines.*` — its "Category" and "Available servings" columns are
+  accessors, so a 20-row page ran ~68 queries and repeated it on every sort click and
+  every keystroke. **Declare `eager` whenever a list column reads through a relation.**
+  Test: `tests/Feature/ListViewEagerLoadTest.php`.
+- **WhatsApp sends from a tenant used MAIN's credentials** and stamped an unrelated
+  message log, because the queue is pinned to Main. `SendWhatsAppMessage` now carries
+  `workspaceId` and re-activates it — via the new shared
+  **`WorkspaceManager::runFor(?int $workspaceId, Closure)`** (WooCommerce solved this
+  its own way first). **Any new queued job touching per-database data must use it.**
+- **Daily jobs only ever ran against Main** — a second database never got its 6 AM
+  report and its lapsed discounts stayed "active". New
+  **`App\Erp\Tenancy\EachDatabase::run(Closure)`** (Main + each workspace; one failure
+  never stops the rest) now wraps `expire-customer-discounts` and `daily-pos-report`
+  in `routes/console.php`.
+- **A workspace ran on Main's timezone.** The timezone is read at boot, before the ERP
+  knows which database it serves. Extracted to `App\Erp\Settings\CompanyTimezone`
+  (`apply()` / `current()` / `restore()`), re-applied by `WorkspaceManager::activate()`
+  and inside `withTenant()` (restored afterwards). Test:
+  `tests/Feature/ScheduledTenantTasksTest.php` (3).
+- **A restore rolled back the list of databases.** `workspaces` is now in
+  `DatabaseBackup::EXCLUDED` — it points at real SQLite FILES, so rewinding it made
+  databases created since unreachable and brought deleted ones back pointing at
+  nothing. The confirm dialog now also says staff accounts, passwords and roles are
+  rolled back (they still are — that is what restoring a database means).
+- **WooCommerce:** a create whose reply was lost duplicated the product on retry —
+  `findRemoteId()` adopts an existing listing by SKU (then exact name) before POSTing.
+  "Sync all" works to a 20-second budget and reports `remaining` so the admin presses
+  again instead of dying past the web server's timeout. The `PosOrderPaid` push is
+  wrapped in try/catch — unlike every other checkout listener it could show the cashier
+  an error screen AFTER the money was taken.
+- **`ModuleHome` ignored the business type**, so typing `/app/rental` opened Rent A Car
+  in a perfume shop. Now `abort_unless(Features::moduleAllowed($module), 404)` — the
+  same gate every menu uses.
+- **`deploy.yml`** gained the missing `migrate --path=` steps for **Contacts** and
+  **Project**, and `module:resync` for **contacts / purchases / inventory** (resync is a
+  silent no-op when a module is not installed).
+
+**Still open from that audit** (not done): Rental/Limousine revenue never reaches the
+general ledger (may be deliberate); ~48 missing `lang/ar.json` keys; a few screens using
+`number_format()` on money instead of `Currencies::format()`; the printed rental
+agreement showing 3 decimals; RTL mirroring on some import/transfer screens; the profile
+email-change link not resolving inside a workspace; and bulk remote-order collection
+rendering a receipt image per order in one request.
+
 **Phase 7 — Point of Sale module (`Modules/Pos/`, depends on `contacts`):**
 
 | Concern | Location |

@@ -140,6 +140,17 @@ final class WooCommerceSettings extends Component
             return;
         }
 
+        if ($result['remaining'] > 0) {
+            // The run works to a time budget so it can't die half-way past the
+            // web server's timeout. Whatever is left is picked up on the next press.
+            $this->syncMessage = __(':count products synced. :remaining still to go — press Sync again to continue.', [
+                'count' => $result['synced'],
+                'remaining' => $result['remaining'],
+            ]);
+
+            return;
+        }
+
         $this->syncMessage = __(':count products synced to the store.', ['count' => $result['synced']]);
     }
 

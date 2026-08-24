@@ -353,4 +353,28 @@ final class WooCommerceModuleTest extends TestCase
 
         Bus::assertDispatched(SyncProductToWooCommerce::class);
     }
+
+    public function test_a_retried_create_adopts_the_existing_listing_instead_of_duplicating(): void
+    {
+        // If the store is slow and the reply is lost, the product WAS created —
+        // the ERP just never learned its id. Retrying used to create it again.
+        $this->install();
+        $this->configure();
+        $product = $this->product();
+
+        Http::fake([
+            // The SKU lookup finds the listing the lost reply belonged to.
+            '*/wp-json/wc/v3/products?sku=OUD-001' => Http::response([['id' => 888, 'sku' => 'OUD-001']], 200),
+            '*/wp-json/wc/v3/products/888' => Http::response(['id' => 888], 200),
+            '*/wp-json/wc/v3/products' => Http::response(['id' => 999], 201),
+        ]);
+
+        (new SyncProductToWooCommerce((int) $product->id))->handle(app(WooCommerceService::class));
+
+        $link = WooCommerceProductLink::query()->where('pos_product_id', $product->id)->firstOrFail();
+        $this->assertSame(888, $link->woo_id, 'the existing listing should be adopted');
+
+        Http::assertNotSent(fn ($request): bool => $request->method() === 'POST'
+            && str_ends_with($request->url(), '/wp-json/wc/v3/products'));
+    }
 }

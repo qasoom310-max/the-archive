@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Erp\Tenancy;
 
 use App\Erp\Modules\ModuleManager;
+use App\Erp\Settings\CompanyTimezone;
 use App\Models\User;
 use App\Models\Workspace;
 use Closure;
@@ -174,6 +175,12 @@ final class WorkspaceManager
         DB::purge('tenant');
         config(['database.default' => 'tenant']);
         DB::setDefaultConnection('tenant');
+
+        // The timezone was applied at boot against MAIN's settings. Re-read it
+        // now that this workspace's own settings are the ones in scope —
+        // otherwise a tenant on a different timezone silently uses Main's and
+        // its sales land on the wrong day.
+        CompanyTimezone::apply();
     }
 
     /**
@@ -193,11 +200,16 @@ final class WorkspaceManager
     {
         $previous = DB::getDefaultConnection();
         $previousPath = config('database.connections.tenant.database');
+        $previousTimezone = CompanyTimezone::current();
 
         config(['database.connections.tenant.database' => $path]);
         DB::purge('tenant');
         config(['database.default' => 'tenant']);
         DB::setDefaultConnection('tenant');
+
+        // Run against the target database's own timezone (a scheduled job or a
+        // queued push otherwise dates its work in Main's).
+        CompanyTimezone::apply();
 
         try {
             return $callback();
@@ -208,6 +220,7 @@ final class WorkspaceManager
             ]);
             DB::setDefaultConnection($previous);
             DB::purge('tenant');
+            CompanyTimezone::restore($previousTimezone);
         }
     }
 

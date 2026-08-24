@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire;
 
+use App\Erp\Security\Permission;
+use App\Livewire\Concerns\GuardsModelAccess;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -16,10 +18,21 @@ use Modules\Limousine\Models\LimoInvoice;
 #[Title('Invoices')]
 final class Invoices extends Component
 {
+    use GuardsModelAccess;
     use WithPagination;
 
     #[Url]
     public string $tab = 'all';
+
+    protected function accessModelKey(): string
+    {
+        return 'limousine.invoice';
+    }
+
+    public function mount(): void
+    {
+        $this->guardAccess(Permission::Read);
+    }
 
     public function updatedTab(): void
     {

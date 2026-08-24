@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Security\Permission;
+use App\Livewire\Concerns\GuardsModelAccess;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\Layout;
@@ -26,9 +28,16 @@ use Modules\Rental\Support\SalesReport;
 #[Title('Reports')]
 final class Reports extends Component
 {
+    use GuardsModelAccess;
+
     /** summary | orders | vehicles | customers | targets */
     #[Url]
     public string $tab = 'summary';
+
+    protected function accessModelKey(): string
+    {
+        return 'rental.order';
+    }
 
     #[Url]
     public string $from = '';
@@ -46,6 +55,8 @@ final class Reports extends Component
 
     public function mount(): void
     {
+        $this->guardAccess(Permission::Read);
+
         if ($this->from === '') {
             $this->from = now()->startOfMonth()->format('Y-m-d');
         }

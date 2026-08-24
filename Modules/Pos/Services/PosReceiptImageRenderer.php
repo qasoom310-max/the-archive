@@ -9,6 +9,7 @@ use App\Erp\Settings\Setting;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Imagick;
 use Modules\Pos\Models\PosOrder;
 use RuntimeException;
@@ -193,11 +194,21 @@ class PosReceiptImageRenderer
      * filenames on most filesystems. Replace with `-` and strip
      * everything else outside ASCII alphanumerics / dash / underscore
      * so a custom reference format can never break the storage write.
+     *
+     * A random token is appended so the public URL cannot be ENUMERATED.
+     * The receipt PNG lives on the public disk (Meta must be able to fetch
+     * it unauthenticated), and without the token the path was fully
+     * predictable — `POS-{session}-{seq}-{id}.png` over small sequential
+     * integers — letting anyone harvest every customer's phone number and
+     * order details by guessing URLs. The filename is never re-derived
+     * (the only caller hands the returned URL straight to WhatsApp), so a
+     * one-shot random suffix needs nothing persisted; a re-render simply
+     * writes a fresh file and the 7-day prune reaps the orphan.
      */
     private function safeFilename(PosOrder $order): string
     {
         $base = preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) $order->reference);
 
-        return ($base ?: 'order') . '-' . $order->id;
+        return ($base ?: 'order') . '-' . $order->id . '-' . Str::random(32);
     }
 }

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Modules\Limousine\Livewire;
 
 use App\Erp\Navigation\ModuleMenu;
+use App\Erp\Security\Permission;
+use App\Livewire\Concerns\GuardsModelAccess;
 use App\Models\Ir\IrModule;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
@@ -21,6 +23,18 @@ use Modules\Limousine\Models\LimoBooking;
 #[Title('Limousine')]
 final class LimoHome extends Component
 {
+    use GuardsModelAccess;
+
+    protected function accessModelKey(): string
+    {
+        return 'limousine.booking';
+    }
+
+    public function mount(): void
+    {
+        $this->guardAccess(Permission::Read);
+    }
+
     public function render(): View
     {
         $today = now()->toDateString();

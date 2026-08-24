@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Security\Permission;
+use App\Livewire\Concerns\GuardsModelAccess;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
@@ -22,14 +24,23 @@ use Modules\Rental\Support\SalesReport;
 #[Title('Sales')]
 final class Sales extends Component
 {
+    use GuardsModelAccess;
+
     /** @var array<int, string> */
     public const MONTHS = SalesReport::MONTHS;
 
     #[Url]
     public int $year = 0;
 
+    protected function accessModelKey(): string
+    {
+        return 'rental.order';
+    }
+
     public function mount(): void
     {
+        $this->guardAccess(Permission::Read);
+
         if ($this->year === 0) {
             $this->year = (int) Carbon::now()->year;
         }

@@ -653,6 +653,44 @@ Limousine ledger question, which is a business decision, not a defect.
 ledger. POS sales and purchases do. That may be intended — decide it as a business
 question before building it.
 
+**Second security pass — two gaps the first audit missed (closed 2026-08-24).** A
+full-codebase run by the `security-auditor` subagent (`.claude/agents/security-auditor.md`)
+found the earlier audit's fixes all intact but surfaced two it hadn't reached:
+
+- **Rental & Limousine index / report / home screens had NO permission check.** The
+  2026-08-24 audit added `GuardsModelAccess` to the *forms* and gated the engine-list
+  screens (Customers/Vehicles), but the bespoke *list / report / dashboard* components
+  render business data straight from `render()` and were protected by nothing but `auth`
+  — so any logged-in low-privilege account (a POS cashier, a view-only staff account
+  granted only Contacts) could browse to `/app/rental/order`, `/app/rental/reports`,
+  `/app/rental/sales`, `/app/rental`, `/app/limousine/booking`, `/app/limousine/reports`,
+  `/app/limousine` etc. and read every customer's PII, all orders/invoices/receipts, and
+  the revenue/target reports. **Fix:** the same `GuardsModelAccess` trait now gates
+  `mount()` (Read) on all 15 screens — Rental `Orders`/`Invoices`/`Receipts`/`Quotations`/
+  `MaintenanceRecords`/`Replacements`/`Reports`/`Sales`/`RentalHome` and Limousine
+  `Bookings`/`Invoices`/`Receipts`/`Quotations`/`Reports`/`LimoHome` — keyed to each
+  screen's model (`rental.order`/`.invoice`/`.receipt`/`.quotation`/`.maintenance`/
+  `.replacement`, `limousine.booking`/`.invoice`/`.receipt`/`.quotation`; the reports/
+  home/sales screens use the module's primary model key). **Rule reaffirmed: every
+  bespoke module screen — list AND form AND report AND home — uses `GuardsModelAccess`;
+  an engine-free screen is otherwise protected by nothing but `auth`.** Test:
+  `tests/Feature/RentalAccessControlTest.php` (data-provider over all 15 screens: a
+  non-granted staff account is forbidden, a granted one gets 200).
+- **POS receipt PNGs sat at enumerable public URLs.** `PosReceiptImageRenderer` writes
+  each paid order's receipt PNG to the **public** disk (Meta must fetch it unauthenticated)
+  under `whatsapp-receipts/{sanitised-ref}-{id}.png` — a fully predictable name over small
+  sequential integers, so an unauthenticated attacker could enumerate URLs and harvest
+  every customer's phone number, name and order details inside the 7-day retention window.
+  **Fix:** `safeFilename()` now appends `Str::random(32)` after the id. The filename is
+  never re-derived (the only caller — `SendPosOrderReceiptViaWhatsApp` — hands the returned
+  URL straight to WhatsApp; the print controller uses HTML view-data, the prune task scans
+  the directory), so no token needs persisting and no migration is required; a re-render
+  just writes a fresh file and the daily prune reaps the orphan. Test:
+  `tests/Feature/PosReceiptFilenameTest.php` (unit — recognisable prefix kept, random
+  suffix present, two renders differ). **Rule: anything written to the public disk that
+  embeds customer data must carry an unguessable filename** (a random token), not just a
+  sequential id.
+
 **Phase 7 — Point of Sale module (`Modules/Pos/`, depends on `contacts`):**
 
 | Concern | Location |

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire;
 
+use App\Erp\Security\Permission;
+use App\Livewire\Concerns\GuardsModelAccess;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -22,9 +24,16 @@ use Modules\Limousine\Models\LimoReceipt;
 #[Title('Reports')]
 final class Reports extends Component
 {
+    use GuardsModelAccess;
+
     /** summary | bookings | customers */
     #[Url]
     public string $tab = 'summary';
+
+    protected function accessModelKey(): string
+    {
+        return 'limousine.booking';
+    }
 
     #[Url]
     public string $from = '';
@@ -34,6 +43,8 @@ final class Reports extends Component
 
     public function mount(): void
     {
+        $this->guardAccess(Permission::Read);
+
         if ($this->from === '') {
             $this->from = now()->startOfMonth()->format('Y-m-d');
         }

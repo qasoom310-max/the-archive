@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Security\Permission;
+use App\Livewire\Concerns\GuardsModelAccess;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Layout;
@@ -21,11 +23,22 @@ use Modules\Rental\Models\RentalOrder;
 #[Title('Orders')]
 final class Orders extends Component
 {
+    use GuardsModelAccess;
     use WithPagination;
 
     /** all | draft | active | closed | cancelled */
     #[Url]
     public string $tab = 'all';
+
+    protected function accessModelKey(): string
+    {
+        return 'rental.order';
+    }
+
+    public function mount(): void
+    {
+        $this->guardAccess(Permission::Read);
+    }
 
     #[Url]
     public string $from = '';

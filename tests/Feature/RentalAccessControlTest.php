@@ -9,9 +9,16 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
+use Modules\Limousine\Livewire\Bookings as LimoBookings;
 use Modules\Limousine\Livewire\InvoiceForm as LimoInvoiceForm;
+use Modules\Limousine\Livewire\LimoHome;
+use Modules\Limousine\Livewire\Reports as LimoReports;
 use Modules\Rental\Livewire\InvoiceForm;
+use Modules\Rental\Livewire\Orders;
 use Modules\Rental\Livewire\QuotationForm;
+use Modules\Rental\Livewire\RentalHome;
+use Modules\Rental\Livewire\Reports;
+use Modules\Rental\Livewire\Sales;
 use Modules\Rental\Models\RentalCustomer;
 use Modules\Rental\Models\RentalQuotation;
 use Modules\Rental\Models\Vehicle;
@@ -111,6 +118,50 @@ final class RentalAccessControlTest extends TestCase
         } catch (\Throwable $e) {
             $this->assertStringContainsString('locked', mb_strtolower($e->getMessage()));
         }
+    }
+
+    /**
+     * The bespoke index / report / home screens render business data directly
+     * in render() — they were protected by nothing but `auth`, so any account
+     * with a login could read every customer's PII, orders, invoices, receipts
+     * and financial reports regardless of the per-app access an admin granted.
+     *
+     * @return iterable<string, array{class-string, string}>
+     */
+    public static function unguardedScreens(): iterable
+    {
+        yield 'rental orders list' => [Orders::class, 'rental.order'];
+        yield 'rental reports' => [Reports::class, 'rental.order'];
+        yield 'rental sales matrix' => [Sales::class, 'rental.order'];
+        yield 'rental home dashboard' => [RentalHome::class, 'rental.order'];
+        yield 'limousine bookings list' => [LimoBookings::class, 'limousine.booking'];
+        yield 'limousine reports' => [LimoReports::class, 'limousine.booking'];
+        yield 'limousine home dashboard' => [LimoHome::class, 'limousine.booking'];
+    }
+
+    /**
+     * @param  class-string  $component
+     *
+     * @dataProvider unguardedScreens
+     */
+    public function test_a_user_without_access_cannot_open_a_bespoke_screen(string $component, string $model): void
+    {
+        $this->actingAs($this->staff());
+
+        Livewire::test($component)->assertForbidden();
+    }
+
+    /**
+     * @param  class-string  $component
+     *
+     * @dataProvider unguardedScreens
+     */
+    public function test_a_granted_user_can_open_a_bespoke_screen(string $component, string $model): void
+    {
+        $this->grantEveryone($model);
+        $this->actingAs($this->staff());
+
+        Livewire::test($component)->assertOk();
     }
 
     /** Downgrade a global grant to read-only. */

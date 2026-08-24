@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Modules\Rental\Livewire;
 
 use App\Erp\Navigation\ModuleMenu;
+use App\Erp\Security\Permission;
+use App\Livewire\Concerns\GuardsModelAccess;
 use App\Models\Ir\IrModule;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
@@ -27,6 +29,18 @@ use Modules\Rental\Models\Vehicle;
 #[Title('Rent A Car')]
 final class RentalHome extends Component
 {
+    use GuardsModelAccess;
+
+    protected function accessModelKey(): string
+    {
+        return 'rental.order';
+    }
+
+    public function mount(): void
+    {
+        $this->guardAccess(Permission::Read);
+    }
+
     public function render(): View
     {
         // One grouped query for the whole status breakdown — OWNED active fleet

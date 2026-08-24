@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Security\Permission;
+use App\Livewire\Concerns\GuardsModelAccess;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -20,10 +22,21 @@ use Modules\Rental\Models\RentalReceipt;
 #[Title('Receipts')]
 final class Receipts extends Component
 {
+    use GuardsModelAccess;
     use WithPagination;
 
     #[Url]
     public string $search = '';
+
+    protected function accessModelKey(): string
+    {
+        return 'rental.receipt';
+    }
+
+    public function mount(): void
+    {
+        $this->guardAccess(Permission::Read);
+    }
 
     public function updatedSearch(): void
     {

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Security\Permission;
+use App\Livewire\Concerns\GuardsModelAccess;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -19,11 +21,22 @@ use Modules\Rental\Models\RentalQuotation;
 #[Title('Quotations')]
 final class Quotations extends Component
 {
+    use GuardsModelAccess;
     use WithPagination;
 
     /** all | draft | sent | accepted | declined | converted */
     #[Url]
     public string $tab = 'all';
+
+    protected function accessModelKey(): string
+    {
+        return 'rental.quotation';
+    }
+
+    public function mount(): void
+    {
+        $this->guardAccess(Permission::Read);
+    }
 
     public function updatedTab(): void
     {

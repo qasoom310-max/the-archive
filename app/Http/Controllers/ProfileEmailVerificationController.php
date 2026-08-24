@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Erp\Tenancy\WorkspaceManager;
 use App\Models\User;
 use App\Notifications\VerifyNewEmail;
 use Illuminate\Http\RedirectResponse;
@@ -32,6 +33,23 @@ final class ProfileEmailVerificationController
             throw new HttpException(403, 'The verification link is invalid or has expired.');
         }
 
+        // The link names the database the change was requested in. A user id is
+        // only unique within one, and this route is deliberately open to guests
+        // — so without this, a link opened signed-out or on another device
+        // resolved against MAIN and looked up a different account (usually
+        // dead-ending on "your email is already up to date"). The signature
+        // covers the parameter, so it cannot be pointed at another database.
+        $workspaceId = $request->query('ws');
+        $workspaceId = is_numeric($workspaceId) ? (int) $workspaceId : null;
+
+        return app(WorkspaceManager::class)->runFor(
+            $workspaceId,
+            fn (): RedirectResponse => $this->verify($id, $hash),
+        );
+    }
+
+    private function verify(int $id, string $hash): RedirectResponse
+    {
         $user = User::query()->find($id);
 
         if ($user === null) {

@@ -608,12 +608,50 @@ Each has a regression test that fails without the fix.
   **Project**, and `module:resync` for **contacts / purchases / inventory** (resync is a
   silent no-op when a module is not installed).
 
-**Still open from that audit** (not done): Rental/Limousine revenue never reaches the
-general ledger (may be deliberate); ~48 missing `lang/ar.json` keys; a few screens using
-`number_format()` on money instead of `Currencies::format()`; the printed rental
-agreement showing 3 decimals; RTL mirroring on some import/transfer screens; the profile
-email-change link not resolving inside a workspace; and bulk remote-order collection
-rendering a receipt image per order in one request.
+**Everything on that list is now done** except the Rental/Limousine ledger question —
+see the section below, which closes the low-severity tail.
+
+**Audit follow-up — the low-severity tail closed (2026-08-24).** The remainder of
+the same review. With these the whole ranked list is done except the Rental /
+Limousine ledger question, which is a business decision, not a defect.
+
+- **Arabic coverage is now a TEST, not a habit.** `tests/Feature/ArabicCoverageTest.php`
+  scans every `__('literal')` under `app/`, `Modules/`, `resources/`, `routes/` and
+  `database/` and fails when one has no `lang/ar.json` entry — a missing key renders
+  the English source silently, so an Arabic screen used to regress one phrase at a
+  time unnoticed. 86 keys were added to clear the backlog. **A string that is meant
+  to stay English goes in the test's `ENGLISH_BY_DESIGN` list with its reason** (today:
+  the WooCommerce + Cloudflare Stream settings tabs, `PDF`, `ml`, `—`, `…`), so an
+  exemption is a decision on the record rather than an oversight.
+- **The product-import and inventory-transfers screens were entirely untranslated** —
+  every string was raw text, which is why the `__()` scan had never seen them. Both are
+  wrapped now, and their physical-direction utilities (`text-left`/`text-right`/`mr-`/
+  `right-0`/`origin-top-right`) flipped to logical ones so they mirror under `dir="rtl"`,
+  along with the product list's Import/Export dropdown.
+- **Money that bypassed the currency setting.** The printed rental agreement and the
+  rental sales matrix hard-coded **3** decimals against the 2-decimal policy; both read
+  `Currencies::active()->decimals` now (the agreement keeps plain digits — its form
+  already prints "BD"). The journal-entry screen's debit/credit figures went through
+  raw `number_format()` and now use `ValueFormat::money()`. Pinned by
+  `RentalAgreementTest::test_agreement_renders_the_order_values`.
+- **Changing your email never worked inside a workspace.** The verify route is
+  deliberately open to guests (so the link works from any device), which means no
+  workspace cookie routes the request — it resolved against **Main** and looked up a
+  different account with the same row id, normally dead-ending on "your email is
+  already up to date". The signed link now carries a `ws` parameter and the controller
+  resolves through `WorkspaceManager::runFor()`. The signature covers the parameter, so
+  it can't be pointed at another database. Test:
+  `tests/Feature/ProfileEmailWorkspaceTest.php` (2).
+- **Bulk collection of remote orders could time out.** Collecting fires the paid-order
+  automations, one of which renders a receipt image (PDF → PNG) per order — a dozen
+  orders is a dozen renders in one request. `RemoteOrders::collectSelected()` now works
+  to a 20-second budget (`BULK_BUDGET_SECONDS`), leaves the unprocessed orders ticked
+  and says how many are left, so a second press continues. Each order commits on its
+  own, so what got done stays done. Same shape as the WooCommerce "sync all" budget.
+
+**Still open, deliberately:** Rental and Limousine revenue does not post to the general
+ledger. POS sales and purchases do. That may be intended — decide it as a business
+question before building it.
 
 **Phase 7 — Point of Sale module (`Modules/Pos/`, depends on `contacts`):**
 

@@ -31,7 +31,7 @@
                 </button>
 
                 <div x-show="open" x-cloak x-transition.opacity
-                    class="absolute right-0 z-30 mt-1 w-52 origin-top-right rounded-lg border border-chrome-200 bg-white py-2 shadow-pop">
+                    class="absolute end-0 z-30 mt-1 w-52 origin-top-end rounded-lg border border-chrome-200 bg-white py-2 shadow-pop">
                     @if ($canCreate)
                         <a href="{{ url('/app/pos/product/import') }}" wire:navigate
                             class="flex items-center gap-2 px-3 py-2 text-sm text-chrome-700 hover:bg-chrome-100">
@@ -39,7 +39,7 @@
                             <svg class="size-4 text-chrome-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                             </svg>
-                            Import from file
+                            {{ __('Import from file') }}
                         </a>
                     @endif
                     <a href="{{ url('/app/pos/product/export') }}"
@@ -48,7 +48,7 @@
                         <svg class="size-4 text-chrome-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                         </svg>
-                        Export all products
+                        {{ __('Export all products') }}
                     </a>
                 </div>
             </div>

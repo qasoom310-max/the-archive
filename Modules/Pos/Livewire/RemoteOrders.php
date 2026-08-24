@@ -31,6 +31,9 @@ use Modules\Pos\Services\PosSessionManager;
 #[Title('Remote / delivery sales')]
 final class RemoteOrders extends Component
 {
+    /** Seconds a bulk collect may spend before handing the rest back. */
+    private const BULK_BUDGET_SECONDS = 20.0;
+
     /** active | new | packed | out_for_delivery | delivered | all */
     public string $filter = 'active';
 
@@ -173,18 +176,44 @@ final class RemoteOrders extends Component
             return;
         }
 
+        // Collecting fires the paid-order automations, and one of those renders
+        // a receipt image (PDF → PNG) for the customer's WhatsApp. A dozen
+        // orders is a dozen renders in one request, which ran past the web
+        // server's timeout and died half-way with nothing said about where it
+        // stopped. Work to a budget instead: each order is committed on its own,
+        // so what got done stays done, and the rest stay ticked for one more press.
+        $deadline = microtime(true) + self::BULK_BUDGET_SECONDS;
+
         $collected = 0;
+        $remaining = [];
+
         foreach ($ids as $id) {
             $before = PosOrder::query()->find($id);
             if ($before === null || $before->isPaid()) {
                 continue;   // already collected — never double-charge
             }
 
+            if (microtime(true) >= $deadline) {
+                $remaining[] = $id;
+
+                continue;
+            }
+
             $this->collectPayment($id);
             $collected++;
         }
 
-        $this->selectedOrders = [];
+        $this->selectedOrders = $remaining;
+
+        if ($remaining !== []) {
+            session()->flash('remote_status', __(':count collected, :remaining still to go — press Collect again.', [
+                'count' => $collected,
+                'remaining' => count($remaining),
+            ]));
+
+            return;
+        }
+
         session()->flash('remote_status', trans_choice(
             '{1}Collected :count order.|[2,*]Collected :count orders.',
             $collected,

@@ -19,9 +19,9 @@
             <div class="mb-3 flex items-center justify-between">
                 <h2 class="text-sm font-semibold text-chrome-900">{{ __('Lines') }}</h2>
                 <div class="text-sm text-chrome-500">
-                    {{ __('Debits') }}: <span class="font-medium text-chrome-900">{{ number_format($entry->totalDebit(), 2) }}</span>
+                    {{ __('Debits') }}: <span class="font-medium text-chrome-900">{{ \App\Erp\Views\ValueFormat::money($entry->totalDebit()) }}</span>
                     &nbsp;·&nbsp;
-                    {{ __('Credits') }}: <span class="font-medium text-chrome-900">{{ number_format($entry->totalCredit(), 2) }}</span>
+                    {{ __('Credits') }}: <span class="font-medium text-chrome-900">{{ \App\Erp\Views\ValueFormat::money($entry->totalCredit()) }}</span>
                 </div>
             </div>
             <div class="overflow-x-auto">
@@ -41,8 +41,8 @@
                                 <span class="font-mono text-xs text-chrome-500">{{ $line->account?->code }}</span>
                                 <span class="ms-2 text-chrome-900">{{ $line->account?->name }}</span>
                             </td>
-                            <td class="py-2 text-end font-mono">{{ $line->debit > 0 ? number_format($line->debit, 2) : '—' }}</td>
-                            <td class="py-2 text-end font-mono">{{ $line->credit > 0 ? number_format($line->credit, 2) : '—' }}</td>
+                            <td class="py-2 text-end font-mono">{{ $line->debit > 0 ? \App\Erp\Views\ValueFormat::money($line->debit) : '—' }}</td>
+                            <td class="py-2 text-end font-mono">{{ $line->credit > 0 ? \App\Erp\Views\ValueFormat::money($line->credit) : '—' }}</td>
                             <td class="py-2 text-chrome-600">{{ $line->memo }}</td>
                         </tr>
                     @empty

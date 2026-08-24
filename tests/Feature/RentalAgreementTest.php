@@ -65,7 +65,9 @@ final class RentalAgreementTest extends TestCase
         $this->assertStringContainsString('Manar Mohamed', $html); // customer name
         $this->assertStringContainsString('111629', $html);        // plate
         $this->assertStringContainsString('9151974', $html);       // driving licence
-        $this->assertStringContainsString('33.000', $html);        // daily rate
+        // Two decimals, per the currency policy — this print was hard-coded to three.
+        $this->assertStringContainsString('33.00', $html);         // daily rate
+        $this->assertStringNotContainsString('33.000', $html);
         // Not calibrating → the print dialog auto-opens.
         $this->assertStringContainsString('onload="window.print()"', $html);
     }

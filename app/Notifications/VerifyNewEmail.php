@@ -31,12 +31,13 @@ final class VerifyNewEmail extends Notification
         private readonly int $userId,
         private readonly string $newEmail,
         private readonly string $name,
+        private readonly ?int $workspaceId = null,
     ) {
     }
 
-    public static function for(User $user, string $newEmail): self
+    public static function for(User $user, string $newEmail, ?int $workspaceId = null): self
     {
-        return new self($user->getKey(), $newEmail, $user->name);
+        return new self($user->getKey(), $newEmail, $user->name, $workspaceId);
     }
 
     /**
@@ -49,13 +50,19 @@ final class VerifyNewEmail extends Notification
 
     public function toMail(AnonymousNotifiable $notifiable): MailMessage
     {
+        // A user id is only unique WITHIN a database, so the link carries the
+        // workspace the change was requested in. Otherwise, opened signed-out or
+        // on another device (no workspace cookie to route the request), it lands
+        // on Main and looks up a different account entirely. The URL is signed,
+        // so this cannot be tampered with.
         $url = URL::temporarySignedRoute(
             'profile.email.verify',
             now()->addHour(),
-            [
+            array_filter([
                 'id' => $this->userId,
                 'hash' => self::hashFor($this->newEmail),
-            ],
+                'ws' => $this->workspaceId,
+            ], static fn ($v): bool => $v !== null),
         );
 
         return (new MailMessage())

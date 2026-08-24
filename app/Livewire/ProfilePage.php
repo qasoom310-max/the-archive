@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire;
 
+use App\Erp\Tenancy\WorkspaceManager;
 use App\Models\User;
 use App\Notifications\VerifyNewEmail;
 use Illuminate\Contracts\View\View;
@@ -11,6 +12,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -141,7 +143,7 @@ final class ProfilePage extends Component
             // Route to the pending address directly (anonymous notifiable)
             // — the default routing on $user would send to the OLD email.
             Notification::route('mail', $newEmail)
-                ->notify(VerifyNewEmail::for($user, $newEmail));
+                ->notify(VerifyNewEmail::for($user, $newEmail, $this->currentWorkspaceId()));
 
             $this->flash = (string) __("We've sent a verification link to :email. Your email won't change until you click it.", ['email' => $newEmail]);
         } else {
@@ -201,5 +203,24 @@ final class ProfilePage extends Component
             'roleLabel' => $user->roleLabel(),
             'pendingEmail' => $user->new_email,
         ]);
+    }
+
+    /**
+     * The database this profile is being edited in, stamped into the
+     * verification link so it resolves HERE rather than on Main. A user id is
+     * only unique within one database, and the verify route is open to guests.
+     * Null (= resolve as-is) when the workspaces feature isn't present.
+     */
+    private function currentWorkspaceId(): ?int
+    {
+        if (! Schema::hasTable('workspaces')) {
+            return null;
+        }
+
+        try {
+            return (int) app(WorkspaceManager::class)->current()->id;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

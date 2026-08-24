@@ -5,7 +5,10 @@
     $cust = $order->customer;
     $veh = $order->vehicle;
 
-    $money = static fn ($v): string => number_format((float) $v, 3);
+    // Plain digits (the form already prints "BD"), but at the currency's own
+    // precision — this was hard-coded to 3 decimals against the 2-decimal policy.
+    $decimals = \App\Erp\Money\Currencies::active()->decimals;
+    $money = static fn ($v): string => number_format((float) $v, $decimals);
     $intf = static fn ($v): string => $v === null || $v === '' ? '' : number_format((float) $v);
 
     $od = $order->order_date;

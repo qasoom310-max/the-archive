@@ -4,12 +4,12 @@
     <div class="mb-4 flex items-center justify-between">
         <div>
             <h1 class="text-xl font-bold text-chrome-900">
-                {{ $activeType?->name ?? 'All Transfers' }}
+                {{ $activeType?->name ?? __('All Transfers') }}
             </h1>
-            <p class="text-sm text-chrome-500">Stock moves — validate to post them to inventory.</p>
+            <p class="text-sm text-chrome-500">{{ __('Stock moves — validate to post them to inventory.') }}</p>
         </div>
         <a href="{{ url('/app/inventory/transfers/new' . ($activeType ? '?type=' . $activeType->id : '')) }}"
-            wire:navigate class="o-btn-primary">New transfer</a>
+            wire:navigate class="o-btn-primary">{{ __('New transfer') }}</a>
     </div>
 
     @if ($flash !== '')
@@ -34,12 +34,12 @@
         <table class="min-w-full divide-y divide-chrome-200 text-sm">
             <thead class="bg-chrome-50 text-xs uppercase tracking-wide text-chrome-500">
                 <tr>
-                    <th class="px-4 py-2 text-left">Reference</th>
-                    <th class="px-4 py-2 text-left">Operation</th>
-                    <th class="px-4 py-2 text-right">Qty</th>
-                    <th class="px-4 py-2 text-left">From → To</th>
-                    <th class="px-4 py-2 text-left">State</th>
-                    <th class="px-4 py-2 text-left">Scheduled</th>
+                    <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
+                    <th class="px-4 py-2 text-start">{{ __('Operation') }}</th>
+                    <th class="px-4 py-2 text-end">{{ __('Qty') }}</th>
+                    <th class="px-4 py-2 text-start">{{ __('From → To') }}</th>
+                    <th class="px-4 py-2 text-start">{{ __('State') }}</th>
+                    <th class="px-4 py-2 text-start">{{ __('Scheduled') }}</th>
                     <th class="px-4 py-2"></th>
                 </tr>
             </thead>
@@ -48,7 +48,7 @@
                     <tr wire:key="move-{{ $m->id }}" class="hover:bg-chrome-50">
                         <td class="px-4 py-2 font-medium text-chrome-800">{{ $m->reference }}</td>
                         <td class="px-4 py-2 text-chrome-500">{{ $m->operationType?->name ?? '—' }}</td>
-                        <td class="px-4 py-2 text-right">{{ $num($m->product_qty) }}</td>
+                        <td class="px-4 py-2 text-end">{{ $num($m->product_qty) }}</td>
                         <td class="px-4 py-2 text-chrome-500">
                             {{ $m->source?->name ?? '—' }} <span class="text-chrome-300">→</span> {{ $m->destination?->name ?? '—' }}
                         </td>
@@ -58,24 +58,24 @@
                             </span>
                         </td>
                         <td class="px-4 py-2 text-chrome-400">{{ $m->scheduled_at?->isoFormat('MMM D, HH:mm') ?? '—' }}</td>
-                        <td class="px-4 py-2 text-right">
+                        <td class="px-4 py-2 text-end">
                             @if ($m->state->isOpen())
                                 @if ($canApprove)
                                     <button wire:click="validateMove({{ $m->id }})"
-                                        wire:confirm="Validate {{ $m->reference }}? This posts the move to inventory."
-                                        class="o-btn-primary">Validate</button>
+                                        wire:confirm="{{ __('Validate :ref? This posts the move to inventory.', ['ref' => $m->reference]) }}"
+                                        class="o-btn-primary">{{ __('Validate') }}</button>
                                 @else
                                     {{-- Non-admin (e.g. inventory data-entry user): they see
                                          their submitted entry sitting in Draft / Pending state,
                                          awaiting an admin to validate it. --}}
-                                    <span class="o-chip bg-amber-50 text-amber-700">Awaiting approval</span>
+                                    <span class="o-chip bg-amber-50 text-amber-700">{{ __('Awaiting approval') }}</span>
                                 @endif
                             @endif
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="px-4 py-10 text-center text-sm text-chrome-400">No transfers.</td>
+                        <td colspan="7" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No transfers.') }}</td>
                     </tr>
                 @endforelse
             </tbody>

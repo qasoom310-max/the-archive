@@ -1,11 +1,12 @@
 @php use App\Erp\Views\ValueFormat; @endphp
 @php
-    // Compact number for the dense matrix cells (no currency, trims trailing zeros).
+    // Compact number for the dense matrix cells (no currency symbol — the column
+    // headers carry it — but at the configured currency's precision).
     $fmt = static function (float $v): string {
         if ($v <= 0) {
             return '0';
         }
-        return rtrim(rtrim(number_format($v, 3, '.', ''), '0'), '.');
+        return rtrim(rtrim(number_format($v, \App\Erp\Money\Currencies::active()->decimals, '.', ''), '0'), '.');
     };
 @endphp
 <div class="mx-auto max-w-screen-2xl p-4 sm:p-6">

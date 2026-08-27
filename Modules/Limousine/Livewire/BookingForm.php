@@ -6,6 +6,7 @@ namespace Modules\Limousine\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\ScrollsToFirstError;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
@@ -29,6 +30,7 @@ use Modules\Limousine\Models\LimoLeg;
 final class BookingForm extends Component
 {
     use GuardsModelAccess;
+    use ScrollsToFirstError;
 
     protected function accessModelKey(): string
     {
@@ -206,7 +208,7 @@ final class BookingForm extends Component
             $this->prepared_by = $this->currentUserName();
         }
 
-        $this->validate();
+        $this->validateFocusing();
 
         $booking = $this->id !== null ? LimoBooking::query()->find($this->id) : new LimoBooking();
         if ($booking === null) {
@@ -266,7 +268,7 @@ final class BookingForm extends Component
     public function saveCustomer(): void
     {
         $this->guardAccess(Permission::Write);
-        $this->validate([
+        $this->validateFocusing([
             'newCustomer.name' => ['required', 'string', 'max:255'],
             'newCustomer.phone' => ['required', 'string', 'max:50'],
             'newCustomer.email' => ['required', 'email', 'max:255'],

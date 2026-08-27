@@ -6,6 +6,7 @@ namespace Modules\Rental\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\ScrollsToFirstError;
 use App\Erp\Activity\ActivityLogger;
 use App\Erp\Settings\Setting;
 use App\Models\User;
@@ -40,6 +41,7 @@ use Modules\Rental\Models\Vehicle;
 final class OrderForm extends Component
 {
     use GuardsModelAccess;
+    use ScrollsToFirstError;
 
     protected function accessModelKey(): string
     {
@@ -359,7 +361,7 @@ final class OrderForm extends Component
         // On a validation failure, point the user at the first missing field
         // (the form is long and the Save button sits at the bottom).
         try {
-            $this->validate();
+            $this->validateFocusing();
         } catch (ValidationException $e) {
             $this->dispatch('order-scroll-to-error');
 
@@ -469,7 +471,7 @@ final class OrderForm extends Component
     public function saveCustomer(): void
     {
         $this->guardAccess(Permission::Write);
-        $this->validate([
+        $this->validateFocusing([
             'newCustomer.name' => ['required', 'string', 'max:255'],
             'newCustomer.phone' => ['nullable', 'string', 'max:50'],
             'newCustomer.email' => ['nullable', 'email', 'max:255'],
@@ -538,7 +540,7 @@ final class OrderForm extends Component
             return;
         }
 
-        $this->validate([
+        $this->validateFocusing([
             'handover_km' => ['nullable', 'integer', 'min:0'],
             'handover_fuel' => ['required', 'in:' . $this->fuelValues()],
             'handover_notes' => ['nullable', 'string', 'max:1000'],
@@ -626,7 +628,7 @@ final class OrderForm extends Component
             return;
         }
 
-        $this->validate([
+        $this->validateFocusing([
             'fines_amount' => ['required', 'numeric', 'min:0'],
             'fines_notes' => ['nullable', 'string', 'max:500'],
         ]);
@@ -666,7 +668,7 @@ final class OrderForm extends Component
         // The car can't come back with fewer KM than it went out with.
         $floor = $order->handover_km ?? 0;
 
-        $this->validate([
+        $this->validateFocusing([
             'return_km' => ['required', 'integer', 'min:' . $floor],
             'return_fuel' => ['required', 'in:' . $this->fuelValues()],
             'fuel_charge' => ['nullable', 'numeric', 'min:0'],
@@ -882,7 +884,7 @@ final class OrderForm extends Component
             $rules['deposit_reason'] = ['required', 'string', 'max:1000'];
         }
 
-        $this->validate($rules, [
+        $this->validateFocusing($rules, [
             'deposit_deducted.max' => __('The deduction can’t be more than the deposit (:amount).', ['amount' => $order->deposit]),
         ]);
 

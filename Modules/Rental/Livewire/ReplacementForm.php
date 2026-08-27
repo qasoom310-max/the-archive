@@ -6,6 +6,7 @@ namespace Modules\Rental\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\ScrollsToFirstError;
 use App\Erp\Activity\ActivityLogger;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
@@ -31,6 +32,7 @@ use Modules\Rental\Models\Vehicle;
 final class ReplacementForm extends Component
 {
     use GuardsModelAccess;
+    use ScrollsToFirstError;
 
     protected function accessModelKey(): string
     {
@@ -187,7 +189,7 @@ final class ReplacementForm extends Component
         $this->original_vehicle_id = $order->vehicle_id;
         $this->customer_id = $order->customer_id;
 
-        $this->validate();
+        $this->validateFocusing();
 
         // The replacement car must be free (available). Valid papers are required
         // too — except a super-admin may override for an urgent swap, matching

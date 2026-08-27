@@ -6,6 +6,7 @@ namespace Modules\Limousine\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\ScrollsToFirstError;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\Layout;
@@ -24,6 +25,7 @@ use Modules\Limousine\Models\LimoInvoice;
 final class InvoiceForm extends Component
 {
     use GuardsModelAccess;
+    use ScrollsToFirstError;
 
     protected function accessModelKey(): string
     {
@@ -106,7 +108,7 @@ final class InvoiceForm extends Component
     public function save(): void
     {
         $this->guardSave($this->id === null);
-        $this->validate();
+        $this->validateFocusing();
 
         $invoice = $this->id !== null ? LimoInvoice::query()->find($this->id) : new LimoInvoice();
         if ($invoice === null) {

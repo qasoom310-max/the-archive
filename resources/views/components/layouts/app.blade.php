@@ -87,7 +87,8 @@
     x-data
     x-on:language-changed.window="window.location.reload()"
     x-on:theme-changed.window="window.applyTheme($event.detail.value)"
-    x-on:accent-changed.window="document.documentElement.setAttribute('data-accent', $event.detail.value)">
+    x-on:accent-changed.window="document.documentElement.setAttribute('data-accent', $event.detail.value)"
+    x-on:scroll-to-error.window="window.scrollToFieldError && window.scrollToFieldError($event.detail.field)">
 @php
     $segments = request()->segments();
     $activeModule = ($segments[0] ?? null) === 'app' ? ($segments[1] ?? null) : null;

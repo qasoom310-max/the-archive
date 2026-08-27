@@ -1,6 +1,42 @@
 import './bootstrap';
 
 /**
+ * Bring the first field that failed validation into view and focus it.
+ *
+ * Livewire renders the inline `@error` message but leaves the viewport put,
+ * so on a tall form a required field below the fold makes "Save" look like it
+ * did nothing. A component's `ScrollsToFirstError::validateFocusing()` dispatches
+ * `scroll-to-error` with the failing field's name; the layout forwards it here.
+ *
+ * The field name matches a control's `wire:model` (any modifier) value —
+ * including nested keys like `legs.0.start_at`. We scan real form controls so
+ * the modifier list never has to be enumerated.
+ */
+window.scrollToFieldError = function (field) {
+    if (!field) return;
+
+    let target = null;
+    for (const el of document.querySelectorAll('input, select, textarea')) {
+        for (const attr of el.attributes) {
+            if ((attr.name === 'wire:model' || attr.name.startsWith('wire:model.')) && attr.value === field) {
+                target = el;
+                break;
+            }
+        }
+        if (target) break;
+    }
+    if (!target) return;
+
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    // Focus once the smooth scroll has settled; preventScroll so focus itself
+    // doesn't yank the viewport a second time. Guard focus() for odd controls.
+    window.setTimeout(() => {
+        try { target.focus({ preventScroll: true }); } catch (e) { /* not focusable */ }
+    }, reduce ? 0 : 300);
+};
+
+/**
  * Engine ListView column-picker drag-to-reorder. Wired via the inline
  * `x-data="listColumnPicker"` on the picker's <ul> in
  * resources/views/livewire/views/list-view.blade.php.

@@ -691,6 +691,31 @@ found the earlier audit's fixes all intact but surfaced two it hadn't reached:
   embeds customer data must carry an unguessable filename** (a random token), not just a
   sequential id.
 
+**Bespoke forms scroll to the first invalid field (shipped 2026-08-27).** On a tall
+hand-written form (the limousine booking was the report — a required *Requested by*
+sitting below the fold) the stock `$this->validate()` rendered the inline `@error` but
+left the viewport put, so pressing **Save** looked like it did nothing — the message the
+user needed was off-screen and the page never scrolled. New reusable trait
+**`App\Livewire\Concerns\ScrollsToFirstError`** exposes `validateFocusing(...)`, a drop-in
+for `$this->validate(...)` with the same signature: on failure it reads the first key from
+the validator's error bag and `$this->dispatch('scroll-to-error', field: <key>)` **before
+re-throwing** (the exception is unchanged, so every inline `@error` still renders exactly
+as before — the Livewire dispatch survives the thrown `ValidationException`, verified by
+test). The master layout's `<body>` carries
+`x-on:scroll-to-error.window="window.scrollToFieldError($event.detail.field)"` (same pattern
+as `record-saved`/`theme-changed`), and `window.scrollToFieldError` (in `resources/js/app.js`)
+scans `input/select/textarea` for the control whose `wire:model` (any modifier) value equals
+the field — nested keys like `legs.0.start_at` included — `scrollIntoView({block:'center'})`s
+it and focuses it (both honour `prefers-reduced-motion`). Wired into **all 11 bespoke
+Rental + Limousine forms** (every `*Form` that calls `$this->validate()` — Rental
+Customer/Invoice/Maintenance/Order/Quotation/Receipt/Replacement, Limousine
+Booking/Invoice/Quotation/Receipt). **Rule: a bespoke form's save uses `validateFocusing()`,
+not `validate()`** — the engine FormView already scrolls its own errors, so this is only for
+the hand-written module forms. No new user-facing strings (nothing to translate); the JS
+ships via deploy's `npm run build`. Test: `tests/Feature/ScrollsToFirstErrorTest.php` (failed
+save dispatches the first failing field, a later required field is the one pointed at, a valid
+save dispatches nothing).
+
 **Phase 7 — Point of Sale module (`Modules/Pos/`, depends on `contacts`):**
 
 | Concern | Location |

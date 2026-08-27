@@ -6,6 +6,7 @@ namespace Modules\Limousine\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\ScrollsToFirstError;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
@@ -26,6 +27,7 @@ use Modules\Limousine\Models\LimoQuotation;
 final class QuotationForm extends Component
 {
     use GuardsModelAccess;
+    use ScrollsToFirstError;
 
     protected function accessModelKey(): string
     {
@@ -116,7 +118,7 @@ final class QuotationForm extends Component
     public function save(): void
     {
         $this->guardSave($this->id === null);
-        $this->validate();
+        $this->validateFocusing();
 
         $quote = $this->id !== null ? LimoQuotation::query()->find($this->id) : new LimoQuotation();
         if ($quote === null) {
@@ -167,7 +169,7 @@ final class QuotationForm extends Component
     public function saveCustomer(): void
     {
         $this->guardAccess(Permission::Write);
-        $this->validate([
+        $this->validateFocusing([
             'newCustomer.name' => ['required', 'string', 'max:255'],
             'newCustomer.phone' => ['required', 'string', 'max:50'],
             'newCustomer.email' => ['required', 'email', 'max:255'],

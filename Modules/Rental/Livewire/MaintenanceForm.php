@@ -6,6 +6,7 @@ namespace Modules\Rental\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\ScrollsToFirstError;
 use App\Erp\Activity\ActivityLogger;
 use App\Models\User;
 use Closure;
@@ -28,6 +29,7 @@ use Modules\Rental\Models\Vehicle;
 final class MaintenanceForm extends Component
 {
     use GuardsModelAccess;
+    use ScrollsToFirstError;
 
     protected function accessModelKey(): string
     {
@@ -116,7 +118,7 @@ final class MaintenanceForm extends Component
     public function save(): void
     {
         $this->guardSave($this->id === null);
-        $this->validate();
+        $this->validateFocusing();
 
         $record = $this->id !== null ? RentalMaintenance::query()->find($this->id) : new RentalMaintenance();
         if ($record === null) {

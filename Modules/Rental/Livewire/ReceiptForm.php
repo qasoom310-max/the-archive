@@ -6,6 +6,7 @@ namespace Modules\Rental\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\ScrollsToFirstError;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\Layout;
@@ -25,6 +26,7 @@ use Modules\Rental\Models\RentalReceipt;
 final class ReceiptForm extends Component
 {
     use GuardsModelAccess;
+    use ScrollsToFirstError;
 
     protected function accessModelKey(): string
     {
@@ -106,7 +108,7 @@ final class ReceiptForm extends Component
     public function save(): void
     {
         $this->guardSave($this->id === null);
-        $this->validate();
+        $this->validateFocusing();
 
         $invoice = RentalInvoice::query()->find($this->invoice_id);
         if ($invoice === null) {

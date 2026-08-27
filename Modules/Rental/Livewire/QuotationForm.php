@@ -6,6 +6,7 @@ namespace Modules\Rental\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\ScrollsToFirstError;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
@@ -29,6 +30,7 @@ use Modules\Rental\Models\Vehicle;
 final class QuotationForm extends Component
 {
     use GuardsModelAccess;
+    use ScrollsToFirstError;
 
     protected function accessModelKey(): string
     {
@@ -156,7 +158,7 @@ final class QuotationForm extends Component
     public function save(): void
     {
         $this->guardSave($this->id === null);
-        $this->validate();
+        $this->validateFocusing();
 
         $quote = $this->id !== null ? RentalQuotation::query()->find($this->id) : new RentalQuotation();
         if ($quote === null) {

@@ -6,6 +6,7 @@ namespace Modules\Rental\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\ScrollsToFirstError;
 use App\Erp\Activity\ActivityLogger;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
@@ -32,6 +33,7 @@ use Modules\Rental\Models\RentalOrder;
 final class CustomerForm extends Component
 {
     use GuardsModelAccess;
+    use ScrollsToFirstError;
 
     protected function accessModelKey(): string
     {
@@ -129,7 +131,7 @@ final class CustomerForm extends Component
     public function save(): void
     {
         $this->guardSave($this->id === null);
-        $this->validate();
+        $this->validateFocusing();
 
         $customer = $this->id !== null ? RentalCustomer::query()->find($this->id) : new RentalCustomer();
         if ($customer === null) {

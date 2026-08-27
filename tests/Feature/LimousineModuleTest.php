@@ -366,6 +366,70 @@ final class LimousineModuleTest extends TestCase
         unset($car);
     }
 
+    public function test_a_two_leg_round_trip_paid_in_full_is_marked_paid(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Qassim']);
+
+        // The reported case: airport → home (13) and home → airport (12), with
+        // 25 taken up front. The fare is the SUM of the legs, so the advance
+        // has to be compared against the recalculated total, not a leg.
+        Livewire::test(BookingForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('requested_by', 'Sara')
+            ->set('payment_method', 'cash')
+            ->set('advance', 25)
+            ->set('legs.0.service_type', 'transfer')
+            ->set('legs.0.from_location', 'Bahrain Airport')
+            ->set('legs.0.to_location', 'Home')
+            ->set('legs.0.start_at', '2026-08-27T17:00')
+            ->set('legs.0.rate', 13)
+            ->set('legs.0.rate_basis', 'trip')
+            ->call('addLeg')
+            ->set('legs.1.service_type', 'transfer')
+            ->set('legs.1.from_location', 'Home')
+            ->set('legs.1.to_location', 'Bahrain Airport')
+            ->set('legs.1.start_at', '2026-08-27T18:00')
+            ->set('legs.1.rate', 12)
+            ->set('legs.1.rate_basis', 'trip')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $booking = LimoBooking::query()->sole();
+        $this->assertEqualsWithDelta(25.0, $booking->fare, 0.001);
+        $this->assertSame(LimoBooking::PAYMENT_PAID, $booking->payment_status);
+    }
+
+    public function test_existing_bookings_already_settled_are_backfilled_as_paid(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+
+        // Rows as they sit on file today: written before the advance meant
+        // anything, so they read "unpaid" despite nothing being owed.
+        $settled = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'fare' => 25, 'advance' => 25,
+            'payment_status' => LimoBooking::PAYMENT_UNPAID,
+        ]);
+        $deposit = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'fare' => 25, 'advance' => 10,
+            'payment_status' => LimoBooking::PAYMENT_UNPAID,
+        ]);
+        $unpriced = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'fare' => 0, 'advance' => 0,
+            'payment_status' => LimoBooking::PAYMENT_UNPAID,
+        ]);
+
+        // The migration file returns its (anonymous) migration instance.
+        $migration = require __DIR__ . '/../../Modules/Limousine/database/migrations/2026_08_27_950014_backfill_paid_bookings_from_advance.php';
+        $migration->up();
+
+        $this->assertSame(LimoBooking::PAYMENT_PAID, $settled->fresh()?->payment_status);
+        // A deposit is not settlement, and an unpriced booking isn't "paid".
+        $this->assertSame(LimoBooking::PAYMENT_UNPAID, $deposit->fresh()?->payment_status);
+        $this->assertSame(LimoBooking::PAYMENT_UNPAID, $unpriced->fresh()?->payment_status);
+    }
+
     public function test_a_part_payment_is_still_unpaid(): void
     {
         $this->install();

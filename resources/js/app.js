@@ -249,6 +249,48 @@ document.addEventListener('alpine:init', () => {
         },
     }));
 
+    /**
+     * "Copy" on the limousine queue: lifts the rendered table as TSV so it
+     * pastes straight into Excel or Sheets with the columns intact.
+     *
+     * Client-side on purpose — it copies exactly the page being looked at, and
+     * needs no endpoint. Falls back to execCommand because clipboard.writeText
+     * requires a secure context, which a plain-HTTP intranet install may not be.
+     */
+    window.Alpine.data('limoQueueCopy', () => ({
+        copied: false,
+
+        copyTable() {
+            const table = document.getElementById('limo-queue');
+            if (!table) return;
+
+            const text = [...table.querySelectorAll('tr')]
+                .map((tr) => [...tr.querySelectorAll('th,td')]
+                    .map((cell) => cell.innerText.replace(/\s+/g, ' ').trim())
+                    .join('\t'))
+                .join('\n');
+
+            const done = () => {
+                this.copied = true;
+                setTimeout(() => { this.copied = false; }, 2000);
+            };
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(done).catch(() => {});
+                return;
+            }
+
+            const area = document.createElement('textarea');
+            area.value = text;
+            area.style.position = 'fixed';
+            area.style.opacity = '0';
+            document.body.appendChild(area);
+            area.select();
+            try { document.execCommand('copy'); done(); } catch (e) { /* ignore */ }
+            document.body.removeChild(area);
+        },
+    }));
+
     window.Alpine.data('listColumnPicker', () => ({
         init(el, wire) {
             let dragging = null;

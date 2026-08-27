@@ -49,6 +49,8 @@ use Illuminate\Support\Carbon;
  * @property string $status
  * @property string $payment_status
  * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read LimoCustomer|null $customer
  * @property-read LimoLocation|null $pickupLocation
  * @property-read LimoLocation|null $dropoffLocation

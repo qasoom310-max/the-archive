@@ -15,6 +15,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoLeg;
+use Modules\Limousine\Services\LimoQueueRows;
 use Modules\Rental\Models\Vehicle;
 
 /**
@@ -220,28 +221,11 @@ final class Bookings extends Component
         // its own reference, car and status — so the office works one row per
         // leg. The booking is still the money: payment hangs off the parent and
         // every one of its legs shows it.
-        $query = LimoLeg::query()
-            ->whereMorphedTo('legable', LimoBooking::class)
-            ->with(['legable.customer:id,name'])
-            ->orderByDesc('start_at')
-            ->orderBy('sequence');
-
-        if (in_array($this->tab, [
-            LimoLeg::STATUS_QUEUE,
-            LimoLeg::STATUS_CONFIRMED,
-            LimoLeg::STATUS_ACTIVE,
-            LimoLeg::STATUS_COMPLETED,
-            LimoLeg::STATUS_CANCELLED,
-        ], true)) {
-            $query->where('status', $this->tab);
-        }
-
-        if ($this->from !== '') {
-            $query->whereDate('start_at', '>=', $this->from);
-        }
-        if ($this->to !== '') {
-            $query->whereDate('start_at', '<=', $this->to);
-        }
+        //
+        // Rows come from LimoQueueRows, the same source the exports read, so a
+        // printed sheet can never disagree with the screen.
+        $rows = app(LimoQueueRows::class);
+        $legs = $rows->paginate($this->tab, $this->from, $this->to);
 
         $counts = LimoLeg::query()
             ->whereMorphedTo('legable', LimoBooking::class)
@@ -250,7 +234,14 @@ final class Bookings extends Component
             ->pluck('aggregate', 'status');
 
         return view('limousine::bookings', [
-            'legs' => $query->paginate(20),
+            'legs' => $legs,
+            // Flattened through the shared builder so the table prints exactly
+            // what the exports do, keyed by leg id.
+            'rows' => collect($legs->items())->mapWithKeys(
+                fn (LimoLeg $l): array => [$l->id => $rows->row($l)]
+            )->all(),
+            'headings' => $rows->headings(),
+            'exportQuery' => http_build_query(['tab' => $this->tab, 'from' => $this->from, 'to' => $this->to]),
             'counts' => $counts,
             'totalCount' => (int) $counts->sum(),
             'carOptions' => $this->assigningId !== null ? $this->carOptions() : [],

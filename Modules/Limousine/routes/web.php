@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use Modules\Limousine\Http\Controllers\LimoQueueExportController;
 use Modules\Limousine\Http\Controllers\LimoReportExportController;
 use Modules\Limousine\Livewire\Bookings;
 use Modules\Limousine\Livewire\BookingForm;
@@ -35,6 +36,14 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/location/{id}', LocationForm::class)->whereNumber('id')->name('limousine.location.edit');
 
     // Bookings — trips.
+    // Queue downloads. Registered BEFORE the `{id}` route, or "export" would be
+    // swallowed as a booking id — the numeric constraint already prevents that,
+    // but ordering keeps it true if the constraint is ever relaxed.
+    Route::get('/app/limousine/booking/export/csv', [LimoQueueExportController::class, 'csv'])->name('limousine.queue.csv');
+    Route::get('/app/limousine/booking/export/excel', [LimoQueueExportController::class, 'excel'])->name('limousine.queue.excel');
+    Route::get('/app/limousine/booking/export/pdf', [LimoQueueExportController::class, 'pdf'])->name('limousine.queue.pdf');
+    Route::get('/app/limousine/booking/export/print', [LimoQueueExportController::class, 'print'])->name('limousine.queue.print');
+
     Route::get('/app/limousine/booking', Bookings::class)->name('limousine.booking.index');
     Route::get('/app/limousine/booking/new', BookingForm::class)->name('limousine.booking.create');
     Route::get('/app/limousine/booking/{id}', BookingForm::class)->whereNumber('id')->name('limousine.booking.edit');

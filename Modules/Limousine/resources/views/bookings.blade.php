@@ -43,63 +43,77 @@
         @endif
     </div>
 
+    {{-- Export bar. CSV / Excel / PDF / Print are server-rendered from the same
+         rows as the table (filters ride along in the query string); Copy lifts
+         the rendered table client-side, so it needs no endpoint. --}}
+    <div class="mb-3 flex flex-wrap items-center gap-2" x-data="limoQueueCopy">
+        <button type="button" x-on:click="copyTable($el)"
+                class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
+            <span x-show="! copied">{{ __('Copy') }}</span>
+            <span x-show="copied" x-cloak class="text-emerald-600">{{ __('Copied') }}</span>
+        </button>
+        <a href="{{ url('/app/limousine/booking/export/csv') }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('CSV') }}</a>
+        <a href="{{ url('/app/limousine/booking/export/excel') }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Excel') }}</a>
+        <a href="{{ url('/app/limousine/booking/export/pdf') }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('PDF') }}</a>
+        <a href="{{ url('/app/limousine/booking/export/print') }}?{{ $exportQuery }}" target="_blank" rel="noopener"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Print') }}</a>
+    </div>
+
     <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
-        <table class="w-full min-w-[720px] divide-y divide-chrome-100 text-sm">
+        <table id="limo-queue" class="w-full min-w-[1600px] divide-y divide-chrome-100 text-sm">
             <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                 <tr>
-                    <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
-                    <th class="px-4 py-2 text-start">{{ __('Customer') }}</th>
-                    <th class="px-4 py-2 text-start">{{ __('Route') }}</th>
-                    <th class="px-4 py-2 text-start">{{ __('Pick-up') }}</th>
-                    <th class="px-4 py-2 text-end">{{ __('Fare') }}</th>
-                    <th class="px-4 py-2 text-start">{{ __('Status') }}</th>
-                    <th class="px-4 py-2 text-start">{{ __('Payment') }}</th>
-                    <th class="px-4 py-2 text-start">{{ __('Car') }}</th>
+                    <th class="px-3 py-2 text-start">{{ __('Sl No.') }}</th>
+                    @foreach ($headings as $key => $label)
+                        <th class="px-3 py-2 {{ in_array($key, ['amount', 'received', 'balance'], true) ? 'text-end' : 'text-start' }}">{{ $label }}</th>
+                    @endforeach
+                    <th class="px-3 py-2 text-start">{{ __('Actions') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-chrome-50">
                 {{-- One row per LEG: each is dispatched separately, with its own
                      reference, car and status. Payment belongs to the parent
                      booking, so every leg of a paid job reads "paid". --}}
-                @forelse ($legs as $leg)
+                @forelse ($legs as $i => $leg)
                     @php
-                        $booking = $leg->legable;
+                        $row = $rows[$leg->id];
                         $sb = [
                             'queue' => 'bg-amber-100 text-amber-700',
                             'confirmed' => 'bg-sky-100 text-sky-700',
                             'active' => 'bg-indigo-100 text-indigo-700',
                             'completed' => 'bg-emerald-100 text-emerald-700',
                             'cancelled' => 'bg-red-100 text-red-700',
-                        ][$leg->status] ?? 'bg-chrome-200 text-chrome-700';
+                        ][$row['status']] ?? 'bg-chrome-200 text-chrome-700';
                         $next = [
                             'queue' => ['confirmed', __('Confirm')],
                             'confirmed' => ['active', __('Start trip')],
                             'active' => ['completed', __('Complete')],
-                        ][$leg->status] ?? null;
+                        ][$row['status']] ?? null;
+                        $money = fn (float $v): string => \App\Erp\Views\ValueFormat::money($v);
                     @endphp
-                    <tr wire:key="leg-{{ $leg->id }}" class="cursor-pointer hover:bg-chrome-50"
-                        onclick="window.location='{{ url('/app/limousine/booking/' . $leg->legable_id) }}'">
-                        <td class="px-4 py-2 font-medium text-chrome-800">
-                            {{ $leg->reference ?? '—' }}
-                            <span class="block text-[11px] font-normal text-chrome-400">{{ $booking?->reference }}</span>
+                    <tr wire:key="leg-{{ $leg->id }}" class="hover:bg-chrome-50">
+                        <td class="px-3 py-2 text-chrome-400">{{ $legs->firstItem() + $i }}</td>
+                        <td class="px-3 py-2 font-medium text-chrome-800">
+                            {{ $row['reference'] ?: '—' }}
+                            <span class="block text-[11px] font-normal text-chrome-400">{{ $row['booking_reference'] }}</span>
                         </td>
-                        <td class="px-4 py-2 text-chrome-700">{{ $booking?->customer?->name ?? '—' }}</td>
-                        <td class="px-4 py-2 text-chrome-600">{{ $leg->from_location ?? '—' }}{{ $leg->to_location ? ' → ' . $leg->to_location : '' }}</td>
-                        <td class="px-4 py-2 text-chrome-600">{{ $leg->start_at?->isoFormat('MMM D, h:mm A') ?? '—' }}</td>
-                        <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($leg->net_amount) }}</td>
-                        <td class="px-4 py-2" onclick="event.stopPropagation()">
-                            <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst((string) $leg->status)) }}</span>
-                            @if ($next !== null && $canAssign)
-                                <button type="button" wire:click="advanceLeg({{ $leg->id }}, '{{ $next[0] }}')"
-                                        class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ $next[1] }}</button>
-                            @endif
-                        </td>
-                        {{-- Payment is the booking's, shared by all its legs. --}}
-                        <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $booking?->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst((string) $booking?->payment_status)) }}</span></td>
-                        {{-- stopPropagation so dispatching doesn't also follow the row link. --}}
-                        <td class="px-4 py-2" onclick="event.stopPropagation()">
-                            @if ($leg->vehicle !== null)
-                                <span class="text-chrome-700">{{ $leg->vehicle }}</span>
+                        <td class="whitespace-nowrap px-3 py-2 text-chrome-600">{{ $row['from_date'] ?: '—' }}</td>
+                        <td class="whitespace-nowrap px-3 py-2 text-chrome-600">{{ $row['to_date'] ?: '—' }}</td>
+                        <td class="px-3 py-2 text-chrome-600">{{ $row['type'] }}</td>
+                        <td class="px-3 py-2 text-chrome-700">{{ $row['customer'] ?: '—' }}</td>
+                        {{-- Amount is this leg's; Received and Balance are the
+                             booking's, because the customer settles the whole job. --}}
+                        <td class="px-3 py-2 text-end font-medium text-chrome-800">{{ $money($row['amount']) }}</td>
+                        <td class="px-3 py-2 text-end text-emerald-700">{{ $money($row['received']) }}</td>
+                        <td class="px-3 py-2 text-end {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-400' }}">{{ $money($row['balance']) }}</td>
+                        <td class="px-3 py-2 text-chrome-600">{{ $row['pickup'] ?: '—' }}</td>
+                        <td class="px-3 py-2 text-chrome-600">{{ $row['dropoff'] ?: '—' }}</td>
+                        <td class="px-3 py-2">
+                            @if ($row['vehicle'] !== '')
+                                <span class="text-chrome-700">{{ $row['vehicle'] }}</span>
                                 @if ($canAssign)
                                     <button type="button" wire:click="openAssign({{ $leg->legable_id }})"
                                             class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ __('Change') }}</button>
@@ -113,9 +127,24 @@
                                 <span class="text-chrome-400">—</span>
                             @endif
                         </td>
+                        <td class="px-3 py-2 text-chrome-600">{{ $row['added_by'] ?: '—' }}</td>
+                        <td class="max-w-[16rem] px-3 py-2 text-chrome-600">{{ $row['comments'] ?: '—' }}</td>
+                        <td class="whitespace-nowrap px-3 py-2 text-chrome-500">{{ $row['booked_time'] ?: '—' }}</td>
+                        <td class="px-3 py-2">
+                            <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst($row['status'])) }}</span>
+                            @if ($next !== null && $canAssign)
+                                <button type="button" wire:click="advanceLeg({{ $leg->id }}, '{{ $next[0] }}')"
+                                        class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ $next[1] }}</button>
+                            @endif
+                        </td>
+                        <td class="px-3 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $row['payment'] === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($row['payment'])) }}</span></td>
+                        <td class="whitespace-nowrap px-3 py-2">
+                            <a href="{{ url('/app/limousine/booking/' . $leg->legable_id) }}" wire:navigate
+                               class="text-xs font-medium text-primary-700 hover:underline">{{ __('Open') }}</a>
+                        </td>
                     </tr>
                 @empty
-                    <tr><td colspan="8" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No bookings found.') }}</td></tr>
+                    <tr><td colspan="18" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No bookings found.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>

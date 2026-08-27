@@ -45,6 +45,10 @@ final class ArabicCoverageTest extends TestCase
 
         // Identifiers, units and punctuation.
         'PDF',
+        // File-format names on the queue's export bar, alongside PDF. These are
+        // the formats' own names, recognised as-is in either language.
+        'CSV',
+        'Excel',
         'ml',
         '—',
         '…',

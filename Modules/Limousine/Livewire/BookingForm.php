@@ -9,6 +9,7 @@ use App\Livewire\Concerns\GuardsModelAccess;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -57,6 +58,16 @@ final class BookingForm extends Component
 
     public string $requested_by = '';
 
+    /**
+     * Who raised this booking — stamped from the signed-in user, never typed.
+     *
+     * `#[Locked]` because the browser can set any unlocked public property in
+     * Livewire 3: without it, a read-only input would still be trivially
+     * rewritten from the client, which defeats the point of a sign-off field.
+     * `save()` re-stamps it on create as well, so the value never depends on
+     * what arrived from the browser.
+     */
+    #[Locked]
     public string $prepared_by = '';
 
     public string $advance = '0';
@@ -91,6 +102,10 @@ final class BookingForm extends Component
                 $this->flight_number = $booking->flight_number ?? '';
                 $this->email = $booking->email ?? '';
                 $this->requested_by = $booking->requested_by ?? '';
+                // Keep whoever actually raised this booking. Re-stamping it with
+                // the current viewer would quietly rewrite the sign-off every
+                // time somebody else opened the record — the opposite of an
+                // audit trail. Only a brand-new booking gets stamped (below).
                 $this->prepared_by = $booking->prepared_by ?? '';
                 $this->advance = (string) $booking->advance;
                 $this->payment_method = $booking->payment_method ?? 'cash';
@@ -103,7 +118,27 @@ final class BookingForm extends Component
             }
         }
 
+        $this->prepared_by = $this->currentUserName();
         $this->seedLegs();
+    }
+
+    /**
+     * Display name for the signed-in user, for the "Prepared by" stamp.
+     *
+     * Falls back to the email because POS-style staff accounts can be
+     * username-only, and an empty string would trip the `required` rule and
+     * block a save on a field nobody can type into.
+     */
+    private function currentUserName(): string
+    {
+        $user = Auth::user();
+        if ($user === null) {
+            return '';
+        }
+
+        $name = trim((string) ($user->name ?? ''));
+
+        return $name !== '' ? $name : trim((string) ($user->email ?? ''));
     }
 
     /**
@@ -161,6 +196,15 @@ final class BookingForm extends Component
     public function save(): void
     {
         $this->guardSave($this->id === null);
+
+        // Stamp the preparer from the session before validating, so a new
+        // booking can never fail the `required` rule on a field the user is
+        // not allowed to type in. An existing booking keeps its original
+        // preparer — editing someone else's booking must not reassign it.
+        if ($this->id === null) {
+            $this->prepared_by = $this->currentUserName();
+        }
+
         $this->validate();
 
         $booking = $this->id !== null ? LimoBooking::query()->find($this->id) : new LimoBooking();
@@ -244,9 +288,30 @@ final class BookingForm extends Component
         $this->transition(LimoBooking::STATUS_CONFIRMED);
     }
 
+    /**
+     * Dispatch the trip. This is the point a car has to exist: bookings are
+     * taken before anyone knows which vehicle will run them, so `car_id` is
+     * optional at save time and only becomes mandatory here.
+     */
     public function start(): void
     {
         $this->guardAccess(Permission::Write);
+
+        $unassigned = [];
+        foreach ($this->legs as $i => $leg) {
+            if (($leg['car_id'] ?? '') === '' || $leg['car_id'] === null) {
+                $unassigned[] = $i;
+            }
+        }
+
+        if ($unassigned !== []) {
+            foreach ($unassigned as $i) {
+                $this->addError("legs.$i.car_id", __('Assign a car before starting the trip.'));
+            }
+
+            return;
+        }
+
         $this->transition(LimoBooking::STATUS_ACTIVE);
     }
 

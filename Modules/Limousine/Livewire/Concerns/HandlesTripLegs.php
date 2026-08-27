@@ -89,7 +89,11 @@ trait HandlesTripLegs
 
         foreach ($this->legs as $i => $leg) {
             $rules["legs.$i.service_type"] = ['required', 'in:transfer,chauffeur'];
-            $rules["legs.$i.car_id"] = ['required', 'integer'];
+            // The car is assigned later, when the trip is dispatched — not when
+            // the booking is taken. A quotation never needs one at all. The
+            // requirement is enforced at the point it actually matters, in
+            // BookingForm::start().
+            $rules["legs.$i.car_id"] = ['nullable', 'integer'];
             $rules["legs.$i.from_location"] = ['required', 'string', 'max:255'];
             $rules["legs.$i.start_at"] = ['required', 'date'];
             $rules["legs.$i.car_details"] = ['nullable', 'string', 'max:255'];

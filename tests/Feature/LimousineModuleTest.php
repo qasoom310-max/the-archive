@@ -217,9 +217,12 @@ final class LimousineModuleTest extends TestCase
 
         Livewire::test(QuotationForm::class)
             ->set('customer_id', $customer->id)
-            // requested_by / prepared_by blank; leg left empty (transfer needs from/to/start/car)
+            // requested_by / prepared_by blank; leg left empty (transfer needs from/to/start).
+            // The car is deliberately NOT required: you quote a job before any
+            // vehicle is assigned to it.
             ->call('save')
-            ->assertHasErrors(['requested_by', 'prepared_by', 'legs.0.from_location', 'legs.0.to_location', 'legs.0.start_at', 'legs.0.car_id']);
+            ->assertHasErrors(['requested_by', 'prepared_by', 'legs.0.from_location', 'legs.0.to_location', 'legs.0.start_at'])
+            ->assertHasNoErrors(['legs.0.car_id']);
 
         $this->assertSame(0, LimoQuotation::query()->count());
     }
@@ -265,7 +268,8 @@ final class LimousineModuleTest extends TestCase
             ->set('customer_id', $customer->id)
             ->set('pax_name', 'John Traveller')
             ->set('requested_by', 'Sara')
-            ->set('prepared_by', 'Ali')
+            // prepared_by is not set here on purpose: it is stamped from the
+            // signed-in user and is #[Locked], so a client-side set is refused.
             ->set('payment_method', 'cash')
             ->set('advance', 5)
             ->set('legs.0.service_type', 'transfer')
@@ -292,6 +296,89 @@ final class LimousineModuleTest extends TestCase
             ->call('start')->assertSet('status', LimoBooking::STATUS_ACTIVE)
             ->call('complete')->assertSet('status', LimoBooking::STATUS_COMPLETED)
             ->call('markPaid')->assertSet('payment_status', LimoBooking::PAYMENT_PAID);
+    }
+
+    public function test_a_booking_saves_without_a_car_and_the_car_is_required_only_to_start(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $car = $this->availableCar('Lexus ES');
+
+        // Taken over the phone: no car assigned yet.
+        Livewire::test(BookingForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('requested_by', 'Sara')
+            ->set('payment_method', 'cash')
+            ->set('legs.0.service_type', 'transfer')
+            ->set('legs.0.from_location', 'Airport')
+            ->set('legs.0.to_location', 'City Centre')
+            ->set('legs.0.start_at', '2026-07-01T14:30')
+            ->set('legs.0.rate', 18.5)
+            ->set('legs.0.rate_basis', 'trip')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $booking = LimoBooking::query()->with('legs')->sole();
+        $this->assertNull($booking->legs->first()?->car_id);
+
+        // Dispatching without a car is refused...
+        Livewire::test(BookingForm::class, ['id' => $booking->id])
+            ->call('start')
+            ->assertHasErrors(['legs.0.car_id']);
+        $this->assertSame(LimoBooking::STATUS_QUEUE, $booking->fresh()?->status);
+
+        // ...and allowed once one is chosen.
+        Livewire::test(BookingForm::class, ['id' => $booking->id])
+            ->set('legs.0.car_id', $car->id)
+            ->call('save')
+            ->call('start')
+            ->assertHasNoErrors();
+        $this->assertSame(LimoBooking::STATUS_ACTIVE, $booking->fresh()?->status);
+    }
+
+    public function test_prepared_by_is_stamped_from_the_signed_in_user_and_cannot_be_typed(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $car = $this->availableCar('Lexus ES');
+        $me = (string) auth()->user()?->name;
+
+        Livewire::test(BookingForm::class)
+            ->assertSet('prepared_by', $me)
+            ->set('customer_id', $customer->id)
+            ->set('requested_by', 'Sara')
+            ->set('payment_method', 'cash')
+            ->set('legs.0.service_type', 'transfer')
+            ->set('legs.0.from_location', 'Airport')
+            ->set('legs.0.to_location', 'City Centre')
+            ->set('legs.0.start_at', '2026-07-01T14:30')
+            ->set('legs.0.car_id', $car->id)
+            ->set('legs.0.rate', 18.5)
+            ->set('legs.0.rate_basis', 'trip')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame($me, LimoBooking::query()->sole()->prepared_by);
+    }
+
+    public function test_editing_a_booking_keeps_the_original_preparer(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+
+        // A booking raised by someone else entirely.
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id,
+            'pax_name' => 'John Traveller',
+            'requested_by' => 'Sara',
+            'prepared_by' => 'Original Preparer',
+            'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+
+        // Opening it as a different user must NOT reassign the sign-off —
+        // otherwise the audit trail rewrites itself on every visit.
+        Livewire::test(BookingForm::class, ['id' => $booking->id])
+            ->assertSet('prepared_by', 'Original Preparer');
     }
 
     public function test_picking_a_customer_fills_the_passenger_block(): void
@@ -350,9 +437,12 @@ final class LimousineModuleTest extends TestCase
             // Picking the customer auto-fills the PAX name, so clear it again to
             // prove the field is still required when nothing stands in it.
             ->set('pax_name', '')
-            // pax_name / requested_by / prepared_by blank; leg incomplete
+            // pax_name / requested_by blank; leg incomplete. Two fields are NOT
+            // expected here: prepared_by is stamped from the signed-in user, and
+            // car_id is only required when the trip is dispatched (see start()).
             ->call('save')
-            ->assertHasErrors(['pax_name', 'requested_by', 'prepared_by', 'legs.0.from_location', 'legs.0.car_id']);
+            ->assertHasErrors(['pax_name', 'requested_by', 'legs.0.from_location'])
+            ->assertHasNoErrors(['legs.0.car_id']);
     }
 
     public function test_dashboard_renders_booking_kpis(): void

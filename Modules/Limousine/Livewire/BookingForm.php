@@ -232,7 +232,13 @@ final class BookingForm extends Component
         $booking->car_type = null; // the car now lives on each leg
         $booking->save();
 
-        $this->persistLegs($booking); // recreates legs + sets fare/amount = grand total
+        $this->persistLegs($booking); // updates legs + sets fare/amount = grand total
+
+        // After the legs have priced the job, decide the payment flag from the
+        // money taken. This has to run AFTER persistLegs, which is what sets the
+        // fare the advance is compared against.
+        $booking->syncPaymentFromAdvance();
+        $this->payment_status = $booking->payment_status;
 
         session()->flash('toast', __('Booking saved.'));
         $this->redirect('/app/limousine/booking', navigate: true);

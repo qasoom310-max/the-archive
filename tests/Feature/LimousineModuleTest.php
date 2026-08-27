@@ -338,6 +338,92 @@ final class LimousineModuleTest extends TestCase
         $this->assertSame(LimoBooking::STATUS_ACTIVE, $booking->fresh()?->status);
     }
 
+    public function test_taking_the_full_fare_as_advance_marks_the_booking_paid(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $car = $this->availableCar('Lexus ES');
+
+        // Enter a 25 BHD job and take 25 BHD at the counter. Nothing is owed,
+        // so it must not still read "unpaid".
+        Livewire::test(BookingForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('requested_by', 'Sara')
+            ->set('payment_method', 'cash')
+            ->set('advance', 25)
+            ->set('legs.0.service_type', 'transfer')
+            ->set('legs.0.from_location', 'Airport')
+            ->set('legs.0.to_location', 'City')
+            ->set('legs.0.start_at', '2026-08-27T17:00')
+            ->set('legs.0.rate', 25)
+            ->set('legs.0.rate_basis', 'trip')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $booking = LimoBooking::query()->sole();
+        $this->assertEqualsWithDelta(0.0, $booking->balanceDue(), 0.001);
+        $this->assertSame(LimoBooking::PAYMENT_PAID, $booking->payment_status);
+        unset($car);
+    }
+
+    public function test_a_part_payment_is_still_unpaid(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+
+        // A deposit is not settlement.
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'fare' => 25, 'advance' => 10,
+        ]);
+        $booking->syncPaymentFromAdvance();
+
+        $this->assertSame(LimoBooking::PAYMENT_UNPAID, $booking->fresh()?->payment_status);
+    }
+
+    public function test_lowering_the_advance_makes_the_booking_owe_again(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'fare' => 25, 'advance' => 25,
+        ]);
+        $booking->syncPaymentFromAdvance();
+        $this->assertSame(LimoBooking::PAYMENT_PAID, $booking->fresh()?->payment_status);
+
+        // Correcting a mistyped advance must put the balance back.
+        $booking->advance = 5;
+        $booking->save();
+        $booking->syncPaymentFromAdvance();
+
+        $this->assertSame(LimoBooking::PAYMENT_UNPAID, $booking->fresh()?->payment_status);
+    }
+
+    public function test_a_booking_settled_by_a_receipt_is_not_unmarked_by_the_advance(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'fare' => 25, 'advance' => 0,
+        ]);
+        $invoice = $booking->createInvoice();
+        LimoReceipt::query()->create([
+            'invoice_id' => $invoice->id, 'customer_id' => $customer->id,
+            'date' => now(), 'amount' => 25, 'method' => 'cash',
+        ]);
+        $this->assertSame(LimoBooking::PAYMENT_PAID, $booking->fresh()?->payment_status);
+
+        // That money never came through the advance field, so editing the
+        // booking must not undo it.
+        $booking->fresh()?->syncPaymentFromAdvance();
+
+        $this->assertSame(LimoBooking::PAYMENT_PAID, $booking->fresh()?->payment_status);
+    }
+
     public function test_each_leg_gets_its_own_running_reference(): void
     {
         $this->install();

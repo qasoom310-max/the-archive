@@ -18,6 +18,8 @@ use Illuminate\Support\Carbon;
  * @property string $legable_type
  * @property int $legable_id
  * @property int $sequence
+ * @property string|null $reference  Plain running number, e.g. "10000"
+ * @property string|null $status     queue|confirmed|active|completed|cancelled; null on quotation legs
  * @property string $service_type
  * @property int|null $car_id
  * @property string|null $from_location
@@ -49,12 +51,44 @@ final class LimoLeg extends Model
 
     public const BASIS_DAY = 'day';
 
+    /**
+     * Each leg is dispatched on its own, so it carries its own status —
+     * mirroring the booking's, which now only summarises its legs.
+     */
+    public const STATUS_QUEUE = 'queue';
+
+    public const STATUS_CONFIRMED = 'confirmed';
+
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_COMPLETED = 'completed';
+
+    public const STATUS_CANCELLED = 'cancelled';
+
+    /** First reference handed out. Kept in step with the backfill migration. */
+    public const REFERENCE_START = 10000;
+
     /** @var list<string> */
     protected $fillable = [
-        'legable_type', 'legable_id', 'sequence', 'service_type', 'car_id', 'from_location',
-        'to_location', 'start_at', 'hours', 'days', 'vehicle', 'vehicle_details',
-        'rate', 'rate_basis', 'discount', 'vat', 'line_total', 'net_amount', 'notes',
+        'legable_type', 'legable_id', 'sequence', 'reference', 'status', 'service_type',
+        'car_id', 'from_location', 'to_location', 'start_at', 'hours', 'days', 'vehicle',
+        'vehicle_details', 'rate', 'rate_basis', 'discount', 'vat', 'line_total', 'net_amount', 'notes',
     ];
+
+    protected static function booted(): void
+    {
+        // Derive the running number from the row's own id rather than
+        // `max(reference) + 1`: the id is already unique and monotonic, so two
+        // legs created at the same moment cannot collide, and a deleted leg
+        // leaves a gap instead of handing its number to someone else. The
+        // offset keeps it clear of the backfilled range — see the migration.
+        static::created(static function (self $leg): void {
+            if ($leg->reference === null || $leg->reference === '') {
+                $leg->reference = (string) (self::REFERENCE_START - 1 + (int) $leg->getKey());
+                $leg->saveQuietly();
+            }
+        });
+    }
 
     /** @var array<string, mixed> */
     protected $attributes = [

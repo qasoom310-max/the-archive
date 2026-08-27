@@ -27,6 +27,7 @@ use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoExpense;
 use Modules\Limousine\Models\LimoInvoice;
+use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Models\LimoLocation;
 use Modules\Limousine\Models\LimoQuotation;
 use Modules\Limousine\Models\LimoReceipt;
@@ -335,6 +336,151 @@ final class LimousineModuleTest extends TestCase
             ->call('start')
             ->assertHasNoErrors();
         $this->assertSame(LimoBooking::STATUS_ACTIVE, $booking->fresh()?->status);
+    }
+
+    public function test_each_leg_gets_its_own_running_reference(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+
+        $refs = [];
+        foreach ([0, 1, 2] as $i) {
+            $refs[] = $booking->legs()->create([
+                'sequence' => $i, 'service_type' => 'transfer', 'from_location' => 'A',
+                'to_location' => 'B', 'start_at' => now(), 'days' => 1, 'rate' => 1, 'rate_basis' => 'trip',
+            ])->fresh()?->reference;
+        }
+
+        // Plain running numbers from 10000, unique, and ascending across legs.
+        $this->assertCount(3, array_unique($refs));
+        foreach ($refs as $ref) {
+            $this->assertMatchesRegularExpression('/^\d+$/', (string) $ref);
+            $this->assertGreaterThanOrEqual(LimoLeg::REFERENCE_START, (int) $ref);
+        }
+        $this->assertSame($refs, collect($refs)->sort()->values()->all());
+    }
+
+    public function test_editing_a_booking_keeps_each_legs_reference_and_status(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $car = $this->availableCar('Lexus ES');
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+        $leg = $booking->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'Airport',
+            'to_location' => 'City', 'start_at' => now(), 'days' => 1, 'rate' => 10,
+            'rate_basis' => 'trip', 'car_id' => $car->id, 'vehicle' => 'Lexus ES',
+            'status' => LimoLeg::STATUS_CONFIRMED,
+        ]);
+        $ref = $leg->fresh()?->reference;
+
+        // Re-saving the booking used to delete and recreate every leg, which
+        // would issue a new reference and reset the leg's progress.
+        Livewire::test(BookingForm::class, ['id' => $booking->id])
+            ->set('legs.0.rate', 25)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $after = $leg->fresh();
+        $this->assertNotNull($after, 'the leg row must survive an edit');
+        $this->assertSame($ref, $after->reference);
+        $this->assertSame(LimoLeg::STATUS_CONFIRMED, $after->status);
+        $this->assertSame($car->id, $after->car_id);       // assigned from the queue, not wiped
+        $this->assertEqualsWithDelta(25.0, $after->rate, 0.001);
+    }
+
+    public function test_legs_move_through_the_queue_independently(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $car = $this->availableCar('Lexus ES');
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+        $one = $booking->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'A', 'to_location' => 'B',
+            'start_at' => now(), 'days' => 1, 'rate' => 1, 'rate_basis' => 'trip',
+            'car_id' => $car->id, 'status' => LimoLeg::STATUS_QUEUE,
+        ]);
+        $two = $booking->legs()->create([
+            'sequence' => 1, 'service_type' => 'transfer', 'from_location' => 'B', 'to_location' => 'C',
+            'start_at' => now(), 'days' => 1, 'rate' => 1, 'rate_basis' => 'trip',
+            'status' => LimoLeg::STATUS_QUEUE,
+        ]);
+
+        // Leg 1 runs and finishes; leg 2 has not been touched.
+        Livewire::test(Bookings::class)
+            ->call('advanceLeg', $one->id, LimoLeg::STATUS_CONFIRMED)
+            ->call('advanceLeg', $one->id, LimoLeg::STATUS_ACTIVE)
+            ->call('advanceLeg', $one->id, LimoLeg::STATUS_COMPLETED);
+
+        $this->assertSame(LimoLeg::STATUS_COMPLETED, $one->fresh()?->status);
+        $this->assertSame(LimoLeg::STATUS_QUEUE, $two->fresh()?->status);
+
+        // The booking summarises its legs, so it is still queued: one leg waiting
+        // means the job as a whole is not finished.
+        $this->assertSame(LimoBooking::STATUS_QUEUE, $booking->fresh()?->status);
+
+        // Finish the second and the booking completes with it.
+        Livewire::test(Bookings::class)
+            ->call('advanceLeg', $two->id, LimoLeg::STATUS_COMPLETED);
+        $this->assertSame(LimoBooking::STATUS_COMPLETED, $booking->fresh()?->status);
+    }
+
+    public function test_a_leg_cannot_start_without_a_car(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+        $leg = $booking->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'A', 'to_location' => 'B',
+            'start_at' => now(), 'days' => 1, 'rate' => 1, 'rate_basis' => 'trip',
+            'car_id' => null, 'status' => LimoLeg::STATUS_CONFIRMED,
+        ]);
+
+        Livewire::test(Bookings::class)->call('advanceLeg', $leg->id, LimoLeg::STATUS_ACTIVE);
+
+        $this->assertSame(LimoLeg::STATUS_CONFIRMED, $leg->fresh()?->status);
+    }
+
+    public function test_payment_stays_on_the_booking_and_covers_every_leg(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_QUEUE, 'fare' => 40,
+        ]);
+        foreach ([0, 1] as $i) {
+            $booking->legs()->create([
+                'sequence' => $i, 'service_type' => 'transfer', 'from_location' => 'A', 'to_location' => 'B',
+                'start_at' => now(), 'days' => 1, 'rate' => 20, 'rate_basis' => 'trip',
+                'status' => LimoLeg::STATUS_QUEUE,
+            ]);
+        }
+
+        // The customer settles the job, not a leg of it: one payment, and the
+        // queue shows every leg of that booking as paid.
+        Livewire::test(BookingForm::class, ['id' => $booking->id])->call('markPaid');
+
+        $this->assertSame(LimoBooking::PAYMENT_PAID, $booking->fresh()?->payment_status);
+        Livewire::test(Bookings::class)->assertSee(__('Paid'));
     }
 
     public function test_the_booking_form_never_offers_a_car(): void

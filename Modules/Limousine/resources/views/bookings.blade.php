@@ -58,37 +58,54 @@
                 </tr>
             </thead>
             <tbody class="divide-y divide-chrome-50">
-                @forelse ($bookings as $b)
+                {{-- One row per LEG: each is dispatched separately, with its own
+                     reference, car and status. Payment belongs to the parent
+                     booking, so every leg of a paid job reads "paid". --}}
+                @forelse ($legs as $leg)
                     @php
+                        $booking = $leg->legable;
                         $sb = [
                             'queue' => 'bg-amber-100 text-amber-700',
                             'confirmed' => 'bg-sky-100 text-sky-700',
                             'active' => 'bg-indigo-100 text-indigo-700',
                             'completed' => 'bg-emerald-100 text-emerald-700',
                             'cancelled' => 'bg-red-100 text-red-700',
-                        ][$b->status] ?? 'bg-chrome-200 text-chrome-700';
+                        ][$leg->status] ?? 'bg-chrome-200 text-chrome-700';
+                        $next = [
+                            'queue' => ['confirmed', __('Confirm')],
+                            'confirmed' => ['active', __('Start trip')],
+                            'active' => ['completed', __('Complete')],
+                        ][$leg->status] ?? null;
                     @endphp
-                    <tr wire:key="bk-{{ $b->id }}" class="cursor-pointer hover:bg-chrome-50"
-                        onclick="window.location='{{ url('/app/limousine/booking/' . $b->id) }}'">
-                        <td class="px-4 py-2 font-medium text-chrome-800">{{ $b->reference }}</td>
-                        <td class="px-4 py-2 text-chrome-700">{{ $b->customer?->name ?? '—' }}</td>
-                        <td class="px-4 py-2 text-chrome-600">{{ $b->pickupLocation?->name ?? '—' }} → {{ $b->dropoffLocation?->name ?? '—' }}</td>
-                        <td class="px-4 py-2 text-chrome-600">{{ $b->pickup_at?->isoFormat('MMM D, h:mm A') ?? '—' }}</td>
-                        <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($b->fare) }}</td>
-                        <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst($b->status)) }}</span></td>
-                        <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $b->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($b->payment_status)) }}</span></td>
-                        {{-- Dispatch column. `onclick.stop` so using it doesn't also
-                             follow the row's link through to the booking form. --}}
+                    <tr wire:key="leg-{{ $leg->id }}" class="cursor-pointer hover:bg-chrome-50"
+                        onclick="window.location='{{ url('/app/limousine/booking/' . $leg->legable_id) }}'">
+                        <td class="px-4 py-2 font-medium text-chrome-800">
+                            {{ $leg->reference ?? '—' }}
+                            <span class="block text-[11px] font-normal text-chrome-400">{{ $booking?->reference }}</span>
+                        </td>
+                        <td class="px-4 py-2 text-chrome-700">{{ $booking?->customer?->name ?? '—' }}</td>
+                        <td class="px-4 py-2 text-chrome-600">{{ $leg->from_location ?? '—' }}{{ $leg->to_location ? ' → ' . $leg->to_location : '' }}</td>
+                        <td class="px-4 py-2 text-chrome-600">{{ $leg->start_at?->isoFormat('MMM D, h:mm A') ?? '—' }}</td>
+                        <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($leg->net_amount) }}</td>
                         <td class="px-4 py-2" onclick="event.stopPropagation()">
-                            @php $cars = $b->legs->pluck('vehicle')->filter()->unique()->values(); @endphp
-                            @if ($cars->isNotEmpty())
-                                <span class="text-chrome-700">{{ $cars->implode(', ') }}</span>
+                            <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst((string) $leg->status)) }}</span>
+                            @if ($next !== null && $canAssign)
+                                <button type="button" wire:click="advanceLeg({{ $leg->id }}, '{{ $next[0] }}')"
+                                        class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ $next[1] }}</button>
+                            @endif
+                        </td>
+                        {{-- Payment is the booking's, shared by all its legs. --}}
+                        <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $booking?->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst((string) $booking?->payment_status)) }}</span></td>
+                        {{-- stopPropagation so dispatching doesn't also follow the row link. --}}
+                        <td class="px-4 py-2" onclick="event.stopPropagation()">
+                            @if ($leg->vehicle !== null)
+                                <span class="text-chrome-700">{{ $leg->vehicle }}</span>
                                 @if ($canAssign)
-                                    <button type="button" wire:click="openAssign({{ $b->id }})"
+                                    <button type="button" wire:click="openAssign({{ $leg->legable_id }})"
                                             class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ __('Change') }}</button>
                                 @endif
                             @elseif ($canAssign)
-                                <button type="button" wire:click="openAssign({{ $b->id }})"
+                                <button type="button" wire:click="openAssign({{ $leg->legable_id }})"
                                         class="rounded-lg border border-chrome-200 px-2.5 py-1 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
                                     {{ __('Assign car') }}
                                 </button>
@@ -104,7 +121,7 @@
         </table>
     </div>
 
-    <div class="mt-4">{{ $bookings->links() }}</div>
+    <div class="mt-4">{{ $legs->links() }}</div>
 
     {{-- ── Assign car ──
          One picker per leg: a booking can run several legs and they don't have

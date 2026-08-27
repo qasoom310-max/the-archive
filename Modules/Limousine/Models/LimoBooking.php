@@ -150,6 +150,48 @@ final class LimoBooking extends Model implements DefinesIrModel
     }
 
     /**
+     * Re-derive this booking's status from its legs.
+     *
+     * Legs are dispatched one by one, so the booking is a summary of them: it
+     * reads as whatever the LEAST-progressed live leg is. A job with one leg
+     * finished and one still waiting is not "completed", it is still in the
+     * queue. Cancelled legs are ignored unless every leg is cancelled, and a
+     * booking with no legs is left alone.
+     */
+    public function syncStatusFromLegs(): void
+    {
+        $statuses = $this->legs()->pluck('status')->filter()->all();
+        if ($statuses === []) {
+            return;
+        }
+
+        $live = array_values(array_filter($statuses, static fn (string $s): bool => $s !== LimoLeg::STATUS_CANCELLED));
+        if ($live === []) {
+            $this->status = self::STATUS_CANCELLED;
+            $this->save();
+
+            return;
+        }
+
+        // Ordered least → most progressed; the first one present wins.
+        foreach ([
+            LimoLeg::STATUS_QUEUE => self::STATUS_QUEUE,
+            LimoLeg::STATUS_CONFIRMED => self::STATUS_CONFIRMED,
+            LimoLeg::STATUS_ACTIVE => self::STATUS_ACTIVE,
+        ] as $legStatus => $bookingStatus) {
+            if (in_array($legStatus, $live, true)) {
+                $this->status = $bookingStatus;
+                $this->save();
+
+                return;
+            }
+        }
+
+        $this->status = self::STATUS_COMPLETED;
+        $this->save();
+    }
+
+    /**
      * @return BelongsTo<LimoCustomer, $this>
      */
     public function customer(): BelongsTo

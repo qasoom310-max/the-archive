@@ -17,6 +17,7 @@ use Livewire\Component;
 use Modules\Limousine\Livewire\Concerns\HandlesTripLegs;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
+use Modules\Limousine\Models\LimoLeg;
 
 /**
  * Bespoke limousine booking: a customer/PAX header plus unlimited trip legs
@@ -327,9 +328,19 @@ final class BookingForm extends Component
         $this->transition(LimoBooking::STATUS_CANCELLED);
     }
 
+    /**
+     * Move the whole booking, legs and all.
+     *
+     * Legs are dispatched individually from the queue, but the buttons on this
+     * sheet act on the job as a whole — so the status is pushed DOWN to every
+     * leg rather than set on the parent alone. Without that the booking and its
+     * legs would disagree, and `syncStatusFromLegs()` would immediately undo it.
+     * Cancelled legs are left cancelled.
+     */
     private function transition(string $status): void
     {
         $this->withBooking(function (LimoBooking $b) use ($status): void {
+            $b->legs()->where('status', '!=', LimoLeg::STATUS_CANCELLED)->update(['status' => $status]);
             $b->setStatus($status);
         });
     }

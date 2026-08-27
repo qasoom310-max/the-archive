@@ -336,6 +336,74 @@ final class LimousineModuleTest extends TestCase
         $this->assertSame(LimoBooking::STATUS_ACTIVE, $booking->fresh()?->status);
     }
 
+    public function test_the_car_picker_is_hidden_until_the_booking_is_confirmed(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $this->availableCar('Lexus ES');
+
+        // Taking the booking: no car picker at all — the vehicle is unknown.
+        // Asserted on the binding, not the word "Car", which "Car details" shares.
+        Livewire::test(BookingForm::class)
+            ->assertDontSeeHtml('legs.0.car_id');
+
+        $queued = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+        Livewire::test(BookingForm::class, ['id' => $queued->id])
+            ->assertDontSeeHtml('legs.0.car_id');
+
+        // Once confirmed, the picker appears so a car can be assigned before Start.
+        $confirmed = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'B', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_CONFIRMED,
+        ]);
+        Livewire::test(BookingForm::class, ['id' => $confirmed->id])
+            ->assertSeeHtml('legs.0.car_id');
+    }
+
+    public function test_starting_a_trip_records_the_car_without_a_separate_save(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $car = $this->availableCar('Lexus ES');
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_CONFIRMED,
+        ]);
+        $booking->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'car_id' => null,
+            'from_location' => 'Airport', 'to_location' => 'City', 'start_at' => now(),
+            'days' => 1, 'rate' => 18.5, 'rate_basis' => 'trip',
+        ]);
+
+        // Pick a car and hit Start straight away — no Save in between. The car
+        // must reach the database, not just the screen.
+        Livewire::test(BookingForm::class, ['id' => $booking->id])
+            ->set('legs.0.car_id', $car->id)
+            ->call('start')
+            ->assertHasNoErrors();
+
+        $this->assertSame(LimoBooking::STATUS_ACTIVE, $booking->fresh()?->status);
+        $leg = $booking->fresh()?->legs->first();
+        $this->assertSame($car->id, $leg?->car_id);
+        // The label snapshot travels with it, so the leg still names its car
+        // even if the fleet entry is renamed later.
+        $this->assertNotNull($leg?->vehicle);
+    }
+
+    public function test_quotations_keep_their_car_picker(): void
+    {
+        $this->install();
+        $this->availableCar('Lexus ES');
+
+        // The legs partial is shared; hiding the car is a booking-only decision.
+        Livewire::test(QuotationForm::class)
+            ->assertSeeHtml('legs.0.car_id');
+    }
+
     public function test_prepared_by_is_stamped_from_the_signed_in_user_and_cannot_be_typed(): void
     {
         $this->install();

@@ -80,16 +80,21 @@
                     </div>
                 @endif
 
-                <div>
-                    {{-- Not marked required: the car is chosen when the trip is
-                         dispatched, and BookingForm::start() enforces it there. --}}
-                    <label class="{{ $lbl }}">{{ __('Car') }}</label>
-                    <select wire:model="legs.{{ $i }}.car_id" class="o-input w-full">
-                        <option value="">{{ count($carOptions) ? __('— Select —') : __('No cars available') }}</option>
-                        @foreach ($carOptions as $opt)<option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>@endforeach
-                    </select>
-                    @error('legs.'.$i.'.car_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                </div>
+                {{-- The car is not chosen while the booking is being taken — nobody
+                     knows yet which vehicle will run it. The host decides when the
+                     picker appears ($showCar); it defaults to ON so the quotation
+                     form, which shares this partial, is unaffected. Not marked
+                     required either: BookingForm::start() enforces it at dispatch. --}}
+                @if ($showCar ?? true)
+                    <div>
+                        <label class="{{ $lbl }}">{{ __('Car') }}</label>
+                        <select wire:model="legs.{{ $i }}.car_id" class="o-input w-full">
+                            <option value="">{{ count($carOptions) ? __('— Select —') : __('No cars available') }}</option>
+                            @foreach ($carOptions as $opt)<option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>@endforeach
+                        </select>
+                        @error('legs.'.$i.'.car_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                @endif
                 <div>
                     <label class="{{ $lbl }}">{{ __('Car details') }}</label>
                     <input type="text" wire:model="legs.{{ $i }}.car_details" class="o-input w-full" placeholder="{{ __('Any note about the car') }}">

@@ -17,6 +17,7 @@ use Livewire\Component;
 use Modules\Limousine\Livewire\Concerns\HandlesTripLegs;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
+use Modules\Rental\Models\Vehicle;
 
 /**
  * Bespoke limousine booking: a customer/PAX header plus unlimited trip legs
@@ -312,7 +313,47 @@ final class BookingForm extends Component
             return;
         }
 
+        // Write the chosen cars down before flipping the status. The picker only
+        // appears at this stage, and transition() saves the booking row alone —
+        // so without this a trip started straight after choosing a car would go
+        // Active with the leg still holding none, and the guard above would not
+        // catch it because it reads the screen rather than the database.
+        $this->storeLegCars();
+
         $this->transition(LimoBooking::STATUS_ACTIVE);
+    }
+
+    /**
+     * Persist just the per-leg car assignment (id + the label snapshot the rest
+     * of the app reads). Deliberately narrow: starting a trip should record the
+     * vehicle, not quietly commit unrelated pricing edits left on the form.
+     */
+    private function storeLegCars(): void
+    {
+        if ($this->id === null) {
+            return;
+        }
+
+        $booking = LimoBooking::query()->with('legs')->find($this->id);
+        if ($booking === null) {
+            return;
+        }
+
+        $carIds = collect($this->legs)->pluck('car_id')->filter()
+            ->map(fn ($x): int => (int) $x)->all();
+        $labels = Vehicle::query()->whereIn('id', $carIds)->get()
+            ->mapWithKeys(fn (Vehicle $v): array => [$v->id => $v->displayName()]);
+
+        foreach ($booking->legs as $i => $leg) {
+            $carId = ($this->legs[$i]['car_id'] ?? '') !== '' ? (int) $this->legs[$i]['car_id'] : null;
+            if ($carId === null || $carId === $leg->car_id) {
+                continue;
+            }
+
+            $leg->car_id = $carId;
+            $leg->vehicle = $labels[$carId] ?? null;
+            $leg->save();
+        }
     }
 
     public function complete(): void

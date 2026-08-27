@@ -112,7 +112,10 @@
 
     {{-- ── Trip legs ── --}}
     <div class="mt-5">
-        @include('limousine::partials.legs')
+        {{-- No car while the booking is still in Queue: it is assigned after
+             Confirm, then the trip is started. Quotations include this partial
+             without the flag and keep their picker. --}}
+        @include('limousine::partials.legs', ['showCar' => $status !== 'queue'])
     </div>
 
     {{-- ── Payment & total ── --}}

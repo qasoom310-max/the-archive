@@ -43,13 +43,12 @@ final class Bookings extends Component
         return 'limousine.booking';
     }
 
-    /** Booking whose cars are being assigned, or null when the modal is shut. */
+    /** LEG whose car is being assigned, or null when the modal is shut. */
     #[Locked]
     public ?int $assigningId = null;
 
-    /** Chosen car per leg, keyed by leg id: `<legId> => <carId as string>`. */
-    /** @var array<int, string> */
-    public array $assignCars = [];
+    /** The chosen car for that leg. */
+    public string $assignCar = '';
 
     public function mount(): void
     {
@@ -57,32 +56,31 @@ final class Bookings extends Component
     }
 
     /**
-     * Open the car assignment for a booking waiting in the queue.
+     * Open the car assignment for ONE leg.
      *
-     * Dispatch is a separate job from taking the booking: the trip is written
-     * up first and a vehicle is put against it later, from this list. Keyed by
-     * leg id rather than position so a re-ordered or deleted leg can never send
-     * a car to the wrong one.
+     * Deliberately per leg, not per booking: legs run at different times on
+     * different days, so they are dispatched independently and each gets its
+     * own vehicle. Assigning them together as a group would force the office to
+     * think about a trip they aren't sending yet. All they really share is a
+     * receipt, and that lives on the booking.
      */
-    public function openAssign(int $id): void
+    public function openAssign(int $legId): void
     {
         $this->guardAccess(Permission::Write);
 
-        $booking = LimoBooking::query()->with('legs')->find($id);
-        if ($booking === null) {
+        $leg = LimoLeg::query()->with('legable')->find($legId);
+        if ($leg === null || ! $leg->legable instanceof LimoBooking) {
             return;
         }
 
-        $this->assigningId = $booking->id;
-        $this->assignCars = $booking->legs
-            ->mapWithKeys(fn (LimoLeg $l): array => [$l->id => $l->car_id !== null ? (string) $l->car_id : ''])
-            ->all();
+        $this->assigningId = $leg->id;
+        $this->assignCar = $leg->car_id !== null ? (string) $leg->car_id : '';
     }
 
     public function closeAssign(): void
     {
         $this->assigningId = null;
-        $this->assignCars = [];
+        $this->assignCar = '';
     }
 
     /**
@@ -128,12 +126,13 @@ final class Bookings extends Component
     }
 
     /**
-     * Save the chosen cars onto the booking's legs.
+     * Save the chosen car onto the open leg.
      *
      * Writes `car_id` plus the label snapshot the rest of the app reads, so a
-     * leg still names its vehicle if the fleet entry is later renamed. Legs are
-     * matched by id and anything not belonging to this booking is ignored — the
-     * keys arrive from the browser and cannot be trusted.
+     * leg still names its vehicle if the fleet entry is later renamed. The leg
+     * is re-read from `assigningId`, which is #[Locked] — the car id itself
+     * comes from the browser, so an unknown vehicle is refused rather than
+     * stored as a dangling reference.
      */
     public function saveAssign(): void
     {
@@ -143,31 +142,32 @@ final class Bookings extends Component
             return;
         }
 
-        $booking = LimoBooking::query()->with('legs')->find($this->assigningId);
-        if ($booking === null) {
+        $leg = LimoLeg::query()->find($this->assigningId);
+        if ($leg === null) {
             $this->closeAssign();
 
             return;
         }
 
-        $carIds = collect($this->assignCars)->filter()->map(fn ($x): int => (int) $x)->all();
-        $labels = Vehicle::query()->whereIn('id', $carIds)->get()
-            ->mapWithKeys(fn (Vehicle $v): array => [$v->id => $v->displayName()]);
-
-        foreach ($booking->legs as $leg) {
-            if (! array_key_exists($leg->id, $this->assignCars)) {
-                continue;
-            }
-
-            $carId = $this->assignCars[$leg->id] !== '' ? (int) $this->assignCars[$leg->id] : null;
-            if ($carId !== null && ! $labels->has($carId)) {
-                continue; // unknown vehicle id — ignore rather than store a dangling ref
-            }
-
-            $leg->car_id = $carId;
-            $leg->vehicle = $carId !== null ? $labels[$carId] : null;
+        if ($this->assignCar === '') {
+            $leg->car_id = null;
+            $leg->vehicle = null;
             $leg->save();
+            $this->closeAssign();
+
+            return;
         }
+
+        $car = Vehicle::query()->find((int) $this->assignCar);
+        if ($car === null) {
+            $this->closeAssign();
+
+            return;
+        }
+
+        $leg->car_id = $car->id;
+        $leg->vehicle = $car->displayName();
+        $leg->save();
 
         $this->closeAssign();
         session()->flash('toast', __('Car assigned.'));
@@ -175,7 +175,7 @@ final class Bookings extends Component
 
     /**
      * Vehicles offerable for assignment: everything free in the Rent A Car
-     * fleet, plus whatever is already on these legs so an existing choice does
+     * fleet, plus whatever is already on this leg so an existing choice does
      * not vanish from its own dropdown once the car is marked rented.
      *
      * @return list<array{value: int, label: string}>
@@ -184,8 +184,10 @@ final class Bookings extends Component
     {
         $ids = Vehicle::query()->where('active', true)
             ->where('status', Vehicle::STATUS_AVAILABLE)->pluck('id')->all();
-        $chosen = collect($this->assignCars)->filter()->map(fn ($x): int => (int) $x)->all();
-        $ids = array_values(array_unique([...$ids, ...$chosen]));
+        if ($this->assignCar !== '') {
+            $ids[] = (int) $this->assignCar;
+        }
+        $ids = array_values(array_unique($ids));
 
         if ($ids === []) {
             return [];
@@ -245,8 +247,8 @@ final class Bookings extends Component
             'counts' => $counts,
             'totalCount' => (int) $counts->sum(),
             'carOptions' => $this->assigningId !== null ? $this->carOptions() : [],
-            'assigningBooking' => $this->assigningId !== null
-                ? LimoBooking::query()->with('legs')->find($this->assigningId)
+            'assigningLeg' => $this->assigningId !== null
+                ? LimoLeg::query()->with('legable.customer:id,name')->find($this->assigningId)
                 : null,
             'canAssign' => $this->mayAccess(Permission::Write),
         ]);

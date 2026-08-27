@@ -513,7 +513,10 @@
                     <label class="{{ $lbl }}">{{ __('Payment type') }}</label>
                     <div class="flex flex-wrap gap-2">
                         @foreach ($paymentTypes as $pt)
-                            <label class="cursor-pointer" wire:key="pt-{{ $pt['value'] }}">
+                            {{-- `relative` anchors the sr-only input here; without it, focusing
+                                 the hidden radio scrolls the page (see the Limousine payment
+                                 selector for the same fix). --}}
+                            <label class="relative cursor-pointer" wire:key="pt-{{ $pt['value'] }}">
                                 <input type="radio" wire:model.live="payment_type" value="{{ $pt['value'] }}" class="peer sr-only">
                                 <span class="block rounded-lg border border-chrome-200 px-3 py-1.5 text-sm text-chrome-600 transition hover:bg-chrome-50 peer-checked:border-primary-500 peer-checked:bg-primary-50 peer-checked:font-medium peer-checked:text-primary-700">{{ __($pt['label']) }}</span>
                             </label>

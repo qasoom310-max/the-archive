@@ -124,7 +124,11 @@
                 <label class="{{ $lbl }}">{{ __('Payment method') }} *</label>
                 <div class="flex flex-wrap gap-2">
                     @foreach ($paymentMethods as $pm)
-                        <label class="cursor-pointer" wire:key="pm-{{ $pm['value'] }}">
+                        {{-- `relative` matters: the sr-only input is position:absolute, so
+                             without a positioned ancestor it anchors to a distant one. Clicking
+                             the label focuses that hidden radio, the browser scrolls it into
+                             view, and the page jumps. Anchoring it here keeps the scroll still. --}}
+                        <label class="relative cursor-pointer" wire:key="pm-{{ $pm['value'] }}">
                             <input type="radio" wire:model.live="payment_method" value="{{ $pm['value'] }}" class="peer sr-only">
                             <span class="block rounded-lg border border-chrome-200 px-3 py-1.5 text-sm text-chrome-600 transition hover:bg-chrome-50 peer-checked:border-primary-500 peer-checked:bg-primary-50 peer-checked:font-medium peer-checked:text-primary-700">{{ __($pm['label']) }}</span>
                         </label>

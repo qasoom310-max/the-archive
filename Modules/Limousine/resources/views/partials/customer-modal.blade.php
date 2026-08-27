@@ -20,7 +20,9 @@
                     <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Customer type') }} <span class="text-red-500">*</span></label>
                     <div class="flex gap-2">
                         @foreach (['individual' => __('Individual'), 'company' => __('Company')] as $val => $label)
-                            <label class="flex-1 cursor-pointer" wire:key="ct-{{ $val }}">
+                            {{-- `relative` anchors the sr-only input here; without it, focusing
+                                 the hidden radio scrolls the page — worse inside a modal. --}}
+                            <label class="relative flex-1 cursor-pointer" wire:key="ct-{{ $val }}">
                                 <input type="radio" wire:model="newCustomer.type" value="{{ $val }}" class="peer sr-only">
                                 <span class="block rounded-lg border border-chrome-200 px-3 py-1.5 text-center text-sm text-chrome-600 transition hover:bg-chrome-50 peer-checked:border-primary-500 peer-checked:bg-primary-50 peer-checked:font-medium peer-checked:text-primary-700">{{ $label }}</span>
                             </label>

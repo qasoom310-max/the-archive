@@ -14,6 +14,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Modules\Limousine\Models\LimoBooking;
+use Modules\Limousine\Models\LimoDriver;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Services\LimoQueueRows;
 use Modules\Rental\Models\Vehicle;
@@ -54,6 +55,9 @@ final class Bookings extends Component
     /** The chosen car for that leg. */
     public string $assignCar = '';
 
+    /** The chosen driver for that leg. */
+    public string $assignDriver = '';
+
     public function mount(): void
     {
         $this->guardAccess(Permission::Read);
@@ -79,12 +83,14 @@ final class Bookings extends Component
 
         $this->assigningId = $leg->id;
         $this->assignCar = $leg->car_id !== null ? (string) $leg->car_id : '';
+        $this->assignDriver = $leg->driver_id !== null ? (string) $leg->driver_id : '';
     }
 
     public function closeAssign(): void
     {
         $this->assigningId = null;
         $this->assignCar = '';
+        $this->assignDriver = '';
     }
 
     /**
@@ -153,28 +159,21 @@ final class Bookings extends Component
             return;
         }
 
-        if ($this->assignCar === '') {
-            $leg->car_id = null;
-            $leg->vehicle = null;
-            $leg->save();
-            $this->closeAssign();
+        // Car and driver are set together but resolved independently: an
+        // unknown id from the browser clears that one field rather than being
+        // stored as a dangling reference, and a blank selection un-assigns.
+        $car = $this->assignCar !== '' ? Vehicle::query()->find((int) $this->assignCar) : null;
+        $leg->car_id = $car?->id;
+        $leg->vehicle = $car?->displayName();
 
-            return;
-        }
+        $driver = $this->assignDriver !== '' ? LimoDriver::query()->find((int) $this->assignDriver) : null;
+        $leg->driver_id = $driver?->id;
+        $leg->driver = $driver?->displayName();
 
-        $car = Vehicle::query()->find((int) $this->assignCar);
-        if ($car === null) {
-            $this->closeAssign();
-
-            return;
-        }
-
-        $leg->car_id = $car->id;
-        $leg->vehicle = $car->displayName();
         $leg->save();
 
         $this->closeAssign();
-        session()->flash('toast', __('Car assigned.'));
+        session()->flash('toast', __('Assignment saved.'));
     }
 
     /**
@@ -203,6 +202,25 @@ final class Bookings extends Component
                 'value' => $v->id,
                 'label' => $v->displayName() . ($v->is_outside ? ' · ' . __('Outside') : ''),
             ])
+            ->all();
+    }
+
+    /**
+     * Drivers offerable for assignment: everyone active, plus whoever is
+     * already on this leg so an existing choice cannot vanish from its own
+     * dropdown after being deactivated.
+     *
+     * @return list<array{value: int, label: string}>
+     */
+    public function driverOptions(): array
+    {
+        $query = LimoDriver::query()->where('active', true);
+        if ($this->assignDriver !== '') {
+            $query->orWhere('id', (int) $this->assignDriver);
+        }
+
+        return $query->orderBy('name')->get(['id', 'name', 'phone'])
+            ->map(fn (LimoDriver $d): array => ['value' => $d->id, 'label' => $d->displayName()])
             ->all();
     }
 
@@ -258,6 +276,7 @@ final class Bookings extends Component
             'counts' => $counts,
             'totalCount' => (int) $counts->sum(),
             'carOptions' => $this->assigningId !== null ? $this->carOptions() : [],
+            'driverOptions' => $this->assigningId !== null ? $this->driverOptions() : [],
             'assigningLeg' => $this->assigningId !== null
                 ? LimoLeg::query()->with('legable.customer:id,name')->find($this->assigningId)
                 : null,

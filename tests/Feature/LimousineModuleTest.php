@@ -25,6 +25,7 @@ use Modules\Limousine\Livewire\QuotationForm;
 use Modules\Limousine\Livewire\Reports;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
+use Modules\Limousine\Models\LimoDriver;
 use Modules\Limousine\Models\LimoExpense;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoLeg;
@@ -76,7 +77,7 @@ final class LimousineModuleTest extends TestCase
         $this->assertFalse(Schema::hasTable('limo_customers'));
 
         $this->assertEqualsCanonicalizing(
-            ['limousine.customer', 'limousine.location', 'limousine.booking', 'limousine.quotation', 'limousine.invoice', 'limousine.receipt', 'limousine.expense'],
+            ['limousine.customer', 'limousine.driver', 'limousine.location', 'limousine.booking', 'limousine.quotation', 'limousine.invoice', 'limousine.receipt', 'limousine.expense'],
             IrModel::query()->where('module', 'limousine')->pluck('model')->all(),
         );
         foreach (['limo_quotations', 'limo_invoices', 'limo_receipts', 'limo_expenses'] as $table) {
@@ -834,6 +835,87 @@ final class LimousineModuleTest extends TestCase
         // The label snapshot travels with it, so the leg still names its car
         // even if the fleet entry is renamed later.
         $this->assertNotNull($saved?->vehicle);
+    }
+
+    public function test_the_driver_list_is_shared_with_rent_a_car(): void
+    {
+        $this->install();
+
+        // One store, two doors: a driver added in Rent A Car is dispatchable
+        // from Limousine, and a correction in either is a correction in both.
+        $fromRental = \Modules\Rental\Models\Driver::query()->create([
+            'name' => 'Ali Hassan', 'phone' => '39001122', 'license_no' => 'L-1',
+        ]);
+        $this->assertSame('Ali Hassan', LimoDriver::query()->find($fromRental->id)?->name);
+
+        $fromLimo = LimoDriver::query()->create(['name' => 'Yusuf Khan', 'phone' => '39003344']);
+        $this->assertSame('Yusuf Khan', \Modules\Rental\Models\Driver::query()->find($fromLimo->id)?->name);
+
+        // Same physical table, so a phone corrected once is corrected everywhere.
+        $fromLimo->update(['phone' => '39009999']);
+        $this->assertSame('39009999', \Modules\Rental\Models\Driver::query()->find($fromLimo->id)?->phone);
+    }
+
+    public function test_a_driver_is_assigned_per_leg_and_snapshotted(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $car = $this->availableCar('Lexus ES');
+        $driver = LimoDriver::query()->create(['name' => 'Ali Hassan', 'phone' => '39001122']);
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+        $out = $booking->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'Airport',
+            'to_location' => 'Home', 'start_at' => now(), 'days' => 1, 'rate' => 13, 'rate_basis' => 'trip',
+        ]);
+        $back = $booking->legs()->create([
+            'sequence' => 1, 'service_type' => 'transfer', 'from_location' => 'Home',
+            'to_location' => 'Airport', 'start_at' => now()->addDay(), 'days' => 1, 'rate' => 12, 'rate_basis' => 'trip',
+        ]);
+
+        Livewire::test(Bookings::class)
+            ->call('openAssign', $out->id)
+            ->set('assignCar', (string) $car->id)
+            ->set('assignDriver', (string) $driver->id)
+            ->call('saveAssign');
+
+        $saved = $out->fresh();
+        $this->assertSame($driver->id, $saved?->driver_id);
+        // Snapshotted like the vehicle, so the leg still says who drove it
+        // after the driver leaves and their record is deactivated.
+        $this->assertStringContainsString('Ali Hassan', (string) $saved?->driver);
+
+        // The return leg runs another day and is dispatched separately.
+        $this->assertNull($back->fresh()?->driver_id);
+    }
+
+    public function test_the_driver_reaches_the_queue_rows_and_search(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $driver = LimoDriver::query()->create(['name' => 'Ali Hassan', 'phone' => '39001122']);
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+        $booking->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'A', 'to_location' => 'B',
+            'start_at' => now(), 'days' => 1, 'rate' => 1, 'rate_basis' => 'trip',
+            'driver_id' => $driver->id, 'driver' => 'Ali Hassan · 39001122',
+            'status' => LimoLeg::STATUS_QUEUE,
+        ]);
+
+        $rows = app(\Modules\Limousine\Services\LimoQueueRows::class);
+
+        // The column the exports print, and a driver name is searchable — the
+        // office often looks a trip up by who is driving it.
+        $this->assertStringContainsString('Ali Hassan', $rows->all('all', '', '', '')[0]['driver']);
+        $this->assertArrayHasKey('driver', $rows->headings());
+        $this->assertCount(1, $rows->all('all', '', '', 'Ali Hassan'));
     }
 
     public function test_each_leg_of_a_booking_is_assigned_a_car_on_its_own(): void

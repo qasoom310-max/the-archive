@@ -26,7 +26,7 @@ use Modules\Limousine\Models\LimoLeg;
  *     leg_id: int, booking_id: int, reference: string, booking_reference: string,
  *     from_date: string, to_date: string, type: string, customer: string,
  *     amount: float, received: float, balance: float, pickup: string, dropoff: string,
- *     vehicle: string, added_by: string, comments: string, booked_time: string,
+ *     vehicle: string, driver: string, added_by: string, comments: string, booked_time: string,
  *     status: string, payment: string
  * }
  */
@@ -75,6 +75,7 @@ final class LimoQueueRows
                     ->orWhere('from_location', 'like', $like)
                     ->orWhere('to_location', 'like', $like)
                     ->orWhere('vehicle', 'like', $like)
+                    ->orWhere('driver', 'like', $like)
                     ->orWhereHasMorph('legable', LimoBooking::class, function ($booking) use ($like): void {
                         $booking->where('reference', 'like', $like)
                             ->orWhere('pax_name', 'like', $like)
@@ -121,6 +122,7 @@ final class LimoQueueRows
             'pickup' => (string) ($leg->from_location ?? ''),
             'dropoff' => (string) ($leg->to_location ?? ''),
             'vehicle' => (string) ($leg->vehicle ?? ''),
+            'driver' => (string) ($leg->driver ?? ''),
             'added_by' => (string) ($booking->prepared_by ?? ''),
             'comments' => (string) ($booking->notes ?? ''),
             'booked_time' => $booking?->created_at?->isoFormat('DD-MMM-YY HH:mm') ?? '',
@@ -205,6 +207,7 @@ final class LimoQueueRows
             'pickup' => __('Pickup'),
             'dropoff' => __('Drop off'),
             'vehicle' => __('Vehicle'),
+            'driver' => __('Driver'),
             'added_by' => __('Added by'),
             'comments' => __('Comments'),
             'booked_time' => __('Booked time'),

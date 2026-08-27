@@ -141,6 +141,20 @@
                                 <span class="text-chrome-400">—</span>
                             @endif
                         </td>
+                        {{-- Driver is set in the same modal as the car; both are
+                             per leg, since each leg is dispatched on its own. --}}
+                        <td class="px-3 py-2">
+                            @if ($row['driver'] !== '')
+                                <span class="text-chrome-700">{{ $row['driver'] }}</span>
+                            @elseif ($canAssign)
+                                <button type="button" wire:click="openAssign({{ $leg->id }})"
+                                        class="rounded-lg border border-chrome-200 px-2.5 py-1 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
+                                    {{ __('Assign driver') }}
+                                </button>
+                            @else
+                                <span class="text-chrome-400">—</span>
+                            @endif
+                        </td>
                         <td class="px-3 py-2 text-chrome-600">{{ $row['added_by'] ?: '—' }}</td>
                         <td class="max-w-[16rem] px-3 py-2 text-chrome-600">{{ $row['comments'] ?: '—' }}</td>
                         <td class="whitespace-nowrap px-3 py-2 text-chrome-500">{{ $row['booked_time'] ?: '—' }}</td>
@@ -158,7 +172,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="18" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No bookings found.') }}</td></tr>
+                    <tr><td colspan="19" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No bookings found.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -175,7 +189,7 @@
              wire:key="assign-{{ $assigningLeg->id }}"
              x-on:keydown.escape.window="$wire.closeAssign()">
             <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl sm:p-6" x-on:click.outside="$wire.closeAssign()">
-                <h2 class="text-sm font-semibold text-chrome-800">{{ __('Assign car') }}</h2>
+                <h2 class="text-sm font-semibold text-chrome-800">{{ __('Assign car & driver') }}</h2>
                 <p class="mt-1 text-xs text-chrome-500">
                     {{ $assigningLeg->reference }}
                     @if ($assigningLeg->legable?->customer?->name) · {{ $assigningLeg->legable->customer->name }} @endif
@@ -185,12 +199,25 @@
                     @if ($assigningLeg->start_at) · {{ $assigningLeg->start_at->isoFormat('DD-MMM-YY HH:mm') }} @endif
                 </p>
 
-                <div class="mt-4">
-                    <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Car') }}</label>
-                    <select wire:model="assignCar" class="o-input w-full">
-                        <option value="">{{ count($carOptions) ? __('— Select —') : __('No cars available') }}</option>
-                        @foreach ($carOptions as $opt)<option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>@endforeach
-                    </select>
+                <div class="mt-4 space-y-4">
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Car') }}</label>
+                        <select wire:model="assignCar" class="o-input w-full">
+                            <option value="">{{ count($carOptions) ? __('— Select —') : __('No cars available') }}</option>
+                            @foreach ($carOptions as $opt)<option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>@endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Driver') }}</label>
+                        <select wire:model="assignDriver" class="o-input w-full">
+                            <option value="">{{ count($driverOptions) ? __('— Select —') : __('No drivers available') }}</option>
+                            @foreach ($driverOptions as $opt)<option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>@endforeach
+                        </select>
+                        {{-- Same people drive for both apps, so the list is shared. --}}
+                        <p class="mt-1 text-xs text-chrome-500">
+                            <a href="{{ url('/app/limousine/driver') }}" class="text-primary-700 hover:underline">{{ __('Manage drivers') }}</a>
+                        </p>
+                    </div>
                 </div>
 
                 <div class="mt-5 flex justify-end gap-2">

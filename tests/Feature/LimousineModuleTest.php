@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Modules\Limousine\Http\Controllers\LimoReportExportController;
 use Modules\Limousine\Livewire\BookingForm;
+use Modules\Limousine\Livewire\Bookings;
 use Modules\Limousine\Livewire\LimoHome;
 use Modules\Limousine\Livewire\QuotationForm;
 use Modules\Limousine\Livewire\Reports;
@@ -334,6 +335,90 @@ final class LimousineModuleTest extends TestCase
             ->call('start')
             ->assertHasNoErrors();
         $this->assertSame(LimoBooking::STATUS_ACTIVE, $booking->fresh()?->status);
+    }
+
+    public function test_the_booking_form_never_offers_a_car(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $this->availableCar('Lexus ES');
+
+        // Asserted on the binding, not the word "Car", which "Car details" shares.
+        Livewire::test(BookingForm::class)->assertDontSeeHtml('legs.0.car_id');
+
+        // ...and still absent once the booking exists, at every status.
+        foreach ([LimoBooking::STATUS_QUEUE, LimoBooking::STATUS_CONFIRMED, LimoBooking::STATUS_ACTIVE] as $status) {
+            $b = LimoBooking::query()->create([
+                'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+                'prepared_by' => 'P', 'status' => $status,
+            ]);
+            Livewire::test(BookingForm::class, ['id' => $b->id])->assertDontSeeHtml('legs.0.car_id');
+        }
+    }
+
+    public function test_a_car_is_assigned_from_the_bookings_queue(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $car = $this->availableCar('Lexus ES');
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+        $leg = $booking->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'car_id' => null,
+            'from_location' => 'Airport', 'to_location' => 'City', 'start_at' => now(),
+            'days' => 1, 'rate' => 18.5, 'rate_basis' => 'trip',
+        ]);
+
+        Livewire::test(Bookings::class)
+            ->set('tab', 'queue')
+            ->call('openAssign', $booking->id)
+            ->assertSet('assigningId', $booking->id)
+            ->set('assignCars.' . $leg->id, (string) $car->id)
+            ->call('saveAssign')
+            ->assertSet('assigningId', null);
+
+        $saved = $leg->fresh();
+        $this->assertSame($car->id, $saved?->car_id);
+        // The label snapshot travels with it, so the leg still names its car
+        // even if the fleet entry is renamed later.
+        $this->assertNotNull($saved?->vehicle);
+    }
+
+    public function test_assigning_a_car_ignores_legs_of_other_bookings(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $car = $this->availableCar('Lexus ES');
+
+        $mine = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+        $mine->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'A',
+            'to_location' => 'B', 'start_at' => now(), 'days' => 1, 'rate' => 1, 'rate_basis' => 'trip',
+        ]);
+
+        $other = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'B', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+        $foreign = $other->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'C',
+            'to_location' => 'D', 'start_at' => now(), 'days' => 1, 'rate' => 1, 'rate_basis' => 'trip',
+        ]);
+
+        // The keys come off the browser, so a crafted payload naming another
+        // booking's leg must not move that booking's car.
+        Livewire::test(Bookings::class)
+            ->call('openAssign', $mine->id)
+            ->set('assignCars.' . $foreign->id, (string) $car->id)
+            ->call('saveAssign');
+
+        $this->assertNull($foreign->fresh()?->car_id);
     }
 
     public function test_prepared_by_is_stamped_from_the_signed_in_user_and_cannot_be_typed(): void

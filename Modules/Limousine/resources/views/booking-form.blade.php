@@ -112,7 +112,10 @@
 
     {{-- ── Trip legs ── --}}
     <div class="mt-5">
-        @include('limousine::partials.legs')
+        {{-- No car on the booking sheet at all: the vehicle is unknown when the
+             trip is taken and is assigned from the Bookings list (Queue tab).
+             Quotations include this partial without the flag and keep theirs. --}}
+        @include('limousine::partials.legs', ['showCar' => false])
     </div>
 
     {{-- ── Payment & total ── --}}

@@ -96,9 +96,12 @@
                 @error('requested_by') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
             <div>
-                <label class="{{ $lbl }}">{{ __('Prepared by') }} *</label>
-                <input type="text" wire:model="prepared_by" class="o-input w-full">
-                @error('prepared_by') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                <label class="{{ $lbl }}">{{ __('Prepared by') }}</label>
+                {{-- Stamped from the signed-in user. No wire:model: the property is
+                     #[Locked], so binding it would only invite a tampering error. --}}
+                <input type="text" value="{{ $prepared_by }}" readonly tabindex="-1"
+                       class="o-input w-full cursor-not-allowed opacity-70">
+                <p class="mt-1 text-xs text-chrome-500">{{ __('Recorded automatically from your account.') }}</p>
             </div>
             <div class="sm:col-span-2">
                 <label class="{{ $lbl }}">{{ __('Comments') }}</label>

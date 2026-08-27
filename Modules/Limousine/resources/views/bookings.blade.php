@@ -115,11 +115,11 @@
                             @if ($row['vehicle'] !== '')
                                 <span class="text-chrome-700">{{ $row['vehicle'] }}</span>
                                 @if ($canAssign)
-                                    <button type="button" wire:click="openAssign({{ $leg->legable_id }})"
+                                    <button type="button" wire:click="openAssign({{ $leg->id }})"
                                             class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ __('Change') }}</button>
                                 @endif
                             @elseif ($canAssign)
-                                <button type="button" wire:click="openAssign({{ $leg->legable_id }})"
+                                <button type="button" wire:click="openAssign({{ $leg->id }})"
                                         class="rounded-lg border border-chrome-200 px-2.5 py-1 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
                                     {{ __('Assign car') }}
                                 </button>
@@ -153,34 +153,30 @@
     <div class="mt-4">{{ $legs->links() }}</div>
 
     {{-- ── Assign car ──
-         One picker per leg: a booking can run several legs and they don't have
-         to share a vehicle. Keyed by leg id, which is what saveAssign() matches
-         on, so a re-ordered leg can never receive another leg's car. --}}
-    @if ($assigningBooking !== null)
+         ONE leg, one picker. Legs run at different times on different days, so
+         each is dispatched on its own — grouping them would make the office
+         decide a trip it isn't sending yet. All they share is a receipt. --}}
+    @if ($assigningLeg !== null)
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-chrome-900/50 p-4"
-             wire:key="assign-{{ $assigningBooking->id }}"
+             wire:key="assign-{{ $assigningLeg->id }}"
              x-on:keydown.escape.window="$wire.closeAssign()">
-            <div class="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl sm:p-6" x-on:click.outside="$wire.closeAssign()">
+            <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl sm:p-6" x-on:click.outside="$wire.closeAssign()">
                 <h2 class="text-sm font-semibold text-chrome-800">{{ __('Assign car') }}</h2>
-                <p class="mt-1 text-xs text-chrome-500">{{ $assigningBooking->reference }} · {{ $assigningBooking->customer?->name }}</p>
+                <p class="mt-1 text-xs text-chrome-500">
+                    {{ $assigningLeg->reference }}
+                    @if ($assigningLeg->legable?->customer?->name) · {{ $assigningLeg->legable->customer->name }} @endif
+                </p>
+                <p class="mt-0.5 text-xs text-chrome-500">
+                    {{ $assigningLeg->from_location ?? '—' }}{{ $assigningLeg->to_location ? ' → ' . $assigningLeg->to_location : '' }}
+                    @if ($assigningLeg->start_at) · {{ $assigningLeg->start_at->isoFormat('DD-MMM-YY HH:mm') }} @endif
+                </p>
 
-                <div class="mt-4 space-y-4">
-                    @forelse ($assigningBooking->legs as $n => $leg)
-                        <div wire:key="assign-leg-{{ $leg->id }}">
-                            <label class="mb-1 block text-sm font-medium text-chrome-700">
-                                {{ __('Leg') }} {{ $n + 1 }}
-                                <span class="font-normal text-chrome-500">
-                                    — {{ $leg->from_location ?? '—' }}{{ $leg->to_location ? ' → ' . $leg->to_location : '' }}
-                                </span>
-                            </label>
-                            <select wire:model="assignCars.{{ $leg->id }}" class="o-input w-full">
-                                <option value="">{{ count($carOptions) ? __('— Select —') : __('No cars available') }}</option>
-                                @foreach ($carOptions as $opt)<option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>@endforeach
-                            </select>
-                        </div>
-                    @empty
-                        <p class="text-sm text-chrome-500">{{ __('This booking has no trip legs yet.') }}</p>
-                    @endforelse
+                <div class="mt-4">
+                    <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Car') }}</label>
+                    <select wire:model="assignCar" class="o-input w-full">
+                        <option value="">{{ count($carOptions) ? __('— Select —') : __('No cars available') }}</option>
+                        @foreach ($carOptions as $opt)<option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>@endforeach
+                    </select>
                 </div>
 
                 <div class="mt-5 flex justify-end gap-2">

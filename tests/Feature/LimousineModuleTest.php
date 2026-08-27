@@ -488,6 +488,117 @@ final class LimousineModuleTest extends TestCase
         $this->assertSame(LimoBooking::PAYMENT_PAID, $booking->fresh()?->payment_status);
     }
 
+    /** A queued booking with one priced, car-assigned leg. */
+    private function queueRow(): LimoBooking
+    {
+        $customer = LimoCustomer::query()->create(['name' => 'Sarah Almutairi']);
+        $car = $this->availableCar('Suv');
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'qassim', 'notes' => 'Meet at gate 3',
+            'fare' => 60, 'advance' => 40, 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+        $booking->legs()->create([
+            'sequence' => 0, 'service_type' => LimoLeg::TYPE_CHAUFFEUR,
+            'from_location' => 'Bahrain Airport', 'to_location' => 'Bahrain',
+            'start_at' => '2026-08-29 09:42:00', 'days' => 3, 'hours' => 8,
+            'rate' => 60, 'rate_basis' => 'trip', 'net_amount' => 60,
+            'car_id' => $car->id, 'vehicle' => 'Suv', 'status' => LimoLeg::STATUS_QUEUE,
+        ]);
+
+        return $booking;
+    }
+
+    public function test_the_queue_row_carries_every_column_the_office_needs(): void
+    {
+        $this->install();
+        $this->queueRow();
+
+        $row = app(\Modules\Limousine\Services\LimoQueueRows::class)->all('all', '', '')[0];
+
+        $this->assertSame('Sarah Almutairi', $row['customer']);
+        $this->assertSame('Bahrain Airport', $row['pickup']);
+        $this->assertSame('Bahrain', $row['dropoff']);
+        $this->assertSame('Suv', $row['vehicle']);
+        $this->assertSame('qassim', $row['added_by']);
+        $this->assertSame('Meet at gate 3', $row['comments']);
+        $this->assertSame(__('Chauffeur'), $row['type']);
+
+        // Amount is the LEG's; received and balance are the booking's, because
+        // the customer settles the whole job rather than a leg of it.
+        $this->assertEqualsWithDelta(60.0, $row['amount'], 0.001);
+        $this->assertEqualsWithDelta(40.0, $row['received'], 0.001);
+        $this->assertEqualsWithDelta(20.0, $row['balance'], 0.001);
+
+        // A chauffeur booking holds the car for `days`, so it ends later than
+        // it starts — a transfer would show the same instant for both.
+        $this->assertStringContainsString('29-Aug-26', $row['from_date']);
+        $this->assertStringContainsString('31-Aug-26', $row['to_date']);
+    }
+
+    public function test_the_queue_exports_render_in_every_format(): void
+    {
+        $this->install();
+        $this->queueRow();
+
+        // Module routes only mount on the boot AFTER install, so the controller
+        // is invoked directly — the same workaround the report-export test uses.
+        $controller = app(\Modules\Limousine\Http\Controllers\LimoQueueExportController::class);
+        $request = Request::create('/x', 'GET', ['tab' => 'all']);
+
+        // CSV — streamed, so the body has to be captured.
+        ob_start();
+        $controller->csv($request)->sendContent();
+        $body = (string) ob_get_clean();
+        $this->assertStringContainsString('Sarah Almutairi', $body);
+        $this->assertStringContainsString('Bahrain Airport', $body);
+        $this->assertStringContainsString("\xEF\xBB\xBF", $body, 'needs a BOM so Excel reads Arabic correctly');
+
+        // Excel is a real xlsx: check the zip signature rather than the bytes.
+        ob_start();
+        $controller->excel($request)->sendContent();
+        $xlsx = (string) ob_get_clean();
+        $this->assertStringStartsWith('PK', $xlsx);
+
+        // PDF likewise.
+        $this->assertStringStartsWith('%PDF', $controller->pdf($request)->getContent() ?: '');
+
+        // Print is an ordinary HTML page.
+        $html = $controller->print($request)->render();
+        $this->assertStringContainsString('Sarah Almutairi', $html);
+        $this->assertStringContainsString('Suv', $html);
+    }
+
+    public function test_the_queue_exports_respect_the_current_filter(): void
+    {
+        $this->install();
+        $this->queueRow();
+
+        // The row is queued, so a Completed filter must return nothing —
+        // an export is of what the user is looking at, not the whole table.
+        $rows = app(\Modules\Limousine\Services\LimoQueueRows::class);
+        $this->assertCount(1, $rows->all('queue', '', ''));
+        $this->assertCount(0, $rows->all('completed', '', ''));
+    }
+
+    public function test_the_queue_exports_are_read_gated(): void
+    {
+        $this->install();
+        $this->queueRow();
+
+        // An export is a copy of the data, so it must not be a way around the
+        // permission on the screen. A staff account with no limousine grant is
+        // refused, exactly as it would be on the list itself.
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+
+        $controller = app(\Modules\Limousine\Http\Controllers\LimoQueueExportController::class);
+        $request = Request::create('/x', 'GET', ['tab' => 'all']);
+
+        $this->expectException(\Illuminate\Auth\Access\AuthorizationException::class);
+        $controller->csv($request);
+    }
+
     public function test_each_leg_gets_its_own_running_reference(): void
     {
         $this->install();

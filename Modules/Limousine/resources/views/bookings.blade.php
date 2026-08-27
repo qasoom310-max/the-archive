@@ -30,6 +30,19 @@
     </div>
 
     <div class="mb-4 flex flex-wrap items-end gap-3">
+        <div class="min-w-[16rem] flex-1">
+            <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Search') }}</label>
+            <div class="relative">
+                <span class="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-chrome-400">
+                    <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 3.4 9.82l3.14 3.14a.75.75 0 1 0 1.06-1.06l-3.14-3.14A5.5 5.5 0 0 0 9 3.5ZM5 9a4 4 0 1 1 8 0 4 4 0 0 1-8 0Z" clip-rule="evenodd"/></svg>
+                </span>
+                {{-- Debounced: results stream as the user types without a
+                     round-trip per keystroke. --}}
+                <input type="search" wire:model.live.debounce.300ms="search"
+                       class="o-input w-full ps-9 text-sm"
+                       placeholder="{{ __('Reference, customer, passenger, route…') }}">
+            </div>
+        </div>
         <div>
             <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Pick-up from') }}</label>
             <input type="date" wire:model.live="from" class="o-input text-sm">
@@ -38,8 +51,9 @@
             <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Pick-up to') }}</label>
             <input type="date" wire:model.live="to" class="o-input text-sm">
         </div>
-        @if ($from !== '' || $to !== '')
-            <button wire:click="$set('from', ''); $set('to', '')" class="text-sm text-chrome-500 hover:underline">{{ __('Clear') }}</button>
+        @if ($from !== '' || $to !== '' || $search !== '')
+            {{-- Clears the search too, so one button resets the whole filter. --}}
+            <button wire:click="$set('from', ''); $set('to', ''); $set('search', '')" class="pb-2 text-sm text-chrome-500 hover:underline">{{ __('Clear') }}</button>
         @endif
     </div>
 

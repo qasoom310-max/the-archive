@@ -37,7 +37,7 @@ final class LimoQueueRows
      *
      * @return Builder<LimoLeg>
      */
-    public function query(string $tab = 'all', string $from = '', string $to = ''): Builder
+    public function query(string $tab = 'all', string $from = '', string $to = '', string $search = ''): Builder
     {
         $query = LimoLeg::query()
             ->whereMorphedTo('legable', LimoBooking::class)
@@ -62,15 +62,38 @@ final class LimoQueueRows
             $query->whereDate('start_at', '<=', $to);
         }
 
+        $term = trim($search);
+        if ($term !== '') {
+            // Everything the office would reach for: the leg's own number, the
+            // booking's, the customer, the passenger and the route. Grouped in a
+            // closure so the ORs cannot escape and widen the tab/date filters
+            // above into an "or match anything" query.
+            $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $term) . '%';
+
+            $query->where(function (Builder $q) use ($like): void {
+                $q->where('reference', 'like', $like)
+                    ->orWhere('from_location', 'like', $like)
+                    ->orWhere('to_location', 'like', $like)
+                    ->orWhere('vehicle', 'like', $like)
+                    ->orWhereHasMorph('legable', LimoBooking::class, function ($booking) use ($like): void {
+                        $booking->where('reference', 'like', $like)
+                            ->orWhere('pax_name', 'like', $like)
+                            ->orWhere('pax_contact', 'like', $like)
+                            ->orWhere('flight_number', 'like', $like)
+                            ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', $like));
+                    });
+            });
+        }
+
         return $query;
     }
 
     /**
      * @return LengthAwarePaginator<int, LimoLeg>
      */
-    public function paginate(string $tab, string $from, string $to, int $perPage = 20): LengthAwarePaginator
+    public function paginate(string $tab, string $from, string $to, string $search = '', int $perPage = 20): LengthAwarePaginator
     {
-        return $this->query($tab, $from, $to)->paginate($perPage);
+        return $this->query($tab, $from, $to, $search)->paginate($perPage);
     }
 
     /**
@@ -150,10 +173,10 @@ final class LimoQueueRows
      *
      * @return list<QueueRow>
      */
-    public function all(string $tab, string $from, string $to): array
+    public function all(string $tab, string $from, string $to, string $search = ''): array
     {
         $rows = [];
-        $this->query($tab, $from, $to)->chunk(200, function ($legs) use (&$rows): void {
+        $this->query($tab, $from, $to, $search)->chunk(200, function ($legs) use (&$rows): void {
             foreach ($legs as $leg) {
                 $rows[] = $this->row($leg);
             }

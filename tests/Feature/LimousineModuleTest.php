@@ -570,6 +570,46 @@ final class LimousineModuleTest extends TestCase
         $this->assertStringContainsString('Suv', $html);
     }
 
+    public function test_the_queue_search_matches_reference_customer_and_route(): void
+    {
+        $this->install();
+        $this->queueRow(); // Sarah Almutairi · Bahrain Airport → Bahrain · Suv
+
+        $other = LimoCustomer::query()->create(['name' => 'Someone Else']);
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $other->id, 'pax_name' => 'Zed', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+        $booking->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'Riffa',
+            'to_location' => 'Muharraq', 'start_at' => now(), 'days' => 1,
+            'rate' => 5, 'rate_basis' => 'trip', 'status' => LimoLeg::STATUS_QUEUE,
+        ]);
+
+        $rows = app(\Modules\Limousine\Services\LimoQueueRows::class);
+
+        $this->assertCount(2, $rows->all('all', '', '', ''));
+        // Customer name, route and passenger all reach the same row.
+        $this->assertCount(1, $rows->all('all', '', '', 'Sarah'));
+        $this->assertCount(1, $rows->all('all', '', '', 'Riffa'));
+        $this->assertCount(1, $rows->all('all', '', '', 'Zed'));
+        $this->assertSame('Sarah Almutairi', $rows->all('all', '', '', 'Airport')[0]['customer']);
+        $this->assertCount(0, $rows->all('all', '', '', 'nothing-matches-this'));
+    }
+
+    public function test_the_queue_search_does_not_widen_the_status_filter(): void
+    {
+        $this->install();
+        $this->queueRow(); // queued
+
+        $rows = app(\Modules\Limousine\Services\LimoQueueRows::class);
+
+        // The ORs are grouped, so a search cannot leak a queued row into the
+        // Completed tab.
+        $this->assertCount(1, $rows->all('queue', '', '', 'Sarah'));
+        $this->assertCount(0, $rows->all('completed', '', '', 'Sarah'));
+    }
+
     public function test_the_queue_exports_respect_the_current_filter(): void
     {
         $this->install();

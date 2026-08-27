@@ -120,8 +120,10 @@ final class LimoQueueExportController
         $tab = (string) $request->query('tab', 'all');
         $from = (string) $request->query('from', '');
         $to = (string) $request->query('to', '');
+        // Search rides along too: an export is of what the user is looking at.
+        $search = (string) $request->query('search', '');
 
-        return [$this->rows->all($tab, $from, $to), $this->rows->headings()];
+        return [$this->rows->all($tab, $from, $to, $search), $this->rows->headings()];
     }
 
     /**

@@ -38,6 +38,10 @@ final class Bookings extends Component
     #[Url]
     public string $to = '';
 
+    /** Free-text search across reference, customer, passenger and route. */
+    #[Url(except: '')]
+    public string $search = '';
+
     protected function accessModelKey(): string
     {
         return 'limousine.booking';
@@ -217,6 +221,13 @@ final class Bookings extends Component
         $this->resetPage();
     }
 
+    public function updatedSearch(): void
+    {
+        // Typing while on a deep page would otherwise leave the user on a page
+        // number the narrowed result set no longer has.
+        $this->resetPage();
+    }
+
     public function render(): View
     {
         // The list is of LEGS, not bookings. Each leg is dispatched separately —
@@ -227,7 +238,7 @@ final class Bookings extends Component
         // Rows come from LimoQueueRows, the same source the exports read, so a
         // printed sheet can never disagree with the screen.
         $rows = app(LimoQueueRows::class);
-        $legs = $rows->paginate($this->tab, $this->from, $this->to);
+        $legs = $rows->paginate($this->tab, $this->from, $this->to, $this->search);
 
         $counts = LimoLeg::query()
             ->whereMorphedTo('legable', LimoBooking::class)
@@ -243,7 +254,7 @@ final class Bookings extends Component
                 fn (LimoLeg $l): array => [$l->id => $rows->row($l)]
             )->all(),
             'headings' => $rows->headings(),
-            'exportQuery' => http_build_query(['tab' => $this->tab, 'from' => $this->from, 'to' => $this->to]),
+            'exportQuery' => http_build_query(['tab' => $this->tab, 'from' => $this->from, 'to' => $this->to, 'search' => $this->search]),
             'counts' => $counts,
             'totalCount' => (int) $counts->sum(),
             'carOptions' => $this->assigningId !== null ? $this->carOptions() : [],

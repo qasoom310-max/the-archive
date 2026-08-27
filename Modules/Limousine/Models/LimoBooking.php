@@ -144,9 +144,88 @@ final class LimoBooking extends Model implements DefinesIrModel
         return round(max(0.0, $this->netAmount() - $this->advance), 3);
     }
 
+    /**
+     * Take the payment flag from the money actually taken.
+     *
+     * The advance used to be a number nobody read: taking the full fare at the
+     * counter left the booking reading "unpaid" until somebody also remembered
+     * to press Mark paid. Nothing owed means paid.
+     *
+     * A part-payment is still unpaid — that is what a deposit is. A booking
+     * settled through an INVOICE RECEIPT is left alone: that money did not come
+     * through the advance field and must not be un-marked by editing it.
+     */
+    public function syncPaymentFromAdvance(): void
+    {
+        if ($this->netAmount() <= 0) {
+            return; // nothing priced yet — an empty booking isn't "paid"
+        }
+
+        if ($this->balanceDue() <= 0) {
+            $this->payment_status = self::PAYMENT_PAID;
+            $this->save();
+
+            return;
+        }
+
+        $settledByReceipt = LimoInvoice::query()
+            ->where('booking_id', $this->id)
+            ->where('status', LimoInvoice::STATUS_PAID)
+            ->exists();
+
+        if (! $settledByReceipt && $this->payment_status === self::PAYMENT_PAID) {
+            // The advance was lowered (a correction), and no receipt backs the
+            // paid flag, so the booking owes money again.
+            $this->payment_status = self::PAYMENT_UNPAID;
+            $this->save();
+        }
+    }
+
     public function referencePrefix(): string
     {
         return 'BK';
+    }
+
+    /**
+     * Re-derive this booking's status from its legs.
+     *
+     * Legs are dispatched one by one, so the booking is a summary of them: it
+     * reads as whatever the LEAST-progressed live leg is. A job with one leg
+     * finished and one still waiting is not "completed", it is still in the
+     * queue. Cancelled legs are ignored unless every leg is cancelled, and a
+     * booking with no legs is left alone.
+     */
+    public function syncStatusFromLegs(): void
+    {
+        $statuses = $this->legs()->pluck('status')->filter()->all();
+        if ($statuses === []) {
+            return;
+        }
+
+        $live = array_values(array_filter($statuses, static fn (string $s): bool => $s !== LimoLeg::STATUS_CANCELLED));
+        if ($live === []) {
+            $this->status = self::STATUS_CANCELLED;
+            $this->save();
+
+            return;
+        }
+
+        // Ordered least → most progressed; the first one present wins.
+        foreach ([
+            LimoLeg::STATUS_QUEUE => self::STATUS_QUEUE,
+            LimoLeg::STATUS_CONFIRMED => self::STATUS_CONFIRMED,
+            LimoLeg::STATUS_ACTIVE => self::STATUS_ACTIVE,
+        ] as $legStatus => $bookingStatus) {
+            if (in_array($legStatus, $live, true)) {
+                $this->status = $bookingStatus;
+                $this->save();
+
+                return;
+            }
+        }
+
+        $this->status = self::STATUS_COMPLETED;
+        $this->save();
     }
 
     /**

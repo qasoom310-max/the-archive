@@ -85,6 +85,48 @@ final class Bookings extends Component
     }
 
     /**
+     * Move one leg along its own track: queue → confirmed → active → completed.
+     *
+     * Each leg runs at its own hour with its own car, so one can be finished
+     * while the next is still waiting. The booking's own status follows the
+     * least-progressed leg, so the parent still reads as "active" until every
+     * leg is done.
+     *
+     * A leg cannot go Active without a car — the same rule the booking form
+     * enforced, kept here now that dispatch happens from this screen.
+     */
+    public function advanceLeg(int $legId, string $to): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        $allowed = [
+            LimoLeg::STATUS_CONFIRMED,
+            LimoLeg::STATUS_ACTIVE,
+            LimoLeg::STATUS_COMPLETED,
+            LimoLeg::STATUS_CANCELLED,
+        ];
+        if (! in_array($to, $allowed, true)) {
+            return;
+        }
+
+        $leg = LimoLeg::query()->with('legable')->find($legId);
+        if ($leg === null || ! $leg->legable instanceof LimoBooking) {
+            return;
+        }
+
+        if ($to === LimoLeg::STATUS_ACTIVE && $leg->car_id === null) {
+            session()->flash('toast', __('Assign a car before starting the trip.'));
+
+            return;
+        }
+
+        $leg->status = $to;
+        $leg->save();
+
+        $leg->legable->syncStatusFromLegs();
+    }
+
+    /**
      * Save the chosen cars onto the booking's legs.
      *
      * Writes `car_id` plus the label snapshot the rest of the app reads, so a
@@ -174,36 +216,41 @@ final class Bookings extends Component
 
     public function render(): View
     {
-        $query = LimoBooking::query()
-            // `legs` is eager-loaded because every row now prints its assigned
-            // car — reading it lazily would be one query per row.
-            ->with(['customer:id,name', 'pickupLocation:id,name', 'dropoffLocation:id,name', 'legs'])
-            ->orderByDesc('pickup_at');
+        // The list is of LEGS, not bookings. Each leg is dispatched separately —
+        // its own reference, car and status — so the office works one row per
+        // leg. The booking is still the money: payment hangs off the parent and
+        // every one of its legs shows it.
+        $query = LimoLeg::query()
+            ->whereMorphedTo('legable', LimoBooking::class)
+            ->with(['legable.customer:id,name'])
+            ->orderByDesc('start_at')
+            ->orderBy('sequence');
 
         if (in_array($this->tab, [
-            LimoBooking::STATUS_QUEUE,
-            LimoBooking::STATUS_CONFIRMED,
-            LimoBooking::STATUS_ACTIVE,
-            LimoBooking::STATUS_COMPLETED,
-            LimoBooking::STATUS_CANCELLED,
+            LimoLeg::STATUS_QUEUE,
+            LimoLeg::STATUS_CONFIRMED,
+            LimoLeg::STATUS_ACTIVE,
+            LimoLeg::STATUS_COMPLETED,
+            LimoLeg::STATUS_CANCELLED,
         ], true)) {
             $query->where('status', $this->tab);
         }
 
         if ($this->from !== '') {
-            $query->whereDate('pickup_at', '>=', $this->from);
+            $query->whereDate('start_at', '>=', $this->from);
         }
         if ($this->to !== '') {
-            $query->whereDate('pickup_at', '<=', $this->to);
+            $query->whereDate('start_at', '<=', $this->to);
         }
 
-        $counts = LimoBooking::query()
+        $counts = LimoLeg::query()
+            ->whereMorphedTo('legable', LimoBooking::class)
             ->selectRaw('status, COUNT(*) as aggregate')
             ->groupBy('status')
             ->pluck('aggregate', 'status');
 
         return view('limousine::bookings', [
-            'bookings' => $query->paginate(20),
+            'legs' => $query->paginate(20),
             'counts' => $counts,
             'totalCount' => (int) $counts->sum(),
             'carOptions' => $this->assigningId !== null ? $this->carOptions() : [],

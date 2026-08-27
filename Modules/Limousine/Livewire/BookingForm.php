@@ -45,8 +45,6 @@ final class BookingForm extends Component
 
     public ?int $customer_id = null;
 
-    public string $contact_person = '';
-
     public string $company_reference = '';
 
     public string $pax_name = '';
@@ -87,7 +85,6 @@ final class BookingForm extends Component
                 $this->reference = $booking->reference ?? '';
                 $this->booking_type = $booking->booking_type ?? '';
                 $this->customer_id = $booking->customer_id;
-                $this->contact_person = $booking->contact_person ?? '';
                 $this->company_reference = $booking->company_reference ?? '';
                 $this->pax_name = $booking->pax_name ?? '';
                 $this->pax_contact = $booking->pax_contact ?? '';
@@ -110,6 +107,36 @@ final class BookingForm extends Component
     }
 
     /**
+     * Picking a customer fills the passenger block from their record.
+     *
+     * The three fields here are the ones that genuinely belong to the customer
+     * — who travels, the number the driver rings, and where the confirmation
+     * goes — so re-typing them on every booking was pure duplication. They stay
+     * EDITABLE on purpose: a company books a car for a visiting guest often
+     * enough that locking the PAX name would make those bookings impossible.
+     *
+     * Switching customer overwrites what's there rather than filling only the
+     * blanks, so the sheet always agrees with the customer that is selected.
+     * Nothing else auto-fills: the company reference is a per-job PO number,
+     * and requested/prepared-by are the staff signing the sheet off.
+     */
+    public function updatedCustomerId(): void
+    {
+        if ($this->customer_id === null) {
+            return;
+        }
+
+        $customer = LimoCustomer::query()->find($this->customer_id);
+        if ($customer === null) {
+            return;
+        }
+
+        $this->pax_name = (string) ($customer->name ?? '');
+        $this->pax_contact = (string) ($customer->phone ?? '');
+        $this->email = (string) ($customer->email ?? '');
+    }
+
+    /**
      * @return array<string, list<string>>
      */
     protected function rules(): array
@@ -117,7 +144,6 @@ final class BookingForm extends Component
         return [
             'customer_id' => ['required', 'integer'],
             'booking_type' => ['nullable', 'string'],
-            'contact_person' => ['nullable', 'string', 'max:255'],
             'company_reference' => ['nullable', 'string', 'max:255'],
             'pax_name' => ['required', 'string', 'max:255'],
             'pax_contact' => ['nullable', 'string', 'max:100'],
@@ -146,7 +172,6 @@ final class BookingForm extends Component
 
         $booking->booking_type = $this->trimOrNull($this->booking_type);
         $booking->customer_id = $this->customer_id;
-        $booking->contact_person = $this->trimOrNull($this->contact_person);
         $booking->company_reference = $this->trimOrNull($this->company_reference);
         $booking->pax_name = $this->trimOrNull($this->pax_name);
         $booking->pax_contact = $this->trimOrNull($this->pax_contact);
@@ -205,6 +230,11 @@ final class BookingForm extends Component
         ]);
 
         $this->customer_id = $customer->id;
+        // Assigning the property server-side does not fire Livewire's `updated`
+        // hook, so the fill has to be invoked by hand — otherwise a customer
+        // created here would leave the passenger block empty while one picked
+        // from the dropdown filled it.
+        $this->updatedCustomerId();
         $this->addingCustomer = false;
     }
 

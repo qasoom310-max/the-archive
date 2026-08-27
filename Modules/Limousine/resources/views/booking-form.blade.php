@@ -54,7 +54,8 @@
                         {{ __('New customer') }}
                     </button>
                 </div>
-                <select wire:model="customer_id" class="o-input w-full">
+                {{-- .live so picking a customer fills the passenger block straight away --}}
+                <select wire:model.live="customer_id" class="o-input w-full">
                     <option value="">{{ __('— Select —') }}</option>
                     @foreach ($customers as $c)<option value="{{ $c->id }}">{{ $c->name }}{{ $c->phone ? ' · ' . $c->phone : '' }}</option>@endforeach
                 </select>
@@ -66,10 +67,6 @@
                     <option value="">{{ __('— Select —') }}</option>
                     @foreach ($bookingTypes as $opt)<option value="{{ $opt['value'] }}">{{ __($opt['label']) }}</option>@endforeach
                 </select>
-            </div>
-            <div>
-                <label class="{{ $lbl }}">{{ __('Contact person') }}</label>
-                <input type="text" wire:model="contact_person" class="o-input w-full">
             </div>
             <div>
                 <label class="{{ $lbl }}">{{ __('Company reference') }}</label>

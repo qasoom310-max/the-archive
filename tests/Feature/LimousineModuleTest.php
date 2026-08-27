@@ -294,6 +294,52 @@ final class LimousineModuleTest extends TestCase
             ->call('markPaid')->assertSet('payment_status', LimoBooking::PAYMENT_PAID);
     }
 
+    public function test_picking_a_customer_fills_the_passenger_block(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create([
+            'name' => 'Gulf Air', 'phone' => '39000111', 'email' => 'ops@gulfair.test',
+        ]);
+        $other = LimoCustomer::query()->create([
+            'name' => 'Batelco', 'phone' => '39000222', 'email' => 'travel@batelco.test',
+        ]);
+
+        $form = Livewire::test(BookingForm::class)
+            ->set('customer_id', $customer->id)
+            ->assertSet('pax_name', 'Gulf Air')
+            ->assertSet('pax_contact', '39000111')
+            ->assertSet('email', 'ops@gulfair.test');
+
+        // The passenger is often NOT the customer (a company books for a guest),
+        // so the filled values must stay editable rather than locked.
+        $form->set('pax_name', 'Visiting Director')
+            ->assertSet('pax_name', 'Visiting Director');
+
+        // Switching customer overwrites the block so the sheet always agrees
+        // with the customer that is actually selected.
+        $form->set('customer_id', $other->id)
+            ->assertSet('pax_name', 'Batelco')
+            ->assertSet('pax_contact', '39000222')
+            ->assertSet('email', 'travel@batelco.test');
+    }
+
+    public function test_a_customer_created_inline_also_fills_the_passenger_block(): void
+    {
+        $this->install();
+
+        Livewire::test(BookingForm::class)
+            ->call('openCustomerModal')
+            ->set('newCustomer.name', 'Ahmed Salman')
+            ->set('newCustomer.phone', '36555777')
+            ->set('newCustomer.email', 'ahmed@example.test')
+            ->set('newCustomer.type', 'individual')
+            ->call('saveCustomer')
+            ->assertHasNoErrors()
+            ->assertSet('pax_name', 'Ahmed Salman')
+            ->assertSet('pax_contact', '36555777')
+            ->assertSet('email', 'ahmed@example.test');
+    }
+
     public function test_the_booking_form_requires_pax_sign_off_and_a_leg(): void
     {
         $this->install();
@@ -301,6 +347,9 @@ final class LimousineModuleTest extends TestCase
 
         Livewire::test(BookingForm::class)
             ->set('customer_id', $customer->id)
+            // Picking the customer auto-fills the PAX name, so clear it again to
+            // prove the field is still required when nothing stands in it.
+            ->set('pax_name', '')
             // pax_name / requested_by / prepared_by blank; leg incomplete
             ->call('save')
             ->assertHasErrors(['pax_name', 'requested_by', 'prepared_by', 'legs.0.from_location', 'legs.0.car_id']);

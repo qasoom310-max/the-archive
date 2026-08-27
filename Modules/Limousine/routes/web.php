@@ -8,6 +8,8 @@ use Modules\Limousine\Http\Controllers\LimoReportExportController;
 use Modules\Limousine\Livewire\Bookings;
 use Modules\Limousine\Livewire\BookingForm;
 use Modules\Limousine\Livewire\CustomerForm;
+use Modules\Limousine\Livewire\DriverForm;
+use Modules\Limousine\Livewire\Drivers;
 use Modules\Limousine\Livewire\Customers;
 use Modules\Limousine\Livewire\ExpenseForm;
 use Modules\Limousine\Livewire\Expenses;
@@ -30,6 +32,11 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/customer', Customers::class)->name('limousine.customer.index');
     Route::get('/app/limousine/customer/new', CustomerForm::class)->name('limousine.customer.create');
     Route::get('/app/limousine/customer/{id}', CustomerForm::class)->whereNumber('id')->name('limousine.customer.edit');
+
+    // Drivers — the same list Rent A Car uses; see LimoDriver.
+    Route::get('/app/limousine/driver', Drivers::class)->name('limousine.driver.index');
+    Route::get('/app/limousine/driver/new', DriverForm::class)->name('limousine.driver.create');
+    Route::get('/app/limousine/driver/{id}', DriverForm::class)->whereNumber('id')->name('limousine.driver.edit');
 
     Route::get('/app/limousine/location', Locations::class)->name('limousine.location.index');
     Route::get('/app/limousine/location/new', LocationForm::class)->name('limousine.location.create');

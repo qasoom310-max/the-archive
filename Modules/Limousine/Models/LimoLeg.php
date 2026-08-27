@@ -22,6 +22,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $status     queue|confirmed|active|completed|cancelled; null on quotation legs
  * @property string $service_type
  * @property int|null $car_id
+ * @property int|null $driver_id  Logical ref to the shared rental_drivers table
+ * @property string|null $driver  Driver name at assignment time
  * @property string|null $from_location
  * @property string|null $to_location
  * @property Carbon|null $start_at
@@ -71,7 +73,7 @@ final class LimoLeg extends Model
     /** @var list<string> */
     protected $fillable = [
         'legable_type', 'legable_id', 'sequence', 'reference', 'status', 'service_type',
-        'car_id', 'from_location', 'to_location', 'start_at', 'hours', 'days', 'vehicle',
+        'car_id', 'driver_id', 'driver', 'from_location', 'to_location', 'start_at', 'hours', 'days', 'vehicle',
         'vehicle_details', 'rate', 'rate_basis', 'discount', 'vat', 'line_total', 'net_amount', 'notes',
     ];
 
@@ -111,6 +113,7 @@ final class LimoLeg extends Model
             'legable_id' => 'integer',
             'sequence' => 'integer',
             'car_id' => 'integer',
+            'driver_id' => 'integer',
             'start_at' => 'datetime',
             'hours' => 'float',
             'days' => 'integer',

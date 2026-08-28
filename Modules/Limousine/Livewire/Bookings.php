@@ -152,7 +152,7 @@ final class Bookings extends Component
             return;
         }
 
-        $leg = LimoLeg::query()->find($this->assigningId);
+        $leg = LimoLeg::query()->with('legable')->find($this->assigningId);
         if ($leg === null) {
             $this->closeAssign();
 
@@ -170,10 +170,39 @@ final class Bookings extends Component
         $leg->driver_id = $driver?->id;
         $leg->driver = $driver?->displayName();
 
+        // Naming a driver IS dispatching the trip — there is nothing left to
+        // decide once a car and a person are against it, so the leg goes Active
+        // here rather than needing a second click on the row.
+        //
+        // Only from queue/confirmed: editing the driver on a leg that already
+        // ran must not drag a completed or cancelled trip back to Active.
+        $dispatchable = in_array($leg->status, [LimoLeg::STATUS_QUEUE, LimoLeg::STATUS_CONFIRMED], true);
+        $started = false;
+
+        if ($driver !== null && $dispatchable) {
+            if ($leg->car_id === null) {
+                // The pre-existing rule stands: no car, no trip. Say so instead
+                // of silently saving a driver and leaving the leg where it was.
+                $leg->save();
+                $this->closeAssign();
+                session()->flash('toast', __('Assign a car before starting the trip.'));
+
+                return;
+            }
+
+            $leg->status = LimoLeg::STATUS_ACTIVE;
+            $started = true;
+        }
+
         $leg->save();
 
+        if ($started && $leg->legable instanceof LimoBooking) {
+            // The booking summarises its legs, so it follows them up.
+            $leg->legable->syncStatusFromLegs();
+        }
+
         $this->closeAssign();
-        session()->flash('toast', __('Assignment saved.'));
+        session()->flash('toast', $started ? __('Trip started.') : __('Assignment saved.'));
     }
 
     /**

@@ -892,6 +892,111 @@ final class LimousineModuleTest extends TestCase
         $this->assertNull($back->fresh()?->driver_id);
     }
 
+    /** A queued leg with a car already on it, ready to be given a driver. */
+    private function legAwaitingDriver(string $status = LimoLeg::STATUS_QUEUE): LimoLeg
+    {
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $car = $this->availableCar('Lexus ES ' . uniqid());
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+
+        return $booking->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'A', 'to_location' => 'B',
+            'start_at' => now(), 'days' => 1, 'rate' => 10, 'rate_basis' => 'trip',
+            'car_id' => $car->id, 'vehicle' => 'Lexus ES', 'status' => $status,
+        ]);
+    }
+
+    public function test_assigning_a_driver_starts_the_trip(): void
+    {
+        $this->install();
+        $leg = $this->legAwaitingDriver();
+        $driver = LimoDriver::query()->create(['name' => 'Ali Hassan']);
+
+        // Naming a driver is the dispatch: the leg leaves the queue by itself.
+        Livewire::test(Bookings::class)
+            ->call('openAssign', $leg->id)
+            ->set('assignDriver', (string) $driver->id)
+            ->call('saveAssign');
+
+        $this->assertSame(LimoLeg::STATUS_ACTIVE, $leg->fresh()?->status);
+        // The booking summarises its legs, so it follows the leg up.
+        $this->assertSame(LimoBooking::STATUS_ACTIVE, $leg->legable?->fresh()?->status);
+    }
+
+    public function test_assigning_a_driver_without_a_car_does_not_start_the_trip(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $driver = LimoDriver::query()->create(['name' => 'Ali Hassan']);
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+        $leg = $booking->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'A', 'to_location' => 'B',
+            'start_at' => now(), 'days' => 1, 'rate' => 10, 'rate_basis' => 'trip',
+            'car_id' => null, 'status' => LimoLeg::STATUS_QUEUE,
+        ]);
+
+        Livewire::test(Bookings::class)
+            ->call('openAssign', $leg->id)
+            ->set('assignDriver', (string) $driver->id)
+            ->call('saveAssign');
+
+        // The driver is recorded, but no car means no trip.
+        $fresh = $leg->fresh();
+        $this->assertSame($driver->id, $fresh?->driver_id);
+        $this->assertSame(LimoLeg::STATUS_QUEUE, $fresh?->status);
+    }
+
+    public function test_assigning_only_a_car_leaves_the_leg_in_the_queue(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $car = $this->availableCar('Lexus ES');
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+        $leg = $booking->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'A', 'to_location' => 'B',
+            'start_at' => now(), 'days' => 1, 'rate' => 10, 'rate_basis' => 'trip',
+            'status' => LimoLeg::STATUS_QUEUE,
+        ]);
+
+        // A car alone isn't a dispatch — nobody is driving it yet.
+        Livewire::test(Bookings::class)
+            ->call('openAssign', $leg->id)
+            ->set('assignCar', (string) $car->id)
+            ->call('saveAssign');
+
+        $this->assertSame($car->id, $leg->fresh()?->car_id);
+        $this->assertSame(LimoLeg::STATUS_QUEUE, $leg->fresh()?->status);
+    }
+
+    public function test_changing_the_driver_does_not_revive_a_finished_leg(): void
+    {
+        $this->install();
+        $leg = $this->legAwaitingDriver(LimoLeg::STATUS_COMPLETED);
+        $driver = LimoDriver::query()->create(['name' => 'Ali Hassan']);
+
+        // Correcting who drove a trip that already ran must not put it back on
+        // the road.
+        Livewire::test(Bookings::class)
+            ->call('openAssign', $leg->id)
+            ->set('assignDriver', (string) $driver->id)
+            ->call('saveAssign');
+
+        $this->assertSame(LimoLeg::STATUS_COMPLETED, $leg->fresh()?->status);
+        $this->assertSame($driver->id, $leg->fresh()?->driver_id);
+    }
+
     public function test_the_driver_reaches_the_queue_rows_and_search(): void
     {
         $this->install();

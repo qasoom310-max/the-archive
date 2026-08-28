@@ -910,6 +910,67 @@ final class LimousineModuleTest extends TestCase
         ]);
     }
 
+    public function test_legs_crewed_before_the_rule_are_backfilled_to_active(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $car = $this->availableCar('Lexus ES');
+        $driver = LimoDriver::query()->create(['name' => 'Ali Hassan']);
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'A', 'requested_by' => 'S',
+            'prepared_by' => 'P', 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+
+        $leg = fn (int $i, ?int $carId, ?int $driverId, string $status) => $booking->legs()->create([
+            'sequence' => $i, 'service_type' => 'transfer', 'from_location' => 'A', 'to_location' => 'B',
+            'start_at' => now(), 'days' => 1, 'rate' => 1, 'rate_basis' => 'trip',
+            'car_id' => $carId, 'driver_id' => $driverId, 'status' => $status,
+        ]);
+
+        // Crewed before the rule existed — should start.
+        $crewed = $leg(0, $car->id, $driver->id, LimoLeg::STATUS_QUEUE);
+        // Half-assigned — genuinely not dispatched.
+        $carOnly = $leg(1, $car->id, null, LimoLeg::STATUS_QUEUE);
+        $driverOnly = $leg(2, null, $driver->id, LimoLeg::STATUS_QUEUE);
+        // Already finished — must not be dragged back onto the road.
+        $done = $leg(3, $car->id, $driver->id, LimoLeg::STATUS_COMPLETED);
+
+        $migration = require __DIR__ . '/../../Modules/Limousine/database/migrations/2026_08_28_950016_backfill_assigned_legs_to_active.php';
+        $migration->up();
+
+        $this->assertSame(LimoLeg::STATUS_ACTIVE, $crewed->fresh()?->status);
+        $this->assertSame(LimoLeg::STATUS_QUEUE, $carOnly->fresh()?->status);
+        $this->assertSame(LimoLeg::STATUS_QUEUE, $driverOnly->fresh()?->status);
+        $this->assertSame(LimoLeg::STATUS_COMPLETED, $done->fresh()?->status);
+
+        // The booking follows its legs: two are still waiting, so the job as a
+        // whole is not active yet.
+        $this->assertSame(LimoBooking::STATUS_QUEUE, $booking->fresh()?->status);
+    }
+
+    public function test_the_backfill_leaves_quotation_legs_alone(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+        $car = $this->availableCar('Lexus ES');
+        $driver = LimoDriver::query()->create(['name' => 'Ali Hassan']);
+
+        // A quotation is never dispatched, so its legs carry no status and the
+        // backfill must not invent one.
+        $quote = LimoQuotation::query()->create(['customer_id' => $customer->id, 'fare' => 10]);
+        $leg = $quote->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'A', 'to_location' => 'B',
+            'start_at' => now(), 'days' => 1, 'rate' => 10, 'rate_basis' => 'trip',
+            'car_id' => $car->id, 'driver_id' => $driver->id, 'status' => null,
+        ]);
+
+        $migration = require __DIR__ . '/../../Modules/Limousine/database/migrations/2026_08_28_950016_backfill_assigned_legs_to_active.php';
+        $migration->up();
+
+        $this->assertNull($leg->fresh()?->status);
+    }
+
     public function test_assigning_a_driver_starts_the_trip(): void
     {
         $this->install();

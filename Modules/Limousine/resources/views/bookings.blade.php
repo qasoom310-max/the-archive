@@ -1,4 +1,4 @@
-<div class="mx-auto max-w-7xl p-4 sm:p-6">
+<div class="mx-auto w-full p-4 sm:p-6">
     <x-page-header :title="__('Bookings')" :subtitle="__('Trip bookings.')" icon="calendar" accent="indigo">
         <x-slot:actions>
             <a href="{{ url('/app/limousine/booking/new') }}" wire:navigate class="o-btn-primary">
@@ -82,18 +82,50 @@
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Print') }}</a>
     </div>
 
+    {{-- 17 data columns can never fit a phone, so rather than force a sideways
+         scroll the table sheds columns as the screen narrows: what identifies
+         and actions a job always stays, the rest return as there is room.
+           phone  reference · customer · status · actions
+           sm     + no. · amount
+           md     + from date · payment
+           lg     + to date · type · pickup · drop off
+           xl     + received · balance · vehicle · driver
+           2xl    everything (added by, comments, booked time)
+         Exports and Print carry ALL columns whatever the screen, so nothing is
+         lost — it is only hidden from this view. --}}
+    @php
+        $vis = [
+            'reference' => '',
+            'from_date' => 'hidden md:table-cell',
+            'to_date' => 'hidden lg:table-cell',
+            'type' => 'hidden lg:table-cell',
+            'customer' => '',
+            'amount' => 'hidden sm:table-cell',
+            'received' => 'hidden xl:table-cell',
+            'balance' => 'hidden xl:table-cell',
+            'pickup' => 'hidden lg:table-cell',
+            'dropoff' => 'hidden lg:table-cell',
+            'vehicle' => 'hidden xl:table-cell',
+            'driver' => 'hidden xl:table-cell',
+            'added_by' => 'hidden 2xl:table-cell',
+            'comments' => 'hidden 2xl:table-cell',
+            'booked_time' => 'hidden 2xl:table-cell',
+            'status' => '',
+            'payment' => 'hidden md:table-cell',
+        ];
+    @endphp
     <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
-        <table id="limo-queue" class="w-full min-w-[1600px] divide-y divide-chrome-100 text-sm">
+        <table id="limo-queue" class="w-full table-auto divide-y divide-chrome-100 text-xs">
             <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                 <tr>
-                    <th class="px-3 py-2 text-start">{{ __('Sl No.') }}</th>
+                    <th class="hidden px-2 py-2 text-start sm:table-cell">{{ __('Sl No.') }}</th>
                     @foreach ($headings as $key => $label)
-                        <th class="px-3 py-2 {{ in_array($key, ['amount', 'received', 'balance'], true) ? 'text-end' : 'text-start' }}">{{ $label }}</th>
+                        <th class="px-2 py-2 {{ in_array($key, ['amount', 'received', 'balance'], true) ? 'text-end' : 'text-start' }} {{ $vis[$key] ?? '' }}">{{ $label }}</th>
                     @endforeach
-                    {{-- Pinned to the trailing edge: the table is ~1600px wide, so
-                         without this the row actions sit off-screen behind a
-                         horizontal scroll and read as missing. --}}
-                    <th class="sticky end-0 z-20 bg-chrome-50 px-3 py-2 text-start shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)]">{{ __('Actions') }}</th>
+                    {{-- Columns are sized to fit the window, but a narrow laptop can still
+                         overflow — keep Open/Edit pinned to the trailing edge so they can
+                         never end up off-screen. --}}
+                    <th class="sticky end-0 z-20 bg-chrome-50 px-2 py-2 text-start shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)]">{{ __('Actions') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-chrome-50">
@@ -120,23 +152,23 @@
                     {{-- `group` so the pinned Actions cell can mirror the row hover
                          (it needs its own background to sit above the scroll). --}}
                     <tr wire:key="leg-{{ $leg->id }}" class="group hover:bg-chrome-50">
-                        <td class="px-3 py-2 text-chrome-400">{{ $legs->firstItem() + $i }}</td>
-                        <td class="px-3 py-2 font-medium text-chrome-800">
+                        <td class="hidden px-2 py-2 text-chrome-400 sm:table-cell">{{ $legs->firstItem() + $i }}</td>
+                        <td class="px-2 py-2 font-medium text-chrome-800">
                             {{ $row['reference'] ?: '—' }}
                             <span class="block text-[11px] font-normal text-chrome-400">{{ $row['booking_reference'] }}</span>
                         </td>
-                        <td class="whitespace-nowrap px-3 py-2 text-chrome-600">{{ $row['from_date'] ?: '—' }}</td>
-                        <td class="whitespace-nowrap px-3 py-2 text-chrome-600">{{ $row['to_date'] ?: '—' }}</td>
-                        <td class="px-3 py-2 text-chrome-600">{{ $row['type'] }}</td>
-                        <td class="px-3 py-2 text-chrome-700">{{ $row['customer'] ?: '—' }}</td>
+                        <td class="hidden px-2 py-2 text-chrome-600 md:table-cell">{{ $row['from_date'] ?: '—' }}</td>
+                        <td class="hidden px-2 py-2 text-chrome-600 lg:table-cell">{{ $row['to_date'] ?: '—' }}</td>
+                        <td class="hidden px-2 py-2 text-chrome-600 lg:table-cell">{{ $row['type'] }}</td>
+                        <td class="px-2 py-2 text-chrome-700">{{ $row['customer'] ?: '—' }}</td>
                         {{-- Amount is this leg's; Received and Balance are the
                              booking's, because the customer settles the whole job. --}}
-                        <td class="px-3 py-2 text-end font-medium text-chrome-800">{{ $money($row['amount']) }}</td>
-                        <td class="px-3 py-2 text-end text-emerald-700">{{ $money($row['received']) }}</td>
-                        <td class="px-3 py-2 text-end {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-400' }}">{{ $money($row['balance']) }}</td>
-                        <td class="px-3 py-2 text-chrome-600">{{ $row['pickup'] ?: '—' }}</td>
-                        <td class="px-3 py-2 text-chrome-600">{{ $row['dropoff'] ?: '—' }}</td>
-                        <td class="px-3 py-2">
+                        <td class="hidden px-2 py-2 text-end font-medium text-chrome-800 sm:table-cell">{{ $money($row['amount']) }}</td>
+                        <td class="hidden px-2 py-2 text-end text-emerald-700 xl:table-cell">{{ $money($row['received']) }}</td>
+                        <td class="hidden px-2 py-2 text-end xl:table-cell {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-400' }}">{{ $money($row['balance']) }}</td>
+                        <td class="hidden px-2 py-2 text-chrome-600 lg:table-cell">{{ $row['pickup'] ?: '—' }}</td>
+                        <td class="hidden px-2 py-2 text-chrome-600 lg:table-cell">{{ $row['dropoff'] ?: '—' }}</td>
+                        <td class="hidden px-2 py-2 xl:table-cell">
                             @if ($row['vehicle'] !== '')
                                 <span class="text-chrome-700">{{ $row['vehicle'] }}</span>
                                 @if ($canAssign)
@@ -154,7 +186,7 @@
                         </td>
                         {{-- Driver is set in the same modal as the car; both are
                              per leg, since each leg is dispatched on its own. --}}
-                        <td class="px-3 py-2">
+                        <td class="hidden px-2 py-2 xl:table-cell">
                             @if ($row['driver'] !== '')
                                 <span class="text-chrome-700">{{ $row['driver'] }}</span>
                             @elseif ($canAssign)
@@ -166,18 +198,18 @@
                                 <span class="text-chrome-400">—</span>
                             @endif
                         </td>
-                        <td class="px-3 py-2 text-chrome-600">{{ $row['added_by'] ?: '—' }}</td>
-                        <td class="max-w-[16rem] px-3 py-2 text-chrome-600">{{ $row['comments'] ?: '—' }}</td>
-                        <td class="whitespace-nowrap px-3 py-2 text-chrome-500">{{ $row['booked_time'] ?: '—' }}</td>
-                        <td class="px-3 py-2">
+                        <td class="hidden px-2 py-2 text-chrome-600 2xl:table-cell">{{ $row['added_by'] ?: '—' }}</td>
+                        <td class="hidden max-w-[16rem] px-2 py-2 text-chrome-600 2xl:table-cell">{{ $row['comments'] ?: '—' }}</td>
+                        <td class="hidden px-2 py-2 text-chrome-500 2xl:table-cell">{{ $row['booked_time'] ?: '—' }}</td>
+                        <td class="px-2 py-2">
                             <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst($row['status'])) }}</span>
                             @if ($next !== null && $canAssign)
                                 <button type="button" wire:click="advanceLeg({{ $leg->id }}, '{{ $next[0] }}')"
                                         class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ $next[1] }}</button>
                             @endif
                         </td>
-                        <td class="px-3 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $row['payment'] === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($row['payment'])) }}</span></td>
-                        <td class="sticky end-0 z-10 whitespace-nowrap bg-white px-3 py-2 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)] group-hover:bg-chrome-50">
+                        <td class="hidden px-2 py-2 md:table-cell"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $row['payment'] === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($row['payment'])) }}</span></td>
+                        <td class="sticky end-0 z-10 bg-white px-2 py-2 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)] group-hover:bg-chrome-50">
                             <a href="{{ url('/app/limousine/booking/' . $leg->legable_id) }}" wire:navigate
                                class="text-xs font-medium text-primary-700 hover:underline">{{ __('Open') }}</a>
                             @if ($canAssign)

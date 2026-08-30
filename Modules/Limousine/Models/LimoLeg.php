@@ -7,6 +7,7 @@ namespace Modules\Limousine\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * One leg of a limousine trip, shared by bookings and quotations. A leg is a
@@ -38,6 +39,11 @@ use Illuminate\Support\Carbon;
  * @property float $line_total
  * @property float $net_amount
  * @property string|null $notes
+ * @property string|null $signature_path   Customer's drawn signature (public disk)
+ * @property Carbon|null $signed_at        When they signed — the proof's timestamp
+ * @property string|null $signed_name      Name typed alongside the signature
+ * @property string|null $signed_ip        Where it was signed from (audit)
+ * @property Carbon|null $service_order_sent_at
  */
 final class LimoLeg extends Model
 {
@@ -75,6 +81,7 @@ final class LimoLeg extends Model
         'legable_type', 'legable_id', 'sequence', 'reference', 'status', 'service_type',
         'car_id', 'driver_id', 'driver', 'from_location', 'to_location', 'start_at', 'hours', 'days', 'vehicle',
         'vehicle_details', 'rate', 'rate_basis', 'discount', 'vat', 'line_total', 'net_amount', 'notes',
+        'signature_path', 'signed_at', 'signed_name', 'signed_ip', 'service_order_sent_at',
     ];
 
     protected static function booted(): void
@@ -122,7 +129,33 @@ final class LimoLeg extends Model
             'vat' => 'float',
             'line_total' => 'float',
             'net_amount' => 'float',
+            'signed_at' => 'datetime',
+            'service_order_sent_at' => 'datetime',
         ];
+    }
+
+    /** Whether the customer has signed this leg's Service Order. */
+    public function isSigned(): bool
+    {
+        return $this->signed_at !== null && $this->signature_path !== null;
+    }
+
+    /**
+     * Public URL of the drawn signature, or null when unsigned — or when the
+     * stored file has since gone missing, so a stale path renders nothing
+     * rather than a broken image on the printed proof.
+     */
+    public function signatureUrl(): ?string
+    {
+        if (! $this->isSigned()) {
+            return null;
+        }
+
+        $disk = Storage::disk('public');
+
+        return $disk->exists((string) $this->signature_path)
+            ? $disk->url((string) $this->signature_path)
+            : null;
     }
 
     /**

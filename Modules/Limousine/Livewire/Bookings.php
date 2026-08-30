@@ -18,7 +18,9 @@ use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoDriver;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Services\LimoQueueRows;
+use Modules\Limousine\Services\ServiceOrderSender;
 use Modules\Rental\Models\Vehicle;
+use Throwable;
 
 /**
  * Limousine bookings list — status tabs + a pick-up date range filter.
@@ -367,6 +369,34 @@ final class Bookings extends Component
 
         $this->cancelEdit();
         session()->flash('booking_status', __('Booking updated.'));
+    }
+
+    /**
+     * Email the customer the link to sign this leg's Service Order — the proof
+     * the driver arrived and the trip was used.
+     */
+    public function sendServiceOrder(int $legId): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        $leg = LimoLeg::query()->find($legId);
+        if ($leg === null) {
+            return;
+        }
+
+        try {
+            $sentTo = app(ServiceOrderSender::class)->send($leg);
+        } catch (Throwable $e) {
+            // Mail can fail for reasons the office can act on (bad address, SMTP
+            // down). Say so plainly instead of a silent no-op or a 500.
+            session()->flash('booking_status', __('Could not send the service order: :error', ['error' => $e->getMessage()]));
+
+            return;
+        }
+
+        session()->flash('booking_status', $sentTo !== null
+            ? __('Service order sent to :email.', ['email' => $sentTo])
+            : __('That customer has no email address on file — add one first.'));
     }
 
     public function updatedTab(): void

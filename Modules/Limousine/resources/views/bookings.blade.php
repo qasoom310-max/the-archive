@@ -219,6 +219,23 @@
                                 <button type="button" wire:click="openEdit({{ $leg->legable_id }})"
                                         class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ __('Edit') }}</button>
                             @endif
+                            {{-- Service Order: the per-trip sheet. Staff open the PDF;
+                                 the customer gets a link to sign it, which is the proof
+                                 the driver arrived and the trip was used. --}}
+                            <a href="{{ url('/app/limousine/service-order/' . $leg->id) }}" target="_blank" rel="noopener"
+                               class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ __('Service order') }}</a>
+                            @if ($canAssign)
+                                @if ($leg->isSigned())
+                                    <span class="ms-2 text-xs font-semibold text-emerald-600"
+                                          title="{{ __('Signed by') }} {{ $leg->signed_name }} · {{ $leg->signed_at?->isoFormat('DD-MMM-YY HH:mm') }}">✓ {{ __('Signed') }}</span>
+                                @else
+                                    <button type="button" wire:click="sendServiceOrder({{ $leg->id }})"
+                                            wire:confirm="{{ __('Email the customer a link to sign this service order?') }}"
+                                            class="ms-2 text-xs font-medium text-primary-700 hover:underline">
+                                        {{ $leg->service_order_sent_at ? __('Resend') : __('Send to sign') }}
+                                    </button>
+                                @endif
+                            @endif
                         </td>
                     </tr>
                 @empty

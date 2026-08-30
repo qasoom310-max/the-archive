@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Modules\Limousine\Http\Controllers\LimoQueueExportController;
 use Modules\Limousine\Http\Controllers\LimoReportExportController;
+use Modules\Limousine\Http\Controllers\ServiceOrderController;
+use Modules\Limousine\Http\Controllers\ServiceOrderSignController;
 use Modules\Limousine\Livewire\Bookings;
 use Modules\Limousine\Livewire\BookingForm;
 use Modules\Limousine\Livewire\CustomerForm;
@@ -24,9 +26,29 @@ use Modules\Limousine\Livewire\ReceiptForm;
 use Modules\Limousine\Livewire\Receipts;
 use Modules\Limousine\Livewire\Reports;
 
+/*
+ * PUBLIC signing links. A customer has no account, so these sit outside `auth`
+ * — the URL's own signature is the credential. `signed` middleware rejects any
+ * edit to the leg id or the expiry, so one customer's link can never be walked
+ * to another customer's trip.
+ */
+Route::middleware('signed')->group(function (): void {
+    Route::get('/service-order/{leg}/sign', [ServiceOrderSignController::class, 'show'])
+        ->whereNumber('leg')->name('limousine.service_order.sign');
+    Route::post('/service-order/{leg}/sign', [ServiceOrderSignController::class, 'store'])
+        ->whereNumber('leg')->name('limousine.service_order.submit');
+    Route::get('/service-order/{leg}/sign/pdf', [ServiceOrderSignController::class, 'pdf'])
+        ->whereNumber('leg')->name('limousine.service_order.customer_pdf');
+});
+
 Route::middleware('auth')->group(function (): void {
     // App landing — bookings dashboard.
     Route::get('/app/limousine', LimoHome::class)->name('limousine.home');
+
+    // Service Order — the per-trip sheet. Staff download; the customer gets a
+    // signing link by email instead.
+    Route::get('/app/limousine/service-order/{leg}', ServiceOrderController::class)
+        ->whereNumber('leg')->name('limousine.service_order.pdf');
 
     // Masters.
     Route::get('/app/limousine/customer', Customers::class)->name('limousine.customer.index');

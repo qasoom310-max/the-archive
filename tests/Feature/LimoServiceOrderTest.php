@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Livewire\Livewire;
 use Modules\Limousine\Livewire\Bookings;
+use Modules\Limousine\Mail\ServiceOrderCompanyMail;
 use Modules\Limousine\Mail\ServiceOrderMail;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
@@ -52,9 +53,12 @@ final class LimoServiceOrderTest extends TestCase
         Route::getRoutes()->refreshNameLookups();
     }
 
-    private function leg(?string $email = 'helen@example.test'): LimoLeg
+    private function leg(?string $email = 'helen@example.test', string $type = 'individual', ?string $serviceEmail = null): LimoLeg
     {
-        $customer = LimoCustomer::query()->create(['name' => 'Helen Friberg', 'phone' => '39211006', 'email' => $email]);
+        $customer = LimoCustomer::query()->create([
+            'name' => 'Helen Friberg', 'phone' => '39211006',
+            'email' => $email, 'type' => $type, 'service_email' => $serviceEmail,
+        ]);
 
         $booking = LimoBooking::query()->create([
             'reference' => 'BK/00001',
@@ -212,5 +216,60 @@ final class LimoServiceOrderTest extends TestCase
 
         Mail::assertNothingSent();
         $this->assertNull($leg->fresh()?->service_order_sent_at);
+    }
+
+    /**
+     * A company booked the car for its guest — it was not in it, so it cannot
+     * sign for the journey. It gets told the driver arrived instead, and never
+     * a signing link.
+     */
+    public function test_a_company_is_notified_rather_than_asked_to_sign(): void
+    {
+        Mail::fake();
+        $leg = $this->leg('accounts@acme.test', 'company', 'ops@acme.test');
+
+        Livewire::test(Bookings::class)->call('sendServiceOrder', $leg->id);
+
+        Mail::assertNotSent(ServiceOrderMail::class);
+        // Straight to the SERVICE address — the people who follow the trip, not
+        // the ones who placed the booking.
+        Mail::assertSent(ServiceOrderCompanyMail::class, fn ($mail): bool => $mail->hasTo('ops@acme.test'));
+        $this->assertNotNull($leg->fresh()?->service_order_sent_at);
+    }
+
+    public function test_a_company_without_a_service_address_falls_back_to_the_general_one(): void
+    {
+        Mail::fake();
+        $leg = $this->leg('accounts@acme.test', 'company', null);
+
+        Livewire::test(Bookings::class)->call('sendServiceOrder', $leg->id);
+
+        Mail::assertSent(ServiceOrderCompanyMail::class, fn ($mail): bool => $mail->hasTo('accounts@acme.test'));
+    }
+
+    public function test_an_individual_still_gets_the_signing_link(): void
+    {
+        Mail::fake();
+        $leg = $this->leg('helen@example.test', 'individual');
+
+        Livewire::test(Bookings::class)->call('sendServiceOrder', $leg->id);
+
+        Mail::assertSent(ServiceOrderMail::class, fn ($mail): bool => $mail->hasTo('helen@example.test'));
+        Mail::assertNotSent(ServiceOrderCompanyMail::class);
+    }
+
+    public function test_the_queue_shows_it_was_sent_and_offers_a_resend(): void
+    {
+        Mail::fake();
+        $leg = $this->leg();
+
+        Livewire::test(Bookings::class)
+            ->call('sendServiceOrder', $leg->id)
+            ->assertSee('Sent to sign')
+            ->assertSee('Resend');
+
+        // Resending is allowed — a mail can bounce or a link can lapse.
+        Livewire::test(Bookings::class)->call('sendServiceOrder', $leg->id);
+        Mail::assertSent(ServiceOrderMail::class, 2);
     }
 }

@@ -225,15 +225,34 @@
                             <a href="{{ url('/app/limousine/service-order/' . $leg->id) }}" target="_blank" rel="noopener"
                                class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ __('Service order') }}</a>
                             @if ($canAssign)
+                                @php $canSign = $signable[$leg->id] ?? true; @endphp
                                 @if ($leg->isSigned())
+                                    {{-- Signed: the proof exists, nothing more to send. --}}
                                     <span class="ms-2 text-xs font-semibold text-emerald-600"
                                           title="{{ __('Signed by') }} {{ $leg->signed_name }} · {{ $leg->signed_at?->isoFormat('DD-MMM-YY HH:mm') }}">✓ {{ __('Signed') }}</span>
                                 @else
-                                    <button type="button" wire:click="sendServiceOrder({{ $leg->id }})"
-                                            wire:confirm="{{ __('Email the customer a link to sign this service order?') }}"
-                                            class="ms-2 text-xs font-medium text-primary-700 hover:underline">
-                                        {{ $leg->service_order_sent_at ? __('Resend') : __('Send to sign') }}
-                                    </button>
+                                    @if ($leg->service_order_sent_at)
+                                        {{-- Already sent — say so, and keep Resend beside it
+                                             for a bounced mail or a lapsed link. --}}
+                                        <span class="ms-2 text-xs font-medium text-chrome-500"
+                                              title="{{ $leg->service_order_sent_at->isoFormat('DD-MMM-YY HH:mm') }}">
+                                            ✓ {{ $canSign ? __('Sent to sign') : __('Company notified') }}
+                                        </span>
+                                        <button type="button" wire:click="sendServiceOrder({{ $leg->id }})"
+                                                wire:confirm="{{ __('Send this again?') }}"
+                                                class="ms-1 text-xs font-medium text-primary-700 hover:underline">{{ __('Resend') }}</button>
+                                    @else
+                                        {{-- A company books for its guest, so it is told the
+                                             driver arrived rather than asked to sign for a
+                                             trip it was not on. --}}
+                                        <button type="button" wire:click="sendServiceOrder({{ $leg->id }})"
+                                                wire:confirm="{{ $canSign
+                                                    ? __('Email the customer a link to sign this service order?')
+                                                    : __('Email the company that the driver has reached their customer?') }}"
+                                                class="ms-2 text-xs font-medium text-primary-700 hover:underline">
+                                            {{ $canSign ? __('Send to sign') : __('Notify company') }}
+                                        </button>
+                                    @endif
                                 @endif
                             @endif
                         </td>

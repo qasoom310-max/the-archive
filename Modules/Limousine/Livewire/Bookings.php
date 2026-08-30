@@ -385,7 +385,7 @@ final class Bookings extends Component
         }
 
         try {
-            $sentTo = app(ServiceOrderSender::class)->send($leg);
+            $result = app(ServiceOrderSender::class)->send($leg);
         } catch (Throwable $e) {
             // Mail can fail for reasons the office can act on (bad address, SMTP
             // down). Say so plainly instead of a silent no-op or a 500.
@@ -394,9 +394,17 @@ final class Bookings extends Component
             return;
         }
 
-        session()->flash('booking_status', $sentTo !== null
-            ? __('Service order sent to :email.', ['email' => $sentTo])
-            : __('That customer has no email address on file — add one first.'));
+        if ($result === null) {
+            session()->flash('booking_status', __('That customer has no email address on file — add one first.'));
+
+            return;
+        }
+
+        // Say which kind went out: a company gets told, an individual gets asked
+        // to sign, and the office should know which happened.
+        session()->flash('booking_status', $result['kind'] === ServiceOrderSender::KIND_NOTICE
+            ? __('Service completed notice sent to :email.', ['email' => $result['email']])
+            : __('Signing link sent to :email.', ['email' => $result['email']]));
     }
 
     public function updatedTab(): void
@@ -456,6 +464,13 @@ final class Bookings extends Component
                 ? LimoLeg::query()->with('legable.customer:id,name')->find($this->assigningId)
                 : null,
             'canAssign' => $this->mayAccess(Permission::Write),
+            // Who signs vs who is merely told: an individual travelled and can
+            // attest to the trip; a company booked it for a guest and cannot.
+            // Keyed by leg id so the row renders the right action without
+            // re-querying per row.
+            'signable' => collect($legs->items())->mapWithKeys(
+                fn (LimoLeg $l): array => [$l->id => app(ServiceOrderSender::class)->isSignable($l)]
+            )->all(),
             'editing' => $this->editingId !== null
                 ? LimoBooking::query()->with('customer:id,name')->find($this->editingId)
                 : null,

@@ -8,62 +8,103 @@ use App\Erp\Settings\Setting;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
+use Modules\Limousine\Mail\ServiceOrderCompanyMail;
 use Modules\Limousine\Mail\ServiceOrderMail;
 use Modules\Limousine\Models\LimoBooking;
+use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoLeg;
 
 /**
- * Emails a customer the link to sign a leg's Service Order.
+ * Tells the customer their trip is done — in the way that suits who they are.
  *
- * The link is a temporary signed URL: its own signature is the credential, so a
- * customer needs no account, and editing the leg id in the address bar breaks
- * the signature instead of reaching someone else's trip. It expires so an old
- * mail cannot be replayed months later — the office resends if it lapses.
+ * An INDIVIDUAL travelled in the car, so they are asked to sign: their
+ * signature is the proof the driver reached them. A COMPANY did not travel; it
+ * booked on behalf of a guest, and cannot sign for a journey it wasn't on. It is
+ * INFORMED instead — "the driver has reached your customer" — at its service
+ * address, which is usually a different person from whoever placed the booking.
+ *
+ * The signing link is a temporary signed URL: its own signature is the
+ * credential, so a customer needs no account, editing the leg id breaks it
+ * rather than reaching another trip, and it expires so an old mail can't be
+ * replayed months later.
  */
 final class ServiceOrderSender
 {
     /** How long a signing link stays valid. */
     public const LINK_DAYS = 30;
 
+    public const KIND_SIGN = 'sign';
+
+    public const KIND_NOTICE = 'notice';
+
     /**
-     * Send the invitation. Returns the address it went to, or null when the
-     * customer has no email on file (the caller tells the user, rather than
-     * silently doing nothing).
+     * Send the right message for this leg's customer.
+     *
+     * Returns what was sent and to whom, or null when there is no address to
+     * send to — the caller says so rather than silently doing nothing.
+     *
+     * @return array{email: string, kind: string}|null
      */
-    public function send(LimoLeg $leg): ?string
+    public function send(LimoLeg $leg): ?array
     {
         $leg->loadMissing('legable.customer');
 
         $booking = $leg->legable instanceof LimoBooking ? $leg->legable : null;
-
         if ($booking === null) {
             return null;
         }
 
-        // The booking's own address wins — it is the one captured for this job;
-        // the customer record is the fallback.
-        $email = $booking->email;
-        if (! is_string($email) || trim($email) === '') {
-            $customer = $booking->customer;
-            $email = $customer !== null ? $customer->email : null;
+        $customer = $booking->customer;
+        $companyName = (string) Setting::get('company.name', 'OpenERP');
+
+        if ($customer !== null && $customer->isCompany()) {
+            $email = $customer->serviceEmail();
+            if ($email === null) {
+                return null;
+            }
+
+            Mail::to($email)->send(new ServiceOrderCompanyMail(
+                leg: $leg,
+                companyName: $companyName,
+                customerName: (string) $customer->name,
+                details: $this->details($leg),
+            ));
+
+            $this->markSent($leg);
+
+            return ['email' => $email, 'kind' => self::KIND_NOTICE];
         }
 
-        if (! is_string($email) || trim($email) === '') {
+        $email = $this->individualEmail($booking, $customer);
+        if ($email === null) {
             return null;
         }
-
-        $email = trim($email);
 
         Mail::to($email)->send(new ServiceOrderMail(
             leg: $leg,
             signUrl: $this->signUrl($leg),
-            companyName: (string) Setting::get('company.name', 'OpenERP'),
-            details: $this->details($leg, $booking),
+            companyName: $companyName,
+            details: $this->details($leg),
         ));
 
-        $leg->forceFill(['service_order_sent_at' => Carbon::now()])->save();
+        $this->markSent($leg);
 
-        return $email;
+        return ['email' => $email, 'kind' => self::KIND_SIGN];
+    }
+
+    /** Whether this leg's customer signs (individual) or is just told (company). */
+    public function isSignable(LimoLeg $leg): bool
+    {
+        $leg->loadMissing('legable.customer');
+
+        $booking = $leg->legable instanceof LimoBooking ? $leg->legable : null;
+        if ($booking === null) {
+            return false;
+        }
+
+        $customer = $booking->customer;
+
+        return $customer === null || ! $customer->isCompany();
     }
 
     /** The temporary signed signing URL for this leg. */
@@ -76,13 +117,38 @@ final class ServiceOrderSender
         );
     }
 
+    private function markSent(LimoLeg $leg): void
+    {
+        $leg->forceFill(['service_order_sent_at' => Carbon::now()])->save();
+    }
+
     /**
-     * The handful of facts the customer needs to recognise the trip. Blank
-     * fields are dropped rather than shown empty.
+     * The booking's own address wins — it is the one captured for this job —
+     * with the customer record as the fallback.
+     */
+    private function individualEmail(LimoBooking $booking, ?LimoCustomer $customer): ?string
+    {
+        $email = $booking->email;
+        if (is_string($email) && trim($email) !== '') {
+            return trim($email);
+        }
+
+        if ($customer === null) {
+            return null;
+        }
+
+        $email = $customer->email;
+
+        return is_string($email) && trim($email) !== '' ? trim($email) : null;
+    }
+
+    /**
+     * The handful of facts that identify the trip. Blank fields are dropped
+     * rather than shown empty.
      *
      * @return array<string, string>
      */
-    private function details(LimoLeg $leg, ?LimoBooking $booking): array
+    private function details(LimoLeg $leg): array
     {
         $rows = [
             (string) __('Service date') => trim(

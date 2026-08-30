@@ -41,7 +41,7 @@ final class LimoQueueRows
     {
         $query = LimoLeg::query()
             ->whereMorphedTo('legable', LimoBooking::class)
-            ->with(['legable.customer:id,name'])
+            ->with(['legable.customer:id,name,type'])
             ->orderByDesc('start_at')
             ->orderBy('sequence');
 

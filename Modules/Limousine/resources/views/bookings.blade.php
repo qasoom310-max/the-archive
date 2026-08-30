@@ -209,38 +209,73 @@
                             @endif
                         </td>
                         <td class="hidden px-2 py-2 md:table-cell"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $row['payment'] === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($row['payment'])) }}</span></td>
+                        {{-- Icon actions. Four text links per row made the column wide
+                             and hard to scan; icons keep it compact. Every one carries a
+                             `title` (hover tooltip) AND an `aria-label`, so the meaning
+                             is available by pointing at it and to a screen reader —
+                             an icon alone would just be a mystery glyph. --}}
                         <td class="sticky end-0 z-10 bg-white px-2 py-2 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)] group-hover:bg-chrome-50">
-                            <a href="{{ url('/app/limousine/booking/' . $leg->legable_id) }}" wire:navigate
-                               class="text-xs font-medium text-primary-700 hover:underline">{{ __('Open') }}</a>
-                            @if ($canAssign)
-                                {{-- Booking-level details (passenger, flight, rate…) are
-                                     shared by every leg of the job, so they are edited
-                                     per booking rather than per leg. --}}
-                                <button type="button" wire:click="openEdit({{ $leg->legable_id }})"
-                                        class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ __('Edit') }}</button>
-                            @endif
-                            {{-- Service Order: the per-trip sheet. Staff open the PDF;
-                                 the customer gets a link to sign it, which is the proof
-                                 the driver arrived and the trip was used. --}}
-                            <a href="{{ url('/app/limousine/service-order/' . $leg->id) }}" target="_blank" rel="noopener"
-                               class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ __('Service order') }}</a>
-                            @if ($canAssign)
-                                @php $canSign = $signable[$leg->id] ?? true; @endphp
-                                @if ($leg->isSigned())
-                                    {{-- Signed: the proof exists, nothing more to send. --}}
-                                    <span class="ms-2 text-xs font-semibold text-emerald-600"
-                                          title="{{ __('Signed by') }} {{ $leg->signed_name }} · {{ $leg->signed_at?->isoFormat('DD-MMM-YY HH:mm') }}">✓ {{ __('Signed') }}</span>
-                                @else
-                                    @if ($leg->service_order_sent_at)
-                                        {{-- Already sent — say so, and keep Resend beside it
-                                             for a bounced mail or a lapsed link. --}}
-                                        <span class="ms-2 text-xs font-medium text-chrome-500"
-                                              title="{{ $leg->service_order_sent_at->isoFormat('DD-MMM-YY HH:mm') }}">
-                                            ✓ {{ $canSign ? __('Sent to sign') : __('Company notified') }}
+                            @php $act = 'inline-flex size-7 items-center justify-center rounded-lg transition'; @endphp
+                            <div class="flex items-center gap-0.5">
+                                {{-- Open the full booking --}}
+                                <a href="{{ url('/app/limousine/booking/' . $leg->legable_id) }}" wire:navigate
+                                   title="{{ __('Open full booking') }}" aria-label="{{ __('Open full booking') }}"
+                                   class="{{ $act }} text-chrome-500 hover:bg-primary-50 hover:text-primary-700">
+                                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+                                    </svg>
+                                </a>
+
+                                @if ($canAssign)
+                                    {{-- Booking-level details (passenger, flight, rate…) are
+                                         shared by every leg, so they are edited per booking. --}}
+                                    <button type="button" wire:click="openEdit({{ $leg->legable_id }})"
+                                            title="{{ __('Edit booking details') }}" aria-label="{{ __('Edit booking details') }}"
+                                            class="{{ $act }} text-chrome-500 hover:bg-primary-50 hover:text-primary-700">
+                                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/>
+                                        </svg>
+                                    </button>
+                                @endif
+
+                                {{-- Service Order PDF — the per-trip sheet. --}}
+                                <a href="{{ url('/app/limousine/service-order/' . $leg->id) }}" target="_blank" rel="noopener"
+                                   title="{{ __('Service order (PDF)') }}" aria-label="{{ __('Service order (PDF)') }}"
+                                   class="{{ $act }} text-chrome-500 hover:bg-primary-50 hover:text-primary-700">
+                                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
+                                    </svg>
+                                </a>
+
+                                @if ($canAssign)
+                                    @php $canSign = $signable[$leg->id] ?? true; @endphp
+                                    @if ($leg->isSigned())
+                                        {{-- Signed: the proof exists, nothing left to send. --}}
+                                        <span class="{{ $act }} text-emerald-600"
+                                              title="{{ __('Signed by') }} {{ $leg->signed_name }} · {{ $leg->signed_at?->isoFormat('DD-MMM-YY HH:mm') }}"
+                                              aria-label="{{ __('Signed') }}">
+                                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                                            </svg>
+                                        </span>
+                                    @elseif ($leg->service_order_sent_at)
+                                        {{-- Sent: a green tick says so, and the paper plane
+                                             beside it resends a bounced mail or lapsed link. --}}
+                                        <span class="{{ $act }} text-emerald-600"
+                                              title="{{ ($canSign ? __('Sent to sign') : __('Company notified')) }} · {{ $leg->service_order_sent_at->isoFormat('DD-MMM-YY HH:mm') }}"
+                                              aria-label="{{ $canSign ? __('Sent to sign') : __('Company notified') }}">
+                                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+                                            </svg>
                                         </span>
                                         <button type="button" wire:click="sendServiceOrder({{ $leg->id }})"
                                                 wire:confirm="{{ __('Send this again?') }}"
-                                                class="ms-1 text-xs font-medium text-primary-700 hover:underline">{{ __('Resend') }}</button>
+                                                title="{{ __('Resend') }}" aria-label="{{ __('Resend') }}"
+                                                class="{{ $act }} text-chrome-400 hover:bg-primary-50 hover:text-primary-700">
+                                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356m-.001 0-3.181 3.183a8.25 8.25 0 0 0-13.803 3.7M4.031 9.865v4.992m0 0h4.992m-4.993 0 3.181-3.183a8.25 8.25 0 0 0 13.803-3.7"/>
+                                            </svg>
+                                        </button>
                                     @else
                                         {{-- A company books for its guest, so it is told the
                                              driver arrived rather than asked to sign for a
@@ -249,12 +284,16 @@
                                                 wire:confirm="{{ $canSign
                                                     ? __('Email the customer a link to sign this service order?')
                                                     : __('Email the company that the driver has reached their customer?') }}"
-                                                class="ms-2 text-xs font-medium text-primary-700 hover:underline">
-                                            {{ $canSign ? __('Send to sign') : __('Notify company') }}
+                                                title="{{ $canSign ? __('Send to sign') : __('Notify company') }}"
+                                                aria-label="{{ $canSign ? __('Send to sign') : __('Notify company') }}"
+                                                class="{{ $act }} text-chrome-500 hover:bg-primary-50 hover:text-primary-700">
+                                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"/>
+                                            </svg>
                                         </button>
                                     @endif
                                 @endif
-                            @endif
+                            </div>
                         </td>
                     </tr>
                 @empty

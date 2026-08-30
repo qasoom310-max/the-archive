@@ -90,7 +90,10 @@
                     @foreach ($headings as $key => $label)
                         <th class="px-3 py-2 {{ in_array($key, ['amount', 'received', 'balance'], true) ? 'text-end' : 'text-start' }}">{{ $label }}</th>
                     @endforeach
-                    <th class="px-3 py-2 text-start">{{ __('Actions') }}</th>
+                    {{-- Pinned to the trailing edge: the table is ~1600px wide, so
+                         without this the row actions sit off-screen behind a
+                         horizontal scroll and read as missing. --}}
+                    <th class="sticky end-0 z-20 bg-chrome-50 px-3 py-2 text-start shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)]">{{ __('Actions') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-chrome-50">
@@ -114,7 +117,9 @@
                         ][$row['status']] ?? null;
                         $money = fn (float $v): string => \App\Erp\Views\ValueFormat::money($v);
                     @endphp
-                    <tr wire:key="leg-{{ $leg->id }}" class="hover:bg-chrome-50">
+                    {{-- `group` so the pinned Actions cell can mirror the row hover
+                         (it needs its own background to sit above the scroll). --}}
+                    <tr wire:key="leg-{{ $leg->id }}" class="group hover:bg-chrome-50">
                         <td class="px-3 py-2 text-chrome-400">{{ $legs->firstItem() + $i }}</td>
                         <td class="px-3 py-2 font-medium text-chrome-800">
                             {{ $row['reference'] ?: '—' }}
@@ -172,7 +177,7 @@
                             @endif
                         </td>
                         <td class="px-3 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $row['payment'] === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($row['payment'])) }}</span></td>
-                        <td class="whitespace-nowrap px-3 py-2">
+                        <td class="sticky end-0 z-10 whitespace-nowrap bg-white px-3 py-2 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)] group-hover:bg-chrome-50">
                             <a href="{{ url('/app/limousine/booking/' . $leg->legable_id) }}" wire:navigate
                                class="text-xs font-medium text-primary-700 hover:underline">{{ __('Open') }}</a>
                             @if ($canAssign)

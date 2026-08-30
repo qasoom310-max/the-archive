@@ -229,7 +229,7 @@
                                 @if ($canAssign)
                                     {{-- Booking-level details (passenger, flight, rate…) are
                                          shared by every leg, so they are edited per booking. --}}
-                                    <button type="button" wire:click="openEdit({{ $leg->legable_id }})"
+                                    <button type="button" wire:click="openEdit({{ $leg->legable_id }}, {{ $leg->id }})"
                                             title="{{ __('Edit booking details') }}" aria-label="{{ __('Edit booking details') }}"
                                             class="{{ $act }} text-chrome-500 hover:bg-primary-50 hover:text-primary-700">
                                         <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -423,16 +423,29 @@
                                 @error('edit.email') <p class="{{ $err }}">{{ $message }}</p> @enderror
                             </div>
 
+                            {{-- Car and driver are shown but LOCKED. They belong to the
+                                 leg, not the booking: each trip is dispatched on its own
+                                 with its own vehicle and crew, so there is no single
+                                 "the car" for a booking to hold. Editing them here would
+                                 write a booking-level label that changes nothing about
+                                 what is actually dispatched — a field that looks like it
+                                 works and doesn't. Assign them from the queue instead. --}}
                             <div>
                                 <label class="{{ $lbl }}">{{ __('Car details') }}</label>
-                                <input type="text" wire:model="edit.car_details" class="o-input mt-1 w-full">
+                                <input type="text" disabled
+                                       value="{{ $editingLeg?->vehicle ?: __('Not assigned') }}"
+                                       class="o-input mt-1 w-full bg-chrome-100 text-chrome-600">
                             </div>
                             <div>
                                 <label class="{{ $lbl }}">{{ __('Driver') }}</label>
-                                <input type="text" wire:model="edit.driver_name" class="o-input mt-1 w-full">
-                                {{-- The car + driver actually dispatched are set per leg
-                                     from the queue; this is the name written on the job. --}}
-                                <p class="mt-1 text-[11px] text-chrome-400">{{ __('Assign the dispatched driver per leg from the queue.') }}</p>
+                                <input type="text" disabled
+                                       value="{{ $editingLeg?->driver ?: __('Not assigned') }}"
+                                       class="o-input mt-1 w-full bg-chrome-100 text-chrome-600">
+                            </div>
+                            <div class="sm:col-span-2 -mt-1">
+                                <p class="text-[11px] text-chrome-400">
+                                    🔒 {{ __('Car and driver belong to the trip, not the booking — assign them from the queue (Assign car / Assign driver).') }}
+                                </p>
                             </div>
 
                             <div>
@@ -449,10 +462,16 @@
                                 <label class="{{ $lbl }}">{{ __('Contact person') }}</label>
                                 <input type="text" wire:model="edit.contact_person" class="o-input mt-1 w-full">
                             </div>
-                            <div>
-                                <label class="{{ $lbl }}">{{ __('Company reference') }}</label>
-                                <input type="text" wire:model="edit.company_reference" class="o-input mt-1 w-full">
-                            </div>
+                            {{-- Corporate accounts only: a company quotes its own PO /
+                                 reference so the trip can be matched on their side. An
+                                 individual has nothing to put here, so the field would
+                                 just be noise on most bookings. --}}
+                            @if ($editing->customer?->isCompany())
+                                <div>
+                                    <label class="{{ $lbl }}">{{ __('Company reference') }}</label>
+                                    <input type="text" wire:model="edit.company_reference" class="o-input mt-1 w-full">
+                                </div>
+                            @endif
 
                             <div>
                                 <label class="{{ $lbl }}">{{ __('Rate type') }}</label>

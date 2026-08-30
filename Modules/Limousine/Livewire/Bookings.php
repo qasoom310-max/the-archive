@@ -66,6 +66,14 @@ final class Bookings extends Component
     public ?int $editingId = null;
 
     /**
+     * The leg whose row opened the dialog. The car and driver are assigned PER
+     * LEG from the queue, so the dialog shows that trip's crew read-only rather
+     * than pretending a booking has one car.
+     */
+    #[Locked]
+    public ?int $editingLegId = null;
+
+    /**
      * Quick-edit field values, keyed by column. A flat array keeps the dialog
      * declarative — adding a field is one entry here plus one input.
      *
@@ -280,7 +288,7 @@ final class Bookings extends Component
      * silently overwritten the next time a leg changes. It is shown read-only
      * with a link to the full booking.
      */
-    public function openEdit(int $bookingId): void
+    public function openEdit(int $bookingId, ?int $legId = null): void
     {
         $this->guardAccess(Permission::Write);
 
@@ -290,6 +298,9 @@ final class Bookings extends Component
         }
 
         $this->editingId = $bookingId;
+        // Which leg's row was clicked, so the dialog can show the car and driver
+        // actually dispatched for THAT trip.
+        $this->editingLegId = $legId;
         $this->resetErrorBag();
         $this->edit = [
             'booking_type' => (string) ($booking->booking_type ?? ''),
@@ -298,8 +309,6 @@ final class Bookings extends Component
             'booking_to' => $booking->booking_to?->format('Y-m-d\TH:i') ?? '',
             'flight_number' => (string) ($booking->flight_number ?? ''),
             'email' => (string) ($booking->email ?? ''),
-            'car_details' => (string) ($booking->car_details ?? ''),
-            'driver_name' => (string) ($booking->driver_name ?? ''),
             'pax_name' => (string) ($booking->pax_name ?? ''),
             'pax_contact' => (string) ($booking->pax_contact ?? ''),
             'contact_person' => (string) ($booking->contact_person ?? ''),
@@ -312,6 +321,7 @@ final class Bookings extends Component
     public function cancelEdit(): void
     {
         $this->editingId = null;
+        $this->editingLegId = null;
         $this->edit = [];
         $this->resetErrorBag();
     }
@@ -339,8 +349,6 @@ final class Bookings extends Component
             'edit.pax_name' => ['nullable', 'string', 'max:255'],
             'edit.pax_contact' => ['nullable', 'string', 'max:50'],
             'edit.flight_number' => ['nullable', 'string', 'max:100'],
-            'edit.car_details' => ['nullable', 'string', 'max:255'],
-            'edit.driver_name' => ['nullable', 'string', 'max:255'],
             'edit.contact_person' => ['nullable', 'string', 'max:255'],
             'edit.company_reference' => ['nullable', 'string', 'max:255'],
             'edit.notes' => ['nullable', 'string'],
@@ -354,7 +362,7 @@ final class Bookings extends Component
             : null;
 
         foreach ([
-            'booking_type', 'flight_number', 'email', 'car_details', 'driver_name',
+            'booking_type', 'flight_number', 'email',
             'pax_name', 'pax_contact', 'contact_person', 'company_reference', 'rate_type', 'notes',
         ] as $field) {
             $booking->{$field} = $text($field);
@@ -472,7 +480,12 @@ final class Bookings extends Component
                 fn (LimoLeg $l): array => [$l->id => app(ServiceOrderSender::class)->isSignable($l)]
             )->all(),
             'editing' => $this->editingId !== null
-                ? LimoBooking::query()->with('customer:id,name')->find($this->editingId)
+                ? LimoBooking::query()->with('customer:id,name,type')->find($this->editingId)
+                : null,
+            // The dispatched crew for the clicked trip — shown read-only in the
+            // dialog, since car and driver are assigned per leg from the queue.
+            'editingLeg' => $this->editingLegId !== null
+                ? LimoLeg::query()->find($this->editingLegId)
                 : null,
             'bookingTypes' => LimoBooking::bookingTypeOptions(),
             'rateTypes' => LimoBooking::rateTypeOptions(),

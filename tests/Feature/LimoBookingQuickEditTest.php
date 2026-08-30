@@ -66,8 +66,6 @@ final class LimoBookingQuickEditTest extends TestCase
             ->call('openEdit', $booking->id)
             ->set('edit.pax_name', 'Helen F.')
             ->set('edit.flight_number', 'GF509')
-            ->set('edit.car_details', 'Sedan')
-            ->set('edit.driver_name', 'Sohail - 6541')
             ->set('edit.booking_type', 'airport')
             ->set('edit.rate_type', 'hourly')
             ->set('edit.notes', 'Meet at arrivals')
@@ -78,8 +76,6 @@ final class LimoBookingQuickEditTest extends TestCase
         $booking->refresh();
         $this->assertSame('Helen F.', $booking->pax_name);
         $this->assertSame('GF509', $booking->flight_number);
-        $this->assertSame('Sedan', $booking->car_details);
-        $this->assertSame('Sohail - 6541', $booking->driver_name);
         $this->assertSame('airport', $booking->booking_type);
         $this->assertSame('hourly', $booking->rate_type);
         $this->assertSame('Meet at arrivals', $booking->notes);
@@ -113,6 +109,51 @@ final class LimoBookingQuickEditTest extends TestCase
             ->call('saveEdit');
 
         $this->assertSame(22.5, (float) $booking->fresh()?->fare);
+    }
+
+    /**
+     * Car and driver belong to the LEG — each trip is dispatched on its own, so
+     * a booking has no single vehicle. The dialog shows them locked; a crafted
+     * payload must not write them either, or the office would think it had
+     * changed what is dispatched when it hadn't.
+     */
+    public function test_the_car_and_driver_cannot_be_written_from_the_dialog(): void
+    {
+        $booking = $this->booking();
+        $booking->forceFill(['car_details' => 'Sedan', 'driver_name' => 'Sohail'])->save();
+
+        Livewire::test(Bookings::class)
+            ->call('openEdit', $booking->id)
+            ->set('edit.car_details', 'Hijacked car')
+            ->set('edit.driver_name', 'Hijacked driver')
+            ->set('edit.pax_name', 'Helen F.')
+            ->call('saveEdit');
+
+        $booking->refresh();
+        $this->assertSame('Helen F.', $booking->pax_name);   // the real edit landed
+        $this->assertSame('Sedan', $booking->car_details);   // these did not
+        $this->assertSame('Sohail', $booking->driver_name);
+    }
+
+    /**
+     * A company quotes its own PO / reference so it can match the trip on its
+     * side; an individual has nothing to put there, so the field would be noise
+     * on most bookings.
+     */
+    public function test_company_reference_shows_only_for_corporate_customers(): void
+    {
+        $individual = $this->booking();
+
+        Livewire::test(Bookings::class)
+            ->call('openEdit', $individual->id)
+            ->assertDontSee('Company reference');
+
+        $corporate = LimoCustomer::query()->create(['name' => 'Acme Ltd', 'type' => 'company']);
+        $individual->forceFill(['customer_id' => $corporate->id])->save();
+
+        Livewire::test(Bookings::class)
+            ->call('openEdit', $individual->id)
+            ->assertSee('Company reference');
     }
 
     public function test_cancelling_discards_the_changes(): void

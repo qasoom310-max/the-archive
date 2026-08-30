@@ -14,11 +14,11 @@
         @php
             $isChauffeur = ($leg['service_type'] ?? 'transfer') === 'chauffeur';
             $basis = $leg['rate_basis'] ?? 'trip';
-            $rate = (float) ($leg['rate'] === '' ? 0 : $leg['rate']);
-            $hours = (float) ($leg['hours'] === '' ? 0 : $leg['hours']);
-            $days = max(1, (int) ($leg['days'] === '' ? 1 : $leg['days']));
+            $rate = (float) (($leg['rate'] ?? '') === '' ? 0 : $leg['rate']);
+            $hours = (float) (($leg['hours'] ?? '') === '' ? 0 : $leg['hours']);
+            $days = max(1, (int) (($leg['days'] ?? '') === '' ? 1 : $leg['days']));
             $gross = match ($basis) { 'hour' => $rate * $hours * $days, 'day' => $rate * $days, default => $rate };
-            $net = max(0, $gross - (float) ($leg['discount'] === '' ? 0 : $leg['discount'])) + (float) ($leg['vat'] === '' ? 0 : $leg['vat']);
+            $net = max(0, $gross - (float) (($leg['discount'] ?? '') === '' ? 0 : $leg['discount'])) + (float) (($leg['vat'] ?? '') === '' ? 0 : $leg['vat']);
         @endphp
         <div wire:key="leg-{{ $i }}" class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -129,15 +129,17 @@
                 </div>
             </div>
 
-            {{-- Chauffeur day-by-day schedule preview (auto-generated). --}}
-            @if ($isChauffeur && ($leg['start_at'] ?? '') !== '')
-                @php $start = \Illuminate\Support\Carbon::parse($leg['start_at']); @endphp
+            {{-- Chauffeur day-by-day schedule preview (auto-generated). The date
+                 is still being typed half the time this renders, so it waits for
+                 a real one rather than failing on a half-typed value. --}}
+            @php $start = $isChauffeur ? $this->legStart($leg) : null; @endphp
+            @if ($start !== null)
                 <div class="mt-4 rounded-lg bg-chrome-50 p-3">
                     <p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Schedule') }} · {{ $days }} {{ __('day(s)') }}</p>
                     <div class="flex flex-wrap gap-1.5">
                         @for ($d = 0; $d < min($days, 60); $d++)
                             <span class="rounded-md bg-white px-2 py-1 text-xs text-chrome-600 ring-1 ring-chrome-200">
-                                {{ $start->copy()->addDays($d)->isoFormat('ddd D MMM') }}@if ($leg['hours'] !== '') · {{ rtrim(rtrim(number_format((float) $leg['hours'], 1), '0'), '.') }}h @endif
+                                {{ $start->copy()->addDays($d)->isoFormat('ddd D MMM') }}@if ($hours > 0) · {{ rtrim(rtrim(number_format($hours, 1), '0'), '.') }}h @endif
                             </span>
                         @endfor
                     </div>

@@ -148,6 +148,12 @@
                             'active' => ['completed', __('Complete')],
                         ][$row['status']] ?? null;
                         $money = fn (float $v): string => \App\Erp\Views\ValueFormat::money($v);
+                        // A finished or cancelled trip is history: it can be read,
+                        // printed and signed for, but nothing about it changes any
+                        // more. Leaving Edit and Assign live on a done trip invites
+                        // a change that contradicts what was actually driven.
+                        $locked = in_array($row['status'], ['completed', 'cancelled'], true);
+                        $mayEdit = $canAssign && ! $locked;
                     @endphp
                     {{-- `group` so the pinned Actions cell can mirror the row hover
                          (it needs its own background to sit above the scroll). --}}
@@ -185,11 +191,11 @@
                         <td class="hidden px-2 py-2 xl:table-cell">
                             @if ($row['vehicle'] !== '')
                                 <span class="text-chrome-700">{{ $row['vehicle'] }}</span>
-                                @if ($canAssign)
+                                @if ($mayEdit)
                                     <button type="button" wire:click="openAssign({{ $leg->id }})"
                                             class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ __('Change') }}</button>
                                 @endif
-                            @elseif ($canAssign)
+                            @elseif ($mayEdit)
                                 <button type="button" wire:click="openAssign({{ $leg->id }})"
                                         class="rounded-lg border border-chrome-200 px-2.5 py-1 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
                                     {{ __('Assign car') }}
@@ -203,7 +209,7 @@
                         <td class="hidden px-2 py-2 xl:table-cell">
                             @if ($row['driver'] !== '')
                                 <span class="text-chrome-700">{{ $row['driver'] }}</span>
-                            @elseif ($canAssign)
+                            @elseif ($mayEdit)
                                 <button type="button" wire:click="openAssign({{ $leg->id }})"
                                         class="rounded-lg border border-chrome-200 px-2.5 py-1 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
                                     {{ __('Assign driver') }}
@@ -216,18 +222,43 @@
                         <td class="hidden max-w-[16rem] px-2 py-2 text-chrome-600 2xl:table-cell">{{ $row['comments'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 text-chrome-500 2xl:table-cell">{{ $row['booked_time'] ?: '—' }}</td>
                         <td class="px-2 py-2">
-                            <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst($row['status'])) }}</span>
-                            @if ($next !== null && $canAssign)
-                                <button type="button" wire:click="advanceLeg({{ $leg->id }}, '{{ $next[0] }}')"
-                                        class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ $next[1] }}</button>
-                            @endif
-                            {{-- Cancel stays available while a trip is still ahead of
-                                 or on the road. A finished or already-cancelled trip
-                                 has nothing to call off. --}}
-                            @if ($canAssign && ! in_array($row['status'], ['completed', 'cancelled'], true))
-                                <button type="button" wire:click="openCancel({{ $leg->id }})"
-                                        class="ms-2 text-xs font-medium text-red-600 hover:underline">{{ __('Cancel') }}</button>
-                            @endif
+                            @php
+                                // One icon per step, so the row shows what it can DO
+                                // next rather than spelling it out in words. Each keeps
+                                // its label as a tooltip and an aria-label — dropping
+                                // the text must not drop the meaning.
+                                $stepIcon = [
+                                    'confirmed' => 'M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
+                                    'active' => 'M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z',
+                                    'completed' => 'm4.5 12.75 6 6 9-13.5',
+                                ];
+                            @endphp
+                            <div class="flex items-center gap-1">
+                                <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst($row['status'])) }}</span>
+
+                                @if ($next !== null && $canAssign)
+                                    <button type="button" wire:click="advanceLeg({{ $leg->id }}, '{{ $next[0] }}')"
+                                            title="{{ $next[1] }}" aria-label="{{ $next[1] }}"
+                                            class="inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-primary-700 transition hover:bg-primary-50">
+                                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="{{ $stepIcon[$next[0]] ?? $stepIcon['completed'] }}"/>
+                                        </svg>
+                                    </button>
+                                @endif
+
+                                {{-- Cancel stays available while a trip is still ahead of
+                                     or on the road. A finished or already-cancelled trip
+                                     has nothing to call off. --}}
+                                @if ($canAssign && ! in_array($row['status'], ['completed', 'cancelled'], true))
+                                    <button type="button" wire:click="openCancel({{ $leg->id }})"
+                                            title="{{ __('Cancel trip') }}" aria-label="{{ __('Cancel trip') }}"
+                                            class="inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-red-600 transition hover:bg-red-50">
+                                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                                        </svg>
+                                    </button>
+                                @endif
+                            </div>
                             @if ($row['status'] === 'cancelled' && $leg->refund_outcome)
                                 {{-- What the customer got back, so a cancelled row
                                      isn't a dead end for the person reading it. --}}
@@ -260,9 +291,11 @@
                                     </svg>
                                 </a>
 
-                                @if ($canAssign)
+                                @if ($mayEdit)
                                     {{-- Booking-level details (passenger, flight, rate…) are
-                                         shared by every leg, so they are edited per booking. --}}
+                                         shared by every leg, so they are edited per booking.
+                                         Gone once this trip is done: a finished trip is a
+                                         record, not a draft. --}}
                                     <button type="button" wire:click="openEdit({{ $leg->legable_id }}, {{ $leg->id }})"
                                             title="{{ __('Edit booking details') }}" aria-label="{{ __('Edit booking details') }}"
                                             class="{{ $act }} text-chrome-500 hover:bg-primary-50 hover:text-primary-700">

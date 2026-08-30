@@ -188,6 +188,32 @@ final class LimoCancellationTest extends TestCase
         $this->assertSame(25.0, $coupon->fresh()?->remaining());
     }
 
+    /**
+     * A finished trip is a record of what was driven, not a draft. The buttons
+     * are hidden, but hiding a button is not a rule — the actions themselves
+     * must refuse, or a crafted request could rewrite history.
+     */
+    public function test_a_completed_trip_cannot_be_edited_or_reassigned(): void
+    {
+        $leg = $this->trip(25, '-3 days', paid: true);
+        $leg->forceFill(['status' => LimoLeg::STATUS_COMPLETED])->save();
+
+        $component = \Livewire\Livewire::test(\Modules\Limousine\Livewire\Bookings::class);
+
+        $component->call('openAssign', $leg->id)->assertSet('assigningId', null);
+        $component->call('openEdit', $leg->legable_id, $leg->id)->assertSet('editingId', null);
+    }
+
+    public function test_a_cancelled_trip_is_closed_the_same_way(): void
+    {
+        $leg = $this->trip(25, '-3 days', paid: false);
+        app(TripCancellation::class)->cancel($leg);
+
+        \Livewire\Livewire::test(\Modules\Limousine\Livewire\Bookings::class)
+            ->call('openAssign', $leg->id)
+            ->assertSet('assigningId', null);
+    }
+
     public function test_an_unknown_code_is_refused(): void
     {
         $leg = $this->trip(40, '5 days', paid: false);

@@ -114,9 +114,29 @@ final class Bookings extends Component
             return;
         }
 
+        // A finished or cancelled trip is a record of what happened, not a draft.
+        // The buttons are hidden for those rows; this refuses the action itself,
+        // since a hidden button is not a rule.
+        if ($this->isLocked($leg)) {
+            session()->flash('toast', __('That trip is closed — its car and driver can no longer be changed.'));
+
+            return;
+        }
+
         $this->assigningId = $leg->id;
         $this->assignCar = $leg->car_id !== null ? (string) $leg->car_id : '';
         $this->assignDriver = $leg->driver_id !== null ? (string) $leg->driver_id : '';
+    }
+
+    /**
+     * Whether a trip is closed to changes: completed or cancelled.
+     *
+     * Both are history — one was driven, the other called off — and editing
+     * either would make the record disagree with what actually happened.
+     */
+    private function isLocked(LimoLeg $leg): bool
+    {
+        return in_array($leg->status, [LimoLeg::STATUS_COMPLETED, LimoLeg::STATUS_CANCELLED], true);
     }
 
     public function closeAssign(): void
@@ -305,6 +325,17 @@ final class Bookings extends Component
         $booking = LimoBooking::query()->find($bookingId);
         if ($booking === null) {
             return;
+        }
+
+        // Opened from a finished trip's row → refuse. The details are shared by
+        // the booking, but a closed trip is not a place to edit them from.
+        if ($legId !== null) {
+            $leg = LimoLeg::query()->find($legId);
+            if ($leg !== null && $this->isLocked($leg)) {
+                session()->flash('toast', __('That trip is closed — open the booking to review it.'));
+
+                return;
+            }
         }
 
         $this->editingId = $bookingId;

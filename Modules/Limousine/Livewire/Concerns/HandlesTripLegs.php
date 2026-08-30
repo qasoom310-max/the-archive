@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire\Concerns;
 
+use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Support\Carbon;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoLeg;
@@ -131,7 +132,7 @@ trait HandlesTripLegs
             $sum += LimoLeg::netFor(
                 $leg['rate_basis'] ?? LimoLeg::BASIS_TRIP,
                 (float) ($leg['rate'] ?? 0),
-                $leg['hours'] !== '' && isset($leg['hours']) ? (float) $leg['hours'] : null,
+                ($leg['hours'] ?? '') !== '' ? (float) $leg['hours'] : null,
                 max(1, (int) ($leg['days'] ?? 1)),
                 (float) ($leg['discount'] ?? 0),
                 (float) ($leg['vat'] ?? 0),
@@ -139,6 +140,33 @@ trait HandlesTripLegs
         }
 
         return round($sum, 3);
+    }
+
+    /**
+     * A leg's start date, or null when it is not a date yet.
+     *
+     * The date box updates live, so the server re-renders on every keystroke
+     * holding whatever the browser has at that instant — a year still standing
+     * at `0000`, a pasted string, digits in another numeral set. `Carbon::parse`
+     * throws on those, and a throw during render is a 500 on a form somebody is
+     * halfway through filling. A half-typed date is an ordinary state of a form,
+     * not an error: it reads as "no date yet" and the schedule waits for it.
+     *
+     * @param  array<string, string>  $leg
+     */
+    public function legStart(array $leg): ?Carbon
+    {
+        $value = trim($leg['start_at'] ?? '');
+
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (InvalidFormatException) {
+            return null;
+        }
     }
 
     /** Replace the parent's legs from the form array and recalc its total. */

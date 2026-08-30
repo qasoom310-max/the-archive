@@ -1041,21 +1041,26 @@ final class LimousineModuleTest extends TestCase
         $this->assertSame(LimoLeg::STATUS_QUEUE, $leg->fresh()?->status);
     }
 
-    public function test_changing_the_driver_does_not_revive_a_finished_leg(): void
+    /**
+     * A finished trip is closed to changes: it can be read, printed and signed
+     * for, but its crew is now the record of who actually drove. The assign
+     * dialog refuses to open, so it cannot be rewritten after the fact — and
+     * certainly cannot be put back on the road.
+     */
+    public function test_a_finished_leg_is_closed_to_reassignment(): void
     {
         $this->install();
         $leg = $this->legAwaitingDriver(LimoLeg::STATUS_COMPLETED);
         $driver = LimoDriver::query()->create(['name' => 'Ali Hassan']);
 
-        // Correcting who drove a trip that already ran must not put it back on
-        // the road.
         Livewire::test(Bookings::class)
             ->call('openAssign', $leg->id)
+            ->assertSet('assigningId', null)
             ->set('assignDriver', (string) $driver->id)
             ->call('saveAssign');
 
         $this->assertSame(LimoLeg::STATUS_COMPLETED, $leg->fresh()?->status);
-        $this->assertSame($driver->id, $leg->fresh()?->driver_id);
+        $this->assertNull($leg->fresh()?->driver_id);
     }
 
     public function test_the_driver_reaches_the_queue_rows_and_search(): void

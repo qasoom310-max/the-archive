@@ -1390,6 +1390,8 @@
     "Open full booking": "فتح الحجز الكامل",
     "Not assigned": "غير مُعيَّن",
     "Cancel trip": "إلغاء الرحلة",
+    "That trip is closed — its car and driver can no longer be changed.": "هذه الرحلة مغلقة — لم يعد بالإمكان تغيير سيارتها أو سائقها.",
+    "That trip is closed — open the booking to review it.": "هذه الرحلة مغلقة — افتح الحجز لمراجعتها.",
     "Keep trip": "الإبقاء على الرحلة",
     "Reason (optional)": "السبب (اختياري)",
     "e.g. customer changed plans": "مثال: غيّر العميل خططه",

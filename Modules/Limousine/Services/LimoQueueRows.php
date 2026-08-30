@@ -41,7 +41,7 @@ final class LimoQueueRows
     {
         $query = LimoLeg::query()
             ->whereMorphedTo('legable', LimoBooking::class)
-            ->with(['legable.customer:id,name,type'])
+            ->with(['legable.customer:id,name,type,phone'])
             ->orderByDesc('start_at')
             ->orderBy('sequence');
 
@@ -113,7 +113,7 @@ final class LimoQueueRows
             'booking_reference' => (string) ($booking->reference ?? ''),
             'from_date' => $leg->start_at?->isoFormat('DD-MMM-YY HH:mm') ?? '',
             'to_date' => $this->endsAt($leg),
-            'type' => $leg->service_type === LimoLeg::TYPE_CHAUFFEUR ? __('Chauffeur') : __('Transfer'),
+            'type' => $this->tripType($leg, $booking),
             'customer' => (string) ($booking->customer->name ?? ''),
             // The leg's own price; the money below is the whole booking's.
             'amount' => round((float) $leg->net_amount, 3),
@@ -129,6 +129,95 @@ final class LimoQueueRows
             'status' => (string) ($leg->status ?? ''),
             'payment' => (string) ($booking->payment_status ?? ''),
         ];
+    }
+
+    /**
+     * What kind of job this is, in the office's own words.
+     *
+     * The booking's type is the real answer — Airport transfer, Hourly, Full
+     * day — because that is what was agreed with the customer. The leg's
+     * `service_type` only says how it is priced (transfer vs chauffeur) and
+     * defaults to transfer, so reading it alone made every row say "Transfer"
+     * whatever the job actually was. Falls back to it when a booking has no
+     * type set, so the column is never blank.
+     */
+    private function tripType(LimoLeg $leg, ?LimoBooking $booking): string
+    {
+        $type = $booking?->booking_type;
+
+        if (is_string($type) && $type !== '') {
+            foreach (LimoBooking::bookingTypeOptions() as $option) {
+                if ($option['value'] === $type) {
+                    return (string) __($option['label']);
+                }
+            }
+
+            return $type;
+        }
+
+        return $leg->service_type === LimoLeg::TYPE_CHAUFFEUR ? (string) __('Chauffeur') : (string) __('Transfer');
+    }
+
+    /**
+     * The trip as a WhatsApp message — what the office actually sends a driver
+     * or a customer.
+     *
+     * Built server-side so the text is identical everywhere it is copied, and
+     * ordered the way it is read on a phone: which job, when, for whom, what to
+     * collect, where from and to, which car. `*stars*` are WhatsApp's bold.
+     * Empty fields are dropped rather than sent as blank labels.
+     */
+    public function whatsappText(LimoLeg $leg): string
+    {
+        $booking = $this->bookingOf($leg);
+        $customer = $booking?->customer;
+
+        $lines = [];
+        $lines[] = '*' . __('Ref. #') . ' ' . ($leg->reference ?? '') . '*';
+
+        if ($leg->start_at !== null) {
+            $lines[] = $leg->start_at->isoFormat('DD-MMM-YY') . ' · ' . $leg->start_at->isoFormat('hh:mm A');
+        }
+
+        $lines[] = __('Type') . ': ' . $this->tripType($leg, $booking);
+
+        if ($customer !== null) {
+            $who = (string) $customer->name;
+            $phone = (string) ($customer->phone ?? '');
+            $lines[] = __('Customer') . ': ' . ($phone !== '' ? $who . ' - ' . $phone : $who);
+        }
+
+        // Money the driver has to handle is the line that must not be missed, so
+        // it sits above the route rather than buried at the end.
+        $balance = round($booking?->balanceDue() ?? 0.0, 3);
+        if ($balance > 0.001) {
+            $method = $booking !== null ? trim((string) ($booking->payment_method ?? '')) : '';
+            $collect = __('Balance :amount BD — collect from customer', ['amount' => number_format($balance, 3)]);
+            $lines[] = '*' . ($method !== '' ? $collect . ' ' . __('in') . ' ' . ucfirst($method) : $collect) . '*';
+        } else {
+            $lines[] = '✅ ' . __('Paid');
+        }
+
+        $lines[] = '';
+        $lines[] = __('Pick up') . ': ' . ($leg->from_location ?? '');
+        if (($leg->from_location_url ?? '') !== '') {
+            $lines[] = (string) $leg->from_location_url;
+        }
+
+        if (($leg->to_location ?? '') !== '') {
+            $lines[] = __('Drop off') . ': ' . $leg->to_location;
+            if (($leg->to_location_url ?? '') !== '') {
+                $lines[] = (string) $leg->to_location_url;
+            }
+        }
+
+        $car = trim((string) ($leg->vehicle ?? ''));
+        if ($car !== '') {
+            $lines[] = '';
+            $lines[] = __('Car') . ': *' . $car . '*';
+        }
+
+        return implode("\n", $lines);
     }
 
     /**

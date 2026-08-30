@@ -49,6 +49,11 @@
                     <label class="{{ $lbl }}">{{ __('From') }} *</label>
                     <input type="text" list="limo-locations" wire:model="legs.{{ $i }}.from_location" class="o-input w-full" placeholder="{{ __('e.g. Bahrain Airport') }}">
                     @error('legs.'.$i.'.from_location') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    {{-- An address finds the street; a pin finds the door. The link
+                         rides along to the driver in the trip message. --}}
+                    <input type="url" wire:model="legs.{{ $i }}.from_location_url" class="o-input mt-1 w-full text-xs"
+                           placeholder="{{ __('Pick-up map link (optional)') }}">
+                    @error('legs.'.$i.'.from_location_url') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
 
                 @if ($isChauffeur)
@@ -72,6 +77,9 @@
                         <label class="{{ $lbl }}">{{ __('To') }} *</label>
                         <input type="text" list="limo-locations" wire:model="legs.{{ $i }}.to_location" class="o-input w-full" placeholder="{{ __('e.g. Manama') }}">
                         @error('legs.'.$i.'.to_location') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        <input type="url" wire:model="legs.{{ $i }}.to_location_url" class="o-input mt-1 w-full text-xs"
+                               placeholder="{{ __('Drop-off map link (optional)') }}">
+                        @error('legs.'.$i.'.to_location_url') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label class="{{ $lbl }}">{{ __('Date & time') }} *</label>

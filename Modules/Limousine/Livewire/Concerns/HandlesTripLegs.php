@@ -32,7 +32,7 @@ trait HandlesTripLegs
             // updates that row instead of replacing it and burning its reference.
             'id' => '',
             'service_type' => LimoLeg::TYPE_TRANSFER,
-            'car_id' => '', 'from_location' => '', 'to_location' => '', 'start_at' => '',
+            'car_id' => '', 'from_location' => '', 'from_location_url' => '', 'to_location' => '', 'to_location_url' => '', 'start_at' => '',
             'hours' => '', 'days' => '1', 'car_details' => '',
             'rate' => '0', 'rate_basis' => LimoLeg::BASIS_TRIP, 'discount' => '0', 'vat' => '0',
         ];
@@ -68,7 +68,9 @@ trait HandlesTripLegs
             'service_type' => $l->service_type,
             'car_id' => $l->car_id !== null ? (string) $l->car_id : '',
             'from_location' => $l->from_location ?? '',
+            'from_location_url' => $l->from_location_url ?? '',
             'to_location' => $l->to_location ?? '',
+            'to_location_url' => $l->to_location_url ?? '',
             'start_at' => $l->start_at?->format('Y-m-d\TH:i') ?? '',
             'hours' => $l->hours !== null ? (string) $l->hours : '',
             'days' => (string) $l->days,
@@ -99,6 +101,10 @@ trait HandlesTripLegs
             // BookingForm::start().
             $rules["legs.$i.car_id"] = ['nullable', 'integer'];
             $rules["legs.$i.from_location"] = ['required', 'string', 'max:255'];
+            // Map pins are optional, but must be a real URL if given — a
+            // mistyped link is worse than none for a driver at speed.
+            $rules["legs.$i.from_location_url"] = ['nullable', 'url', 'max:500'];
+            $rules["legs.$i.to_location_url"] = ['nullable', 'url', 'max:500'];
             $rules["legs.$i.start_at"] = ['required', 'date'];
             $rules["legs.$i.car_details"] = ['nullable', 'string', 'max:255'];
             $rules["legs.$i.rate"] = ['required', 'numeric', 'min:0'];
@@ -175,7 +181,9 @@ trait HandlesTripLegs
                 'sequence' => $i,
                 'service_type' => $leg['service_type'] ?? LimoLeg::TYPE_TRANSFER,
                 'from_location' => $this->blankToNull($leg['from_location'] ?? ''),
+                'from_location_url' => $this->blankToNull($leg['from_location_url'] ?? ''),
                 'to_location' => $chauffeur ? null : $this->blankToNull($leg['to_location'] ?? ''),
+                'to_location_url' => $chauffeur ? null : $this->blankToNull($leg['to_location_url'] ?? ''),
                 'start_at' => ($leg['start_at'] ?? '') !== '' ? Carbon::parse($leg['start_at']) : null,
                 'hours' => $hours,
                 'days' => $days,

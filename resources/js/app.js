@@ -291,6 +291,35 @@ document.addEventListener('alpine:init', () => {
         },
     }));
 
+    /**
+     * Copy one trip's WhatsApp message. A store rather than component data
+     * because every row needs it — this way the fallback lives once instead of
+     * being duplicated per row.
+     *
+     * Same secure-context caveat as the table copy: `clipboard.writeText` is
+     * unavailable over plain HTTP, so a hidden textarea + execCommand is kept as
+     * the fallback for an intranet install.
+     */
+    window.Alpine.store('limoTrip', {
+        copy(text) {
+            if (!text) return;
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).catch(() => {});
+                return;
+            }
+
+            const area = document.createElement('textarea');
+            area.value = text;
+            area.style.position = 'fixed';
+            area.style.opacity = '0';
+            document.body.appendChild(area);
+            area.select();
+            try { document.execCommand('copy'); } catch (e) { /* ignore */ }
+            document.body.removeChild(area);
+        },
+    });
+
     window.Alpine.data('listColumnPicker', () => ({
         init(el, wire) {
             let dragging = null;

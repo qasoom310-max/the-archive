@@ -463,6 +463,11 @@ final class Bookings extends Component
                 fn (LimoLeg $l): array => [$l->id => $rows->row($l)]
             )->all(),
             'headings' => $rows->headings(),
+            // The trip as a WhatsApp message, built server-side so the text is
+            // the same wherever it is copied from. Keyed by leg id.
+            'whatsapp' => collect($legs->items())->mapWithKeys(
+                fn (LimoLeg $l): array => [$l->id => $rows->whatsappText($l)]
+            )->all(),
             'exportQuery' => http_build_query(['tab' => $this->tab, 'from' => $this->from, 'to' => $this->to, 'search' => $this->search]),
             'counts' => $counts,
             'totalCount' => (int) $counts->sum(),

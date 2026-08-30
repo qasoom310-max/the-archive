@@ -210,6 +210,8 @@ final class BookingForm extends Component
 
         $this->validateFocusing();
 
+        $wasNew = $this->id === null;
+
         $booking = $this->id !== null ? LimoBooking::query()->find($this->id) : new LimoBooking();
         if ($booking === null) {
             return;
@@ -242,8 +244,39 @@ final class BookingForm extends Component
         $booking->syncPaymentFromAdvance();
         $this->payment_status = $booking->payment_status;
 
-        session()->flash('toast', __('Booking saved.'));
+        // Confirm with the REFERENCES rather than just "saved": they are what
+        // the office quotes to the customer, and a multi-leg booking produces
+        // one per trip — so name them all, not only the booking's own number.
+        $refs = $booking->legs()->orderBy('sequence')->pluck('reference')
+            ->filter()->map(static fn ($r): string => (string) $r)->all();
+
+        session()->flash('toast', $this->savedMessage($wasNew, $refs));
         $this->redirect('/app/limousine/booking', navigate: true);
+    }
+
+    /**
+     * The confirmation the office reads out to the customer.
+     *
+     * One line per trip reference, because a booking with three legs hands the
+     * customer three numbers — quoting only the booking's own would leave them
+     * unable to ask about a single trip.
+     *
+     * @param  list<string>  $refs
+     */
+    private function savedMessage(bool $isNew, array $refs): string
+    {
+        if ($refs === []) {
+            return $isNew ? (string) __('Booking done successfully.') : (string) __('Booking has been updated successfully.');
+        }
+
+        $lines = array_map(
+            fn (string $ref): string => $isNew
+                ? (string) __('Booking done successfully. Ref. # :ref', ['ref' => $ref])
+                : (string) __('Booking has been updated successfully. Ref. # :ref', ['ref' => $ref]),
+            $refs,
+        );
+
+        return implode("\n", $lines);
     }
 
     private function trimOrNull(string $value): ?string

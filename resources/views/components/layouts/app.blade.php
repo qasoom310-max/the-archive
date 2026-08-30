@@ -340,10 +340,12 @@
          x-init="if (show) setTimeout(() => show = false, 2500)"
          x-on:record-saved.window="flash(@js($savedLabel))"
          x-show="show" x-transition x-cloak
-         class="pointer-events-none fixed end-4 top-16 z-50 flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-pop"
+         class="pointer-events-none fixed end-4 top-16 z-50 flex items-start gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-pop"
          role="status" aria-live="polite">
-        <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-8 8a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L8 12.6l7.3-7.3a1 1 0 0 1 1.4 0Z" clip-rule="evenodd"/></svg>
-        <span x-text="msg"></span>
+        <svg class="mt-0.5 size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-8 8a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L8 12.6l7.3-7.3a1 1 0 0 1 1.4 0Z" clip-rule="evenodd"/></svg>
+        {{-- pre-line: a multi-leg booking confirms one reference per line, and
+             they must not run together into a single unreadable sentence. --}}
+        <span class="whitespace-pre-line" x-text="msg"></span>
     </div>
 </div>
 

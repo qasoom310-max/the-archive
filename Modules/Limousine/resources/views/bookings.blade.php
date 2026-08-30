@@ -8,6 +8,12 @@
         </x-slot:actions>
     </x-page-header>
 
+    @if (session('booking_status'))
+        <div class="mb-4 rounded-lg bg-primary-50 px-4 py-2.5 text-sm font-medium text-chrome-800 ring-1 ring-primary-200">
+            {{ session('booking_status') }}
+        </div>
+    @endif
+
     @php
         $tabs = [
             'all' => __('All'),
@@ -169,6 +175,13 @@
                         <td class="whitespace-nowrap px-3 py-2">
                             <a href="{{ url('/app/limousine/booking/' . $leg->legable_id) }}" wire:navigate
                                class="text-xs font-medium text-primary-700 hover:underline">{{ __('Open') }}</a>
+                            @if ($canAssign)
+                                {{-- Booking-level details (passenger, flight, rate…) are
+                                     shared by every leg of the job, so they are edited
+                                     per booking rather than per leg. --}}
+                                <button type="button" wire:click="openEdit({{ $leg->legable_id }})"
+                                        class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ __('Edit') }}</button>
+                            @endif
                         </td>
                     </tr>
                 @empty
@@ -223,6 +236,137 @@
                 <div class="mt-5 flex justify-end gap-2">
                     <button type="button" wire:click="closeAssign" class="o-btn-ghost text-sm">{{ __('Close') }}</button>
                     <button type="button" wire:click="saveAssign" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Save') }}</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- ── Update booking details ──
+         Booking-level fields, so one dialog serves every leg of the job. Fixing
+         a passenger name or a flight number is a five-second correction that
+         shouldn't mean leaving the queue.
+
+         The fare is absent on purpose: it is the sum of the legs
+         (LimoBooking::recalcTotal), so a figure typed here would be wiped the
+         next time a leg changes. It shows read-only, with a link to the full
+         booking where legs and pricing live. --}}
+    @if ($editing)
+        @php
+            $lbl = 'block text-xs font-medium text-chrome-600';
+            $err = 'mt-1 text-xs text-red-600';
+        @endphp
+        <div class="fixed inset-0 z-50 overflow-y-auto bg-chrome-900/40 p-4" wire:key="edit-{{ $editing->id }}">
+            <div class="flex min-h-full items-start justify-center py-8">
+                <div class="w-full max-w-2xl rounded-2xl bg-white shadow-pop">
+                    <div class="flex items-center justify-between border-b border-chrome-200 px-5 py-3">
+                        <h2 class="text-base font-bold text-chrome-900">
+                            {{ __('Update booking details') }} — {{ $editing->reference }}
+                        </h2>
+                        <button type="button" wire:click="cancelEdit"
+                                class="text-lg leading-none text-chrome-400 hover:text-chrome-700" aria-label="{{ __('Close') }}">&times;</button>
+                    </div>
+
+                    <div class="max-h-[70vh] overflow-y-auto px-5 py-4">
+                        <div>
+                            <label class="{{ $lbl }}">{{ __('Customer') }}</label>
+                            <input type="text" value="{{ $editing->customer?->name ?? '—' }}" disabled
+                                   class="o-input mt-1 w-full bg-chrome-100 text-chrome-600">
+                        </div>
+
+                        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                            <div>
+                                <label class="{{ $lbl }}">{{ __('Booking from') }}</label>
+                                <input type="datetime-local" wire:model="edit.pickup_at" class="o-input mt-1 w-full">
+                                @error('edit.pickup_at') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="{{ $lbl }}">{{ __('Booking to') }}</label>
+                                <input type="datetime-local" wire:model="edit.booking_to" class="o-input mt-1 w-full">
+                                @error('edit.booking_to') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div>
+                                <label class="{{ $lbl }}">{{ __('Booking type') }}</label>
+                                <select wire:model="edit.booking_type" class="o-input mt-1 w-full">
+                                    <option value="">{{ __('— Select —') }}</option>
+                                    @foreach ($bookingTypes as $opt)
+                                        <option value="{{ $opt['value'] }}">{{ __($opt['label']) }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="{{ $lbl }}">{{ __('Amount') }}</label>
+                                <input type="text" value="{{ \App\Erp\Views\ValueFormat::money($editing->fare) }}" disabled
+                                       class="o-input mt-1 w-full bg-chrome-100 text-chrome-600">
+                                <p class="mt-1 text-[11px] text-chrome-400">{{ __('From the trip legs — edit on the full booking.') }}</p>
+                            </div>
+
+                            <div>
+                                <label class="{{ $lbl }}">{{ __('Flight number') }}</label>
+                                <input type="text" wire:model="edit.flight_number" class="o-input mt-1 w-full">
+                            </div>
+                            <div>
+                                <label class="{{ $lbl }}">{{ __('Email ID') }}</label>
+                                <input type="email" wire:model="edit.email" class="o-input mt-1 w-full">
+                                @error('edit.email') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div>
+                                <label class="{{ $lbl }}">{{ __('Car details') }}</label>
+                                <input type="text" wire:model="edit.car_details" class="o-input mt-1 w-full">
+                            </div>
+                            <div>
+                                <label class="{{ $lbl }}">{{ __('Driver') }}</label>
+                                <input type="text" wire:model="edit.driver_name" class="o-input mt-1 w-full">
+                                {{-- The car + driver actually dispatched are set per leg
+                                     from the queue; this is the name written on the job. --}}
+                                <p class="mt-1 text-[11px] text-chrome-400">{{ __('Assign the dispatched driver per leg from the queue.') }}</p>
+                            </div>
+
+                            <div>
+                                <label class="{{ $lbl }}">{{ __('PAX name') }}</label>
+                                <input type="text" wire:model="edit.pax_name" class="o-input mt-1 w-full">
+                                @error('edit.pax_name') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="{{ $lbl }}">{{ __('PAX contact') }}</label>
+                                <input type="text" wire:model="edit.pax_contact" class="o-input mt-1 w-full">
+                            </div>
+
+                            <div>
+                                <label class="{{ $lbl }}">{{ __('Contact person') }}</label>
+                                <input type="text" wire:model="edit.contact_person" class="o-input mt-1 w-full">
+                            </div>
+                            <div>
+                                <label class="{{ $lbl }}">{{ __('Company reference') }}</label>
+                                <input type="text" wire:model="edit.company_reference" class="o-input mt-1 w-full">
+                            </div>
+
+                            <div>
+                                <label class="{{ $lbl }}">{{ __('Rate type') }}</label>
+                                <select wire:model="edit.rate_type" class="o-input mt-1 w-full">
+                                    <option value="">{{ __('— Select —') }}</option>
+                                    @foreach ($rateTypes as $opt)
+                                        <option value="{{ $opt['value'] }}">{{ __($opt['label']) }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <label class="{{ $lbl }}">{{ __('Comments') }}</label>
+                            <textarea wire:model="edit.notes" rows="3" class="o-input mt-1 w-full"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-t border-chrome-200 px-5 py-3">
+                        <a href="{{ url('/app/limousine/booking/' . $editing->id) }}" wire:navigate
+                           class="text-xs text-chrome-500 hover:underline">{{ __('Open full booking (trip legs, pricing)') }}</a>
+                        <div class="flex items-center gap-2">
+                            <button type="button" wire:click="saveEdit" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Update booking details') }}</button>
+                            <button type="button" wire:click="cancelEdit" class="o-btn-ghost text-sm">{{ __('Cancel') }}</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

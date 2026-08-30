@@ -7,6 +7,7 @@ namespace Modules\Limousine\Livewire;
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -57,6 +58,18 @@ final class Bookings extends Component
 
     /** The chosen driver for that leg. */
     public string $assignDriver = '';
+
+    /** BOOKING being quick-edited, or null when that dialog is shut. */
+    #[Locked]
+    public ?int $editingId = null;
+
+    /**
+     * Quick-edit field values, keyed by column. A flat array keeps the dialog
+     * declarative — adding a field is one entry here plus one input.
+     *
+     * @var array<string, string>
+     */
+    public array $edit = [];
 
     public function mount(): void
     {
@@ -253,6 +266,109 @@ final class Bookings extends Component
             ->all();
     }
 
+    /**
+     * Open the quick-edit dialog for the BOOKING a leg belongs to.
+     *
+     * The assign modal above is per leg (each leg is dispatched separately);
+     * these are booking-level details — passenger, contact, flight, rate — that
+     * are shared by every leg of the job, so editing them is per booking.
+     *
+     * Deliberately excludes money: the fare is the sum of the legs
+     * ({@see LimoBooking::recalcTotal()}), so a figure typed here would be
+     * silently overwritten the next time a leg changes. It is shown read-only
+     * with a link to the full booking.
+     */
+    public function openEdit(int $bookingId): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        $booking = LimoBooking::query()->find($bookingId);
+        if ($booking === null) {
+            return;
+        }
+
+        $this->editingId = $bookingId;
+        $this->resetErrorBag();
+        $this->edit = [
+            'booking_type' => (string) ($booking->booking_type ?? ''),
+            // <input type="datetime-local"> only accepts exactly "Y-m-d\TH:i".
+            'pickup_at' => $booking->pickup_at?->format('Y-m-d\TH:i') ?? '',
+            'booking_to' => $booking->booking_to?->format('Y-m-d\TH:i') ?? '',
+            'flight_number' => (string) ($booking->flight_number ?? ''),
+            'email' => (string) ($booking->email ?? ''),
+            'car_details' => (string) ($booking->car_details ?? ''),
+            'driver_name' => (string) ($booking->driver_name ?? ''),
+            'pax_name' => (string) ($booking->pax_name ?? ''),
+            'pax_contact' => (string) ($booking->pax_contact ?? ''),
+            'contact_person' => (string) ($booking->contact_person ?? ''),
+            'company_reference' => (string) ($booking->company_reference ?? ''),
+            'rate_type' => (string) ($booking->rate_type ?? ''),
+            'notes' => (string) ($booking->notes ?? ''),
+        ];
+    }
+
+    public function cancelEdit(): void
+    {
+        $this->editingId = null;
+        $this->edit = [];
+        $this->resetErrorBag();
+    }
+
+    /** Save the quick-edit dialog back onto the booking. */
+    public function saveEdit(): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        if ($this->editingId === null) {
+            return;
+        }
+
+        $booking = LimoBooking::query()->find($this->editingId);
+        if ($booking === null) {
+            $this->cancelEdit();
+
+            return;
+        }
+
+        $this->validate([
+            'edit.pickup_at' => ['nullable', 'date'],
+            'edit.booking_to' => ['nullable', 'date', 'after_or_equal:edit.pickup_at'],
+            'edit.email' => ['nullable', 'email', 'max:255'],
+            'edit.pax_name' => ['nullable', 'string', 'max:255'],
+            'edit.pax_contact' => ['nullable', 'string', 'max:50'],
+            'edit.flight_number' => ['nullable', 'string', 'max:100'],
+            'edit.car_details' => ['nullable', 'string', 'max:255'],
+            'edit.driver_name' => ['nullable', 'string', 'max:255'],
+            'edit.contact_person' => ['nullable', 'string', 'max:255'],
+            'edit.company_reference' => ['nullable', 'string', 'max:255'],
+            'edit.notes' => ['nullable', 'string'],
+        ], [], [
+            'edit.pickup_at' => __('Booking from'),
+            'edit.booking_to' => __('Booking to'),
+        ]);
+
+        $text = fn (string $key): ?string => trim((string) ($this->edit[$key] ?? '')) !== ''
+            ? trim((string) $this->edit[$key])
+            : null;
+
+        foreach ([
+            'booking_type', 'flight_number', 'email', 'car_details', 'driver_name',
+            'pax_name', 'pax_contact', 'contact_person', 'company_reference', 'rate_type', 'notes',
+        ] as $field) {
+            $booking->{$field} = $text($field);
+        }
+
+        $pickupAt = $text('pickup_at');
+        $bookingTo = $text('booking_to');
+        $booking->pickup_at = $pickupAt !== null ? Carbon::parse($pickupAt) : null;
+        $booking->booking_to = $bookingTo !== null ? Carbon::parse($bookingTo) : null;
+
+        $booking->save();
+
+        $this->cancelEdit();
+        session()->flash('booking_status', __('Booking updated.'));
+    }
+
     public function updatedTab(): void
     {
         $this->resetPage();
@@ -310,6 +426,11 @@ final class Bookings extends Component
                 ? LimoLeg::query()->with('legable.customer:id,name')->find($this->assigningId)
                 : null,
             'canAssign' => $this->mayAccess(Permission::Write),
+            'editing' => $this->editingId !== null
+                ? LimoBooking::query()->with('customer:id,name')->find($this->editingId)
+                : null,
+            'bookingTypes' => LimoBooking::bookingTypeOptions(),
+            'rateTypes' => LimoBooking::rateTypeOptions(),
         ]);
     }
 }

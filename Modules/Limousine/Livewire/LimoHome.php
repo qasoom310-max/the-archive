@@ -14,6 +14,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Limousine\Models\LimoBooking;
+use Modules\Limousine\Models\LimoLeg;
 
 /**
  * Limousine dashboard: the bookings queue, today's and tomorrow's trips,
@@ -41,18 +42,38 @@ final class LimoHome extends Component
         $yesterday = now()->subDay()->toDateString();
         $tomorrow = now()->addDay()->toDateString();
 
-        $queue = LimoBooking::query()->where('status', LimoBooking::STATUS_QUEUE)->count();
-        $active = LimoBooking::query()->whereIn('status', [LimoBooking::STATUS_CONFIRMED, LimoBooking::STATUS_ACTIVE])->count();
-        $completed = LimoBooking::query()->where('status', LimoBooking::STATUS_COMPLETED)->count();
+        // Counted over LEGS, because a leg IS the trip: it is what the queue
+        // lists, what its tabs count, and what these cards link to.
+        //
+        // Counting bookings made the dashboard contradict the queue. A booking
+        // takes the status of its LEAST progressed live leg (see
+        // LimoBooking::syncStatusFromLegs), so a job with one leg still queued
+        // and another already running reads "queue" — the card showed 0 Active
+        // while the Active tab it links to listed a running trip. Now a card's
+        // number is exactly the number of rows clicking it gives.
+        $legsWith = fn (string $status): int => LimoLeg::query()
+            ->whereMorphedTo('legable', LimoBooking::class)
+            ->where('status', $status)
+            ->count();
+
+        $queue = $legsWith(LimoLeg::STATUS_QUEUE);
+        $active = $legsWith(LimoLeg::STATUS_ACTIVE);
+        $completed = $legsWith(LimoLeg::STATUS_COMPLETED);
+
+        // Money stays per BOOKING: the customer settles the whole job, not each
+        // leg, so payment lives on the booking.
         $unpaid = LimoBooking::query()
             ->where('payment_status', LimoBooking::PAYMENT_UNPAID)
             ->whereNotIn('status', [LimoBooking::STATUS_CANCELLED])
             ->count();
         $revenue = (float) LimoBooking::query()->where('payment_status', LimoBooking::PAYMENT_PAID)->sum('fare');
 
-        $byDay = fn (string $date): int => LimoBooking::query()
-            ->whereDate('pickup_at', $date)
-            ->whereNotIn('status', [LimoBooking::STATUS_CANCELLED])
+        // Trips running that day — legs are dated individually, so a two-day job
+        // counts on each of its days rather than only its booking date.
+        $byDay = fn (string $date): int => LimoLeg::query()
+            ->whereMorphedTo('legable', LimoBooking::class)
+            ->whereDate('start_at', $date)
+            ->where('status', '!=', LimoLeg::STATUS_CANCELLED)
             ->count();
 
         $module = IrModule::query()->where('name', 'limousine')->first();

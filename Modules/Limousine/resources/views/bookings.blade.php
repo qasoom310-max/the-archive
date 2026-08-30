@@ -119,8 +119,26 @@
             <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                 <tr>
                     <th class="hidden px-2 py-2 text-start sm:table-cell">{{ __('Sl No.') }}</th>
+                    {{-- Every column sorts, both ways. The arrow is always drawn so
+                         a column reads as sortable before anyone clicks it, and
+                         only darkens on the one actually doing the sorting. --}}
                     @foreach ($headings as $key => $label)
-                        <th class="px-2 py-2 {{ in_array($key, ['amount', 'received', 'balance'], true) ? 'text-end' : 'text-start' }} {{ $vis[$key] ?? '' }}">{{ $label }}</th>
+                        @php
+                            $isMoney = in_array($key, ['amount', 'received', 'balance'], true);
+                            $sorted = $sort === $key;
+                        @endphp
+                        <th class="px-2 py-2 {{ $isMoney ? 'text-end' : 'text-start' }} {{ $vis[$key] ?? '' }}"
+                            @if ($sorted) aria-sort="{{ $dir === 'asc' ? 'ascending' : 'descending' }}" @endif>
+                            <button type="button" wire:click="sortBy('{{ $key }}')"
+                                class="inline-flex items-center gap-1 transition hover:text-chrome-800 {{ $isMoney ? 'flex-row-reverse' : '' }} {{ $sorted ? 'text-chrome-800' : '' }}"
+                                title="{{ __('Sort by :column', ['column' => $label]) }}">
+                                <span>{{ $label }}</span>
+                                <svg class="size-3 shrink-0 transition {{ $sorted ? 'text-primary-600' : 'text-chrome-300' }} {{ $sorted && $dir === 'asc' ? 'rotate-180' : '' }}"
+                                     viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M10 15a1 1 0 0 1-.71-.29l-5-5a1 1 0 1 1 1.42-1.42L10 12.59l4.29-4.3a1 1 0 1 1 1.42 1.42l-5 5A1 1 0 0 1 10 15Z" clip-rule="evenodd"/>
+                                </svg>
+                            </button>
+                        </th>
                     @endforeach
                     {{-- Columns are sized to fit the window, but a narrow laptop can still
                          overflow — keep Open/Edit pinned to the trailing edge so they can
@@ -513,7 +531,11 @@
                 <div class="w-full max-w-2xl rounded-2xl bg-white shadow-pop">
                     <div class="flex items-center justify-between border-b border-chrome-200 px-5 py-3">
                         <h2 class="text-base font-bold text-chrome-900">
-                            {{ __('Update booking details') }} — {{ $editing->reference }}
+                            @if ($editingLeg)
+                                {{ __('Edit trip') }} {{ $editingLeg->reference }}
+                            @else
+                                {{ __('Update booking details') }} — {{ $editing->reference }}
+                            @endif
                         </h2>
                         <button type="button" wire:click="cancelEdit"
                                 class="text-lg leading-none text-chrome-400 hover:text-chrome-700" aria-label="{{ __('Close') }}">&times;</button>
@@ -525,6 +547,104 @@
                             <input type="text" value="{{ $editing->customer?->name ?? '—' }}" disabled
                                    class="o-input mt-1 w-full bg-chrome-100 text-chrome-600">
                         </div>
+
+                        {{-- THIS trip only. A booking can hold several legs, and the
+                             office clicked one row — so its route, time and price are
+                             edited here, on their own, and the other legs are left
+                             alone. The booking-wide fields follow, under their own
+                             heading, so it is never a guess which is which. --}}
+                        @if ($editingLeg && $editLeg)
+                            @php $legIsChauffeur = ($editLeg['service_type'] ?? 'transfer') === 'chauffeur'; @endphp
+                            <div class="mt-4 rounded-xl border border-primary-200 bg-primary-50/40 p-4">
+                                <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                    <h3 class="text-xs font-semibold uppercase tracking-wide text-primary-800">
+                                        {{ __('This trip') }} · {{ $editingLeg->reference }}
+                                    </h3>
+                                    <div class="flex gap-1">
+                                        @foreach ($serviceTypes as $opt)
+                                            <button type="button"
+                                                wire:click="$set('editLeg.service_type', '{{ $opt['value'] }}')"
+                                                class="rounded-lg border px-2.5 py-1 text-xs transition {{ ($editLeg['service_type'] ?? '') === $opt['value'] ? 'border-primary-500 bg-white font-medium text-primary-700' : 'border-chrome-200 text-chrome-600 hover:bg-white' }}">
+                                                {{ __($opt['label']) }}
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                </div>
+
+                                <div class="grid gap-3 sm:grid-cols-2">
+                                    <div>
+                                        <label class="{{ $lbl }}">{{ __('Pickup') }} *</label>
+                                        <input type="text" wire:model="editLeg.from_location" class="o-input mt-1 w-full">
+                                        @error('editLeg.from_location') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                                        <input type="url" wire:model="editLeg.from_location_url" class="o-input mt-1 w-full text-xs"
+                                               placeholder="{{ __('Pick-up map link (optional)') }}">
+                                        @error('editLeg.from_location_url') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                                    </div>
+
+                                    @if ($legIsChauffeur)
+                                        <div>
+                                            <label class="{{ $lbl }}">{{ __('Start date & time') }} *</label>
+                                            <input type="datetime-local" wire:model="editLeg.start_at" class="o-input mt-1 w-full">
+                                            @error('editLeg.start_at') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                                        </div>
+                                        <div>
+                                            <label class="{{ $lbl }}">{{ __('Hours per day') }} *</label>
+                                            <input type="number" step="0.5" min="0" wire:model.live="editLeg.hours" class="o-input mt-1 w-full">
+                                            @error('editLeg.hours') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                                        </div>
+                                        <div>
+                                            <label class="{{ $lbl }}">{{ __('Number of days') }} *</label>
+                                            <input type="number" min="1" wire:model.live="editLeg.days" class="o-input mt-1 w-full">
+                                            @error('editLeg.days') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                                        </div>
+                                    @else
+                                        <div>
+                                            <label class="{{ $lbl }}">{{ __('Drop off') }} *</label>
+                                            <input type="text" wire:model="editLeg.to_location" class="o-input mt-1 w-full">
+                                            @error('editLeg.to_location') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                                            <input type="url" wire:model="editLeg.to_location_url" class="o-input mt-1 w-full text-xs"
+                                                   placeholder="{{ __('Drop-off map link (optional)') }}">
+                                            @error('editLeg.to_location_url') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                                        </div>
+                                        <div>
+                                            <label class="{{ $lbl }}">{{ __('Date & time') }} *</label>
+                                            <input type="datetime-local" wire:model="editLeg.start_at" class="o-input mt-1 w-full">
+                                            @error('editLeg.start_at') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                                        </div>
+                                    @endif
+
+                                    <div>
+                                        <label class="{{ $lbl }}">{{ __('Rate (BHD)') }} *</label>
+                                        <input type="number" step="0.001" min="0" wire:model.live="editLeg.rate" class="o-input mt-1 w-full">
+                                        @error('editLeg.rate') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                                    </div>
+                                    <div>
+                                        <label class="{{ $lbl }}">{{ __('Rate basis') }} *</label>
+                                        <select wire:model.live="editLeg.rate_basis" class="o-input mt-1 w-full">
+                                            @foreach ($rateBasisOptions as $opt)<option value="{{ $opt['value'] }}">{{ __($opt['label']) }}</option>@endforeach
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="{{ $lbl }}">{{ __('Discount (BHD)') }}</label>
+                                        <input type="number" step="0.001" min="0" wire:model.live="editLeg.discount" class="o-input mt-1 w-full">
+                                    </div>
+                                    <div>
+                                        <label class="{{ $lbl }}">{{ __('VAT (BHD)') }}</label>
+                                        <input type="number" step="0.001" min="0" wire:model.live="editLeg.vat" class="o-input mt-1 w-full">
+                                    </div>
+                                </div>
+
+                                <p class="mt-3 text-xs text-primary-800">
+                                    {{ __('This trip:') }}
+                                    <span class="font-semibold">{{ \App\Erp\Views\ValueFormat::money($this->editLegTotal()) }}</span>
+                                    <span class="text-chrome-500">· {{ __('changes only this leg; the booking total follows.') }}</span>
+                                </p>
+                            </div>
+
+                            <h3 class="mt-5 text-xs font-semibold uppercase tracking-wide text-chrome-500">
+                                {{ __('Booking details') }} · {{ __('shared by every trip on :reference', ['reference' => $editing->reference]) }}
+                            </h3>
+                        @endif
 
                         <div class="mt-3 grid gap-3 sm:grid-cols-2">
                             <div>
@@ -551,7 +671,7 @@
                                 <label class="{{ $lbl }}">{{ __('Amount') }}</label>
                                 <input type="text" value="{{ \App\Erp\Views\ValueFormat::money($editing->fare) }}" disabled
                                        class="o-input mt-1 w-full bg-chrome-100 text-chrome-600">
-                                <p class="mt-1 text-[11px] text-chrome-400">{{ __('From the trip legs — edit on the full booking.') }}</p>
+                                <p class="mt-1 text-[11px] text-chrome-400">{{ __('The sum of every trip on this booking.') }}</p>
                             </div>
 
                             <div>
@@ -633,9 +753,9 @@
 
                     <div class="flex flex-wrap items-center justify-between gap-2 border-t border-chrome-200 px-5 py-3">
                         <a href="{{ url('/app/limousine/booking/' . $editing->id) }}" wire:navigate
-                           class="text-xs text-chrome-500 hover:underline">{{ __('Open full booking (trip legs, pricing)') }}</a>
+                           class="text-xs text-chrome-500 hover:underline">{{ __('Open full booking (all trips)') }}</a>
                         <div class="flex items-center gap-2">
-                            <button type="button" wire:click="saveEdit" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Update booking details') }}</button>
+                            <button type="button" wire:click="saveEdit" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Save changes') }}</button>
                             <button type="button" wire:click="cancelEdit" class="o-btn-ghost text-sm">{{ __('Cancel') }}</button>
                         </div>
                     </div>

@@ -57,6 +57,10 @@ final class LimoHome extends Component
             ->count();
 
         $queue = $legsWith(LimoLeg::STATUS_QUEUE);
+        // Confirmed is a status the queue lists and nothing else counted: a trip
+        // agreed with the customer but not yet running belonged to no card, so
+        // the dashboard read zero while the queue had work on it.
+        $confirmed = $legsWith(LimoLeg::STATUS_CONFIRMED);
         $active = $legsWith(LimoLeg::STATUS_ACTIVE);
         $completed = $legsWith(LimoLeg::STATUS_COMPLETED);
 
@@ -81,6 +85,7 @@ final class LimoHome extends Component
 
         return view('limousine::home', [
             'queue' => $queue,
+            'confirmed' => $confirmed,
             'active' => $active,
             'completed' => $completed,
             'unpaid' => $unpaid,

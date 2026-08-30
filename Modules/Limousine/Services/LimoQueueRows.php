@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Services;
 
+use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Modules\Limousine\Models\LimoBooking;
+use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoLeg;
 
 /**
@@ -33,17 +36,34 @@ use Modules\Limousine\Models\LimoLeg;
 final class LimoQueueRows
 {
     /**
+     * The columns the queue can be ordered by — every column it prints except
+     * Sl No., which is only the position in the list it is already in.
+     *
+     * @var list<string>
+     */
+    public const SORTS = [
+        'reference', 'from_date', 'to_date', 'type', 'customer', 'amount',
+        'received', 'balance', 'pickup', 'dropoff', 'vehicle', 'driver',
+        'added_by', 'comments', 'booked_time', 'status', 'payment',
+    ];
+
+    /**
      * Base query behind both the screen and the exports.
      *
      * @return Builder<LimoLeg>
      */
-    public function query(string $tab = 'all', string $from = '', string $to = '', string $search = ''): Builder
+    public function query(string $tab = 'all', string $from = '', string $to = '', string $search = '', string $sort = '', string $dir = 'desc'): Builder
     {
         $query = LimoLeg::query()
             ->whereMorphedTo('legable', LimoBooking::class)
             ->with(['legable.customer:id,name,type,phone'])
-            ->orderByDesc('start_at')
-            ->orderBy('sequence');
+            // Sorting can reach through to the parent booking, which means a
+            // join, which means two tables offering `id`, `reference`, `status`
+            // and `notes`. Select the legs explicitly so the model is always
+            // hydrated from its own row whatever gets joined on.
+            ->select(($legs = $this->table(LimoLeg::class)) . '.*');
+
+        $this->applySort($query, $sort, $dir);
 
         if (in_array($tab, [
             LimoLeg::STATUS_QUEUE,
@@ -52,14 +72,14 @@ final class LimoQueueRows
             LimoLeg::STATUS_COMPLETED,
             LimoLeg::STATUS_CANCELLED,
         ], true)) {
-            $query->where('status', $tab);
+            $query->where($legs . '.status', $tab);
         }
 
         if ($from !== '') {
-            $query->whereDate('start_at', '>=', $from);
+            $query->whereDate($legs . '.start_at', '>=', $from);
         }
         if ($to !== '') {
-            $query->whereDate('start_at', '<=', $to);
+            $query->whereDate($legs . '.start_at', '<=', $to);
         }
 
         $term = trim($search);
@@ -70,12 +90,12 @@ final class LimoQueueRows
             // above into an "or match anything" query.
             $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $term) . '%';
 
-            $query->where(function (Builder $q) use ($like): void {
-                $q->where('reference', 'like', $like)
-                    ->orWhere('from_location', 'like', $like)
-                    ->orWhere('to_location', 'like', $like)
-                    ->orWhere('vehicle', 'like', $like)
-                    ->orWhere('driver', 'like', $like)
+            $query->where(function (Builder $q) use ($like, $legs): void {
+                $q->where($legs . '.reference', 'like', $like)
+                    ->orWhere($legs . '.from_location', 'like', $like)
+                    ->orWhere($legs . '.to_location', 'like', $like)
+                    ->orWhere($legs . '.vehicle', 'like', $like)
+                    ->orWhere($legs . '.driver', 'like', $like)
                     ->orWhereHasMorph('legable', LimoBooking::class, function ($booking) use ($like): void {
                         $booking->where('reference', 'like', $like)
                             ->orWhere('pax_name', 'like', $like)
@@ -90,11 +110,118 @@ final class LimoQueueRows
     }
 
     /**
+     * A model's table name, so a join never hard-codes one.
+     *
+     * @param  class-string<\Illuminate\Database\Eloquent\Model>  $model
+     */
+    private function table(string $model): string
+    {
+        return (new $model())->getTable();
+    }
+
+    /**
+     * Order the queue by a column the user clicked.
+     *
+     * In SQL, not over the fetched page: sorting twenty rows of a hundred by
+     * amount would put the largest of THIS page on top and call it the largest.
+     * The list is of legs, but half of what it prints belongs to the parent
+     * booking — Customer, Received, Balance, Booked time — so those sorts join
+     * through the morph rather than giving up and sorting by something else.
+     *
+     * Leg sequence and id trail every sort so the order is total: two trips at
+     * the same minute, or two blanks in the same column, never swap places
+     * between one page and the next.
+     *
+     * @param  Builder<LimoLeg>  $query
+     */
+    private function applySort(Builder $query, string $sort, string $dir): void
+    {
+        $legs = $this->table(LimoLeg::class);
+        $bookings = $this->table(LimoBooking::class);
+        $direction = $dir === 'asc' ? 'asc' : 'desc';
+
+        if (! in_array($sort, self::SORTS, true)) {
+            $query->orderByDesc($legs . '.start_at');
+            $query->orderBy($legs . '.sequence')->orderBy($legs . '.id');
+
+            return;
+        }
+
+        /** @var array{0: string, 1: Expression|string} $target */
+        $target = match ($sort) {
+            'reference' => ['', $legs . '.reference'],
+            'from_date' => ['', $legs . '.start_at'],
+            'to_date' => ['', $this->endsAtColumn()],
+            'amount' => ['', $legs . '.net_amount'],
+            'pickup' => ['', $legs . '.from_location'],
+            'dropoff' => ['', $legs . '.to_location'],
+            'vehicle' => ['', $legs . '.vehicle'],
+            'driver' => ['', $legs . '.driver'],
+            'status' => ['', $legs . '.status'],
+            'customer' => ['customer', $this->table(LimoCustomer::class) . '.name'],
+            'type' => ['booking', $bookings . '.booking_type'],
+            'received' => ['booking', $bookings . '.advance'],
+            'balance' => ['booking', $this->balanceColumn()],
+            'added_by' => ['booking', $bookings . '.prepared_by'],
+            'comments' => ['booking', $bookings . '.notes'],
+            'booked_time' => ['booking', $bookings . '.created_at'],
+            default => ['booking', $bookings . '.payment_status'],
+        };
+
+        [$join, $column] = $target;
+
+        if ($join !== '') {
+            $query->leftJoin($bookings, $bookings . '.id', '=', $legs . '.legable_id');
+        }
+
+        if ($join === 'customer') {
+            $customers = $this->table(LimoCustomer::class);
+            $query->leftJoin($customers, $customers . '.id', '=', $bookings . '.customer_id');
+        }
+
+        $query->orderBy($column, $direction);
+        $query->orderBy($legs . '.sequence')->orderBy($legs . '.id');
+    }
+
+    /**
+     * When a trip ends, as SQL can order it.
+     *
+     * A transfer ends the day it starts; a chauffeur job runs `days` of them.
+     * That is what the To date column prints, so it is what clicking that
+     * column has to order by — sorting a column by a different value than the
+     * one it shows is a lie the user has no way to see. Falls back to the start
+     * on any driver that cannot do the arithmetic, which is still right for
+     * every single-day trip.
+     */
+    private function endsAtColumn(): Expression|string
+    {
+        $legs = $this->table(LimoLeg::class);
+
+        return match (DB::connection((new LimoLeg())->getConnectionName())->getDriverName()) {
+            'sqlite' => DB::raw("datetime({$legs}.start_at, '+' || ({$legs}.days - 1) || ' days')"),
+            'mysql', 'mariadb' => DB::raw("date_add({$legs}.start_at, interval ({$legs}.days - 1) day)"),
+            default => $legs . '.start_at',
+        };
+    }
+
+    /**
+     * What is still owed, as SQL can order it: the fare less what was taken,
+     * floored at zero exactly as {@see LimoBooking::balanceDue()} floors it, so
+     * an overpaid booking sorts as the settled 0.00 the column shows.
+     */
+    private function balanceColumn(): Expression
+    {
+        $b = $this->table(LimoBooking::class);
+
+        return DB::raw("case when {$b}.fare - {$b}.advance < 0 then 0 else {$b}.fare - {$b}.advance end");
+    }
+
+    /**
      * @return LengthAwarePaginator<int, LimoLeg>
      */
-    public function paginate(string $tab, string $from, string $to, string $search = '', int $perPage = 20): LengthAwarePaginator
+    public function paginate(string $tab, string $from, string $to, string $search = '', int $perPage = 20, string $sort = '', string $dir = 'desc'): LengthAwarePaginator
     {
-        return $this->query($tab, $from, $to, $search)->paginate($perPage);
+        return $this->query($tab, $from, $to, $search, $sort, $dir)->paginate($perPage);
     }
 
     /**
@@ -264,10 +391,12 @@ final class LimoQueueRows
      *
      * @return list<QueueRow>
      */
-    public function all(string $tab, string $from, string $to, string $search = ''): array
+    public function all(string $tab, string $from, string $to, string $search = '', string $sort = '', string $dir = 'desc'): array
     {
         $rows = [];
-        $this->query($tab, $from, $to, $search)->chunk(200, function ($legs) use (&$rows): void {
+        // `chunk` needs a total order to page through safely, which every sort
+        // has: applySort always trails sequence and id.
+        $this->query($tab, $from, $to, $search, $sort, $dir)->chunk(200, function ($legs) use (&$rows): void {
             foreach ($legs as $leg) {
                 $rows[] = $this->row($leg);
             }

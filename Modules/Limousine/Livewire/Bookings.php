@@ -47,6 +47,19 @@ final class Bookings extends Component
     #[Url(except: '')]
     public string $search = '';
 
+    /**
+     * Which column the list is ordered by, and which way.
+     *
+     * In the URL beside the filters, because a sorted queue is a view of the
+     * work — "biggest balance first", "oldest first" — and a view is worth
+     * keeping when the page is reloaded, bookmarked or sent to someone else.
+     */
+    #[Url(except: 'from_date')]
+    public string $sort = 'from_date';
+
+    #[Url(except: 'desc')]
+    public string $dir = 'desc';
+
     protected function accessModelKey(): string
     {
         return 'limousine.booking';
@@ -90,6 +103,17 @@ final class Bookings extends Component
      * @var array<string, string>
      */
     public array $edit = [];
+
+    /**
+     * The clicked trip's own values — route, time, pricing.
+     *
+     * Separate from `$edit` because they are a different scope: `$edit` is the
+     * booking, shared by every leg, while this is the one trip whose row was
+     * clicked. Keeping them apart is what lets the dialog say which is which.
+     *
+     * @var array<string, string>
+     */
+    public array $editLeg = [];
 
     public function mount(): void
     {
@@ -329,13 +353,12 @@ final class Bookings extends Component
 
         // Opened from a finished trip's row → refuse. The details are shared by
         // the booking, but a closed trip is not a place to edit them from.
-        if ($legId !== null) {
-            $leg = LimoLeg::query()->find($legId);
-            if ($leg !== null && $this->isLocked($leg)) {
-                session()->flash('toast', __('That trip is closed — open the booking to review it.'));
+        $leg = $legId !== null ? LimoLeg::query()->find($legId) : null;
 
-                return;
-            }
+        if ($leg !== null && $this->isLocked($leg)) {
+            session()->flash('toast', __('That trip is closed — open the booking to review it.'));
+
+            return;
         }
 
         $this->editingId = $bookingId;
@@ -343,6 +366,26 @@ final class Bookings extends Component
         // actually dispatched for THAT trip.
         $this->editingLegId = $legId;
         $this->resetErrorBag();
+
+        // The clicked trip's OWN details. A booking can hold several legs and
+        // the office edits the one whose row they clicked — opening the full
+        // booking to change one leg's pick-up means scrolling past the other
+        // trips and risking an edit to the wrong one.
+        $this->editLeg = $leg !== null ? [
+            'service_type' => (string) ($leg->service_type ?? LimoLeg::TYPE_TRANSFER),
+            'from_location' => (string) ($leg->from_location ?? ''),
+            'from_location_url' => (string) ($leg->from_location_url ?? ''),
+            'to_location' => (string) ($leg->to_location ?? ''),
+            'to_location_url' => (string) ($leg->to_location_url ?? ''),
+            'start_at' => $leg->start_at?->format('Y-m-d\TH:i') ?? '',
+            'hours' => $leg->hours !== null ? (string) $leg->hours : '',
+            'days' => (string) ($leg->days ?? 1),
+            'rate' => (string) ($leg->rate ?? 0),
+            'rate_basis' => (string) ($leg->rate_basis ?? LimoLeg::BASIS_TRIP),
+            'discount' => (string) ($leg->discount ?? 0),
+            'vat' => (string) ($leg->vat ?? 0),
+        ] : [];
+
         $this->edit = [
             'booking_type' => (string) ($booking->booking_type ?? ''),
             // <input type="datetime-local"> only accepts exactly "Y-m-d\TH:i".
@@ -364,6 +407,7 @@ final class Bookings extends Component
         $this->editingId = null;
         $this->editingLegId = null;
         $this->edit = [];
+        $this->editLeg = [];
         $this->resetErrorBag();
     }
 
@@ -416,8 +460,120 @@ final class Bookings extends Component
 
         $booking->save();
 
+        $this->saveEditedLeg($booking);
+
         $this->cancelEdit();
         session()->flash('booking_status', __('Booking updated.'));
+    }
+
+    /**
+     * What the trip being edited comes to, priced from the live inputs so the
+     * dialog answers "what does this change cost?" before it is saved.
+     */
+    public function editLegTotal(): float
+    {
+        if ($this->editLeg === []) {
+            return 0.0;
+        }
+
+        $number = fn (string $key): float => (float) (($this->editLeg[$key] ?? '') === '' ? '0' : $this->editLeg[$key]);
+        $chauffeur = ($this->editLeg['service_type'] ?? '') === LimoLeg::TYPE_CHAUFFEUR;
+
+        return LimoLeg::netFor(
+            (string) ($this->editLeg['rate_basis'] ?? LimoLeg::BASIS_TRIP),
+            $number('rate'),
+            $chauffeur && ($this->editLeg['hours'] ?? '') !== '' ? $number('hours') : null,
+            $chauffeur ? max(1, (int) (($this->editLeg['days'] ?? '') === '' ? '1' : $this->editLeg['days'])) : 1,
+            $number('discount'),
+            $number('vat'),
+        );
+    }
+
+    /**
+     * Write the clicked trip's own details back — just that leg.
+     *
+     * The other legs of the booking are left exactly as they were: the office
+     * clicked one row, and one row is what changes. Re-prices the leg from its
+     * rate and basis the same way the full form does, then re-totals the
+     * booking, since the fare is the sum of its legs and would otherwise still
+     * quote the old price.
+     */
+    private function saveEditedLeg(LimoBooking $booking): void
+    {
+        if ($this->editingLegId === null || $this->editLeg === []) {
+            return;
+        }
+
+        $leg = LimoLeg::query()->find($this->editingLegId);
+
+        // Re-checked rather than trusted from openEdit: a trip can be completed
+        // by someone else while this dialog sits open.
+        if ($leg === null || $this->isLocked($leg) || (int) $leg->legable_id !== (int) $booking->id) {
+            return;
+        }
+
+        $chauffeur = ($this->editLeg['service_type'] ?? '') === LimoLeg::TYPE_CHAUFFEUR;
+
+        $this->validate([
+            'editLeg.service_type' => ['required', 'in:transfer,chauffeur'],
+            'editLeg.from_location' => ['required', 'string', 'max:255'],
+            'editLeg.from_location_url' => ['nullable', 'url', 'max:500'],
+            'editLeg.to_location' => [$chauffeur ? 'nullable' : 'required', 'string', 'max:255'],
+            'editLeg.to_location_url' => ['nullable', 'url', 'max:500'],
+            'editLeg.start_at' => ['required', 'date'],
+            'editLeg.hours' => [$chauffeur ? 'required' : 'nullable', 'numeric', 'min:0.5'],
+            'editLeg.days' => [$chauffeur ? 'required' : 'nullable', 'integer', 'min:1'],
+            'editLeg.rate' => ['required', 'numeric', 'min:0'],
+            'editLeg.rate_basis' => ['required', 'in:trip,hour,day'],
+            'editLeg.discount' => ['nullable', 'numeric', 'min:0'],
+            'editLeg.vat' => ['nullable', 'numeric', 'min:0'],
+        ], [], [
+            'editLeg.from_location' => __('Pickup'),
+            'editLeg.to_location' => __('Drop off'),
+            'editLeg.start_at' => __('Date & time'),
+            'editLeg.hours' => __('Hours per day'),
+            'editLeg.days' => __('Number of days'),
+            'editLeg.rate' => __('Rate'),
+        ]);
+
+        $number = fn (string $key): float => (float) (($this->editLeg[$key] ?? '') === '' ? '0' : $this->editLeg[$key]);
+        $blank = fn (string $key): ?string => trim((string) ($this->editLeg[$key] ?? '')) !== ''
+            ? trim((string) $this->editLeg[$key])
+            : null;
+
+        $basis = (string) $this->editLeg['rate_basis'];
+        $rate = $number('rate');
+        $discount = $number('discount');
+        $vat = $number('vat');
+        $hours = $chauffeur && ($this->editLeg['hours'] ?? '') !== '' ? $number('hours') : null;
+        $days = $chauffeur ? max(1, (int) (($this->editLeg['days'] ?? '') === '' ? '1' : $this->editLeg['days'])) : 1;
+
+        $leg->fill([
+            'service_type' => (string) $this->editLeg['service_type'],
+            'from_location' => $blank('from_location'),
+            'from_location_url' => $blank('from_location_url'),
+            // A chauffeur job is a car at disposal, not a route — it has no
+            // drop-off, so switching to one clears any the leg used to carry.
+            'to_location' => $chauffeur ? null : $blank('to_location'),
+            'to_location_url' => $chauffeur ? null : $blank('to_location_url'),
+            'start_at' => Carbon::parse((string) $this->editLeg['start_at']),
+            'hours' => $hours,
+            'days' => $days,
+            'rate' => $rate,
+            'rate_basis' => $basis,
+            'discount' => $discount,
+            'vat' => $vat,
+            'line_total' => LimoLeg::grossFor($basis, $rate, $hours, $days),
+            'net_amount' => LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat),
+        ]);
+        $leg->save();
+
+        // The fare is the sum of the legs, so re-pricing one re-prices the job —
+        // and a job that just got dearer than what was taken is not paid any
+        // more, whatever its flag said a moment ago.
+        $booking->recalcTotal();
+        $booking->save();
+        $booking->syncPaymentFromAdvance();
     }
 
     /**
@@ -538,6 +694,32 @@ final class Bookings extends Component
         $this->resetPage();
     }
 
+    /**
+     * Sort by a column, or turn it around if it is already the one sorting.
+     *
+     * First click on a column gives the end of it people actually want: newest
+     * date, biggest amount, but names and places A→Z. Saves the second click
+     * that "sort by date" almost always means.
+     */
+    public function sortBy(string $column): void
+    {
+        if (! in_array($column, LimoQueueRows::SORTS, true)) {
+            return;
+        }
+
+        if ($this->sort === $column) {
+            $this->dir = $this->dir === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sort = $column;
+            $this->dir = in_array($column, [
+                'from_date', 'to_date', 'booked_time', 'amount', 'received', 'balance',
+            ], true) ? 'desc' : 'asc';
+        }
+
+        // The row that was on page 3 under the old order is somewhere else now.
+        $this->resetPage();
+    }
+
     public function updatedSearch(): void
     {
         // Typing while on a deep page would otherwise leave the user on a page
@@ -555,7 +737,7 @@ final class Bookings extends Component
         // Rows come from LimoQueueRows, the same source the exports read, so a
         // printed sheet can never disagree with the screen.
         $rows = app(LimoQueueRows::class);
-        $legs = $rows->paginate($this->tab, $this->from, $this->to, $this->search);
+        $legs = $rows->paginate($this->tab, $this->from, $this->to, $this->search, 20, $this->sort, $this->dir);
 
         $counts = LimoLeg::query()
             ->whereMorphedTo('legable', LimoBooking::class)
@@ -576,7 +758,12 @@ final class Bookings extends Component
             'whatsapp' => collect($legs->items())->mapWithKeys(
                 fn (LimoLeg $l): array => [$l->id => $rows->whatsappText($l)]
             )->all(),
-            'exportQuery' => http_build_query(['tab' => $this->tab, 'from' => $this->from, 'to' => $this->to, 'search' => $this->search]),
+            // Sort rides along with the filters: an export is of what the user
+            // is looking at, in the order they put it in.
+            'exportQuery' => http_build_query([
+                'tab' => $this->tab, 'from' => $this->from, 'to' => $this->to,
+                'search' => $this->search, 'sort' => $this->sort, 'dir' => $this->dir,
+            ]),
             'counts' => $counts,
             'totalCount' => (int) $counts->sum(),
             'carOptions' => $this->assigningId !== null ? $this->carOptions() : [],
@@ -585,6 +772,9 @@ final class Bookings extends Component
                 ? LimoLeg::query()->with('legable.customer:id,name')->find($this->assigningId)
                 : null,
             'canAssign' => $this->mayAccess(Permission::Write),
+            // For the per-trip section of the quick-edit dialog.
+            'serviceTypes' => LimoLeg::serviceTypeOptions(),
+            'rateBasisOptions' => LimoLeg::rateBasisOptions(),
             // Who signs vs who is merely told: an individual travelled and can
             // attest to the trip; a company booked it for a guest and cannot.
             // Keyed by leg id so the row renders the right action without

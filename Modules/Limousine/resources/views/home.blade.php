@@ -68,6 +68,10 @@
         @php
             $cards = [
                 ['label' => __('Bookings Queue'), 'value' => $queue, 'href' => url('/app/limousine/booking?tab=queue'), 'icon' => 'queue', 'tint' => 'bg-amber-50 text-amber-600 ring-amber-100'],
+                // Confirmed sits between Queue and Active and had no card, so a
+                // trip that had been confirmed was counted on none of them: agreed
+                // with the customer, and invisible everywhere but the queue's own tab.
+                ['label' => __('Confirmed Trips'), 'value' => $confirmed, 'href' => url('/app/limousine/booking?tab=confirmed'), 'icon' => 'calendar', 'tint' => 'bg-sky-50 text-sky-600 ring-sky-100'],
                 ['label' => __('Active Bookings'), 'value' => $active, 'href' => url('/app/limousine/booking?tab=active'), 'icon' => 'bolt', 'tint' => 'bg-indigo-50 text-indigo-600 ring-indigo-100'],
                 ['label' => __('Completed Trips'), 'value' => $completed, 'href' => url('/app/limousine/booking?tab=completed'), 'icon' => 'check', 'tint' => 'bg-emerald-50 text-emerald-600 ring-emerald-100'],
                 ['label' => __('Unpaid Bookings'), 'value' => $unpaid, 'href' => url('/app/limousine/booking'), 'icon' => 'alert', 'tint' => 'bg-red-50 text-red-600 ring-red-100'],

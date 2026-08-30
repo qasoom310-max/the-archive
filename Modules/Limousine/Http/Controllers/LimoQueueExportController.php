@@ -122,8 +122,12 @@ final class LimoQueueExportController
         $to = (string) $request->query('to', '');
         // Search rides along too: an export is of what the user is looking at.
         $search = (string) $request->query('search', '');
+        // …and in the order they sorted it into. A sheet that reorders itself on
+        // the way to the printer is the drift this class exists to prevent.
+        $sort = (string) $request->query('sort', '');
+        $dir = (string) $request->query('dir', 'desc');
 
-        return [$this->rows->all($tab, $from, $to, $search), $this->rows->headings()];
+        return [$this->rows->all($tab, $from, $to, $search, $sort, $dir), $this->rows->headings()];
     }
 
     /**

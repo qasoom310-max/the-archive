@@ -19,6 +19,7 @@ use Modules\Limousine\Livewire\Concerns\HandlesTripLegs;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoLeg;
+use Modules\Limousine\Services\CouponRedeemer;
 
 /**
  * Bespoke limousine booking: a customer/PAX header plus unlimited trip legs
@@ -74,6 +75,9 @@ final class BookingForm extends Component
     public string $prepared_by = '';
 
     public string $advance = '0';
+
+    /** Refund-coupon code being applied against this booking. */
+    public string $couponCode = '';
 
     public string $payment_method = 'cash';
 
@@ -252,6 +256,55 @@ final class BookingForm extends Component
 
         session()->flash('toast', $this->savedMessage($wasNew, $refs));
         $this->redirect('/app/limousine/booking', navigate: true);
+    }
+
+    /**
+     * Spend a refund coupon against this booking.
+     *
+     * Only on a saved booking: credit is applied to the money already taken, so
+     * there has to be a priced job to apply it to. Applies the smaller of what
+     * is left on the coupon and what is still owed, so a big coupon keeps its
+     * balance for the next trip and a small one just reduces the bill.
+     */
+    public function applyCoupon(): void
+    {
+        $this->guardSave(false);
+
+        if ($this->id === null) {
+            $this->addError('couponCode', __('Save the booking first, then apply a coupon.'));
+
+            return;
+        }
+
+        if (trim($this->couponCode) === '') {
+            return;
+        }
+
+        $booking = LimoBooking::query()->find($this->id);
+        if ($booking === null) {
+            return;
+        }
+
+        $redeemer = app(CouponRedeemer::class);
+        $result = $redeemer->apply($this->couponCode, $booking);
+
+        if (! ($result['ok'] ?? false)) {
+            $this->addError('couponCode', $redeemer->errorMessage((string) ($result['error'] ?? '')));
+
+            return;
+        }
+
+        // Reflect the money that just landed, so the form shows the new balance
+        // without a reload.
+        $booking->refresh();
+        $this->advance = (string) $booking->advance;
+        $this->payment_status = $booking->payment_status;
+        $this->couponCode = '';
+
+        session()->flash('toast', __('Coupon applied: :amount BD. Remaining on coupon: :left BD.', [
+            'amount' => number_format((float) ($result['applied'] ?? 0), 3),
+            'left' => number_format((float) ($result['remaining'] ?? 0), 3),
+        ]));
     }
 
     /**

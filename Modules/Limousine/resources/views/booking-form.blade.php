@@ -125,6 +125,18 @@
             <div>
                 <label class="{{ $lbl }}">{{ __('Advance (BHD)') }}</label>
                 <input type="number" step="0.001" min="0" wire:model.live="advance" class="o-input w-full">
+                {{-- Credit from a cancelled trip counts as money already taken, so
+                     applying it raises the advance and the balance falls through the
+                     same path a cash payment takes. --}}
+                <div class="mt-2 flex gap-2">
+                    <input type="text" wire:model="couponCode" class="o-input w-full text-sm"
+                           placeholder="{{ __('Refund coupon code') }}">
+                    <button type="button" wire:click="applyCoupon" class="o-btn-ghost shrink-0 text-sm">{{ __('Apply') }}</button>
+                </div>
+                @error('couponCode') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                <p class="mt-1 text-[11px]">
+                    <a href="{{ url('/app/limousine/coupon') }}" class="text-primary-700 hover:underline">{{ __('Refund coupons') }}</a>
+                </p>
             </div>
             <div>
                 <label class="{{ $lbl }}">{{ __('Payment method') }} *</label>

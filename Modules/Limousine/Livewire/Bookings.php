@@ -19,6 +19,7 @@ use Modules\Limousine\Models\LimoDriver;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Services\LimoQueueRows;
 use Modules\Limousine\Services\ServiceOrderSender;
+use Modules\Limousine\Services\TripCancellation;
 use Modules\Rental\Models\Vehicle;
 use Throwable;
 
@@ -72,6 +73,15 @@ final class Bookings extends Component
      */
     #[Locked]
     public ?int $editingLegId = null;
+
+    /** Trip whose cancel dialog is open, or null when it is shut. */
+    #[Locked]
+    public ?int $cancellingId = null;
+
+    public string $cancelReason = '';
+
+    /** Give a due refund as credit instead of money back. */
+    public bool $cancelAsCoupon = false;
 
     /**
      * Quick-edit field values, keyed by column. A flat array keeps the dialog
@@ -415,6 +425,73 @@ final class Bookings extends Component
             : __('Signing link sent to :email.', ['email' => $result['email']]));
     }
 
+    /** Open the cancel dialog for one trip, with what it would cost shown. */
+    public function openCancel(int $legId): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        $leg = LimoLeg::query()->with('legable')->find($legId);
+        if ($leg === null || $leg->status === LimoLeg::STATUS_CANCELLED) {
+            return;
+        }
+
+        $this->cancellingId = $legId;
+        $this->cancelReason = '';
+        // Default to money back; the office can switch to credit when a full
+        // refund is due.
+        $this->cancelAsCoupon = false;
+        $this->resetErrorBag();
+    }
+
+    public function closeCancel(): void
+    {
+        $this->cancellingId = null;
+        $this->cancelReason = '';
+        $this->cancelAsCoupon = false;
+    }
+
+    /** Cancel the trip and settle what the customer gets back. */
+    public function confirmCancel(): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        if ($this->cancellingId === null) {
+            return;
+        }
+
+        $leg = LimoLeg::query()->with('legable')->find($this->cancellingId);
+        if ($leg === null) {
+            $this->closeCancel();
+
+            return;
+        }
+
+        $result = app(TripCancellation::class)->cancel($leg, $this->cancelReason, $this->cancelAsCoupon);
+
+        $this->closeCancel();
+
+        // Say what the customer actually gets, not just "cancelled" — the whole
+        // point of the rule is that the three outcomes differ.
+        $coupon = $result['coupon'];
+
+        session()->flash('booking_status', match ($result['outcome']) {
+            TripCancellation::OUTCOME_COUPON => __('Trip cancelled. Coupon :code issued for :amount BD.', [
+                'code' => $coupon !== null ? $coupon->code : '',
+                'amount' => number_format($result['amount'], 3),
+            ]),
+            TripCancellation::OUTCOME_REFUNDED => __('Trip cancelled. Full refund of :amount BD is due.', [
+                'amount' => number_format($result['amount'], 3),
+            ]),
+            default => __('Trip cancelled.'),
+        });
+    }
+
+    /** Mark a running trip finished. */
+    public function completeLeg(int $legId): void
+    {
+        $this->advanceLeg($legId, LimoLeg::STATUS_COMPLETED);
+    }
+
     public function updatedTab(): void
     {
         $this->resetPage();
@@ -491,6 +568,16 @@ final class Bookings extends Component
             // dialog, since car and driver are assigned per leg from the queue.
             'editingLeg' => $this->editingLegId !== null
                 ? LimoLeg::query()->find($this->editingLegId)
+                : null,
+            'cancellingLeg' => $this->cancellingId !== null
+                ? LimoLeg::query()->with('legable')->find($this->cancellingId)
+                : null,
+            // What cancelling would mean, so the office sees the consequence
+            // before committing rather than after.
+            'cancelPreview' => $this->cancellingId !== null
+                ? app(TripCancellation::class)->preview(
+                    LimoLeg::query()->with('legable')->findOrFail($this->cancellingId)
+                )
                 : null,
             'bookingTypes' => LimoBooking::bookingTypeOptions(),
             'rateTypes' => LimoBooking::rateTypeOptions(),

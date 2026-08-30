@@ -221,6 +221,26 @@
                                 <button type="button" wire:click="advanceLeg({{ $leg->id }}, '{{ $next[0] }}')"
                                         class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ $next[1] }}</button>
                             @endif
+                            {{-- Cancel stays available while a trip is still ahead of
+                                 or on the road. A finished or already-cancelled trip
+                                 has nothing to call off. --}}
+                            @if ($canAssign && ! in_array($row['status'], ['completed', 'cancelled'], true))
+                                <button type="button" wire:click="openCancel({{ $leg->id }})"
+                                        class="ms-2 text-xs font-medium text-red-600 hover:underline">{{ __('Cancel') }}</button>
+                            @endif
+                            @if ($row['status'] === 'cancelled' && $leg->refund_outcome)
+                                {{-- What the customer got back, so a cancelled row
+                                     isn't a dead end for the person reading it. --}}
+                                <span class="ms-2 text-[11px] text-chrome-500">
+                                    @if ($leg->refund_outcome === 'coupon')
+                                        {{ __('Coupon') }} {{ $money((float) $leg->refund_amount) }}
+                                    @elseif ($leg->refund_outcome === 'refunded')
+                                        {{ __('Refund due') }} {{ $money((float) $leg->refund_amount) }}
+                                    @else
+                                        {{ __('No refund') }}
+                                    @endif
+                                </span>
+                            @endif
                         </td>
                         <td class="hidden px-2 py-2 md:table-cell"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $row['payment'] === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($row['payment'])) }}</span></td>
                         {{-- Icon actions. Four text links per row made the column wide
@@ -362,6 +382,80 @@
                 <div class="mt-5 flex justify-end gap-2">
                     <button type="button" wire:click="closeAssign" class="o-btn-ghost text-sm">{{ __('Close') }}</button>
                     <button type="button" wire:click="saveAssign" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Save') }}</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- ── Cancel a trip ──
+         The consequence is shown BEFORE the button is pressed, because the three
+         outcomes differ in money: nothing paid cancels cleanly; paid with more
+         than 48 hours to go earns a full refund; paid inside 48 hours earns no
+         refund but a coupon for what was paid. --}}
+    @if ($cancellingLeg && $cancelPreview)
+        <div class="fixed inset-0 z-50 overflow-y-auto bg-chrome-900/40 p-4" wire:key="cancel-{{ $cancellingLeg->id }}">
+            <div class="flex min-h-full items-start justify-center py-10">
+                <div class="w-full max-w-md rounded-2xl bg-white shadow-pop">
+                    <div class="flex items-center justify-between border-b border-chrome-200 px-5 py-3">
+                        <h2 class="text-base font-bold text-chrome-900">
+                            {{ __('Cancel trip') }} — {{ $cancellingLeg->reference }}
+                        </h2>
+                        <button type="button" wire:click="closeCancel"
+                                class="text-lg leading-none text-chrome-400 hover:text-chrome-700" aria-label="{{ __('Close') }}">&times;</button>
+                    </div>
+
+                    <div class="px-5 py-4">
+                        @php
+                            $hrs = $cancelPreview['hours_to_start'];
+                            $amt = $money((float) $cancelPreview['amount']);
+                        @endphp
+
+                        <p class="text-sm text-chrome-600">
+                            {{ $cancellingLeg->from_location }}
+                            @if ($cancellingLeg->to_location) → {{ $cancellingLeg->to_location }} @endif
+                            @if ($cancellingLeg->start_at)
+                                <span class="block text-xs text-chrome-400">{{ $cancellingLeg->start_at->isoFormat('DD-MMM-YY hh:mm A') }}</span>
+                            @endif
+                        </p>
+
+                        @if (! $cancelPreview['paid'])
+                            <div class="mt-4 rounded-lg bg-chrome-50 px-4 py-3 text-sm text-chrome-700 ring-1 ring-chrome-200">
+                                {{ __('Nothing has been paid for this trip, so there is nothing to refund.') }}
+                            </div>
+                        @elseif ($cancelPreview['refund_due'])
+                            <div class="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800 ring-1 ring-emerald-200">
+                                <p class="font-semibold">{{ __('Full refund due') }}: {{ $amt }}</p>
+                                <p class="mt-0.5 text-xs">
+                                    {{ __('Cancelled more than :hours hours before the trip.', ['hours' => 48]) }}
+                                    @if ($hrs !== null) ({{ __(':hours hours to go', ['hours' => number_format((float) $hrs, 1)]) }}) @endif
+                                </p>
+                                <label class="mt-2 flex items-center gap-2 text-xs font-medium">
+                                    <input type="checkbox" wire:model="cancelAsCoupon"
+                                           class="size-4 rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
+                                    {{ __('Give it as a coupon instead of refunding the money') }}
+                                </label>
+                            </div>
+                        @else
+                            <div class="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
+                                <p class="font-semibold">{{ __('No refund') }} — {{ __('a coupon for :amount will be issued', ['amount' => $amt]) }}</p>
+                                <p class="mt-0.5 text-xs">
+                                    {{ __('Cancelled within :hours hours of the trip. The customer keeps the value as credit, valid one year from the booking.', ['hours' => 48]) }}
+                                </p>
+                            </div>
+                        @endif
+
+                        <label class="mt-4 block text-xs font-medium text-chrome-600">{{ __('Reason (optional)') }}</label>
+                        <input type="text" wire:model="cancelReason" class="o-input mt-1 w-full"
+                               placeholder="{{ __('e.g. customer changed plans') }}">
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 border-t border-chrome-200 px-5 py-3">
+                        <button type="button" wire:click="closeCancel" class="o-btn-ghost text-sm">{{ __('Keep trip') }}</button>
+                        <button type="button" wire:click="confirmCancel" wire:loading.attr="disabled"
+                                class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700">
+                            {{ __('Cancel trip') }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

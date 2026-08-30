@@ -46,6 +46,10 @@ use Illuminate\Support\Facades\Storage;
  * @property string|null $signed_name      Name typed alongside the signature
  * @property string|null $signed_ip        Where it was signed from (audit)
  * @property Carbon|null $service_order_sent_at
+ * @property Carbon|null $cancelled_at
+ * @property string|null $cancellation_reason
+ * @property string|null $refund_outcome   none|refunded|coupon — what the customer got back
+ * @property float $refund_amount
  */
 final class LimoLeg extends Model
 {
@@ -84,6 +88,7 @@ final class LimoLeg extends Model
         'car_id', 'driver_id', 'driver', 'from_location', 'from_location_url', 'to_location', 'to_location_url', 'start_at', 'hours', 'days', 'vehicle',
         'vehicle_details', 'rate', 'rate_basis', 'discount', 'vat', 'line_total', 'net_amount', 'notes',
         'signature_path', 'signed_at', 'signed_name', 'signed_ip', 'service_order_sent_at',
+        'cancelled_at', 'cancellation_reason', 'refund_outcome', 'refund_amount',
     ];
 
     protected static function booted(): void
@@ -133,6 +138,8 @@ final class LimoLeg extends Model
             'net_amount' => 'float',
             'signed_at' => 'datetime',
             'service_order_sent_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'refund_amount' => 'float',
         ];
     }
 

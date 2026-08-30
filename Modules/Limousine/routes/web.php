@@ -9,6 +9,7 @@ use Modules\Limousine\Http\Controllers\ServiceOrderController;
 use Modules\Limousine\Http\Controllers\ServiceOrderSignController;
 use Modules\Limousine\Livewire\Bookings;
 use Modules\Limousine\Livewire\BookingForm;
+use Modules\Limousine\Livewire\Coupons;
 use Modules\Limousine\Livewire\CustomerForm;
 use Modules\Limousine\Livewire\DriverForm;
 use Modules\Limousine\Livewire\Drivers;
@@ -76,6 +77,9 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/booking', Bookings::class)->name('limousine.booking.index');
     Route::get('/app/limousine/booking/new', BookingForm::class)->name('limousine.booking.create');
     Route::get('/app/limousine/booking/{id}', BookingForm::class)->whereNumber('id')->name('limousine.booking.edit');
+
+    // Refund coupons — credit from cancelled trips, and how much of each is left.
+    Route::get('/app/limousine/coupon', Coupons::class)->name('limousine.coupon.index');
 
     // Quotations.
     Route::get('/app/limousine/quotation', Quotations::class)->name('limousine.quotation.index');

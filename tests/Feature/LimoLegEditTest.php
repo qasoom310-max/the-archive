@@ -119,7 +119,9 @@ final class LimoLegEditTest extends TestCase
     {
         [$booking, $legs] = $this->bookingOfThree();
 
-        $this->assertSame(148.0, $booking->fresh()?->fare);
+        // 40 + 12. The cancelled 96 is not billed — see
+        // LimoCancelledLegBillingTest for why.
+        $this->assertSame(52.0, $booking->fresh()?->fare);
 
         Livewire::test(Bookings::class)
             ->call('openEdit', $booking->id, $legs[2]->id)
@@ -127,8 +129,8 @@ final class LimoLegEditTest extends TestCase
             ->call('saveEdit')
             ->assertHasNoErrors();
 
-        // 96 + 40 + 20.
-        $this->assertSame(156.0, $booking->fresh()?->fare);
+        // 40 + 20, and re-pricing a live leg does not revive the cancelled one.
+        $this->assertSame(60.0, $booking->fresh()?->fare);
     }
 
     /** A trip switched to chauffeur is a car at disposal — it has no drop-off. */

@@ -79,6 +79,18 @@ final class LimoLeg extends Model
 
     public const STATUS_CANCELLED = 'cancelled';
 
+    /**
+     * What became of the money when a trip was called off — the values stored
+     * in `refund_outcome`. They live here, on the row whose column holds them,
+     * because the bill reads them too: whether a cancelled trip is still
+     * charged for depends on which of these it ended as.
+     */
+    public const REFUND_NONE = 'none';
+
+    public const REFUND_REFUNDED = 'refunded';
+
+    public const REFUND_COUPON = 'coupon';
+
     /** First reference handed out. Kept in step with the backfill migration. */
     public const REFERENCE_START = 10000;
 
@@ -141,6 +153,21 @@ final class LimoLeg extends Model
             'cancelled_at' => 'datetime',
             'refund_amount' => 'float',
         ];
+    }
+
+    /**
+     * Does this trip still belong on the bill?
+     *
+     * A cancelled trip is not charged for — nobody pays for a car that never
+     * came. The exception is one cancelled too late to be refunded: that money
+     * was forfeited and handed back as credit instead, so it stays earned on
+     * the booking it was paid to, and the coupon carries the customer's half of
+     * it. Taking it off the bill as well would give the same money away twice.
+     */
+    public function isBillable(): bool
+    {
+        return $this->status !== self::STATUS_CANCELLED
+            || $this->refund_outcome === self::REFUND_COUPON;
     }
 
     /** Whether the customer has signed this leg's Service Order. */

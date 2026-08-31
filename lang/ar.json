@@ -233,6 +233,8 @@
     "Cancel this payout request? Its orders go back to awaiting settlement.": "إلغاء طلب التحويل؟ ستعود طلباته إلى قائمة انتظار التحصيل.",
     "Cancel this work order?": "إلغاء أمر العمل هذا؟",
     "Cancelled": "ملغى",
+    "Cancelled — forfeited": "ملغاة — مبلغ محتجز",
+    "Cancelled — not billed": "ملغاة — غير محتسبة",
     "Cannot import this file:": "تعذّر استيراد هذا الملف:",
     "Car": "سيارة",
     "Car Hire Agreement": "عقد تأجير سيارة",

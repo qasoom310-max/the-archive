@@ -820,16 +820,23 @@
                         <div class="mt-3 overflow-hidden rounded-xl ring-1 ring-chrome-200">
                             <table class="w-full text-sm">
                                 <tbody class="divide-y divide-chrome-100">
+                                    {{-- A cancelled trip is shown but struck through: it
+                                         is part of the booking's history and none of the
+                                         bill, so the total below visibly excludes it
+                                         rather than appearing not to add up. --}}
                                     @foreach ($collecting->legs as $l)
-                                        <tr class="{{ $l->status === 'cancelled' ? 'text-chrome-400' : 'text-chrome-700' }}">
+                                        @php $billed = $l->isBillable(); @endphp
+                                        <tr class="{{ $billed ? 'text-chrome-700' : 'text-chrome-400' }}">
                                             <td class="px-3 py-2">
                                                 <span class="font-medium">{{ $l->reference }}</span>
                                                 <span class="ms-1 text-xs text-chrome-500">{{ $l->from_location }}</span>
                                                 @if ($l->status === 'cancelled')
-                                                    <span class="ms-1 text-[11px] uppercase">({{ __('Cancelled') }})</span>
+                                                    <span class="ms-1 text-[11px] uppercase">
+                                                        ({{ $billed ? __('Cancelled — forfeited') : __('Cancelled — not billed') }})
+                                                    </span>
                                                 @endif
                                             </td>
-                                            <td class="px-3 py-2 text-end">{{ $bd((float) $l->net_amount) }}</td>
+                                            <td class="px-3 py-2 text-end {{ $billed ? '' : 'line-through' }}">{{ $bd((float) $l->net_amount) }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>

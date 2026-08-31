@@ -30,11 +30,16 @@ final class TripCancellation
     /** Refund cut-off, in hours before the trip starts. */
     public const REFUND_WINDOW_HOURS = 48;
 
-    public const OUTCOME_NONE = 'none';
+    /**
+     * The three outcomes, named after where they are stored — on the leg. One
+     * definition, because the bill reads these too when deciding whether a
+     * cancelled trip is still charged for.
+     */
+    public const OUTCOME_NONE = LimoLeg::REFUND_NONE;
 
-    public const OUTCOME_REFUNDED = 'refunded';
+    public const OUTCOME_REFUNDED = LimoLeg::REFUND_REFUNDED;
 
-    public const OUTCOME_COUPON = 'coupon';
+    public const OUTCOME_COUPON = LimoLeg::REFUND_COUPON;
 
     /**
      * What cancelling this trip right now would mean — used to tell the user
@@ -116,6 +121,18 @@ final class TripCancellation
 
             // The booking summarises its legs, so it follows them.
             $booking?->syncStatusFromLegs();
+
+            // …the money included, which nothing used to do. A called-off trip
+            // comes off the bill, so the fare went on quoting a trip that never
+            // ran and the office was left chasing a balance the customer never
+            // owed. Re-price, then let the payment flag follow the new total —
+            // a booking can become settled purely by losing the leg that was
+            // still owed for.
+            if ($booking !== null) {
+                $booking->recalcTotal();
+                $booking->save();
+                $booking->syncPaymentFromAdvance();
+            }
 
             return ['outcome' => $outcome, 'amount' => $amount, 'coupon' => $coupon];
         });

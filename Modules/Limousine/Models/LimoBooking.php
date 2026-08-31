@@ -8,6 +8,7 @@ use App\Erp\Contracts\DefinesIrModel;
 use App\Erp\Registry\FieldDefinition;
 use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -126,10 +127,33 @@ final class LimoBooking extends Model implements DefinesIrModel
         return $this->morphMany(LimoLeg::class, 'legable')->orderBy('sequence');
     }
 
-    /** Grand total = sum of leg nets; stored on `fare` (and mirrored to amount). */
+    /**
+     * Grand total = sum of the leg nets that are still BILLABLE; stored on
+     * `fare` (and mirrored to amount).
+     *
+     * A cancelled trip comes off the bill. The customer is not charged for a
+     * car that never came, so a booking of three trips with one called off is
+     * billed for two — the old sum charged for all three and left the office
+     * chasing money that was never owed.
+     *
+     * One exception, and it is the reason this is a query rather than a sum: a
+     * trip cancelled too late for a refund forfeited its payment, and that
+     * money came back to the customer as a coupon instead. It was earned on
+     * this booking and stays on it; the coupon carries their side. Taking it
+     * off the bill as well would hand the same money over twice.
+     */
     public function recalcTotal(): void
     {
-        $total = round((float) $this->legs()->sum('net_amount'), 3);
+        $total = round((float) $this->legs()
+            ->where(function (Builder $q): void {
+                $q->where('status', '!=', LimoLeg::STATUS_CANCELLED)
+                    // A leg with no status yet is still to run, and SQL will not
+                    // match NULL against '!=' on its own.
+                    ->orWhereNull('status')
+                    ->orWhere('refund_outcome', LimoLeg::REFUND_COUPON);
+            })
+            ->sum('net_amount'), 3);
+
         $this->fare = $total;
         $this->amount = $total;
     }

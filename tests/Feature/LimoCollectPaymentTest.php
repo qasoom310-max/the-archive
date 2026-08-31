@@ -52,11 +52,14 @@ final class LimoCollectPaymentTest extends TestCase
             'payment_status' => LimoBooking::PAYMENT_UNPAID,
         ]);
 
+        // All three still on the bill. What a CANCELLED leg does to the total is
+        // its own question, answered in LimoCancelledLegBillingTest — mixing one
+        // in here would only make these figures argue about two things at once.
         $legs = [];
         foreach ([
             [LimoLeg::STATUS_CONFIRMED, 12.0],
             [LimoLeg::STATUS_COMPLETED, 40.0],
-            [LimoLeg::STATUS_CANCELLED, 96.0],
+            [LimoLeg::STATUS_COMPLETED, 96.0],
         ] as $i => [$status, $amount]) {
             $legs[] = LimoLeg::query()->create([
                 'legable_type' => LimoBooking::class,

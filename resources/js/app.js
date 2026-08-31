@@ -300,7 +300,7 @@ document.addEventListener('alpine:init', () => {
      * unavailable over plain HTTP, so a hidden textarea + execCommand is kept as
      * the fallback for an intranet install.
      */
-    window.Alpine.store('limoTrip', {
+    window.Alpine.store('clip', {
         copy(text) {
             if (!text) return;
 
@@ -317,6 +317,15 @@ document.addEventListener('alpine:init', () => {
             area.select();
             try { document.execCommand('copy'); } catch (e) { /* ignore */ }
             document.body.removeChild(area);
+        },
+    });
+
+    // Kept as its own name because the trip rows read better for it, but the
+    // copying itself lives in one place — the plain-HTTP fallback above is the
+    // kind of thing that rots when it exists twice.
+    window.Alpine.store('limoTrip', {
+        copy(text) {
+            window.Alpine.store('clip').copy(text);
         },
     });
 

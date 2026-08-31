@@ -36,6 +36,13 @@ use Modules\Limousine\Models\LimoLeg;
 final class LimoQueueRows
 {
     /**
+     * Money still to collect — a tab rather than a status, because being owed
+     * for a trip is not a stage the trip is at. A job can be queued, driven or
+     * finished and still unpaid.
+     */
+    public const TAB_UNPAID = 'unpaid';
+
+    /**
      * The columns the queue can be ordered by — every column it prints except
      * Sl No., which is only the position in the list it is already in.
      *
@@ -75,6 +82,10 @@ final class LimoQueueRows
             $query->where($legs . '.status', $tab);
         }
 
+        if ($tab === self::TAB_UNPAID) {
+            $this->onlyUnpaid($query);
+        }
+
         if ($from !== '') {
             $query->whereDate($legs . '.start_at', '>=', $from);
         }
@@ -107,6 +118,39 @@ final class LimoQueueRows
         }
 
         return $query;
+    }
+
+    /**
+     * Trips on a booking that still owes money.
+     *
+     * Payment belongs to the BOOKING — the customer settles the job, not a leg
+     * of it — so this asks the parent through the morph rather than joining,
+     * which keeps it clear of whatever join a sort may already have added.
+     *
+     * Cancelled trips are left out: they are not work waiting to be paid for,
+     * and a called-off trip is no longer billed anyway. `fare > advance` as well
+     * as the flag, so a booking priced at nothing never sits in a list of money
+     * to chase.
+     *
+     * @param  Builder<LimoLeg>  $query
+     */
+    private function onlyUnpaid(Builder $query): void
+    {
+        $query
+            ->where($this->table(LimoLeg::class) . '.status', '!=', LimoLeg::STATUS_CANCELLED)
+            ->whereHasMorph('legable', LimoBooking::class, function ($booking): void {
+                $booking->where('payment_status', LimoBooking::PAYMENT_UNPAID)
+                    ->whereColumn('fare', '>', 'advance');
+            });
+    }
+
+    /** How many trips are waiting to be paid for — the tab's badge. */
+    public function unpaidCount(): int
+    {
+        $query = LimoLeg::query()->whereMorphedTo('legable', LimoBooking::class);
+        $this->onlyUnpaid($query);
+
+        return $query->count();
     }
 
     /**

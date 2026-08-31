@@ -21,12 +21,19 @@
             'confirmed' => __('Confirmed'),
             'active' => __('Active'),
             'completed' => __('Completed'),
+            // Not a stage a trip is at — money still to collect, whatever stage
+            // the trip reached.
+            'unpaid' => __('Unpaid'),
             'cancelled' => __('Cancelled'),
         ];
     @endphp
     <div class="mb-4 flex flex-wrap items-center gap-1 border-b border-chrome-200">
         @foreach ($tabs as $key => $label)
-            @php $n = $key === 'all' ? $totalCount : (int) $counts->get($key, 0); @endphp
+            @php $n = match ($key) {
+                'all' => $totalCount,
+                'unpaid' => $unpaidCount,
+                default => (int) $counts->get($key, 0),
+            }; @endphp
             <button wire:click="$set('tab', '{{ $key }}')"
                 class="-mb-px flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium {{ $tab === $key ? 'border-primary-600 text-primary-700' : 'border-transparent text-chrome-500 hover:text-chrome-800' }}">
                 {{ $label }}

@@ -34,7 +34,7 @@ final class Bookings extends Component
     use GuardsModelAccess;
     use WithPagination;
 
-    /** all | queue | confirmed | active | completed | cancelled */
+    /** all | queue | confirmed | active | completed | unpaid | cancelled */
     #[Url]
     public string $tab = 'all';
 
@@ -922,6 +922,7 @@ final class Bookings extends Component
             ]),
             'counts' => $counts,
             'totalCount' => (int) $counts->sum(),
+            'unpaidCount' => $rows->unpaidCount(),
             'carOptions' => $this->assigningId !== null ? $this->carOptions() : [],
             'driverOptions' => $this->assigningId !== null ? $this->driverOptions() : [],
             'assigningLeg' => $this->assigningId !== null

@@ -444,18 +444,18 @@
                 <div class="mt-4 space-y-4">
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Car') }}</label>
-                        <select wire:model="assignCar" class="o-input w-full">
-                            <option value="">{{ count($carOptions) ? __('— Select —') : __('No cars available') }}</option>
-                            @foreach ($carOptions as $opt)<option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>@endforeach
-                        </select>
+                        <x-searchable-select wire:model="assignCar" class="o-input w-full"
+                            :options="$carOptions"
+                            :empty="__('No cars available')"
+                            :search-placeholder="__('Search plate or model…')" />
                         @error('assignCar') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Driver') }}</label>
-                        <select wire:model="assignDriver" class="o-input w-full">
-                            <option value="">{{ count($driverOptions) ? __('— Select —') : __('No drivers available') }}</option>
-                            @foreach ($driverOptions as $opt)<option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>@endforeach
-                        </select>
+                        <x-searchable-select wire:model="assignDriver" class="o-input w-full"
+                            :options="$driverOptions"
+                            :empty="__('No drivers available')"
+                            :search-placeholder="__('Search driver…')" />
                         @error('assignDriver') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         {{-- Same people drive for both apps, so the list is shared. --}}
                         <p class="mt-1 text-xs text-chrome-500">

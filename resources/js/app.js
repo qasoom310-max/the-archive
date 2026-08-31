@@ -370,4 +370,131 @@ document.addEventListener('alpine:init', () => {
             });
         },
     }));
+
+    /**
+     * A <select> you can type into.
+     *
+     * Some of these lists run to hundreds — every customer, every car — and a
+     * plain select leaves you scrolling for a name you already know. This puts a
+     * search box over the list and filters as you type.
+     *
+     * It does NOT replace the select. The real control stays in the DOM with its
+     * `wire:model` untouched, and this only reads it and writes back to it, so
+     * every modifier (.live, .blur, nested keys like `legs.0.car_id`) behaves
+     * exactly as before and validation still targets the same field. The picker
+     * is an enhancement over a working control, not a replacement for one.
+     *
+     * The options are read FROM the select rather than passed in a second time,
+     * so a Livewire re-render that changes them needs no other channel to say so.
+     */
+    window.Alpine.data('searchableSelect', () => ({
+        open: false,
+        query: '',
+        label: '',
+        options: [],
+        active: 0,
+        observer: null,
+
+        init() {
+            this.sync();
+
+            // Livewire re-renders patch the option list and the chosen value
+            // straight into the DOM without firing `change`, so watch the
+            // control itself — otherwise the button goes on showing a name that
+            // is no longer selected.
+            this.observer = new MutationObserver(() => this.sync());
+            this.observer.observe(this.$refs.native, {
+                childList: true, subtree: true, attributes: true, characterData: true,
+            });
+
+            this.$refs.native.addEventListener('change', () => this.sync());
+        },
+
+        destroy() {
+            this.observer?.disconnect();
+        },
+
+        /** Re-read the native control: its options, and which one is on. */
+        sync() {
+            const native = this.$refs.native;
+
+            this.options = Array.from(native.options)
+                // The leading blank is the placeholder, offered as "clear"
+                // rather than as something to search for.
+                .filter((option) => option.value !== '')
+                .map((option) => ({ value: option.value, label: option.textContent.trim() }));
+
+            const chosen = native.selectedOptions[0];
+            this.label = chosen && chosen.value !== '' ? chosen.textContent.trim() : '';
+        },
+
+        get matches() {
+            const query = this.query.trim().toLowerCase();
+            if (query === '') return this.options;
+
+            // Every word has to appear somewhere, so "ahmed 973" finds a person
+            // by name and number at once without them being typed adjacently.
+            const words = query.split(/\s+/);
+
+            return this.options.filter((option) => {
+                const haystack = option.label.toLowerCase();
+
+                return words.every((word) => haystack.includes(word));
+            });
+        },
+
+        show() {
+            this.sync();
+            this.query = '';
+            this.active = 0;
+            this.open = true;
+            this.$nextTick(() => this.$refs.search?.focus());
+        },
+
+        close() {
+            this.open = false;
+            this.query = '';
+        },
+
+        toggle() {
+            this.open ? this.close() : this.show();
+        },
+
+        /** Write the choice to the real control, and let Livewire hear it. */
+        pick(value) {
+            const native = this.$refs.native;
+            native.value = value;
+
+            // Livewire is bound to the control, so it listens for the events a
+            // person operating one would raise.
+            native.dispatchEvent(new Event('input', { bubbles: true }));
+            native.dispatchEvent(new Event('change', { bubbles: true }));
+
+            this.sync();
+            this.close();
+            this.$refs.button?.focus();
+        },
+
+        clear() {
+            this.pick('');
+        },
+
+        move(step) {
+            const count = this.matches.length;
+            if (count === 0) return;
+
+            this.active = (this.active + step + count) % count;
+
+            this.$nextTick(() => {
+                this.$refs.list
+                    ?.querySelector('[data-active="true"]')
+                    ?.scrollIntoView({ block: 'nearest' });
+            });
+        },
+
+        choose() {
+            const option = this.matches[this.active];
+            if (option) this.pick(option.value);
+        },
+    }));
 });

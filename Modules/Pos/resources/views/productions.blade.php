@@ -30,12 +30,9 @@
                 <p class="mb-4 text-xs text-chrome-400">{{ __('Release finished bottles from the store to the shop so the register can sell them.') }}</p>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Product') }}</label>
-                    <select wire:model.live="move_product_id" class="o-input w-full">
-                        <option value="">{{ __('— Select —') }}</option>
-                        @foreach ($stocked as $p)
-                            <option value="{{ $p->id }}">{{ $p->name }} · {{ __('store') }} {{ $num($p->store_stock) }}</option>
-                        @endforeach
-                    </select>
+                    <x-searchable-select wire:model.live="move_product_id" class="o-input w-full"
+                        :options="collect($stocked)->map(fn ($p) => ['value' => $p->id, 'label' => $p->name . ' · ' . __('store') . ' ' . $num($p->store_stock)])->all()"
+                        :search-placeholder="__('Search product…')" />
                     @error('move_product_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
                 @if ($move_product_id && $productionOptions->isNotEmpty())
@@ -62,12 +59,9 @@
                     <p class="mb-3 text-xs text-chrome-400">{{ __('Pull bottles off the register back into the store — e.g. to return a run’s bottles so it can be reopened or reversed.') }}</p>
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Product') }}</label>
-                        <select wire:model="back_product_id" class="o-input w-full">
-                            <option value="">{{ __('— Select —') }}</option>
-                            @foreach ($stocked as $p)
-                                <option value="{{ $p->id }}">{{ $p->name }} · {{ __('shop') }} {{ $num($p->stock_on_hand) }}</option>
-                            @endforeach
-                        </select>
+                        <x-searchable-select wire:model="back_product_id" class="o-input w-full"
+                            :options="collect($stocked)->map(fn ($p) => ['value' => $p->id, 'label' => $p->name . ' · ' . __('shop') . ' ' . $num($p->stock_on_hand)])->all()"
+                            :search-placeholder="__('Search product…')" />
                         @error('back_product_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div class="mt-3">
@@ -87,12 +81,9 @@
                         <p class="mb-3 text-xs text-chrome-400">{{ __('Take bottles entered by mistake out of the store. Materials are not returned — to also put them back, delete the production run instead.') }}</p>
                         <div>
                             <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Product') }}</label>
-                            <select wire:model="remove_product_id" class="o-input w-full">
-                                <option value="">{{ __('— Select —') }}</option>
-                                @foreach ($stocked as $p)
-                                    <option value="{{ $p->id }}">{{ $p->name }} · {{ __('store') }} {{ $num($p->store_stock) }}</option>
-                                @endforeach
-                            </select>
+                            <x-searchable-select wire:model="remove_product_id" class="o-input w-full"
+                                :options="collect($stocked)->map(fn ($p) => ['value' => $p->id, 'label' => $p->name . ' · ' . __('store') . ' ' . $num($p->store_stock)])->all()"
+                                :search-placeholder="__('Search product…')" />
                             @error('remove_product_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
                         <div class="mt-3">

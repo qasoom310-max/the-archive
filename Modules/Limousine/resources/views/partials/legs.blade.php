@@ -96,10 +96,10 @@
                 @if ($showCar ?? true)
                     <div>
                         <label class="{{ $lbl }}">{{ __('Car') }}</label>
-                        <select wire:model="legs.{{ $i }}.car_id" class="o-input w-full">
-                            <option value="">{{ count($carOptions) ? __('— Select —') : __('No cars available') }}</option>
-                            @foreach ($carOptions as $opt)<option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>@endforeach
-                        </select>
+                        <x-searchable-select wire:model="legs.{{ $i }}.car_id" class="o-input w-full"
+                            :options="$carOptions"
+                            :empty="__('No cars available')"
+                            :search-placeholder="__('Search plate or model…')" />
                         @error('legs.'.$i.'.car_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                 @endif

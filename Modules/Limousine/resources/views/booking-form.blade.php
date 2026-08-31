@@ -54,11 +54,16 @@
                         {{ __('New customer') }}
                     </button>
                 </div>
-                {{-- .live so picking a customer fills the passenger block straight away --}}
-                <select wire:model.live="customer_id" class="o-input w-full">
-                    <option value="">{{ __('— Select —') }}</option>
-                    @foreach ($customers as $c)<option value="{{ $c->id }}">{{ $c->name }}{{ $c->phone ? ' · ' . $c->phone : '' }}</option>@endforeach
-                </select>
+                {{-- .live so picking a customer fills the passenger block straight
+                     away. Searchable because this is every customer there has ever
+                     been: scrolling to a name you already know is not a way to
+                     pick it. --}}
+                <x-searchable-select wire:model.live="customer_id" class="o-input w-full"
+                    :options="collect($customers)->map(fn ($c) => [
+                        'value' => $c->id,
+                        'label' => $c->name . ($c->phone ? ' · ' . $c->phone : ''),
+                    ])->all()"
+                    :search-placeholder="__('Search name or number…')" />
                 @error('customer_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
             <div>

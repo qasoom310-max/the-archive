@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Limousine\Models;
 
 use App\Erp\Contracts\DefinesIrModel;
+use App\Erp\Contracts\TakesCouponCredit;
 use App\Erp\Registry\FieldDefinition;
 use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
@@ -57,7 +58,7 @@ use Illuminate\Support\Carbon;
  * @property-read LimoLocation|null $dropoffLocation
  * @property-read \Illuminate\Database\Eloquent\Collection<int, LimoLeg> $legs
  */
-final class LimoBooking extends Model implements DefinesIrModel
+final class LimoBooking extends Model implements DefinesIrModel, TakesCouponCredit
 {
     use \App\Models\Concerns\HasReference;
 
@@ -156,6 +157,30 @@ final class LimoBooking extends Model implements DefinesIrModel
 
         $this->fare = $total;
         $this->amount = $total;
+    }
+
+    /* ── Credit (see TakesCouponCredit) ─────────────────────────────────── */
+
+    public function couponBalanceDue(): float
+    {
+        return $this->balanceDue();
+    }
+
+    /**
+     * Credit lands on the advance, the same field a cash payment lands on, so
+     * "paid" settles through one path rather than learning a second way to
+     * become true.
+     */
+    public function applyCouponCredit(float $amount): void
+    {
+        $this->advance = round((float) $this->advance + $amount, 3);
+        $this->save();
+        $this->syncPaymentFromAdvance();
+    }
+
+    public function couponReference(): string
+    {
+        return (string) ($this->reference ?? '');
     }
 
     /** Net booking amount = the grand total across all legs. */

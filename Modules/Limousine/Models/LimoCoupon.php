@@ -26,6 +26,10 @@ use Illuminate\Support\Carbon;
  * @property float $amount
  * @property Carbon|null $expires_at
  * @property string|null $note
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property Carbon|null $sent_at
+ * @property string|null $sent_to
  * @property int|null $user_id
  */
 final class LimoCoupon extends Model
@@ -39,6 +43,7 @@ final class LimoCoupon extends Model
     protected $fillable = [
         'code', 'limo_booking_id', 'limo_leg_id', 'leg_reference',
         'customer_id', 'amount', 'expires_at', 'note', 'user_id',
+        'sent_at', 'sent_to',
     ];
 
     /**
@@ -52,6 +57,7 @@ final class LimoCoupon extends Model
             'customer_id' => 'integer',
             'amount' => 'float',
             'expires_at' => 'datetime',
+            'sent_at' => 'datetime',
             'user_id' => 'integer',
         ];
     }

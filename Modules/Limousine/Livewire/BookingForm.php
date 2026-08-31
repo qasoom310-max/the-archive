@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Limousine\Livewire;
 
 use App\Erp\Security\Permission;
+use App\Erp\Views\ValueFormat;
 use App\Livewire\Concerns\GuardsModelAccess;
 use App\Livewire\Concerns\ScrollsToFirstError;
 use Closure;
@@ -126,7 +127,34 @@ final class BookingForm extends Component
         }
 
         $this->prepared_by = $this->currentUserName();
+        $this->seedCoupon();
         $this->seedLegs();
+    }
+
+    /**
+     * Arrived here from a coupon — "use this credit".
+     *
+     * The code and the customer travel in the URL so neither is retyped, and a
+     * mistyped code cannot lose the customer their credit. New bookings only:
+     * opening an EXISTING one with ?coupon= in the address must not quietly
+     * rewrite who it is for.
+     */
+    private function seedCoupon(): void
+    {
+        if ($this->id !== null) {
+            return;
+        }
+
+        $code = trim((string) request()->query('coupon', ''));
+        if ($code !== '') {
+            $this->couponCode = $code;
+        }
+
+        $customer = (int) request()->query('customer', 0);
+        if ($customer > 0 && LimoCustomer::query()->whereKey($customer)->exists()) {
+            $this->customer_id = $customer;
+            $this->updatedCustomerId();
+        }
     }
 
     /**
@@ -248,14 +276,57 @@ final class BookingForm extends Component
         $booking->syncPaymentFromAdvance();
         $this->payment_status = $booking->payment_status;
 
+        // A coupon carried in from the Refund coupons page is spent HERE, once
+        // there is a priced booking for it to come off. Applying it any earlier
+        // would be crediting a fare that did not exist yet.
+        $creditNote = $this->spendCarriedCoupon($booking);
+
         // Confirm with the REFERENCES rather than just "saved": they are what
         // the office quotes to the customer, and a multi-leg booking produces
         // one per trip — so name them all, not only the booking's own number.
         $refs = $booking->legs()->orderBy('sequence')->pluck('reference')
             ->filter()->map(static fn ($r): string => (string) $r)->all();
 
-        session()->flash('toast', $this->savedMessage($wasNew, $refs));
+        session()->flash('toast', trim($this->savedMessage($wasNew, $refs) . ' ' . $creditNote));
         $this->redirect('/app/limousine/booking', navigate: true);
+    }
+
+    /**
+     * Spend the coupon this booking was started from, if there was one.
+     *
+     * Runs once the fare exists, because credit comes off a bill and there was
+     * no bill until now. Says what happened in the same breath as "saved" —
+     * silently applying somebody's credit, or silently failing to, are both
+     * worse than a sentence about it.
+     */
+    private function spendCarriedCoupon(LimoBooking $booking): string
+    {
+        $code = trim($this->couponCode);
+        if ($code === '') {
+            return '';
+        }
+
+        $redeemer = app(CouponRedeemer::class);
+        $result = $redeemer->apply($code, $booking);
+
+        // Cleared either way: applied, it is spent; refused, it should not be
+        // silently retried the next time this form is saved.
+        $this->couponCode = '';
+
+        if ($result['ok'] !== true) {
+            return (string) __('Coupon :code not applied — :why', [
+                'code' => $code,
+                'why' => $redeemer->errorMessage((string) ($result['error'] ?? '')),
+            ]);
+        }
+
+        $this->payment_status = (string) $booking->fresh()->payment_status;
+
+        return (string) __('Coupon :code applied: :amount off, :left left on it.', [
+            'code' => $code,
+            'amount' => ValueFormat::money((float) ($result['applied'] ?? 0)),
+            'left' => ValueFormat::money((float) ($result['remaining'] ?? 0)),
+        ]);
     }
 
     /**

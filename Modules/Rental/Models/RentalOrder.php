@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Rental\Models;
 
 use App\Erp\Contracts\DefinesIrModel;
+use App\Erp\Contracts\TakesCouponCredit;
 use App\Erp\Registry\FieldDefinition;
 use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
@@ -89,7 +90,7 @@ use Illuminate\Support\Carbon;
  * @property-read Driver|null $driver
  * @property-read Branch|null $branch
  */
-final class RentalOrder extends Model implements DefinesIrModel
+final class RentalOrder extends Model implements DefinesIrModel, TakesCouponCredit
 {
     use \App\Models\Concerns\HasReference;
 
@@ -285,6 +286,30 @@ final class RentalOrder extends Model implements DefinesIrModel
      * Amount (subtotal) → less Discount → + VAT (vat_rate %) → + delivery =
      * Net Total; Balance = Net Total − Advance.
      */
+    /* ── Credit (see TakesCouponCredit) ─────────────────────────────────── */
+
+    public function couponBalanceDue(): float
+    {
+        return round(max(0.0, $this->total - $this->advance_amount), 3);
+    }
+
+    /**
+     * Credit lands on the advance, the same field a cash payment lands on, so
+     * the balance and the payment status settle through recalcTotals() exactly
+     * as they would for money over the counter.
+     */
+    public function applyCouponCredit(float $amount): void
+    {
+        $this->advance_amount = round($this->advance_amount + $amount, 3);
+        $this->recalcTotals();
+        $this->save();
+    }
+
+    public function couponReference(): string
+    {
+        return (string) ($this->reference ?? '');
+    }
+
     public function recalcTotals(): void
     {
         $this->days = $this->durationDays();

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use Modules\Limousine\Http\Controllers\CouponVoucherController;
 use Modules\Limousine\Http\Controllers\LimoQueueExportController;
 use Modules\Limousine\Http\Controllers\LimoReportExportController;
 use Modules\Limousine\Http\Controllers\ServiceOrderController;
@@ -80,6 +81,9 @@ Route::middleware('auth')->group(function (): void {
 
     // Refund coupons — credit from cancelled trips, and how much of each is left.
     Route::get('/app/limousine/coupon', Coupons::class)->name('limousine.coupon.index');
+    // The customer's copy, handed over or emailed by the office.
+    Route::get('/app/limousine/coupon/{coupon}/pdf', CouponVoucherController::class)
+        ->whereNumber('coupon')->name('limousine.coupon.pdf');
 
     // Quotations.
     Route::get('/app/limousine/quotation', Quotations::class)->name('limousine.quotation.index');

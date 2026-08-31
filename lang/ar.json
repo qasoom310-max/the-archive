@@ -6,6 +6,7 @@
     "+ Add stage": "+ إضافة مرحلة",
     "+ Add task": "+ إضافة مهمة",
     "1–31 (optional)": "1–31 (اختياري)",
+    ":amount comes off this booking. Taken from the coupon when you save.": "يُخصم :amount من هذا الحجز. ويُسحب من القسيمة عند الحفظ.",
     ":amount received. :balance still owed on this booking.": "تم استلام :amount. ما زال مستحقاً :balance على هذا الحجز.",
     ":amount received. This booking is settled in full.": "تم استلام :amount. تمت تسوية هذا الحجز بالكامل.",
     ":count awaiting your approval": ":count بانتظار موافقتك",

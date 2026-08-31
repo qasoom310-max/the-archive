@@ -18,6 +18,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Limousine\Livewire\Concerns\HandlesTripLegs;
 use Modules\Limousine\Models\LimoBooking;
+use Modules\Limousine\Models\LimoCoupon;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Services\CouponRedeemer;
@@ -79,6 +80,15 @@ final class BookingForm extends Component
 
     /** Refund-coupon code being applied against this booking. */
     public string $couponCode = '';
+
+    /**
+     * The code once it has been CHECKED — real, unexpired, with a balance.
+     *
+     * Separate from what is typed so a half-typed code does not read as credit,
+     * and #[Locked] because it decides whose money comes off the bill.
+     */
+    #[Locked]
+    public ?string $couponAccepted = null;
 
     public string $payment_method = 'cash';
 
@@ -148,6 +158,9 @@ final class BookingForm extends Component
         $code = trim((string) request()->query('coupon', ''));
         if ($code !== '') {
             $this->couponCode = $code;
+            // Checked on arrival, so the credit is already showing against the
+            // total rather than waiting for a press of Apply.
+            $this->applyCoupon();
         }
 
         $customer = (int) request()->query('customer', 0);
@@ -301,7 +314,9 @@ final class BookingForm extends Component
      */
     private function spendCarriedCoupon(LimoBooking $booking): string
     {
-        $code = trim($this->couponCode);
+        // The CHECKED code, not whatever is sitting in the box: a half-typed
+        // one that was never applied must not be spent by pressing Save.
+        $code = trim((string) ($this->couponAccepted ?? ''));
         if ($code === '') {
             return '';
         }
@@ -312,6 +327,7 @@ final class BookingForm extends Component
         // Cleared either way: applied, it is spent; refused, it should not be
         // silently retried the next time this form is saved.
         $this->couponCode = '';
+        $this->couponAccepted = null;
 
         if ($result['ok'] !== true) {
             return (string) __('Coupon :code not applied — :why', [
@@ -337,45 +353,73 @@ final class BookingForm extends Component
      * is left on the coupon and what is still owed, so a big coupon keeps its
      * balance for the next trip and a small one just reduces the bill.
      */
+    /**
+     * Check a coupon and show what it takes off — before the booking is saved.
+     *
+     * It used to refuse on a new booking ("save it first"), which is backwards:
+     * the office is on the phone working out what the customer owes, and the
+     * answer depends on the credit. The code is CHECKED here — real, unexpired,
+     * has a balance — and the amount it would cover is shown against the total.
+     *
+     * It is not SPENT here, because there is nothing yet to spend it on: a
+     * coupon is money against a bill, and the bill does not exist until the
+     * booking is saved. Redeeming on save also means an abandoned form cannot
+     * quietly consume somebody's credit.
+     */
     public function applyCoupon(): void
     {
         $this->guardSave(false);
 
-        if ($this->id === null) {
-            $this->addError('couponCode', __('Save the booking first, then apply a coupon.'));
+        $code = trim($this->couponCode);
+        if ($code === '') {
+            $this->couponAccepted = null;
 
             return;
         }
 
-        if (trim($this->couponCode) === '') {
-            return;
-        }
+        $coupon = LimoCoupon::query()->with('redemptions')->where('code', $code)->first();
 
-        $booking = LimoBooking::query()->find($this->id);
-        if ($booking === null) {
-            return;
-        }
+        $error = match (true) {
+            $coupon === null => CouponRedeemer::ERROR_NOT_FOUND,
+            $coupon->isExpired() => CouponRedeemer::ERROR_EXPIRED,
+            $coupon->remaining() <= 0.001 => CouponRedeemer::ERROR_EMPTY,
+            default => null,
+        };
 
-        $redeemer = app(CouponRedeemer::class);
-        $result = $redeemer->apply($this->couponCode, $booking);
-
-        if (! ($result['ok'] ?? false)) {
-            $this->addError('couponCode', $redeemer->errorMessage((string) ($result['error'] ?? '')));
+        if ($error !== null) {
+            $this->couponAccepted = null;
+            $this->addError('couponCode', app(CouponRedeemer::class)->errorMessage($error));
 
             return;
         }
 
-        // Reflect the money that just landed, so the form shows the new balance
-        // without a reload.
-        $booking->refresh();
-        $this->advance = (string) $booking->advance;
-        $this->payment_status = $booking->payment_status;
-        $this->couponCode = '';
+        $this->resetErrorBag('couponCode');
+        $this->couponAccepted = $code;
+    }
 
-        session()->flash('toast', __('Coupon applied: :amount BD. Remaining on coupon: :left BD.', [
-            'amount' => number_format((float) ($result['applied'] ?? 0), 3),
-            'left' => number_format((float) ($result['remaining'] ?? 0), 3),
-        ]));
+    /**
+     * What the accepted coupon would take off this booking, right now.
+     *
+     * Computed at render rather than stored, so it follows the legs: add a trip
+     * and a coupon that only half covered the fare covers more of the new one,
+     * without anybody pressing Apply again.
+     */
+    public function couponCredit(): float
+    {
+        if ($this->couponAccepted === null) {
+            return 0.0;
+        }
+
+        $coupon = LimoCoupon::query()->with('redemptions')->where('code', $this->couponAccepted)->first();
+        if ($coupon === null || ! $coupon->isUsable()) {
+            return 0.0;
+        }
+
+        $owed = max(0.0, $this->grandTotal() - (float) ($this->advance === '' ? '0' : $this->advance));
+
+        // Never more than is owed, never more than is left — the same rule the
+        // redeemer applies when it actually spends it.
+        return round(min($coupon->remaining(), $owed), 3);
     }
 
     /**
@@ -570,7 +614,11 @@ final class BookingForm extends Component
             'customers' => LimoCustomer::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'phone']),
             'bookingTypes' => LimoBooking::bookingTypeOptions(),
             'paymentMethods' => LimoBooking::paymentMethodOptions(),
-            'balance' => round(max(0.0, $grand - (float) ($this->advance === '' ? '0' : $this->advance)), 3),
+            // Balance is what the customer actually hands over, so the credit
+            // comes off it here — the point of checking a coupon before saving
+            // is to be able to say that number down the phone.
+            'couponCredit' => $credit = $this->couponCredit(),
+            'balance' => round(max(0.0, $grand - (float) ($this->advance === '' ? '0' : $this->advance) - $credit), 3),
             'isEditing' => $this->id !== null,
             ...$this->legViewData(),
         ]);

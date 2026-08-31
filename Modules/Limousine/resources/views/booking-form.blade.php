@@ -134,11 +134,23 @@
                      applying it raises the advance and the balance falls through the
                      same path a cash payment takes. --}}
                 <div class="mt-2 flex gap-2">
-                    <input type="text" wire:model="couponCode" class="o-input w-full text-sm"
+                    <input type="text" wire:model="couponCode" wire:keydown.enter.prevent="applyCoupon"
+                           class="o-input w-full text-sm"
                            placeholder="{{ __('Refund coupon code') }}">
                     <button type="button" wire:click="applyCoupon" class="o-btn-ghost shrink-0 text-sm">{{ __('Apply') }}</button>
                 </div>
                 @error('couponCode') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                {{-- Checked, and showing against the total. It is taken off the
+                     coupon when the booking is saved — there is no bill to take
+                     it off before then, and an abandoned form must not quietly
+                     consume somebody's credit. --}}
+                @if ($couponCredit > 0)
+                    <p class="mt-1 text-xs font-medium text-emerald-700">
+                        {{ __(':amount comes off this booking. Taken from the coupon when you save.', [
+                            'amount' => \App\Erp\Views\ValueFormat::money($couponCredit),
+                        ]) }}
+                    </p>
+                @endif
                 <p class="mt-1 text-[11px]">
                     <a href="{{ url('/app/limousine/coupon') }}" class="text-primary-700 hover:underline">{{ __('Refund coupons') }}</a>
                 </p>
@@ -164,6 +176,12 @@
         <dl class="mt-4 space-y-2 border-t border-chrome-100 pt-4 text-sm">
             <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Grand total') }} <span class="text-chrome-400">· {{ count($legs) }} {{ __('leg(s)') }}</span></dt><dd class="text-lg font-bold text-chrome-900">{{ \App\Erp\Views\ValueFormat::money($grandTotal) }}</dd></div>
             <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Advance') }}</dt><dd class="text-chrome-600">− {{ \App\Erp\Views\ValueFormat::money((float) ($advance === '' ? '0' : $advance)) }}</dd></div>
+            @if ($couponCredit > 0)
+                <div class="flex justify-between">
+                    <dt class="text-chrome-500">{{ __('Coupon') }} <span class="text-chrome-400">· {{ $couponAccepted }}</span></dt>
+                    <dd class="font-medium text-emerald-700">− {{ \App\Erp\Views\ValueFormat::money($couponCredit) }}</dd>
+                </div>
+            @endif
             <div class="flex items-center justify-between rounded-lg bg-primary-50 px-3 py-2"><dt class="font-semibold text-primary-800">{{ __('Balance') }}</dt><dd class="text-base font-bold text-primary-700">{{ \App\Erp\Views\ValueFormat::money($balance) }}</dd></div>
         </dl>
 

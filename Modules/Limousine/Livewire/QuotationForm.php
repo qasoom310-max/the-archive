@@ -27,6 +27,14 @@ use Modules\Limousine\Models\LimoQuotation;
 #[Title('Quotation')]
 final class QuotationForm extends Component
 {
+    public const VALIDITY_WEEK = 'week';
+
+    public const VALIDITY_MONTH = 'month';
+
+    public const VALIDITY_YEAR = 'year';
+
+    public const VALIDITY_CUSTOM = 'custom';
+
     use GuardsModelAccess;
     use ScrollsToFirstError;
 
@@ -67,6 +75,18 @@ final class QuotationForm extends Component
 
     public string $valid_until = '';
 
+    /**
+     * How long the quote stands, as a choice rather than a date to work out.
+     *
+     * "Valid for a month" is what the office decides; 07-Oct-2026 is only what
+     * that comes to. So the periods are the buttons and the date follows them,
+     * with `custom` for the times a customer asks for a particular day.
+     *
+     * Not stored — the DATE is the record. This only says how it was arrived at,
+     * which is why re-opening a quote works it back out from the date.
+     */
+    public string $validity = self::VALIDITY_WEEK;
+
     public string $notes = '';
 
     public string $status = LimoQuotation::STATUS_DRAFT;
@@ -101,6 +121,7 @@ final class QuotationForm extends Component
                 $this->notes = $quote->notes ?? '';
                 $this->status = $quote->status;
                 $this->booking_id = $quote->booking_id;
+                $this->validity = $this->validityFromDates();
                 $this->loadLegs($quote);
 
                 return;
@@ -111,6 +132,89 @@ final class QuotationForm extends Component
         $this->valid_until = now()->addWeek()->format('Y-m-d');
         $this->prepared_by = $this->currentUserName();
         $this->seedLegs();
+    }
+
+    /**
+     * Choose how long the quote stands, and set the date to match.
+     *
+     * Measured from the QUOTE's date, not today: a quote dated last week that
+     * is good for a month runs out a month after it was written, not a month
+     * after somebody happened to open it.
+     */
+    public function setValidity(string $period): void
+    {
+        if ($period === self::VALIDITY_CUSTOM) {
+            $this->validity = self::VALIDITY_CUSTOM;
+
+            return;
+        }
+
+        if (! in_array($period, [self::VALIDITY_WEEK, self::VALIDITY_MONTH, self::VALIDITY_YEAR], true)) {
+            return;
+        }
+
+        $this->validity = $period;
+        $this->valid_until = $this->addPeriod($this->validFrom(), $period)->format('Y-m-d');
+    }
+
+    /** A period re-measures itself when the quote's own date moves. */
+    public function updatedQuoteDate(): void
+    {
+        if ($this->validity !== self::VALIDITY_CUSTOM) {
+            $this->setValidity($this->validity);
+        }
+    }
+
+    /** Typing a date by hand is the custom case, by definition. */
+    public function updatedValidUntil(): void
+    {
+        $this->validity = self::VALIDITY_CUSTOM;
+    }
+
+    /**
+     * One period on, without rolling over the end of a month.
+     *
+     * A plain "+1 month" from the 31st of August lands on the 1st of October,
+     * because the 31st of September does not exist — so a quote written on the
+     * 31st would claim a day more than the month it was given. The 30th is what
+     * "a month" means here.
+     */
+    private function addPeriod(Carbon $from, string $period): Carbon
+    {
+        return match ($period) {
+            self::VALIDITY_MONTH => $from->addMonthNoOverflow(),
+            self::VALIDITY_YEAR => $from->addYearNoOverflow(),
+            default => $from->addWeek(),
+        };
+    }
+
+    private function validFrom(): Carbon
+    {
+        return $this->quote_date !== ''
+            ? Carbon::parse($this->quote_date)
+            : Carbon::now();
+    }
+
+    /**
+     * Work out which period an existing quote was written with, so re-opening
+     * it shows the button that was pressed rather than always saying custom.
+     */
+    private function validityFromDates(): string
+    {
+        if ($this->quote_date === '' || $this->valid_until === '') {
+            return self::VALIDITY_CUSTOM;
+        }
+
+        $from = Carbon::parse($this->quote_date);
+        $until = $this->valid_until;
+
+        foreach ([self::VALIDITY_WEEK, self::VALIDITY_MONTH, self::VALIDITY_YEAR] as $period) {
+            if ($this->addPeriod($from->copy(), $period)->format('Y-m-d') === $until) {
+                return $period;
+            }
+        }
+
+        return self::VALIDITY_CUSTOM;
     }
 
     /**
@@ -287,6 +391,9 @@ final class QuotationForm extends Component
         return view('limousine::quotation-form', [
             'customers' => LimoCustomer::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'phone']),
             'isEditing' => $this->id !== null,
+            'validUntilLabel' => $this->valid_until !== ''
+                ? Carbon::parse($this->valid_until)->isoFormat('DD-MMM-YYYY')
+                : '—',
             ...$this->legViewData(),
         ]);
     }

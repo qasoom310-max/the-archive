@@ -42,7 +42,7 @@
                         onclick="window.location='{{ url('/app/limousine/invoice/' . $invoice->id) }}'">
                         <td class="px-4 py-2 font-medium text-chrome-800">{{ $invoice->reference }}</td>
                         <td class="px-4 py-2 text-chrome-700">{{ $invoice->customer?->name ?? '—' }}</td>
-                        <td class="px-4 py-2 text-chrome-600">{{ $invoice->issue_date?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
+                        <td class="px-4 py-2 text-chrome-600">{{ $invoice->issue_date?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($invoice->total) }}</td>
                         <td class="px-4 py-2 text-end text-emerald-700">{{ \App\Erp\Views\ValueFormat::money($invoice->amount_paid) }}</td>
                         <td class="px-4 py-2 text-end text-chrome-700">{{ \App\Erp\Views\ValueFormat::money($invoice->balance()) }}</td>

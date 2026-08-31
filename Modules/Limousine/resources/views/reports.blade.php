@@ -68,7 +68,7 @@
                             <td class="px-4 py-2 font-medium text-chrome-800">{{ $b->reference }}</td>
                             <td class="px-4 py-2 text-chrome-700">{{ $b->customer?->name ?? '—' }}</td>
                             <td class="px-4 py-2 text-chrome-600">{{ $b->pickupLocation?->name ?? '—' }} → {{ $b->dropoffLocation?->name ?? '—' }}</td>
-                            <td class="px-4 py-2 text-chrome-600">{{ $b->pickup_at?->isoFormat('MMM D, h:mm A') ?? '—' }}</td>
+                            <td class="px-4 py-2 text-chrome-600">{{ $b->pickup_at?->isoFormat('DD-MMM, h:mm A') ?? '—' }}</td>
                             <td class="px-4 py-2 text-chrome-600">{{ __(ucfirst($b->status)) }}</td>
                             <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($b->fare) }}</td>
                         </tr>

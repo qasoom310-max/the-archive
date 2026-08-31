@@ -25,7 +25,7 @@
 </head>
 <body>
     <h1>{{ __('Salary Slip') }}</h1>
-    <p class="muted">{{ $monthLabel }} @if ($paidOn) · {{ __('Paid') }} {{ $paidOn->isoFormat('YYYY-MM-DD') }} @endif</p>
+    <p class="muted">{{ $monthLabel }} @if ($paidOn) · {{ __('Paid') }} {{ $paidOn->isoFormat('DD-MMM-YYYY') }} @endif</p>
 
     <div class="box">
         <table>
@@ -62,7 +62,7 @@
 
     <p class="muted" style="margin-top:18px">
         {{ __('Overtime is paid per Bahrain rates: day 7 AM–7 PM ×1.2, night 7 PM–7 AM ×1.5. Hourly rate = basic ÷ 240.') }}<br>
-        {{ __('Generated') }}: {{ $generatedAt->isoFormat('YYYY-MM-DD HH:mm') }}
+        {{ __('Generated') }}: {{ $generatedAt->isoFormat('DD-MMM-YYYY HH:mm') }}
     </p>
 </body>
 </html>

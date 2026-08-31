@@ -6,8 +6,8 @@
         return match ($format) {
             'number'   => is_numeric($value) ? number_format((float) $value, 2) : (string) $value,
             'money'    => is_numeric($value) ? \App\Erp\Views\ValueFormat::money($value) : (string) $value,
-            'date'     => $value instanceof \Illuminate\Support\Carbon ? $value->isoFormat('MMM D, YYYY') : (string) $value,
-            'datetime' => $value instanceof \Illuminate\Support\Carbon ? $value->isoFormat('MMM D, YYYY HH:mm') : (string) $value,
+            'date'     => $value instanceof \Illuminate\Support\Carbon ? $value->isoFormat('DD-MMM-YYYY') : (string) $value,
+            'datetime' => $value instanceof \Illuminate\Support\Carbon ? $value->isoFormat('DD-MMM-YYYY HH:mm') : (string) $value,
             'bool'     => $value ? 'Yes' : 'No',
             default    => (string) $value,
         };

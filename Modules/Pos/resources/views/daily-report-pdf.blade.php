@@ -117,6 +117,6 @@
         <div class="muted">No active products.</div>
     @endif
 
-    <div class="foot">Generated {{ $data['generated_at']->isoFormat('MMM D, YYYY h:mm A') }} · {{ $data['venue'] }}</div>
+    <div class="foot">Generated {{ $data['generated_at']->isoFormat('DD-MMM-YYYY h:mm A') }} · {{ $data['venue'] }}</div>
 </body>
 </html>

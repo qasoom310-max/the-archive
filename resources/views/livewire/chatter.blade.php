@@ -92,7 +92,7 @@
                                     <p class="truncate text-sm font-medium text-chrome-800">{{ $activity->summary }}</p>
                                     <p class="text-xs text-chrome-500">
                                         {{ $activity->type?->name ?? 'Activity' }} ·
-                                        due {{ $activity->due_date->isoFormat('ddd, MMM D') }}
+                                        due {{ $activity->due_date->isoFormat('ddd, DD-MMM') }}
                                         @if ($activity->user_name) · {{ $activity->user_name }} @endif
                                     </p>
                                     @if ($activity->note)

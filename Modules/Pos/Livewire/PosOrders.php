@@ -339,7 +339,7 @@ final class PosOrders extends Component
                 'type' => $order->pos_table_id !== null ? __('Dine-in') : __('Walk-in'),
                 // Shown instead of table/type on a walk-in-only shop (Restaurant off).
                 'cashier' => $order->processed_by,
-                'time' => $order->ordered_at?->isoFormat('MMM D, h:mm A') ?? '—',
+                'time' => $order->ordered_at?->isoFormat('DD-MMM, h:mm A') ?? '—',
                 'units' => $units,
                 'payment' => $methods !== '' ? $methods : '—',
                 'state' => $order->state,

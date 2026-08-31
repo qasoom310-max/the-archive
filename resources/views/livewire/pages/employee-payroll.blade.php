@@ -49,7 +49,7 @@
         <div class="mt-4 flex flex-wrap items-center gap-3 border-t border-chrome-100 pt-4">
             @if ($payslip)
                 <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                    {{ __('Paid') }} {{ $money($payslip->net) }} · {{ $payslip->paid_on?->isoFormat('MMM D') }}
+                    {{ __('Paid') }} {{ $money($payslip->net) }} · {{ $payslip->paid_on?->isoFormat('DD-MMM') }}
                 </span>
                 <a href="{{ url('/hr/employee/' . $employee->id . '/payslip?month=' . $month) }}" target="_blank" class="o-btn-primary">{{ __('Payslip PDF') }}</a>
                 <button wire:click="markPaid" class="text-sm font-medium text-chrome-600 hover:underline">{{ __('Re-finalise') }}</button>
@@ -79,7 +79,7 @@
             <tbody class="divide-y divide-chrome-100">
                 @forelse ($overtimes as $o)
                     <tr wire:key="ot-{{ $o['row']->id }}">
-                        <td class="px-4 py-2 text-chrome-700">{{ $o['row']->work_date->isoFormat('ddd, MMM D') }}</td>
+                        <td class="px-4 py-2 text-chrome-700">{{ $o['row']->work_date->isoFormat('ddd, DD-MMM') }}</td>
                         <td class="px-4 py-2 text-chrome-500">{{ $o['row']->start_time }} – {{ $o['row']->end_time }}</td>
                         <td class="px-4 py-2 text-end text-chrome-600">{{ $hrs($o['day']) }}h <span class="text-chrome-400">×1.2</span></td>
                         <td class="px-4 py-2 text-end text-chrome-600">{{ $hrs($o['night']) }}h <span class="text-chrome-400">×1.5</span></td>
@@ -112,7 +112,7 @@
             <tbody class="divide-y divide-chrome-100">
                 @forelse ($absences as $a)
                     <tr wire:key="abs-{{ $a->id }}">
-                        <td class="px-4 py-2 text-chrome-700">{{ $a->date->isoFormat('ddd, MMM D') }}</td>
+                        <td class="px-4 py-2 text-chrome-700">{{ $a->date->isoFormat('ddd, DD-MMM') }}</td>
                         <td class="px-4 py-2">
                             @if ($a->paid)
                                 <span class="inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">{{ __('Sick (paid)') }}</span>

@@ -19,8 +19,14 @@
     // the CSS `[data-accent="…"]` remaps the `primary` palette immediately (no
     // FOUC, and wire:navigate keeps the attribute).
     $accentPref = \App\Erp\Branding\Appearance::accent();
+    // Native <input type="date"> renders in the LANGUAGE TAG's format, and a
+    // bare "en" means American — 08/31/2026 for the 31st of August. Bahrain
+    // writes day/month/year, so English is served as en-GB and every date
+    // picker in the app follows without a single one being touched.
+    $lang = str_replace('_', '-', app()->getLocale());
+    $lang = $lang === 'en' ? 'en-GB' : $lang;
 @endphp
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}" data-theme="{{ $themePref }}" data-accent="{{ $accentPref }}" class="{{ $htmlClass }}">
+<html lang="{{ $lang }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}" data-theme="{{ $themePref }}" data-accent="{{ $accentPref }}" class="{{ $htmlClass }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">

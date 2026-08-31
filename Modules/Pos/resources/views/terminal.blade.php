@@ -704,7 +704,7 @@
                          instead of "18:27" — matches the format every retail
                          POS in Bahrain / Saudi prints. `isoFormat` from Carbon
                          (Moment.js tokens) — `h` is hour 1–12, `A` is AM/PM. --}}
-                    <p class="text-xs text-chrome-400">{{ $receipt->reference }} · {{ $now->isoFormat('MMM D, YYYY h:mm A') }}</p>
+                    <p class="text-xs text-chrome-400">{{ $receipt->reference }} · {{ $now->isoFormat('DD-MMM-YYYY h:mm A') }}</p>
                     @if ($receipt->partner)<p class="text-xs text-chrome-500">{{ __('Customer:') }} {{ $receipt->partner->name }}</p>@endif
                     {{-- Stored as digits-only ("97333123456"); prefix "+" so
                          it reads as an international number. Falls through

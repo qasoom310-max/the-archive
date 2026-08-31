@@ -74,7 +74,7 @@
                             @foreach ($receipts as $r)
                                 <li wire:key="lrcpt-{{ $r->id }}" class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2">
                                     <a href="{{ url('/app/limousine/receipt/' . $r->id) }}" wire:navigate class="font-medium text-primary-700 hover:underline">{{ $r->reference }}</a>
-                                    <span class="text-chrome-500">{{ $r->date?->isoFormat('MMM D, YYYY') }}</span>
+                                    <span class="text-chrome-500">{{ $r->date?->isoFormat('DD-MMM-YYYY') }}</span>
                                     <span class="text-chrome-500">{{ __(ucfirst($r->method)) }}</span>
                                     <span class="font-semibold text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($r->amount) }}</span>
                                 </li>

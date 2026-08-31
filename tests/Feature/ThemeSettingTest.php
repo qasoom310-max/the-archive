@@ -186,12 +186,15 @@ final class ThemeSettingTest extends TestCase
      * instead of editing hundreds of views — which holds only while every
      * neutral background a view uses has a counterpart in that block.
      *
-     * One did not: `group-hover:bg-chrome-50`, on the pinned Actions column of
+     * Two did not. `group-hover:bg-chrome-50`, on the pinned Actions column of
      * the trip queue. Remapping `.hover\:bg-*:hover` does nothing for it,
      * because hover driven by a PARENT compiles to a different selector — so
      * the pinned cell, which carries its own background in order to sit above
      * the row scrolling under it, was repainted from the LIGHT palette and
      * flashed white the moment the mouse crossed the row.
+     *
+     * And `disabled:bg-*`, which compiles to its own selector as well — a locked
+     * field kept the light grey and sat as a pale block in a dark form.
      *
      * Reading the stylesheet from a test is unusual, but the rule being checked
      * is that the views and that block agree, and nothing else checked it.
@@ -213,7 +216,7 @@ final class ThemeSettingTest extends TestCase
                 }
 
                 preg_match_all(
-                    '/\b(group-hover|hover):(bg-(?:white|chrome-\d+))\b/',
+                    '/\b(group-hover|hover|disabled):(bg-(?:white|chrome-\d+))\b/',
                     (string) file_get_contents($file->getPathname()),
                     $matches,
                     PREG_SET_ORDER

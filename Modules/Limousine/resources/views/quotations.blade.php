@@ -55,7 +55,7 @@
                                class="text-primary-700 hover:underline">{{ $quote->reference }}</a>
                         </td>
                         <td class="px-4 py-2 text-chrome-700">{{ $quote->customer?->name ?? '—' }}</td>
-                        <td class="px-4 py-2 text-chrome-600">{{ $quote->valid_until?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
+                        <td class="px-4 py-2 text-chrome-600">{{ $quote->valid_until?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($quote->fare) }}</td>
                         <td class="px-4 py-2">
                             <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst($quote->status)) }}</span>

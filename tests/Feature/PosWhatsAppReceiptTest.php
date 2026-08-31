@@ -362,7 +362,8 @@ final class PosWhatsAppReceiptTest extends TestCase
         // 4 positional vars now: store, ref, total, datetime — datetime
         // is index 3 after dropping the customer-name slot.
         $orderedAt = $params[3]['text'];
-        $this->assertSame('May 24, 2026 6:27 PM', $orderedAt);
+        // Day/month/year, as dates are written here.
+        $this->assertSame('24-05-2026 6:27 PM', $orderedAt);
 
         \Illuminate\Support\Carbon::setTestNow();
     }

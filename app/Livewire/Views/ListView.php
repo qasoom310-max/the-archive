@@ -706,7 +706,7 @@ final class ListView extends Component
             return null;
         }
 
-        return $start->format('M j') . ' → ' . $end->format('M j');
+        return $start->format('d-m') . ' → ' . $end->format('d-m');
     }
 
     private function columnByField(string $field): ?\App\Erp\Views\ColumnDef

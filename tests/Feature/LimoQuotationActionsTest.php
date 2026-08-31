@@ -95,6 +95,67 @@ final class LimoQuotationActionsTest extends TestCase
             ->assertSet('prepared_by', 'Hussain');
     }
 
+    /* ── How long the quote stands ───────────────────────────────────────── */
+
+    /**
+     * The office decides "a month", not "07-Oct-2026" — so the periods are the
+     * buttons and the date follows them, with a date picker for the customer
+     * who asks for a particular day.
+     */
+    public function test_a_period_sets_the_date_it_comes_to(): void
+    {
+        $form = Livewire::test(QuotationForm::class)
+            ->set('quote_date', '2026-08-31')
+            // A week is the default a new quote opens on.
+            ->assertSet('validity', 'week');
+
+        $form->call('setValidity', 'month')
+            ->assertSet('validity', 'month')
+            ->assertSet('valid_until', '2026-09-30');
+
+        $form->call('setValidity', 'year')
+            ->assertSet('validity', 'year')
+            ->assertSet('valid_until', '2027-08-31');
+
+        $form->call('setValidity', 'week')
+            ->assertSet('valid_until', '2026-09-07');
+    }
+
+    /** Measured from the QUOTE's date, not from whenever it is opened. */
+    public function test_a_period_re_measures_when_the_quote_date_moves(): void
+    {
+        Livewire::test(QuotationForm::class)
+            ->call('setValidity', 'month')
+            ->set('quote_date', '2026-01-15')
+            ->assertSet('valid_until', '2026-02-15');
+    }
+
+    /** Picking a date by hand is the custom case, and the period lets go. */
+    public function test_choosing_a_date_by_hand_is_custom(): void
+    {
+        Livewire::test(QuotationForm::class)
+            ->set('quote_date', '2026-08-31')
+            ->call('setValidity', 'month')
+            ->set('valid_until', '2026-12-25')
+            ->assertSet('validity', 'custom')
+            // And it stays put when the quote date moves.
+            ->set('quote_date', '2026-09-01')
+            ->assertSet('valid_until', '2026-12-25');
+    }
+
+    /** Re-opening a quote shows the button that was pressed, not "custom". */
+    public function test_an_existing_quote_shows_the_period_it_was_written_with(): void
+    {
+        $quote = $this->quote();
+        $quote->forceFill([
+            'quote_date' => '2026-08-31',
+            'valid_until' => '2027-08-31',
+        ])->save();
+
+        Livewire::test(QuotationForm::class, ['id' => $quote->id])
+            ->assertSet('validity', 'year');
+    }
+
     /* ── The three actions ───────────────────────────────────────────────── */
 
     public function test_the_list_offers_edit_send_and_process(): void

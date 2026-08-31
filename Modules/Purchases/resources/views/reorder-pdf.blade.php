@@ -27,7 +27,7 @@
         {{ __('To reorder') }}: {{ $summary['total'] }} ·
         {{ __('Low stock') }}: {{ $summary['low'] }} ·
         {{ __('Out of stock') }}: {{ $summary['out'] }} ·
-        {{ $generatedAt->isoFormat('YYYY-MM-DD HH:mm') }}
+        {{ $generatedAt->isoFormat('DD-MMM-YYYY HH:mm') }}
     </p>
 
     <table>

@@ -140,7 +140,7 @@
                                 <span class="block text-[11px] font-normal text-chrome-400">{{ $s->receipt_reference }}</span>
                             @endif
                         </td>
-                        <td class="px-4 py-2.5 whitespace-nowrap text-chrome-500">{{ $s->requested_at?->isoFormat('MMM D, h:mm A') ?? '—' }}</td>
+                        <td class="px-4 py-2.5 whitespace-nowrap text-chrome-500">{{ $s->requested_at?->isoFormat('DD-MMM, h:mm A') ?? '—' }}</td>
                         <td class="px-4 py-2.5 text-center tabular-nums text-chrome-600">{{ $s->orders_count }}</td>
                         <td class="px-4 py-2.5 text-end tabular-nums text-chrome-700">{{ $money($s->expected_amount) }}</td>
                         <td class="px-4 py-2.5 text-end tabular-nums font-medium text-chrome-900">
@@ -170,7 +170,7 @@
                                         class="text-xs text-red-600 hover:underline">{{ __('Cancel') }}</button>
                                 </div>
                             @elseif ($s->received_at)
-                                <span class="text-xs text-chrome-400">{{ $s->received_at->isoFormat('MMM D') }}</span>
+                                <span class="text-xs text-chrome-400">{{ $s->received_at->isoFormat('DD-MMM') }}</span>
                             @endif
                         </td>
                     </tr>

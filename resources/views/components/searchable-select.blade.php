@@ -52,12 +52,17 @@
         @endforeach
     </select>
 
+    {{-- `border px-3 py-2` on purpose: the caller's `o-input` sets the border
+         COLOUR, the rounding and the background, but the WIDTH and padding come
+         from @tailwindcss/forms, which styles real form controls — an input, a
+         select — and not a button. Without them this drew no box at all and the
+         field read as a stray line of text among bordered ones. --}}
     <button type="button" x-ref="button" x-on:click="toggle()"
             x-on:keydown.down.prevent="show()"
             @disabled($locked)
             role="combobox" aria-haspopup="listbox"
             :aria-expanded="open ? 'true' : 'false'"
-            class="{{ $control }} flex items-center justify-between gap-2 text-start disabled:cursor-not-allowed disabled:bg-chrome-100 disabled:text-chrome-500">
+            class="{{ $control }} flex items-center justify-between gap-2 border px-3 py-2 text-start disabled:cursor-not-allowed disabled:bg-chrome-100 disabled:text-chrome-500">
         <span class="truncate" :class="label === '' && 'text-chrome-400'"
               x-text="label === '' ? @js($placeholder) : label"></span>
         <svg class="size-4 shrink-0 text-chrome-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">

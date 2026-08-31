@@ -89,8 +89,34 @@
                 <input type="text" wire:model="contact_number" class="o-input w-full" placeholder="{{ __('Contact number of prepared person') }}">
             </div>
             <div>
-                <label class="{{ $lbl }}">{{ __('Valid until') }}</label>
-                <input type="date" wire:model="valid_until" class="o-input w-full">
+                <label class="{{ $lbl }}">{{ __('Valid for') }}</label>
+                {{-- The office decides "a month", not "07-Oct-2026" — so the
+                     periods are the buttons and the date follows them. Pick a
+                     date is there for the customer who asks for a given day. --}}
+                @php
+                    $periods = ['week' => __('Week'), 'month' => __('Month'), 'year' => __('Year')];
+                    $chip = 'rounded-lg border px-3 py-1.5 text-xs transition';
+                    $on = 'border-primary-500 bg-primary-50 font-medium text-primary-700';
+                    $off = 'border-chrome-200 text-chrome-600 hover:bg-chrome-50';
+                @endphp
+                <div class="mt-1 flex flex-wrap gap-1">
+                    @foreach ($periods as $key => $label)
+                        <button type="button" wire:click="setValidity('{{ $key }}')"
+                                class="{{ $chip }} {{ $validity === $key ? $on : $off }}">{{ $label }}</button>
+                    @endforeach
+                    <button type="button" wire:click="setValidity('custom')"
+                            class="{{ $chip }} {{ $validity === 'custom' ? $on : $off }}">{{ __('Pick a date') }}</button>
+                </div>
+
+                @if ($validity === 'custom')
+                    <input type="date" wire:model.live="valid_until" class="o-input mt-2 w-full">
+                @else
+                    {{-- What the period comes to, so the choice is never a guess. --}}
+                    <p class="mt-2 text-xs text-chrome-500">
+                        {{ __('Valid until') }}
+                        <span class="font-medium text-chrome-700">{{ $validUntilLabel }}</span>
+                    </p>
+                @endif
             </div>
             <div class="sm:col-span-2">
                 <label class="{{ $lbl }}">{{ __('Comments') }}</label>

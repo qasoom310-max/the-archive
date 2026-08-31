@@ -97,8 +97,8 @@
                                 <span class="text-chrome-400">—</span>
                             @endif
                         </td>
-                        <td class="px-4 py-2 text-chrome-600">{{ $order->start_date?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
-                        <td class="px-4 py-2 text-chrome-600">{{ $order->end_date?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
+                        <td class="px-4 py-2 text-chrome-600">{{ $order->start_date?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
+                        <td class="px-4 py-2 text-chrome-600">{{ $order->end_date?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($order->total) }}</td>
                         <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ $order->state === 'draft' ? __('Reservation') : __(ucfirst($order->state)) }}</span></td>
                         <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $order->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($order->payment_status)) }}</span></td>

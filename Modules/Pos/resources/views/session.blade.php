@@ -95,7 +95,7 @@
                         <div class="flex justify-between font-bold {{ ($session->cash_difference ?? 0) == 0 ? 'text-emerald-600' : 'text-red-600' }}">
                             <span>{{ __('Difference') }}</span><span>{{ $money($session->cash_difference) }}</span>
                         </div>
-                        <p class="pt-1 text-xs text-chrome-400">{{ __('Closed') }} {{ $session->closed_at?->isoFormat('MMM D, YYYY HH:mm') }}</p>
+                        <p class="pt-1 text-xs text-chrome-400">{{ __('Closed') }} {{ $session->closed_at?->isoFormat('DD-MMM-YYYY HH:mm') }}</p>
                     </div>
                 @endif
             </div>

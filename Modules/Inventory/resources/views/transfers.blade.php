@@ -57,7 +57,7 @@
                                 {{ $m->state->label() }}
                             </span>
                         </td>
-                        <td class="px-4 py-2 text-chrome-400">{{ $m->scheduled_at?->isoFormat('MMM D, HH:mm') ?? '—' }}</td>
+                        <td class="px-4 py-2 text-chrome-400">{{ $m->scheduled_at?->isoFormat('DD-MMM, HH:mm') ?? '—' }}</td>
                         <td class="px-4 py-2 text-end">
                             @if ($m->state->isOpen())
                                 @if ($canApprove)

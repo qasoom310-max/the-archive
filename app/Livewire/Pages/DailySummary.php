@@ -91,14 +91,14 @@ final class DailySummary extends Component
             $day = $base->copy()->subDays($i);
             $history[] = [
                 'date' => $day->toDateString(),
-                'label' => $day->isoFormat('ddd, MMM D'),
+                'label' => $day->isoFormat('ddd, DD-MMM'),
                 'totals' => $this->dayTotals($day->toDateString()),
             ];
         }
 
         return view('livewire.pages.daily-summary', [
             'today' => $this->dayTotals($selected),
-            'dayLabel' => $base->isoFormat('dddd, MMMM D, YYYY'),
+            'dayLabel' => $base->isoFormat('dddd, D MMMM YYYY'),
             'history' => $history,
         ]);
     }

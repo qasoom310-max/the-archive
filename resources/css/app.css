@@ -161,6 +161,12 @@
 .dark .group:hover .group-hover\:bg-chrome-50 { background-color: #23262c; }
 .dark .group:hover .group-hover\:bg-chrome-100 { background-color: #23262c; }
 
+/* A locked field, for the same reason: `disabled:bg-*` compiles to its own
+   selector too, so without these a disabled input kept the LIGHT grey and sat
+   as a pale block in an otherwise dark form. */
+.dark .disabled\:bg-chrome-50:disabled { background-color: #1a1d21; }
+.dark .disabled\:bg-chrome-100:disabled { background-color: #16181c; }
+
 /* Text */
 .dark .text-chrome-900 { color: #f3f5f7; }
 .dark .text-chrome-800 { color: #e2e5e9; }

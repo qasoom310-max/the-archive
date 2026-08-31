@@ -55,7 +55,7 @@
                         <td class="px-4 py-2 text-chrome-700">{{ $m->vehicle?->displayName() ?? '—' }}</td>
                         <td class="px-4 py-2 text-chrome-600">{{ __(ucfirst(str_replace('_', ' ', $m->type))) }}</td>
                         <td class="px-4 py-2 text-xs font-semibold uppercase {{ $pb }}">{{ __(ucfirst($m->priority)) }}</td>
-                        <td class="px-4 py-2 text-chrome-600">{{ $m->date?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
+                        <td class="px-4 py-2 text-chrome-600">{{ $m->date?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($m->cost) }}</td>
                         <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __($m->statusLabel()) }}</span></td>
                     </tr>

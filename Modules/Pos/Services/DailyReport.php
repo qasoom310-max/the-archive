@@ -227,7 +227,7 @@ final class DailyReport
             'venue' => is_string($venue) && $venue !== '' ? $venue : 'OpenERP',
             'period_start' => $start,
             'period_end' => $end,
-            'period_label' => $start->isoFormat('MMM D, YYYY h:mm A') . ' – ' . $end->isoFormat('MMM D, YYYY h:mm A'),
+            'period_label' => $start->isoFormat('DD-MMM-YYYY h:mm A') . ' – ' . $end->isoFormat('DD-MMM-YYYY h:mm A'),
             'generated_at' => Carbon::now($this->timezone()),
             'sales' => $this->sales($start, $end),
             'stock' => $this->stock(),

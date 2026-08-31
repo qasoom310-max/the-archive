@@ -125,7 +125,7 @@
                                 <span class="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
                                     {{ __('Paid') }} {{ $money($payment->amount) }}
                                 </span>
-                                <span class="ms-1 text-xs text-chrome-400">{{ $payment->paid_on->isoFormat('MMM D') }}</span>
+                                <span class="ms-1 text-xs text-chrome-400">{{ $payment->paid_on->isoFormat('DD-MMM') }}</span>
                             @else
                                 <span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">{{ __('Due') }}</span>
                             @endif

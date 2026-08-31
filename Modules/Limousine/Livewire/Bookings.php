@@ -61,6 +61,21 @@ final class Bookings extends Component
     #[Url(except: 'desc')]
     public string $dir = 'desc';
 
+    /**
+     * How many trips on a page.
+     *
+     * Ten is enough to glance at, which is what the queue is for most of the
+     * day. Five hundred is for the times somebody is going through the month
+     * properly — and being told they can only have ten is its own annoyance.
+     */
+    #[Url(except: self::PER_PAGE_DEFAULT)]
+    public int $perPage = self::PER_PAGE_DEFAULT;
+
+    public const PER_PAGE_DEFAULT = 10;
+
+    /** @var list<int> */
+    public const PER_PAGE_OPTIONS = [10, 25, 50, 100, 500];
+
     protected function accessModelKey(): string
     {
         return 'limousine.booking';
@@ -894,6 +909,17 @@ final class Bookings extends Component
         $this->advanceLeg($legId, LimoLeg::STATUS_COMPLETED);
     }
 
+    public function setPerPage(int $size): void
+    {
+        if (! in_array($size, self::PER_PAGE_OPTIONS, true)) {
+            return;
+        }
+
+        $this->perPage = $size;
+        // The row that was on page 3 of ten is on page 1 of five hundred.
+        $this->resetPage();
+    }
+
     public function updatedTab(): void
     {
         $this->resetPage();
@@ -952,7 +978,8 @@ final class Bookings extends Component
         // Rows come from LimoQueueRows, the same source the exports read, so a
         // printed sheet can never disagree with the screen.
         $rows = app(LimoQueueRows::class);
-        $legs = $rows->paginate($this->tab, $this->from, $this->to, $this->search, 20, $this->sort, $this->dir);
+        $perPage = in_array($this->perPage, self::PER_PAGE_OPTIONS, true) ? $this->perPage : self::PER_PAGE_DEFAULT;
+        $legs = $rows->paginate($this->tab, $this->from, $this->to, $this->search, $perPage, $this->sort, $this->dir);
 
         $counts = LimoLeg::query()
             ->whereMorphedTo('legable', LimoBooking::class)
@@ -982,6 +1009,7 @@ final class Bookings extends Component
             'counts' => $counts,
             'totalCount' => (int) $counts->sum(),
             'unpaidCount' => $rows->unpaidCount(),
+            'perPageOptions' => self::PER_PAGE_OPTIONS,
             'carOptions' => $this->assigningId !== null ? $this->carOptions() : [],
             'driverOptions' => $this->assigningId !== null ? $this->driverOptions() : [],
             'assigningLeg' => $this->assigningId !== null

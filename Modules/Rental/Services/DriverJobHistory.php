@@ -27,13 +27,37 @@ use Modules\Rental\Models\RentalOrder;
 final class DriverJobHistory
 {
     /**
+     * How many jobs are read from each side before merging.
+     *
+     * A working life, not a lifetime: a driver on four jobs a day fills a year
+     * with about a thousand, and this is a panel on a record rather than a
+     * report. The cap is high enough that the page never lies about a real
+     * driver, and bounded so one cannot be made to load everything.
+     */
+    public const MAX_PER_SOURCE = 1000;
+
+    /**
      * Every job for this driver, most recent first.
      *
      * @return list<JobRow>
      */
-    public function for(int $driverId, int $limit = 50): array
+    public function for(int $driverId, string $search = ''): array
     {
         $rows = [...$this->trips($driverId), ...$this->rentals($driverId)];
+
+        $term = trim($search);
+        if ($term !== '') {
+            $rows = array_values(array_filter($rows, static function (array $row) use ($term): bool {
+                // Everything the office would reach for on this panel: which job,
+                // which car, who handed it out, what became of it.
+                $haystack = mb_strtolower(implode(' ', [
+                    $row['type'], $row['reference'], $row['given_by'], $row['car'], $row['status'],
+                    $row['at']?->isoFormat('DD-MMM-YYYY HH:mm') ?? '',
+                ]));
+
+                return str_contains($haystack, mb_strtolower($term));
+            }));
+        }
 
         // One order across both sources, so the list reads as a working life
         // rather than two lists stacked. Undated jobs sink rather than sorting
@@ -52,7 +76,7 @@ final class DriverJobHistory
             return $b['at'] <=> $a['at'];
         });
 
-        return array_slice($rows, 0, $limit);
+        return $rows;
     }
 
     /**
@@ -67,7 +91,7 @@ final class DriverJobHistory
             ->where('driver_id', $driverId)
             ->with('legable')
             ->orderByDesc('start_at')
-            ->limit(50)
+            ->limit(self::MAX_PER_SOURCE)
             ->get()
             ->map(function (LimoLeg $leg): array {
                 $booking = $leg->legable instanceof LimoBooking ? $leg->legable : null;
@@ -98,7 +122,7 @@ final class DriverJobHistory
             ->where('driver_id', $driverId)
             ->with(['vehicle:id,name,plate_number', 'createdBy:id,name'])
             ->orderByDesc('start_date')
-            ->limit(50)
+            ->limit(self::MAX_PER_SOURCE)
             ->get()
             ->map(function (RentalOrder $order): array {
                 return [

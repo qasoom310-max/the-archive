@@ -86,6 +86,19 @@
             {{-- Clears the search too, so one button resets the whole filter. --}}
             <button wire:click="$set('from', ''); $set('to', ''); $set('search', '')" class="pb-2 text-sm text-chrome-500 hover:underline">{{ __('Clear') }}</button>
         @endif
+
+        {{-- Ten to glance at, five hundred for going through the month
+             properly. Rides in the URL with the filters, so a view that was
+             set up stays set up. --}}
+        <div class="flex items-center gap-1 pb-1">
+            <span class="text-xs text-chrome-500">{{ __('Show') }}</span>
+            @foreach ($perPageOptions as $size)
+                <button type="button" wire:click="setPerPage({{ $size }})"
+                        class="rounded-lg border px-2.5 py-1 text-xs transition {{ $perPage === $size ? 'border-primary-500 bg-primary-50 font-medium text-primary-700' : 'border-chrome-200 text-chrome-600 hover:bg-chrome-50' }}">
+                    {{ $size }}
+                </button>
+            @endforeach
+        </div>
     </div>
 
     {{-- Export bar. CSV / Excel / PDF / Print are server-rendered from the same

@@ -76,6 +76,15 @@ final class Bookings extends Component
     /** The chosen driver for that leg. */
     public string $assignDriver = '';
 
+    /**
+     * The dialog was opened by pressing Start trip, not by the Assign buttons.
+     *
+     * Only changes what the dialog SAYS — that naming both sends the trip out —
+     * so the office knows the press they made is still going to happen.
+     */
+    #[Locked]
+    public bool $startAfterAssign = false;
+
     /** BOOKING being quick-edited, or null when that dialog is shut. */
     #[Locked]
     public ?int $editingId = null;
@@ -186,6 +195,7 @@ final class Bookings extends Component
         $this->assigningId = null;
         $this->assignCar = '';
         $this->assignDriver = '';
+        $this->startAfterAssign = false;
     }
 
     /**
@@ -218,8 +228,20 @@ final class Bookings extends Component
             return;
         }
 
-        if ($to === LimoLeg::STATUS_ACTIVE && $leg->car_id === null) {
-            session()->flash('toast', __('Assign a car before starting the trip.'));
+        // Starting a trip IS dispatching it, and nothing goes out without a car
+        // and a driver. Rather than refuse with a note telling the office to go
+        // and do that somewhere else, open the dialog that does it — the same
+        // one the Assign car / Assign driver buttons open. saveAssign() starts
+        // the trip the moment both are named, so this button still ends where
+        // it said it would, in one place.
+        if ($to === LimoLeg::STATUS_ACTIVE && ($leg->car_id === null || $leg->driver_id === null)) {
+            $this->openAssign($legId);
+
+            // openAssign refuses a closed trip, so only follow through if it
+            // actually opened.
+            if ($this->assigningId !== null) {
+                $this->startAfterAssign = true;
+            }
 
             return;
         }
@@ -274,13 +296,26 @@ final class Bookings extends Component
         $dispatchable = in_array($leg->status, [LimoLeg::STATUS_QUEUE, LimoLeg::STATUS_CONFIRMED], true);
         $started = false;
 
-        if ($driver !== null && $dispatchable) {
-            if ($leg->car_id === null) {
-                // The pre-existing rule stands: no car, no trip. Say so instead
-                // of silently saving a driver and leaving the leg where it was.
+        // Either the office named a driver (which is itself the act of
+        // dispatching) or they pressed Start trip and were brought here to
+        // finish it. Both mean the same thing: this trip is going out.
+        $goingOut = $driver !== null || $this->startAfterAssign;
+
+        if ($goingOut && $dispatchable) {
+            // A trip needs a car and someone to drive it — both, or it does not
+            // leave. Whichever is missing is said HERE, with the dialog still
+            // open on the two pickers, rather than closing with a note that
+            // sends the office off to another button.
+            if ($car === null) {
                 $leg->save();
-                $this->closeAssign();
-                session()->flash('toast', __('Assign a car before starting the trip.'));
+                $this->addError('assignCar', __('Pick the car — a trip cannot go out without one.'));
+
+                return;
+            }
+
+            if ($driver === null) {
+                $leg->save();
+                $this->addError('assignDriver', __('Pick the driver — a trip cannot go out without one.'));
 
                 return;
             }

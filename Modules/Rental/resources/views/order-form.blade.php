@@ -271,7 +271,7 @@
                     </div>
                     <div>
                         <label class="{{ $lbl }}">{{ __('Date') }}</label>
-                        <input type="date" wire:model="order_date" class="o-input w-full">
+                        <x-date-field wire:model="order_date" class="o-input w-full" />
                     </div>
 
                     <div>
@@ -440,12 +440,12 @@
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
                         <label class="{{ $lbl }}">{{ __('Pick-up date') }} <span class="text-red-500">*</span></label>
-                        <input type="date" wire:model.live="start_date" class="o-input w-full" @unless ($canBackdate) min="{{ now()->toDateString() }}" @endunless>
+                        <x-date-field wire:model.live="start_date" class="o-input w-full" @unless ($canBackdate) min="{{ now()->toDateString() }}" @endunless />
                         @error('start_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label class="{{ $lbl }}">{{ __('Return date') }} <span class="text-red-500">*</span></label>
-                        <input type="date" wire:model.live="end_date" class="o-input w-full" @if ($start_date) min="{{ $start_date }}" @endif>
+                        <x-date-field wire:model.live="end_date" class="o-input w-full" @if ($start_date) min="{{ $start_date }}" @endif />
                         @error('end_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>

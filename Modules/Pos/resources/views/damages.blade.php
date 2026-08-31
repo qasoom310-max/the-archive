@@ -21,11 +21,11 @@
     <div class="mb-4 flex flex-wrap items-end gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
         <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('From') }}</label>
-            <input type="date" wire:model.live="from" class="o-input">
+            <x-date-field wire:model.live="from" class="o-input" />
         </div>
         <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('To') }}</label>
-            <input type="date" wire:model.live="to" class="o-input">
+            <x-date-field wire:model.live="to" class="o-input" />
         </div>
         <div>
             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Reason') }}</label>

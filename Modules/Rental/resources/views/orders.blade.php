@@ -41,11 +41,11 @@
         </div>
         <div>
             <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Pick-up from') }}</label>
-            <input type="date" wire:model.live="from" class="o-input text-sm">
+            <x-date-field wire:model.live="from" class="o-input text-sm" />
         </div>
         <div>
             <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Pick-up to') }}</label>
-            <input type="date" wire:model.live="to" class="o-input text-sm">
+            <x-date-field wire:model.live="to" class="o-input text-sm" />
         </div>
         @if ($from !== '' || $to !== '' || $search !== '')
             <button wire:click="$set('from', ''); $set('to', ''); $set('search', '')" class="text-sm text-chrome-500 hover:underline">{{ __('Clear') }}</button>

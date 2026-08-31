@@ -76,11 +76,11 @@
         </div>
         <div>
             <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Pick-up from') }}</label>
-            <input type="date" wire:model.live="from" class="o-input text-sm">
+            <x-date-field wire:model.live="from" class="o-input text-sm" />
         </div>
         <div>
             <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Pick-up to') }}</label>
-            <input type="date" wire:model.live="to" class="o-input text-sm">
+            <x-date-field wire:model.live="to" class="o-input text-sm" />
         </div>
         @if ($from !== '' || $to !== '' || $search !== '')
             {{-- Clears the search too, so one button resets the whole filter. --}}
@@ -645,7 +645,7 @@
                                     @if ($legIsChauffeur)
                                         <div>
                                             <label class="{{ $lbl }}">{{ __('Start date & time') }} *</label>
-                                            <input type="datetime-local" wire:model="editLeg.start_at" class="o-input mt-1 w-full">
+                                            <x-date-field type="datetime-local" wire:model="editLeg.start_at" class="o-input mt-1 w-full" />
                                             @error('editLeg.start_at') <p class="{{ $err }}">{{ $message }}</p> @enderror
                                         </div>
                                         <div>
@@ -669,7 +669,7 @@
                                         </div>
                                         <div>
                                             <label class="{{ $lbl }}">{{ __('Date & time') }} *</label>
-                                            <input type="datetime-local" wire:model="editLeg.start_at" class="o-input mt-1 w-full">
+                                            <x-date-field type="datetime-local" wire:model="editLeg.start_at" class="o-input mt-1 w-full" />
                                             @error('editLeg.start_at') <p class="{{ $err }}">{{ $message }}</p> @enderror
                                         </div>
                                     @endif
@@ -710,12 +710,12 @@
                         <div class="mt-3 grid gap-3 sm:grid-cols-2">
                             <div>
                                 <label class="{{ $lbl }}">{{ __('Booking from') }}</label>
-                                <input type="datetime-local" wire:model="edit.pickup_at" class="o-input mt-1 w-full">
+                                <x-date-field type="datetime-local" wire:model="edit.pickup_at" class="o-input mt-1 w-full" />
                                 @error('edit.pickup_at') <p class="{{ $err }}">{{ $message }}</p> @enderror
                             </div>
                             <div>
                                 <label class="{{ $lbl }}">{{ __('Booking to') }}</label>
-                                <input type="datetime-local" wire:model="edit.booking_to" class="o-input mt-1 w-full">
+                                <x-date-field type="datetime-local" wire:model="edit.booking_to" class="o-input mt-1 w-full" />
                                 @error('edit.booking_to') <p class="{{ $err }}">{{ $message }}</p> @enderror
                             </div>
 

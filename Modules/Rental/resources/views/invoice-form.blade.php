@@ -45,12 +45,12 @@
                     <div></div>
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Issue date') }} *</label>
-                        <input type="date" wire:model="issue_date" class="o-input w-full">
+                        <x-date-field wire:model="issue_date" class="o-input w-full" />
                         @error('issue_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Due date') }}</label>
-                        <input type="date" wire:model="due_date" class="o-input w-full">
+                        <x-date-field wire:model="due_date" class="o-input w-full" />
                     </div>
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Subtotal (BHD)') }} *</label>

@@ -300,6 +300,105 @@ document.addEventListener('alpine:init', () => {
      * unavailable over plain HTTP, so a hidden textarea + execCommand is kept as
      * the fallback for an intranet install.
      */
+    /**
+     * A date field that always reads day/month/year.
+     *
+     * A native <input type="date"> renders in the BROWSER's locale, not the
+     * page's — a machine set to US English shows 08/31/2026 for the 31st of
+     * August, and no attribute overrides it. Bahrain writes day/month/year, so
+     * the display is ours: a text box we format, over the real input we keep.
+     *
+     * The native input stays in the DOM with its wire:model untouched, holding
+     * the ISO value Livewire and the database expect. This only reads it and
+     * writes back to it, so binding, validation and storage are unchanged — and
+     * the calendar button still opens the browser's own picker.
+     */
+    window.Alpine.data('dateField', (type) => ({
+        type,
+        display: '',
+        observer: null,
+
+        init() {
+            this.sync();
+
+            // Livewire patches the value straight into the DOM without firing
+            // `change`, so watch the input itself or the box goes stale.
+            this.observer = new MutationObserver(() => this.sync());
+            this.observer.observe(this.$refs.native, { attributes: true, attributeFilter: ['value'] });
+            this.$refs.native.addEventListener('change', () => this.sync());
+        },
+
+        destroy() {
+            this.observer?.disconnect();
+        },
+
+        get withTime() {
+            return this.type === 'datetime-local';
+        },
+
+        /** ISO in the input → day/month/year on screen. */
+        sync() {
+            const raw = (this.$refs.native.value || '').trim();
+            if (raw === '') { this.display = ''; return; }
+
+            const parts = raw.split('T');
+            const ymd = parts[0].split('-');
+            if (ymd.length !== 3) { this.display = ''; return; }
+
+            const stamp = ymd[2] + '/' + ymd[1] + '/' + ymd[0];
+            this.display = this.withTime && parts[1]
+                ? stamp + ' ' + parts[1].slice(0, 5)
+                : stamp;
+        },
+
+        /** What was typed → ISO in the input, or back to what it was. */
+        commit() {
+            const typed = (this.display || '').trim();
+
+            if (typed === '') {
+                this.write('');
+                return;
+            }
+
+            // Day first, and forgiving about the separator: 31/08/2026,
+            // 31-08-2026 and 31.8.26 are the same date to a person.
+            const match = typed.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2}|\d{4})(?:[ ,]+(\d{1,2}):(\d{2}))?/);
+            if (!match) { this.sync(); return; }
+
+            const day = Number(match[1]);
+            const month = Number(match[2]);
+            const year = match[3].length === 2 ? 2000 + Number(match[3]) : Number(match[3]);
+
+            if (month < 1 || month > 12 || day < 1 || day > 31) { this.sync(); return; }
+
+            const pad = (n) => String(n).padStart(2, '0');
+            const iso = year + '-' + pad(month) + '-' + pad(day);
+
+            // Refuses the 31st of a 30-day month rather than rolling it over.
+            const probe = new Date(iso + 'T00:00:00');
+            if (probe.getDate() !== day || probe.getMonth() + 1 !== month) { this.sync(); return; }
+
+            this.write(this.withTime
+                ? iso + 'T' + pad(Number(match[4] ?? 0)) + ':' + (match[5] ?? '00')
+                : iso);
+        },
+
+        write(value) {
+            const native = this.$refs.native;
+            native.value = value;
+            // The events Livewire listens for on the control it bound to.
+            native.dispatchEvent(new Event('input', { bubbles: true }));
+            native.dispatchEvent(new Event('change', { bubbles: true }));
+            this.sync();
+        },
+
+        /** The browser's own calendar, over the input that is really there. */
+        pick() {
+            const native = this.$refs.native;
+            try { native.showPicker(); } catch (e) { native.focus(); }
+        },
+    }));
+
     window.Alpine.store('clip', {
         copy(text) {
             if (!text) return;

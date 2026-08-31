@@ -19,7 +19,7 @@
     // the CSS `[data-accent="…"]` remaps the `primary` palette immediately (no
     // FOUC, and wire:navigate keeps the attribute).
     $accentPref = \App\Erp\Branding\Appearance::accent();
-    // Native <input type="date"> renders in the LANGUAGE TAG's format, and a
+    // Native <x-date-field  /> renders in the LANGUAGE TAG's format, and a
     // bare "en" means American — 08/31/2026 for the 31st of August. Bahrain
     // writes day/month/year, so English is served as en-GB and every date
     // picker in the app follows without a single one being touched.

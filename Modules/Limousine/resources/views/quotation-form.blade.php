@@ -47,7 +47,7 @@
             @endif
             <div>
                 <label class="{{ $lbl }}">{{ __('Date') }}</label>
-                <input type="date" wire:model="quote_date" class="o-input w-full">
+                <x-date-field wire:model="quote_date" class="o-input w-full" />
             </div>
             <div class="{{ $isEditing ? '' : 'sm:col-span-2' }}">
                 <div class="mb-1 flex items-center justify-between gap-2">
@@ -109,7 +109,7 @@
                 </div>
 
                 @if ($validity === 'custom')
-                    <input type="date" wire:model.live="valid_until" class="o-input mt-2 w-full">
+                    <x-date-field wire:model.live="valid_until" class="o-input mt-2 w-full" />
                 @else
                     {{-- What the period comes to, so the choice is never a guess. --}}
                     <p class="mt-2 text-xs text-chrome-500">

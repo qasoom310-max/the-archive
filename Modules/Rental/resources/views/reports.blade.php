@@ -38,11 +38,11 @@
         <div class="mb-6 flex flex-wrap items-end gap-3">
             <div>
                 <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('From') }}</label>
-                <input type="date" wire:model.live="from" class="o-input text-sm">
+                <x-date-field wire:model.live="from" class="o-input text-sm" />
             </div>
             <div>
                 <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('To') }}</label>
-                <input type="date" wire:model.live="to" class="o-input text-sm">
+                <x-date-field wire:model.live="to" class="o-input text-sm" />
             </div>
             @if ($tab === 'orders')
                 <a href="{{ url('/app/rental/reports/orders/export?from=' . $from . '&to=' . $to) }}"

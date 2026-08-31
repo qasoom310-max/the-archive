@@ -57,7 +57,7 @@
 
             <div>
                 <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">Scheduled date</label>
-                <input type="date" wire:model="scheduledAt" class="o-input">
+                <x-date-field wire:model="scheduledAt" class="o-input" />
             </div>
         </div>
 

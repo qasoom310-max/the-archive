@@ -82,13 +82,13 @@
 
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Pick-up date') }} *</label>
-                        <input type="date" wire:model.live="start_date" class="o-input w-full">
+                        <x-date-field wire:model.live="start_date" class="o-input w-full" />
                         @error('start_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
 
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Return date') }} *</label>
-                        <input type="date" wire:model.live="end_date" class="o-input w-full">
+                        <x-date-field wire:model.live="end_date" class="o-input w-full" />
                         @error('end_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
 
@@ -119,7 +119,7 @@
 
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Valid until') }}</label>
-                        <input type="date" wire:model="valid_until" class="o-input w-full">
+                        <x-date-field wire:model="valid_until" class="o-input w-full" />
                     </div>
                 </div>
 

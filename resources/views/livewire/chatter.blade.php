@@ -55,7 +55,7 @@
                         <option value="{{ $type->id }}">{{ $type->name }}</option>
                     @endforeach
                 </select>
-                <input type="date" wire:model="activityDue" class="o-input">
+                <x-date-field wire:model="activityDue" class="o-input" />
                 <input type="text" wire:model="activitySummary" placeholder="Summary"
                     class="o-input sm:col-span-2">
                 <textarea wire:model="activityNote" rows="2" placeholder="Note (optional)"

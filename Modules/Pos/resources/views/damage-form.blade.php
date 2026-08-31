@@ -38,7 +38,7 @@
 
             <div>
                 <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Date') }} <span class="text-red-500">*</span></label>
-                <input type="date" wire:model="damagedOn" class="o-input w-full">
+                <x-date-field wire:model="damagedOn" class="o-input w-full" />
                 @error('damagedOn') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
 

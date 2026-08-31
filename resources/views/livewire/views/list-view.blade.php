@@ -189,11 +189,11 @@
                         </p>
                         <label class="mb-2 block">
                             <span class="block text-xs text-chrome-500">From</span>
-                            <input type="date" wire:model="customFrom" class="o-input mt-1 text-sm">
+                            <x-date-field wire:model="customFrom" class="o-input mt-1 text-sm" />
                         </label>
                         <label class="mb-3 block">
                             <span class="block text-xs text-chrome-500">To</span>
-                            <input type="date" wire:model="customTo" class="o-input mt-1 text-sm">
+                            <x-date-field wire:model="customTo" class="o-input mt-1 text-sm" />
                         </label>
                         <div class="flex gap-2">
                             <button type="button" @click="open = false"

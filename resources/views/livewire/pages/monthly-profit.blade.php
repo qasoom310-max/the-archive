@@ -135,7 +135,7 @@
                                 {{-- Inline mark-paid editor --}}
                                 <div class="flex items-center justify-end gap-2">
                                     <input type="number" step="0.001" min="0" wire:model="payAmount" class="o-input w-24 text-end" placeholder="{{ __('Amount') }}">
-                                    <input type="date" wire:model="payDate" class="o-input w-36">
+                                    <x-date-field wire:model="payDate" class="o-input w-36" />
                                     <button wire:click="savePay" class="o-btn-primary">{{ __('Save') }}</button>
                                     <button wire:click="closePay" class="text-xs text-chrome-500 hover:underline">{{ __('Cancel') }}</button>
                                 </div>

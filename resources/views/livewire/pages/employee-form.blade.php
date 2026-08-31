@@ -31,7 +31,7 @@
             </div>
             <div>
                 <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Join date') }}</label>
-                <input type="date" wire:model="form.join_date" class="o-input">
+                <x-date-field wire:model="form.join_date" class="o-input" />
             </div>
             <div>
                 <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Phone') }}</label>

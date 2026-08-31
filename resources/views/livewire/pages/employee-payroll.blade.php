@@ -68,7 +68,7 @@
             <p class="text-xs text-chrome-400">{{ __('Day 7 AM–7 PM = ×1.2, night 7 PM–7 AM = ×1.5. End before start = crossed midnight.') }}</p>
         </div>
         <div class="flex flex-wrap items-end gap-2 border-b border-chrome-100 px-4 py-3">
-            <div><label class="mb-1 block text-[11px] font-semibold uppercase text-chrome-500">{{ __('Date') }}</label><input type="date" wire:model="otDate" class="o-input"></div>
+            <div><label class="mb-1 block text-[11px] font-semibold uppercase text-chrome-500">{{ __('Date') }}</label><x-date-field wire:model="otDate" class="o-input" /></div>
             <div><label class="mb-1 block text-[11px] font-semibold uppercase text-chrome-500">{{ __('Start') }}</label><input type="time" wire:model="otStart" class="o-input"></div>
             <div><label class="mb-1 block text-[11px] font-semibold uppercase text-chrome-500">{{ __('End') }}</label><input type="time" wire:model="otEnd" class="o-input"></div>
             <button wire:click="addOvertime" class="o-btn-primary">{{ __('Add') }}</button>
@@ -99,7 +99,7 @@
             <p class="text-xs text-chrome-400">{{ __('Absent = unpaid (deducts a day). Sick = paid (no deduction).') }}</p>
         </div>
         <div class="flex flex-wrap items-end gap-2 border-b border-chrome-100 px-4 py-3">
-            <div><label class="mb-1 block text-[11px] font-semibold uppercase text-chrome-500">{{ __('Date') }}</label><input type="date" wire:model="absDate" class="o-input"></div>
+            <div><label class="mb-1 block text-[11px] font-semibold uppercase text-chrome-500">{{ __('Date') }}</label><x-date-field wire:model="absDate" class="o-input" /></div>
             <div><label class="mb-1 block text-[11px] font-semibold uppercase text-chrome-500">{{ __('Type') }}</label>
                 <select wire:model="absType" class="o-input">
                     <option value="absent">{{ __('Absent (unpaid)') }}</option>

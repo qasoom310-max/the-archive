@@ -219,7 +219,7 @@
                     <button type="button" wire:click="closeDate" class="text-sm text-chrome-400 hover:text-chrome-700">✕</button>
                 </div>
                 <p class="mb-3 text-xs text-chrome-400">{{ __('The day this order belongs to. Only this order moves — the others keep their dates.') }}</p>
-                <input type="date" wire:model="orderDate" wire:keydown.enter="saveDate" class="o-input w-full text-sm">
+                <x-date-field wire:model="orderDate" wire:keydown.enter="saveDate" class="o-input w-full text-sm" />
                 @error('orderDate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 <div class="mt-4 flex gap-2">
                     <button type="button" wire:click="closeDate" class="o-btn-ghost flex-1 justify-center">{{ __('Cancel') }}</button>

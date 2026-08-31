@@ -80,7 +80,7 @@
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-chrome-500">{{ __('Date') }}</label>
-                        <input type="date" wire:model="receivedOn" class="o-input mt-1 w-40 text-sm">
+                        <x-date-field wire:model="receivedOn" class="o-input mt-1 w-40 text-sm" />
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-chrome-500">{{ __('Transfer reference') }}</label>
@@ -194,7 +194,7 @@
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-chrome-500">{{ __('Date') }}</label>
-                                        <input type="date" wire:model="receivedOn" class="o-input mt-1 w-40 text-sm">
+                                        <x-date-field wire:model="receivedOn" class="o-input mt-1 w-40 text-sm" />
                                     </div>
                                     <div class="min-w-[10rem] flex-1">
                                         <label class="block text-xs font-medium text-chrome-500">{{ __('Note (optional)') }}</label>

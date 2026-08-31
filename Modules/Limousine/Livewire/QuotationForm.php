@@ -10,6 +10,7 @@ use App\Livewire\Concerns\ScrollsToFirstError;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -50,6 +51,16 @@ final class QuotationForm extends Component
 
     public string $requested_by = '';
 
+    /**
+     * Who raised this quotation — stamped from the signed-in user, never typed.
+     *
+     * The same rule as the booking form, and for the same reason: this is a
+     * sign-off, so it must not depend on what arrived from the browser.
+     * #[Locked] because Livewire lets the client set any unlocked property, and
+     * an existing quote keeps whoever actually raised it rather than being
+     * re-stamped with whoever opened it next.
+     */
+    #[Locked]
     public string $prepared_by = '';
 
     public string $contact_number = '';
@@ -80,7 +91,11 @@ final class QuotationForm extends Component
                 $this->customer_id = $quote->customer_id;
                 $this->contact_person = $quote->contact_person ?? '';
                 $this->requested_by = $quote->requested_by ?? '';
-                $this->prepared_by = $quote->prepared_by ?? '';
+                // Keep whoever actually raised it; only fill in when the quote
+                // predates the stamp, since the field can no longer be typed.
+                $this->prepared_by = trim((string) $quote->prepared_by) !== ''
+                    ? (string) $quote->prepared_by
+                    : $this->currentUserName();
                 $this->contact_number = $quote->contact_number ?? '';
                 $this->valid_until = $quote->valid_until?->format('Y-m-d') ?? '';
                 $this->notes = $quote->notes ?? '';
@@ -94,7 +109,27 @@ final class QuotationForm extends Component
 
         $this->quote_date = now()->format('Y-m-d');
         $this->valid_until = now()->addWeek()->format('Y-m-d');
+        $this->prepared_by = $this->currentUserName();
         $this->seedLegs();
+    }
+
+    /**
+     * Display name for the signed-in user, for the "Prepared by" stamp.
+     *
+     * Falls back to the email because staff accounts can be username-only, and
+     * an empty string would trip the `required` rule on a field nobody can type
+     * into.
+     */
+    private function currentUserName(): string
+    {
+        $user = Auth::user();
+        if ($user === null) {
+            return '';
+        }
+
+        $name = trim((string) ($user->name ?? ''));
+
+        return $name !== '' ? $name : trim((string) ($user->email ?? ''));
     }
 
     /**
@@ -131,7 +166,7 @@ final class QuotationForm extends Component
         $quote->customer_id = $this->customer_id;
         $quote->contact_person = $this->trimOrNull($this->contact_person);
         $quote->requested_by = $this->trimOrNull($this->requested_by);
-        $quote->prepared_by = $this->trimOrNull($this->prepared_by);
+        $quote->prepared_by = $this->trimOrNull($this->prepared_by) ?? $this->currentUserName();
         $quote->contact_number = $this->trimOrNull($this->contact_number);
         $quote->valid_until = $this->valid_until !== '' ? Carbon::parse($this->valid_until) : null;
         $quote->notes = $this->trimOrNull($this->notes);

@@ -155,7 +155,7 @@ final class LimousineModuleTest extends TestCase
         Livewire::test(QuotationForm::class)
             ->set('customer_id', $customer->id)
             ->set('requested_by', 'Sara')
-            ->set('prepared_by', 'Qassim')
+            // prepared_by is stamped from the signed-in user, not typed.
             // Leg 1 (seeded) — transfer, flat 45.
             ->set('legs.0.service_type', 'transfer')
             ->set('legs.0.from_location', 'Bahrain Airport')
@@ -220,11 +220,14 @@ final class LimousineModuleTest extends TestCase
 
         Livewire::test(QuotationForm::class)
             ->set('customer_id', $customer->id)
-            // requested_by / prepared_by blank; leg left empty (transfer needs from/to/start).
+            // requested_by blank; leg left empty (transfer needs from/to/start).
+            // prepared_by is NOT among them: it is stamped from the signed-in
+            // user, so it can never be the thing that is missing.
             // The car is deliberately NOT required: you quote a job before any
             // vehicle is assigned to it.
             ->call('save')
-            ->assertHasErrors(['requested_by', 'prepared_by', 'legs.0.from_location', 'legs.0.to_location', 'legs.0.start_at'])
+            ->assertHasErrors(['requested_by', 'legs.0.from_location', 'legs.0.to_location', 'legs.0.start_at'])
+            ->assertHasNoErrors('prepared_by')
             ->assertHasNoErrors(['legs.0.car_id']);
 
         $this->assertSame(0, LimoQuotation::query()->count());
@@ -237,7 +240,7 @@ final class LimousineModuleTest extends TestCase
 
         Livewire::test(QuotationForm::class)
             ->set('customer_id', $customer->id)
-            ->set('requested_by', 'A')->set('prepared_by', 'B')
+            ->set('requested_by', 'A')
             ->set('legs.0.service_type', 'chauffeur')
             ->set('legs.0.from_location', 'Manama')
             ->set('legs.0.start_at', '2026-07-05T09:00')

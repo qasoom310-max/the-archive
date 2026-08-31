@@ -151,6 +151,16 @@
 .dark .hover\:bg-chrome-200:hover { background-color: #2b2f36; }
 .dark .hover\:bg-chrome-900:hover { background-color: #2b2f36; }
 
+/* Hover driven by a PARENT (`group`) needs its own rules: remapping
+   `.hover\:bg-*:hover` does nothing for `group-hover:bg-*`, which compiles to a
+   different selector keyed off the parent. A pinned table cell carries its own
+   background so it can sit above the row scrolling under it, so without these
+   the row's hover repainted that cell from the LIGHT palette — the Actions
+   column flashed white against a dark table the moment the mouse crossed it. */
+.dark .group:hover .group-hover\:bg-white { background-color: #23262c; }
+.dark .group:hover .group-hover\:bg-chrome-50 { background-color: #23262c; }
+.dark .group:hover .group-hover\:bg-chrome-100 { background-color: #23262c; }
+
 /* Text */
 .dark .text-chrome-900 { color: #f3f5f7; }
 .dark .text-chrome-800 { color: #e2e5e9; }

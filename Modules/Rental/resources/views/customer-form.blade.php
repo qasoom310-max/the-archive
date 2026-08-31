@@ -2,7 +2,7 @@
 @php use Modules\Rental\Models\RentalCustomer; @endphp
 @php $lbl = 'mb-1.5 block text-xs font-medium uppercase tracking-wide text-chrome-500'; @endphp
 <div class="mx-auto max-w-5xl p-4 sm:p-6">
-    <x-form-breadcrumb :parent="__('Customers')" :parent-url="url('/app/rental/customer')" :current="$name ?: __('New customer')" />
+    <x-form-breadcrumb :parent="__('Customers')" :parent-url="url($indexUrl)" :current="$name ?: __('New customer')" />
 
     {{-- ───────── Details ───────── --}}
     <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6">

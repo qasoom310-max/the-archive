@@ -12,6 +12,7 @@ use Modules\Limousine\Livewire\Bookings;
 use Modules\Limousine\Livewire\BookingForm;
 use Modules\Limousine\Livewire\Coupons;
 use Modules\Limousine\Livewire\CustomerForm;
+use Modules\Rental\Livewire\CustomerForm as RentalCustomerForm;
 use Modules\Limousine\Livewire\DriverForm;
 use Modules\Limousine\Livewire\Drivers;
 use Modules\Limousine\Livewire\Customers;
@@ -54,8 +55,17 @@ Route::middleware('auth')->group(function (): void {
 
     // Masters.
     Route::get('/app/limousine/customer', Customers::class)->name('limousine.customer.index');
-    Route::get('/app/limousine/customer/new', CustomerForm::class)->name('limousine.customer.create');
-    Route::get('/app/limousine/customer/{id}', CustomerForm::class)->whereNumber('id')->name('limousine.customer.edit');
+    // ONE customer page for both apps — the same person hires a car and books a
+    // trip, so they get one record with one summary rather than half of each.
+    // The Limousine permission key travels with the route, so a user granted
+    // Limousine customers and not Rent A Car ones keeps exactly their access.
+    Route::get('/app/limousine/customer/new', RentalCustomerForm::class)
+        ->defaults('modelKey', 'limousine.customer')
+        ->name('limousine.customer.create');
+    Route::get('/app/limousine/customer/{id}', RentalCustomerForm::class)
+        ->whereNumber('id')
+        ->defaults('modelKey', 'limousine.customer')
+        ->name('limousine.customer.edit');
 
     // Drivers — the same list Rent A Car uses; see LimoDriver.
     Route::get('/app/limousine/driver', Drivers::class)->name('limousine.driver.index');

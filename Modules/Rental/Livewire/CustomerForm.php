@@ -35,9 +35,25 @@ final class CustomerForm extends Component
     use GuardsModelAccess;
     use ScrollsToFirstError;
 
+    /**
+     * Which app's permission governs this page.
+     *
+     * ONE customer record, reached from two menus: the same person hires a car
+     * on Monday and books a trip on Tuesday. So both apps open this page rather
+     * than keeping half a customer each — but a user granted Limousine
+     * customers and not Rent A Car ones must keep exactly the access they had,
+     * so the KEY travels with the route instead of being hard-coded here.
+     */
+    #[Locked]
+    public string $modelKey = 'rental.customer';
+
+    /** Where "Customers" in the breadcrumb goes back to. */
+    #[Locked]
+    public string $indexUrl = '/app/rental/customer';
+
     protected function accessModelKey(): string
     {
-        return 'rental.customer';
+        return $this->modelKey;
     }
 
     /** The record being edited — server-set only; the browser must not repoint it. */
@@ -77,8 +93,17 @@ final class CustomerForm extends Component
 
     public ?string $existingCrDocument = null;
 
-    public function mount(?int $id = null): void
+    public function mount(?int $id = null, string $modelKey = 'rental.customer', string $indexUrl = '/app/rental/customer'): void
     {
+        // Route defaults, so the page knows which app it was opened from before
+        // the first permission check runs.
+        $this->modelKey = in_array($modelKey, ['rental.customer', 'limousine.customer'], true)
+            ? $modelKey
+            : 'rental.customer';
+        $this->indexUrl = $this->modelKey === 'limousine.customer'
+            ? '/app/limousine/customer'
+            : '/app/rental/customer';
+
         $this->guardAccess(Permission::Read);
         if ($id === null) {
             return;

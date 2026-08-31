@@ -284,6 +284,17 @@ final class Bookings extends Component
         $leg->vehicle = $car?->displayName();
 
         $driver = $this->assignDriver !== '' ? LimoDriver::query()->find((int) $this->assignDriver) : null;
+
+        // The licence is checked HERE as well as hidden from the picker: a
+        // dropped option is a courtesy, not a rule, and a trip must not go out
+        // behind an expired licence because somebody kept a stale page open.
+        if ($driver !== null && ! $driver->canBeDispatched()) {
+            $leg->save();
+            $this->addError('assignDriver', (string) $driver->dispatchBlockReason());
+
+            return;
+        }
+
         $leg->driver_id = $driver?->id;
         $leg->driver = $driver?->displayName();
 
@@ -378,8 +389,20 @@ final class Bookings extends Component
             $query->orWhere('id', (int) $this->assignDriver);
         }
 
-        return $query->orderBy('name')->get(['id', 'name', 'phone'])
-            ->map(fn (LimoDriver $d): array => ['value' => $d->id, 'label' => $d->displayName()])
+        $drivers = $query->orderBy('name')->get();
+
+        // A driver whose licence has run out is not offered. Kept in the list
+        // only if they are already on this trip, so the dialog can say why the
+        // save is refused instead of the name silently vanishing.
+        return $drivers
+            ->filter(fn (LimoDriver $d): bool => $d->canBeDispatched() || (string) $d->id === $this->assignDriver)
+            ->map(fn (LimoDriver $d): array => [
+                'value' => $d->id,
+                'label' => $d->licenceExpired()
+                    ? $d->displayName() . ' · ' . __('licence expired')
+                    : $d->displayName(),
+            ])
+            ->values()
             ->all();
     }
 

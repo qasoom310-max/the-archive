@@ -168,6 +168,62 @@ final class LimoCancelUiTest extends TestCase
     }
 
     /**
+     * The office's queue as it actually stands: ONE booking carrying six legs —
+     * two cancelled, three driven, one still to run — part paid, with the
+     * cancellations having left credit behind. Then the Cancelled tab, pressed
+     * the way the tab bar presses it.
+     */
+    public function test_the_cancelled_tab_of_one_booking_with_many_legs(): void
+    {
+        $customer = LimoCustomer::query()->create(['name' => 'Amina Mohamed Mansoori']);
+
+        $booking = LimoBooking::query()->create([
+            'reference' => 'BK/00003',
+            'customer_id' => $customer->id,
+            'pickup_at' => now()->addDays(3),
+            'status' => LimoBooking::STATUS_CONFIRMED,
+            'advance' => 50,
+            'payment_status' => LimoBooking::PAYMENT_PAID,
+        ]);
+
+        $legs = [];
+        foreach ([12.0, 40.0, 96.0, 25.0, 18.0, 33.0] as $i => $amount) {
+            $legs[] = LimoLeg::query()->create([
+                'legable_type' => LimoBooking::class,
+                'legable_id' => $booking->id,
+                'sequence' => $i,
+                'reference' => (string) (30000 + $i),
+                'status' => LimoLeg::STATUS_CONFIRMED,
+                'start_at' => now()->addHours(10),
+                'from_location' => 'Hotel',
+                'to_location' => 'Bahrain Airport',
+                'rate' => $amount, 'net_amount' => $amount,
+            ]);
+        }
+
+        $booking->recalcTotal();
+        $booking->save();
+
+        // Two cancelled for real, so each leaves a coupon behind.
+        foreach ([$legs[0], $legs[1]] as $off) {
+            Livewire::test(Bookings::class)
+                ->call('openCancel', $off->id)
+                ->call('confirmCancel');
+        }
+
+        foreach ([$legs[2], $legs[3], $legs[4]] as $done) {
+            $done->forceFill(['status' => LimoLeg::STATUS_COMPLETED])->save();
+        }
+
+        // Now press the tab, the way the tab bar does.
+        Livewire::test(Bookings::class)
+            ->set('tab', 'cancelled')
+            ->assertOk()
+            ->assertSee('30000')
+            ->assertSee('30001');
+    }
+
+    /**
      * The Refund coupons page, over the credit a cancellation actually leaves.
      *
      * It is where a cancelled paid trip sends the office next, and it had no

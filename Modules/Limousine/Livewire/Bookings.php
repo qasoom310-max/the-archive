@@ -18,6 +18,7 @@ use Livewire\WithPagination;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoDriver;
 use Modules\Limousine\Models\LimoLeg;
+use Modules\Limousine\Services\BookingPayments;
 use Modules\Limousine\Services\LimoQueueRows;
 use Modules\Limousine\Services\ServiceOrderSender;
 use Modules\Limousine\Services\TripCancellation;
@@ -670,30 +671,33 @@ final class Bookings extends Component
 
         $taken = round((float) $this->collectAmount, 3);
 
-        $booking->advance = round((float) $booking->advance + $taken, 3);
-        $booking->payment_method = $this->collectMethod;
-
-        $note = trim($this->collectNote);
-        if ($note !== '') {
-            $stamp = now()->isoFormat('DD-MMM-YY') . ' · ' . ValueFormat::money($taken) . ' · ' . $note;
-            $booking->notes = trim((string) $booking->notes . "\n" . $stamp);
-        }
-
-        $booking->save();
-        $booking->syncPaymentFromAdvance();
+        // Taking the money and issuing its receipt are one act, not two. A
+        // receipt that depends on somebody remembering is one the customer
+        // sometimes never gets.
+        $receipt = app(BookingPayments::class)->receive(
+            $booking,
+            $taken,
+            $this->collectMethod,
+            trim($this->collectNote) !== '' ? trim($this->collectNote) : null,
+        );
 
         $fresh = $booking->fresh();
         $remaining = $fresh?->balanceDue() ?? 0.0;
 
+        // Name the receipt — it exists now, and the customer will ask for it.
+        $issued = $receipt !== null && (string) $receipt->reference !== ''
+            ? ' ' . __('Receipt :reference issued.', ['reference' => $receipt->reference])
+            : '';
+
         $this->closeCollect();
-        session()->flash('booking_status', $remaining > 0
+        session()->flash('booking_status', ($remaining > 0
             ? __(':amount received. :balance still owed on this booking.', [
                 'amount' => ValueFormat::money($taken),
                 'balance' => ValueFormat::money($remaining),
             ])
             : __(':amount received. This booking is settled in full.', [
                 'amount' => ValueFormat::money($taken),
-            ]));
+            ])) . $issued);
     }
 
     /**

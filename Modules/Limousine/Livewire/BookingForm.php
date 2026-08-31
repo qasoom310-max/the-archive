@@ -21,6 +21,7 @@ use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCoupon;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoLeg;
+use Modules\Limousine\Services\BookingPayments;
 use Modules\Limousine\Services\CouponRedeemer;
 
 /**
@@ -273,6 +274,11 @@ final class BookingForm extends Component
         $booking->email = $this->trimOrNull($this->email);
         $booking->requested_by = $this->trimOrNull($this->requested_by);
         $booking->prepared_by = $this->trimOrNull($this->prepared_by);
+        // Money taken while the booking is being written gets its own receipt
+        // below, so remember what was already on the record: on an edit only the
+        // INCREASE is new money, and receipting the rest again would hand the
+        // customer a second receipt for a payment they already have one for.
+        $advanceBefore = round((float) ($booking->advance ?? 0), 3);
         $booking->advance = (float) $this->advance;
         $booking->payment_method = $this->trimOrNull($this->payment_method);
         $booking->notes = $this->trimOrNull($this->notes);
@@ -294,6 +300,11 @@ final class BookingForm extends Component
         // would be crediting a fare that did not exist yet.
         $creditNote = $this->spendCarriedCoupon($booking);
 
+        // The receipt for money taken here — full fare, half of it, whatever
+        // was handed over. Issued AFTER the legs priced the job, so the balance
+        // printed on it is the real one.
+        $receiptNote = $this->receiptForNewMoney($booking, $advanceBefore);
+
         // Confirm with the REFERENCES rather than just "saved": they are what
         // the office quotes to the customer, and a multi-leg booking produces
         // one per trip — so name them all, not only the booking's own number.
@@ -304,8 +315,36 @@ final class BookingForm extends Component
         // this line carries the reference the office forwards to the customer:
         // it has to stay put and be copyable, not fade out of the corner. Same
         // banner the queue's own edit uses, so create and update read alike.
-        session()->flash('booking_status', trim($this->savedMessage($wasNew, $refs) . ' ' . $creditNote));
+        session()->flash('booking_status', trim($this->savedMessage($wasNew, $refs) . ' ' . $creditNote . ' ' . $receiptNote));
         $this->redirect('/app/limousine/booking', navigate: true);
+    }
+
+    /**
+     * Issue a receipt for money taken on this save, if any was.
+     *
+     * The office types an advance as part of writing the booking; that is a
+     * payment, and a payment gets a receipt without anybody going to another
+     * screen for it. Only the INCREASE counts — editing a booking that was
+     * already part paid must not receipt the old money again.
+     */
+    private function receiptForNewMoney(LimoBooking $booking, float $advanceBefore): string
+    {
+        $taken = round((float) $booking->fresh()->advance - $advanceBefore, 3);
+
+        $receipt = app(BookingPayments::class)->issueFor(
+            $booking->fresh(),
+            $taken,
+            $this->payment_method !== '' ? $this->payment_method : 'cash',
+        );
+
+        if ($receipt === null) {
+            return '';
+        }
+
+        return (string) __('Receipt :reference issued for :amount.', [
+            'reference' => (string) $receipt->reference,
+            'amount' => ValueFormat::money($taken),
+        ]);
     }
 
     /**

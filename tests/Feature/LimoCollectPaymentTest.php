@@ -191,7 +191,13 @@ final class LimoCollectPaymentTest extends TestCase
         $this->assertSame(50.0, $booking->fresh()?->advance);
     }
 
-    public function test_a_note_is_kept_against_the_booking(): void
+    /**
+     * The note is kept on the RECEIPT, which is where a note about a payment
+     * belongs — it explains that money, not the booking. It used to be stamped
+     * into the booking's comments because there was nowhere else for it to go;
+     * now every payment has its own piece of paper.
+     */
+    public function test_a_note_is_kept_with_the_payment(): void
     {
         [$booking, $legs] = $this->bookingOfThree();
 
@@ -203,9 +209,12 @@ final class LimoCollectPaymentTest extends TestCase
             ->call('saveCollect')
             ->assertHasNoErrors();
 
-        $fresh = $booking->fresh();
-        $this->assertStringContainsString('cheque 4471', (string) $fresh?->notes);
-        $this->assertSame('cheque', $fresh?->payment_method);
+        $receipt = \Modules\Limousine\Models\LimoReceipt::query()->sole();
+        $this->assertStringContainsString('cheque 4471', (string) $receipt->notes);
+        $this->assertSame('cheque', $receipt->method);
+
+        // And how the money came in is remembered on the booking too.
+        $this->assertSame('cheque', $booking->fresh()?->payment_method);
     }
 
     /** The button is only offered while there is something left to take. */

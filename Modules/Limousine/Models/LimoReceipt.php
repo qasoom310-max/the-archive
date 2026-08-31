@@ -18,6 +18,9 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property string|null $reference
+ * @property int|null $booking_id
+ * @property float|null $balance_after
+ * @property bool $auto
  * @property int|null $invoice_id
  * @property int|null $customer_id
  * @property Carbon|null $date
@@ -34,7 +37,10 @@ final class LimoReceipt extends Model implements DefinesIrModel
     protected $table = 'limo_receipts';
 
     /** @var list<string> */
-    protected $fillable = ['reference', 'invoice_id', 'customer_id', 'date', 'amount', 'method', 'notes'];
+    protected $fillable = [
+        'reference', 'invoice_id', 'booking_id', 'customer_id', 'date',
+        'amount', 'balance_after', 'method', 'auto', 'notes',
+    ];
 
     /** @var array<string, mixed> */
     protected $attributes = ['amount' => 0, 'method' => 'cash'];
@@ -46,9 +52,12 @@ final class LimoReceipt extends Model implements DefinesIrModel
     {
         return [
             'invoice_id' => 'integer',
+            'booking_id' => 'integer',
             'customer_id' => 'integer',
             'date' => 'date',
             'amount' => 'float',
+            'balance_after' => 'float',
+            'auto' => 'boolean',
         ];
     }
 

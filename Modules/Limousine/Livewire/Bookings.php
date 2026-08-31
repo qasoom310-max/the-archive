@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Limousine\Livewire;
 
 use App\Erp\Security\Permission;
+use App\Erp\Views\ValueFormat;
 use App\Livewire\Concerns\GuardsModelAccess;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
@@ -103,6 +104,23 @@ final class Bookings extends Component
      * @var array<string, string>
      */
     public array $edit = [];
+
+    /**
+     * The booking a payment is being taken against.
+     *
+     * A booking, not a leg: the customer settles the JOB. Three trips on one
+     * booking are one bill, one amount received and one balance — which is why
+     * the queue prints the same Received and Balance on each of their rows
+     * rather than a third of it on each.
+     */
+    #[Locked]
+    public ?int $collectingId = null;
+
+    public string $collectAmount = '';
+
+    public string $collectMethod = 'cash';
+
+    public string $collectNote = '';
 
     /**
      * The clicked trip's own values — route, time, pricing.
@@ -467,6 +485,109 @@ final class Bookings extends Component
     }
 
     /**
+     * Open the payment dialog for the booking behind a trip row.
+     *
+     * Reached from any leg of the booking, because there is only one bill: the
+     * dialog opens on the whole job and lists its trips, so it is plain that
+     * paying here settles all of them and not just the row that was clicked.
+     */
+    public function openCollect(int $legId): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        $leg = LimoLeg::query()->find($legId);
+        if ($leg === null) {
+            return;
+        }
+
+        $booking = LimoBooking::query()->find($leg->legable_id);
+        if ($booking === null) {
+            return;
+        }
+
+        $this->resetErrorBag();
+        $this->collectingId = (int) $booking->id;
+        // Offered as the whole balance, since settling up is the usual case —
+        // typed over when the customer pays part of it.
+        $this->collectAmount = (string) $booking->balanceDue();
+        $this->collectMethod = (string) ($booking->payment_method ?? 'cash');
+        $this->collectNote = '';
+    }
+
+    public function closeCollect(): void
+    {
+        $this->collectingId = null;
+        $this->collectAmount = '';
+        $this->collectNote = '';
+        $this->resetErrorBag();
+    }
+
+    /**
+     * Take a payment against the booking.
+     *
+     * Adds to what has already been received rather than replacing it, so the
+     * 50 taken when the booking was made and the 98 taken later read as one
+     * running total instead of the second overwriting the first. "Paid" is then
+     * settled the same way every other payment settles it — from the money
+     * against the fare — so there is no second route to becoming paid that can
+     * disagree with the first.
+     */
+    public function saveCollect(): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        if ($this->collectingId === null) {
+            return;
+        }
+
+        $booking = LimoBooking::query()->find($this->collectingId);
+        if ($booking === null) {
+            $this->closeCollect();
+
+            return;
+        }
+
+        $this->validate([
+            'collectAmount' => ['required', 'numeric', 'min:0.001', 'max:' . max(0.001, $booking->balanceDue())],
+            'collectMethod' => ['required', 'string'],
+            'collectNote' => ['nullable', 'string', 'max:255'],
+        ], [
+            'collectAmount.max' => __('That is more than the :amount still owed on this booking.', [
+                'amount' => ValueFormat::money($booking->balanceDue()),
+            ]),
+        ], [
+            'collectAmount' => __('Amount'),
+        ]);
+
+        $taken = round((float) $this->collectAmount, 3);
+
+        $booking->advance = round((float) $booking->advance + $taken, 3);
+        $booking->payment_method = $this->collectMethod;
+
+        $note = trim($this->collectNote);
+        if ($note !== '') {
+            $stamp = now()->isoFormat('DD-MMM-YY') . ' · ' . ValueFormat::money($taken) . ' · ' . $note;
+            $booking->notes = trim((string) $booking->notes . "\n" . $stamp);
+        }
+
+        $booking->save();
+        $booking->syncPaymentFromAdvance();
+
+        $fresh = $booking->fresh();
+        $remaining = $fresh?->balanceDue() ?? 0.0;
+
+        $this->closeCollect();
+        session()->flash('booking_status', $remaining > 0
+            ? __(':amount received. :balance still owed on this booking.', [
+                'amount' => ValueFormat::money($taken),
+                'balance' => ValueFormat::money($remaining),
+            ])
+            : __(':amount received. This booking is settled in full.', [
+                'amount' => ValueFormat::money($taken),
+            ]));
+    }
+
+    /**
      * What the trip being edited comes to, priced from the live inputs so the
      * dialog answers "what does this change cost?" before it is saved.
      */
@@ -775,6 +896,12 @@ final class Bookings extends Component
             // For the per-trip section of the quick-edit dialog.
             'serviceTypes' => LimoLeg::serviceTypeOptions(),
             'rateBasisOptions' => LimoLeg::rateBasisOptions(),
+            // The booking a payment is being taken against, with its trips, so
+            // the dialog can show what the one balance is actually made of.
+            'collecting' => $this->collectingId !== null
+                ? LimoBooking::query()->with(['customer:id,name', 'legs'])->find($this->collectingId)
+                : null,
+            'paymentMethods' => LimoBooking::paymentMethodOptions(),
             // Who signs vs who is merely told: an individual travelled and can
             // attest to the trip; a company booked it for a guest and cannot.
             // Keyed by leg id so the row renders the right action without

@@ -201,9 +201,18 @@
                         <td class="px-2 py-2 text-chrome-700">{{ $row['customer'] ?: '—' }}</td>
                         {{-- Amount is this leg's; Received and Balance are the
                              booking's, because the customer settles the whole job. --}}
-                        <td class="hidden px-2 py-2 text-end font-medium text-chrome-800 sm:table-cell">{{ $money($row['amount']) }}</td>
-                        <td class="hidden px-2 py-2 text-end text-emerald-700 xl:table-cell">{{ $money($row['received']) }}</td>
-                        <td class="hidden px-2 py-2 text-end xl:table-cell {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-400' }}">{{ $money($row['balance']) }}</td>
+                        {{-- Amount is THIS trip's price. Received and Balance are the
+                             whole booking's: the customer settles the job, not a leg
+                             of it, so a booking of three trips shows one balance
+                             repeated down its rows rather than a third on each. The
+                             tooltips say so, because two money columns that repeat
+                             and one that doesn't otherwise reads as double-counting. --}}
+                        <td class="hidden px-2 py-2 text-end font-medium text-chrome-800 sm:table-cell"
+                            title="{{ __('Price of this trip') }}">{{ $money($row['amount']) }}</td>
+                        <td class="hidden px-2 py-2 text-end text-emerald-700 xl:table-cell"
+                            title="{{ __('Received against booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['received']) }}</td>
+                        <td class="hidden px-2 py-2 text-end xl:table-cell {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-400' }}"
+                            title="{{ __('Still owed on booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['balance']) }}</td>
                         <td class="hidden px-2 py-2 text-chrome-600 lg:table-cell">{{ $row['pickup'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 text-chrome-600 lg:table-cell">{{ $row['dropoff'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 xl:table-cell">
@@ -291,7 +300,21 @@
                                 </span>
                             @endif
                         </td>
-                        <td class="hidden px-2 py-2 md:table-cell"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $row['payment'] === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($row['payment'])) }}</span></td>
+                        <td class="hidden px-2 py-2 md:table-cell">
+                            <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $row['payment'] === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($row['payment'])) }}</span>
+                            {{-- Taking money is a booking-level act, so it is offered
+                                 from any of its trips and settles all of them. --}}
+                            @if ($canAssign && $row['payment'] !== 'paid' && $row['balance'] > 0)
+                                <button type="button" wire:click="openCollect({{ $leg->id }})"
+                                        title="{{ __('Receive payment for this booking') }}"
+                                        aria-label="{{ __('Receive payment for this booking') }}"
+                                        class="ms-1 inline-flex size-6 items-center justify-center rounded-lg text-emerald-600 transition hover:bg-emerald-50">
+                                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                                    </svg>
+                                </button>
+                            @endif
+                        </td>
                         {{-- Icon actions. Four text links per row made the column wide
                              and hard to scan; icons keep it compact. Every one carries a
                              `title` (hover tooltip) AND an `aria-label`, so the meaning
@@ -758,6 +781,101 @@
                             <button type="button" wire:click="saveEdit" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Save changes') }}</button>
                             <button type="button" wire:click="cancelEdit" class="o-btn-ghost text-sm">{{ __('Cancel') }}</button>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Receiving money.
+
+         Opened from a trip row but addressed to the BOOKING, because that is
+         what a customer settles. The trips are listed with their own prices so
+         the total is visibly the sum of them: the question this dialog exists
+         to answer is "is this one bill or three?", and the answer is one. --}}
+    @if ($collecting)
+        @php
+            $lbl = 'block text-xs font-medium text-chrome-600';
+            $err = 'mt-1 text-xs text-red-600';
+            $due = $collecting->balanceDue();
+            $bd = fn (float $v): string => \App\Erp\Views\ValueFormat::money($v);
+        @endphp
+        <div class="fixed inset-0 z-50 overflow-y-auto bg-chrome-900/40 p-4" wire:key="collect-{{ $collecting->id }}">
+            <div class="flex min-h-full items-start justify-center py-8">
+                <div class="w-full max-w-lg rounded-2xl bg-white shadow-pop">
+                    <div class="flex items-center justify-between border-b border-chrome-200 px-5 py-3">
+                        <h2 class="text-base font-bold text-chrome-900">
+                            {{ __('Receive payment') }} — {{ $collecting->reference }}
+                        </h2>
+                        <button type="button" wire:click="closeCollect"
+                                class="text-lg leading-none text-chrome-400 hover:text-chrome-700" aria-label="{{ __('Close') }}">&times;</button>
+                    </div>
+
+                    <div class="max-h-[70vh] overflow-y-auto px-5 py-4">
+                        <p class="text-sm text-chrome-600">
+                            {{ __('One bill for the whole booking') }} —
+                            <span class="font-medium text-chrome-800">{{ $collecting->customer?->name ?? '—' }}</span>
+                        </p>
+
+                        <div class="mt-3 overflow-hidden rounded-xl ring-1 ring-chrome-200">
+                            <table class="w-full text-sm">
+                                <tbody class="divide-y divide-chrome-100">
+                                    @foreach ($collecting->legs as $l)
+                                        <tr class="{{ $l->status === 'cancelled' ? 'text-chrome-400' : 'text-chrome-700' }}">
+                                            <td class="px-3 py-2">
+                                                <span class="font-medium">{{ $l->reference }}</span>
+                                                <span class="ms-1 text-xs text-chrome-500">{{ $l->from_location }}</span>
+                                                @if ($l->status === 'cancelled')
+                                                    <span class="ms-1 text-[11px] uppercase">({{ __('Cancelled') }})</span>
+                                                @endif
+                                            </td>
+                                            <td class="px-3 py-2 text-end">{{ $bd((float) $l->net_amount) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot class="bg-chrome-50 text-sm">
+                                    <tr class="font-semibold text-chrome-800">
+                                        <td class="px-3 py-2">{{ __('Total') }}</td>
+                                        <td class="px-3 py-2 text-end">{{ $bd($collecting->netAmount()) }}</td>
+                                    </tr>
+                                    <tr class="text-emerald-700">
+                                        <td class="px-3 py-2">{{ __('Already received') }}</td>
+                                        <td class="px-3 py-2 text-end">{{ $bd((float) $collecting->advance) }}</td>
+                                    </tr>
+                                    <tr class="font-semibold {{ $due > 0 ? 'text-amber-700' : 'text-chrome-500' }}">
+                                        <td class="px-3 py-2">{{ __('Still owed') }}</td>
+                                        <td class="px-3 py-2 text-end">{{ $bd($due) }}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                            <div>
+                                <label class="{{ $lbl }}">{{ __('Amount now') }} *</label>
+                                <input type="number" step="0.001" min="0" wire:model="collectAmount" class="o-input mt-1 w-full">
+                                @error('collectAmount') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                                <p class="mt-1 text-[11px] text-chrome-400">{{ __('Type less than the balance to take a part payment.') }}</p>
+                            </div>
+                            <div>
+                                <label class="{{ $lbl }}">{{ __('Method') }} *</label>
+                                <select wire:model="collectMethod" class="o-input mt-1 w-full">
+                                    @foreach ($paymentMethods as $opt)<option value="{{ $opt['value'] }}">{{ __($opt['label']) }}</option>@endforeach
+                                </select>
+                                @error('collectMethod') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="{{ $lbl }}">{{ __('Note') }}</label>
+                                <input type="text" wire:model="collectNote" class="o-input mt-1 w-full"
+                                       placeholder="{{ __('e.g. cheque number, who handed it over') }}">
+                                @error('collectNote') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 border-t border-chrome-200 px-5 py-3">
+                        <button type="button" wire:click="saveCollect" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Record payment') }}</button>
+                        <button type="button" wire:click="closeCollect" class="o-btn-ghost text-sm">{{ __('Cancel') }}</button>
                     </div>
                 </div>
             </div>

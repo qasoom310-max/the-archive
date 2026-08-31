@@ -109,14 +109,17 @@
     </div>
     <div class="mb-8 grid gap-4 sm:grid-cols-3">
         @php
+            // Each card opens the queue filtered to its own day, so the number
+            // is a way in rather than a fact to go and look up by hand.
             $dayCards = [
-                ['label' => __("Yesterday's Bookings"), 'value' => $yesterdayCount, 'badge' => __('Yesterday'), 'active' => false],
-                ['label' => __("Today's Bookings"), 'value' => $todayCount, 'badge' => __('Today'), 'active' => true],
-                ['label' => __("Tomorrow's Bookings"), 'value' => $tomorrowCount, 'badge' => __('Tomorrow'), 'active' => false],
+                ['label' => __("Yesterday's Bookings"), 'value' => $yesterdayCount, 'badge' => __('Yesterday'), 'active' => false, 'date' => $yesterdayDate],
+                ['label' => __("Today's Bookings"), 'value' => $todayCount, 'badge' => __('Today'), 'active' => true, 'date' => $todayDate],
+                ['label' => __("Tomorrow's Bookings"), 'value' => $tomorrowCount, 'badge' => __('Tomorrow'), 'active' => false, 'date' => $tomorrowDate],
             ];
         @endphp
         @foreach ($dayCards as $card)
-            <div class="relative overflow-hidden rounded-2xl p-5 shadow-sm ring-1 {{ $card['active'] ? 'bg-gradient-to-br from-chrome-900 to-chrome-800 ring-0' : 'bg-white ring-chrome-900/[0.06]' }}">
+            <a href="{{ url('/app/limousine/booking') }}?from={{ $card['date'] }}&to={{ $card['date'] }}" wire:navigate
+               class="relative block overflow-hidden rounded-2xl p-5 shadow-sm ring-1 transition hover:-translate-y-0.5 hover:shadow-pop {{ $card['active'] ? 'bg-gradient-to-br from-chrome-900 to-chrome-800 ring-0' : 'bg-white ring-chrome-900/[0.06]' }}">
                 @if ($card['active'])<div class="pointer-events-none absolute -right-8 -top-10 size-32 rounded-full bg-indigo-500/25 blur-2xl"></div>@endif
                 <div class="relative flex items-center justify-between">
                     <span class="flex size-9 items-center justify-center rounded-xl ring-1 {{ $card['active'] ? 'bg-white/10 text-indigo-300 ring-white/15' : 'bg-chrome-100 text-chrome-500 ring-chrome-200' }}">
@@ -126,7 +129,7 @@
                 </div>
                 <div class="relative mt-3 text-3xl font-bold tracking-tight {{ $card['active'] ? 'text-white' : 'text-chrome-900' }}">{{ $card['value'] }}</div>
                 <div class="relative text-sm font-medium {{ $card['active'] ? 'text-white/60' : 'text-chrome-500' }}">{{ $card['label'] }}</div>
-            </div>
+            </a>
         @endforeach
     </div>
 

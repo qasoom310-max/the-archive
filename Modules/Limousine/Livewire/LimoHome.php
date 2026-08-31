@@ -72,12 +72,16 @@ final class LimoHome extends Component
             ->count();
         $revenue = (float) LimoBooking::query()->where('payment_status', LimoBooking::PAYMENT_PAID)->sum('fare');
 
-        // Trips running that day — legs are dated individually, so a two-day job
+        // Bookings on that day — legs are dated individually, so a two-day job
         // counts on each of its days rather than only its booking date.
+        //
+        // Each card links to the queue filtered to that day, so it counts what
+        // that list will SHOW — cancelled trips included. A card whose number
+        // disagrees with the page it opens is the bug the KPI cards above were
+        // already fixed for once.
         $byDay = fn (string $date): int => LimoLeg::query()
             ->whereMorphedTo('legable', LimoBooking::class)
             ->whereDate('start_at', $date)
-            ->where('status', '!=', LimoLeg::STATUS_CANCELLED)
             ->count();
 
         $module = IrModule::query()->where('name', 'limousine')->first();
@@ -93,6 +97,10 @@ final class LimoHome extends Component
             'yesterdayCount' => $byDay($yesterday),
             'todayCount' => $byDay($today),
             'tomorrowCount' => $byDay($tomorrow),
+            // The dates themselves, so each card can open its own day.
+            'yesterdayDate' => $yesterday,
+            'todayDate' => $today,
+            'tomorrowDate' => $tomorrow,
             'tiles' => $tiles,
         ]);
     }

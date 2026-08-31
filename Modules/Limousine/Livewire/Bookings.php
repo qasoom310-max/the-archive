@@ -515,8 +515,44 @@ final class Bookings extends Component
 
         $this->saveEditedLeg($booking);
 
+        // Confirm with the REFERENCE, worded exactly as the booking form words
+        // it: this is the line the office sends the customer, and it must not
+        // depend on which screen the change was made from.
+        $message = $this->updatedMessage($booking);
+
         $this->cancelEdit();
-        session()->flash('booking_status', __('Booking updated.'));
+        session()->flash('booking_status', $message);
+    }
+
+    /**
+     * What to tell the office — and through them the customer — after an edit.
+     *
+     * Names the trip that was edited, since that is the number the customer
+     * quotes. A booking-wide edit with no single trip behind it names them all,
+     * one per line, rather than picking one arbitrarily.
+     */
+    private function updatedMessage(LimoBooking $booking): string
+    {
+        $edited = $this->editingLegId !== null
+            ? LimoLeg::query()->find($this->editingLegId)
+            : null;
+
+        $refs = $edited !== null
+            ? [(string) ($edited->reference ?? '')]
+            : $booking->legs()->orderBy('sequence')->pluck('reference')
+                ->filter()->map(static fn ($r): string => (string) $r)->all();
+
+        $refs = array_values(array_filter($refs, static fn (string $r): bool => $r !== ''));
+
+        if ($refs === []) {
+            return (string) __('Booking has been updated successfully.');
+        }
+
+        return implode("
+", array_map(
+            static fn (string $ref): string => (string) __('Booking has been updated successfully. Ref. # :ref', ['ref' => $ref]),
+            $refs,
+        ));
     }
 
     /**

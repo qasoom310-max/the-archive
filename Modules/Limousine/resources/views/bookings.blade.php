@@ -8,9 +8,27 @@
         </x-slot:actions>
     </x-page-header>
 
+    {{-- Carries the reference, so it is the line the office forwards to the
+         customer — which means it has to be copyable, not just readable. --}}
     @if (session('booking_status'))
-        <div class="mb-4 rounded-lg bg-primary-50 px-4 py-2.5 text-sm font-medium text-chrome-800 ring-1 ring-primary-200">
-            {{ session('booking_status') }}
+        <div class="mb-4 flex items-start justify-between gap-3 rounded-lg bg-primary-50 px-4 py-2.5 text-sm font-medium text-chrome-800 ring-1 ring-primary-200"
+             x-data="{ copied: false }">
+            <span class="whitespace-pre-line">{{ session('booking_status') }}</span>
+            <button type="button"
+                    x-on:click="
+                        $store.clip.copy(@js((string) session('booking_status')));
+                        copied = true; setTimeout(() => copied = false, 1500)
+                    "
+                    :title="copied ? @js(__('Copied')) : @js(__('Copy this message'))"
+                    :aria-label="copied ? @js(__('Copied')) : @js(__('Copy this message'))"
+                    class="shrink-0 rounded-md p-1 text-chrome-500 transition hover:bg-primary-100 hover:text-chrome-800">
+                <svg x-show="! copied" class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25"/>
+                </svg>
+                <svg x-show="copied" x-cloak class="size-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+                </svg>
+            </button>
         </div>
     @endif
 

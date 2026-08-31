@@ -300,7 +300,11 @@ final class BookingForm extends Component
         $refs = $booking->legs()->orderBy('sequence')->pluck('reference')
             ->filter()->map(static fn ($r): string => (string) $r)->all();
 
-        session()->flash('toast', trim($this->savedMessage($wasNew, $refs) . ' ' . $creditNote));
+        // Flashed to the LIST's banner rather than the corner toast, because
+        // this line carries the reference the office forwards to the customer:
+        // it has to stay put and be copyable, not fade out of the corner. Same
+        // banner the queue's own edit uses, so create and update read alike.
+        session()->flash('booking_status', trim($this->savedMessage($wasNew, $refs) . ' ' . $creditNote));
         $this->redirect('/app/limousine/booking', navigate: true);
     }
 

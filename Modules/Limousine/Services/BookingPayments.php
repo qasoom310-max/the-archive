@@ -8,6 +8,7 @@ use App\Erp\Views\ValueFormat;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Modules\Limousine\Models\LimoBooking;
+use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoReceipt;
 
 /**
@@ -50,6 +51,44 @@ final class BookingPayments
             $booking->syncPaymentFromAdvance();
 
             return $this->issueFor($booking->refresh(), $amount, $method, $note);
+        });
+    }
+
+    /**
+     * Take money against a charge that has no journey behind it.
+     *
+     * A late-payment fee is owed by the account, not by a trip, so there is no
+     * booking to put the money on — the receipt is written against the invoice
+     * alone. Everything else is the same shape as {@see issueFor}, including
+     * the balance stored as it stood at the moment.
+     */
+    public function receiveForCharge(
+        LimoInvoice $invoice,
+        float $amount,
+        string $method = 'cash',
+        ?string $note = null,
+    ): ?LimoReceipt {
+        $amount = round($amount, 3);
+
+        if ($amount <= 0.0) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($invoice, $amount, $method, $note): LimoReceipt {
+            $receipt = LimoReceipt::query()->create([
+                'invoice_id' => $invoice->id,
+                'customer_id' => $invoice->customer_id,
+                'date' => Carbon::today(),
+                'amount' => $amount,
+                'balance_after' => round(max(0.0, $invoice->balance() - $amount), 3),
+                'method' => $method,
+                'auto' => true,
+                'notes' => $note,
+            ]);
+
+            $invoice->refresh()->recomputePaid();
+
+            return $receipt;
         });
     }
 

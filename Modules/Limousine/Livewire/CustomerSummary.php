@@ -7,9 +7,12 @@ namespace Modules\Limousine\Livewire;
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
@@ -50,6 +53,115 @@ final class CustomerSummary extends Component
     {
         $this->guardAccess(Permission::Read);
         $this->id = $id;
+    }
+
+    /**
+     * The statement period. In the URL so a range can be sent to a colleague,
+     * and so the download link and the screen can never disagree about it.
+     */
+    #[Url(except: '')]
+    public string $from = '';
+
+    #[Url(except: '')]
+    public string $to = '';
+
+    /** Late-fee dialog: open when set. */
+    public bool $charging = false;
+
+    public string $feeAmount = '0';
+
+    public string $feeDate = '';
+
+    public string $feePeriod = '';
+
+    public string $feeReason = '';
+
+    /**
+     * Raising a penalty is a management decision, not a counter action.
+     *
+     * Taking money that is owed is ordinary work; deciding the customer owes
+     * MORE than we quoted is not, so it takes an admin. mount() would not hold
+     * it on its own — Livewire dispatches straight to methods.
+     */
+    private function guardCharge(): void
+    {
+        abort_unless(Auth::user()?->isAdmin() ?? false, 403);
+    }
+
+    public function openFee(): void
+    {
+        $this->guardCharge();
+
+        $this->feeAmount = '0';
+        $this->feeDate = now()->format('Y-m-d');
+        // Prefilled from the statement period when one is set: a late fee is
+        // almost always charged for the months just looked at.
+        $this->feePeriod = $this->periodLabel();
+        $this->feeReason = '';
+        $this->resetErrorBag();
+        $this->charging = true;
+    }
+
+    public function closeFee(): void
+    {
+        $this->charging = false;
+    }
+
+    /** "June 2026 — July 2026" from the statement range, or this month. */
+    private function periodLabel(): string
+    {
+        if ($this->from === '' && $this->to === '') {
+            return now()->isoFormat('MMMM YYYY');
+        }
+
+        $start = $this->from !== '' ? Carbon::parse($this->from)->isoFormat('MMMM YYYY') : '';
+        $end = $this->to !== '' ? Carbon::parse($this->to)->isoFormat('MMMM YYYY') : '';
+
+        if ($start === '' || $start === $end) {
+            return $end !== '' ? $end : $start;
+        }
+
+        return $end === '' ? $start : $start . ' — ' . $end;
+    }
+
+    /**
+     * Charge a late-payment penalty.
+     *
+     * Raised as an invoice, because that is where every other debt lives — a
+     * fee in its own side table would have to be taught to the statement, the
+     * outstanding balance and the payment screens separately, and one of them
+     * would be forgotten. The label is what the document prints instead of a
+     * route.
+     */
+    public function saveFee(): void
+    {
+        $this->guardCharge();
+
+        $customer = LimoCustomer::query()->find($this->id);
+        if ($customer === null) {
+            return;
+        }
+
+        $this->validate([
+            'feeAmount' => ['required', 'numeric', 'min:0.001'],
+            'feeDate' => ['required', 'date'],
+            'feePeriod' => ['required', 'string', 'max:120'],
+            'feeReason' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $amount = round((float) $this->feeAmount, 3);
+        $invoice = new LimoInvoice();
+        $invoice->customer_id = $customer->id;
+        $invoice->issue_date = Carbon::parse($this->feeDate);
+        $invoice->due_date = Carbon::parse($this->feeDate);
+        $invoice->subtotal = $amount;
+        $invoice->total = $amount;
+        $invoice->charge_label = __('Late payment charge — :period', ['period' => $this->feePeriod]);
+        $invoice->notes = $this->feeReason !== '' ? $this->feeReason : null;
+        $invoice->save();
+
+        $this->charging = false;
+        session()->flash('toast', __('Late payment charge added.'));
     }
 
     /** Pay-on-account dialog: open when set. */
@@ -199,6 +311,9 @@ final class CustomerSummary extends Component
             // What is actually payable, and how the typed figure would land.
             // A payment that spreads itself silently is one nobody can check.
             'settleable' => $account->settleable($customer),
+            'canCharge' => Auth::user()?->isAdmin() ?? false,
+            'statementUrl' => url('/app/limousine/customer/' . $customer->id . '/statement'
+                . '?from=' . urlencode($this->from) . '&to=' . urlencode($this->to)),
             'payPlan' => $this->paying ? $account->plan($customer, (float) $this->payAmount) : [],
         ]);
     }

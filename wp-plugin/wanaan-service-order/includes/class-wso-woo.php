@@ -23,6 +23,52 @@ class WSO_Woo {
 		// firing payment_complete still reach us here.
 		add_action( 'woocommerce_order_status_processing', array( __CLASS__, 'on_paid' ) );
 		add_action( 'woocommerce_order_status_completed', array( __CLASS__, 'on_paid' ) );
+
+		// On the pay page of an order WE created, offer online payment only —
+		// hide "Pay Later" / cash / any non-online gateway. Normal store
+		// checkouts are untouched.
+		add_filter( 'woocommerce_available_payment_gateways', array( __CLASS__, 'restrict_gateways' ) );
+	}
+
+	/**
+	 * Keep only online (Tap) gateways on our service-order pay page.
+	 *
+	 * Scope guard: this only fires on the checkout order-pay page for an order
+	 * carrying our meta — every other checkout gets the full gateway list back
+	 * unchanged. Fails OPEN: if no Tap-like gateway is found we return the
+	 * original list rather than leave the customer with no way to pay.
+	 *
+	 * @param array $gateways id => WC_Payment_Gateway
+	 * @return array
+	 */
+	public static function restrict_gateways( $gateways ) {
+		if ( ! is_array( $gateways ) || empty( $gateways ) || is_admin() ) {
+			return $gateways;
+		}
+		if ( ! function_exists( 'is_checkout_pay_page' ) || ! is_checkout_pay_page() ) {
+			return $gateways;
+		}
+
+		$order_id = absint( get_query_var( 'order-pay' ) );
+		if ( $order_id <= 0 ) {
+			return $gateways;
+		}
+
+		$order = wc_get_order( $order_id );
+		if ( ! $order || '' === (string) $order->get_meta( self::ORDER_META_ROW ) ) {
+			return $gateways; // not one of ours
+		}
+
+		// Keep gateways that look like Tap (id or title contains "tap").
+		$online = array();
+		foreach ( $gateways as $id => $gateway ) {
+			$haystack = strtolower( (string) $id . ' ' . $gateway->get_title() );
+			if ( false !== strpos( $haystack, 'tap' ) ) {
+				$online[ $id ] = $gateway;
+			}
+		}
+
+		return ! empty( $online ) ? $online : $gateways;
 	}
 
 	private static function woo_ready() {

@@ -3,7 +3,7 @@
  * Plugin Name:       Wanaan Service Order
  * Plugin URI:        https://www.wanaan-bh.com
  * Description:        Receives limousine service orders from the Wanaan ERP, shows the customer a private Service Order page with a terms-and-conditions consent, takes payment through WooCommerce + Tap, and reports the paid status back to the ERP.
- * Version:           1.0.0
+ * Version:           1.0.1
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Wanaan
@@ -24,7 +24,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WANAAN_SO_VERSION', '1.0.0' );
+define( 'WANAAN_SO_VERSION', '1.0.1' );
 define( 'WANAAN_SO_FILE', __FILE__ );
 define( 'WANAAN_SO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WANAAN_SO_URL', plugin_dir_url( __FILE__ ) );

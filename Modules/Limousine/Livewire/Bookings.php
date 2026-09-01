@@ -35,9 +35,30 @@ final class Bookings extends Component
     use GuardsModelAccess;
     use WithPagination;
 
-    /** all | queue | confirmed | active | completed | unpaid | cancelled */
+    /**
+     * queue | confirmed | active | completed | unpaid | cancelled
+     *
+     * Opens on the QUEUE — trips nobody has picked up yet are the ones that
+     * need a person. There is deliberately no "all": see the tab row in the
+     * view. An old link carrying one is normalised in mount() rather than
+     * quietly rendering an unfiltered list with no tab lit up.
+     */
     #[Url]
-    public string $tab = 'all';
+    public string $tab = self::DEFAULT_TAB;
+
+    /** Where the screen opens, and where an unknown tab falls back to. */
+    private const DEFAULT_TAB = 'queue';
+
+    /**
+     * Accepted in the URL. `all` is deliberately here but NOT rendered as a
+     * tab: the schedule cards on the app home open a whole day across every
+     * status, and their promise is that the number on the card equals the rows
+     * on the page. Dropping the value as well as the button would have quietly
+     * broken that. So it is reachable by link, just not somewhere to click.
+     *
+     * @var list<string>
+     */
+    private const VALID_TABS = ['all', 'queue', 'confirmed', 'active', 'completed', 'unpaid', 'cancelled'];
 
     #[Url]
     public string $from = '';
@@ -161,6 +182,13 @@ final class Bookings extends Component
     public function mount(): void
     {
         $this->guardAccess(Permission::Read);
+
+        // A bookmark or old link may still carry ?tab=all (or anything else).
+        // Without this it would render every trip with no tab highlighted,
+        // which reads as a broken page rather than a deliberate view.
+        if (! in_array($this->tab, self::VALID_TABS, true)) {
+            $this->tab = self::DEFAULT_TAB;
+        }
     }
 
     /**
@@ -1011,7 +1039,6 @@ final class Bookings extends Component
                 'search' => $this->search, 'sort' => $this->sort, 'dir' => $this->dir,
             ]),
             'counts' => $counts,
-            'totalCount' => (int) $counts->sum(),
             'unpaidCount' => $rows->unpaidCount(),
             'perPageOptions' => self::PER_PAGE_OPTIONS,
             'carOptions' => $this->assigningId !== null ? $this->carOptions() : [],

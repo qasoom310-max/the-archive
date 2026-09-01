@@ -263,7 +263,9 @@ final class LimoServiceOrderTest extends TestCase
         Mail::fake();
         $leg = $this->leg();
 
-        Livewire::test(Bookings::class)
+        // Named tab: the subject is what the row shows once the order is sent,
+        // not which tab the trip sits in.
+        Livewire::withQueryParams(['tab' => 'all'])->test(Bookings::class)
             ->call('sendServiceOrder', $leg->id)
             ->assertSee('Sent to sign')
             ->assertSee('Resend');

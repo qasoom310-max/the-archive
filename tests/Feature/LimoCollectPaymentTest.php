@@ -222,12 +222,14 @@ final class LimoCollectPaymentTest extends TestCase
     {
         [$booking, $legs] = $this->bookingOfThree();
 
-        Livewire::test(Bookings::class)
-            ->assertSee('Receive payment for this booking');
+        // These legs are confirmed/completed, so the tab is named: the subject
+        // here is the payment button on the row, not which tab a trip sits in.
+        $queue = fn () => Livewire::withQueryParams(['tab' => 'all'])->test(Bookings::class);
+
+        $queue()->assertSee('Receive payment for this booking');
 
         $booking->forceFill(['advance' => 148, 'payment_status' => LimoBooking::PAYMENT_PAID])->save();
 
-        Livewire::test(Bookings::class)
-            ->assertDontSee('Receive payment for this booking');
+        $queue()->assertDontSee('Receive payment for this booking');
     }
 }

@@ -86,6 +86,19 @@ final class LimoReceipt extends Model implements DefinesIrModel
     }
 
     /**
+     * The job this money was for.
+     *
+     * Receipts can exist without an invoice — money is taken on the booking
+     * itself — so this is what names the trip on the customer's copy.
+     *
+     * @return BelongsTo<LimoBooking, $this>
+     */
+    public function booking(): BelongsTo
+    {
+        return $this->belongsTo(LimoBooking::class, 'booking_id');
+    }
+
+    /**
      * @return BelongsTo<LimoCustomer, $this>
      */
     public function customer(): BelongsTo

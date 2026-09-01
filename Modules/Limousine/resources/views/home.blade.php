@@ -118,7 +118,10 @@
             ];
         @endphp
         @foreach ($dayCards as $card)
-            <a href="{{ url('/app/limousine/booking') }}?from={{ $card['date'] }}&to={{ $card['date'] }}" wire:navigate
+            {{-- tab=all explicitly: the queue opens on Queue now, but this card counts
+                 the whole day across every status, and the number has to equal the
+                 rows it opens. --}}
+            <a href="{{ url('/app/limousine/booking') }}?tab=all&from={{ $card['date'] }}&to={{ $card['date'] }}" wire:navigate
                class="relative block overflow-hidden rounded-2xl p-5 shadow-sm ring-1 transition hover:-translate-y-0.5 hover:shadow-pop {{ $card['active'] ? 'bg-gradient-to-br from-chrome-900 to-chrome-800 ring-0' : 'bg-white ring-chrome-900/[0.06]' }}">
                 @if ($card['active'])<div class="pointer-events-none absolute -right-8 -top-10 size-32 rounded-full bg-indigo-500/25 blur-2xl"></div>@endif
                 <div class="relative flex items-center justify-between">

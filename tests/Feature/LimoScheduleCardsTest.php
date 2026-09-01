@@ -75,10 +75,11 @@ final class LimoScheduleCardsTest extends TestCase
             ->assertViewHas('todayDate', $today)
             ->assertViewHas('yesterdayDate', $yesterday)
             ->assertViewHas('tomorrowDate', $tomorrow)
-            // The link the card carries: the queue, filtered to that one day.
-            ->assertSee('/app/limousine/booking?from=' . $today . '&to=' . $today, false)
-            ->assertSee('/app/limousine/booking?from=' . $yesterday . '&to=' . $yesterday, false)
-            ->assertSee('/app/limousine/booking?from=' . $tomorrow . '&to=' . $tomorrow, false);
+            // The link the card carries: the queue, filtered to that one day,
+            // across every status — the count spans them, so the page must too.
+            ->assertSee('/app/limousine/booking?tab=all&from=' . $today . '&to=' . $today, false)
+            ->assertSee('/app/limousine/booking?tab=all&from=' . $yesterday . '&to=' . $yesterday, false)
+            ->assertSee('/app/limousine/booking?tab=all&from=' . $tomorrow . '&to=' . $tomorrow, false);
     }
 
     public function test_the_counts_are_per_day(): void
@@ -107,9 +108,10 @@ final class LimoScheduleCardsTest extends TestCase
 
         Livewire::test(LimoHome::class)->assertViewHas('todayCount', 2);
 
-        $queue = Livewire::test(Bookings::class)
-            ->set('from', $today)
-            ->set('to', $today);
+        // Pressing the card: it links with tab=all, because the count spans
+        // every status while the queue itself now opens on Queue.
+        $queue = Livewire::withQueryParams(['tab' => 'all', 'from' => $today, 'to' => $today])
+            ->test(Bookings::class);
 
         $this->assertCount(2, $queue->viewData('legs')->items());
     }
@@ -127,7 +129,7 @@ final class LimoScheduleCardsTest extends TestCase
         $this->tripOn('today');
         $today = now()->toDateString();
 
-        $queue = Livewire::withQueryParams(['from' => $today, 'to' => $today])
+        $queue = Livewire::withQueryParams(['tab' => 'all', 'from' => $today, 'to' => $today])
             ->test(Bookings::class)
             // The filter arrived from the card's link.
             ->assertSet('from', $today)
@@ -161,7 +163,8 @@ final class LimoScheduleCardsTest extends TestCase
 
         Livewire::test(LimoHome::class)->assertViewHas('todayCount', 1);
 
-        $queue = Livewire::test(Bookings::class)->set('from', $today)->set('to', $today);
+        $queue = Livewire::withQueryParams(['tab' => 'all', 'from' => $today, 'to' => $today])
+            ->test(Bookings::class);
         $this->assertCount(1, $queue->viewData('legs')->items());
     }
 }

@@ -1,3 +1,11 @@
+@php
+    // Defined once for the WHOLE page, not inside the row loop. The cancel
+    // dialog below also formats money, and a queue with no rows would otherwise
+    // leave it undefined — the loop is not a scope the rest of the page can
+    // borrow from.
+    $money = fn (float $v): string => \App\Erp\Views\ValueFormat::money($v);
+@endphp
+
 <div class="mx-auto w-full p-4 sm:p-6">
     <x-page-header :title="__('Bookings')" :subtitle="__('Trip bookings.')" icon="calendar" accent="indigo">
         <x-slot:actions>
@@ -33,8 +41,11 @@
     @endif
 
     @php
+        // No "All" tab: the queue is a place of work, not an archive. Every tab
+        // here is something someone has to do, and a catch-all mixing cancelled
+        // and completed trips into the live ones was only ever a longer list to
+        // scroll past. Search and the date range still reach anything.
         $tabs = [
-            'all' => __('All'),
             'queue' => __('Queue'),
             'confirmed' => __('Confirmed'),
             'active' => __('Active'),
@@ -48,7 +59,6 @@
     <div class="mb-4 flex flex-wrap items-center gap-1 border-b border-chrome-200">
         @foreach ($tabs as $key => $label)
             @php $n = match ($key) {
-                'all' => $totalCount,
                 'unpaid' => $unpaidCount,
                 default => (int) $counts->get($key, 0),
             }; @endphp
@@ -203,7 +213,6 @@
                             'confirmed' => ['active', __('Start trip')],
                             'active' => ['completed', __('Complete')],
                         ][$row['status']] ?? null;
-                        $money = fn (float $v): string => \App\Erp\Views\ValueFormat::money($v);
                         // A finished or cancelled trip is history: it can be read,
                         // printed and signed for, but nothing about it changes any
                         // more. Leaving Edit and Assign live on a done trip invites

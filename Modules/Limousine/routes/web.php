@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\Limousine\Http\Controllers\CouponVoucherController;
 use Modules\Limousine\Http\Controllers\LimoInvoiceController;
 use Modules\Limousine\Http\Controllers\LimoQueueExportController;
+use Modules\Limousine\Http\Controllers\LimoStatementController;
 use Modules\Limousine\Http\Controllers\LimoReceiptController;
 use Modules\Limousine\Http\Controllers\LimoReportExportController;
 use Modules\Limousine\Http\Controllers\PaymentCallbackController;
@@ -84,6 +85,9 @@ Route::middleware('auth')->group(function (): void {
     // from a customer's name on the queue. The form is one button away.
     Route::get('/app/limousine/customer/{id}/summary', CustomerSummary::class)
         ->whereNumber('id')->name('limousine.customer.summary');
+    // Everything charged and everything paid, for a date range the caller picks.
+    Route::get('/app/limousine/customer/{customer}/statement', LimoStatementController::class)
+        ->whereNumber('customer')->name('limousine.customer.statement');
     Route::get('/app/limousine/customer/{id}', RentalCustomerForm::class)
         ->whereNumber('id')
         ->defaults('modelKey', 'limousine.customer')

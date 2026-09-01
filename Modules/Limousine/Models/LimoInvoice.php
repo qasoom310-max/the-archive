@@ -30,6 +30,7 @@ use Illuminate\Support\Carbon;
  * @property float $amount_paid
  * @property string $status
  * @property string|null $notes
+ * @property string|null $charge_label
  * @property-read LimoCustomer|null $customer
  * @property-read \Illuminate\Database\Eloquent\Collection<int, LimoReceipt> $receipts
  */
@@ -48,7 +49,7 @@ final class LimoInvoice extends Model implements DefinesIrModel
     /** @var list<string> */
     protected $fillable = [
         'reference', 'customer_id', 'booking_id', 'quotation_id', 'issue_date', 'due_date',
-        'subtotal', 'discount', 'total', 'amount_paid', 'status', 'notes',
+        'subtotal', 'discount', 'total', 'amount_paid', 'status', 'notes', 'charge_label',
     ];
 
     /** @var array<string, mixed> */
@@ -73,6 +74,30 @@ final class LimoInvoice extends Model implements DefinesIrModel
             'total' => 'float',
             'amount_paid' => 'float',
         ];
+    }
+
+    /**
+     * A charge that is not a journey — today, a late-payment fee.
+     *
+     * It has no trip and never will, which is what separates it from a bill
+     * raised off a quotation and still waiting to be dispatched.
+     */
+    public function isCharge(): bool
+    {
+        return $this->charge_label !== null && $this->charge_label !== '';
+    }
+
+    /**
+     * Billed, but the journey it bills for has not been created yet.
+     *
+     * This — not "has no booking" — is what stops money being taken: a receipt
+     * belongs to a job, and a quote's trip does not exist until someone
+     * dispatches it. A standalone charge has no job to wait for, so it is
+     * payable the moment it is raised.
+     */
+    public function isAwaitingTrip(): bool
+    {
+        return $this->booking_id === null && $this->quotation_id !== null;
     }
 
     public function referencePrefix(): string

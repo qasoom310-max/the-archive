@@ -110,19 +110,22 @@ final class Invoices extends Component
             'collectNote' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $booking = $invoice->booking;
-        if ($booking === null) {
+        if ($invoice->isAwaitingTrip()) {
             $this->addError('collectAmount', __('Create the trip first — a receipt belongs to a job.'));
 
             return;
         }
 
-        $payments->receive(
-            $booking,
-            (float) $this->collectAmount,
-            $this->collectMethod,
-            $this->collectNote !== '' ? $this->collectNote : null,
-        );
+        $note = $this->collectNote !== '' ? $this->collectNote : null;
+        $booking = $invoice->booking;
+
+        if ($booking !== null) {
+            $payments->receive($booking, (float) $this->collectAmount, $this->collectMethod, $note);
+        } else {
+            // A charge with no journey behind it — a late fee. The receipt is
+            // written against the document alone.
+            $payments->receiveForCharge($invoice, (float) $this->collectAmount, $this->collectMethod, $note);
+        }
 
         $this->collectingId = null;
         session()->flash('toast', __('Payment recorded.'));

@@ -55,6 +55,32 @@
         @endforeach
     </div>
 
+    {{-- What the customer's accounts department asks for. The range is the
+         statement's period, not a filter on this page — a list of unpaid bills
+         cannot show that something WAS paid, which is what they reconcile. --}}
+    <div class="mb-6 flex flex-wrap items-end gap-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]">
+        <div>
+            <h2 class="mb-2 text-sm font-semibold text-chrome-800">{{ __('Statement of account') }}</h2>
+            <p class="text-xs text-chrome-500">{{ __('Every charge and every payment, with receipt numbers.') }}</p>
+        </div>
+        <div class="ms-auto flex flex-wrap items-end gap-3">
+            <div>
+                <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('From') }}</label>
+                <x-date-field wire:model.live="from" class="o-input text-sm" />
+            </div>
+            <div>
+                <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('To') }}</label>
+                <x-date-field wire:model.live="to" class="o-input text-sm" />
+            </div>
+            <a href="{{ $statementUrl }}" class="o-btn-ghost text-sm">{{ __('Download statement') }}</a>
+            {{-- Deciding the customer owes MORE than we quoted is a management
+                 call, so it is an admin's button. --}}
+            @if ($canCharge)
+                <button type="button" wire:click="openFee" class="o-btn-ghost text-sm">{{ __('Add late fee') }}</button>
+            @endif
+        </div>
+    </div>
+
     {{-- Asked for but not yet priced into a bill. The half of an account a
          list of trips cannot show. --}}
     @if ($openQuotes->isNotEmpty())
@@ -215,6 +241,47 @@
                 <div class="mt-5 flex justify-end gap-2">
                     <button type="button" wire:click="closePay" class="o-btn-ghost text-sm">{{ __('Close') }}</button>
                     <button type="button" wire:click="savePay" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Receive payment') }}</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Late payment charge. Raised as an invoice, so it lands in the account's
+         outstanding balance and on the statement like any other debt. --}}
+    @if ($charging)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-chrome-900/50 p-4"
+             x-on:keydown.escape.window="$wire.closeFee()">
+            <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl sm:p-6" x-on:click.outside="$wire.closeFee()">
+                <h2 class="text-sm font-semibold text-chrome-800">{{ __('Add late fee') }}</h2>
+                <p class="mt-1 text-xs text-chrome-500">{{ __('Charged to the account as an invoice, so it shows on the statement and in what is owed.') }}</p>
+
+                <div class="mt-4 space-y-4">
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Amount') }}</label>
+                            <input type="number" step="0.001" min="0" wire:model="feeAmount" class="o-input w-full">
+                            @error('feeAmount') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Charge date') }}</label>
+                            <x-date-field wire:model="feeDate" class="o-input w-full" />
+                            @error('feeDate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('For which period') }}</label>
+                        <input type="text" wire:model="feePeriod" class="o-input w-full" placeholder="{{ __('e.g. June 2026 — July 2026') }}">
+                        @error('feePeriod') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Reason') }}</label>
+                        <input type="text" wire:model="feeReason" class="o-input w-full" placeholder="{{ __('e.g. payment delayed past agreed terms') }}">
+                    </div>
+                </div>
+
+                <div class="mt-5 flex justify-end gap-2">
+                    <button type="button" wire:click="closeFee" class="o-btn-ghost text-sm">{{ __('Close') }}</button>
+                    <button type="button" wire:click="saveFee" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Add late fee') }}</button>
                 </div>
             </div>
         </div>

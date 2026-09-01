@@ -32,10 +32,11 @@ final class AccountPayment
     /**
      * Bills this customer can actually be paid against, oldest first.
      *
-     * An invoice with no trip behind it is excluded: a receipt belongs to a
-     * job, so money cannot be taken for a journey that does not exist yet. Its
-     * balance still counts as owed — it simply cannot be settled this way until
-     * the trip is created.
+     * Excluded: a bill raised from a quotation whose trip has not been created
+     * yet. A receipt belongs to a job, and that job does not exist. Its balance
+     * still counts as owed — it simply cannot be settled until the trip is
+     * dispatched. A late-payment charge has no journey to wait for and is
+     * payable the moment it is raised.
      *
      * @return \Illuminate\Support\Collection<int, LimoInvoice>
      */
@@ -44,11 +45,10 @@ final class AccountPayment
         return LimoInvoice::query()
             ->with('booking')
             ->where('customer_id', $customer->id)
-            ->whereNotNull('booking_id')
             ->orderBy('issue_date')
             ->orderBy('id')
             ->get()
-            ->filter(fn (LimoInvoice $invoice): bool => $invoice->balance() > 0.0005)
+            ->filter(fn (LimoInvoice $invoice): bool => ! $invoice->isAwaitingTrip() && $invoice->balance() > 0.0005)
             ->values();
     }
 
@@ -102,12 +102,17 @@ final class AccountPayment
             $receipts = 0;
 
             foreach ($plan as $slice) {
-                $booking = $slice['invoice']->booking;
-                if ($booking === null) {
-                    continue;
+                $invoice = $slice['invoice'];
+                $booking = $invoice->booking;
+
+                // A trip's bill settles through the booking, so the job reads as
+                // paid too; a standalone charge has only the document.
+                if ($booking !== null) {
+                    $this->payments->receive($booking, $slice['amount'], $method, $note);
+                } else {
+                    $this->payments->receiveForCharge($invoice, $slice['amount'], $method, $note);
                 }
 
-                $this->payments->receive($booking, $slice['amount'], $method, $note);
                 $allocated = round($allocated + $slice['amount'], 3);
                 $receipts++;
             }

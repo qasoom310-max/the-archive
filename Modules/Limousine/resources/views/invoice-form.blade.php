@@ -36,41 +36,98 @@
         <div class="space-y-4 lg:col-span-2">
             <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]">
                 <h2 class="mb-4 text-sm font-semibold text-chrome-800">{{ __('Invoice details') }}</h2>
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Customer') }} *</label>
-                        <x-searchable-select wire:model="customer_id" class="o-input w-full"
-                            :options="collect($customers)->map(fn ($c) => [
-                                'value' => $c->id,
-                                'label' => $c->name . ($c->phone ? ' · ' . $c->phone : ''),
-                            ])->all()"
-                            :search-placeholder="__('Search name or number…')" />
-                        @error('customer_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                @if ($isEditing)
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Customer') }} *</label>
+                            <x-searchable-select wire:model="customer_id" class="o-input w-full"
+                                :options="collect($customers)->map(fn ($c) => [
+                                    'value' => $c->id,
+                                    'label' => $c->name . ($c->phone ? ' · ' . $c->phone : ''),
+                                ])->all()"
+                                :search-placeholder="__('Search name or number…')" />
+                            @error('customer_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div></div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Issue date') }} *</label>
+                            <x-date-field wire:model="issue_date" class="o-input w-full" />
+                            @error('issue_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Due date') }}</label>
+                            <x-date-field wire:model="due_date" class="o-input w-full" />
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Subtotal (BHD)') }} *</label>
+                            <input type="number" step="0.001" min="0" wire:model.live="subtotal" class="o-input w-full">
+                            @error('subtotal') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Discount (BHD)') }}</label>
+                            <input type="number" step="0.001" min="0" wire:model.live="discount" class="o-input w-full">
+                        </div>
                     </div>
-                    <div></div>
-                    <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Issue date') }} *</label>
-                        <x-date-field wire:model="issue_date" class="o-input w-full" />
-                        @error('issue_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    <div class="mt-4">
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Notes') }}</label>
+                        <textarea wire:model="notes" rows="2" class="o-input w-full"></textarea>
                     </div>
-                    <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Due date') }}</label>
-                        <x-date-field wire:model="due_date" class="o-input w-full" />
+                @else
+                    {{-- A bill is raised from a price the customer already
+                         agreed, so this is a quote picker rather than a blank
+                         form: choose the customer, then the quote. Retyping
+                         totals here is how an invoice and its trip end up
+                         disagreeing. --}}
+                    <p class="-mt-3 mb-4 text-xs text-chrome-500">{{ __('Choose the customer, then the quotation you are billing. The invoice takes its price from the quote.') }}</p>
+
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Customer') }} *</label>
+                            <x-searchable-select wire:model.live="customer_id" class="o-input w-full"
+                                :options="collect($customers)->map(fn ($c) => [
+                                    'value' => $c->id,
+                                    'label' => $c->name . ($c->phone ? ' · ' . $c->phone : ''),
+                                ])->all()"
+                                :search-placeholder="__('Search name or number…')" />
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Find a quotation') }}</label>
+                            <input type="search" wire:model.live.debounce.300ms="quoteSearch" class="o-input w-full"
+                                   placeholder="{{ __('Quotation number…') }}">
+                        </div>
                     </div>
-                    <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Subtotal (BHD)') }} *</label>
-                        <input type="number" step="0.001" min="0" wire:model.live="subtotal" class="o-input w-full">
-                        @error('subtotal') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+
+                    <div class="mt-4">
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Quotation') }} *</label>
+
+                        @if ($quotes->isEmpty())
+                            <p class="rounded-xl bg-chrome-50 px-3 py-4 text-sm text-chrome-500">
+                                @if ($customer_id === null && $quoteSearch === '')
+                                    {{ __('Pick a customer to see the quotations waiting to be billed.') }}
+                                @else
+                                    {{ __('No quotations waiting to be billed.') }}
+                                    <a href="{{ url('/app/limousine/quotation/new') }}" wire:navigate class="text-primary-700 hover:underline">{{ __('New quotation') }}</a>
+                                @endif
+                            </p>
+                        @else
+                            <ul class="max-h-80 divide-y divide-chrome-100 overflow-y-auto rounded-xl ring-1 ring-chrome-900/[0.06]">
+                                @foreach ($quotes as $q)
+                                    <li wire:key="lq-{{ $q->id }}">
+                                        <button type="button" wire:click="selectQuote({{ $q->id }})"
+                                                class="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2.5 text-start text-sm hover:bg-chrome-50 {{ $quotation_id === $q->id ? 'bg-primary-400/15' : '' }}">
+                                            <span class="font-semibold text-chrome-800">{{ $q->reference }}</span>
+                                            <span class="text-chrome-500">{{ $q->customer?->name }}</span>
+                                            <span class="text-chrome-400">{{ $q->pickup_at?->isoFormat('DD-MMM-YYYY') ?: $q->quote_date?->isoFormat('DD-MMM-YYYY') }}</span>
+                                            <span class="font-semibold text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($q->fare) }}</span>
+                                        </button>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
+
+                        @error('quotation_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
-                    <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Discount (BHD)') }}</label>
-                        <input type="number" step="0.001" min="0" wire:model.live="discount" class="o-input w-full">
-                    </div>
-                </div>
-                <div class="mt-4">
-                    <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Notes') }}</label>
-                    <textarea wire:model="notes" rows="2" class="o-input w-full"></textarea>
-                </div>
+                @endif
             </div>
 
             @if ($isEditing)
@@ -106,10 +163,20 @@
                         <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Balance') }}</dt><dd class="font-semibold text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($balance) }}</dd></div>
                     @endif
                 </dl>
-                <button wire:click="save" class="o-btn-primary mt-4 w-full justify-center">
-                    <span wire:loading.remove wire:target="save">{{ $isEditing ? __('Save invoice') : __('Create invoice') }}</span>
-                    <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
-                </button>
+                @if ($isEditing)
+                    <button wire:click="save" class="o-btn-primary mt-4 w-full justify-center">
+                        <span wire:loading.remove wire:target="save">{{ __('Save invoice') }}</span>
+                        <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
+                    </button>
+                @else
+                    @if ($selectedQuote)
+                        <p class="mt-3 text-xs text-chrome-500">{{ __('Billing') }} <span class="font-semibold text-chrome-700">{{ $selectedQuote->reference }}</span></p>
+                    @endif
+                    <button wire:click="issueInvoice" @disabled(! $selectedQuote) class="o-btn-primary mt-4 w-full justify-center disabled:cursor-not-allowed disabled:opacity-50">
+                        <span wire:loading.remove wire:target="issueInvoice">{{ __('Issue invoice') }}</span>
+                        <span wire:loading wire:target="issueInvoice">{{ __('Issuing…') }}</span>
+                    </button>
+                @endif
             </div>
         </div>
     </div>

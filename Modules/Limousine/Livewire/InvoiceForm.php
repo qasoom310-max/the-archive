@@ -15,6 +15,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoInvoice;
+use Modules\Limousine\Models\LimoQuotation;
 use Modules\Limousine\Services\BookingPayments;
 
 /**
@@ -60,6 +61,19 @@ final class InvoiceForm extends Component
     public float $amount_paid = 0;
 
     public ?int $booking_id = null;
+
+    /**
+     * The quotation this new invoice will bill — server-set from the picker.
+     *
+     * A bill is raised from a price the customer already agreed, so the new
+     * invoice screen summons a quote instead of asking the office to retype
+     * totals it has on file. Locked: it decides which quote gets billed.
+     */
+    #[Locked]
+    public ?int $quotation_id = null;
+
+    /** Free text over the quote picker — a quote number, or a customer's name. */
+    public string $quoteSearch = '';
 
     public function mount(?int $id = null): void
     {
@@ -110,12 +124,26 @@ final class InvoiceForm extends Component
         return round(max(0.0, $sub - $disc), 3);
     }
 
+    /**
+     * Save an existing bill.
+     *
+     * There is no blank-form create any more — an invoice is raised from a
+     * quotation (see issueInvoice) or issued with a booking. Livewire
+     * dispatches straight to methods, so a stale page still reaching here is
+     * refused rather than conjuring a bill from nothing.
+     */
     public function save(): void
     {
-        $this->guardSave($this->id === null);
+        if ($this->id === null) {
+            $this->addError('quotation_id', __('Pick a quotation to bill.'));
+
+            return;
+        }
+
+        $this->guardSave(false);
         $this->validateFocusing();
 
-        $invoice = $this->id !== null ? LimoInvoice::query()->find($this->id) : new LimoInvoice();
+        $invoice = LimoInvoice::query()->find($this->id);
         if ($invoice === null) {
             return;
         }
@@ -132,6 +160,122 @@ final class InvoiceForm extends Component
 
         session()->flash('toast', __('Invoice saved.'));
         $this->redirect('/app/limousine/invoice', navigate: true);
+    }
+
+    /**
+     * Quotations waiting to be billed, for the picker on a new invoice.
+     *
+     * Scoped to the chosen customer, because that is how the office looks for
+     * one — and searchable by quote number for when they already know it.
+     * Excluded: a quote already invoiced (billing it twice is the whole thing
+     * this guards), one that has already become a trip under the old
+     * quote-straight-to-booking flow (its trip carries the bill), and a
+     * declined one, which is a price nobody agreed.
+     *
+     * @return \Illuminate\Support\Collection<int, LimoQuotation>
+     */
+    private function billableQuotes(): \Illuminate\Support\Collection
+    {
+        $search = trim($this->quoteSearch);
+
+        return LimoQuotation::query()
+            ->with('customer:id,name')
+            ->doesntHave('invoice')
+            ->whereNull('booking_id')
+            ->where('status', '!=', LimoQuotation::STATUS_DECLINED)
+            ->when($this->customer_id !== null, fn ($q) => $q->where('customer_id', $this->customer_id))
+            ->when($search !== '', function ($q) use ($search): void {
+                $q->where(function ($w) use ($search): void {
+                    $w->where('reference', 'like', '%' . $search . '%')
+                        ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', '%' . $search . '%'));
+                });
+            })
+            ->orderByDesc('id')
+            ->limit(25)
+            ->get();
+    }
+
+    /**
+     * Choose the quote to bill.
+     *
+     * Re-checked against the same billable set the list is drawn from — the
+     * picker is a convenience, not the rule, and this is what a crafted call
+     * meets.
+     */
+    public function selectQuote(int $id): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        $quote = LimoQuotation::query()
+            ->doesntHave('invoice')
+            ->whereNull('booking_id')
+            ->where('status', '!=', LimoQuotation::STATUS_DECLINED)
+            ->find($id);
+
+        if ($quote === null) {
+            $this->addError('quotation_id', __('That quotation cannot be billed.'));
+
+            return;
+        }
+
+        $this->resetErrorBag('quotation_id');
+        $this->quotation_id = $quote->id;
+        // Following the quote rather than the box: searching a number is how
+        // the office finds a quote when it does not remember whose it is.
+        $this->customer_id = $quote->customer_id;
+    }
+
+    public function clearQuote(): void
+    {
+        $this->quotation_id = null;
+    }
+
+    /** A quote picked for another customer stops applying when the box changes. */
+    public function updatedCustomerId(): void
+    {
+        if ($this->quotation_id === null) {
+            return;
+        }
+
+        $quote = LimoQuotation::query()->find($this->quotation_id);
+        if ($quote === null || $quote->customer_id !== $this->customer_id) {
+            $this->quotation_id = null;
+        }
+    }
+
+    /**
+     * Raise the invoice for the picked quotation.
+     *
+     * The same conversion the quotations list uses, so a bill raised from
+     * either door is the same document — idempotent by quotation, so a double
+     * press lands on the invoice that already exists rather than a second one.
+     */
+    public function issueInvoice(): void
+    {
+        $this->guardSave(true);
+
+        if ($this->quotation_id === null) {
+            $this->addError('quotation_id', __('Pick a quotation to bill.'));
+
+            return;
+        }
+
+        $quote = LimoQuotation::query()
+            ->doesntHave('invoice')
+            ->whereNull('booking_id')
+            ->where('status', '!=', LimoQuotation::STATUS_DECLINED)
+            ->find($this->quotation_id);
+
+        if ($quote === null) {
+            $this->addError('quotation_id', __('That quotation cannot be billed.'));
+
+            return;
+        }
+
+        $invoice = $quote->convertToInvoice();
+
+        session()->flash('toast', __('Invoice issued from the quotation.'));
+        $this->redirect('/app/limousine/invoice/' . $invoice->id, navigate: true);
     }
 
     /** Payment dialog: open when set, with the balance offered. */
@@ -250,9 +394,17 @@ final class InvoiceForm extends Component
         $receipts = $invoice !== null ? $invoice->receipts : collect();
         $balance = $invoice !== null ? $invoice->balance() : $this->previewTotal();
 
+        // The new-invoice screen is a quote picker, not a blank form, so the
+        // list and the chosen quote are only built on that path.
+        $selectedQuote = $this->id === null && $this->quotation_id !== null
+            ? LimoQuotation::query()->with('customer:id,name')->find($this->quotation_id)
+            : null;
+
         return view('limousine::invoice-form', [
             'customers' => LimoCustomer::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'phone']),
-            'previewTotal' => $this->previewTotal(),
+            'quotes' => $this->id === null ? $this->billableQuotes() : collect(),
+            'selectedQuote' => $selectedQuote,
+            'previewTotal' => $selectedQuote !== null ? (float) $selectedQuote->fare : $this->previewTotal(),
             'balance' => $balance,
             'receipts' => $receipts,
             'invoice' => $invoice,

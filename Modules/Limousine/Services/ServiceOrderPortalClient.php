@@ -115,6 +115,7 @@ final class ServiceOrderPortalClient
         $bookingNotes = '';
         $customerName = '';
         $telephone = '';
+        $email = '';
 
         if ($booking !== null) {
             $bookingNo = (string) ($booking->reference ?? '');
@@ -127,6 +128,7 @@ final class ServiceOrderPortalClient
             if ($customer !== null) {
                 $customerName = (string) $customer->name;
                 $telephone = (string) ($customer->phone ?? '');
+                $email = (string) ($customer->serviceEmail() ?? '');
             }
         }
 
@@ -142,6 +144,7 @@ final class ServiceOrderPortalClient
             'date' => now()->format('Y-m-d'),
             'customer_name' => $customerName,
             'telephone' => $telephone,
+            'email' => $email,
             'service_date' => $leg->start_at?->format('Y-m-d') ?? '',
             'service_time' => $leg->start_at?->format('H:i') ?? '',
             'vehicle' => (string) ($leg->vehicle ?? ''),

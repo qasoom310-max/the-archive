@@ -95,6 +95,11 @@ class WSO_Woo {
 				return $order;
 			}
 			WSO_Repository::update( $row->id, array( 'woo_order_id' => $order->get_id() ) );
+		} elseif ( '' === $order->get_billing_email() ) {
+			// An order created before the billing-details fix is reused here;
+			// backfill so Tap has the email/name it needs to build a charge.
+			self::apply_billing_details( $order, $row );
+			$order->save();
 		}
 
 		return $order->get_checkout_payment_url();
@@ -140,12 +145,8 @@ class WSO_Woo {
 			if ( $row->currency ) {
 				$order->set_currency( $row->currency );
 			}
-			if ( $row->customer_name ) {
-				$order->set_billing_first_name( $row->customer_name );
-			}
-			if ( $row->telephone ) {
-				$order->set_billing_phone( $row->telephone );
-			}
+
+			self::apply_billing_details( $order, $row );
 
 			$order->update_meta_data( self::ORDER_META_ROW, (int) $row->id );
 			$order->update_meta_data( self::ORDER_META_TOKEN, (string) $row->token );
@@ -157,6 +158,43 @@ class WSO_Woo {
 			return $order;
 		} catch ( Exception $e ) {
 			return new WP_Error( 'woo_create_failed', $e->getMessage() );
+		}
+	}
+
+	/**
+	 * Put the customer's billing name / email / phone / country on the order.
+	 *
+	 * Tap (and most gateways) refuse to create a charge without a billing email
+	 * + name, and an order missing them shows the customer nothing on the pay
+	 * page. The email comes from the ERP; when absent we synthesise an
+	 * unguessable no-reply address so a charge can always be built.
+	 *
+	 * @param WC_Order $order
+	 * @param object   $row
+	 */
+	private static function apply_billing_details( $order, $row ) {
+		$name = trim( (string) $row->customer_name );
+		if ( '' !== $name ) {
+			$parts = preg_split( '/\s+/', $name, 2 );
+			$order->set_billing_first_name( $parts[0] );
+			$order->set_billing_last_name( ! empty( $parts[1] ) ? $parts[1] : $parts[0] );
+		}
+
+		$email = filter_var( (string) $row->customer_email, FILTER_VALIDATE_EMAIL ) ? (string) $row->customer_email : '';
+		if ( '' === $email ) {
+			$host  = wp_parse_url( home_url(), PHP_URL_HOST );
+			$host  = $host ? $host : 'wanaan-bh.com';
+			$email = 'noreply+' . $row->token . '@' . $host;
+		}
+		$order->set_billing_email( $email );
+
+		if ( $row->telephone ) {
+			$order->set_billing_phone( (string) $row->telephone );
+		}
+
+		$base = function_exists( 'wc_get_base_location' ) ? wc_get_base_location() : array();
+		if ( ! empty( $base['country'] ) ) {
+			$order->set_billing_country( $base['country'] );
 		}
 	}
 

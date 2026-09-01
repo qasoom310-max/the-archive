@@ -9,7 +9,7 @@ defined( 'ABSPATH' ) || exit;
 class WSO_Install {
 
 	/** Bumped when the table schema changes; drives maybe_upgrade(). */
-	const SCHEMA_VERSION = '1';
+	const SCHEMA_VERSION = '2';
 
 	const SCHEMA_OPTION = 'wanaan_so_schema_version';
 
@@ -68,6 +68,7 @@ class WSO_Install {
 			booking_no VARCHAR(64) NULL,
 			so_date VARCHAR(32) NULL,
 			customer_name VARCHAR(191) NULL,
+			customer_email VARCHAR(191) NULL,
 			telephone VARCHAR(64) NULL,
 			service_date VARCHAR(32) NULL,
 			service_time VARCHAR(32) NULL,

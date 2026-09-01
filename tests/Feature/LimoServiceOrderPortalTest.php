@@ -42,7 +42,7 @@ final class LimoServiceOrderPortalTest extends TestCase
     /** One booking + one priced leg. */
     private function trip(float $fare = 45.0): LimoLeg
     {
-        $customer = LimoCustomer::query()->create(['name' => 'Qassim Makhlooq', 'phone' => '38467744']);
+        $customer = LimoCustomer::query()->create(['name' => 'Qassim Makhlooq', 'phone' => '38467744', 'email' => 'qassim@example.com']);
 
         $booking = LimoBooking::query()->create([
             'reference' => 'BK/00005',
@@ -136,6 +136,7 @@ final class LimoServiceOrderPortalTest extends TestCase
                 && $data['booking_no'] === 'BK/00005'
                 && $data['pickup'] === 'Home'
                 && $data['dropoff'] === 'Dammam Airport'
+                && $data['email'] === 'qassim@example.com'
                 // BHD crosses the wire as an exact 3-decimal string.
                 && $data['amount'] === '45.000'
                 && $data['currency'] === 'BHD';

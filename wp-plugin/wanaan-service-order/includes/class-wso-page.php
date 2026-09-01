@@ -97,12 +97,9 @@ class WSO_Page {
 			exit;
 		}
 
-		if ( empty( $_POST['accept_terms'] ) ) {
-			wp_safe_redirect( add_query_arg( 'error', 'terms', $back ) );
-			exit;
-		}
-
-		// Consent is required before a Woo order exists, so it is always on record.
+		// The customer agrees to the terms once, on the WooCommerce checkout —
+		// there's no separate checkbox here. Record when they proceed to pay as
+		// an audit note (IP + user agent + time).
 		WSO_Repository::record_consent( $row->id, self::client_ip(), isset( $_SERVER['HTTP_USER_AGENT'] ) ? wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) : '' );
 
 		$checkout_url = WSO_Woo::checkout_url_for( $row );

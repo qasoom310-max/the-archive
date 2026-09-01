@@ -12,12 +12,9 @@ defined( 'ABSPATH' ) || exit;
 $row    = isset( $GLOBALS['wanaan_so_row'] ) ? $GLOBALS['wanaan_so_row'] : null;
 $notice = isset( $GLOBALS['wanaan_so_notice'] ) ? $GLOBALS['wanaan_so_notice'] : '';
 
-$terms_url = 'https://www.wanaan-bh.com/terms-and-conditions/';
-
 $messages = array(
 	'expired'      => __( 'Your session expired. Please review and submit again.', 'wanaan-service-order' ),
 	'already_paid' => __( 'This service order has already been paid.', 'wanaan-service-order' ),
-	'terms'        => __( 'Please accept the terms and conditions before paying.', 'wanaan-service-order' ),
 	'woo'          => __( 'We could not start the payment. Please try again or contact us.', 'wanaan-service-order' ),
 );
 
@@ -54,10 +51,7 @@ $detail = function ( $label, $value ) {
 		.wso-amount { display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding:16px; background:#faf6ec; border:1px solid #efe3c2; border-radius:12px; }
 		.wso-amount .lbl { font-size:14px; color:var(--muted); }
 		.wso-amount .val { font-size:24px; font-weight:800; color:var(--gold); }
-		.wso-terms { display:flex; align-items:flex-start; gap:10px; margin:20px 0 8px; font-size:14px; }
-		.wso-terms input { margin-top:3px; width:18px; height:18px; }
-		.wso-terms a { color:var(--brand); }
-		.wso-pay { width:100%; border:0; border-radius:12px; padding:15px 18px; font-size:16px; font-weight:700; color:#fff; background:var(--brand); cursor:pointer; margin-top:12px; }
+		.wso-pay { width:100%; border:0; border-radius:12px; padding:15px 18px; font-size:16px; font-weight:700; color:#fff; background:var(--brand); cursor:pointer; margin-top:20px; }
 		.wso-pay:disabled { opacity:.45; cursor:not-allowed; }
 		.wso-note { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; border-radius:10px; padding:10px 14px; font-size:14px; margin-bottom:14px; }
 		.wso-paid { text-align:center; padding:26px 0; }
@@ -131,27 +125,10 @@ $detail = function ( $label, $value ) {
 						<input type="hidden" name="token" value="<?php echo esc_attr( $row->token ); ?>">
 						<?php wp_nonce_field( WSO_Page::NONCE_ACTION, '_wanaan_nonce' ); ?>
 
-						<label class="wso-terms">
-							<input type="checkbox" name="accept_terms" id="wso-accept" value="1">
-							<span>
-								<?php esc_html_e( 'I read and understand the', 'wanaan-service-order' ); ?>
-								<a href="<?php echo esc_url( $terms_url ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'terms and conditions', 'wanaan-service-order' ); ?></a>.
-							</span>
-						</label>
-
-						<button type="submit" class="wso-pay" id="wso-pay-btn" disabled>
+						<button type="submit" class="wso-pay" id="wso-pay-btn">
 							<?php esc_html_e( 'Pay now', 'wanaan-service-order' ); ?>
 						</button>
 					</form>
-					<script>
-						( function () {
-							var cb  = document.getElementById( 'wso-accept' );
-							var btn = document.getElementById( 'wso-pay-btn' );
-							if ( cb && btn ) {
-								cb.addEventListener( 'change', function () { btn.disabled = ! cb.checked; } );
-							}
-						} )();
-					</script>
 				<?php endif; ?>
 
 			</div>

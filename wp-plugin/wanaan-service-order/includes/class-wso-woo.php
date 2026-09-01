@@ -1,13 +1,14 @@
 <?php
 /**
- * WooCommerce glue: turn a service order into a payable order (a single
- * "Limousine Service" fee line — no cart, no products), and when that order is
- * paid, mark our row and fire the callback to the ERP.
+ * WooCommerce glue.
  *
- * Tap WebConnect is a normal WooCommerce gateway, so we never call Tap directly:
- * we build the order and send the customer to its checkout-order-pay page, where
- * Tap takes over. Payment success reaches us through the standard WooCommerce
- * hooks below.
+ * This site renders its front end with React, and the WooCommerce
+ * "order-pay" page is not one of its routes — it comes up blank. So instead of
+ * building an order and sending the customer to order-pay, we do what the normal
+ * store does and Tap already handles: drop a single "Limousine Service" line
+ * into the cart and send the customer to the real /checkout/ page. The order is
+ * then created by WooCommerce itself; we tag it with the service-order id so the
+ * paid-callback can find its way home.
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -17,6 +18,11 @@ class WSO_Woo {
 	const ORDER_META_ROW   = '_wanaan_service_order_id';
 	const ORDER_META_TOKEN = '_wanaan_token';
 
+	/** Cart-item keys carrying our data through to the order. */
+	const CART_ROW    = 'wanaan_so_row';
+	const CART_TOKEN  = 'wanaan_so_token';
+	const CART_AMOUNT = 'wanaan_so_amount';
+
 	public static function init() {
 		add_action( 'woocommerce_payment_complete', array( __CLASS__, 'on_paid' ) );
 		// Belt-and-braces: gateways that jump straight to a paid status without
@@ -24,42 +30,215 @@ class WSO_Woo {
 		add_action( 'woocommerce_order_status_processing', array( __CLASS__, 'on_paid' ) );
 		add_action( 'woocommerce_order_status_completed', array( __CLASS__, 'on_paid' ) );
 
-		// On the pay page of an order WE created, offer online payment only —
-		// hide "Pay Later" / cash / any non-online gateway. Normal store
-		// checkouts are untouched.
+		// Price our cart line at the billed amount.
+		add_action( 'woocommerce_before_calculate_totals', array( __CLASS__, 'set_cart_item_price' ), 20 );
+		// Copy our ids from the cart onto the order WooCommerce creates.
+		add_action( 'woocommerce_checkout_create_order', array( __CLASS__, 'tag_order' ), 20, 2 );
+		add_action( 'woocommerce_checkout_order_processed', array( __CLASS__, 'link_order' ), 20 );
+		// Trim + prefill the checkout for a service-order payment.
+		add_filter( 'woocommerce_checkout_fields', array( __CLASS__, 'simplify_checkout_fields' ) );
+		add_filter( 'woocommerce_checkout_get_value', array( __CLASS__, 'prefill_checkout_value' ), 10, 2 );
+		// Online payment only while our item is in the cart (hide "Pay Later").
 		add_filter( 'woocommerce_available_payment_gateways', array( __CLASS__, 'restrict_gateways' ) );
 	}
 
+	private static function woo_ready() {
+		return function_exists( 'WC' ) && function_exists( 'wc_get_checkout_url' );
+	}
+
 	/**
-	 * Keep only online (Tap) gateways on our service-order pay page.
+	 * Put our "Limousine Service" line in the cart and return the /checkout/ URL.
+	 * Never throws — any failure comes back as a WP_Error the page turns into a
+	 * friendly notice.
 	 *
-	 * Scope guard: this only fires on the checkout order-pay page for an order
-	 * carrying our meta — every other checkout gets the full gateway list back
-	 * unchanged. Fails OPEN: if no Tap-like gateway is found we return the
-	 * original list rather than leave the customer with no way to pay.
+	 * @param object $row
+	 * @return string|WP_Error
+	 */
+	public static function checkout_url_for( $row ) {
+		if ( ! self::woo_ready() ) {
+			return new WP_Error( 'woo_missing', 'WooCommerce is not active.' );
+		}
+
+		try {
+			// admin-post.php doesn't boot the cart/session — load it on demand.
+			if ( function_exists( 'wc_load_cart' ) && ( ! WC()->cart || ! WC()->session ) ) {
+				wc_load_cart();
+			}
+			if ( ! WC()->cart ) {
+				return new WP_Error( 'cart_missing', 'Cart is unavailable.' );
+			}
+
+			$product_id = self::service_product_id();
+			if ( $product_id <= 0 ) {
+				return new WP_Error( 'product_missing', 'Service product could not be prepared.' );
+			}
+
+			// A payment link is a single-item transaction — start clean so the
+			// customer never pays for something else left in a shared cart.
+			WC()->cart->empty_cart();
+
+			$added = WC()->cart->add_to_cart(
+				$product_id,
+				1,
+				0,
+				array(),
+				array(
+					self::CART_ROW    => (int) $row->id,
+					self::CART_TOKEN  => (string) $row->token,
+					self::CART_AMOUNT => (float) $row->amount,
+				)
+			);
+
+			if ( ! $added ) {
+				return new WP_Error( 'cart_add_failed', 'Could not add the service to the cart.' );
+			}
+
+			// Stash the customer details to prefill the checkout form.
+			if ( WC()->session ) {
+				WC()->session->set(
+					'wanaan_so_customer',
+					array(
+						'name'  => (string) $row->customer_name,
+						'email' => (string) $row->customer_email,
+						'phone' => (string) $row->telephone,
+					)
+				);
+			}
+
+			return wc_get_checkout_url();
+		} catch ( \Throwable $e ) {
+			return new WP_Error( 'checkout_failed', $e->getMessage() );
+		}
+	}
+
+	/**
+	 * Charge our cart line at the ERP-billed amount (its catalogue price is 0).
+	 *
+	 * @param WC_Cart $cart
+	 */
+	public static function set_cart_item_price( $cart ) {
+		if ( is_admin() && ! wp_doing_ajax() ) {
+			return;
+		}
+		if ( ! is_a( $cart, 'WC_Cart' ) ) {
+			return;
+		}
+		foreach ( $cart->get_cart() as $item ) {
+			if ( isset( $item[ self::CART_AMOUNT ], $item['data'] ) ) {
+				$item['data']->set_price( (float) $item[ self::CART_AMOUNT ] );
+			}
+		}
+	}
+
+	/**
+	 * Copy our service-order id/token from the cart onto the order at checkout.
+	 *
+	 * @param WC_Order $order
+	 * @param array    $data
+	 */
+	public static function tag_order( $order, $data ) {
+		if ( ! WC()->cart ) {
+			return;
+		}
+		foreach ( WC()->cart->get_cart() as $item ) {
+			if ( isset( $item[ self::CART_ROW ] ) ) {
+				$order->update_meta_data( self::ORDER_META_ROW, (int) $item[ self::CART_ROW ] );
+				if ( isset( $item[ self::CART_TOKEN ] ) ) {
+					$order->update_meta_data( self::ORDER_META_TOKEN, (string) $item[ self::CART_TOKEN ] );
+				}
+				$order->set_created_via( 'wanaan-service-order' );
+				break;
+			}
+		}
+	}
+
+	/**
+	 * Record the WooCommerce order id back on our service-order row.
+	 *
+	 * @param int $order_id
+	 */
+	public static function link_order( $order_id ) {
+		$order = wc_get_order( (int) $order_id );
+		if ( ! $order ) {
+			return;
+		}
+		$row_id = (int) $order->get_meta( self::ORDER_META_ROW );
+		if ( $row_id > 0 ) {
+			WSO_Repository::update( $row_id, array( 'woo_order_id' => (int) $order_id ) );
+		}
+	}
+
+	/**
+	 * On a service-order checkout, drop the address fields (a limousine payment
+	 * needs none) — keep name, email, phone, country. Other checkouts untouched.
+	 *
+	 * @param array $fields
+	 * @return array
+	 */
+	public static function simplify_checkout_fields( $fields ) {
+		if ( ! self::cart_has_service() ) {
+			return $fields;
+		}
+		foreach ( array( 'billing_company', 'billing_address_1', 'billing_address_2', 'billing_city', 'billing_state', 'billing_postcode' ) as $key ) {
+			unset( $fields['billing'][ $key ] );
+		}
+		return $fields;
+	}
+
+	/**
+	 * Prefill the checkout billing fields from the stashed customer details.
+	 *
+	 * @param mixed  $value
+	 * @param string $input
+	 * @return mixed
+	 */
+	public static function prefill_checkout_value( $value, $input ) {
+		if ( null !== $value && '' !== $value ) {
+			return $value;
+		}
+		if ( ! self::cart_has_service() || ! WC()->session ) {
+			return $value;
+		}
+		$customer = WC()->session->get( 'wanaan_so_customer' );
+		if ( ! is_array( $customer ) ) {
+			return $value;
+		}
+
+		$name  = trim( (string) ( $customer['name'] ?? '' ) );
+		$parts = '' !== $name ? preg_split( '/\s+/', $name, 2 ) : array( '', '' );
+
+		switch ( $input ) {
+			case 'billing_first_name':
+				return $parts[0];
+			case 'billing_last_name':
+				return ! empty( $parts[1] ) ? $parts[1] : $parts[0];
+			case 'billing_email':
+				return (string) ( $customer['email'] ?? '' );
+			case 'billing_phone':
+				return (string) ( $customer['phone'] ?? '' );
+		}
+		return $value;
+	}
+
+	/**
+	 * Online payment only (hide "Pay Later"/cash) while our service item is in
+	 * the cart. Fails OPEN — if no Tap-like gateway is found, the full list is
+	 * returned so the customer is never left unable to pay.
 	 *
 	 * @param array $gateways id => WC_Payment_Gateway
 	 * @return array
 	 */
 	public static function restrict_gateways( $gateways ) {
-		if ( ! is_array( $gateways ) || empty( $gateways ) || is_admin() ) {
+		if ( ! is_array( $gateways ) || empty( $gateways ) ) {
 			return $gateways;
 		}
-		if ( ! function_exists( 'is_checkout_pay_page' ) || ! is_checkout_pay_page() ) {
+		if ( is_admin() && ! wp_doing_ajax() ) {
+			return $gateways;
+		}
+		if ( ! self::cart_has_service() ) {
 			return $gateways;
 		}
 
-		$order_id = absint( get_query_var( 'order-pay' ) );
-		if ( $order_id <= 0 ) {
-			return $gateways;
-		}
-
-		$order = wc_get_order( $order_id );
-		if ( ! $order || '' === (string) $order->get_meta( self::ORDER_META_ROW ) ) {
-			return $gateways; // not one of ours
-		}
-
-		// Keep gateways that look like Tap (id or title contains "tap").
 		$online = array();
 		foreach ( $gateways as $id => $gateway ) {
 			$haystack = strtolower( (string) $id . ' ' . $gateway->get_title() );
@@ -71,131 +250,57 @@ class WSO_Woo {
 		return ! empty( $online ) ? $online : $gateways;
 	}
 
-	private static function woo_ready() {
-		return function_exists( 'wc_create_order' );
-	}
-
-	/**
-	 * The checkout-order-pay URL for a service-order row, creating the order the
-	 * first time and reusing it while it is still unpaid.
-	 *
-	 * @param object $row
-	 * @return string|WP_Error
-	 */
-	public static function checkout_url_for( $row ) {
-		if ( ! self::woo_ready() ) {
-			return new WP_Error( 'woo_missing', 'WooCommerce is not active.' );
+	/** True when the current cart holds a service-order line. */
+	private static function cart_has_service() {
+		if ( ! function_exists( 'WC' ) || ! WC()->cart ) {
+			return false;
 		}
-
-		$order = self::reusable_order( $row );
-
-		if ( ! $order ) {
-			$order = self::create_order( $row );
-			if ( is_wp_error( $order ) ) {
-				return $order;
+		foreach ( WC()->cart->get_cart() as $item ) {
+			if ( isset( $item[ self::CART_ROW ] ) ) {
+				return true;
 			}
-			WSO_Repository::update( $row->id, array( 'woo_order_id' => $order->get_id() ) );
-		} elseif ( '' === $order->get_billing_email() ) {
-			// An order created before the billing-details fix is reused here;
-			// backfill so Tap has the email/name it needs to build a charge.
-			self::apply_billing_details( $order, $row );
-			$order->save();
 		}
-
-		return $order->get_checkout_payment_url();
+		return false;
 	}
 
 	/**
-	 * The existing order for this row, but only if it is still awaiting payment
-	 * — so a customer who bailed at Tap and came back reuses the same order
-	 * instead of stacking duplicates.
+	 * The id of the reusable, hidden "Limousine Service" product (created once,
+	 * cached in an option). Virtual + catalog-hidden so it never shows in the
+	 * shop; its price is 0 and each cart line overrides it. Returns 0 on failure.
 	 *
-	 * @param object $row
-	 * @return WC_Order|null
+	 * @return int
 	 */
-	private static function reusable_order( $row ) {
-		if ( empty( $row->woo_order_id ) ) {
-			return null;
+	private static function service_product_id() {
+		$stored = (int) get_option( 'wanaan_so_product_id', 0 );
+		if ( $stored > 0 && wc_get_product( $stored ) ) {
+			return $stored;
 		}
-		$order = wc_get_order( (int) $row->woo_order_id );
-		if ( ! $order ) {
-			return null;
-		}
-		return $order->needs_payment() ? $order : null;
-	}
 
-	/**
-	 * Build a fresh order carrying a single fee line for the billed amount.
-	 *
-	 * @param object $row
-	 * @return WC_Order|WP_Error
-	 */
-	private static function create_order( $row ) {
+		if ( ! class_exists( 'WC_Product_Simple' ) ) {
+			return 0;
+		}
+
 		try {
-			$order = wc_create_order();
-
-			$fee = new WC_Order_Item_Fee();
-			$label = trim( 'Limousine Service ' . ( $row->confirmation_no ? '#' . $row->confirmation_no : '' ) );
-			$fee->set_name( $label );
-			$fee->set_amount( (float) $row->amount );
-			$fee->set_total( (float) $row->amount );
-			$fee->set_tax_status( 'none' );
-			$order->add_item( $fee );
-
-			if ( $row->currency ) {
-				$order->set_currency( $row->currency );
-			}
-
-			self::apply_billing_details( $order, $row );
-
-			$order->update_meta_data( self::ORDER_META_ROW, (int) $row->id );
-			$order->update_meta_data( self::ORDER_META_TOKEN, (string) $row->token );
-			$order->set_created_via( 'wanaan-service-order' );
-
-			$order->calculate_totals();
-			$order->save();
-
-			return $order;
-		} catch ( Exception $e ) {
-			return new WP_Error( 'woo_create_failed', $e->getMessage() );
-		}
-	}
-
-	/**
-	 * Put the customer's billing name / email / phone / country on the order.
-	 *
-	 * Tap (and most gateways) refuse to create a charge without a billing email
-	 * + name, and an order missing them shows the customer nothing on the pay
-	 * page. The email comes from the ERP; when absent we synthesise an
-	 * unguessable no-reply address so a charge can always be built.
-	 *
-	 * @param WC_Order $order
-	 * @param object   $row
-	 */
-	private static function apply_billing_details( $order, $row ) {
-		$name = trim( (string) $row->customer_name );
-		if ( '' !== $name ) {
-			$parts = preg_split( '/\s+/', $name, 2 );
-			$order->set_billing_first_name( $parts[0] );
-			$order->set_billing_last_name( ! empty( $parts[1] ) ? $parts[1] : $parts[0] );
+			$product = new WC_Product_Simple();
+			$product->set_name( 'Limousine Service' );
+			$product->set_status( 'publish' );
+			$product->set_catalog_visibility( 'hidden' );
+			$product->set_virtual( true );
+			$product->set_sold_individually( true );
+			$product->set_price( 0 );
+			$product->set_regular_price( 0 );
+			$product->set_tax_status( 'none' );
+			$product->update_meta_data( '_wanaan_service_product', 'yes' );
+			$id = (int) $product->save();
+		} catch ( \Throwable $e ) {
+			return 0;
 		}
 
-		$email = filter_var( (string) $row->customer_email, FILTER_VALIDATE_EMAIL ) ? (string) $row->customer_email : '';
-		if ( '' === $email ) {
-			$host  = wp_parse_url( home_url(), PHP_URL_HOST );
-			$host  = $host ? $host : 'wanaan-bh.com';
-			$email = 'noreply+' . $row->token . '@' . $host;
-		}
-		$order->set_billing_email( $email );
-
-		if ( $row->telephone ) {
-			$order->set_billing_phone( (string) $row->telephone );
+		if ( $id > 0 ) {
+			update_option( 'wanaan_so_product_id', $id );
 		}
 
-		$base = function_exists( 'wc_get_base_location' ) ? wc_get_base_location() : array();
-		if ( ! empty( $base['country'] ) ) {
-			$order->set_billing_country( $base['country'] );
-		}
+		return $id;
 	}
 
 	/**
@@ -205,7 +310,7 @@ class WSO_Woo {
 	 * @param int $order_id
 	 */
 	public static function on_paid( $order_id ) {
-		if ( ! self::woo_ready() ) {
+		if ( ! function_exists( 'wc_get_order' ) ) {
 			return;
 		}
 		$order = wc_get_order( (int) $order_id );

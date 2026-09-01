@@ -367,3 +367,29 @@
     font-size: 16px !important;
   }
 }
+
+/* Date/time fields (<x-date-field>): on touch devices, use the native OS
+   date/time picker directly — the scripted showPicker() is unreliable on phones
+   (iOS / some Android / Brave), so the calendar never opened. The real datetime
+   input becomes the visible, tappable control (tap → the phone's own picker);
+   the desktop type-box + calendar button are hidden. Desktop (fine pointer)
+   keeps the custom day/month/year overlay untouched. */
+@media (pointer: coarse) {
+  .date-field .date-field-native {
+    position: static;
+    height: auto;
+    width: 100%;
+    min-height: 1.5rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    opacity: 1;
+    pointer-events: auto;
+    color: inherit;
+    font-size: 16px;
+  }
+  .date-field .date-field-text,
+  .date-field .date-field-cal {
+    display: none;
+  }
+}

@@ -110,7 +110,7 @@
 
                 <div>
                     <label class="{{ $lbl }}">{{ __('Rate (BHD)') }} *</label>
-                    <input type="number" step="0.001" min="0" wire:model.live="legs.{{ $i }}.rate" class="o-input w-full">
+                    <input type="number" step="0.001" min="0" placeholder="0" wire:model.live="legs.{{ $i }}.rate" class="o-input w-full">
                     @error('legs.'.$i.'.rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
                 <div>
@@ -121,11 +121,11 @@
                 </div>
                 <div>
                     <label class="{{ $lbl }}">{{ __('Discount (BHD)') }}</label>
-                    <input type="number" step="0.001" min="0" wire:model.live="legs.{{ $i }}.discount" class="o-input w-full">
+                    <input type="number" step="0.001" min="0" placeholder="0" wire:model.live="legs.{{ $i }}.discount" class="o-input w-full">
                 </div>
                 <div>
                     <label class="{{ $lbl }}">{{ __('VAT (BHD)') }}</label>
-                    <input type="number" step="0.001" min="0" wire:model.live="legs.{{ $i }}.vat" class="o-input w-full">
+                    <input type="number" step="0.001" min="0" placeholder="0" wire:model.live="legs.{{ $i }}.vat" class="o-input w-full">
                 </div>
             </div>
 

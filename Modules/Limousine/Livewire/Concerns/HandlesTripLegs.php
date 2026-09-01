@@ -35,7 +35,7 @@ trait HandlesTripLegs
             'service_type' => LimoLeg::TYPE_TRANSFER,
             'car_id' => '', 'from_location' => '', 'from_location_url' => '', 'to_location' => '', 'to_location_url' => '', 'start_at' => '',
             'hours' => '', 'days' => '1', 'car_details' => '',
-            'rate' => '0', 'rate_basis' => LimoLeg::BASIS_TRIP, 'discount' => '0', 'vat' => '0',
+            'rate' => '', 'rate_basis' => LimoLeg::BASIS_TRIP, 'discount' => '', 'vat' => '',
         ];
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Modules\Limousine\Http\Controllers\CouponVoucherController;
 use Modules\Limousine\Http\Controllers\LimoQueueExportController;
+use Modules\Limousine\Http\Controllers\LimoReceiptController;
 use Modules\Limousine\Http\Controllers\LimoReportExportController;
 use Modules\Limousine\Http\Controllers\ServiceOrderController;
 use Modules\Limousine\Http\Controllers\ServiceOrderSignController;
@@ -108,6 +109,9 @@ Route::middleware('auth')->group(function (): void {
     // Receipts.
     Route::get('/app/limousine/receipt', Receipts::class)->name('limousine.receipt.index');
     Route::get('/app/limousine/receipt/new', ReceiptForm::class)->name('limousine.receipt.create');
+    // Before the {id} form route, so "download" is never read as a receipt id.
+    Route::get('/app/limousine/receipt/{receipt}/download', LimoReceiptController::class)
+        ->whereNumber('receipt')->name('limousine.receipt.download');
     Route::get('/app/limousine/receipt/{id}', ReceiptForm::class)->whereNumber('id')->name('limousine.receipt.edit');
 
     // Expenses.

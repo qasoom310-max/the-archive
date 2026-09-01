@@ -27,7 +27,7 @@ use Modules\Limousine\Models\LimoLeg;
  *
  * @phpstan-type QueueRow array{
  *     leg_id: int, booking_id: int, reference: string, booking_reference: string,
- *     from_date: string, to_date: string, type: string, customer: string,
+ *     from_date: string, to_date: string, type: string, customer: string, customer_id: int,
  *     amount: float, received: float, balance: float, pickup: string, dropoff: string,
  *     vehicle: string, driver: string, added_by: string, comments: string, booked_time: string,
  *     status: string, payment: string
@@ -286,6 +286,10 @@ final class LimoQueueRows
             'to_date' => $this->endsAt($leg),
             'type' => $this->tripType($leg, $booking),
             'customer' => (string) ($booking->customer->name ?? ''),
+            // Not a printed column — the screen links the name to the
+            // customer's account page. Exports read by heading, so an extra
+            // key here never reaches a spreadsheet.
+            'customer_id' => (int) ($booking->customer_id ?? 0),
             // The leg's own price; the money below is the whole booking's.
             'amount' => round((float) $leg->net_amount, 3),
             'received' => round((float) ($booking->advance ?? 0), 3),

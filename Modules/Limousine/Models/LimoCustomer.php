@@ -124,7 +124,10 @@ final class LimoCustomer extends Model implements DefinesIrModel
                     'default_sort' => [['field' => 'name', 'dir' => 'asc']],
                     'per_page' => 20,
                     'searchable' => ['name', 'phone', 'cpr', 'cr_number', 'contact_person'],
-                    'open' => '/app/limousine/customer/{id}',
+                    // Their account, not their edit form: what the office wants
+                    // from a customer's name is what they have asked for and
+                    // what they owe. Editing is one button away from there.
+                    'open' => '/app/limousine/customer/{id}/summary',
                 ]),
                 new ViewDefinition('Customer', 'form', [
                     'cols' => 2,

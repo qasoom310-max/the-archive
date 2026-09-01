@@ -248,7 +248,17 @@
                         <td class="hidden px-2 py-2 text-chrome-600 md:table-cell">{{ $row['from_date'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 text-chrome-600 lg:table-cell">{{ $row['to_date'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 text-chrome-600 lg:table-cell">{{ $row['type'] }}</td>
-                        <td class="px-2 py-2 text-chrome-700">{{ $row['customer'] ?: '—' }}</td>
+                        {{-- The name is the way into their account: what they
+                             have asked for, what is billed and what is owed.
+                             stopPropagation so it doesn't also open the row. --}}
+                        <td class="px-2 py-2 text-chrome-700" onclick="event.stopPropagation()">
+                            @if ($row['customer'] && $row['customer_id'])
+                                <a href="{{ url('/app/limousine/customer/' . $row['customer_id'] . '/summary') }}" wire:navigate
+                                   class="font-medium text-primary-700 hover:underline">{{ $row['customer'] }}</a>
+                            @else
+                                {{ $row['customer'] ?: '—' }}
+                            @endif
+                        </td>
                         {{-- Amount is this leg's; Received and Balance are the
                              booking's, because the customer settles the whole job. --}}
                         {{-- Amount is THIS trip's price. Received and Balance are the

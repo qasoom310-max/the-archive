@@ -19,6 +19,7 @@ use Modules\Rental\Livewire\CustomerForm as RentalCustomerForm;
 use Modules\Limousine\Livewire\DriverForm;
 use Modules\Limousine\Livewire\Drivers;
 use Modules\Limousine\Livewire\Customers;
+use Modules\Limousine\Livewire\CustomerSummary;
 use Modules\Limousine\Livewire\ExpenseForm;
 use Modules\Limousine\Livewire\Expenses;
 use Modules\Limousine\Livewire\InvoiceForm;
@@ -79,6 +80,10 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/customer/new', RentalCustomerForm::class)
         ->defaults('modelKey', 'limousine.customer')
         ->name('limousine.customer.create');
+    // Before the {id} form route: the account page, where the office lands
+    // from a customer's name on the queue. The form is one button away.
+    Route::get('/app/limousine/customer/{id}/summary', CustomerSummary::class)
+        ->whereNumber('id')->name('limousine.customer.summary');
     Route::get('/app/limousine/customer/{id}', RentalCustomerForm::class)
         ->whereNumber('id')
         ->defaults('modelKey', 'limousine.customer')

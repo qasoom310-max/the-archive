@@ -13,6 +13,7 @@ use Modules\Limousine\Livewire\QuotationForm;
 use Modules\Limousine\Livewire\Quotations;
 use Modules\Limousine\Mail\QuotationMail;
 use Modules\Limousine\Models\LimoBooking;
+use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Models\LimoQuotation;
@@ -165,24 +166,30 @@ final class LimoQuotationActionsTest extends TestCase
         Livewire::test(Quotations::class)
             ->assertSee('Edit quotation')
             ->assertSee('Email the quotation to the customer')
-            ->assertSee('Process into a booking');
+            ->assertSee('Raise invoice');
     }
 
-    public function test_processing_makes_a_booking_from_the_quotation(): void
+    public function test_processing_raises_an_invoice_and_the_trip_comes_from_it(): void
     {
         $quote = $this->quote();
 
+        // Quote → invoice. The journey is dispatched from the bill, not instead
+        // of it: the customer agrees a price, we bill it, then it runs.
         Livewire::test(Quotations::class)
             ->call('process', $quote->id)
             ->assertRedirect();
 
-        $booking = LimoBooking::query()->firstOrFail();
-        $this->assertSame($quote->customer_id, $booking->customer_id);
+        $invoice = LimoInvoice::query()->firstOrFail();
+        $this->assertSame($quote->customer_id, $invoice->customer_id);
+        $this->assertSame($quote->id, $invoice->quotation_id);
+        $this->assertSame(0, LimoBooking::query()->count(), 'no trip until the invoice makes one');
 
-        // The quote survives, marked as what it became.
-        $fresh = $quote->fresh();
-        $this->assertNotNull($fresh);
-        $this->assertSame($booking->id, $fresh->booking_id);
+        // …and the invoice is what creates it, carrying the quote's legs.
+        $booking = $invoice->createTrip();
+        $this->assertNotNull($booking);
+        $this->assertSame($quote->customer_id, $booking->customer_id);
+        $this->assertSame($booking->id, $invoice->fresh()?->booking_id);
+        $this->assertSame($booking->id, $quote->fresh()?->booking_id);
     }
 
     /** Processing twice would put one job on the road under two references. */
@@ -192,11 +199,14 @@ final class LimoQuotationActionsTest extends TestCase
 
         Livewire::test(Quotations::class)->call('process', $quote->id);
 
+        // Billed but not yet dispatched: booking_id is still null, so the
+        // INVOICE is what has to stop it being offered a second time.
         Livewire::test(Quotations::class)
-            ->assertDontSee('Process into a booking')
-            ->assertSee('Open the booking this became');
+            ->assertDontSee('Raise invoice')
+            ->assertSee('Open the invoice this became');
 
-        $this->assertSame(1, LimoBooking::query()->count());
+        $this->assertSame(1, LimoInvoice::query()->count());
+        $this->assertSame(0, LimoBooking::query()->count());
     }
 
     public function test_the_send_dialog_offers_the_customers_address(): void

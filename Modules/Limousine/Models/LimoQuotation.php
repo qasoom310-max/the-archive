@@ -111,6 +111,56 @@ final class LimoQuotation extends Model implements DefinesIrModel
     }
 
     /** Spawn a queued booking from this quotation (idempotent). */
+    /**
+     * Accepting a quote raises the INVOICE, not the trip.
+     *
+     * The chain the accountant works to is quote → invoice → trip → receipt:
+     * the customer agrees a price, we bill it, and the journey is dispatched
+     * against that bill. Going straight to a trip skipped the document the
+     * money is actually owed under.
+     *
+     * The quote stays ACCEPTED rather than converted — it becomes converted
+     * when the trip is created from the invoice, which is the step that turns
+     * a price into a journey.
+     */
+    /**
+     * The invoice this quote was billed as, if it has been accepted.
+     *
+     * What tells the list a quote has already been processed: `booking_id` no
+     * longer does, because the trip is now dispatched from the invoice rather
+     * than raised with it — so between the two steps a quote has an invoice and
+     * no booking, and would otherwise be offered for processing all over again.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne<LimoInvoice, $this>
+     */
+    public function invoice(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(LimoInvoice::class, 'quotation_id');
+    }
+
+    public function convertToInvoice(): LimoInvoice
+    {
+        $existing = LimoInvoice::query()->where('quotation_id', $this->id)->first();
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $invoice = new LimoInvoice();
+        $invoice->customer_id = $this->customer_id;
+        $invoice->quotation_id = $this->id;
+        $invoice->issue_date = Carbon::now();
+        $invoice->due_date = Carbon::now()->addWeek();
+        $invoice->subtotal = (float) $this->fare;
+        $invoice->total = (float) $this->fare;
+        $invoice->notes = $this->notes;
+        $invoice->save();
+
+        $this->status = self::STATUS_ACCEPTED;
+        $this->save();
+
+        return $invoice;
+    }
+
     public function convertToBooking(): LimoBooking
     {
         if ($this->booking_id !== null) {

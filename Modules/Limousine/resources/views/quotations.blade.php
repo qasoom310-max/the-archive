@@ -86,13 +86,14 @@
                                     </button>
                                 @endif
 
-                                {{-- Process: the quote becomes a booking. Gone once it
-                                     already has one — converting twice would put the
-                                     same job on the road under two references. --}}
-                                @if ($canWrite && $quote->booking_id === null)
+                                {{-- Process: the quote becomes an INVOICE, and the trip is
+                                     dispatched from that. Gone once it already has a
+                                     booking — converting twice would put the same job on
+                                     the road under two references. --}}
+                                @if ($canWrite && $quote->booking_id === null && $quote->invoice === null)
                                     <button type="button" wire:click="process({{ $quote->id }})"
-                                            wire:confirm="{{ __('Turn this quotation into a booking?') }}"
-                                            title="{{ __('Process into a booking') }}" aria-label="{{ __('Process into a booking') }}"
+                                            wire:confirm="{{ __('Raise an invoice from this quotation?') }}"
+                                            title="{{ __('Raise invoice') }}" aria-label="{{ __('Raise invoice') }}"
                                             class="{{ $act }} text-emerald-600 hover:bg-emerald-50">
                                         <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
@@ -104,6 +105,16 @@
                                        class="{{ $act }} text-violet-600 hover:bg-violet-50">
                                         <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+                                        </svg>
+                                    </a>
+                                @elseif ($quote->invoice !== null)
+                                    {{-- Billed but not yet dispatched: the invoice is
+                                         where the trip is created from. --}}
+                                    <a href="{{ url('/app/limousine/invoice/' . $quote->invoice->id) }}" wire:navigate
+                                       title="{{ __('Open the invoice this became') }}" aria-label="{{ __('Open the invoice this became') }}"
+                                       class="{{ $act }} text-sky-600 hover:bg-sky-50">
+                                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
                                         </svg>
                                     </a>
                                 @endif

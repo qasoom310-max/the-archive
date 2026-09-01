@@ -9,6 +9,7 @@ use App\Livewire\Concerns\GuardsModelAccess;
 use App\Livewire\Concerns\ScrollsToFirstError;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -48,9 +49,26 @@ final class ReceiptForm extends Component
 
     public string $reference = '';
 
+    /**
+     * Writing a receipt by hand is the owner's job alone.
+     *
+     * Money taken on a booking issues its own receipt now, so a hand-made one is
+     * a correction rather than the normal way in — and two receipts for the same
+     * payment is a hard mistake to spot after the fact. EDITING an existing one
+     * is untouched: this only guards creating from nothing.
+     */
+    private function guardManualCreate(): void
+    {
+        abort_unless(Auth::user()?->isSuperAdmin() ?? false, 403);
+    }
+
     public function mount(?int $id = null): void
     {
         $this->guardAccess(Permission::Read);
+        if ($id === null) {
+            // Reached by typing /receipt/new — the hidden button is only cosmetic.
+            $this->guardManualCreate();
+        }
         if ($id !== null) {
             $receipt = LimoReceipt::query()->find($id);
             if ($receipt !== null) {
@@ -105,6 +123,11 @@ final class ReceiptForm extends Component
     public function save(): void
     {
         $this->guardSave($this->id === null);
+        if ($this->id === null) {
+            // mount() gates are not gates on their own — Livewire dispatches to
+            // methods directly, so the create path re-checks here.
+            $this->guardManualCreate();
+        }
         $this->validateFocusing();
 
         $invoice = LimoInvoice::query()->find($this->invoice_id);

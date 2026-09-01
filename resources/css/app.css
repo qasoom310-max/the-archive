@@ -354,3 +354,16 @@
 /* Dark scrollbars */
 .dark * { scrollbar-color: #3d434b transparent; }
 .dark *::-webkit-scrollbar-thumb { background-color: #3d434b; }
+
+/* Stop iOS Safari from zooming the page in every time a field is focused. iOS
+   only auto-zooms when the focused control's font is under 16px, and the ERP
+   uses text-sm (14px) inputs — so pin form controls to 16px at phone widths.
+   Desktop keeps its dense sizing; pinch-to-zoom is left intact (no viewport
+   scale lock). */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

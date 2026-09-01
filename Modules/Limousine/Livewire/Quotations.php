@@ -71,14 +71,17 @@ final class Quotations extends Component
             return;
         }
 
-        $booking = $quote->convertToBooking();
+        // Accepting a quote raises the INVOICE. The trip is dispatched from
+        // that invoice — the customer agrees a price, we bill it, and the
+        // journey runs against the bill.
+        $invoice = $quote->convertToInvoice();
 
-        session()->flash('quotation_status', __('Quotation :ref is now booking :booking.', [
+        session()->flash('quotation_status', __('Quotation :ref is now invoice :invoice.', [
             'ref' => (string) $quote->reference,
-            'booking' => (string) ($booking->reference ?? $booking->id),
+            'invoice' => (string) ($invoice->reference ?? $invoice->id),
         ]));
 
-        $this->redirect('/app/limousine/booking/' . $booking->id, navigate: true);
+        $this->redirect('/app/limousine/invoice/' . $invoice->id, navigate: true);
     }
 
     public function openSend(int $id): void
@@ -170,7 +173,10 @@ final class Quotations extends Component
 
     public function render(): View
     {
-        $query = LimoQuotation::query()->with('customer:id,name')->orderByDesc('id');
+        // `invoice` because that, not booking_id, is what says a quote has been
+        // processed: the trip is dispatched from the invoice, so between those
+        // two steps a quote has an invoice and no booking.
+        $query = LimoQuotation::query()->with(['customer:id,name', 'invoice:id,quotation_id,reference'])->orderByDesc('id');
 
         if (in_array($this->tab, [
             LimoQuotation::STATUS_DRAFT,

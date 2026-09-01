@@ -16,8 +16,17 @@
             </div>
             <div class="flex items-center gap-3">
                 <span class="text-sm text-chrome-500">{{ __('Balance') }}: <span class="font-semibold text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($balance) }}</span></span>
-                @if ($status !== 'paid')
-                    <a href="{{ url('/app/limousine/receipt/new?invoice=' . $id) }}" wire:navigate class="o-btn-primary text-sm">{{ __('Record payment') }}</a>
+                {{-- Dispatch the journey this bill is for. Only on an invoice
+                     raised from a quotation: that is what holds the legs. --}}
+                @if ($canCreateTrip)
+                    <button type="button" wire:click="createTrip" class="o-btn-ghost text-sm">{{ __('Create trip') }}</button>
+                @endif
+                {{-- Taking money here goes through the same service the bookings
+                     queue uses, so both doors write one receipt and one truth.
+                     It replaced a link to a blank receipt form, which asked the
+                     office to retype what the invoice already knew. --}}
+                @if ($canCollect)
+                    <button type="button" wire:click="openCollect" class="o-btn-primary text-sm">{{ __('Receive payment') }}</button>
                 @endif
             </div>
         </div>
@@ -104,4 +113,43 @@
             </div>
         </div>
     </div>
+
+    {{-- Receive payment --}}
+    @if ($collecting)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-chrome-900/50 p-4"
+             x-on:keydown.escape.window="$wire.closeCollect()">
+            <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl sm:p-6" x-on:click.outside="$wire.closeCollect()">
+                <h2 class="text-sm font-semibold text-chrome-800">{{ __('Receive payment') }}</h2>
+                <p class="mt-1 text-xs text-chrome-500">
+                    {{ __('Balance') }}: <span class="font-semibold">{{ \App\Erp\Views\ValueFormat::money($balance) }}</span>
+                </p>
+
+                <div class="mt-4 space-y-4">
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Amount') }}</label>
+                        <input type="number" step="0.001" min="0" wire:model="collectAmount" class="o-input w-full">
+                        @error('collectAmount') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Method') }}</label>
+                        <select wire:model="collectMethod" class="o-input w-full">
+                            <option value="cash">{{ __('Cash') }}</option>
+                            <option value="card">{{ __('Card') }}</option>
+                            <option value="benefit">{{ __('Benefit') }}</option>
+                            <option value="transfer">{{ __('Transfer') }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Note') }}</label>
+                        <input type="text" wire:model="collectNote" class="o-input w-full">
+                    </div>
+                </div>
+
+                <div class="mt-5 flex justify-end gap-2">
+                    <button type="button" wire:click="closeCollect" class="o-btn-ghost text-sm">{{ __('Close') }}</button>
+                    <button type="button" wire:click="saveCollect" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Receive payment') }}</button>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

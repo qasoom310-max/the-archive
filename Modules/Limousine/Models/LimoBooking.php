@@ -313,6 +313,24 @@ final class LimoBooking extends Model implements DefinesIrModel, TakesCouponCred
      * Generate an invoice from this booking (idempotent — returns the existing
      * one if already raised).
      */
+    /**
+     * The trip's invoice, raised if it does not exist and kept in step if it
+     * does.
+     *
+     * Every trip is invoiced — a booking with no invoice is money nobody is
+     * accounting for — so this runs when the booking is written and again
+     * whenever its price moves. The invoice follows the fare only while nothing
+     * has been paid against it; after that {@see LimoInvoice::followTotal()}
+     * refuses, and a change needs a new document rather than a rewritten one.
+     */
+    public function syncInvoice(): LimoInvoice
+    {
+        $invoice = $this->createInvoice();
+        $invoice->followTotal((float) $this->fare);
+
+        return $invoice;
+    }
+
     public function createInvoice(): LimoInvoice
     {
         $existing = LimoInvoice::query()->where('booking_id', $this->id)->first();

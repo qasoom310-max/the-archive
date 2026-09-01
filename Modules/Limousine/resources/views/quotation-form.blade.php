@@ -27,7 +27,7 @@
                     <button wire:click="markDeclined" class="text-sm font-medium text-red-600 hover:underline">{{ __('Decline') }}</button>
                 @endif
                 @if ($status !== 'converted')
-                    <button wire:click="convert" class="o-btn-primary text-sm">{{ __('Convert to booking') }}</button>
+                    <button wire:click="convert" class="o-btn-primary text-sm">{{ __('Raise invoice') }}</button>
                 @elseif ($booking_id)
                     <a href="{{ url('/app/limousine/booking/' . $booking_id) }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Open booking') }}</a>
                 @endif

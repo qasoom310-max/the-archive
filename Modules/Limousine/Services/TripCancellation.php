@@ -132,6 +132,9 @@ final class TripCancellation
                 $booking->recalcTotal();
                 $booking->save();
                 $booking->syncPaymentFromAdvance();
+                // Losing a leg changes what is owed, so the invoice follows —
+                // unless money has already landed against it.
+                $booking->syncInvoice();
             }
 
             return ['outcome' => $outcome, 'amount' => $amount, 'coupon' => $coupon];

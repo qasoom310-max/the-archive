@@ -364,9 +364,9 @@ final class QuotationForm extends Component
             return;
         }
 
-        $booking = $quote->convertToBooking();
-        session()->flash('toast', __('Converted to booking.'));
-        $this->redirect('/app/limousine/booking/' . $booking->id, navigate: true);
+        $invoice = $quote->convertToInvoice();
+        session()->flash('toast', __('Invoice raised from this quotation.'));
+        $this->redirect('/app/limousine/invoice/' . $invoice->id, navigate: true);
     }
 
     private function withQuote(Closure $fn): void

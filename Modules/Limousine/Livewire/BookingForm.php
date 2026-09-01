@@ -295,6 +295,12 @@ final class BookingForm extends Component
         $booking->syncPaymentFromAdvance();
         $this->payment_status = $booking->payment_status;
 
+        // Every trip is invoiced, and the invoice is raised WITH the booking
+        // rather than by remembering to press a button — a trip with no invoice
+        // is money nobody is accounting for. On an edit this keeps the document
+        // in step with the fare, until a payment freezes it.
+        $booking->syncInvoice();
+
         // A coupon carried in from the Refund coupons page is spent HERE, once
         // there is a priced booking for it to come off. Applying it any earlier
         // would be crediting a fare that did not exist yet.

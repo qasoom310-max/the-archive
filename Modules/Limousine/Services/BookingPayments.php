@@ -72,8 +72,15 @@ final class BookingPayments
             return null;
         }
 
-        return LimoReceipt::query()->create([
+        // Every trip is invoiced, so the receipt is written against BOTH: the
+        // booking it belongs to and the invoice it settles. Without the invoice
+        // side the document would sit there unpaid while the money was already
+        // in the drawer.
+        $invoice = $booking->syncInvoice();
+
+        $receipt = LimoReceipt::query()->create([
             'booking_id' => $booking->id,
+            'invoice_id' => $invoice->id,
             'customer_id' => $booking->customer_id,
             'date' => Carbon::today(),
             'amount' => $amount,
@@ -85,6 +92,12 @@ final class BookingPayments
             'auto' => true,
             'notes' => $this->note($booking, $amount, $note),
         ]);
+
+        // Recomputed from its receipts, which also flips the invoice to
+        // partial/paid and settles the booking when it is fully covered.
+        $invoice->refresh()->recomputePaid();
+
+        return $receipt;
     }
 
     /**

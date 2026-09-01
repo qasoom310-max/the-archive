@@ -366,7 +366,7 @@ final class QuotationForm extends Component
 
         $invoice = $quote->convertToInvoice();
         session()->flash('toast', __('Invoice raised from this quotation.'));
-        $this->redirect('/app/limousine/invoice/' . $invoice->id, navigate: true);
+        $this->redirect('/app/limousine/invoice', navigate: true);
     }
 
     private function withQuote(Closure $fn): void

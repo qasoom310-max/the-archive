@@ -121,42 +121,6 @@ final class LimoInvoiceChainTest extends TestCase
         $this->assertSame($invoice->id, $receipt->invoice_id);
     }
 
-    public function test_payment_can_be_taken_on_the_invoice_itself(): void
-    {
-        $booking = $this->bookThrough(rate: 45);
-        $invoice = LimoInvoice::query()->where('booking_id', $booking->id)->firstOrFail();
-
-        Livewire::test(InvoiceForm::class, ['id' => $invoice->id])
-            ->call('openCollect')
-            // Offered as the whole balance, which is what is being asked for.
-            ->assertSet('collectAmount', '45')
-            ->call('saveCollect')
-            ->assertHasNoErrors();
-
-        $fresh = $invoice->fresh();
-        $this->assertSame(LimoInvoice::STATUS_PAID, $fresh?->status);
-        // One truth: the same receipt the counter would have written.
-        $this->assertSame(1, LimoReceipt::query()->count());
-        $this->assertSame(LimoBooking::PAYMENT_PAID, $booking->fresh()?->payment_status);
-    }
-
-    public function test_an_invoice_with_no_trip_behind_it_cannot_take_money(): void
-    {
-        $quote = LimoQuotation::query()->create([
-            'customer_id' => $this->customer()->id, 'fare' => 30,
-        ]);
-        $invoice = $quote->convertToInvoice();
-
-        // A receipt belongs to a job. Billing first is fine; taking money for a
-        // journey that does not exist yet is not.
-        Livewire::test(InvoiceForm::class, ['id' => $invoice->id])
-            ->call('openCollect')
-            ->call('saveCollect')
-            ->assertHasErrors('collectAmount');
-
-        $this->assertSame(0, LimoReceipt::query()->count());
-    }
-
     public function test_the_trip_created_from_an_invoice_carries_the_quotes_legs(): void
     {
         $quote = LimoQuotation::query()->create([

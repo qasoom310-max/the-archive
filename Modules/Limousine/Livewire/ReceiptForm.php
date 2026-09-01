@@ -153,7 +153,7 @@ final class ReceiptForm extends Component
         $invoice->refresh()->recomputePaid();
 
         session()->flash('toast', __('Payment recorded.'));
-        $this->redirect('/app/limousine/invoice/' . $invoice->id, navigate: true);
+        $this->redirect('/app/limousine/invoice', navigate: true);
     }
 
     public function render(): View

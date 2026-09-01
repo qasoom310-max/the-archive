@@ -617,7 +617,7 @@ final class BookingForm extends Component
 
         $invoice = $booking->createInvoice();
         session()->flash('toast', __('Invoice created.'));
-        $this->redirect('/app/limousine/invoice/' . $invoice->id, navigate: true);
+        $this->redirect('/app/limousine/invoice', navigate: true);
     }
 
     public function markPaid(): void

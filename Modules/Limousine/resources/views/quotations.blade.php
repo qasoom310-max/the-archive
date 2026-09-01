@@ -108,10 +108,11 @@
                                         </svg>
                                     </a>
                                 @elseif ($quote->invoice !== null)
-                                    {{-- Billed but not yet dispatched: the invoice is
-                                         where the trip is created from. --}}
-                                    <a href="{{ url('/app/limousine/invoice/' . $quote->invoice->id) }}" wire:navigate
-                                       title="{{ __('Open the invoice this became') }}" aria-label="{{ __('Open the invoice this became') }}"
+                                    {{-- Billed but not yet dispatched. The bill is a
+                                         document, so this hands it over; the trip is
+                                         created from its row on the invoices list. --}}
+                                    <a href="{{ url('/app/limousine/invoice/' . $quote->invoice->id . '/download') }}"
+                                       title="{{ __('Download the invoice this became') }}" aria-label="{{ __('Download the invoice this became') }}"
                                        class="{{ $act }} text-sky-600 hover:bg-sky-50">
                                         <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>

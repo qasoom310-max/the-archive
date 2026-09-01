@@ -9,6 +9,7 @@ use App\Livewire\Concerns\GuardsModelAccess;
 use App\Livewire\Concerns\ScrollsToFirstError;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -79,6 +80,7 @@ final class InvoiceForm extends Component
     {
         $this->guardAccess(Permission::Read);
         if ($id !== null) {
+            $this->guardManualEdit();
             $invoice = LimoInvoice::query()->find($id);
             if ($invoice !== null) {
                 $this->id = $invoice->id;
@@ -99,6 +101,21 @@ final class InvoiceForm extends Component
 
         $this->issue_date = now()->format('Y-m-d');
         $this->due_date = now()->addWeek()->format('Y-m-d');
+    }
+
+    /**
+     * Correcting an existing bill by hand is the owner's job alone.
+     *
+     * Nothing links here any more: the invoices list offers Download, Create
+     * trip and Receive payment, which is everything an invoice is FOR. This
+     * screen survives only as a repair — an invoice follows its trip's price
+     * and takes a quote's, so retyping one overrides a figure the system
+     * derived, and that is not an everyday act. mount() alone would not hold
+     * it: Livewire dispatches straight to methods, so save() asks again.
+     */
+    private function guardManualEdit(): void
+    {
+        abort_unless(Auth::user()?->isSuperAdmin() ?? false, 403);
     }
 
     /**
@@ -140,6 +157,7 @@ final class InvoiceForm extends Component
             return;
         }
 
+        $this->guardManualEdit();
         $this->guardSave(false);
         $this->validateFocusing();
 
@@ -275,7 +293,10 @@ final class InvoiceForm extends Component
         $invoice = $quote->convertToInvoice();
 
         session()->flash('toast', __('Invoice issued from the quotation.'));
-        $this->redirect('/app/limousine/invoice/' . $invoice->id, navigate: true);
+        // The list, not a form: a bill is a document, and everything anyone
+        // does with one — download it, dispatch its trip, take money — is a
+        // button on its row.
+        $this->redirect('/app/limousine/invoice', navigate: true);
     }
 
     /** Payment dialog: open when set, with the balance offered. */

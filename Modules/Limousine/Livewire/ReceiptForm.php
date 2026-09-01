@@ -50,12 +50,12 @@ final class ReceiptForm extends Component
     public string $reference = '';
 
     /**
-     * Writing a receipt by hand is the owner's job alone.
+     * This screen is the owner's alone, coming and going.
      *
-     * Money taken on a booking issues its own receipt now, so a hand-made one is
-     * a correction rather than the normal way in — and two receipts for the same
-     * payment is a hard mistake to spot after the fact. EDITING an existing one
-     * is untouched: this only guards creating from nothing.
+     * Money taken on a booking issues its own receipt, so touching one by hand
+     * — writing it or repairing it — is a correction rather than the normal way
+     * in, and two receipts for the same payment is a hard mistake to spot after
+     * the fact.
      */
     private function guardManualCreate(): void
     {
@@ -65,10 +65,12 @@ final class ReceiptForm extends Component
     public function mount(?int $id = null): void
     {
         $this->guardAccess(Permission::Read);
-        if ($id === null) {
-            // Reached by typing /receipt/new — the hidden button is only cosmetic.
-            $this->guardManualCreate();
-        }
+
+        // Nothing links here any more: a receipt is a record of money already
+        // taken, and the list offers Download and Send instead. The screen is
+        // kept only so the owner can write one by hand, or repair one — so the
+        // same rule guards BOTH doors rather than just the new one.
+        $this->guardManualCreate();
         if ($id !== null) {
             $receipt = LimoReceipt::query()->find($id);
             if ($receipt !== null) {

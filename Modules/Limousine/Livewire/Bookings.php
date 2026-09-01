@@ -9,6 +9,7 @@ use App\Erp\Views\ValueFormat;
 use App\Livewire\Concerns\GuardsModelAccess;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -18,8 +19,11 @@ use Livewire\WithPagination;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoDriver;
 use Modules\Limousine\Models\LimoLeg;
+use Modules\Limousine\Models\LimoPaymentLink;
+use Modules\Limousine\Models\LimoPortalConfiguration;
 use Modules\Limousine\Services\BookingPayments;
 use Modules\Limousine\Services\LimoQueueRows;
+use Modules\Limousine\Services\ServiceOrderPortalClient;
 use Modules\Limousine\Services\ServiceOrderSender;
 use Modules\Limousine\Services\TripCancellation;
 use Modules\Rental\Models\Vehicle;
@@ -872,6 +876,105 @@ final class Bookings extends Component
         session()->flash('booking_status', $result['kind'] === ServiceOrderSender::KIND_NOTICE
             ? __('Service completed notice sent to :email.', ['email' => $result['email']])
             : __('Signing link sent to :email.', ['email' => $result['email']]));
+    }
+
+    /* ── Online payment link (Wanaan WordPress portal → Tap) ─────────────── */
+
+    /** The leg a payment link is being raised for, or null when shut. */
+    #[Locked]
+    public ?int $paymentLegId = null;
+
+    /** The partition the agent chooses to charge on this link. */
+    public string $paymentAmount = '';
+
+    /** The generated public link, shown to the agent to send to the customer. */
+    public string $paymentLinkUrl = '';
+
+    /** Whether the portal is switched on — drives the button's visibility. */
+    public function portalEnabled(): bool
+    {
+        return LimoPortalConfiguration::current()->isConfigured();
+    }
+
+    /**
+     * Open the "create payment link" dialog for a trip, pre-filled with the
+     * booking's remaining balance. The agent can lower it to take a deposit or
+     * one partition — the customer pays that amount, and the booking only reads
+     * "paid" once the whole balance is cleared.
+     */
+    public function openPaymentLink(int $legId): void
+    {
+        $this->guardAccess(Permission::Read);
+
+        $leg = LimoLeg::query()->with('legable')->find($legId);
+        $booking = $leg?->legable instanceof LimoBooking ? $leg->legable : null;
+        if ($booking === null) {
+            return;
+        }
+
+        $this->resetValidation();
+        $this->paymentLegId = $legId;
+        $this->paymentLinkUrl = '';
+        $this->paymentAmount = number_format(max(0.0, $booking->balanceDue()), 3, '.', '');
+    }
+
+    public function closePaymentLink(): void
+    {
+        $this->paymentLegId = null;
+        $this->paymentAmount = '';
+        $this->paymentLinkUrl = '';
+    }
+
+    /**
+     * Raise the link and push it to the portal. Writing money into the world is
+     * a Write; the portal call is wrapped so a WordPress outage surfaces as a
+     * message, never a 500, and the half-made link is dropped so a broken URL is
+     * never handed to a customer.
+     */
+    public function createPaymentLink(): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        if ($this->paymentLegId === null) {
+            return;
+        }
+
+        $leg = LimoLeg::query()->with('legable')->find($this->paymentLegId);
+        $booking = $leg?->legable instanceof LimoBooking ? $leg->legable : null;
+        if ($leg === null || $booking === null) {
+            $this->closePaymentLink();
+
+            return;
+        }
+
+        $balance = max(0.001, $booking->balanceDue());
+        $this->validate([
+            'paymentAmount' => ['required', 'numeric', 'min:0.001', 'max:' . $balance],
+        ], [
+            'paymentAmount.max' => __('That is more than the :amount still owed on this booking.', [
+                'amount' => ValueFormat::money($booking->balanceDue()),
+            ]),
+        ], [
+            'paymentAmount' => __('Amount'),
+        ]);
+
+        $link = LimoPaymentLink::query()->create([
+            'leg_id' => $leg->id,
+            'booking_id' => $booking->id,
+            'amount' => round((float) $this->paymentAmount, 3),
+            'currency' => 'BHD',
+            'created_by_user_id' => Auth::id(),
+        ]);
+
+        if (! app(ServiceOrderPortalClient::class)->push($link)) {
+            $link->delete();
+            session()->flash('booking_status', __('Could not create the payment link. Check the portal settings and try again.'));
+            $this->closePaymentLink();
+
+            return;
+        }
+
+        $this->paymentLinkUrl = (string) $link->refresh()->url;
     }
 
     /** Open the cancel dialog for one trip, with what it would cost shown. */

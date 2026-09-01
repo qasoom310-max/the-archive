@@ -4,6 +4,9 @@
     // leave it undefined — the loop is not a scope the rest of the page can
     // borrow from.
     $money = fn (float $v): string => \App\Erp\Views\ValueFormat::money($v);
+    // Whether the online payment portal is switched on — read once for the whole
+    // page so the per-row "payment link" button doesn't re-query per trip.
+    $portalOn = $this->portalEnabled();
 @endphp
 
 <div class="mx-auto w-full p-4 sm:p-6">
@@ -401,6 +404,17 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
                                     </svg>
                                 </a>
+
+                                {{-- Online payment link (Wanaan website → Tap). Only when the portal is on. --}}
+                                @if ($portalOn)
+                                    <button type="button" wire:click="openPaymentLink({{ $leg->id }})"
+                                            title="{{ __('Create payment link') }}" aria-label="{{ __('Create payment link') }}"
+                                            class="{{ $act }} text-chrome-500 hover:bg-primary-50 hover:text-primary-700">
+                                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3M3.75 19.5h16.5A2.25 2.25 0 0 0 22.5 17.25V6.75A2.25 2.25 0 0 0 20.25 4.5H3.75A2.25 2.25 0 0 0 1.5 6.75v10.5A2.25 2.25 0 0 0 3.75 19.5Z"/>
+                                        </svg>
+                                    </button>
+                                @endif
 
                                 @if ($canAssign)
                                     @php $canSign = $signable[$leg->id] ?? true; @endphp
@@ -944,6 +958,52 @@
                         <button type="button" wire:click="saveCollect" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Record payment') }}</button>
                         <button type="button" wire:click="closeCollect" class="o-btn-ghost text-sm">{{ __('Cancel') }}</button>
                     </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Online payment link dialog: choose the partition, generate the link,
+         then copy it to the customer. --}}
+    @if ($paymentLegId !== null)
+        <div class="fixed inset-0 z-40 flex items-center justify-center bg-chrome-900/50 p-4" wire:key="pay-link-modal">
+            <div class="w-full max-w-md rounded-2xl bg-white shadow-xl">
+                <div class="flex items-center justify-between border-b border-chrome-200 px-5 py-3">
+                    <h3 class="text-sm font-semibold text-chrome-900">{{ __('Payment link') }}</h3>
+                    <button type="button" wire:click="closePaymentLink" class="text-chrome-400 hover:text-chrome-700" aria-label="{{ __('Close') }}">&times;</button>
+                </div>
+
+                <div class="px-5 py-4">
+                    @if ($paymentLinkUrl === '')
+                        <label class="{{ $lbl ?? 'text-sm font-medium text-chrome-700' }}">{{ __('Amount to charge') }} *</label>
+                        <div class="mt-1 flex items-center gap-2">
+                            <input type="number" step="0.001" min="0" wire:model="paymentAmount" class="o-input w-full" dir="ltr">
+                            <span class="text-sm text-chrome-500">{{ __('BHD') }}</span>
+                        </div>
+                        <p class="mt-1 text-[11px] text-chrome-400">{{ __('Pre-filled with the balance. Lower it to take a deposit or one partition.') }}</p>
+                        @error('paymentAmount') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    @else
+                        <p class="mb-2 text-sm text-emerald-700">{{ __('Link created. Send it to the customer:') }}</p>
+                        <div x-data="{ copied: false }" class="flex items-center gap-2">
+                            <input type="text" value="{{ $paymentLinkUrl }}" readonly onclick="this.select()"
+                                   class="o-input w-full bg-chrome-50 text-xs text-chrome-600" dir="ltr">
+                            <button type="button"
+                                    x-on:click="navigator.clipboard.writeText('{{ $paymentLinkUrl }}'); copied = true; setTimeout(() => copied = false, 1500)"
+                                    class="o-btn-ghost shrink-0 text-sm">
+                                <span x-show="!copied">{{ __('Copy') }}</span>
+                                <span x-show="copied" x-cloak>{{ __('Copied') }}</span>
+                            </button>
+                        </div>
+                    @endif
+                </div>
+
+                <div class="flex items-center justify-end gap-2 border-t border-chrome-200 px-5 py-3">
+                    @if ($paymentLinkUrl === '')
+                        <button type="button" wire:click="createPaymentLink" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Create link') }}</button>
+                        <button type="button" wire:click="closePaymentLink" class="o-btn-ghost text-sm">{{ __('Cancel') }}</button>
+                    @else
+                        <button type="button" wire:click="closePaymentLink" class="o-btn-primary text-sm">{{ __('Done') }}</button>
+                    @endif
                 </div>
             </div>
         </div>

@@ -7,6 +7,7 @@ use Modules\Limousine\Http\Controllers\CouponVoucherController;
 use Modules\Limousine\Http\Controllers\LimoQueueExportController;
 use Modules\Limousine\Http\Controllers\LimoReceiptController;
 use Modules\Limousine\Http\Controllers\LimoReportExportController;
+use Modules\Limousine\Http\Controllers\PaymentCallbackController;
 use Modules\Limousine\Http\Controllers\ServiceOrderController;
 use Modules\Limousine\Http\Controllers\ServiceOrderSignController;
 use Modules\Limousine\Livewire\Bookings;
@@ -22,6 +23,7 @@ use Modules\Limousine\Livewire\Expenses;
 use Modules\Limousine\Livewire\InvoiceForm;
 use Modules\Limousine\Livewire\Invoices;
 use Modules\Limousine\Livewire\LimoHome;
+use Modules\Limousine\Livewire\LimoPortalSettings;
 use Modules\Limousine\Livewire\LocationForm;
 use Modules\Limousine\Livewire\Locations;
 use Modules\Limousine\Livewire\QuotationForm;
@@ -45,9 +47,22 @@ Route::middleware('signed')->group(function (): void {
         ->whereNumber('leg')->name('limousine.service_order.customer_pdf');
 });
 
+/*
+ * PUBLIC payment callback. The WordPress portal calls this server-to-server
+ * after Tap confirms a payment, so it sits outside `auth` and its CSRF is
+ * excepted in bootstrap/app.php. Its only credential is the HMAC signature the
+ * controller verifies (see PaymentCallbackController).
+ */
+Route::post('/limousine/payment-callback', PaymentCallbackController::class)
+    ->name('limousine.payment.callback');
+
 Route::middleware('auth')->group(function (): void {
     // App landing — bookings dashboard.
     Route::get('/app/limousine', LimoHome::class)->name('limousine.home');
+
+    // Service-order portal connection (admin — the component gates it). Two
+    // segments so the core `/app/{module}` wildcard doesn't shadow it.
+    Route::get('/app/settings/limo-portal', LimoPortalSettings::class)->name('limousine.portal.settings');
 
     // Service Order — the per-trip sheet. Staff download; the customer gets a
     // signing link by email instead.

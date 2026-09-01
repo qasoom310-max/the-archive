@@ -2244,6 +2244,34 @@ a tenant can't switch in); background **queue jobs** run in the Main context
 (~seconds, installs every module); creating a MySQL/Postgres workspace isn't
 supported (SQLite files only, per the chosen architecture).
 
+**Wanaan service-order payment portal — ERP side (built 2026-09-01; NOT YET LIVE):**
+
+Lets a limousine booking be paid online: the agent raises a **payment link** for a
+trip (a "partition" — a deposit, one leg, or the whole balance; the amount is
+agent-chosen, pre-filled with the remaining balance), the link is generated on the
+**Wanaan WordPress site** (`wanaan-bh.com`), the customer opens it, ticks a T&C
+checkbox and pays via **WooCommerce + Tap WebConnect**, and WordPress calls back to
+mark the booking paid. This is the ERP half only; the **WordPress plugin
+`wanaan-service-order` (Phase 2) is still to build**, and nothing is deployed —
+per the manager's staged protocol (backups → show diff → go-ahead → deploy).
+
+| Concern | Location |
+|---|---|
+| Config (per-database, OFF by default) | `limo_portal_configuration` table + `Modules\Limousine\Models\LimoPortalConfiguration` (`portal_url`, `shared_secret` **encrypted**, `enabled`). `enabled` defaults **false** — the master switch the manager can flip off in one place; `isConfigured()` gates every push |
+| Payment link ("partition") | `limo_payment_links` table + `LimoPaymentLink` — one row per link (booking can have many). The **row id is the idempotency key** the portal + callback quote back (`erp_payment_id`), so a re-send updates and a replayed callback can't pay twice. `leg_id`/`booking_id`/`created_by_user_id` are logical refs |
+| Signing scheme (shared with WP) | `Modules\Limousine\Support\PortalSignature` — `X-Wanaan-Timestamp` + `X-Wanaan-Signature` = hex HMAC-SHA256 of `"<timestamp>.<raw-body>"`, keyed by the shared secret; constant-time verify, 5-min window. **The WP plugin MUST reproduce `hash_hmac('sha256', $timestamp.'.'.$rawBody, $secret)` byte-for-byte** |
+| Outbound push | `Modules\Limousine\Services\ServiceOrderPortalClient::push()` — builds the Service-Order payload (same fields/sources as `ServiceOrderPdf`: trip facts from the **leg**, customer/PAX from the parent **booking**; **`amount` sent as an exact 3-dp BHD string** e.g. `45.000`), signs the raw JSON, POSTs to `{portal_url}/wp-json/wanaan/v1/booking` with a 5s timeout. **Never throws** — a WordPress outage returns false and the booking is untouched. Carries `ws` (the workspace id) so the callback re-enters the right database |
+| Inbound callback | `Modules\Limousine\Http\Controllers\PaymentCallbackController` at **public** `POST /limousine/payment-callback` (CSRF-excepted in `bootstrap/app.php`; HMAC is the only credential). Resolves `ws` via `WorkspaceManager::runFor()`, verifies against THAT database's secret, then settles once (lock + `credit`-guard) through the existing `BookingPayments::receive($booking, $amount, 'online')` — which issues the receipt and flips the booking to Paid only when the balance clears. **Uses OUR billed amount**, not the callback's; a mismatch is logged. Idempotent |
+| Agent action | `Bookings::openPaymentLink/createPaymentLink/closePaymentLink` + a "Create payment link" button (only shown when the portal is on) and modal on the bookings list — amount pre-filled with the balance, capped at it; the generated URL is **shown on-screen with a Copy button** to send the customer |
+| Settings | `LimoPortalSettings` at `/app/settings/limo-portal` (admin-only), a **"Service Portal"** tab in settings-nav — portal URL, shared secret (write-only), and the ON/OFF switch; shows the callback URL to give WordPress |
+| Deploy | The existing `deploy.yml` Limousine step (`migrate --path=Modules/Limousine/... --force` + `module:resync limousine`) auto-applies the two new migrations on live once merged to `main` — no manual SSH. **Until then it lives on a feature branch (deploy runs only on `main`), so live is untouched** |
+| Tests | `tests/Feature/LimoServiceOrderPortalTest.php` (6 — off-by-default no-op, signed push + stored link + exact `45.000`, callback settles + receipt + marks paid, bad signature 401, idempotent, agent creates a link) |
+
+**Still to do:** the WordPress `wanaan-service-order` plugin (REST receiver + public
+`/service-order/{token}` page with the T&C checkbox + WooCommerce/Tap checkout + the
+HMAC callback + admin screen), then the backups→diff→go-ahead→deploy gate with **Tap in
+TEST mode** and one small real test booking before any rollout.
+
 ---
 
 ## 6. Known Environment Caveats

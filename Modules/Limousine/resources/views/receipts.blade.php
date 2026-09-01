@@ -4,10 +4,16 @@
             <span class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 ring-1 ring-emerald-100">
                 {{ __('Total') }}: <span class="font-bold">{{ \App\Erp\Views\ValueFormat::money($collectedTotal) }}</span>
             </span>
-            <a href="{{ url('/app/limousine/receipt/new') }}" wire:navigate class="o-btn-primary">
-                <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
-                {{ __('New receipt') }}
-            </a>
+            {{-- Receipts write themselves when money is taken on a booking, so a
+                 hand-made one is a correction, not the normal way in. Kept for the
+                 owner only: two receipts for the same payment is a hard mistake to
+                 spot afterwards. ReceiptForm enforces the same rule server-side. --}}
+            @if ($canCreateManually)
+                <a href="{{ url('/app/limousine/receipt/new') }}" wire:navigate class="o-btn-primary">
+                    <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
+                    {{ __('New receipt') }}
+                </a>
+            @endif
         </x-slot:actions>
     </x-page-header>
 

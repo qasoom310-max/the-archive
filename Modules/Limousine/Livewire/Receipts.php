@@ -7,6 +7,7 @@ namespace Modules\Limousine\Livewire;
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -57,6 +58,10 @@ final class Receipts extends Component
 
         return view('limousine::receipts', [
             'receipts' => $query->paginate(20),
+            // Money taken on a booking issues its own receipt, so a hand-made
+            // one is a correction reserved for the owner. Same rule server-side
+            // in ReceiptForm — hiding the button alone would only be cosmetic.
+            'canCreateManually' => Auth::user()?->isSuperAdmin() ?? false,
             'collectedTotal' => (float) LimoReceipt::query()->sum('amount'),
         ]);
     }

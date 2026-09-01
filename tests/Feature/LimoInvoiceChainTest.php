@@ -192,6 +192,94 @@ final class LimoInvoiceChainTest extends TestCase
         $this->assertSame(1, LimoInvoice::query()->count());
     }
 
+    /** A quote sitting on file, ready to be billed. */
+    private function quoteFor(LimoCustomer $customer, float $fare = 30): LimoQuotation
+    {
+        return LimoQuotation::query()->create([
+            'customer_id' => $customer->id, 'fare' => $fare,
+        ]);
+    }
+
+    public function test_the_new_invoice_screen_offers_the_customers_quotes(): void
+    {
+        $customer = $this->customer();
+        $mine = $this->quoteFor($customer);
+        $theirs = $this->quoteFor(LimoCustomer::query()->create(['name' => 'Someone Else']));
+
+        // A bill is raised from a price already agreed, so the screen summons a
+        // quote instead of asking the office to retype totals it has on file.
+        Livewire::test(InvoiceForm::class)
+            ->set('customer_id', $customer->id)
+            ->assertSee($mine->reference)
+            ->assertDontSee($theirs->reference);
+    }
+
+    public function test_a_quote_already_billed_is_not_offered_again(): void
+    {
+        $customer = $this->customer();
+        $quote = $this->quoteFor($customer);
+        $quote->convertToInvoice();
+
+        Livewire::test(InvoiceForm::class)
+            ->set('customer_id', $customer->id)
+            ->assertDontSee($quote->reference);
+    }
+
+    public function test_a_quote_can_be_found_by_its_number_alone(): void
+    {
+        $quote = $this->quoteFor($this->customer());
+
+        // Searching a number is how the office finds a quote when it does not
+        // remember whose it is — so picking one fills the customer in.
+        Livewire::test(InvoiceForm::class)
+            ->set('quoteSearch', (string) $quote->reference)
+            ->assertSee($quote->reference)
+            ->call('selectQuote', $quote->id)
+            ->assertSet('customer_id', $quote->customer_id);
+    }
+
+    public function test_issuing_from_the_picker_raises_the_quotes_invoice(): void
+    {
+        $quote = $this->quoteFor($this->customer(), fare: 55);
+
+        Livewire::test(InvoiceForm::class)
+            ->call('selectQuote', $quote->id)
+            ->call('issueInvoice')
+            ->assertHasNoErrors();
+
+        $invoice = LimoInvoice::query()->where('quotation_id', $quote->id)->firstOrFail();
+        $this->assertEqualsWithDelta(55.0, $invoice->total, 0.001);
+        $this->assertSame(LimoQuotation::STATUS_ACCEPTED, $quote->fresh()?->status);
+    }
+
+    public function test_a_declined_quote_is_refused_even_when_asked_for_directly(): void
+    {
+        $quote = $this->quoteFor($this->customer());
+        $quote->forceFill(['status' => LimoQuotation::STATUS_DECLINED])->save();
+
+        // The picker is a convenience, not the rule — a crafted call meets the
+        // same check the list is drawn from.
+        Livewire::test(InvoiceForm::class)
+            ->call('selectQuote', $quote->id)
+            ->assertHasErrors('quotation_id');
+
+        $this->assertSame(0, LimoInvoice::query()->count());
+    }
+
+    public function test_a_blank_form_cannot_conjure_an_invoice(): void
+    {
+        // There is no create-from-nothing any more: an invoice is raised from a
+        // quotation or issued with a booking. Livewire dispatches straight to
+        // methods, so a stale page reaching save() has to be refused.
+        Livewire::test(InvoiceForm::class)
+            ->set('customer_id', $this->customer()->id)
+            ->set('subtotal', '99')
+            ->call('save')
+            ->assertHasErrors('quotation_id');
+
+        $this->assertSame(0, LimoInvoice::query()->count());
+    }
+
     public function test_bookings_already_on_file_are_backfilled_with_invoices(): void
     {
         $customer = $this->customer();

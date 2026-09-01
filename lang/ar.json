@@ -2272,5 +2272,16 @@
     "— Select —": "— اختيار —",
     "— click Create to add one.": "— انقر إنشاء لإضافة واحد.",
     "— the transfer is split across them in proportion to what each is owed.": "— يُوزَّع التحويل عليها بنسبة المستحق لكل منها.",
-    "“:name” is already in the list.": "«:name» موجود بالفعل في القائمة."
+    "“:name” is already in the list.": "«:name» موجود بالفعل في القائمة.",
+    "Pick a quotation to bill.": "اختر عرض سعر لإصدار الفاتورة.",
+    "That quotation cannot be billed.": "لا يمكن إصدار فاتورة لعرض السعر هذا.",
+    "Invoice issued from the quotation.": "تم إصدار الفاتورة من عرض السعر.",
+    "Choose the customer, then the quotation you are billing. The invoice takes its price from the quote.": "اختر العميل ثم عرض السعر المراد فوترته. تأخذ الفاتورة سعرها من عرض السعر.",
+    "Find a quotation": "ابحث عن عرض سعر",
+    "Quotation number…": "رقم عرض السعر…",
+    "Pick a customer to see the quotations waiting to be billed.": "اختر عميلاً لعرض عروض الأسعار في انتظار الفوترة.",
+    "No quotations waiting to be billed.": "لا توجد عروض أسعار في انتظار الفوترة.",
+    "Billing": "فوترة",
+    "Issue invoice": "إصدار فاتورة",
+    "Issuing…": "جارٍ الإصدار…"
 }

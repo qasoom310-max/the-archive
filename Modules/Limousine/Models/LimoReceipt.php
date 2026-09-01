@@ -145,7 +145,9 @@ final class LimoReceipt extends Model implements DefinesIrModel
                     'default_sort' => [['field' => 'id', 'dir' => 'desc']],
                     'per_page' => 20,
                     'searchable' => ['reference'],
-                    'open' => '/app/limousine/receipt/{id}',
+                    // No 'open': a receipt records money already taken, so there
+                    // is nothing to open it for. The list offers Download and
+                    // Send, which is the whole of what anyone needs.
                 ]),
             ],
         );

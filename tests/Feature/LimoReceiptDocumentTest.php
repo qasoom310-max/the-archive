@@ -106,6 +106,19 @@ final class LimoReceiptDocumentTest extends TestCase
         $this->assertNull($data['balance']);
     }
 
+    public function test_the_row_does_not_open_an_editor(): void
+    {
+        $receipt = $this->receipt();
+
+        // Pressing a receipt used to land on a form with an editable date. A
+        // receipt records money already taken, so there is nothing to open it
+        // for — the row offers Download and Send and nothing else.
+        Livewire::test(Receipts::class)
+            ->assertDontSeeHtml("window.location='" . url('/app/limousine/receipt/' . $receipt->id) . "'")
+            ->assertSeeHtml(url('/app/limousine/receipt/' . $receipt->id . '/download'))
+            ->assertSee(__('Send'));
+    }
+
     public function test_sending_offers_the_customers_address_and_mails_the_pdf(): void
     {
         Mail::fake();

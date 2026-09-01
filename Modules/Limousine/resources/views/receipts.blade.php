@@ -37,8 +37,10 @@
             </thead>
             <tbody class="divide-y divide-chrome-50">
                 @forelse ($receipts as $receipt)
-                    <tr wire:key="lrcptrow-{{ $receipt->id }}" class="cursor-pointer hover:bg-chrome-50"
-                        onclick="window.location='{{ url('/app/limousine/receipt/' . $receipt->id) }}'">
+                    {{-- Not clickable. A receipt is a record of money already
+                         taken, so there is nothing to open it FOR — the two
+                         things anyone needs are Download and Send. --}}
+                    <tr wire:key="lrcptrow-{{ $receipt->id }}" class="hover:bg-chrome-50">
                         <td class="px-4 py-2 font-medium text-chrome-800">{{ $receipt->reference }}</td>
                         <td class="px-4 py-2 text-chrome-700">{{ $receipt->customer?->name ?? '—' }}</td>
                         <td class="px-4 py-2 text-chrome-600">{{ $receipt->invoice?->reference ?? '—' }}</td>

@@ -111,7 +111,7 @@ final class LimoManualReceiptTest extends TestCase
         $this->assertSame(0, LimoReceipt::query()->count());
     }
 
-    public function test_an_existing_receipt_is_still_editable_by_a_regular_admin(): void
+    public function test_opening_an_existing_receipt_is_the_owners_alone_too(): void
     {
         $invoice = $this->invoice();
         $receipt = LimoReceipt::query()->create([
@@ -119,9 +119,14 @@ final class LimoManualReceiptTest extends TestCase
             'date' => now(), 'amount' => 20, 'method' => 'cash',
         ]);
 
+        // Nothing links to this screen any more — the list offers Download and
+        // Send instead — so the same rule guards both doors. Touching a receipt
+        // by hand is a correction, whichever direction it is reached from.
         $this->asAdmin();
+        Livewire::test(ReceiptForm::class, ['id' => $receipt->id])->assertForbidden();
 
-        // Correcting a receipt that exists is a different act from inventing one.
+        // The owner can still repair one.
+        $this->asOwner();
         Livewire::test(ReceiptForm::class, ['id' => $receipt->id])
             ->assertOk()
             ->set('amount', 25)

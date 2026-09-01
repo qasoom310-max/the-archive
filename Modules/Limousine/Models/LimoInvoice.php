@@ -237,7 +237,6 @@ final class LimoInvoice extends Model implements DefinesIrModel
                     'default_sort' => [['field' => 'id', 'dir' => 'desc']],
                     'per_page' => 20,
                     'searchable' => ['reference'],
-                    'open' => '/app/limousine/invoice/{id}',
                 ]),
             ],
         );

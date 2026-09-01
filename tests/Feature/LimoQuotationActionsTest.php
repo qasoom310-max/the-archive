@@ -203,7 +203,7 @@ final class LimoQuotationActionsTest extends TestCase
         // INVOICE is what has to stop it being offered a second time.
         Livewire::test(Quotations::class)
             ->assertDontSee('Raise invoice')
-            ->assertSee('Open the invoice this became');
+            ->assertSee('Download the invoice this became');
 
         $this->assertSame(1, LimoInvoice::query()->count());
         $this->assertSame(0, LimoBooking::query()->count());

@@ -81,7 +81,7 @@ final class Quotations extends Component
             'invoice' => (string) ($invoice->reference ?? $invoice->id),
         ]));
 
-        $this->redirect('/app/limousine/invoice/' . $invoice->id, navigate: true);
+        $this->redirect('/app/limousine/invoice', navigate: true);
     }
 
     public function openSend(int $id): void

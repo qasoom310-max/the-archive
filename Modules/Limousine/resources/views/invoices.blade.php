@@ -20,10 +20,50 @@
         @endforeach
     </div>
 
+    {{-- Search and a date window: how "this month's invoices for Dadabhai"
+         is actually asked for. --}}
+    <div class="mb-4 flex flex-wrap items-end gap-3">
+        <div class="min-w-[240px] flex-1">
+            <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Search') }}</label>
+            <input type="search" wire:model.live.debounce.300ms="search" class="o-input w-full text-sm"
+                   placeholder="{{ __('Invoice, customer, booking…') }}">
+        </div>
+        <div>
+            <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Issued from') }}</label>
+            <x-date-field wire:model.live="from" class="o-input text-sm" />
+        </div>
+        <div>
+            <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Issued to') }}</label>
+            <x-date-field wire:model.live="to" class="o-input text-sm" />
+        </div>
+    </div>
+
+    {{-- One document for a month of work, instead of forty downloads. The
+         selection survives paging and re-filtering, so a quarter can be
+         gathered a month at a time. --}}
+    @if ($selectedCount > 0)
+        <div class="mb-4 flex flex-wrap items-center gap-3 rounded-2xl bg-primary-400/15 px-4 py-3 text-sm ring-1 ring-primary-600/20">
+            <span class="font-semibold text-chrome-800">
+                {{ trans_choice(':count invoice selected|:count invoices selected', $selectedCount, ['count' => $selectedCount]) }}
+                @if ($pickedCustomer) · {{ $pickedCustomer }} @endif
+            </span>
+            @if ($mixedCustomers)
+                <span class="text-red-700">{{ __('Pick invoices for one customer — a combined invoice is addressed to one company.') }}</span>
+            @elseif ($combinedUrl)
+                <a href="{{ $combinedUrl }}" class="o-btn-primary text-sm">{{ __('Combined invoice') }}</a>
+            @endif
+            <button type="button" wire:click="clearSelection" class="ms-auto text-xs text-chrome-500 hover:underline">{{ __('Clear selection') }}</button>
+        </div>
+    @endif
+
     <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
         <table class="w-full min-w-[720px] divide-y divide-chrome-100 text-sm">
             <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                 <tr>
+                    <th class="w-10 px-4 py-2">
+                        <button type="button" wire:click="selectAll" title="{{ __('Select all') }}"
+                                class="text-[11px] font-semibold text-primary-700 hover:underline">{{ __('All') }}</button>
+                    </th>
                     <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Customer') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Issued') }}</th>
@@ -42,6 +82,10 @@
                     {{-- Not clickable. A bill is a document, not a workspace —
                          the three things anyone does with one are on the row. --}}
                     <tr wire:key="linv-{{ $invoice->id }}" class="hover:bg-chrome-50">
+                        <td class="px-4 py-2">
+                            <input type="checkbox" value="{{ $invoice->id }}" wire:model.live="selected"
+                                   class="size-4 rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
+                        </td>
                         <td class="px-4 py-2 font-medium text-chrome-800">{{ $invoice->reference }}</td>
                         <td class="px-4 py-2 text-chrome-700">{{ $invoice->customer?->name ?? '—' }}</td>
                         <td class="px-4 py-2 text-chrome-600">{{ $invoice->issue_date?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
@@ -78,7 +122,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="8" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No invoices found.') }}</td></tr>
+                    <tr><td colspan="9" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No invoices found.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>

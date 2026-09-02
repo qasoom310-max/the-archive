@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Modules\Limousine\Http\Controllers\CouponVoucherController;
+use Modules\Limousine\Http\Controllers\LimoCombinedInvoiceController;
 use Modules\Limousine\Http\Controllers\LimoInvoiceController;
 use Modules\Limousine\Http\Controllers\LimoQueueExportController;
 use Modules\Limousine\Http\Controllers\LimoStatementController;
@@ -129,6 +130,9 @@ Route::middleware('auth')->group(function (): void {
     // Invoices.
     Route::get('/app/limousine/invoice', Invoices::class)->name('limousine.invoice.index');
     Route::get('/app/limousine/invoice/new', InvoiceForm::class)->name('limousine.invoice.create');
+    // Before the {id} form route, so "combined" is never read as an invoice id.
+    Route::get('/app/limousine/invoice/combined', LimoCombinedInvoiceController::class)
+        ->name('limousine.invoice.combined');
     // Before the {id} form route, so "download" is never read as an invoice id.
     Route::get('/app/limousine/invoice/{invoice}/download', LimoInvoiceController::class)
         ->whereNumber('invoice')->name('limousine.invoice.download');

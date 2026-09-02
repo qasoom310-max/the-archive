@@ -2349,5 +2349,22 @@
     "Account settled — nothing outstanding.": "الحساب مسدد — لا يوجد مستحق.",
     "Nothing on this account for the period.": "لا توجد حركات على هذا الحساب خلال الفترة.",
     "Payment received": "دفعة مستلمة",
-    "Trip :reference": "رحلة :reference"
+    "Trip :reference": "رحلة :reference",
+    "Invoice, customer, booking…": "فاتورة، عميل، حجز…",
+    "Issued from": "صادرة من",
+    "Issued to": "صادرة إلى",
+    ":count invoice selected|:count invoices selected": "فاتورة واحدة محددة|:count فواتير محددة",
+    "Pick invoices for one customer — a combined invoice is addressed to one company.": "اختر فواتير عميل واحد — الفاتورة المجمعة موجهة إلى شركة واحدة.",
+    "Combined invoice": "فاتورة مجمعة",
+    "Clear selection": "مسح التحديد",
+    "Select all": "تحديد الكل",
+    "Invoices covered": "الفواتير المشمولة",
+    "Sl": "م",
+    "Booking #": "رقم الحجز",
+    "Company ref.": "مرجع الشركة",
+    "Pax name": "اسم الراكب",
+    "Nothing to bill.": "لا يوجد ما يُفوتر.",
+    "A combined invoice belongs to one customer.": "الفاتورة المجمعة تخص عميلاً واحداً.",
+    "Discount on :reference": "خصم على :reference",
+    "Adjustment on :reference": "تسوية على :reference"
 }

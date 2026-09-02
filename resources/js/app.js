@@ -319,13 +319,34 @@ document.addEventListener('alpine:init', () => {
         observer: null,
 
         init() {
-            this.sync();
+            const native = this.$refs.native;
 
-            // Livewire patches the value straight into the DOM without firing
-            // `change`, so watch the input itself or the box goes stale.
+            // Livewire renders a wire:model input with NO value attribute and
+            // fills it AFTER it boots, by ASSIGNING the value property. That
+            // fires no `change` and mutates no attribute, so watching the
+            // attribute never saw it and init() ran too early to catch it —
+            // which is why every server-set date drew an empty box while the
+            // component held the right value all along. Wrapping the property
+            // setter is what actually catches it, our own write() included.
+            const desc = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(native), 'value');
+            if (desc && desc.get && desc.set) {
+                Object.defineProperty(native, 'value', {
+                    configurable: true,
+                    enumerable: desc.enumerable,
+                    get: () => desc.get.call(native),
+                    set: (value) => { desc.set.call(native, value); this.sync(); },
+                });
+            }
+
+            this.sync();
+            // Belt and braces for the ordering above: if Livewire got there
+            // first, the value is already sitting on the input.
+            this.$nextTick(() => this.sync());
+
+            // Still watched, for anything that sets the attribute instead.
             this.observer = new MutationObserver(() => this.sync());
-            this.observer.observe(this.$refs.native, { attributes: true, attributeFilter: ['value'] });
-            this.$refs.native.addEventListener('change', () => this.sync());
+            this.observer.observe(native, { attributes: true, attributeFilter: ['value'] });
+            native.addEventListener('change', () => this.sync());
         },
 
         destroy() {

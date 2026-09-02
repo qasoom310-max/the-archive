@@ -8,11 +8,12 @@ use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\Attributes\Locked;
 use Livewire\WithPagination;
+use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Services\BookingPayments;
 
@@ -35,6 +36,28 @@ final class Invoices extends Component
     #[Url]
     public string $tab = 'all';
 
+    /** Free text across the bill, the customer and the trip it bills for. */
+    #[Url(except: '')]
+    public string $search = '';
+
+    /** Issue-date window — how "this month's invoices" is asked for. */
+    #[Url(except: '')]
+    public string $from = '';
+
+    #[Url(except: '')]
+    public string $to = '';
+
+    /**
+     * Invoices ticked for a combined bill.
+     *
+     * Kept on the component rather than in the URL so a selection survives
+     * paging and re-filtering: picking a month, ticking it, then picking
+     * another month is exactly how a quarter gets billed in one go.
+     *
+     * @var list<int>
+     */
+    public array $selected = [];
+
     protected function accessModelKey(): string
     {
         return 'limousine.invoice';
@@ -48,6 +71,70 @@ final class Invoices extends Component
     public function updatedTab(): void
     {
         $this->resetPage();
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedFrom(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedTo(): void
+    {
+        $this->resetPage();
+    }
+
+    /** Tick everything the current filter shows, not just this page. */
+    public function selectAll(): void
+    {
+        $this->selected = $this->baseQuery()->pluck('id')->map(fn ($id): int => (int) $id)->all();
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selected = [];
+    }
+
+    /**
+     * The list as filtered, before paging.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<LimoInvoice>
+     */
+    private function baseQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = LimoInvoice::query()->with('customer:id,name')->orderByDesc('id');
+
+        if (in_array($this->tab, [LimoInvoice::STATUS_UNPAID, LimoInvoice::STATUS_PARTIAL, LimoInvoice::STATUS_PAID], true)) {
+            $query->where('status', $this->tab);
+        }
+
+        if ($this->from !== '') {
+            $query->whereDate('issue_date', '>=', $this->from);
+        }
+        if ($this->to !== '') {
+            $query->whereDate('issue_date', '<=', $this->to);
+        }
+
+        $term = trim($this->search);
+        if ($term !== '') {
+            // Everything the office would reach for: the bill's number, the
+            // customer, the trip it bills for, and what a charge is called.
+            // Grouped so the ORs cannot widen the tab and date filters above.
+            $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $term) . '%';
+
+            $query->where(function ($q) use ($like): void {
+                $q->where('reference', 'like', $like)
+                    ->orWhere('charge_label', 'like', $like)
+                    ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', $like))
+                    ->orWhereHas('booking', fn ($b) => $b->where('reference', 'like', $like));
+            });
+        }
+
+        return $query;
     }
 
     /** Payment dialog: the invoice being collected against, or null. */
@@ -158,19 +245,31 @@ final class Invoices extends Component
 
     public function render(): View
     {
-        $query = LimoInvoice::query()->with('customer:id,name')->orderByDesc('id');
-
-        if (in_array($this->tab, [LimoInvoice::STATUS_UNPAID, LimoInvoice::STATUS_PARTIAL, LimoInvoice::STATUS_PAID], true)) {
-            $query->where('status', $this->tab);
-        }
+        $query = $this->baseQuery();
 
         $counts = LimoInvoice::query()->selectRaw('status, COUNT(*) as aggregate')->groupBy('status')->pluck('aggregate', 'status');
 
         $collecting = $this->collectingId !== null ? LimoInvoice::query()->find($this->collectingId) : null;
 
+        // A combined bill is ONE customer's — a document addressed to two
+        // companies is not a document. Said plainly rather than silently
+        // dropping the odd ones out.
+        $picked = $this->selected !== []
+            ? LimoInvoice::query()->whereIn('id', $this->selected)->get(['id', 'customer_id'])
+            : collect();
+        $customerIds = $picked->pluck('customer_id')->unique()->values();
+
         return view('limousine::invoices', [
             'invoices' => $query->paginate(20),
             'collecting' => $collecting,
+            'selectedCount' => $picked->count(),
+            'mixedCustomers' => $customerIds->count() > 1,
+            'combinedUrl' => $picked->count() > 0 && $customerIds->count() === 1
+                ? url('/app/limousine/invoice/combined?ids=' . implode(',', $this->selected))
+                : null,
+            'pickedCustomer' => $customerIds->count() === 1
+                ? LimoCustomer::query()->find($customerIds->first())?->name
+                : null,
             'collectBalance' => $collecting !== null ? $collecting->balance() : 0.0,
             'counts' => $counts,
             'totalCount' => (int) $counts->sum(),

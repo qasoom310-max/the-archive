@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\Rental\Http\Controllers\RentalAgreementPdfController;
 use Modules\Rental\Http\Controllers\RentalAgreementPrintController;
 use Modules\Rental\Http\Controllers\RentalCustomerImportController;
+use Modules\Rental\Http\Controllers\RentalDriverImportController;
 use Modules\Rental\Http\Controllers\RentalReportExportController;
 use Modules\Rental\Http\Controllers\RentalSalesExportController;
 use Modules\Rental\Http\Controllers\RentalSalesImportController;
@@ -100,6 +101,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/rental/vehicle/new', VehicleForm::class)->name('rental.vehicle.create');
     Route::get('/app/rental/vehicle/{id}', VehicleForm::class)->whereNumber('id')->name('rental.vehicle.edit');
 
+    Route::post('/app/rental/driver/import', RentalDriverImportController::class)->name('rental.driver.import');
     Route::get('/app/rental/driver', Drivers::class)->name('rental.driver.index');
     Route::get('/app/rental/driver/new', DriverForm::class)->name('rental.driver.create');
     Route::get('/app/rental/driver/{id}', DriverForm::class)->whereNumber('id')->name('rental.driver.edit');

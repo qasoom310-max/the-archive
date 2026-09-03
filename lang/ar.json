@@ -2472,5 +2472,14 @@
     "Columns: Reference, Car, Type, Priority, Date, Cost, Status. Other columns are ignored. The same car, date and cost seen before is skipped.": "الأعمدة: المرجع، السيارة، النوع، الأولوية، التاريخ، التكلفة، الحالة. تُتجاهل الأعمدة الأخرى. يُستبعد نفس السيارة والتاريخ والتكلفة إن وُجد سابقاً.",
     "Columns: Reference, Customer, Original car, Replacement car, Date, Status. Other columns are ignored. The same customer, date and cars seen before is skipped.": "الأعمدة: المرجع، العميل، السيارة الأصلية، سيارة الاستبدال، التاريخ، الحالة. تُتجاهل الأعمدة الأخرى. يُستبعد نفس العميل والتاريخ والسيارتين إن وُجد سابقاً.",
     ":imported records imported, :skipped already on file skipped.": "تم استيراد :imported سجلاً، وتخطي :skipped موجود مسبقاً.",
-    ":imported replacements imported, :skipped already on file skipped.": "تم استيراد :imported استبدالاً، وتخطي :skipped موجود مسبقاً."
+    ":imported replacements imported, :skipped already on file skipped.": "تم استيراد :imported استبدالاً، وتخطي :skipped موجود مسبقاً.",
+    "Import expenses (CSV)": "استيراد المصروفات (CSV)",
+    "Import locations (CSV)": "استيراد المواقع (CSV)",
+    "Import petty cash (CSV)": "استيراد المصروفات النثرية (CSV)",
+    "Columns: Reference, Date, Category, Paid to, Amount. Other columns are ignored. The same amount, date and payee seen before is skipped.": "الأعمدة: المرجع، التاريخ، الفئة، الجهة المدفوع لها، المبلغ. تُتجاهل الأعمدة الأخرى. يُستبعد نفس المبلغ والتاريخ والجهة إن وُجد سابقاً.",
+    "Columns: Name, Area, Notes, Active. Other columns are ignored. A location with the same name is skipped.": "الأعمدة: الاسم، المنطقة، الملاحظات، نشط. تُتجاهل الأعمدة الأخرى. يُستبعد الموقع بنفس الاسم.",
+    "Columns: Reference, Driver, Date, Given, Receipts, Status. Other columns are ignored. The same driver, date and amount seen before is skipped.": "الأعمدة: المرجع، السائق، التاريخ، المبلغ المعطى، الإيصالات، الحالة. تُتجاهل الأعمدة الأخرى. يُستبعد نفس السائق والتاريخ والمبلغ إن وُجد سابقاً.",
+    ":imported locations imported, :skipped already on file skipped.": "تم استيراد :imported موقعاً، وتخطي :skipped موجود مسبقاً.",
+    ":imported expenses imported, :skipped already on file skipped.": "تم استيراد :imported مصروفاً، وتخطي :skipped موجود مسبقاً.",
+    ":imported advances imported, :skipped already on file skipped.": "تم استيراد :imported سلفة، وتخطي :skipped موجودة مسبقاً."
 }

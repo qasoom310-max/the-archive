@@ -2445,5 +2445,8 @@
     "Car (optional)": "السيارة (اختياري)",
     "Car Type": "نوع السيارة",
     "No records found.": "لا توجد سجلات.",
-    "Records": "السجلات"
+    "Records": "السجلات",
+    "Import drivers (CSV)": "استيراد السائقين (CSV)",
+    "Columns: Name, CPR, License No, License Expiry, Phone, Nationality. Other columns are ignored. Duplicates (by CPR, then licence, then phone) are skipped.": "الأعمدة: الاسم، الرقم الشخصي، رقم الرخصة، تاريخ انتهاء الرخصة، الهاتف، الجنسية. تُتجاهل الأعمدة الأخرى. تُستبعد التكرارات (حسب الرقم الشخصي ثم الرخصة ثم الهاتف).",
+    ":imported drivers imported, :skipped duplicates skipped.": "تم استيراد :imported سائقاً، وتخطي :skipped تكراراً."
 }

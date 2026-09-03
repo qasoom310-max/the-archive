@@ -76,6 +76,27 @@ final class RentalCustomerImportTest extends TestCase
         $this->assertSame(2, RentalCustomer::query()->count()); // existing + the one new
     }
 
+    public function test_the_endpoint_redirects_back_to_whichever_customer_list_it_came_from(): void
+    {
+        // One shared customer store, one importer, reached from either app's
+        // Customers page — the redirect must return to whichever asked.
+        $file = new \Illuminate\Http\UploadedFile($this->csv("X,Individual,9,9,\n"), 'c.csv', 'text/csv', null, true);
+        $controller = new \Modules\Rental\Http\Controllers\RentalCustomerImportController();
+
+        $fromLimo = \Illuminate\Http\Request::create('/app/rental/customer/import', 'POST', ['redirect' => '/app/limousine/customer'], [], ['file' => $file]);
+        $this->assertSame(url('/app/limousine/customer'), $controller($fromLimo, app(CustomerImporter::class))->getTargetUrl());
+    }
+
+    public function test_an_unrecognised_redirect_target_falls_back_to_the_rental_list(): void
+    {
+        // Defence in depth against an open redirect via a crafted form field.
+        $file = new \Illuminate\Http\UploadedFile($this->csv("X,Individual,9,9,\n"), 'c.csv', 'text/csv', null, true);
+        $controller = new \Modules\Rental\Http\Controllers\RentalCustomerImportController();
+
+        $request = \Illuminate\Http\Request::create('/app/rental/customer/import', 'POST', ['redirect' => 'https://evil.example/'], [], ['file' => $file]);
+        $this->assertSame(url('/app/rental/customer'), $controller($request, app(CustomerImporter::class))->getTargetUrl());
+    }
+
     public function test_the_import_route_is_manager_gated(): void
     {
         // Direct controller invocation (module HTTP routes aren't registered in tests).

@@ -118,12 +118,24 @@ final class PettyCash
             $driverName = (string) ($advance->driver->name ?? '');
 
             foreach ($advance->lines as $line) {
+                // The line stores the category's NAME (the owner's list); the
+                // ledger has fixed slots. An owner-invented category files
+                // under "other" but keeps its name in the notes, so nothing
+                // is lost in translation.
+                $slot = \Modules\Limousine\Models\LimoPettyCategory::expenseSlotFor($line->category);
+
                 LimoExpense::query()->create([
                     'date' => $line->date,
-                    'category' => $line->category,
+                    'category' => $slot,
                     'amount' => $line->amount,
                     'payee' => $driverName,
-                    'notes' => trim($advance->reference . ' — ' . (string) $line->description, ' —'),
+                    'notes' => trim(
+                        $advance->reference
+                        . ($slot === 'other' ? ' — ' . $line->category : '')
+                        . ($line->vehicle !== null && $line->vehicle !== '' ? ' — ' . $line->vehicle : '')
+                        . ' — ' . (string) $line->description,
+                        ' —',
+                    ),
                 ]);
             }
 

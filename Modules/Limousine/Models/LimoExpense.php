@@ -59,10 +59,16 @@ final class LimoExpense extends Model implements DefinesIrModel
     {
         return [
             ['value' => 'fuel', 'label' => 'Fuel'],
-            // The two road costs petty cash settles into — added so a driver's
-            // receipt lands here under the same name it was entered as.
+            // The road costs petty cash settles into — one slot per default
+            // petty category, so a driver's receipt lands here under the same
+            // name it was entered as.
             ['value' => 'wash', 'label' => 'Car wash & cleaning'],
-            ['value' => 'parking', 'label' => 'Parking & tolls'],
+            ['value' => 'parking', 'label' => 'Parking'],
+            ['value' => 'tolls', 'label' => 'Tolls'],
+            ['value' => 'insurance', 'label' => 'Insurance'],
+            ['value' => 'spare_parts', 'label' => 'Spare parts'],
+            ['value' => 'food', 'label' => 'Food'],
+            ['value' => 'office', 'label' => 'Office expenses'],
             ['value' => 'driver_pay', 'label' => 'Driver pay'],
             ['value' => 'maintenance', 'label' => 'Maintenance'],
             ['value' => 'salaries', 'label' => 'Salaries'],

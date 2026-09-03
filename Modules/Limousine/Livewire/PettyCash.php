@@ -16,7 +16,6 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use Modules\Limousine\Models\LimoDriver;
 use Modules\Limousine\Models\LimoPettyAdvance;
-use Modules\Limousine\Models\LimoPettyLine;
 use Modules\Limousine\Services\PettyCash as PettyCashService;
 
 /**
@@ -238,7 +237,6 @@ final class PettyCash extends Component
             'openCount' => LimoPettyAdvance::query()->where('status', '!=', LimoPettyAdvance::STATUS_CLEARED)->count(),
             'drivers' => LimoDriver::query()->where('active', true)->orderBy('name')->get(['id', 'name']),
             'canManage' => Auth::user()?->isAdmin() ?? false,
-            'categories' => LimoPettyLine::categories(),
             'report' => $this->tab === 'report' ? $this->report() : null,
         ]);
     }

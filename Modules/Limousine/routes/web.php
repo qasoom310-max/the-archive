@@ -6,6 +6,10 @@ use Illuminate\Support\Facades\Route;
 use Modules\Limousine\Http\Controllers\CouponVoucherController;
 use Modules\Limousine\Http\Controllers\LimoCombinedInvoiceController;
 use Modules\Limousine\Http\Controllers\LimoInvoiceController;
+use Modules\Limousine\Http\Controllers\LimoInvoiceExportController;
+use Modules\Limousine\Http\Controllers\LimoPettyAdvanceExportController;
+use Modules\Limousine\Http\Controllers\LimoQuotationExportController;
+use Modules\Limousine\Http\Controllers\LimoReceiptExportController;
 use Modules\Limousine\Http\Controllers\LimoQueueExportController;
 use Modules\Limousine\Http\Controllers\LimoStatementController;
 use Modules\Limousine\Http\Controllers\LimoReceiptController;
@@ -125,11 +129,19 @@ Route::middleware('auth')->group(function (): void {
         ->whereNumber('coupon')->name('limousine.coupon.pdf');
 
     // Quotations.
+    Route::get('/app/limousine/quotation/export/csv', [LimoQuotationExportController::class, 'csv'])->name('limousine.quotation.export.csv');
+    Route::get('/app/limousine/quotation/export/excel', [LimoQuotationExportController::class, 'excel'])->name('limousine.quotation.export.excel');
+    Route::get('/app/limousine/quotation/export/pdf', [LimoQuotationExportController::class, 'pdf'])->name('limousine.quotation.export.pdf');
+    Route::get('/app/limousine/quotation/export/print', [LimoQuotationExportController::class, 'print'])->name('limousine.quotation.export.print');
     Route::get('/app/limousine/quotation', Quotations::class)->name('limousine.quotation.index');
     Route::get('/app/limousine/quotation/new', QuotationForm::class)->name('limousine.quotation.create');
     Route::get('/app/limousine/quotation/{id}', QuotationForm::class)->whereNumber('id')->name('limousine.quotation.edit');
 
     // Invoices.
+    Route::get('/app/limousine/invoice/export/csv', [LimoInvoiceExportController::class, 'csv'])->name('limousine.invoice.export.csv');
+    Route::get('/app/limousine/invoice/export/excel', [LimoInvoiceExportController::class, 'excel'])->name('limousine.invoice.export.excel');
+    Route::get('/app/limousine/invoice/export/pdf', [LimoInvoiceExportController::class, 'pdf'])->name('limousine.invoice.export.pdf');
+    Route::get('/app/limousine/invoice/export/print', [LimoInvoiceExportController::class, 'print'])->name('limousine.invoice.export.print');
     Route::get('/app/limousine/invoice', Invoices::class)->name('limousine.invoice.index');
     Route::get('/app/limousine/invoice/new', InvoiceForm::class)->name('limousine.invoice.create');
     // Before the {id} form route, so "combined" is never read as an invoice id.
@@ -141,6 +153,10 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/invoice/{id}', InvoiceForm::class)->whereNumber('id')->name('limousine.invoice.edit');
 
     // Receipts.
+    Route::get('/app/limousine/receipt/export/csv', [LimoReceiptExportController::class, 'csv'])->name('limousine.receipt.export.csv');
+    Route::get('/app/limousine/receipt/export/excel', [LimoReceiptExportController::class, 'excel'])->name('limousine.receipt.export.excel');
+    Route::get('/app/limousine/receipt/export/pdf', [LimoReceiptExportController::class, 'pdf'])->name('limousine.receipt.export.pdf');
+    Route::get('/app/limousine/receipt/export/print', [LimoReceiptExportController::class, 'print'])->name('limousine.receipt.export.print');
     Route::get('/app/limousine/receipt', Receipts::class)->name('limousine.receipt.index');
     Route::get('/app/limousine/receipt/new', ReceiptForm::class)->name('limousine.receipt.create');
     // Before the {id} form route, so "download" is never read as a receipt id.
@@ -150,6 +166,10 @@ Route::middleware('auth')->group(function (): void {
 
     // Expenses.
     // Petty cash: the float, and each driver advance's whole life.
+    Route::get('/app/limousine/petty_cash/export/csv', [LimoPettyAdvanceExportController::class, 'csv'])->name('limousine.petty_cash.export.csv');
+    Route::get('/app/limousine/petty_cash/export/excel', [LimoPettyAdvanceExportController::class, 'excel'])->name('limousine.petty_cash.export.excel');
+    Route::get('/app/limousine/petty_cash/export/pdf', [LimoPettyAdvanceExportController::class, 'pdf'])->name('limousine.petty_cash.export.pdf');
+    Route::get('/app/limousine/petty_cash/export/print', [LimoPettyAdvanceExportController::class, 'print'])->name('limousine.petty_cash.export.print');
     Route::get('/app/limousine/petty_cash', PettyCash::class)->name('limousine.petty_cash.index');
     Route::get('/app/limousine/petty_cash/{id}', PettyAdvancePage::class)
         ->whereNumber('id')->name('limousine.petty_cash.show');

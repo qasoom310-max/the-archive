@@ -2466,5 +2466,11 @@
     "Columns: Reference, Customer, Issued, Total, Paid, Status. Other columns are ignored. The same customer, issue date and total seen before is skipped.": "الأعمدة: المرجع، العميل، تاريخ الإصدار، الإجمالي، المدفوع، الحالة. تُتجاهل الأعمدة الأخرى. يُستبعد نفس العميل وتاريخ الإصدار والإجمالي إن وُجد سابقاً.",
     "Columns: Reference, Customer, Invoice, Date, Method, Amount. Other columns are ignored. The same customer, date and amount seen before is skipped.": "الأعمدة: المرجع، العميل، الفاتورة، التاريخ، طريقة الدفع، المبلغ. تُتجاهل الأعمدة الأخرى. يُستبعد نفس العميل والتاريخ والمبلغ إن وُجد سابقاً.",
     ":imported invoices imported, :skipped already on file skipped.": "تم استيراد :imported فاتورة، وتخطي :skipped موجودة مسبقاً.",
-    ":imported receipts imported, :skipped already on file skipped.": "تم استيراد :imported إيصالاً، وتخطي :skipped موجود مسبقاً."
+    ":imported receipts imported, :skipped already on file skipped.": "تم استيراد :imported إيصالاً، وتخطي :skipped موجود مسبقاً.",
+    "Import maintenance records (CSV)": "استيراد سجلات الصيانة (CSV)",
+    "Import replacements (CSV)": "استيراد الاستبدالات (CSV)",
+    "Columns: Reference, Car, Type, Priority, Date, Cost, Status. Other columns are ignored. The same car, date and cost seen before is skipped.": "الأعمدة: المرجع، السيارة، النوع، الأولوية، التاريخ، التكلفة، الحالة. تُتجاهل الأعمدة الأخرى. يُستبعد نفس السيارة والتاريخ والتكلفة إن وُجد سابقاً.",
+    "Columns: Reference, Customer, Original car, Replacement car, Date, Status. Other columns are ignored. The same customer, date and cars seen before is skipped.": "الأعمدة: المرجع، العميل، السيارة الأصلية، سيارة الاستبدال، التاريخ، الحالة. تُتجاهل الأعمدة الأخرى. يُستبعد نفس العميل والتاريخ والسيارتين إن وُجد سابقاً.",
+    ":imported records imported, :skipped already on file skipped.": "تم استيراد :imported سجلاً، وتخطي :skipped موجود مسبقاً.",
+    ":imported replacements imported, :skipped already on file skipped.": "تم استيراد :imported استبدالاً، وتخطي :skipped موجود مسبقاً."
 }

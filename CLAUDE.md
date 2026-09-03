@@ -2269,7 +2269,7 @@ a tenant can't switch in); background **queue jobs** run in the Main context
 (~seconds, installs every module); creating a MySQL/Postgres workspace isn't
 supported (SQLite files only, per the chosen architecture).
 
-**Wanaan service-order payment portal (built 2026-09-01; LIVE in Tap TEST mode 2026-09-03):**
+**Wanaan service-order payment portal (built 2026-09-01; FULLY LIVE on Tap live keys 2026-09-03):**
 
 Lets a limousine booking be paid online: the agent raises a **payment link** for a
 trip (a "partition" — a deposit, one leg, or the whole balance; the amount is
@@ -2277,9 +2277,9 @@ agent-chosen, pre-filled with the remaining balance), the link is generated on t
 **Wanaan WordPress site** (`wanaan-bh.com`), the customer opens it and pays via
 **WooCommerce + Tap WebConnect**, and WordPress calls back to mark the booking paid.
 Both halves now ship — the ERP module (below) AND the WordPress plugin
-`wanaan-service-order` (see the plugin section below). Deployed and working in Tap
-**TEST** mode; switching Tap to live keys for real money is the only remaining step,
-done on the user's say-so.
+`wanaan-service-order` (see the plugin section below). Deployed and **fully live on
+Tap live keys — taking real money end-to-end** for the `wanaan` database. TEST-mode
+notes elsewhere are historical.
 
 | Concern | Location |
 |---|---|
@@ -2325,8 +2325,8 @@ constant `WANAAN_SO_VERSION` (currently 1.0.6). Structure:
 - Verify the endpoints are live + HMAC-enforced with a signed-vs-unsigned curl — an unsigned
   `POST /wp-json/wanaan/v1/booking` must return **401**.
 
-**Remaining:** switch Tap from TEST to live keys (user's call) for real money. The plugin is
-edited by re-uploading a freshly built ZIP in WP admin (there's no CI for `wp-plugin/`).
+**Live since 2026-09-03 on Tap live keys.** The plugin is edited by re-uploading a freshly
+built ZIP in WP admin (there's no CI for `wp-plugin/`).
 
 ---
 

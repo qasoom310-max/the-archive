@@ -20,8 +20,30 @@
         @endforeach
     </div>
 
+    @php
+        $exportQuery = http_build_query([
+            'tab' => $tab,
+            'title' => __('Car replacements'),
+        ]);
+    @endphp
+    <div class="mb-3 flex flex-wrap items-center gap-2" x-data="listExportCopy">
+        <button type="button" x-on:click="copyTable('rental-replacements-table')"
+                class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
+            <span x-show="! copied">{{ __('Copy') }}</span>
+            <span x-show="copied" x-cloak class="text-emerald-600">{{ __('Copied') }}</span>
+        </button>
+        <a href="{{ url('/app/rental/replacement/export/csv') }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('CSV') }}</a>
+        <a href="{{ url('/app/rental/replacement/export/excel') }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Excel') }}</a>
+        <a href="{{ url('/app/rental/replacement/export/pdf') }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('PDF') }}</a>
+        <a href="{{ url('/app/rental/replacement/export/print') }}?{{ $exportQuery }}" target="_blank" rel="noopener"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Print') }}</a>
+    </div>
+
     <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
-        <table class="w-full min-w-[720px] divide-y divide-chrome-100 text-sm">
+        <table class="w-full min-w-[720px] divide-y divide-chrome-100 text-sm" id="rental-replacements-table">
             <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                 <tr>
                     <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>

@@ -9,6 +9,7 @@ use Modules\Rental\Http\Controllers\RentalCustomerImportController;
 use Modules\Rental\Http\Controllers\RentalInvoiceExportController;
 use Modules\Rental\Http\Controllers\RentalMaintenanceExportController;
 use Modules\Rental\Http\Controllers\RentalOrderExportController;
+use Modules\Rental\Http\Controllers\RentalOrderImportController;
 use Modules\Rental\Http\Controllers\RentalQuotationExportController;
 use Modules\Rental\Http\Controllers\RentalReceiptExportController;
 use Modules\Rental\Http\Controllers\RentalReplacementExportController;
@@ -50,6 +51,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/rental/order/export/excel', [RentalOrderExportController::class, 'excel'])->name('rental.order.export.excel');
     Route::get('/app/rental/order/export/pdf', [RentalOrderExportController::class, 'pdf'])->name('rental.order.export.pdf');
     Route::get('/app/rental/order/export/print', [RentalOrderExportController::class, 'print'])->name('rental.order.export.print');
+    Route::post('/app/rental/order/import', RentalOrderImportController::class)->name('rental.order.import');
     Route::get('/app/rental/order', Orders::class)->name('rental.order.index');
     Route::get('/app/rental/order/new', OrderForm::class)->name('rental.order.create');
     // Printable Car Hire Agreement overlay (distinct path from the {id} editor).

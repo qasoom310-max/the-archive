@@ -2448,5 +2448,13 @@
     "Records": "السجلات",
     "Import drivers (CSV)": "استيراد السائقين (CSV)",
     "Columns: Name, CPR, License No, License Expiry, Phone, Nationality. Other columns are ignored. Duplicates (by CPR, then licence, then phone) are skipped.": "الأعمدة: الاسم، الرقم الشخصي، رقم الرخصة، تاريخ انتهاء الرخصة، الهاتف، الجنسية. تُتجاهل الأعمدة الأخرى. تُستبعد التكرارات (حسب الرقم الشخصي ثم الرخصة ثم الهاتف).",
-    ":imported drivers imported, :skipped duplicates skipped.": "تم استيراد :imported سائقاً، وتخطي :skipped تكراراً."
+    ":imported drivers imported, :skipped duplicates skipped.": "تم استيراد :imported سائقاً، وتخطي :skipped تكراراً.",
+    ":imported orders imported, :skipped already on file skipped.": "تم استيراد :imported طلباً، وتخطي :skipped موجود مسبقاً.",
+    ":imported trips imported, :skipped already on file skipped.": "تم استيراد :imported رحلة، وتخطي :skipped موجودة مسبقاً.",
+    "Columns: Reference, Customer, Car, Pick-up, Return, Total, Received, Status, Payment. Other columns are ignored. The same customer, pick-up date and total seen before is skipped.": "الأعمدة: المرجع، العميل، السيارة، الاستلام، الإرجاع، الإجمالي، المستلم، الحالة، الدفع. تُتجاهل الأعمدة الأخرى. يُستبعد نفس العميل وتاريخ الاستلام والإجمالي إن وُجد سابقاً.",
+    "Import (previous system)": "استيراد (النظام السابق)",
+    "Import orders (CSV)": "استيراد الطلبات (CSV)",
+    "Import trips (CSV)": "استيراد الرحلات (CSV)",
+    "Imported from previous system.": "مستورد من النظام السابق.",
+    "Columns: Reference, From date, To date, Type, Customer, Amount, Received, Pickup, Drop off, Vehicle, Driver, Company ref., Pax name, Status, Payment. Other columns are ignored. The same customer, pickup time and amount seen before is skipped.": "الأعمدة: المرجع، من تاريخ، إلى تاريخ، النوع، العميل، المبلغ، المستلم، الاستلام، التسليم، المركبة، السائق، مرجع الشركة، اسم الراكب، الحالة، الدفع. تُتجاهل الأعمدة الأخرى. يُستبعد نفس العميل ووقت الاستلام والمبلغ إن وُجد سابقاً."
 }

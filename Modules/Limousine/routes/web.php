@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Modules\Limousine\Http\Controllers\CouponVoucherController;
 use Modules\Limousine\Http\Controllers\LimoCombinedInvoiceController;
+use Modules\Limousine\Http\Controllers\LimoBookingImportController;
 use Modules\Limousine\Http\Controllers\LimoInvoiceController;
 use Modules\Limousine\Http\Controllers\LimoInvoiceExportController;
 use Modules\Limousine\Http\Controllers\LimoPettyAdvanceExportController;
@@ -118,6 +119,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/booking/export/pdf', [LimoQueueExportController::class, 'pdf'])->name('limousine.queue.pdf');
     Route::get('/app/limousine/booking/export/print', [LimoQueueExportController::class, 'print'])->name('limousine.queue.print');
 
+    Route::post('/app/limousine/booking/import', LimoBookingImportController::class)->name('limousine.booking.import');
     Route::get('/app/limousine/booking', Bookings::class)->name('limousine.booking.index');
     Route::get('/app/limousine/booking/new', BookingForm::class)->name('limousine.booking.create');
     Route::get('/app/limousine/booking/{id}', BookingForm::class)->whereNumber('id')->name('limousine.booking.edit');

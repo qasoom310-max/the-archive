@@ -2442,5 +2442,6 @@
     "Settling locks the advance and writes every receipt into the expense ledger.": "التسوية تقفل العهدة وتسجل كل إيصال في سجل المصروفات.",
     "In the expense reports it files under “Other”, keeping its own name on every line.": "في تقارير المصروفات تُدرج ضمن «أخرى» مع الاحتفاظ باسمها في كل سطر.",
     "e.g. Car decoration": "مثال: تزيين السيارة",
-    "Car (optional)": "السيارة (اختياري)"
+    "Car (optional)": "السيارة (اختياري)",
+    "Car Type": "نوع السيارة"
 }

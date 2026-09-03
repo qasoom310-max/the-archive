@@ -50,7 +50,10 @@ final class LimoCombinedInvoiceTest extends TestCase
         $booking->legs()->create([
             'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'Airport',
             'to_location' => 'Hotel', 'start_at' => $issued . ' 09:00:00', 'days' => 1,
-            'vehicle' => 'GMC Yukon', 'rate' => $fare, 'rate_basis' => 'trip', 'net_amount' => $fare,
+            // What the office WROTE at booking vs the car the queue later
+            // assigned — the document must print the first.
+            'vehicle_details' => 'GMC Yukon', 'vehicle' => 'Unit 7 · 12345 · Black',
+            'rate' => $fare, 'rate_basis' => 'trip', 'net_amount' => $fare,
         ]);
 
         $invoice = $booking->syncInvoice();
@@ -132,6 +135,8 @@ final class LimoCombinedInvoiceTest extends TestCase
         $this->assertSame(1, $data['rows'][0]['serial']);
         $this->assertSame('Helen Friberg', $data['rows'][0]['pax']);
         $this->assertSame('GMC Yukon', $data['rows'][0]['vehicle']);
+        // Never the plate the queue assigned.
+        $this->assertStringNotContainsString('12345', $data['rows'][0]['vehicle']);
         $this->assertSame('PO-4471', $data['rows'][0]['company_reference']);
         $this->assertSame($first->booking->reference, $data['rows'][0]['booking']);
         $this->assertSame('Omar Ali', $data['rows'][1]['pax']);

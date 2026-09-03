@@ -48,7 +48,11 @@ final class LimoCombinedInvoicePdf
                     'serial' => $serial,
                     'booking' => (string) ($invoice->booking->reference ?? ''),
                     'service' => $this->service($leg),
-                    'vehicle' => (string) ($leg->vehicle ?? ''),
+                    // The car TYPE written at booking ("Car details" on the
+                    // sheet), NOT the vehicle the queue later assigned. The
+                    // customer agreed to an SUV; which plate ran the job is our
+                    // operations detail, not theirs to be billed by.
+                    'vehicle' => (string) ($leg->vehicle_details ?? ''),
                     'from' => (string) ($leg->from_location ?? ''),
                     'to' => (string) ($leg->to_location ?? ''),
                     'date' => $leg->start_at?->isoFormat('DD-MMM-YY HH:mm') ?? '',

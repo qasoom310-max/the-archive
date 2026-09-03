@@ -69,7 +69,7 @@
         <th style="width:26px">{{ __('Sl') }}</th>
         <th style="width:62px">{{ __('Booking #') }}</th>
         <th style="width:74px">{{ __('Service') }}</th>
-        <th style="width:76px">{{ __('Vehicle') }}</th>
+        <th style="width:76px">{{ __('Car Type') }}</th>
         <th>{{ __('From') }}</th>
         <th>{{ __('To') }}</th>
         <th style="width:82px">{{ __('Service date') }}</th>

@@ -97,7 +97,11 @@ final class AccountPayment
     {
         $plan = $this->plan($customer, $amount);
 
-        return DB::transaction(function () use ($plan, $amount, $method, $note): array {
+        // One lump, one confirmation: the slices share a batch id, and the
+        // accountant's desk shows the batch rather than each receipt.
+        $batchId = count($plan) > 1 ? 'PMB-' . strtolower((string) \Illuminate\Support\Str::ulid()) : null;
+
+        return DB::transaction(function () use ($plan, $amount, $method, $note, $batchId): array {
             $allocated = 0.0;
             $receipts = 0;
 
@@ -108,9 +112,9 @@ final class AccountPayment
                 // A trip's bill settles through the booking, so the job reads as
                 // paid too; a standalone charge has only the document.
                 if ($booking !== null) {
-                    $this->payments->receive($booking, $slice['amount'], $method, $note);
+                    $this->payments->receive($booking, $slice['amount'], $method, $note, $batchId);
                 } else {
-                    $this->payments->receiveForCharge($invoice, $slice['amount'], $method, $note);
+                    $this->payments->receiveForCharge($invoice, $slice['amount'], $method, $note, $batchId);
                 }
 
                 $allocated = round($allocated + $slice['amount'], 3);

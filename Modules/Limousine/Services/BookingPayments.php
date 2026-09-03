@@ -35,6 +35,7 @@ final class BookingPayments
         float $amount,
         string $method = 'cash',
         ?string $note = null,
+        ?string $batchId = null,
     ): ?LimoReceipt {
         $amount = round($amount, 3);
 
@@ -42,7 +43,7 @@ final class BookingPayments
             return null;
         }
 
-        return DB::transaction(function () use ($booking, $amount, $method, $note): LimoReceipt {
+        return DB::transaction(function () use ($booking, $amount, $method, $note, $batchId): LimoReceipt {
             // Money lands on the advance — the same field a coupon and the
             // booking form use — so "paid" settles through one path.
             $booking->advance = round((float) $booking->advance + $amount, 3);
@@ -50,7 +51,7 @@ final class BookingPayments
             $booking->save();
             $booking->syncPaymentFromAdvance();
 
-            return $this->issueFor($booking->refresh(), $amount, $method, $note);
+            return $this->issueFor($booking->refresh(), $amount, $method, $note, $batchId);
         });
     }
 
@@ -67,6 +68,7 @@ final class BookingPayments
         float $amount,
         string $method = 'cash',
         ?string $note = null,
+        ?string $batchId = null,
     ): ?LimoReceipt {
         $amount = round($amount, 3);
 
@@ -74,7 +76,7 @@ final class BookingPayments
             return null;
         }
 
-        return DB::transaction(function () use ($invoice, $amount, $method, $note): LimoReceipt {
+        return DB::transaction(function () use ($invoice, $amount, $method, $note, $batchId): LimoReceipt {
             $receipt = LimoReceipt::query()->create([
                 'invoice_id' => $invoice->id,
                 'customer_id' => $invoice->customer_id,
@@ -84,6 +86,7 @@ final class BookingPayments
                 'method' => $method,
                 'auto' => true,
                 'notes' => $note,
+                'batch_id' => $batchId,
             ]);
 
             $invoice->refresh()->recomputePaid();
@@ -104,6 +107,7 @@ final class BookingPayments
         float $amount,
         string $method = 'cash',
         ?string $note = null,
+        ?string $batchId = null,
     ): ?LimoReceipt {
         $amount = round($amount, 3);
 
@@ -130,6 +134,9 @@ final class BookingPayments
             'method' => $method,
             'auto' => true,
             'notes' => $this->note($booking, $amount, $note),
+            // The bulk payment that wrote this, so the accountant confirms the
+            // lump once instead of each slice.
+            'batch_id' => $batchId,
         ]);
 
         // Recomputed from its receipts, which also flips the invoice to

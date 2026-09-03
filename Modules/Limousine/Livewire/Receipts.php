@@ -17,6 +17,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Modules\Limousine\Mail\ReceiptMail;
+use Illuminate\Support\Carbon;
 use Modules\Limousine\Models\LimoReceipt;
 use Modules\Limousine\Services\LimoReceiptPdf;
 
@@ -30,6 +31,14 @@ final class Receipts extends Component
     #[Url]
     public string $search = '';
 
+    /** to_confirm · confirmed · all — the first is the accountant's desk. */
+    #[Url(except: '')]
+    public string $tab = '';
+
+    /** cash · card · benefit · transfer, or empty for every method. */
+    #[Url(except: '')]
+    public string $method = '';
+
     protected function accessModelKey(): string
     {
         return 'limousine.receipt';
@@ -38,6 +47,117 @@ final class Receipts extends Component
     public function mount(): void
     {
         $this->guardAccess(Permission::Read);
+
+        // The accountant lands on their queue; everyone else on the list they
+        // came for. Explicitly chosen tabs (in the URL) are left alone.
+        if ($this->tab === '') {
+            $this->tab = $this->mayConfirm() ? 'to_confirm' : 'all';
+        }
+    }
+
+    /**
+     * Confirming money is the accountant's job — with super-admins, and
+     * deliberately NOT regular admins. Taking money and vouching that it
+     * arrived should not be the same pair of hands.
+     */
+    private function mayConfirm(): bool
+    {
+        return Auth::user()?->canConfirmPayments() ?? false;
+    }
+
+    private function guardConfirm(): void
+    {
+        abort_unless($this->mayConfirm(), 403);
+    }
+
+    /** Confirm dialog: a receipt id, or a whole batch. */
+    #[Locked]
+    public ?int $confirmingId = null;
+
+    #[Locked]
+    public ?string $confirmingBatch = null;
+
+    /** The day it showed on the company statement — bank methods only. */
+    public string $statementDate = '';
+
+    public function openConfirm(int $id): void
+    {
+        $this->guardConfirm();
+
+        $receipt = LimoReceipt::query()->find($id);
+        if ($receipt === null || $receipt->isConfirmed()) {
+            return;
+        }
+
+        $this->confirmingId = $receipt->id;
+        $this->confirmingBatch = null;
+        $this->statementDate = now()->format('Y-m-d');
+        $this->resetErrorBag();
+    }
+
+    public function openConfirmBatch(string $batchId): void
+    {
+        $this->guardConfirm();
+
+        $this->confirmingBatch = $batchId;
+        $this->confirmingId = null;
+        $this->statementDate = now()->format('Y-m-d');
+        $this->resetErrorBag();
+    }
+
+    public function closeConfirm(): void
+    {
+        $this->confirmingId = null;
+        $this->confirmingBatch = null;
+    }
+
+    /**
+     * Close the receipt: the money is really here.
+     *
+     * Cash is vouched for as such; a bank method records the STATEMENT DATE it
+     * was found under, because "I saw it on the statement" without saying where
+     * is not something anyone can check later.
+     */
+    public function saveConfirm(): void
+    {
+        $this->guardConfirm();
+
+        $receipts = $this->confirmingBatch !== null
+            ? LimoReceipt::query()->where('batch_id', $this->confirmingBatch)->whereNull('confirmed_at')->get()
+            : LimoReceipt::query()->whereKey($this->confirmingId)->whereNull('confirmed_at')->get();
+
+        if ($receipts->isEmpty()) {
+            $this->closeConfirm();
+
+            return;
+        }
+
+        $cashOnly = $receipts->every(fn (LimoReceipt $r): bool => $r->isCash());
+        if (! $cashOnly) {
+            $this->validate(['statementDate' => ['required', 'date']]);
+        }
+
+        $byName = (string) (Auth::user()->name ?? '');
+        $statement = $cashOnly ? null : Carbon::parse($this->statementDate);
+
+        foreach ($receipts as $receipt) {
+            $receipt->confirm($byName, $receipt->isCash() ? null : $statement);
+        }
+
+        $this->closeConfirm();
+        session()->flash('toast', trans_choice(
+            ':count payment confirmed.|:count payments confirmed.',
+            $receipts->count(),
+            ['count' => $receipts->count()],
+        ));
+    }
+
+    /** Taken back — a mistake in confirming, not a deletion of history. */
+    public function unconfirm(int $id): void
+    {
+        $this->guardConfirm();
+
+        LimoReceipt::query()->find($id)?->unconfirm();
     }
 
     /** Receipt being emailed, or null when the dialog is shut. */
@@ -116,6 +236,16 @@ final class Receipts extends Component
         session()->flash('toast', __('Receipt sent to :email', ['email' => $email]));
     }
 
+    public function updatedTab(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedMethod(): void
+    {
+        $this->resetPage();
+    }
+
     public function updatedSearch(): void
     {
         $this->resetPage();
@@ -127,6 +257,16 @@ final class Receipts extends Component
             ->with(['customer:id,name', 'invoice:id,reference'])
             ->orderByDesc('id');
 
+        if ($this->tab === 'to_confirm') {
+            $query->whereNull('confirmed_at');
+        } elseif ($this->tab === 'confirmed') {
+            $query->whereNotNull('confirmed_at');
+        }
+
+        if (in_array($this->method, ['cash', 'card', 'benefit', 'transfer'], true)) {
+            $query->where('method', $this->method);
+        }
+
         $term = trim($this->search);
         if ($term !== '') {
             $query->where(function ($q) use ($term): void {
@@ -137,8 +277,24 @@ final class Receipts extends Component
             });
         }
 
+        // The accountant's desk groups a bulk payment into ONE row: nobody
+        // should close a lump sum forty receipts at a time. Grouped in PHP over
+        // the open items rather than paginated SQL, because a batch split
+        // across two pages would show two half-batches with wrong totals — and
+        // a queue the accountant clears daily is small.
+        $pending = $this->tab === 'to_confirm'
+            ? (clone $query)->limit(500)->get()->groupBy(fn (LimoReceipt $r): string => $r->batch_id ?? 'r-' . $r->id)->values()
+            : collect();
+
         return view('limousine::receipts', [
-            'receipts' => $query->paginate(20),
+            'receipts' => $this->tab === 'to_confirm' ? null : $query->paginate(20),
+            'pending' => $pending,
+            'pendingCount' => LimoReceipt::query()->whereNull('confirmed_at')->count(),
+            'canConfirm' => $this->mayConfirm(),
+            'confirmingReceipt' => $this->confirmingId !== null ? LimoReceipt::query()->find($this->confirmingId) : null,
+            'confirmingBatchIsCash' => $this->confirmingBatch !== null
+                && LimoReceipt::query()->where('batch_id', $this->confirmingBatch)
+                    ->get()->every(fn (LimoReceipt $r): bool => $r->isCash()),
             // Money taken on a booking issues its own receipt, so a hand-made
             // one is a correction reserved for the owner. Same rule server-side
             // in ReceiptForm — hiding the button alone would only be cosmetic.

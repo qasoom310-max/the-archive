@@ -77,7 +77,7 @@ final class LimousineModuleTest extends TestCase
         $this->assertFalse(Schema::hasTable('limo_customers'));
 
         $this->assertEqualsCanonicalizing(
-            ['limousine.customer', 'limousine.driver', 'limousine.location', 'limousine.booking', 'limousine.quotation', 'limousine.invoice', 'limousine.receipt', 'limousine.expense'],
+            ['limousine.customer', 'limousine.driver', 'limousine.location', 'limousine.booking', 'limousine.quotation', 'limousine.invoice', 'limousine.receipt', 'limousine.expense', 'limousine.petty_cash'],
             IrModel::query()->where('module', 'limousine')->pluck('model')->all(),
         );
         foreach (['limo_quotations', 'limo_invoices', 'limo_receipts', 'limo_expenses'] as $table) {

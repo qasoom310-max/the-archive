@@ -129,9 +129,9 @@ final class LimoPettyCashTest extends TestCase
 
         // The driver hands back 84 in paper: 50 fuel, 34 parking.
         $page = Livewire::test(PettyAdvancePage::class, ['id' => $advance->id])
-            ->set('lineDate', '2026-09-02')->set('lineCategory', 'fuel')->set('lineAmount', '50')
+            ->set('lineDate', '2026-09-02')->set('lineCategory', 'Fuel')->set('lineAmount', '50')
             ->call('addLine')
-            ->set('lineDate', '2026-09-02')->set('lineCategory', 'parking')->set('lineAmount', '34')
+            ->set('lineDate', '2026-09-02')->set('lineCategory', 'Parking')->set('lineAmount', '34')
             ->call('addLine')
             ->call('openSettle')
             ->call('saveSettle')
@@ -151,7 +151,7 @@ final class LimoPettyCashTest extends TestCase
         $advance = $this->issued(topUp: 200, amount: 100);
         app(PettyCashService::class)->confirm($advance, 'Amal');
 
-        $advance->lines()->create(['date' => '2026-09-02', 'category' => 'fuel', 'amount' => 106]);
+        $advance->lines()->create(['date' => '2026-09-02', 'category' => 'Fuel', 'amount' => 106]);
 
         Livewire::test(PettyAdvancePage::class, ['id' => $advance->id])
             ->call('openSettle')
@@ -170,14 +170,16 @@ final class LimoPettyCashTest extends TestCase
         $advance = $this->issued(amount: 100);
         app(PettyCashService::class)->confirm($advance, 'Amal');
 
-        $advance->lines()->create(['date' => '2026-09-02', 'category' => 'fuel', 'amount' => 50, 'description' => 'petrol']);
-        $advance->lines()->create(['date' => '2026-09-02', 'category' => 'wash', 'amount' => 10]);
+        $advance->lines()->create(['date' => '2026-09-02', 'category' => 'Fuel', 'amount' => 50, 'description' => 'petrol']);
+        $advance->lines()->create(['date' => '2026-09-02', 'category' => 'Spare parts', 'amount' => 10]);
 
         app(PettyCashService::class)->settle($advance->fresh() ?? $advance, 'Amal');
 
         // One truth: the expense reports read the same money the settlement
         // did, filed under the driver's name.
         $this->assertSame(2, LimoExpense::query()->count());
+        // Filed in the ledger's matching slots, not dumped in "other".
+        $this->assertSame(1, LimoExpense::query()->where('category', 'spare_parts')->count());
         $fuel = LimoExpense::query()->where('category', 'fuel')->firstOrFail();
         $this->assertSame('Hassan', $fuel->payee);
         $this->assertStringContainsString((string) $advance->reference, (string) $fuel->notes);
@@ -193,7 +195,7 @@ final class LimoPettyCashTest extends TestCase
 
         // What was decided about a man's salary must not move afterwards.
         Livewire::test(PettyAdvancePage::class, ['id' => $advance->id])
-            ->set('lineDate', '2026-09-02')->set('lineCategory', 'fuel')->set('lineAmount', '50')
+            ->set('lineDate', '2026-09-02')->set('lineCategory', 'Fuel')->set('lineAmount', '50')
             ->call('addLine');
 
         $this->assertSame(0, $advance->fresh()?->lines()->count());
@@ -210,13 +212,90 @@ final class LimoPettyCashTest extends TestCase
         $this->assertSame(LimoPettyAdvance::STATUS_ISSUED, $advance->fresh()?->status);
     }
 
+    public function test_a_line_can_name_the_car_and_keeps_it_as_a_snapshot(): void
+    {
+        $this->asAccountant();
+        $car = \Modules\Rental\Models\Vehicle::query()->create(['name' => 'GMC Yukon', 'plate_no' => '12345']);
+
+        $advance = $this->issued(amount: 100);
+        app(PettyCashService::class)->confirm($advance, 'Amal');
+
+        Livewire::test(PettyAdvancePage::class, ['id' => $advance->id])
+            ->set('lineDate', '2026-09-02')->set('lineCategory', 'Fuel')
+            ->set('lineAmount', '50')->set('lineCarId', (string) $car->id)
+            ->call('addLine')
+            ->assertHasNoErrors();
+
+        $line = $advance->fresh()?->lines()->firstOrFail();
+        $this->assertSame($car->id, $line->car_id);
+        $this->assertStringContainsString('GMC Yukon', (string) $line->vehicle);
+
+        // The slip keeps saying which car even after the car is renamed: a
+        // settled advance is history, not a live join.
+        $car->forceFill(['name' => 'Sold Unit'])->save();
+        $this->assertStringContainsString('GMC Yukon', (string) $line->fresh()?->vehicle);
+
+        // And the ledger hears about it at settlement.
+        app(PettyCashService::class)->settle($advance->fresh() ?? $advance, 'Amal');
+        $this->assertStringContainsString('GMC Yukon', (string) LimoExpense::query()->firstOrFail()->notes);
+    }
+
+    public function test_the_owner_grows_the_category_list_from_the_page(): void
+    {
+        $this->asManager();
+        $advance = $this->issued();
+
+        Livewire::test(PettyAdvancePage::class, ['id' => $advance->id])
+            ->call('openCategory')
+            ->set('newCategory', 'Car decoration')
+            ->call('saveCategory')
+            ->assertHasNoErrors()
+            // Selected and immediately usable on the next line.
+            ->assertSet('lineCategory', 'Car decoration')
+            ->set('lineDate', '2026-09-02')->set('lineAmount', '12')
+            ->call('addLine')
+            ->assertHasNoErrors();
+
+        $this->assertSame('Car decoration', $advance->fresh()?->lines()->firstOrFail()->category);
+    }
+
+    public function test_an_invented_category_settles_into_other_keeping_its_name(): void
+    {
+        $this->asAccountant();
+        \Modules\Limousine\Models\LimoPettyCategory::query()->create(['name' => 'Car decoration']);
+
+        $advance = $this->issued(amount: 100);
+        $petty = app(PettyCashService::class);
+        $petty->confirm($advance, 'Amal');
+        $advance->lines()->create(['date' => '2026-09-02', 'category' => 'Car decoration', 'amount' => 30]);
+        $petty->settle($advance->fresh() ?? $advance, 'Amal');
+
+        // The ledger's taxonomy is fixed, so the name rides in the notes
+        // rather than being lost.
+        $expense = LimoExpense::query()->firstOrFail();
+        $this->assertSame('other', $expense->category);
+        $this->assertStringContainsString('Car decoration', (string) $expense->notes);
+    }
+
+    public function test_a_made_up_category_is_refused_on_a_line(): void
+    {
+        $this->asManager();
+        $advance = $this->issued();
+
+        // The select is a convenience; the rule is the owner's table.
+        Livewire::test(PettyAdvancePage::class, ['id' => $advance->id])
+            ->set('lineDate', '2026-09-02')->set('lineCategory', 'Nonsense')->set('lineAmount', '10')
+            ->call('addLine')
+            ->assertHasErrors('lineCategory');
+    }
+
     public function test_the_month_report_names_the_deductions_for_payroll(): void
     {
         $this->asAccountant();
         $advance = $this->issued(amount: 100);
         $petty = app(PettyCashService::class);
         $petty->confirm($advance, 'Amal');
-        $advance->lines()->create(['date' => now()->format('Y-m-d'), 'category' => 'fuel', 'amount' => 84]);
+        $advance->lines()->create(['date' => now()->format('Y-m-d'), 'category' => 'Fuel', 'amount' => 84]);
         $petty->settle($advance->fresh() ?? $advance, 'Amal');
 
         Livewire::test(PettyCash::class)

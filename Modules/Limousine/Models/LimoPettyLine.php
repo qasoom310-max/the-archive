@@ -21,6 +21,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $description
  * @property float $amount
  * @property string|null $photo_path
+ * @property int|null $car_id
+ * @property string|null $vehicle  Label snapshot — survives the car being renamed or sold
  * @property-read LimoPettyAdvance|null $advance
  */
 final class LimoPettyLine extends Model
@@ -28,10 +30,10 @@ final class LimoPettyLine extends Model
     protected $table = 'limo_petty_lines';
 
     /** @var list<string> */
-    protected $fillable = ['advance_id', 'date', 'category', 'description', 'amount', 'photo_path'];
+    protected $fillable = ['advance_id', 'date', 'category', 'description', 'amount', 'photo_path', 'car_id', 'vehicle'];
 
     /** @var array<string, mixed> */
-    protected $attributes = ['category' => 'fuel', 'amount' => 0];
+    protected $attributes = ['category' => 'Fuel', 'amount' => 0];
 
     /**
      * @return array<string, string>
@@ -40,26 +42,9 @@ final class LimoPettyLine extends Model
     {
         return [
             'advance_id' => 'integer',
+            'car_id' => 'integer',
             'date' => 'date',
             'amount' => 'float',
-        ];
-    }
-
-    /**
-     * What a driver spends petty cash on. Each maps 1:1 onto an expense
-     * category, so a settled line lands in the expense ledger under the same
-     * name it was entered as.
-     *
-     * @return array<string, string>
-     */
-    public static function categories(): array
-    {
-        return [
-            'fuel' => 'Fuel',
-            'wash' => 'Car wash & cleaning',
-            'parking' => 'Parking & tolls',
-            'maintenance' => 'Maintenance',
-            'other' => 'Other',
         ];
     }
 

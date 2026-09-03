@@ -55,9 +55,12 @@
                             @foreach ($advance->lines as $line)
                                 <tr wire:key="pline-{{ $line->id }}">
                                     <td class="py-2 text-chrome-600">{{ $line->date?->isoFormat('DD-MMM') }}</td>
-                                    <td class="py-2 text-chrome-700">{{ __($categories[$line->category] ?? ucfirst($line->category)) }}</td>
+                                    <td class="py-2 text-chrome-700">{{ $line->category }}</td>
                                     <td class="py-2 text-chrome-700">
                                         {{ $line->description ?? '—' }}
+                                        @if ($line->vehicle)
+                                            <span class="ms-1 rounded bg-chrome-100 px-1.5 py-0.5 text-[11px] text-chrome-600">{{ $line->vehicle }}</span>
+                                        @endif
                                         @if ($line->photo_path)
                                             <a href="{{ Storage::disk('public')->url($line->photo_path) }}" target="_blank" class="ms-1 text-xs text-primary-700 hover:underline">{{ __('Photo') }}</a>
                                         @endif
@@ -75,7 +78,7 @@
                 @endif
 
                 @if ($canEdit)
-                    <div class="mt-4 grid grid-cols-1 gap-3 rounded-xl bg-chrome-50 p-3 sm:grid-cols-5"
+                    <div class="mt-4 grid grid-cols-1 gap-3 rounded-xl bg-chrome-50 p-3 sm:grid-cols-3 lg:grid-cols-6"
                          x-data="{ uploading: false, uploadError: '' }">
                         <div>
                             <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Date') }}</label>
@@ -83,9 +86,26 @@
                         </div>
                         <div>
                             <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Category') }}</label>
-                            <select wire:model="lineCategory" class="o-input w-full text-sm">
-                                @foreach ($categories as $value => $label)
-                                    <option value="{{ $value }}">{{ __($label) }}</option>
+                            <div class="flex items-center gap-1">
+                                <select wire:model="lineCategory" class="o-input w-full text-sm">
+                                    @foreach ($categories as $name)
+                                        <option value="{{ $name }}">{{ $name }}</option>
+                                    @endforeach
+                                </select>
+                                {{-- The list is the owner's: grow it from here
+                                     rather than asking for a change. --}}
+                                @if ($canAddCategory)
+                                    <button type="button" wire:click="openCategory" title="{{ __('New category') }}" aria-label="{{ __('New category') }}"
+                                            class="shrink-0 rounded-lg border border-chrome-200 px-2 py-1.5 text-sm text-chrome-600 hover:bg-chrome-50">＋</button>
+                                @endif
+                            </div>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Car (optional)') }}</label>
+                            <select wire:model="lineCarId" class="o-input w-full text-sm">
+                                <option value="">—</option>
+                                @foreach ($cars as $car)
+                                    <option value="{{ $car->id }}">{{ $car->name }}{{ $car->plate_no ? ' · ' . $car->plate_no : '' }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -128,9 +148,9 @@
                             </label>
                             <button type="button" wire:click="addLine" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Add') }}</button>
                         </div>
-                        <p x-show="uploadError" x-cloak class="text-xs text-red-600 sm:col-span-5" x-text="uploadError"></p>
-                        @error('lineAmount') <p class="text-xs text-red-600 sm:col-span-5">{{ $message }}</p> @enderror
-                        @error('lineDate') <p class="text-xs text-red-600 sm:col-span-5">{{ $message }}</p> @enderror
+                        <p x-show="uploadError" x-cloak class="text-xs text-red-600 sm:col-span-3 lg:col-span-6" x-text="uploadError"></p>
+                        @error('lineAmount') <p class="text-xs text-red-600 sm:col-span-3 lg:col-span-6">{{ $message }}</p> @enderror
+                        @error('lineDate') <p class="text-xs text-red-600 sm:col-span-3 lg:col-span-6">{{ $message }}</p> @enderror
                     </div>
                 @endif
             </div>
@@ -191,6 +211,25 @@
                 <div class="mt-5 flex justify-end gap-2">
                     <button type="button" wire:click="closeSettle" class="o-btn-ghost text-sm">{{ __('Close') }}</button>
                     <button type="button" wire:click="saveSettle" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Settle') }}</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- A new spending category, made where the need appears. --}}
+    @if ($addingCategory)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-chrome-900/50 p-4" x-on:keydown.escape.window="$wire.closeCategory()">
+            <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl sm:p-6" x-on:click.outside="$wire.closeCategory()">
+                <h2 class="text-sm font-semibold text-chrome-800">{{ __('New category') }}</h2>
+                <p class="mt-1 text-xs text-chrome-500">{{ __('In the expense reports it files under “Other”, keeping its own name on every line.') }}</p>
+                <div class="mt-4">
+                    <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Name') }}</label>
+                    <input type="text" wire:model="newCategory" wire:keydown.enter="saveCategory" class="o-input w-full" placeholder="{{ __('e.g. Car decoration') }}">
+                    @error('newCategory') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                </div>
+                <div class="mt-5 flex justify-end gap-2">
+                    <button type="button" wire:click="closeCategory" class="o-btn-ghost text-sm">{{ __('Close') }}</button>
+                    <button type="button" wire:click="saveCategory" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Add') }}</button>
                 </div>
             </div>
         </div>

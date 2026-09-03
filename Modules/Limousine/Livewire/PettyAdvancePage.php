@@ -13,7 +13,8 @@ use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Limousine\Models\LimoPettyAdvance;
-use Modules\Limousine\Models\LimoPettyLine;
+use Modules\Limousine\Models\LimoPettyCategory;
+use Modules\Rental\Models\Vehicle;
 use Modules\Limousine\Services\PettyCash as PettyCashService;
 
 /**
@@ -60,13 +61,16 @@ final class PettyAdvancePage extends Component
     /** New receipt line. */
     public string $lineDate = '';
 
-    public string $lineCategory = 'fuel';
+    public string $lineCategory = 'Fuel';
 
     public string $lineDescription = '';
 
     public string $lineAmount = '';
 
     public string $linePhoto = '';
+
+    /** Which car the money was spent on — optional; feeding a driver has none. */
+    public string $lineCarId = '';
 
     public function addLine(): void
     {
@@ -79,11 +83,17 @@ final class PettyAdvancePage extends Component
 
         $this->validate([
             'lineDate' => ['required', 'date'],
-            'lineCategory' => ['required', 'in:' . implode(',', array_keys(LimoPettyLine::categories()))],
+            // Against the owner's list, not a hardcoded one.
+            'lineCategory' => ['required', \Illuminate\Validation\Rule::exists('limo_petty_categories', 'name')],
             'lineDescription' => ['nullable', 'string', 'max:255'],
             'lineAmount' => ['required', 'numeric', 'min:0.001'],
             'linePhoto' => ['nullable', 'string', 'max:500'],
+            'lineCarId' => ['nullable', 'integer'],
         ]);
+
+        // Label snapshotted beside the ref, like the queue's legs: the slip
+        // keeps saying which car even after the car is renamed or sold.
+        $car = $this->lineCarId !== '' ? Vehicle::query()->find((int) $this->lineCarId) : null;
 
         $advance->lines()->create([
             'date' => $this->lineDate,
@@ -91,11 +101,14 @@ final class PettyAdvancePage extends Component
             'description' => $this->lineDescription !== '' ? $this->lineDescription : null,
             'amount' => round((float) $this->lineAmount, 3),
             'photo_path' => $this->linePhoto !== '' ? $this->linePhoto : null,
+            'car_id' => $car?->id,
+            'vehicle' => $car?->displayName(),
         ]);
 
         $this->lineDescription = '';
         $this->lineAmount = '';
         $this->linePhoto = '';
+        $this->lineCarId = '';
     }
 
     public function removeLine(int $lineId): void
@@ -168,6 +181,45 @@ final class PettyAdvancePage extends Component
         }
     }
 
+    /** Inline "new category" box, open when set. */
+    public bool $addingCategory = false;
+
+    public string $newCategory = '';
+
+    public function openCategory(): void
+    {
+        $this->guardCategory();
+        $this->newCategory = '';
+        $this->addingCategory = true;
+    }
+
+    public function closeCategory(): void
+    {
+        $this->addingCategory = false;
+    }
+
+    /** Growing the spending list is the owner's call, like the fee was. */
+    private function guardCategory(): void
+    {
+        abort_unless(Auth::user()?->isAdmin() ?? false, 403);
+    }
+
+    public function saveCategory(): void
+    {
+        $this->guardCategory();
+
+        $this->validate([
+            'newCategory' => ['required', 'string', 'max:60', \Illuminate\Validation\Rule::unique('limo_petty_categories', 'name')],
+        ]);
+
+        // No expense slot: an invented category files under "other" in the
+        // ledger, carrying its own name in the notes.
+        LimoPettyCategory::query()->create(['name' => trim($this->newCategory)]);
+
+        $this->lineCategory = trim($this->newCategory);
+        $this->addingCategory = false;
+    }
+
     public function render(): View
     {
         $advance = $this->advance();
@@ -184,7 +236,9 @@ final class PettyAdvancePage extends Component
             'advance' => $advance,
             'linesTotal' => $linesTotal,
             'difference' => $difference,
-            'categories' => LimoPettyLine::categories(),
+            'categories' => LimoPettyCategory::query()->orderBy('id')->pluck('name')->all(),
+            'canAddCategory' => Auth::user()?->isAdmin() ?? false,
+            'cars' => Vehicle::query()->orderBy('name')->get(['id', 'name', 'plate_no']),
             'canConfirm' => Auth::user()?->canConfirmPayments() ?? false,
             'canEdit' => ! $advance->isCleared() && $this->mayAccess(Permission::Write),
         ]);

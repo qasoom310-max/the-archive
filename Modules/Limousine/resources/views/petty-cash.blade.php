@@ -57,7 +57,7 @@
                     <ul class="divide-y divide-chrome-100 text-sm">
                         @foreach ($report['byCategory'] as $cat => $sum)
                             <li class="flex items-center justify-between py-2">
-                                <span class="text-chrome-700">{{ __($categories[$cat] ?? ucfirst($cat)) }}</span>
+                                <span class="text-chrome-700">{{ $cat }}</span>
                                 <span class="font-semibold text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($sum) }}</span>
                             </li>
                         @endforeach

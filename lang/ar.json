@@ -2439,5 +2439,8 @@
     ":amount will be deducted from :driver’s salary.": "سيُستقطع :amount من راتب :driver.",
     ":amount will be paid back to :driver from the float.": "سيُعاد :amount إلى :driver من العهدة.",
     "Receipts match the amount exactly — nothing to adjust.": "الإيصالات تطابق المبلغ تماماً — لا شيء للتعديل.",
-    "Settling locks the advance and writes every receipt into the expense ledger.": "التسوية تقفل العهدة وتسجل كل إيصال في سجل المصروفات."
+    "Settling locks the advance and writes every receipt into the expense ledger.": "التسوية تقفل العهدة وتسجل كل إيصال في سجل المصروفات.",
+    "In the expense reports it files under “Other”, keeping its own name on every line.": "في تقارير المصروفات تُدرج ضمن «أخرى» مع الاحتفاظ باسمها في كل سطر.",
+    "e.g. Car decoration": "مثال: تزيين السيارة",
+    "Car (optional)": "السيارة (اختياري)"
 }

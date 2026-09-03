@@ -2456,5 +2456,9 @@
     "Import orders (CSV)": "استيراد الطلبات (CSV)",
     "Import trips (CSV)": "استيراد الرحلات (CSV)",
     "Imported from previous system.": "مستورد من النظام السابق.",
-    "Columns: Reference, From date, To date, Type, Customer, Amount, Received, Pickup, Drop off, Vehicle, Driver, Company ref., Pax name, Status, Payment. Other columns are ignored. The same customer, pickup time and amount seen before is skipped.": "الأعمدة: المرجع، من تاريخ، إلى تاريخ، النوع، العميل، المبلغ، المستلم، الاستلام، التسليم، المركبة، السائق، مرجع الشركة، اسم الراكب، الحالة، الدفع. تُتجاهل الأعمدة الأخرى. يُستبعد نفس العميل ووقت الاستلام والمبلغ إن وُجد سابقاً."
+    "Columns: Reference, From date, To date, Type, Customer, Amount, Received, Pickup, Drop off, Vehicle, Driver, Company ref., Pax name, Status, Payment. Other columns are ignored. The same customer, pickup time and amount seen before is skipped.": "الأعمدة: المرجع، من تاريخ، إلى تاريخ، النوع، العميل، المبلغ، المستلم، الاستلام، التسليم، المركبة، السائق، مرجع الشركة، اسم الراكب، الحالة، الدفع. تُتجاهل الأعمدة الأخرى. يُستبعد نفس العميل ووقت الاستلام والمبلغ إن وُجد سابقاً.",
+    ":imported quotations imported, :skipped already on file skipped.": "تم استيراد :imported عرض سعر، وتخطي :skipped موجود مسبقاً.",
+    "Columns: Reference, Customer, Car, Valid until, Total, Status. Other columns are ignored. The same customer, expiry and total seen before is skipped.": "الأعمدة: المرجع، العميل، السيارة، تاريخ الانتهاء، الإجمالي، الحالة. تُتجاهل الأعمدة الأخرى. يُستبعد نفس العميل وتاريخ الانتهاء والإجمالي إن وُجد سابقاً.",
+    "Columns: Reference, Customer, Valid until, Fare, Status. Other columns are ignored. The same customer, expiry and fare seen before is skipped.": "الأعمدة: المرجع، العميل، تاريخ الانتهاء، الأجرة، الحالة. تُتجاهل الأعمدة الأخرى. يُستبعد نفس العميل وتاريخ الانتهاء والأجرة إن وُجد سابقاً.",
+    "Import quotations (CSV)": "استيراد عروض الأسعار (CSV)"
 }

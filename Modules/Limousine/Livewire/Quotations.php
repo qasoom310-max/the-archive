@@ -6,8 +6,10 @@ namespace Modules\Limousine\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -190,9 +192,12 @@ final class Quotations extends Component
 
         $counts = LimoQuotation::query()->selectRaw('status, COUNT(*) as aggregate')->groupBy('status')->pluck('aggregate', 'status');
 
+        $user = Auth::user();
+
         return view('limousine::quotations', [
             'quotations' => $query->paginate(20),
             'canWrite' => $this->mayAccess(Permission::Write),
+            'canManage' => $user instanceof User && $user->canApproveMaintenance(),
             'sending' => $this->sendingId !== null
                 ? LimoQuotation::query()->with('customer')->find($this->sendingId)
                 : null,

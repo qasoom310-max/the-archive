@@ -10,6 +10,7 @@ use Modules\Limousine\Http\Controllers\LimoInvoiceController;
 use Modules\Limousine\Http\Controllers\LimoInvoiceExportController;
 use Modules\Limousine\Http\Controllers\LimoPettyAdvanceExportController;
 use Modules\Limousine\Http\Controllers\LimoQuotationExportController;
+use Modules\Limousine\Http\Controllers\LimoQuotationImportController;
 use Modules\Limousine\Http\Controllers\LimoReceiptExportController;
 use Modules\Limousine\Http\Controllers\LimoQueueExportController;
 use Modules\Limousine\Http\Controllers\LimoStatementController;
@@ -135,6 +136,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/quotation/export/excel', [LimoQuotationExportController::class, 'excel'])->name('limousine.quotation.export.excel');
     Route::get('/app/limousine/quotation/export/pdf', [LimoQuotationExportController::class, 'pdf'])->name('limousine.quotation.export.pdf');
     Route::get('/app/limousine/quotation/export/print', [LimoQuotationExportController::class, 'print'])->name('limousine.quotation.export.print');
+    Route::post('/app/limousine/quotation/import', LimoQuotationImportController::class)->name('limousine.quotation.import');
     Route::get('/app/limousine/quotation', Quotations::class)->name('limousine.quotation.index');
     Route::get('/app/limousine/quotation/new', QuotationForm::class)->name('limousine.quotation.create');
     Route::get('/app/limousine/quotation/{id}', QuotationForm::class)->whereNumber('id')->name('limousine.quotation.edit');

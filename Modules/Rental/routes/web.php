@@ -11,6 +11,7 @@ use Modules\Rental\Http\Controllers\RentalMaintenanceExportController;
 use Modules\Rental\Http\Controllers\RentalOrderExportController;
 use Modules\Rental\Http\Controllers\RentalOrderImportController;
 use Modules\Rental\Http\Controllers\RentalQuotationExportController;
+use Modules\Rental\Http\Controllers\RentalQuotationImportController;
 use Modules\Rental\Http\Controllers\RentalReceiptExportController;
 use Modules\Rental\Http\Controllers\RentalReplacementExportController;
 use Modules\Rental\Http\Controllers\RentalDriverImportController;
@@ -67,6 +68,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/rental/quotation/export/excel', [RentalQuotationExportController::class, 'excel'])->name('rental.quotation.export.excel');
     Route::get('/app/rental/quotation/export/pdf', [RentalQuotationExportController::class, 'pdf'])->name('rental.quotation.export.pdf');
     Route::get('/app/rental/quotation/export/print', [RentalQuotationExportController::class, 'print'])->name('rental.quotation.export.print');
+    Route::post('/app/rental/quotation/import', RentalQuotationImportController::class)->name('rental.quotation.import');
     Route::get('/app/rental/quotation', Quotations::class)->name('rental.quotation.index');
     Route::get('/app/rental/quotation/new', QuotationForm::class)->name('rental.quotation.create');
     Route::get('/app/rental/quotation/{id}', QuotationForm::class)->whereNumber('id')->name('rental.quotation.edit');

@@ -1,12 +1,35 @@
 <div class="mx-auto max-w-7xl p-4 sm:p-6">
     <x-page-header :title="__('Quotations')" :subtitle="__('Trip estimates for customers.')" icon="quote" accent="indigo">
         <x-slot:actions>
+            @if ($canManage)
+                <button type="button" onclick="document.getElementById('import-quotations').classList.toggle('hidden')" class="o-btn-ghost">{{ __('Import') }}</button>
+            @endif
             <a href="{{ url('/app/limousine/quotation/new') }}" wire:navigate class="o-btn-primary">
                 <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
                 {{ __('New quotation') }}
             </a>
         </x-slot:actions>
     </x-page-header>
+
+    {{-- Import quotations from a CSV (managers). Direct POST — Hostinger-safe.
+         The expected columns are the same shape this screen's own export
+         prints. A quote is a price offered, not billed, so nothing else is
+         backfilled. --}}
+    @if ($canManage)
+        <div id="import-quotations" class="mb-4 {{ $errors->any() ? '' : 'hidden' }} rounded-2xl border border-dashed border-chrome-300 bg-white p-4">
+            <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Import quotations (CSV)') }}</h3>
+            <p class="mb-3 text-xs text-chrome-500">{{ __('Columns: Reference, Customer, Valid until, Fare, Status. Other columns are ignored. The same customer, expiry and fare seen before is skipped.') }}</p>
+            <form method="POST" action="{{ url('/app/limousine/quotation/import') }}" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">
+                @csrf
+                <input type="file" name="file" accept=".csv,text/csv,text/plain" required class="text-sm">
+                <button type="submit" class="o-btn-primary text-sm">{{ __('Import') }}</button>
+            </form>
+            @error('file')<p class="mt-2 text-xs font-medium text-red-600">{{ $message }}</p>@enderror
+            @if (session('toast'))
+                <p class="mt-2 text-xs font-medium text-emerald-600">{{ session('toast') }}</p>
+            @endif
+        </div>
+    @endif
 
     @if (session('quotation_status'))
         <div class="mb-4 rounded-lg bg-primary-50 px-4 py-2.5 text-sm font-medium text-chrome-800 ring-1 ring-primary-200">

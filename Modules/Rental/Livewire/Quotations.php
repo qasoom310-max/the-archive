@@ -6,7 +6,9 @@ namespace Modules\Rental\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Models\User;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -64,10 +66,13 @@ final class Quotations extends Component
             ->groupBy('status')
             ->pluck('aggregate', 'status');
 
+        $user = Auth::user();
+
         return view('rental::quotations', [
             'quotations' => $query->paginate(20),
             'counts' => $counts,
             'totalCount' => (int) $counts->sum(),
+            'canManage' => $user instanceof User && $user->canApproveMaintenance(),
         ]);
     }
 }

@@ -6,6 +6,7 @@ namespace App\Erp\Views;
 
 use App\Erp\Money\Currencies;
 use BackedEnum;
+use Illuminate\Support\Carbon;
 use UnitEnum;
 
 /**
@@ -91,5 +92,34 @@ final class ValueFormat
         }
 
         return (string) $value;
+    }
+
+    /**
+     * A column's value as the plain text it reads on screen — the single
+     * formatter behind both the list-view table and every export of it
+     * (CSV/Excel/PDF/Print), so a downloaded sheet can never disagree with
+     * what the screen showed for the same cell.
+     *
+     * `toggle` reads as Yes/No here even though the live table never calls
+     * this for a toggle column (it draws an interactive switch instead) —
+     * a CSV has nowhere to put a switch, so export is the first caller that
+     * actually reaches this arm.
+     */
+    public static function cell(mixed $value, string $format): string
+    {
+        if ($value === null) {
+            return '—';
+        }
+
+        $value = self::label($value);
+
+        return match ($format) {
+            'number' => is_numeric($value) ? number_format((float) $value, 2) : (string) $value,
+            'money' => is_numeric($value) ? self::money($value) : (string) $value,
+            'date' => $value instanceof Carbon ? $value->isoFormat('DD-MMM-YYYY') : (string) $value,
+            'datetime' => $value instanceof Carbon ? $value->isoFormat('DD-MMM-YYYY HH:mm') : (string) $value,
+            'bool', 'toggle' => $value ? 'Yes' : 'No',
+            default => (string) $value,
+        };
     }
 }

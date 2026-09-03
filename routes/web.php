@@ -127,5 +127,17 @@ Route::middleware('auth')->group(function (): void {
         ->where('module', '[A-Za-z0-9_-]+')
         ->name('app.feature-settings');
 
+    // Downloads of any engine list export (Copy needs no route — it lifts
+    // the rendered table client-side). {modelKey} is a dotted ir_model id
+    // (e.g. "rental.vehicle"), so the constraint allows dots.
+    Route::get('/app/export/{modelKey}/csv', [\App\Http\Controllers\ListExportController::class, 'csv'])
+        ->where('modelKey', '[A-Za-z0-9_.]+')->name('list.export.csv');
+    Route::get('/app/export/{modelKey}/excel', [\App\Http\Controllers\ListExportController::class, 'excel'])
+        ->where('modelKey', '[A-Za-z0-9_.]+')->name('list.export.excel');
+    Route::get('/app/export/{modelKey}/pdf', [\App\Http\Controllers\ListExportController::class, 'pdf'])
+        ->where('modelKey', '[A-Za-z0-9_.]+')->name('list.export.pdf');
+    Route::get('/app/export/{modelKey}/print', [\App\Http\Controllers\ListExportController::class, 'print'])
+        ->where('modelKey', '[A-Za-z0-9_.]+')->name('list.export.print');
+
     Route::get('/app/{module}', ModuleHome::class)->name('module.home');
 });

@@ -716,6 +716,31 @@ ships via deploy's `npm run build`. Test: `tests/Feature/ScrollsToFirstErrorTest
 save dispatches the first failing field, a later required field is the one pointed at, a valid
 save dispatches nothing).
 
+**Mobile form polish (shipped 2026-09-03).** Two touch-device fixes in the ERP chrome
+(not the WordPress plugin — that's a separate codebase):
+
+- **No iOS auto-zoom on inputs.** iOS Safari zooms the page whenever a focused input's
+  font-size is `< 16px`. Rather than lock the viewport scale (which also kills pinch-zoom,
+  an accessibility regression), a `@media (max-width: 767px)` block at the **end of
+  `resources/css/app.css`** forces `font-size: 16px` on `input` (except checkbox/radio/range),
+  `select`, `textarea`. Light-mode/desktop untouched.
+- **Native OS date picker on phones.** The shared **`<x-date-field>`** component
+  (`resources/views/components/date-field.blade.php`) draws a desktop-only formatted text
+  overlay + calendar button on top of a real (hidden) `datetime-local`/`date` input. On a
+  phone that overlay is useless — the scripted picker is unreliable — so a
+  `@media (pointer: coarse)` block in `app.css` **reveals the real native input** (class
+  `date-field-native`) as the visible, tappable control and **hides** the desktop text box
+  + calendar button (`date-field-text` / `date-field-cal`). So mobile taps open the phone's
+  own OS date/time wheel. **Do NOT "fix" the empty/hidden desktop overlay or the
+  0-opacity native input — that layering is deliberate** (the native input carries the
+  Livewire binding on both platforms; only its visibility swaps by pointer type).
+
+Also that day: the limousine leg **Rate/Discount/VAT** number fields now show a **`0`
+placeholder** instead of a literal `'0'` value (`HandlesTripLegs::emptyLeg()` seeds `''`,
+`legs.blade.php` adds `placeholder="0"`), so typing doesn't have to clear a leading zero.
+Rate stays `required|numeric`, discount/VAT are `nullable|numeric` (Laravel `nullable`
+accepts `''`), and `buildLegs()` coerces blank → 0 at save.
+
 **Phase 7 — Point of Sale module (`Modules/Pos/`, depends on `contacts`):**
 
 | Concern | Location |
@@ -2244,33 +2269,64 @@ a tenant can't switch in); background **queue jobs** run in the Main context
 (~seconds, installs every module); creating a MySQL/Postgres workspace isn't
 supported (SQLite files only, per the chosen architecture).
 
-**Wanaan service-order payment portal — ERP side (built 2026-09-01; NOT YET LIVE):**
+**Wanaan service-order payment portal (built 2026-09-01; LIVE in Tap TEST mode 2026-09-03):**
 
 Lets a limousine booking be paid online: the agent raises a **payment link** for a
 trip (a "partition" — a deposit, one leg, or the whole balance; the amount is
 agent-chosen, pre-filled with the remaining balance), the link is generated on the
-**Wanaan WordPress site** (`wanaan-bh.com`), the customer opens it, ticks a T&C
-checkbox and pays via **WooCommerce + Tap WebConnect**, and WordPress calls back to
-mark the booking paid. This is the ERP half only; the **WordPress plugin
-`wanaan-service-order` (Phase 2) is still to build**, and nothing is deployed —
-per the manager's staged protocol (backups → show diff → go-ahead → deploy).
+**Wanaan WordPress site** (`wanaan-bh.com`), the customer opens it and pays via
+**WooCommerce + Tap WebConnect**, and WordPress calls back to mark the booking paid.
+Both halves now ship — the ERP module (below) AND the WordPress plugin
+`wanaan-service-order` (see the plugin section below). Deployed and working in Tap
+**TEST** mode; switching Tap to live keys for real money is the only remaining step,
+done on the user's say-so.
 
 | Concern | Location |
 |---|---|
 | Config (per-database, OFF by default) | `limo_portal_configuration` table + `Modules\Limousine\Models\LimoPortalConfiguration` (`portal_url`, `shared_secret` **encrypted**, `enabled`). `enabled` defaults **false** — the master switch the manager can flip off in one place; `isConfigured()` gates every push |
 | Payment link ("partition") | `limo_payment_links` table + `LimoPaymentLink` — one row per link (booking can have many). The **row id is the idempotency key** the portal + callback quote back (`erp_payment_id`), so a re-send updates and a replayed callback can't pay twice. `leg_id`/`booking_id`/`created_by_user_id` are logical refs |
 | Signing scheme (shared with WP) | `Modules\Limousine\Support\PortalSignature` — `X-Wanaan-Timestamp` + `X-Wanaan-Signature` = hex HMAC-SHA256 of `"<timestamp>.<raw-body>"`, keyed by the shared secret; constant-time verify, 5-min window. **The WP plugin MUST reproduce `hash_hmac('sha256', $timestamp.'.'.$rawBody, $secret)` byte-for-byte** |
-| Outbound push | `Modules\Limousine\Services\ServiceOrderPortalClient::push()` — builds the Service-Order payload (same fields/sources as `ServiceOrderPdf`: trip facts from the **leg**, customer/PAX from the parent **booking**; **`amount` sent as an exact 3-dp BHD string** e.g. `45.000`), signs the raw JSON, POSTs to `{portal_url}/wp-json/wanaan/v1/booking` with a 5s timeout. **Never throws** — a WordPress outage returns false and the booking is untouched. Carries `ws` (the workspace id) so the callback re-enters the right database |
+| Outbound push | `Modules\Limousine\Services\ServiceOrderPortalClient::push()` — builds the Service-Order payload (same fields/sources as `ServiceOrderPdf`: trip facts from the **leg**, customer/PAX from the parent **booking**; **`amount` sent as an exact 3-dp BHD string** e.g. `45.000`; a customer **`email`** field — `serviceEmail()` prefers `service_email` then the general email — so WooCommerce/Tap prefills the checkout billing email), signs the raw JSON, POSTs to `{portal_url}/wp-json/wanaan/v1/booking` with a 5s timeout. **Never throws** — a WordPress outage returns false and the booking is untouched. Carries `ws` (the workspace id) so the callback re-enters the right database |
 | Inbound callback | `Modules\Limousine\Http\Controllers\PaymentCallbackController` at **public** `POST /limousine/payment-callback` (CSRF-excepted in `bootstrap/app.php`; HMAC is the only credential). Resolves `ws` via `WorkspaceManager::runFor()`, verifies against THAT database's secret, then settles once (lock + `credit`-guard) through the existing `BookingPayments::receive($booking, $amount, 'online')` — which issues the receipt and flips the booking to Paid only when the balance clears. **Uses OUR billed amount**, not the callback's; a mismatch is logged. Idempotent |
 | Agent action | `Bookings::openPaymentLink/createPaymentLink/closePaymentLink` + a "Create payment link" button (only shown when the portal is on) and modal on the bookings list — amount pre-filled with the balance, capped at it; the generated URL is **shown on-screen with a Copy button** to send the customer |
 | Settings | `LimoPortalSettings` at `/app/settings/limo-portal` (admin-only), a **"Service Portal"** tab in settings-nav — portal URL, shared secret (write-only), and the ON/OFF switch; shows the callback URL to give WordPress |
 | Deploy | The existing `deploy.yml` Limousine step (`migrate --path=Modules/Limousine/... --force` + `module:resync limousine`) auto-applies the two new migrations on live once merged to `main` — no manual SSH. **Until then it lives on a feature branch (deploy runs only on `main`), so live is untouched** |
 | Tests | `tests/Feature/LimoServiceOrderPortalTest.php` (6 — off-by-default no-op, signed push + stored link + exact `45.000`, callback settles + receipt + marks paid, bad signature 401, idempotent, agent creates a link) |
 
-**Still to do:** the WordPress `wanaan-service-order` plugin (REST receiver + public
-`/service-order/{token}` page with the T&C checkbox + WooCommerce/Tap checkout + the
-HMAC callback + admin screen), then the backups→diff→go-ahead→deploy gate with **Tap in
-TEST mode** and one small real test booking before any rollout.
+**WordPress plugin `wanaan-service-order` (built 2026-09-03, lives in `wp-plugin/` in this repo but is NOT deployed by `deploy.yml` — `--exclude='wp-plugin/'`; installed by uploading the ZIP in WP admin):**
+
+The WP half. Distributed as a zip built from `wp-plugin/wanaan-service-order/` — **build
+the zip with .NET `ZipArchive` forcing forward-slash entry paths** (`.Replace('\\','/')`);
+Windows `Compress-Archive` writes backslash entries that WP's unzip rejects. Version
+constant `WANAAN_SO_VERSION` (currently 1.0.6). Structure:
+
+| Piece | File | What it does |
+|---|---|---|
+| Signature | `includes/class-wso-signature.php` | Mirrors the ERP `PortalSignature` exactly — `secret()` reads the **`WANAAN_PORTAL_SECRET` wp-config constant** (the shared HMAC secret lives ONLY here + the ERP encrypted config, never in the repo); `sign()`/`verify()` = `hash_hmac('sha256', "$ts.$rawBody", $secret)`, constant-time, 5-min window |
+| Install / schema | `includes/class-wso-install.php` | Creates `{prefix}wanaan_service_orders` via dbDelta; `SCHEMA_VERSION` self-heals on upgrade (v2 added `customer_email`) |
+| Repository | `includes/class-wso-repository.php` | Upserts keyed on `erp_payment_id` (the ERP row id = idempotency key); mints a `token` (`bin2hex(random_bytes(16))`); stores `customer_email` |
+| REST receiver | `includes/class-wso-rest.php` | `POST /wp-json/wanaan/v1/booking` (`permission_callback => __return_true`, HMAC is the only credential); verifies signature over the **raw** body, upserts, returns `{url, token}` |
+| Public pay page | `includes/class-wso-page.php` + `templates/service-order.php` | Rewrite `/service-order/{token}`, `noindex`. **No T&C checkbox** (removed 2026-09-03 — the customer already agrees on the ERP-side flow; don't double-gate). Shows trip facts + amount + a **Pay Now** button; `handle_pay` (admin-post) still records consent (time/IP/UA) then routes to checkout |
+| WooCommerce → Tap | `includes/class-wso-woo.php` | **cart → `/checkout/` flow** (see gotcha below). Loads the cart (`wc_load_cart()`), empties it, adds a hidden virtual "service" product carrying `wanaan_so_row/token/amount` as cart-item data, stashes customer name/email/phone to session, redirects to `wc_get_checkout_url()`. Hooks: `woocommerce_before_calculate_totals` (set the cart line's price to the exact amount), `woocommerce_checkout_create_order` (tag the order `_wanaan_service_order_id`), `woocommerce_checkout_order_processed` (link), `simplify_checkout_fields`/`prefill_checkout_value` (drop billing-address noise, prefill name/email/phone), `restrict_gateways` (keep only Tap when the cart holds a service item — **fails open**), `on_paid` (mark the row paid → fire the callback). `service_product_id()` lazily creates a hidden virtual `WC_Product_Simple` with `set_tax_status('none')` on the **product** |
+| Callback → ERP | `includes/class-wso-callback.php` | On paid, signs + POSTs to the ERP `{callback_url}/limousine/payment-callback`; WP-Cron backoff retry (`MAX_RETRIES=5`); callback URL in `wanaan_so_callback_url` option |
+| Admin | `includes/class-wso-admin.php` | Settings screen (capability + nonce guarded) for the callback URL etc. |
+
+**Hard-won WooCommerce/Tap gotchas (don't re-derive these):**
+- The Wanaan site is a **React front end** — the WooCommerce **order-pay** page
+  (`/checkout/order-pay/...`) is a **dead/blank route** there. Paying an existing order
+  by its pay URL shows nothing. The ONLY reliable flow is **cart → `/checkout/`** (a fresh
+  standard checkout), which is why the plugin adds a product to the cart and redirects.
+- **Tap builds its charge from product LINE ITEMS, not fee items.** A fee-only order gives
+  the Tap hosted page nothing to charge and it renders blank. Use a real product line.
+- `WC_Order_Item_Product` has **no `set_tax_status()`** (only `WC_Order_Item_Fee` does) —
+  calling it is a fatal white-screen. Set `tax_status` on the **product** instead. Catch
+  `\Throwable` (not just `Exception`) around the checkout wiring so a fatal degrades to a
+  `WP_Error`, not a white screen.
+- Verify the endpoints are live + HMAC-enforced with a signed-vs-unsigned curl — an unsigned
+  `POST /wp-json/wanaan/v1/booking` must return **401**.
+
+**Remaining:** switch Tap from TEST to live keys (user's call) for real money. The plugin is
+edited by re-uploading a freshly built ZIP in WP admin (there's no CI for `wp-plugin/`).
 
 ---
 

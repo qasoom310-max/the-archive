@@ -1150,6 +1150,9 @@ final class Bookings extends Component
                 ? LimoLeg::query()->with('legable.customer:id,name')->find($this->assigningId)
                 : null,
             'canAssign' => $this->mayAccess(Permission::Write),
+            // Importing trips is a manager action, the same gate every other
+            // CSV import in the app uses.
+            'canManage' => Auth::user()?->canApproveMaintenance() ?? false,
             // For the per-trip section of the quick-edit dialog.
             'serviceTypes' => LimoLeg::serviceTypeOptions(),
             'rateBasisOptions' => LimoLeg::rateBasisOptions(),

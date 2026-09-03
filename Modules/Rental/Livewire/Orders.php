@@ -6,12 +6,14 @@ namespace Modules\Rental\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Illuminate\Support\Facades\Auth;
 use Livewire\WithPagination;
 use Modules\Rental\Models\RentalOrder;
 
@@ -124,11 +126,14 @@ final class Orders extends Component
 
         $unpaidCount = $this->applyOwing(RentalOrder::query())->count();
 
+        $user = Auth::user();
+
         return view('rental::orders', [
             'orders' => $query->paginate(20),
             'counts' => $counts,
             'unpaidCount' => $unpaidCount,
             'totalCount' => (int) $counts->sum(),
+            'canManage' => $user instanceof User && $user->canApproveMaintenance(),
         ]);
     }
 }

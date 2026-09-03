@@ -27,6 +27,10 @@ use Illuminate\Support\Carbon;
  * @property float $amount
  * @property string $method
  * @property string|null $notes
+ * @property Carbon|null $confirmed_at
+ * @property string|null $confirmed_by
+ * @property Carbon|null $statement_date
+ * @property string|null $batch_id
  * @property-read LimoInvoice|null $invoice
  * @property-read LimoCustomer|null $customer
  */
@@ -40,6 +44,7 @@ final class LimoReceipt extends Model implements DefinesIrModel
     protected $fillable = [
         'reference', 'invoice_id', 'booking_id', 'customer_id', 'date',
         'amount', 'balance_after', 'method', 'auto', 'notes',
+        'confirmed_at', 'confirmed_by', 'statement_date', 'batch_id',
     ];
 
     /** @var array<string, mixed> */
@@ -58,7 +63,44 @@ final class LimoReceipt extends Model implements DefinesIrModel
             'amount' => 'float',
             'balance_after' => 'float',
             'auto' => 'boolean',
+            'confirmed_at' => 'datetime',
+            'statement_date' => 'date',
         ];
+    }
+
+    public function isConfirmed(): bool
+    {
+        return $this->confirmed_at !== null;
+    }
+
+    /** Cash is checked against the drawer; everything else against the bank. */
+    public function isCash(): bool
+    {
+        return $this->method === 'cash';
+    }
+
+    /**
+     * The accountant closes the receipt: the money is REALLY here.
+     *
+     * For a bank method the statement date is what was checked — the day the
+     * amount showed on the company statement — and confirming without having
+     * found it there is exactly what this step exists to prevent.
+     */
+    public function confirm(string $byName, ?Carbon $statementDate = null): void
+    {
+        $this->confirmed_at = Carbon::now();
+        $this->confirmed_by = $byName;
+        $this->statement_date = $statementDate;
+        $this->save();
+    }
+
+    /** A confirmation taken back — a mistake, not a deletion of history. */
+    public function unconfirm(): void
+    {
+        $this->confirmed_at = null;
+        $this->confirmed_by = null;
+        $this->statement_date = null;
+        $this->save();
     }
 
     public function referencePrefix(): string

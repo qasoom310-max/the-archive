@@ -2366,5 +2366,21 @@
     "Nothing to bill.": "لا يوجد ما يُفوتر.",
     "A combined invoice belongs to one customer.": "الفاتورة المجمعة تخص عميلاً واحداً.",
     "Discount on :reference": "خصم على :reference",
-    "Adjustment on :reference": "تسوية على :reference"
+    "Adjustment on :reference": "تسوية على :reference",
+    "To confirm": "بانتظار التأكيد",
+    "All methods": "كل طرق الدفع",
+    "Nothing waiting to be confirmed.": "لا يوجد ما ينتظر التأكيد.",
+    "Bulk payment": "دفعة مجمعة",
+    ":count receipts": ":count إيصالات",
+    "Confirm cash received": "تأكيد استلام النقد",
+    "Confirm — seen on statement": "تأكيد — ظهرت في كشف البنك",
+    "Awaiting the accountant": "بانتظار المحاسب",
+    "Unconfirmed": "غير مؤكدة",
+    "Undo": "تراجع",
+    "Take back this confirmation?": "هل تريد التراجع عن هذا التأكيد؟",
+    "You are vouching that this cash reached the company.": "أنت تشهد بأن هذا النقد وصل إلى الشركة.",
+    "Confirm only after finding the amount on the company statement.": "أكد فقط بعد العثور على المبلغ في كشف حساب الشركة.",
+    "Statement date": "تاريخ الكشف",
+    "Statement": "الكشف",
+    ":count payment confirmed.|:count payments confirmed.": "تم تأكيد دفعة واحدة.|تم تأكيد :count دفعات."
 }

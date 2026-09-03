@@ -8,10 +8,12 @@ use Modules\Limousine\Http\Controllers\LimoCombinedInvoiceController;
 use Modules\Limousine\Http\Controllers\LimoBookingImportController;
 use Modules\Limousine\Http\Controllers\LimoInvoiceController;
 use Modules\Limousine\Http\Controllers\LimoInvoiceExportController;
+use Modules\Limousine\Http\Controllers\LimoInvoiceImportController;
 use Modules\Limousine\Http\Controllers\LimoPettyAdvanceExportController;
 use Modules\Limousine\Http\Controllers\LimoQuotationExportController;
 use Modules\Limousine\Http\Controllers\LimoQuotationImportController;
 use Modules\Limousine\Http\Controllers\LimoReceiptExportController;
+use Modules\Limousine\Http\Controllers\LimoReceiptImportController;
 use Modules\Limousine\Http\Controllers\LimoQueueExportController;
 use Modules\Limousine\Http\Controllers\LimoStatementController;
 use Modules\Limousine\Http\Controllers\LimoReceiptController;
@@ -146,6 +148,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/invoice/export/excel', [LimoInvoiceExportController::class, 'excel'])->name('limousine.invoice.export.excel');
     Route::get('/app/limousine/invoice/export/pdf', [LimoInvoiceExportController::class, 'pdf'])->name('limousine.invoice.export.pdf');
     Route::get('/app/limousine/invoice/export/print', [LimoInvoiceExportController::class, 'print'])->name('limousine.invoice.export.print');
+    Route::post('/app/limousine/invoice/import', LimoInvoiceImportController::class)->name('limousine.invoice.import');
     Route::get('/app/limousine/invoice', Invoices::class)->name('limousine.invoice.index');
     Route::get('/app/limousine/invoice/new', InvoiceForm::class)->name('limousine.invoice.create');
     // Before the {id} form route, so "combined" is never read as an invoice id.
@@ -161,6 +164,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/receipt/export/excel', [LimoReceiptExportController::class, 'excel'])->name('limousine.receipt.export.excel');
     Route::get('/app/limousine/receipt/export/pdf', [LimoReceiptExportController::class, 'pdf'])->name('limousine.receipt.export.pdf');
     Route::get('/app/limousine/receipt/export/print', [LimoReceiptExportController::class, 'print'])->name('limousine.receipt.export.print');
+    Route::post('/app/limousine/receipt/import', LimoReceiptImportController::class)->name('limousine.receipt.import');
     Route::get('/app/limousine/receipt', Receipts::class)->name('limousine.receipt.index');
     Route::get('/app/limousine/receipt/new', ReceiptForm::class)->name('limousine.receipt.create');
     // Before the {id} form route, so "download" is never read as a receipt id.

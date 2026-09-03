@@ -2460,5 +2460,11 @@
     ":imported quotations imported, :skipped already on file skipped.": "تم استيراد :imported عرض سعر، وتخطي :skipped موجود مسبقاً.",
     "Columns: Reference, Customer, Car, Valid until, Total, Status. Other columns are ignored. The same customer, expiry and total seen before is skipped.": "الأعمدة: المرجع، العميل، السيارة، تاريخ الانتهاء، الإجمالي، الحالة. تُتجاهل الأعمدة الأخرى. يُستبعد نفس العميل وتاريخ الانتهاء والإجمالي إن وُجد سابقاً.",
     "Columns: Reference, Customer, Valid until, Fare, Status. Other columns are ignored. The same customer, expiry and fare seen before is skipped.": "الأعمدة: المرجع، العميل، تاريخ الانتهاء، الأجرة، الحالة. تُتجاهل الأعمدة الأخرى. يُستبعد نفس العميل وتاريخ الانتهاء والأجرة إن وُجد سابقاً.",
-    "Import quotations (CSV)": "استيراد عروض الأسعار (CSV)"
+    "Import quotations (CSV)": "استيراد عروض الأسعار (CSV)",
+    "Import invoices (CSV)": "استيراد الفواتير (CSV)",
+    "Import receipts (CSV)": "استيراد الإيصالات (CSV)",
+    "Columns: Reference, Customer, Issued, Total, Paid, Status. Other columns are ignored. The same customer, issue date and total seen before is skipped.": "الأعمدة: المرجع، العميل، تاريخ الإصدار، الإجمالي، المدفوع، الحالة. تُتجاهل الأعمدة الأخرى. يُستبعد نفس العميل وتاريخ الإصدار والإجمالي إن وُجد سابقاً.",
+    "Columns: Reference, Customer, Invoice, Date, Method, Amount. Other columns are ignored. The same customer, date and amount seen before is skipped.": "الأعمدة: المرجع، العميل، الفاتورة، التاريخ، طريقة الدفع، المبلغ. تُتجاهل الأعمدة الأخرى. يُستبعد نفس العميل والتاريخ والمبلغ إن وُجد سابقاً.",
+    ":imported invoices imported, :skipped already on file skipped.": "تم استيراد :imported فاتورة، وتخطي :skipped موجودة مسبقاً.",
+    ":imported receipts imported, :skipped already on file skipped.": "تم استيراد :imported إيصالاً، وتخطي :skipped موجود مسبقاً."
 }

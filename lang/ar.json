@@ -2443,5 +2443,7 @@
     "In the expense reports it files under “Other”, keeping its own name on every line.": "في تقارير المصروفات تُدرج ضمن «أخرى» مع الاحتفاظ باسمها في كل سطر.",
     "e.g. Car decoration": "مثال: تزيين السيارة",
     "Car (optional)": "السيارة (اختياري)",
-    "Car Type": "نوع السيارة"
+    "Car Type": "نوع السيارة",
+    "No records found.": "لا توجد سجلات.",
+    "Records": "السجلات"
 }

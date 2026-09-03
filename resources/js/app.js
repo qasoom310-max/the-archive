@@ -62,6 +62,39 @@ window.scrollToFieldError = function (field) {
  * (→ MethodNotFoundException, 500). Closure capture keeps the $wire
  * reference unwrapped.
  */
+/**
+ * Lift a rendered `<table>`'s text (tab-separated cells, newline rows) into
+ * the clipboard — the shared mechanism behind every "Copy" export button.
+ *
+ * Client-side on purpose: it copies exactly the page being looked at, and
+ * needs no endpoint. Falls back to execCommand because clipboard.writeText
+ * requires a secure context, which a plain-HTTP intranet install may not be.
+ */
+function copyTableById(tableId, onDone) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    const text = [...table.querySelectorAll('tr')]
+        .map((tr) => [...tr.querySelectorAll('th,td')]
+            .map((cell) => cell.innerText.replace(/\s+/g, ' ').trim())
+            .join('\t'))
+        .join('\n');
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(onDone).catch(() => {});
+        return;
+    }
+
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    try { document.execCommand('copy'); onDone(); } catch (e) { /* ignore */ }
+    document.body.removeChild(area);
+}
+
 document.addEventListener('alpine:init', () => {
     /**
      * POS camera barcode scanner. Wired via `x-data="barcodeScanner($wire)"`
@@ -261,33 +294,26 @@ document.addEventListener('alpine:init', () => {
         copied: false,
 
         copyTable() {
-            const table = document.getElementById('limo-queue');
-            if (!table) return;
-
-            const text = [...table.querySelectorAll('tr')]
-                .map((tr) => [...tr.querySelectorAll('th,td')]
-                    .map((cell) => cell.innerText.replace(/\s+/g, ' ').trim())
-                    .join('\t'))
-                .join('\n');
-
-            const done = () => {
+            copyTableById('limo-queue', () => {
                 this.copied = true;
                 setTimeout(() => { this.copied = false; }, 2000);
-            };
+            });
+        },
+    }));
 
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(text).then(done).catch(() => {});
-                return;
-            }
+    /**
+     * The same table-lifting copy, generalised for the engine list-view's
+     * Export bar — any model's list, not just the booking queue. Takes the
+     * table's element id so one Alpine component serves every model's page.
+     */
+    window.Alpine.data('listExportCopy', () => ({
+        copied: false,
 
-            const area = document.createElement('textarea');
-            area.value = text;
-            area.style.position = 'fixed';
-            area.style.opacity = '0';
-            document.body.appendChild(area);
-            area.select();
-            try { document.execCommand('copy'); done(); } catch (e) { /* ignore */ }
-            document.body.removeChild(area);
+        copyTable(tableId) {
+            copyTableById(tableId, () => {
+                this.copied = true;
+                setTimeout(() => { this.copied = false; }, 2000);
+            });
         },
     }));
 

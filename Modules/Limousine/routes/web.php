@@ -24,6 +24,8 @@ use Modules\Limousine\Livewire\Customers;
 use Modules\Limousine\Livewire\CustomerSummary;
 use Modules\Limousine\Livewire\ExpenseForm;
 use Modules\Limousine\Livewire\Expenses;
+use Modules\Limousine\Livewire\PettyAdvancePage;
+use Modules\Limousine\Livewire\PettyCash;
 use Modules\Limousine\Livewire\InvoiceForm;
 use Modules\Limousine\Livewire\Invoices;
 use Modules\Limousine\Livewire\LimoHome;
@@ -147,6 +149,11 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/receipt/{id}', ReceiptForm::class)->whereNumber('id')->name('limousine.receipt.edit');
 
     // Expenses.
+    // Petty cash: the float, and each driver advance's whole life.
+    Route::get('/app/limousine/petty_cash', PettyCash::class)->name('limousine.petty_cash.index');
+    Route::get('/app/limousine/petty_cash/{id}', PettyAdvancePage::class)
+        ->whereNumber('id')->name('limousine.petty_cash.show');
+
     Route::get('/app/limousine/expense', Expenses::class)->name('limousine.expense.index');
     Route::get('/app/limousine/expense/new', ExpenseForm::class)->name('limousine.expense.create');
     Route::get('/app/limousine/expense/{id}', ExpenseForm::class)->whereNumber('id')->name('limousine.expense.edit');

@@ -2,15 +2,20 @@
     "name": "limousine",
     "display_name": "Limousine",
     "summary": "Limousine service: trip bookings, locations, customers",
-    "description": "Run a limousine / chauffeur service: a customer + pickup and dropoff locations + a date-time make a trip booking with a fare, moving through a queue → confirmed → active → completed flow. A bookings-focused dashboard surfaces today's and tomorrow's trips, the queue, completed trips, unpaid bookings and revenue. Quotations, invoices, receipts and expenses build on this.",
+    "description": "Run a limousine / chauffeur service: a customer + pickup and dropoff locations + a date-time make a trip booking with a fare, moving through a queue \u2192 confirmed \u2192 active \u2192 completed flow. A bookings-focused dashboard surfaces today's and tomorrow's trips, the queue, completed trips, unpaid bookings and revenue. Quotations, invoices, receipts and expenses build on this.",
     "version": "1.0.0",
     "author": "OpenERP",
     "category": "Operations",
     "icon": "limousine",
     "application": true,
     "auto_install": false,
-    "depends": ["base", "rental"],
-    "providers": ["Modules\\Limousine\\Providers\\LimousineServiceProvider"],
+    "depends": [
+        "base",
+        "rental"
+    ],
+    "providers": [
+        "Modules\\Limousine\\Providers\\LimousineServiceProvider"
+    ],
     "models": [
         "Modules\\Limousine\\Models\\LimoCustomer",
         "Modules\\Limousine\\Models\\LimoLocation",
@@ -19,7 +24,8 @@
         "Modules\\Limousine\\Models\\LimoQuotation",
         "Modules\\Limousine\\Models\\LimoInvoice",
         "Modules\\Limousine\\Models\\LimoReceipt",
-        "Modules\\Limousine\\Models\\LimoExpense"
+        "Modules\\Limousine\\Models\\LimoExpense",
+        "Modules\\Limousine\\Models\\LimoPettyAdvance"
     ],
     "sequence": 12
 }

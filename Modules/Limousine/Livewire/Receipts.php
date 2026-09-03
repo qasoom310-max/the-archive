@@ -7,6 +7,7 @@ namespace Modules\Limousine\Livewire;
 use App\Erp\Security\Permission;
 use App\Erp\Settings\Setting;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
@@ -300,6 +301,7 @@ final class Receipts extends Component
             // in ReceiptForm — hiding the button alone would only be cosmetic.
             'canCreateManually' => Auth::user()?->isSuperAdmin() ?? false,
             'collectedTotal' => (float) LimoReceipt::query()->sum('amount'),
+            'canManage' => ($u = Auth::user()) instanceof User && $u->canApproveMaintenance(),
         ]);
     }
 }

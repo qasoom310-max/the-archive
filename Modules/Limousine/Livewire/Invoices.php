@@ -6,7 +6,9 @@ namespace Modules\Limousine\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Models\User;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -258,8 +260,10 @@ final class Invoices extends Component
             ? LimoInvoice::query()->whereIn('id', $this->selected)->get(['id', 'customer_id'])
             : collect();
         $customerIds = $picked->pluck('customer_id')->unique()->values();
+        $user = Auth::user();
 
         return view('limousine::invoices', [
+            'canManage' => $user instanceof User && $user->canApproveMaintenance(),
             'invoices' => $query->paginate(20),
             'collecting' => $collecting,
             'selectedCount' => $picked->count(),

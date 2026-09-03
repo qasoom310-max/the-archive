@@ -6,12 +6,17 @@ use Illuminate\Support\Facades\Route;
 use Modules\Limousine\Http\Controllers\CouponVoucherController;
 use Modules\Limousine\Http\Controllers\LimoCombinedInvoiceController;
 use Modules\Limousine\Http\Controllers\LimoBookingImportController;
+use Modules\Limousine\Http\Controllers\LimoExpenseImportController;
 use Modules\Limousine\Http\Controllers\LimoInvoiceController;
 use Modules\Limousine\Http\Controllers\LimoInvoiceExportController;
+use Modules\Limousine\Http\Controllers\LimoInvoiceImportController;
+use Modules\Limousine\Http\Controllers\LimoLocationImportController;
 use Modules\Limousine\Http\Controllers\LimoPettyAdvanceExportController;
+use Modules\Limousine\Http\Controllers\LimoPettyCashImportController;
 use Modules\Limousine\Http\Controllers\LimoQuotationExportController;
 use Modules\Limousine\Http\Controllers\LimoQuotationImportController;
 use Modules\Limousine\Http\Controllers\LimoReceiptExportController;
+use Modules\Limousine\Http\Controllers\LimoReceiptImportController;
 use Modules\Limousine\Http\Controllers\LimoQueueExportController;
 use Modules\Limousine\Http\Controllers\LimoStatementController;
 use Modules\Limousine\Http\Controllers\LimoReceiptController;
@@ -107,6 +112,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/driver/new', DriverForm::class)->name('limousine.driver.create');
     Route::get('/app/limousine/driver/{id}', DriverForm::class)->whereNumber('id')->name('limousine.driver.edit');
 
+    Route::post('/app/limousine/location/import', LimoLocationImportController::class)->name('limousine.location.import');
     Route::get('/app/limousine/location', Locations::class)->name('limousine.location.index');
     Route::get('/app/limousine/location/new', LocationForm::class)->name('limousine.location.create');
     Route::get('/app/limousine/location/{id}', LocationForm::class)->whereNumber('id')->name('limousine.location.edit');
@@ -146,6 +152,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/invoice/export/excel', [LimoInvoiceExportController::class, 'excel'])->name('limousine.invoice.export.excel');
     Route::get('/app/limousine/invoice/export/pdf', [LimoInvoiceExportController::class, 'pdf'])->name('limousine.invoice.export.pdf');
     Route::get('/app/limousine/invoice/export/print', [LimoInvoiceExportController::class, 'print'])->name('limousine.invoice.export.print');
+    Route::post('/app/limousine/invoice/import', LimoInvoiceImportController::class)->name('limousine.invoice.import');
     Route::get('/app/limousine/invoice', Invoices::class)->name('limousine.invoice.index');
     Route::get('/app/limousine/invoice/new', InvoiceForm::class)->name('limousine.invoice.create');
     // Before the {id} form route, so "combined" is never read as an invoice id.
@@ -161,6 +168,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/receipt/export/excel', [LimoReceiptExportController::class, 'excel'])->name('limousine.receipt.export.excel');
     Route::get('/app/limousine/receipt/export/pdf', [LimoReceiptExportController::class, 'pdf'])->name('limousine.receipt.export.pdf');
     Route::get('/app/limousine/receipt/export/print', [LimoReceiptExportController::class, 'print'])->name('limousine.receipt.export.print');
+    Route::post('/app/limousine/receipt/import', LimoReceiptImportController::class)->name('limousine.receipt.import');
     Route::get('/app/limousine/receipt', Receipts::class)->name('limousine.receipt.index');
     Route::get('/app/limousine/receipt/new', ReceiptForm::class)->name('limousine.receipt.create');
     // Before the {id} form route, so "download" is never read as a receipt id.
@@ -174,10 +182,12 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/petty_cash/export/excel', [LimoPettyAdvanceExportController::class, 'excel'])->name('limousine.petty_cash.export.excel');
     Route::get('/app/limousine/petty_cash/export/pdf', [LimoPettyAdvanceExportController::class, 'pdf'])->name('limousine.petty_cash.export.pdf');
     Route::get('/app/limousine/petty_cash/export/print', [LimoPettyAdvanceExportController::class, 'print'])->name('limousine.petty_cash.export.print');
+    Route::post('/app/limousine/petty_cash/import', LimoPettyCashImportController::class)->name('limousine.petty_cash.import');
     Route::get('/app/limousine/petty_cash', PettyCash::class)->name('limousine.petty_cash.index');
     Route::get('/app/limousine/petty_cash/{id}', PettyAdvancePage::class)
         ->whereNumber('id')->name('limousine.petty_cash.show');
 
+    Route::post('/app/limousine/expense/import', LimoExpenseImportController::class)->name('limousine.expense.import');
     Route::get('/app/limousine/expense', Expenses::class)->name('limousine.expense.index');
     Route::get('/app/limousine/expense/new', ExpenseForm::class)->name('limousine.expense.create');
     Route::get('/app/limousine/expense/{id}', ExpenseForm::class)->whereNumber('id')->name('limousine.expense.edit');

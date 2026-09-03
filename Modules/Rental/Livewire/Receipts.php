@@ -6,7 +6,9 @@ namespace Modules\Rental\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Models\User;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -60,10 +62,12 @@ final class Receipts extends Component
         }
 
         $total = (float) RentalReceipt::query()->sum('amount');
+        $user = Auth::user();
 
         return view('rental::receipts', [
             'receipts' => $query->paginate(20),
             'collectedTotal' => $total,
+            'canManage' => $user instanceof User && $user->canApproveMaintenance(),
         ]);
     }
 }

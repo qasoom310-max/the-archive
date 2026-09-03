@@ -4,12 +4,36 @@
             <span class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 ring-1 ring-emerald-100">
                 {{ __('Total') }}: <span class="font-bold">{{ \App\Erp\Views\ValueFormat::money($collectedTotal) }}</span>
             </span>
+            @if ($canManage)
+                <button type="button" onclick="document.getElementById('import-receipts').classList.toggle('hidden')" class="o-btn-ghost">{{ __('Import') }}</button>
+            @endif
             <a href="{{ url('/app/rental/receipt/new') }}" wire:navigate class="o-btn-primary">
                 <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
                 {{ __('New receipt') }}
             </a>
         </x-slot:actions>
     </x-page-header>
+
+    {{-- Import receipts from a CSV (managers). Direct POST — Hostinger-safe.
+         The expected columns are the same shape this screen's own export
+         prints. When the Invoice column names an invoice on file, the
+         receipt links to it (and its amount_paid/status recompute from the
+         sum of its receipts); otherwise the receipt stands alone. --}}
+    @if ($canManage)
+        <div id="import-receipts" class="mb-4 {{ $errors->any() ? '' : 'hidden' }} rounded-2xl border border-dashed border-chrome-300 bg-white p-4">
+            <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Import receipts (CSV)') }}</h3>
+            <p class="mb-3 text-xs text-chrome-500">{{ __('Columns: Reference, Customer, Invoice, Date, Method, Amount. Other columns are ignored. The same customer, date and amount seen before is skipped.') }}</p>
+            <form method="POST" action="{{ url('/app/rental/receipt/import') }}" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">
+                @csrf
+                <input type="file" name="file" accept=".csv,text/csv,text/plain" required class="text-sm">
+                <button type="submit" class="o-btn-primary text-sm">{{ __('Import') }}</button>
+            </form>
+            @error('file')<p class="mt-2 text-xs font-medium text-red-600">{{ $message }}</p>@enderror
+            @if (session('toast'))
+                <p class="mt-2 text-xs font-medium text-emerald-600">{{ session('toast') }}</p>
+            @endif
+        </div>
+    @endif
 
     <div class="mb-4">
         <input type="text" wire:model.live.debounce.300ms="search" placeholder="{{ __('Find receipt (reference or customer)…') }}"

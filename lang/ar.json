@@ -25,7 +25,7 @@
     ":days days left to restore": "متبقّي :days يومًا للاستعادة",
     ":hours hours to go": "متبقٍ :hours ساعة",
     ":imported cars imported, :skipped duplicates skipped.": "تم استيراد :imported سيارة، وتم تخطي :skipped مكرراً.",
-    ":imported customers imported, :skipped duplicates skipped.": "تم استيراد :imported عميلاً، وتم تخطي :skipped مكرراً.",
+    ":imported customers imported, :updated updated, :skipped duplicates skipped.": "تم استيراد :imported عميلاً، وتحديث :updated، وتخطي :skipped مكرراً.",
     ":month is historically one of your strongest months (avg :amount). Make sure the fleet is ready and papers are renewed.": ":month تاريخياً من أقوى شهورك (بمعدل :amount). تأكد من جاهزية الأسطول وتجديد الأوراق.",
     ":n fewer than expected — check for waste.": ":n أقل من المتوقع — تحقق من الهدر.",
     ":n product costs recomputed from current material prices.": "تمت إعادة حساب تكلفة :n منتج من أسعار المواد الحالية.",

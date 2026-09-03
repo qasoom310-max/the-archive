@@ -76,6 +76,94 @@ final class RentalCustomerImportTest extends TestCase
         $this->assertSame(2, RentalCustomer::query()->count()); // existing + the one new
     }
 
+    public function test_it_reads_the_full_column_set_mapping_country_names_to_iso_codes(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'cust') . '.csv';
+        file_put_contents(
+            $path,
+            "Customer Name,Customer Type,Country,Phone,Email,CPR / ID,Licence No.,Nationality,CR Number,Contact Person,Contact Person Phone,Address,Vehicle Type\n" .
+            "Aaron Stewart,Individual,United Kingdom,+447399328404,a@b.uk,549819150,,,,,,US Navy,Mid range\n" .
+            "AB Transportation,Company,USA / Canada,+15550100,ops@abt.us,,,,88221-1,Celima,+15550101,Dallas,\n"
+        );
+
+        $result = app(CustomerImporter::class)->import($path);
+        $this->assertSame(2, $result['imported']);
+
+        $person = RentalCustomer::query()->where('name', 'Aaron Stewart')->sole();
+        $this->assertSame('GB', $person->country);
+        $this->assertSame('549819150', $person->cpr);
+        $this->assertSame('US Navy', $person->address);
+
+        $company = RentalCustomer::query()->where('name', 'AB Transportation')->sole();
+        $this->assertSame('company', $company->type);
+        $this->assertSame('US', $company->country);
+        $this->assertSame('88221-1', $company->cr_number);
+        $this->assertSame('Celima', $company->contact_person);
+        $this->assertSame('+15550101', $company->contact_phone);
+        $this->assertSame('Dallas', $company->address);
+    }
+
+    public function test_a_matched_customer_has_blank_fields_enriched_but_filled_ones_kept(): void
+    {
+        $existing = RentalCustomer::query()->create([
+            'name' => 'Qasim fuad salman', 'cpr' => '921000448', 'phone' => '38467744', 'email' => 'keep@me.bh',
+        ]);
+
+        $path = tempnam(sys_get_temp_dir(), 'cust') . '.csv';
+        file_put_contents(
+            $path,
+            "Customer Name,Customer Type,Country,Phone,Email,CPR / ID,Address\n" .
+            "Qasim F Salman,Individual,Bahrain,+97338467744,new@mail.bh,921000448,Manama\n"
+        );
+
+        $result = app(CustomerImporter::class)->import($path);
+
+        $this->assertSame(0, $result['imported']);
+        $this->assertSame(1, $result['updated']);
+        $this->assertSame(1, RentalCustomer::query()->count());
+
+        $existing->refresh();
+        $this->assertSame('BH', $existing->country);      // blank → filled
+        $this->assertSame('Manama', $existing->address);  // blank → filled
+        $this->assertSame('keep@me.bh', $existing->email); // filled → NEVER overwritten
+        $this->assertSame('38467744', $existing->phone);   // filled → kept
+    }
+
+    public function test_a_jammed_double_phone_keeps_only_the_first_number(): void
+    {
+        $path = $this->csv("Jam Med,Individual,,+966599199992+44,\n");
+        app(CustomerImporter::class)->import($path);
+
+        $this->assertSame('+966599199992', RentalCustomer::query()->where('name', 'Jam Med')->sole()->phone);
+    }
+
+    public function test_a_row_with_no_id_and_no_phone_dedupes_by_name(): void
+    {
+        RentalCustomer::query()->create(['name' => 'Aaysha', 'email' => 'alk@hotmail.com']);
+
+        $path = $this->csv("Aaysha,Individual,,,alk@hotmail.com\n");
+        $result = app(CustomerImporter::class)->import($path);
+
+        $this->assertSame(0, $result['imported']);
+        $this->assertSame(1, RentalCustomer::query()->count());
+    }
+
+    public function test_the_command_refuses_an_unknown_workspace_id(): void
+    {
+        // Module commands register on the boot AFTER install, so add it by hand.
+        $kernel = $this->app->make(\Illuminate\Contracts\Console\Kernel::class);
+        \assert($kernel instanceof \Illuminate\Foundation\Console\Kernel);
+        $kernel->registerCommand($this->app->make(\Modules\Rental\Console\ImportCustomersCommand::class));
+
+        $path = $this->csv("X,Individual,9,9,\n");
+
+        $this->artisan('rental:import-customers', ['path' => $path, '--workspace' => '99'])
+            ->expectsOutputToContain('Workspace 99 not found.')
+            ->assertFailed();
+
+        $this->assertSame(0, RentalCustomer::query()->count());
+    }
+
     public function test_the_endpoint_redirects_back_to_whichever_customer_list_it_came_from(): void
     {
         // One shared customer store, one importer, reached from either app's

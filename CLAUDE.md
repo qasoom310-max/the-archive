@@ -2269,6 +2269,33 @@ a tenant can't switch in); background **queue jobs** run in the Main context
 (~seconds, installs every module); creating a MySQL/Postgres workspace isn't
 supported (SQLite files only, per the chosen architecture).
 
+**Rental customer import — full column set + enrichment + workspace targeting (shipped 2026-09-03):**
+
+`Modules\Rental\Support\CustomerImporter` (shared by the Import button on both apps'
+Customers pages AND `php artisan rental:import-customers <file.csv>`) was extended for
+the full Wanaan customer export:
+
+- **Columns:** on top of Name / Type / CPR / Phone / E-mail it now reads Country
+  (name **or** ISO-2 → stored as the ISO-2 code the customer form uses; unknown names
+  store null — see `COUNTRY_ALIASES` for spellings beyond `RentalCustomer::countries()`,
+  e.g. UAE / USA / Canada / Turkey), Licence No., Nationality, CR Number, Contact
+  Person, Contact Person Phone, Address. Header aliases cover "Customer Type" /
+  "CPR / ID" etc. Phones with two numbers jammed together (`+9665…+44…`) keep the
+  first number.
+- **Enrichment, not just skip:** an existing customer matched by CPR/CR → phone →
+  (only when the row has neither) name gets their **blank** fields filled from the row
+  — a filled field is NEVER overwritten. Result counts are
+  `{imported, updated, skipped}`; the upload toast shows all three.
+- **`--workspace=<id>`** on the command imports into a tenant database via
+  `WorkspaceManager::runFor()`; an unknown id **fails** instead of silently falling
+  through to Main (a bulk import into the wrong database is the disaster case).
+- One-off performed 2026-09-03: `erp customers.xlsx` (3,991 rows) loaded into the
+  **Wanaan Car Rental W.L.L** workspace (id 7) — 1,039 existing customers kept/enriched.
+  The sheet's "Vehicle Type" column has no model field and was deliberately dropped.
+- Tests: `tests/Feature/RentalCustomerImportTest.php` (10 — full-column mapping +
+  ISO codes, enrich-blank-keep-filled, jammed phone, name-fallback dedupe,
+  unknown-workspace refusal, plus the original import/dedupe/endpoint/gate set).
+
 **Wanaan service-order payment portal (built 2026-09-01; FULLY LIVE on Tap live keys 2026-09-03):**
 
 Lets a limousine booking be paid online: the agent raises a **payment link** for a

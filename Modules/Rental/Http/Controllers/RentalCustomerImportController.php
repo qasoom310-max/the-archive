@@ -46,8 +46,8 @@ final class RentalCustomerImportController
         }
 
         return redirect($redirect)->with('toast', __(
-            ':imported customers imported, :skipped duplicates skipped.',
-            ['imported' => $result['imported'], 'skipped' => $result['skipped']],
+            ':imported customers imported, :updated updated, :skipped duplicates skipped.',
+            ['imported' => $result['imported'], 'updated' => $result['updated'], 'skipped' => $result['skipped']],
         ));
     }
 }

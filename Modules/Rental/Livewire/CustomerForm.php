@@ -93,8 +93,12 @@ final class CustomerForm extends Component
 
     public ?string $existingCrDocument = null;
 
-    public function mount(?int $id = null, string $modelKey = 'rental.customer', string $indexUrl = '/app/rental/customer'): void
+    public function mount(int|string|null $id = null, string $modelKey = 'rental.customer', string $indexUrl = '/app/rental/customer'): void
     {
+        // A route segment is always a string, and a non-numeric one
+        // ("new") means a new record rather than a bad request.
+        $id = is_numeric($id) ? (int) $id : null;
+
         // Route defaults, so the page knows which app it was opened from before
         // the first permission check runs.
         $this->modelKey = in_array($modelKey, ['rental.customer', 'limousine.customer'], true)

@@ -73,8 +73,12 @@ final class ProductionForm extends Component
         app(AccessControl::class)->authorize(Auth::user(), 'pos.product', $permission);
     }
 
-    public function mount(?int $id = null): void
+    public function mount(int|string|null $id = null): void
     {
+        // A route segment is always a string, and a non-numeric one
+        // ("new") means a new record rather than a bad request.
+        $id = is_numeric($id) ? (int) $id : null;
+
         abort_unless(Features::enabled(Feature::Production), 404);
         $this->guard(Permission::Read);
 

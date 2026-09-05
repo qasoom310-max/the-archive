@@ -78,8 +78,12 @@ final class ReplacementForm extends Component
     /** Set when a new replacement is opened without a live, on-road order. */
     public bool $blocked = false;
 
-    public function mount(?int $id = null, ?int $order = null): void
+    public function mount(int|string|null $id = null, ?int $order = null): void
     {
+        // A route segment is always a string, and a non-numeric one
+        // ("new") means a new record rather than a bad request.
+        $id = is_numeric($id) ? (int) $id : null;
+
         $this->guardAccess(Permission::Read);
         if ($id !== null) {
             $this->loadExisting($id);

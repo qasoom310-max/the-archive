@@ -48,6 +48,15 @@ final class CustomerImporter
         'kenya' => 'KE', 'argentina' => 'AR',
     ];
 
+    /**
+     * Shortest number that may be matched by its ending. A local number and the
+     * same number with its country code are the same phone — an export from
+     * another system commonly carries one form where we hold the other — but
+     * matching on too few digits would merge strangers, so seven is the floor
+     * (the same rule the POS customer-discount lookup uses).
+     */
+    private const PHONE_SUFFIX_MIN = 7;
+
     /** Row fields (importer key => column) a matched existing customer may have filled in when blank. */
     private const ENRICHABLE = [
         'phone' => 'phone',
@@ -105,10 +114,12 @@ final class CustomerImporter
         $byId = [];
         /** @var array<string, RentalCustomer> $byPhone */
         $byPhone = [];
+        /** @var array<string, RentalCustomer> $byPhoneEnding */
+        $byPhoneEnding = [];
         /** @var array<string, RentalCustomer> $byName */
         $byName = [];
         foreach ($existing as $customer) {
-            $this->indexCustomer($customer, $byId, $byPhone, $byName);
+            $this->indexCustomer($customer, $byId, $byPhone, $byPhoneEnding, $byName);
         }
 
         $imported = 0;
@@ -149,8 +160,8 @@ final class CustomerImporter
             $match = null;
             if ($idKey !== '' && isset($byId[$idKey])) {
                 $match = $byId[$idKey];
-            } elseif ($phoneKey !== '' && isset($byPhone[$phoneKey])) {
-                $match = $byPhone[$phoneKey];
+            } elseif ($phoneKey !== '' && ($byPhoneMatch = $this->matchPhone($phoneKey, $byPhone, $byPhoneEnding)) !== null) {
+                $match = $byPhoneMatch;
             } elseif ($idKey === '' && $phoneKey === '' && isset($byName[$nameKey])) {
                 // Only fall back to the name when the row has no better key —
                 // two different people can share a name, never a CPR.
@@ -170,7 +181,7 @@ final class CustomerImporter
 
                 if ($match->isDirty()) {
                     $match->save();
-                    $this->indexCustomer($match, $byId, $byPhone, $byName);
+                    $this->indexCustomer($match, $byId, $byPhone, $byPhoneEnding, $byName);
                     $updated++;
                 } else {
                     $skipped++;
@@ -192,10 +203,12 @@ final class CustomerImporter
                 'contact_person' => $fields['contact'] !== '' ? $fields['contact'] : null,
                 'contact_phone' => $fields['contactphone'] !== '' ? $fields['contactphone'] : null,
                 'address' => $fields['address'] !== '' ? $fields['address'] : null,
-                'active' => true,
+                // Only a row that explicitly says the customer is inactive comes
+                // in switched off; a matched customer keeps whatever we have.
+                'active' => ! in_array(strtolower($value('status')), ['inactive', 'no', '0', 'false'], true),
             ]);
 
-            $this->indexCustomer($customer, $byId, $byPhone, $byName);
+            $this->indexCustomer($customer, $byId, $byPhone, $byPhoneEnding, $byName);
             $imported++;
         }
         fclose($handle);
@@ -206,9 +219,10 @@ final class CustomerImporter
     /**
      * @param  array<string, RentalCustomer>  $byId
      * @param  array<string, RentalCustomer>  $byPhone
+     * @param  array<string, RentalCustomer>  $byPhoneEnding
      * @param  array<string, RentalCustomer>  $byName
      */
-    private function indexCustomer(RentalCustomer $customer, array &$byId, array &$byPhone, array &$byName): void
+    private function indexCustomer(RentalCustomer $customer, array &$byId, array &$byPhone, array &$byPhoneEnding, array &$byName): void
     {
         foreach ([$customer->cpr, $customer->cr_number] as $id) {
             $key = $this->normalise((string) $id);
@@ -220,12 +234,45 @@ final class CustomerImporter
         $phoneKey = $this->normalise((string) $customer->phone);
         if ($phoneKey !== '') {
             $byPhone[$phoneKey] ??= $customer;
+            $ending = $this->phoneEnding($phoneKey);
+            if ($ending !== '') {
+                $byPhoneEnding[$ending] ??= $customer;
+            }
         }
 
         $nameKey = $this->normalise($customer->name);
         if ($nameKey !== '') {
             $byName[$nameKey] ??= $customer;
         }
+    }
+
+    /**
+     * The existing customer on this phone, matching a local number against the
+     * same number carrying its country code (and the other way round) by their
+     * shared ending.
+     *
+     * @param  array<string, RentalCustomer>  $byPhone
+     * @param  array<string, RentalCustomer>  $byPhoneEnding
+     */
+    private function matchPhone(string $phoneKey, array $byPhone, array $byPhoneEnding): ?RentalCustomer
+    {
+        if (isset($byPhone[$phoneKey])) {
+            return $byPhone[$phoneKey];
+        }
+
+        $ending = $this->phoneEnding($phoneKey);
+
+        return $ending !== '' ? ($byPhoneEnding[$ending] ?? null) : null;
+    }
+
+    /** The last digits of a phone — '' when it is too short to match safely. */
+    private function phoneEnding(string $value): string
+    {
+        $digits = ltrim((string) preg_replace('/\D/', '', $value), '0');
+
+        return strlen($digits) >= self::PHONE_SUFFIX_MIN
+            ? substr($digits, -self::PHONE_SUFFIX_MIN)
+            : '';
     }
 
     /** Map a country name (or an already-ISO code) to the ISO-2 code the form stores; '' when unknown. */
@@ -277,6 +324,7 @@ final class CustomerImporter
             $key === 'contact person' => 'contact',
             in_array($key, ['contact person phone', 'contact phone'], true) => 'contactphone',
             $key === 'address' => 'address',
+            in_array($key, ['status', 'active'], true) => 'status',
             default => null,
         };
     }

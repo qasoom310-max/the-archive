@@ -62,8 +62,12 @@ final class ReceiptForm extends Component
         abort_unless(Auth::user()?->isSuperAdmin() ?? false, 403);
     }
 
-    public function mount(?int $id = null): void
+    public function mount(int|string|null $id = null): void
     {
+        // A route segment is always a string, and a non-numeric one
+        // ("new") means a new record rather than a bad request.
+        $id = is_numeric($id) ? (int) $id : null;
+
         $this->guardAccess(Permission::Read);
 
         // Nothing links here any more: a receipt is a record of money already

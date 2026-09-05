@@ -137,6 +137,48 @@ final class RentalCustomerImportTest extends TestCase
         $this->assertSame('+966599199992', RentalCustomer::query()->where('name', 'Jam Med')->sole()->phone);
     }
 
+    public function test_a_local_number_matches_the_same_phone_stored_with_its_country_code(): void
+    {
+        // An export from another system carries local numbers where we hold the
+        // international form. Same person — enrich them, never duplicate.
+        $existing = RentalCustomer::query()->create(['name' => 'Abdelmalek Murad', 'phone' => '+97338381200']);
+
+        $path = tempnam(sys_get_temp_dir(), 'cust') . '.csv';
+        file_put_contents($path, "Name,CPR / CR,Phone,E-mail\nAbdelmalek Murad,,38381200,malek@example.com\n");
+
+        $result = app(CustomerImporter::class)->import($path);
+
+        $this->assertSame(0, $result['imported']);
+        $this->assertSame(1, $result['updated']);
+        $this->assertSame(1, RentalCustomer::query()->count());
+        $this->assertSame('+97338381200', $existing->fresh()?->phone);       // ours kept
+        $this->assertSame('malek@example.com', $existing->fresh()?->email);  // blank filled
+    }
+
+    public function test_a_short_number_is_never_matched_by_its_ending(): void
+    {
+        // Six digits is too little to be sure two people are one, so it creates
+        // a separate customer rather than merging strangers.
+        RentalCustomer::query()->create(['name' => 'Someone', 'phone' => '+973111222']);
+
+        $path = tempnam(sys_get_temp_dir(), 'cust') . '.csv';
+        file_put_contents($path, "Name,CPR / CR,Phone,E-mail\nAnother Person,,111222,\n");
+
+        $this->assertSame(1, app(CustomerImporter::class)->import($path)['imported']);
+        $this->assertSame(2, RentalCustomer::query()->count());
+    }
+
+    public function test_an_inactive_row_is_created_switched_off(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'cust') . '.csv';
+        file_put_contents($path, "Name,Phone,Status\nGone Away,39000111,Inactive\nStill Here,39000222,Active\n");
+
+        app(CustomerImporter::class)->import($path);
+
+        $this->assertFalse(RentalCustomer::query()->where('name', 'Gone Away')->sole()->active);
+        $this->assertTrue(RentalCustomer::query()->where('name', 'Still Here')->sole()->active);
+    }
+
     public function test_a_row_with_no_id_and_no_phone_dedupes_by_name(): void
     {
         RentalCustomer::query()->create(['name' => 'Aaysha', 'email' => 'alk@hotmail.com']);

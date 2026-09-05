@@ -99,8 +99,12 @@ final class QuotationForm extends Component
     /** @var array<string, string> */
     public array $newCustomer = ['name' => '', 'phone' => '', 'email' => '', 'type' => 'individual'];
 
-    public function mount(?int $id = null): void
+    public function mount(int|string|null $id = null): void
     {
+        // A route segment is always a string, and a non-numeric one
+        // ("new") means a new record rather than a bad request.
+        $id = is_numeric($id) ? (int) $id : null;
+
         $this->guardAccess(Permission::Read);
         if ($id !== null) {
             $quote = LimoQuotation::query()->with('legs')->find($id);

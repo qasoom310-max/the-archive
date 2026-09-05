@@ -174,6 +174,30 @@ final class RentalCustomerProfileTest extends TestCase
         $this->assertSame('individual', $customer->fresh()?->type);
     }
 
+    /**
+     * A route segment arrives as a STRING, so a form mount typed `?int` blew up
+     * with a 500 the moment anything but a number reached it — which is what
+     * "/customer/new" is. Numeric ids still load their record; anything else
+     * opens an empty create form.
+     */
+    public function test_a_non_numeric_id_opens_the_create_form_instead_of_erroring(): void
+    {
+        $customer = RentalCustomer::query()->create(['name' => 'Existing One']);
+
+        // Exactly how Livewire mounts a full-page component: the route's
+        // parameters, which are strings, through the container.
+        $blank = new CustomerForm();
+        app()->call([$blank, 'mount'], ['id' => 'new']);
+        $this->assertNull($blank->id, 'A non-numeric segment must open a blank create form.');
+        $this->assertSame('', $blank->name);
+
+        // A numeric string (how every edit URL arrives) still loads the record.
+        $editing = new CustomerForm();
+        app()->call([$editing, 'mount'], ['id' => (string) $customer->id]);
+        $this->assertSame($customer->id, $editing->id);
+        $this->assertSame('Existing One', $editing->name);
+    }
+
     public function test_the_flag_is_derived_from_the_country_code(): void
     {
         $this->assertSame('🇧🇭', RentalCustomer::flagFor('BH'));

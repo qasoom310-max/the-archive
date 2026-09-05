@@ -9,11 +9,13 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Limousine\Models\LimoCustomer;
+use Livewire\Attributes\Locked;
 
 #[Layout('components.layouts.app')]
 #[Title('Customer')]
 final class CustomerForm extends Component
 {
+    #[Locked]
     public ?int $id = null;
 
     public function mount(int|string|null $id = null): void

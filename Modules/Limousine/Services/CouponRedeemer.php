@@ -45,30 +45,32 @@ final class CouponRedeemer
      */
     public function apply(string $code, Model&TakesCouponCredit $target): array
     {
-        $coupon = LimoCoupon::query()->where('code', trim($code))->first();
+        return DB::transaction(function () use ($code, $target): array {
+            // Held for the length of the spend, so two counters redeeming the
+            // same code at the same moment cannot both take the last of it.
+            $coupon = LimoCoupon::query()->where('code', trim($code))->lockForUpdate()->first();
 
-        if ($coupon === null) {
-            return ['ok' => false, 'error' => self::ERROR_NOT_FOUND];
-        }
+            if ($coupon === null) {
+                return ['ok' => false, 'error' => self::ERROR_NOT_FOUND];
+            }
 
-        if ($coupon->isExpired()) {
-            return ['ok' => false, 'error' => self::ERROR_EXPIRED];
-        }
+            if ($coupon->isExpired()) {
+                return ['ok' => false, 'error' => self::ERROR_EXPIRED];
+            }
 
-        $remaining = $coupon->remaining();
-        if ($remaining <= 0.001) {
-            return ['ok' => false, 'error' => self::ERROR_EMPTY];
-        }
+            $remaining = $coupon->remaining();
+            if ($remaining <= 0.001) {
+                return ['ok' => false, 'error' => self::ERROR_EMPTY];
+            }
 
-        $due = $target->couponBalanceDue();
-        if ($due <= 0.001) {
-            return ['ok' => false, 'error' => self::ERROR_NOTHING_DUE];
-        }
+            $due = $target->couponBalanceDue();
+            if ($due <= 0.001) {
+                return ['ok' => false, 'error' => self::ERROR_NOTHING_DUE];
+            }
 
-        // Never spend more than is owed, never more than is left.
-        $applied = round(min($remaining, $due), 3);
+            // Never spend more than is owed, never more than is left.
+            $applied = round(min($remaining, $due), 3);
 
-        return DB::transaction(function () use ($coupon, $target, $applied): array {
             $coupon->redemptions()->create([
                 // getMorphClass, not ::class — a morph map would otherwise be
                 // written round in the long form and read back short.

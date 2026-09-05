@@ -69,6 +69,7 @@ final class QuotationForm extends Component
 
     public string $status = RentalQuotation::STATUS_DRAFT;
 
+    #[Locked]
     public ?int $order_id = null;
 
     public function mount(int|string|null $id = null): void

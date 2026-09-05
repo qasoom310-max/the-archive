@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Views;
 
+use App\Erp\Exceptions\RecordInUseException;
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\HasAccessControl;
 use App\Erp\Views\ColumnDef;
@@ -15,8 +16,10 @@ use App\Models\UserViewPreference;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
@@ -343,8 +346,36 @@ final class ListView extends Component
             $this->access()->authorize(Auth::user(), $this->modelKey, Permission::Unlink);
         }
 
-        $count = count($this->selected);
-        $this->model::query()->whereKey($this->selected)->delete();
+        // Through the models, not one bulk SQL delete: a receipt has to tell
+        // its invoice it has gone, and a customer with bookings has to be able
+        // to refuse. A row the database itself will not release (an account
+        // with journal lines) becomes a message on the screen, not a dead page.
+        $records = $this->model::query()->whereKey($this->selected)->get();
+        $count = 0;
+
+        try {
+            DB::transaction(function () use ($records, &$count): void {
+                foreach ($records as $record) {
+                    if ($record->delete() !== false) {
+                        $count++;
+                    }
+                }
+            });
+        } catch (RecordInUseException $e) {
+            $this->addError('selected', $e->getMessage());
+
+            return;
+        } catch (QueryException) {
+            $this->addError('selected', __('Some of these records are still used elsewhere, so nothing was deleted.'));
+
+            return;
+        }
+
+        if ($count === 0) {
+            $this->clearSelection();
+
+            return;
+        }
 
         $label = \Illuminate\Support\Str::headline(\Illuminate\Support\Str::afterLast($this->modelKey, '.'));
         app(\App\Erp\Activity\ActivityLogger::class)->log(

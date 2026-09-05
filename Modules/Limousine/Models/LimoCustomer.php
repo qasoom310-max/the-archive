@@ -8,7 +8,9 @@ use App\Erp\Contracts\DefinesIrModel;
 use App\Erp\Registry\FieldDefinition;
 use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
+use App\Models\Concerns\GuardsDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Model;
+use Modules\Rental\Models\Concerns\CustomerDeletionReferences;
 use Modules\Rental\Models\Concerns\DerivesServiceTag;
 
 /**
@@ -39,6 +41,8 @@ use Modules\Rental\Models\Concerns\DerivesServiceTag;
  */
 final class LimoCustomer extends Model implements DefinesIrModel
 {
+    use CustomerDeletionReferences;
+    use GuardsDeletionWhenReferenced;
     use \App\Models\Concerns\HasCountryFlag;
     use DerivesServiceTag;
 

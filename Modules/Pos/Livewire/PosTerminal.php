@@ -95,6 +95,7 @@ final class PosTerminal extends Component
      */
     public bool $pickingCondiments = false;
 
+    #[Locked]
     public ?int $condimentLineId = null;
 
     /**

@@ -129,6 +129,13 @@ final class TripCancellation
             // a booking can become settled purely by losing the leg that was
             // still owed for.
             if ($booking !== null) {
+                if ($outcome === self::OUTCOME_REFUNDED) {
+                    // Money handed back is no longer money held. Left alone,
+                    // the booking went on showing the refunded fare as received
+                    // and the reports counted it as collected.
+                    $booking->advance = round(max(0.0, (float) $booking->advance - $amount), 3);
+                }
+
                 $booking->recalcTotal();
                 $booking->save();
                 $booking->syncPaymentFromAdvance();

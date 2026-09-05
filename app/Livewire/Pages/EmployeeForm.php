@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\Attributes\Locked;
 
 /**
  * Add / edit an employee profile, including the uploaded signed agreement
@@ -22,6 +23,7 @@ use Livewire\Component;
 #[Title('Employee')]
 final class EmployeeForm extends Component
 {
+    #[Locked]
     public ?int $id = null;
 
     /** @var array<string, mixed> */

@@ -7,6 +7,7 @@ namespace Modules\Limousine\Livewire;
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
 use App\Livewire\Concerns\ScrollsToFirstError;
+use Carbon\Exceptions\InvalidFormatException;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
@@ -91,6 +92,7 @@ final class QuotationForm extends Component
 
     public string $status = LimoQuotation::STATUS_DRAFT;
 
+    #[Locked]
     public ?int $booking_id = null;
 
     /** Inline "New customer" modal (shared transport customer). */
@@ -194,9 +196,7 @@ final class QuotationForm extends Component
 
     private function validFrom(): Carbon
     {
-        return $this->quote_date !== ''
-            ? Carbon::parse($this->quote_date)
-            : Carbon::now();
+        return $this->parseDate($this->quote_date) ?? Carbon::now();
     }
 
     /**
@@ -209,7 +209,10 @@ final class QuotationForm extends Component
             return self::VALIDITY_CUSTOM;
         }
 
-        $from = Carbon::parse($this->quote_date);
+        $from = $this->parseDate($this->quote_date);
+        if ($from === null) {
+            return self::VALIDITY_CUSTOM;
+        }
         $until = $this->valid_until;
 
         foreach ([self::VALIDITY_WEEK, self::VALIDITY_MONTH, self::VALIDITY_YEAR] as $period) {
@@ -219,6 +222,26 @@ final class QuotationForm extends Component
         }
 
         return self::VALIDITY_CUSTOM;
+    }
+
+    /**
+     * A typed date as Carbon, or null while it is empty or not a date yet.
+     *
+     * Read on every render, before validation has had its say, so a half-typed
+     * value must not take the page down the way one once did on the chauffeur
+     * schedule.
+     */
+    private function parseDate(string $value): ?Carbon
+    {
+        if (trim($value) === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (InvalidFormatException) {
+            return null;
+        }
     }
 
     /**
@@ -395,9 +418,7 @@ final class QuotationForm extends Component
         return view('limousine::quotation-form', [
             'customers' => LimoCustomer::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'phone']),
             'isEditing' => $this->id !== null,
-            'validUntilLabel' => $this->valid_until !== ''
-                ? Carbon::parse($this->valid_until)->isoFormat('DD-MMM-YYYY')
-                : '—',
+            'validUntilLabel' => $this->parseDate($this->valid_until)?->isoFormat('DD-MMM-YYYY') ?? '—',
             ...$this->legViewData(),
         ]);
     }

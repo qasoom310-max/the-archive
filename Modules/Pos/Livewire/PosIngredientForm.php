@@ -12,6 +12,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Pos\Models\PosIngredient;
+use Livewire\Attributes\Locked;
 
 /**
  * Create/edit a POS ingredient via the engine FormView (EN/AR name pills,
@@ -21,6 +22,7 @@ use Modules\Pos\Models\PosIngredient;
 #[Title('POS Ingredient')]
 final class PosIngredientForm extends Component
 {
+    #[Locked]
     public ?int $id = null;
 
     public function mount(int|string|null $id = null): void

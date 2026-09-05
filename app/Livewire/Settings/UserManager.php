@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
+use Livewire\Attributes\Locked;
 
 /**
  * Admin-only "Users" tab in Settings: create or edit a user account (name /
@@ -40,6 +41,7 @@ final class UserManager extends Component
     use ConfirmsWithEmailOtp;
 
     /** Set while editing an existing user; null in create mode. */
+    #[Locked]
     public ?int $editingId = null;
 
     public string $name = '';

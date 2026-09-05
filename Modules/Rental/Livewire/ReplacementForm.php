@@ -43,6 +43,7 @@ final class ReplacementForm extends Component
     #[Locked]
     public ?int $id = null;
 
+    #[Locked]
     public ?int $order_id = null;
 
     public ?int $customer_id = null;

@@ -248,4 +248,38 @@ final class LimoCancelledLegBillingTest extends TestCase
             // Balance offered is 2, not 98.
             ->assertSet('collectAmount', '2');
     }
+
+    /**
+     * Refunded money is no longer money held. The received figure follows the
+     * fare down, so the booking does not go on showing the refunded fare as
+     * taken — nor the reports as collected.
+     */
+    public function test_a_refund_takes_the_money_off_the_received_figure(): void
+    {
+        [$booking, $legs] = $this->bookingOfThree(advance: 148, startsIn: '+5 days');
+        $booking->forceFill(['payment_status' => LimoBooking::PAYMENT_PAID])->save();
+
+        $result = app(TripCancellation::class)->cancel($legs[2]);
+        $this->assertSame(TripCancellation::OUTCOME_REFUNDED, $result['outcome']);
+
+        $fresh = $booking->fresh();
+        $this->assertSame(52.0, $fresh?->fare);
+        $this->assertSame(52.0, $fresh?->advance);
+        $this->assertSame(0.0, $fresh?->balanceDue());
+        $this->assertSame(LimoBooking::PAYMENT_PAID, $fresh?->payment_status);
+    }
+
+    /** Credit given instead keeps the money: the trip stays on the bill and so does its payment. */
+    public function test_a_coupon_leaves_the_received_figure_alone(): void
+    {
+        [$booking, $legs] = $this->bookingOfThree(advance: 148, startsIn: '+5 days');
+        $booking->forceFill(['payment_status' => LimoBooking::PAYMENT_PAID])->save();
+
+        $result = app(TripCancellation::class)->cancel($legs[2], refundAsCoupon: true);
+        $this->assertSame(TripCancellation::OUTCOME_COUPON, $result['outcome']);
+
+        $fresh = $booking->fresh();
+        $this->assertSame(148.0, $fresh?->fare);
+        $this->assertSame(148.0, $fresh?->advance);
+    }
 }

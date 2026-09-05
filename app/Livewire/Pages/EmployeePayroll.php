@@ -67,11 +67,26 @@ final class EmployeePayroll extends Component
         $this->id = $id;
         Employee::query()->findOrFail($id);
 
-        if ($this->month === '') {
-            $this->month = Carbon::now()->format('Y-m');
-        }
+        $this->month = $this->validMonth($this->month);
         $this->otDate = Carbon::now()->toDateString();
         $this->absDate = Carbon::now()->toDateString();
+    }
+
+    public function updatedMonth(): void
+    {
+        $this->month = $this->validMonth($this->month);
+    }
+
+    /**
+     * The month arrives from the address bar, so it is only trusted once it
+     * looks like one; anything else falls back to this month rather than
+     * crashing the page on a date that cannot be parsed.
+     */
+    private function validMonth(string $month): string
+    {
+        return preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month) === 1
+            ? $month
+            : Carbon::now()->format('Y-m');
     }
 
     public function addOvertime(): void

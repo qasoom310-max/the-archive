@@ -61,6 +61,7 @@ final class InvoiceForm extends Component
 
     public float $amount_paid = 0;
 
+    #[Locked]
     public ?int $booking_id = null;
 
     /**

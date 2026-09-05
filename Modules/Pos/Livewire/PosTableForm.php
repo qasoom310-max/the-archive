@@ -12,6 +12,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Pos\Models\PosTable;
+use Livewire\Attributes\Locked;
 
 /**
  * Create/edit a POS table via the engine FormView. Thin wrapper.
@@ -20,6 +21,7 @@ use Modules\Pos\Models\PosTable;
 #[Title('POS Table')]
 final class PosTableForm extends Component
 {
+    #[Locked]
     public ?int $id = null;
 
     public function mount(int|string|null $id = null): void

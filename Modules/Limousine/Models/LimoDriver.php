@@ -36,6 +36,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class LimoDriver extends Model implements DefinesIrModel
 {
+    use \App\Models\Concerns\GuardsDeletionWhenReferenced;
+    use \Modules\Rental\Models\Concerns\DriverDeletionReferences;
     use \Modules\Rental\Models\Concerns\HasDriverLicence;
 
     /** Shared table — the single driver store for both transport apps. */

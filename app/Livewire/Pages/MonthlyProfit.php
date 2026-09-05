@@ -16,6 +16,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Livewire\Attributes\Locked;
 
 /**
  * Monthly Profit & Expenses — the owner's real P&L: Sales − COGS = Gross
@@ -38,6 +39,7 @@ final class MonthlyProfit extends Component
     public array $newBill = ['name' => '', 'category' => 'other', 'amount' => '', 'due_day' => ''];
 
     /** Mark-paid inline editor: which bill + the actual amount/date. */
+    #[Locked]
     public ?int $payingExpenseId = null;
 
     public string $payAmount = '';

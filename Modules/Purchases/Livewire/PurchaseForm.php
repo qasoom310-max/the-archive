@@ -25,6 +25,7 @@ use Modules\Purchases\Models\Purchase;
 use Modules\Purchases\Models\PurchaseLine;
 use Modules\Purchases\Services\PurchaseConfirmer;
 use Throwable;
+use Livewire\Attributes\Locked;
 
 /**
  * Custom master/detail editor for a vendor bill: header (vendor, date) plus
@@ -38,6 +39,7 @@ final class PurchaseForm extends Component
 {
     use CreatesProductInline;
 
+    #[Locked]
     public ?int $id = null;
 
     /**

@@ -12,6 +12,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Pos\Models\PosIngredientCategory;
+use Livewire\Attributes\Locked;
 
 /**
  * Create/edit a POS ingredient category via the engine FormView (EN/AR name
@@ -21,6 +22,7 @@ use Modules\Pos\Models\PosIngredientCategory;
 #[Title('POS Ingredient Category')]
 final class PosIngredientCategoryForm extends Component
 {
+    #[Locked]
     public ?int $id = null;
 
     public function mount(int|string|null $id = null): void

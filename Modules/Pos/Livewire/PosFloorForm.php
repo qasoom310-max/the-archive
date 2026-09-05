@@ -9,6 +9,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Pos\Models\PosFloor;
+use Livewire\Attributes\Locked;
 
 /**
  * Create/edit a POS floor via the engine FormView. Thin wrapper.
@@ -17,6 +18,7 @@ use Modules\Pos\Models\PosFloor;
 #[Title('POS Floor')]
 final class PosFloorForm extends Component
 {
+    #[Locked]
     public ?int $id = null;
 
     public function mount(int|string|null $id = null): void

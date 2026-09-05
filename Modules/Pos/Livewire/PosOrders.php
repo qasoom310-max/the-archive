@@ -24,6 +24,7 @@ use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosPayment;
 use Modules\Pos\Models\PosTable;
 use Modules\Pos\Services\PosSaleEraser;
+use Livewire\Attributes\Locked;
 
 /**
  * POS Orders browser — a SierraPOS-style actionable list: search by
@@ -49,11 +50,13 @@ final class PosOrders extends Component
     public string $status = '';
 
     /** The order whose date is being changed (null = the box is closed). */
+    #[Locked]
     public ?int $dateOrderId = null;
 
     public string $orderDate = '';
 
     /** The order being marked as delivered (null = the box is closed). */
+    #[Locked]
     public ?int $deliveryOrderId = null;
 
     /** What we pay the driver for that order — our cost, not the customer's. */

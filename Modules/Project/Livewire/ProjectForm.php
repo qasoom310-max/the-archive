@@ -9,6 +9,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Project\Models\Project;
+use Livewire\Attributes\Locked;
 
 /**
  * Create/edit a project via the engine FormView (auto-save on existing
@@ -18,6 +19,7 @@ use Modules\Project\Models\Project;
 #[Title('Project')]
 final class ProjectForm extends Component
 {
+    #[Locked]
     public ?int $id = null;
 
     public function mount(int|string|null $id = null): void

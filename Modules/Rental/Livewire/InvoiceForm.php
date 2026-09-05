@@ -55,6 +55,7 @@ final class InvoiceForm extends Component
 
     public float $amount_paid = 0;
 
+    #[Locked]
     public ?int $order_id = null;
 
     public function mount(int|string|null $id = null): void

@@ -12,6 +12,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Pos\Models\PosCondiment;
+use Livewire\Attributes\Locked;
 
 /**
  * Create/edit a POS condiment via the engine FormView (EN/AR name pills,
@@ -21,6 +22,7 @@ use Modules\Pos\Models\PosCondiment;
 #[Title('POS Condiment')]
 final class PosCondimentForm extends Component
 {
+    #[Locked]
     public ?int $id = null;
 
     public function mount(int|string|null $id = null): void

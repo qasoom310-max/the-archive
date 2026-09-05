@@ -9,6 +9,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Project\Models\ProjectTask;
+use Livewire\Attributes\Locked;
 
 /**
  * Create/edit a task via the engine FormView. Relation pickers (project,
@@ -19,6 +20,7 @@ use Modules\Project\Models\ProjectTask;
 #[Title('Task')]
 final class TaskForm extends Component
 {
+    #[Locked]
     public ?int $id = null;
 
     public function mount(int|string|null $id = null): void

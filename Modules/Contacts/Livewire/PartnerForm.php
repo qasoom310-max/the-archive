@@ -9,11 +9,13 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Contacts\Models\Partner;
+use Livewire\Attributes\Locked;
 
 #[Layout('components.layouts.app')]
 #[Title('Contact')]
 final class PartnerForm extends Component
 {
+    #[Locked]
     public ?int $id = null;
 
     public function mount(int|string|null $id = null): void

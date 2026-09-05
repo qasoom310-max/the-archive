@@ -5,6 +5,9 @@
 @endphp
 
 <div class="rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5">
+    @error('selected')
+        <div class="rounded-t-xl border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{{ $message }}</div>
+    @enderror
     {{-- Toolbar / bulk-action bar. Phone (`<sm`): stacks vertically so the
          title sits above the search/totals/column-picker row instead of
          overflowing the viewport. Tablet+ (`sm`): single horizontal bar

@@ -20,6 +20,7 @@ use Modules\Pos\Models\PosFloorLine;
 use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosSession;
 use Modules\Pos\Models\PosTable;
+use Livewire\Attributes\Locked;
 
 /**
  * Restaurant floor plan — the table picker shown before the terminal. Floor
@@ -56,6 +57,7 @@ final class PosFloorPlan extends Component
 
     public int $sessionId;
 
+    #[Locked]
     public ?int $floorId = null;
 
     /** Whether the current user may rearrange tables (pos.table Write). */
@@ -65,6 +67,7 @@ final class PosFloorPlan extends Component
     public bool $editing = false;
 
     /** Table currently picked up for placement (null = none). */
+    #[Locked]
     public ?int $selectedId = null;
 
     public function mount(int $session): void

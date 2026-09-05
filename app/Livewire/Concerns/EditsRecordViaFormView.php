@@ -6,6 +6,7 @@ namespace App\Livewire\Concerns;
 
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
+use Livewire\Attributes\Locked;
 
 /**
  * Thin record-detail page that hands a record to a Blade view (which renders the
@@ -16,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 trait EditsRecordViaFormView
 {
+    #[Locked]
     public ?int $id = null;
 
     public function mount(?int $id = null): void

@@ -8,6 +8,7 @@ use App\Erp\Contracts\DefinesIrModel;
 use App\Erp\Registry\FieldDefinition;
 use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
+use App\Models\Concerns\GuardsDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -47,6 +48,25 @@ use Illuminate\Support\Carbon;
  */
 final class Vehicle extends Model implements DefinesIrModel
 {
+    use GuardsDeletionWhenReferenced;
+
+    /**
+     * A car with history stays on the books — deactivate it instead. Rental
+     * rows would blank their car (`nullOnDelete`) and limousine trips keep a
+     * dangling id, so either way the record of what ran would stop adding up.
+     *
+     * @return array<string, array{0: list<string>, 1: string}>
+     */
+    protected static function deletionReferences(): array
+    {
+        return [
+            'rental_orders' => [['vehicle_id'], __('rental orders')],
+            'rental_quotations' => [['vehicle_id'], __('rental quotations')],
+            'rental_replacements' => [['original_vehicle_id', 'replacement_vehicle_id'], __('replacements')],
+            'rental_maintenance' => [['vehicle_id'], __('maintenance records')],
+            'limo_legs' => [['car_id'], __('limousine trips')],
+        ];
+    }
     protected $table = 'rental_vehicles';
 
     /** Status values a vehicle moves through. */

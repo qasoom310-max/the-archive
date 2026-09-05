@@ -2269,7 +2269,35 @@ a tenant can't switch in); background **queue jobs** run in the Main context
 (~seconds, installs every module); creating a MySQL/Postgres workspace isn't
 supported (SQLite files only, per the chosen architecture).
 
-**Rental customer import — full column set + enrichment + workspace targeting (shipped 2026-09-03):**
+**A form component's `id` must not be typed `?int` (fixed 2026-09-05):**
+
+Opening **`/app/rental/customer/new`** 500ed with
+`CustomerForm::mount(): Argument #1 ($id) must be of type ?int, string given`.
+**A route segment is always a STRING**, and a non-numeric one ("new") cannot
+coerce to `int`, so the mount blew up before any of the component's own logic
+ran. The same signature sat in **29 form components across every module**
+(`grep "public function mount(?int \$id"`), so every `/new` page carried the
+same latent 500. All of them now take **`int|string|null $id = null`** and
+normalise as their first statement:
+
+```php
+// A route segment is always a string, and a non-numeric one
+// ("new") means a new record rather than a bad request.
+$id = is_numeric($id) ? (int) $id : null;
+```
+
+**Rule: a full-page Livewire component's route-bound scalar takes
+`int|string|null` and normalises in the body — never `?int`.** (`whereNumber()`
+on the route is not enough on its own: it constrains one route, while the
+component is reachable from several — the Rental customer form also serves the
+Limousine customer routes.) Test:
+`RentalCustomerProfileTest::test_a_non_numeric_id_opens_the_create_form_instead_of_erroring`,
+which calls `mount()` **through the container** with string params (how Livewire
+mounts a page component) — `Livewire::test($class, ['id' => 'new'])` does NOT
+reproduce it, because the test harness also assigns params onto the typed public
+property and fails differently.
+
+**Rental customer import — full column set + enrichment + workspace targeting (shipped 2026-09-03; phone matching 2026-09-05):**
 
 `Modules\Rental\Support\CustomerImporter` (shared by the Import button on both apps'
 Customers pages AND `php artisan rental:import-customers <file.csv>`) was extended for
@@ -2286,15 +2314,34 @@ the full Wanaan customer export:
   (only when the row has neither) name gets their **blank** fields filled from the row
   — a filled field is NEVER overwritten. Result counts are
   `{imported, updated, skipped}`; the upload toast shows all three.
+- **Phones match across country codes (2026-09-05).** A local number and the same
+  number carrying its country code are ONE phone: matching is exact-first, then by
+  a shared **ending of at least `PHONE_SUFFIX_MIN` (7) digits** (trunk zero dropped),
+  via a `$byPhoneEnding` index so it stays O(1) per row. This is the same rule
+  `PosCustomerDiscount::findForPhone()` uses. It matters a lot on real exports: the
+  Wanaan limousine customer list held "38381200" for people we store as
+  "+97338381200" — without it the import would have created **449** customers where
+  only **108** were genuinely new. A `Status` column of `Inactive`/`no`/`0`/`false`
+  creates the customer switched off (**on create only** — a matched customer keeps
+  the active flag we already have).
 - **`--workspace=<id>`** on the command imports into a tenant database via
   `WorkspaceManager::runFor()`; an unknown id **fails** instead of silently falling
   through to Main (a bulk import into the wrong database is the disaster case).
-- One-off performed 2026-09-03: `erp customers.xlsx` (3,991 rows) loaded into the
-  **Wanaan Car Rental W.L.L** workspace (id 7) — 1,039 existing customers kept/enriched.
-  The sheet's "Vehicle Type" column has no model field and was deliberately dropped.
-- Tests: `tests/Feature/RentalCustomerImportTest.php` (10 — full-column mapping +
-  ISO codes, enrich-blank-keep-filled, jammed phone, name-fallback dedupe,
-  unknown-workspace refusal, plus the original import/dedupe/endpoint/gate set).
+- **Wanaan data migration (2026-09-03 → 09-05), all into workspace id 7.** The old
+  system's exports were loaded in this order, each behind a fresh server-side
+  backup (`~/wanaan-pre-*.sqlite`): customers (3,769) → invoices (1,318, original
+  `INV/…` numbers) → receipts (12,799, which recompute each invoice's paid status)
+  → drivers (124) → rental orders (1,658, with 27 retired cars kept **inactive** so
+  their history still opens) → quotations (558) → fleet (164 active cars, matched by
+  plate so orders stayed attached) → limousine bookings (15,393 + 16,074 legs) →
+  the limousine-only customers (108 new). **Original document numbers were preserved
+  as the row ids** wherever the old system had them, so "Booking #15329" is `BK/15329`.
+  Sheet columns with no model field (rental "Vehicle Type", per-leg hours) were
+  dropped deliberately.
+- Tests: `tests/Feature/RentalCustomerImportTest.php` (13 — full-column mapping +
+  ISO codes, enrich-blank-keep-filled, jammed phone, country-code phone match,
+  short-number guard, inactive status, name-fallback dedupe, unknown-workspace
+  refusal, plus the original import/dedupe/endpoint/gate set).
 
 **Wanaan service-order payment portal (built 2026-09-01; FULLY LIVE on Tap live keys 2026-09-03):**
 

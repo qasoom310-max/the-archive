@@ -16,18 +16,21 @@ use App\Models\Ir\IrModel;
 use App\Models\Ir\IrModule;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Notifications\WelcomeCredentials;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
+use Throwable;
 use Livewire\Attributes\Locked;
 
 /**
  * Admin-only "Users" tab in Settings: create or edit a user account (name /
- * email / password) and grant **view-only** access to a chosen set of apps and
+ * email — the password is generated and emailed) and grant **view-only** access to a chosen set of apps and
  * databases. Embedded inside the Settings page under its own tab.
  *
  * Every action re-checks the admin gate (defence in depth against a crafted
@@ -47,8 +50,6 @@ final class UserManager extends Component
     public string $name = '';
 
     public string $email = '';
-
-    public string $password = '';
 
     /**
      * The ONE role this account holds — see {@see StaffRole}. Mutually
@@ -204,8 +205,6 @@ final class UserManager extends Component
         return [
             'name' => ['required', 'string', 'max:255', Rule::unique('users', 'name')->ignore($userId)],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($userId)],
-            // Password required when creating; optional (blank = keep) when editing.
-            'password' => [$userId === null ? 'required' : 'nullable', 'string', 'min:8', 'max:255'],
             // Only roles this admin may actually assign — a crafted payload
             // asking for `super` or `accountant` from a regular admin fails here.
             'role' => ['required', Rule::in($assignable)],
@@ -233,8 +232,38 @@ final class UserManager extends Component
     }
 
     /**
+     * A strong password nobody has to type: 16 letters and digits (~95 bits),
+     * no symbols so it survives being copied out of an email. It is emailed
+     * to the person and never shown to the admin.
+     */
+    private function generatePassword(): string
+    {
+        return Str::password(16, symbols: false);
+    }
+
+    /**
+     * Email the new account its credentials and return the message to show
+     * the admin. The account is already written by the time this runs, so a
+     * mail failure (SMTP down) must not undo it — the person can still get in
+     * through "Forgot your password?", and the admin is told so.
+     */
+    private function welcome(string $name, string $email, #[\SensitiveParameter] string $password): string
+    {
+        try {
+            Notification::route('mail', $email)->notify(new WelcomeCredentials($name, $email, $password));
+        } catch (Throwable $e) {
+            report($e);
+
+            return __('User created, but the email could not be sent. Ask them to use “Forgot your password?” on the sign-in page.');
+        }
+
+        return __('User created. Their password has been emailed to :email.', ['email' => $email]);
+    }
+
+    /**
      * Load an existing user into the form for editing (name / email / current
-     * app grants). Password is left blank — only written if a new one is typed.
+     * app grants). Passwords are never edited here — the person changes their
+     * own from "Forgot your password?" on the sign-in screen.
      */
     public function editUser(int $id): void
     {
@@ -254,7 +283,6 @@ final class UserManager extends Component
         $this->editingId = (int) $user->getKey();
         $this->name = (string) $user->name;
         $this->email = (string) $user->email;
-        $this->password = '';
         // The account's real role, read back from its flags + ACL rules (Staff
         // vs Supervisor is only visible in the rules).
         $this->role = app(UserProvisioner::class)->roleOf($user)->value;
@@ -267,7 +295,7 @@ final class UserManager extends Component
 
     public function cancelEdit(): void
     {
-        $this->reset(['editingId', 'name', 'email', 'password', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
+        $this->reset(['editingId', 'name', 'email', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
         $this->resetValidation();
     }
 
@@ -321,6 +349,7 @@ final class UserManager extends Component
         }
 
         $email = strtolower(trim($this->email));
+        $password = $this->generatePassword();
 
         if ($this->lockToWorkspace) {
             // A workspace-locked owner is all-powerful inside that database, so
@@ -334,7 +363,7 @@ final class UserManager extends Component
             app(UserProvisioner::class)->provisionLocked(
                 trim($this->name),
                 $email,
-                $this->password,
+                $password,
                 (int) $this->lockWorkspaceId,
                 role: StaffRole::SuperAdmin,
             );
@@ -342,7 +371,7 @@ final class UserManager extends Component
             app(UserProvisioner::class)->provision(
                 trim($this->name),
                 $email,
-                $this->password,
+                $password,
                 array_values($this->apps),
                 array_map('intval', array_values($this->workspaces)),
                 $this->selectedRole(),
@@ -351,8 +380,9 @@ final class UserManager extends Component
 
         app(\App\Erp\Activity\ActivityLogger::class)->log('user_created', $email, __('Created :name', ['name' => trim($this->name)]));
 
-        $this->reset(['name', 'email', 'password', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
-        session()->flash('user_saved', __('User created.'));
+        $name = trim($this->name);
+        $this->reset(['name', 'email', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
+        session()->flash('user_saved', $this->welcome($name, $email, $password));
     }
 
     /**
@@ -392,7 +422,7 @@ final class UserManager extends Component
 
     /**
      * Write the workspace-scoped account (both rows) and reset the form.
-     * A blank password keeps the existing one. On an edit the role is put
+     * A new account gets a generated password, emailed to them. On an edit the role is put
      * through {@see safeRole()} so this can't strip the last admin / super
      * admin of the database, or demote the person doing the editing.
      */
@@ -400,6 +430,8 @@ final class UserManager extends Component
     {
         $email = strtolower(trim($this->email));
         $name = trim($this->name);
+
+        $password = $updating ? null : $this->generatePassword();
 
         $role = $this->selectedRole();
         if ($updating) {
@@ -412,7 +444,7 @@ final class UserManager extends Component
         app(UserProvisioner::class)->provisionLocked(
             $name,
             $email,
-            $this->password !== '' ? $this->password : null,
+            $password,
             $workspaceId,
             role: $role,
             appNames: $role->grantsApps() ? array_values($this->apps) : [],
@@ -424,8 +456,8 @@ final class UserManager extends Component
             $updating ? __('Updated :name', ['name' => $name]) : __('Created :name', ['name' => $name]),
         );
 
-        $this->reset(['editingId', 'name', 'email', 'password', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
-        session()->flash('user_saved', $updating ? __('User updated.') : __('User created.'));
+        $this->reset(['editingId', 'name', 'email', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
+        session()->flash('user_saved', $updating ? __('User updated.') : $this->welcome($name, $email, (string) $password));
     }
 
     /**
@@ -506,9 +538,6 @@ final class UserManager extends Component
 
         $user->name = trim($this->name);
         $user->email = strtolower(trim($this->email));
-        if ($this->password !== '') {
-            $user->password = Hash::make($this->password);
-        }
 
         $user->is_admin = $role->isAdmin();
         $user->is_super_admin = $role->isSuperAdmin();
@@ -523,7 +552,7 @@ final class UserManager extends Component
 
         app(\App\Erp\Activity\ActivityLogger::class)->log('user_updated', (string) $user->email, __('Updated :name', ['name' => (string) $user->name]));
 
-        $this->reset(['editingId', 'name', 'email', 'password', 'role', 'apps', 'workspaces']);
+        $this->reset(['editingId', 'name', 'email', 'role', 'apps', 'workspaces']);
         session()->flash('user_saved', __('User updated.'));
     }
 

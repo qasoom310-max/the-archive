@@ -2279,6 +2279,41 @@ kills the old one, a token is single-use, a forged token changes nothing,
 confirmation + length enforced, non-ASCII refused, `#[Locked]` binding, IP rate
 limit, signed-in users bounced). 20 `lang/ar.json` keys added.
 
+**New users get a generated password by email — no password field (shipped 2026-09-07):**
+
+The Settings → Users form (every database) no longer has a Password box. On
+**create**, the ERP generates a strong password, provisions the account with it,
+and **emails the person** their sign-in details plus the way to pick their own.
+On **edit**, passwords are never touched — the person changes theirs from
+"Forgot your password?" on the sign-in screen (the self-service reset above).
+
+| Concern | Location |
+|---|---|
+| Generation | `UserManager::generatePassword()` → `Str::password(16, symbols: false)` — 16 letters + digits (~95 bits), **no symbols** so it survives being copied out of an email, and it satisfies the printable-ASCII rule the profile/reset screens enforce. Never shown to the admin |
+| Mail | `App\Notifications\WelcomeCredentials(name, email, password)` — subject "Your {company} account" (`Setting::get('company.name')`, falling back to `app.name`), the email + password, a **Sign in** button (`route('login')`), and the **forgot-password URL** for choosing their own. Sent **on demand** (`Notification::route('mail', $email)`) because the row may have just been written into a *different* database from the one the admin is in — only the address matters. **Synchronous**, same reasoning as the reset link and the OTP |
+| Wiring | `UserManager::welcome()` runs AFTER provisioning in both create paths (Main `save()` and workspace `writeWorkspaceUser()`) and returns the flash text. The form is `reset()` before it runs, so **capture `$name` first** — the greeting read an empty name until that was pinned (`test_creating_a_user_emails_them_a_generated_password_that_signs_in` asserts `$mail->name`) |
+| Failure | A mail failure (SMTP down) is caught + `report()`ed and the flash says so: *"User created, but the email could not be sent. Ask them to use 'Forgot your password?'"*. The account is **not** rolled back — it already exists across the chosen databases, and the reset flow is the recovery path |
+
+Why the "choose your own" link is the **forgot-password page, not a reset
+token**: a token expires in 60 minutes and a welcome mail is routinely opened
+days later. The person asks for a fresh link when they are ready.
+
+Consequences to keep in mind:
+
+- **`EnsureStaffUserCommand` (CLI) still takes a typed password** — it is the
+  break-glass path when the Users screen can't be used, and it prints nothing
+  by email. Unchanged on purpose.
+- **`UserProvisioner` signatures are unchanged** (`provision(..., string $plainPassword, ...)`,
+  `provisionLocked(..., ?string $plainPassword, ...)`); only the caller changed
+  from "what the admin typed" to "what we generated" (null on edit = keep).
+- The blade note under the two fields says what happens (create vs edit
+  wording). `sm:grid-cols-3` → `sm:grid-cols-2`.
+- Tests: `UserManagerTest` — 22 `->set('password', …)` calls removed, the
+  `password => min` assertion dropped, + 3 new (generated password is emailed
+  on demand to the right address with the right name and actually signs in;
+  the mail carries email/password/forgot-link/login action; editing never
+  changes the hash and sends no second mail). 11 `lang/ar.json` keys.
+
 **Profile self-service (shipped 2026-05-21):**
 
 | Concern | Location |

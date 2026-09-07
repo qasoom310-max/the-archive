@@ -15,8 +15,11 @@ use App\Models\Auth\Group;
 use App\Models\Auth\ModelAccess;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Notifications\WelcomeCredentials;
 use Closure;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -47,7 +50,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Cashier One')
             ->set('email', 'cashier1@example.com')
-            ->set('password', 'secret12')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId()])
             ->call('save')
@@ -79,7 +81,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Pos Only')
             ->set('email', 'posonly@example.com')
-            ->set('password', 'secret12')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId()])
             ->call('save')
@@ -99,7 +100,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'No DB')
             ->set('email', 'nodb@example.com')
-            ->set('password', 'secret12')
             ->set('workspaces', [])
             ->call('save')
             ->assertHasErrors(['workspaces']);
@@ -121,10 +121,9 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', '')
             ->set('email', 'not-an-email')
-            ->set('password', 'short')
             ->set('workspaces', [$this->mainId()])
             ->call('save')
-            ->assertHasErrors(['name' => 'required', 'email' => 'email', 'password' => 'min']);
+            ->assertHasErrors(['name' => 'required', 'email' => 'email']);
     }
 
     public function test_duplicate_email_is_rejected(): void
@@ -135,7 +134,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Dupe')
             ->set('email', 'taken@example.com')
-            ->set('password', 'secret12')
             ->set('workspaces', [$this->mainId()])
             ->call('save')
             ->assertHasErrors(['email']);
@@ -151,7 +149,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Editable')
             ->set('email', 'edit@example.com')
-            ->set('password', 'secret12')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId()])
             ->call('save');
@@ -183,7 +180,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Keeper')
             ->set('email', 'keep@example.com')
-            ->set('password', 'secret12')
             ->set('workspaces', [$this->mainId()])
             ->call('save');
 
@@ -193,7 +189,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->call('editUser', $user->getKey())
             ->set('name', 'Keeper Two')
-            ->set('password', '') // blank → keep
             ->call('save')
             ->assertHasNoErrors();
 
@@ -223,7 +218,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Temp Staff')
             ->set('email', 'temp@example.com')
-            ->set('password', 'secret12')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId()])
             ->call('save');
@@ -246,7 +240,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'New Admin')
             ->set('email', 'newadmin@example.com')
-            ->set('password', 'secret12')
             ->set('role', 'admin')
             ->set('workspaces', [$this->mainId()])
             ->call('save')
@@ -268,7 +261,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Promote Me')
             ->set('email', 'promote@example.com')
-            ->set('password', 'secret12')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId()])
             ->call('save');
@@ -331,7 +323,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Shift Lead')
             ->set('email', 'lead@example.com')
-            ->set('password', 'secret12')
             ->set('role', 'supervisor')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId()])
@@ -358,7 +349,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Shift Lead')
             ->set('email', 'lead@example.com')
-            ->set('password', 'secret12')
             ->set('role', 'supervisor')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId()])
@@ -387,7 +377,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Book Keeper')
             ->set('email', 'books@example.com')
-            ->set('password', 'secret12')
             ->set('role', 'accountant')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId()])
@@ -413,7 +402,6 @@ final class UserManagerTest extends TestCase
             Livewire::test(UserManager::class)
                 ->set('name', 'Sneaky ' . $role)
                 ->set('email', $role . '@example.com')
-                ->set('password', 'secret12')
                 ->set('role', $role)
                 ->set('workspaces', [$this->mainId()])
                 ->call('save')
@@ -452,7 +440,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Branch Cashier')
             ->set('email', 'branch@example.com')
-            ->set('password', 'secret12')
             ->set('apps', ['pos'])
             ->set('workspaces', [$workspace->id])
             ->call('save')
@@ -500,7 +487,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Cafe Staff')
             ->set('email', 'cafestaff@example.com')
-            ->set('password', 'secret12')
             ->set('apps', ['pos', 'rental'])
             ->set('workspaces', [$this->mainId()])
             ->call('save')
@@ -536,7 +522,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Shared Staff')
             ->set('email', 'shared@example.com')
-            ->set('password', 'secret12')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId(), (int) $workspace->id])
             ->call('save')
@@ -609,7 +594,6 @@ final class UserManagerTest extends TestCase
             Livewire::test(UserManager::class)
                 ->set('name', 'Kaleem Cashier')
                 ->set('email', 'kcashier@example.com')
-                ->set('password', 'secret12')
                 ->set('apps', ['pos'])
                 ->call('save')
                 ->assertHasNoErrors();
@@ -637,7 +621,6 @@ final class UserManagerTest extends TestCase
             Livewire::test(UserManager::class)
                 ->set('name', 'Kaleem Manager')
                 ->set('email', 'kmanager@example.com')
-                ->set('password', 'secret12')
                 ->set('role', 'admin')
                 ->call('save')
                 ->assertHasNoErrors();
@@ -669,7 +652,6 @@ final class UserManagerTest extends TestCase
             Livewire::test(UserManager::class)
                 ->set('name', 'Impostor')
                 ->set('email', 'global@example.com')
-                ->set('password', 'secret12')
                 ->call('save')
                 ->assertHasErrors('email');
 
@@ -704,7 +686,6 @@ final class UserManagerTest extends TestCase
             $component = Livewire::test(UserManager::class)
                 ->set('name', 'Temp Staff')
                 ->set('email', 'temp@example.com')
-                ->set('password', 'secret12')
                 ->call('save')
                 ->assertHasNoErrors();
 
@@ -718,5 +699,71 @@ final class UserManagerTest extends TestCase
 
         // The Main login shell is gone with them.
         $this->assertSame(0, User::query()->where('email', 'temp@example.com')->count());
+    }
+    public function test_creating_a_user_emails_them_a_generated_password_that_signs_in(): void
+    {
+        Notification::fake();
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+
+        Livewire::test(UserManager::class)
+            ->set('name', 'Mailed One')
+            ->set('email', 'mailed@example.com')
+            ->set('workspaces', [$this->mainId()])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $user = User::query()->where('email', 'mailed@example.com')->firstOrFail();
+
+        Notification::assertSentOnDemand(WelcomeCredentials::class, function (WelcomeCredentials $mail, array $channels, object $notifiable) use ($user): bool {
+            $routes = $notifiable->routes ?? [];
+
+            return ($routes['mail'] ?? null) === 'mailed@example.com'
+                && $mail->name === 'Mailed One' // captured before the form resets
+                && $mail->email === 'mailed@example.com'
+                && strlen($mail->password) >= 16
+                && ctype_alnum($mail->password)
+                && Hash::check($mail->password, (string) $user->password);
+        });
+    }
+
+    public function test_the_welcome_mail_carries_the_credentials_and_the_way_to_change_them(): void
+    {
+        $mail = (new WelcomeCredentials('Mailed One', 'mailed@example.com', 'Abcdef1234567890'))
+            ->toMail(new \Illuminate\Notifications\AnonymousNotifiable());
+
+        $text = implode("\n", array_map(
+            static fn ($line): string => (string) $line,
+            [...$mail->introLines, ...$mail->outroLines],
+        ));
+
+        $this->assertStringContainsString('mailed@example.com', $text);
+        $this->assertStringContainsString('Abcdef1234567890', $text);
+        $this->assertStringContainsString(route('password.request'), $text);
+        $this->assertSame(route('login'), $mail->actionUrl);
+    }
+
+    public function test_editing_a_user_never_changes_their_password(): void
+    {
+        Notification::fake();
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+
+        Livewire::test(UserManager::class)
+            ->set('name', 'Steady')
+            ->set('email', 'steady@example.com')
+            ->set('workspaces', [$this->mainId()])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $user = User::query()->where('email', 'steady@example.com')->firstOrFail();
+        $hash = (string) $user->password;
+
+        Livewire::test(UserManager::class)
+            ->call('editUser', $user->getKey())
+            ->set('name', 'Steady Renamed')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame($hash, (string) $user->fresh()?->password);
+        Notification::assertSentOnDemandTimes(WelcomeCredentials::class, 1); // only the creation
     }
 }

@@ -189,21 +189,39 @@ final class PasswordResetTest extends TestCase
             ->assertHasErrors(['password']);
     }
 
-    public function test_the_token_and_email_cannot_be_repointed_by_the_browser(): void
+    public function test_the_emailed_link_fills_the_email_in_so_nobody_types_it(): void
     {
-        // They identify the account being rewritten, so both are #[Locked].
+        // The email travels in the query string, which Livewire does not pass
+        // to mount() - the screen used to refuse with "email is required".
+        $user = User::factory()->create(['email' => 'owner@example.com']);
+        $token = Password::broker()->createToken($user);
+
+        $this->get('/reset-password/' . $token . '?email=owner%40example.com')
+            ->assertOk()
+            ->assertSee('owner@example.com')
+            ->assertDontSee('wire:model="email"', false);
+    }
+
+    public function test_a_link_without_an_email_asks_for_it_instead_of_failing(): void
+    {
+        $this->get('/reset-password/whatever')
+            ->assertOk()
+            ->assertSee('wire:model="email"', false);
+    }
+
+    public function test_the_token_cannot_be_repointed_by_the_browser(): void
+    {
+        // It identifies the account being rewritten, so it is #[Locked].
         $user = User::factory()->create(['email' => 'owner@example.com']);
         $token = Password::broker()->createToken($user);
 
         $component = Livewire::test(ResetPassword::class, ['token' => $token, 'email' => 'owner@example.com']);
 
-        foreach (['email' => 'someone-else@example.com', 'token' => 'other'] as $property => $value) {
-            try {
-                $component->set($property, $value);
-                $this->fail($property . ' must be locked against the browser.');
-            } catch (Throwable $e) {
-                $this->assertStringContainsString('locked', mb_strtolower($e->getMessage()));
-            }
+        try {
+            $component->set('token', 'other');
+            $this->fail('token must be locked against the browser.');
+        } catch (Throwable $e) {
+            $this->assertStringContainsString('locked', mb_strtolower($e->getMessage()));
         }
     }
 

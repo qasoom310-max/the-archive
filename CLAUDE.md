@@ -2262,9 +2262,20 @@ Deliberate choices, don't "fix" them:
 - **Two throttles.** The broker's own `'throttle' => 60` (config/auth.php) stops
   one mailbox being flooded; a `RateLimiter` keyed on the visitor's IP (5 per
   5 minutes) stops one visitor working through a list of addresses.
-- **`$token` and `$email` are `#[Locked]`** on `ResetPassword` — they identify
-  the account being rewritten, and Livewire lets the browser set any unlocked
-  public property (the engine-hardening rule from 2026-08-24 applies here too).
+- **`$token` is `#[Locked]`** on `ResetPassword` — it identifies the account
+  being rewritten, and Livewire lets the browser set any unlocked public property
+  (the engine-hardening rule from 2026-08-24). `$email` is deliberately NOT
+  locked: it isn't secret and the token is bound to it, so typing a different
+  one can never reset anybody else — and it has to be typeable when a link
+  arrives without it.
+- **The email rides in the QUERY STRING, and Livewire does not pass query
+  parameters to `mount()`** — only route segments. `mount()` reads
+  `request()->query('email')` explicitly. The first cut didn't, so every mailed
+  link opened a screen that refused with "The email field is required" (found
+  by the owner on 2026-09-07). When the link carries no email the screen shows
+  an Email box instead of failing. Pinned by
+  `test_the_emailed_link_fills_the_email_in_so_nobody_types_it`, which hits the
+  real GET URL — `Livewire::test()` with mount params cannot reproduce it.
 - **Printable-ASCII only** on the new password (`regex:/^[\x20-\x7E]*$/` +
   the `beforeinput` filter and `<x-password-ascii-notice />` from the profile
   screen), so a password stays typeable on a keyboard set to any language.
@@ -2272,12 +2283,13 @@ Deliberate choices, don't "fix" them:
   — an admin still resets them from Settings → Users, or via
   `EnsureStaffUserCommand`. That is not a bug; it is what a null email means.
 
-Tests: `tests/Feature/PasswordResetTest.php` (13 — link on the login screen,
+Tests: `tests/Feature/PasswordResetTest.php` (16 — link on the login screen,
 send emails the account, unknown address looks identical, malformed address
 refused, the emailed URL carries token + email, reset changes the password and
 kills the old one, a token is single-use, a forged token changes nothing,
-confirmation + length enforced, non-ASCII refused, `#[Locked]` binding, IP rate
-limit, signed-in users bounced). 20 `lang/ar.json` keys added.
+confirmation + length enforced, non-ASCII refused, the link's email is read from
+the real URL, a bare link asks for it, `#[Locked]` token, IP rate limit,
+signed-in users bounced). 20 `lang/ar.json` keys added.
 
 **New users get a generated password by email — no password field (shipped 2026-09-07):**
 

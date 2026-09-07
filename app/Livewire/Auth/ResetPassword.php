@@ -17,12 +17,15 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 /**
- * Sets a new password from an emailed link. The token comes from the URL and
- * the email rides alongside it; the broker checks the pair, so neither half is
- * any use on its own and a used or expired token is refused.
+ * Sets a new password from an emailed link. The token is the route segment;
+ * the email rides alongside it in the QUERY STRING, which Livewire does not
+ * hand to mount() - so it is read from the request explicitly. The broker
+ * checks the token/email pair, so neither half is any use on its own and a
+ * used or expired token is refused.
  *
- * Both are #[Locked]: they identify the account being rewritten, and Livewire
- * lets the browser set any unlocked public property.
+ * Only the token is #[Locked]. The email is not a secret and the token is
+ * bound to it, so letting it be typed (when a link arrives without one) can
+ * never reset anybody else's account.
  */
 #[Layout('components.layouts.guest')]
 #[Title('Set a new password')]
@@ -31,7 +34,6 @@ final class ResetPassword extends Component
     #[Locked]
     public string $token = '';
 
-    #[Locked]
     public string $email = '';
 
     public string $password = '';
@@ -41,7 +43,10 @@ final class ResetPassword extends Component
     public function mount(string $token, ?string $email = null): void
     {
         $this->token = $token;
-        $this->email = $email ?? '';
+        // The mailed link is /reset-password/{token}?email=...; the query
+        // string is not a route parameter, so pull it off the request.
+        $query = request()->query('email');
+        $this->email = $email ?? (is_string($query) ? $query : '');
     }
 
     public function save(): void

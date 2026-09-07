@@ -8,9 +8,14 @@
         <p class="rounded-lg bg-chrome-50 px-3 py-2 text-sm text-chrome-600">
             {{ __('You are setting the password for :email', ['email' => $email]) }}
         </p>
+        @error('email') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+    @else
+        <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Email') }}</label>
+            <input type="email" wire:model="email" autocomplete="email" class="o-input">
+            @error('email') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+        </div>
     @endif
-
-    @error('email') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
 
     <div x-data="{ show: false, blocked: false, timer: null, notifyBlocked() { this.blocked = true; clearTimeout(this.timer); this.timer = setTimeout(() => this.blocked = false, 2500) } }">
         <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('New password') }}</label>

@@ -11,7 +11,16 @@
      `@page` bottom margin — **60px**, which clears the band with room to
      spare (measured: band top sits ~7pt below the content floor). The style
      ships with the component so a host only widens that margin and drops
-     `<x-document-footer />` in before `</body>`. --}}
+     `<x-document-footer />` in before `</body>`.
+
+     `fixed` is that per-page behaviour, and it is what DomPDF wants. Pass
+     `:fixed="false"` on a page a BROWSER prints (the list exports serve both a
+     Print view and a PDF download): browsers disagree about whether a fixed
+     element repeats per page, and on screen `bottom: -50px` would sit below
+     the window entirely — so there it renders as an ordinary block at the end
+     of the document instead, printing once after the last row. --}}
+@props(['fixed' => true])
+
 @php
     $companyName = trim((string) \App\Erp\Settings\Setting::get('company.name', ''));
     $companyAddress = trim((string) \App\Erp\Settings\Setting::get('company.address', ''));
@@ -43,13 +52,18 @@
 @if ($phones !== [] || $companyAddress !== '' || $contact !== [])
     <style>
         .doc-footer {
+            font-size: 8.5px;
+            line-height: 1.45;
+            color: #1f2937;
+        }
+        .doc-footer-fixed {
             position: fixed;
             left: 0;
             right: 0;
             bottom: -50px;
-            font-size: 8.5px;
-            line-height: 1.45;
-            color: #1f2937;
+        }
+        .doc-footer-flow {
+            margin-top: 18px;
         }
         .doc-footer table {
             width: 100%;
@@ -73,7 +87,7 @@
         }
     </style>
 
-    <div class="doc-footer">
+    <div class="doc-footer {{ $fixed ? 'doc-footer-fixed' : 'doc-footer-flow' }}">
         <table>
             <tr>
                 <td>

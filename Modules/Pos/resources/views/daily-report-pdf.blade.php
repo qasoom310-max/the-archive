@@ -11,7 +11,7 @@
 <head>
     <meta charset="utf-8">
     <style>
-        @page { margin: 28px 32px; }
+        @page { margin: 28px 32px 60px; }
         * { box-sizing: border-box; }
         body { font-family: DejaVu Sans, sans-serif; color: #1f2937; font-size: 12px; line-height: 1.45; margin: 0; }
         .head { border-bottom: 3px solid #6d28d9; padding-bottom: 10px; margin-bottom: 16px; }
@@ -118,5 +118,7 @@
     @endif
 
     <div class="foot">Generated {{ $data['generated_at']->isoFormat('DD-MMM-YYYY h:mm A') }} · {{ $data['venue'] }}</div>
+
+    <x-document-footer />
 </body>
 </html>

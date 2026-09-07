@@ -2386,17 +2386,37 @@ had "given her access to all databases".
 edits a shared account from inside a workspace must stay on that side of the
 line.
 
-**One footer band on every customer document (shipped 2026-09-07):**
+**One footer band on every printed page (shipped 2026-09-07):**
 
-Every customer-facing PDF — the rental **agreement** and the limousine
-**quotation / invoice / combined invoice / receipt / statement / coupon voucher
-/ service order** — now ends with the same grey band: company name + phone
+Every page the system prints carries the same grey band: company name + phone
 numbers on the left, address (and email / website) on the right. Asked for by
 the owner, who supplied Wanaan's numbers and its new Juffair address.
+
+Three families, all fed by the same component:
+
+1. **The documents a customer receives** — the rental **agreement**, and the
+   limousine **quotation / invoice / combined invoice / receipt / statement /
+   coupon voucher / service order**.
+2. **Every list Print and PDF in the app** — they all render through the one
+   shared `resources/views/exports/list-print.blade.php`
+   (`App\Erp\Export\TabularRenderer`), plus the limousine driver queue's own
+   copy of that layout, `limousine::queue-print`. **This family was missed on
+   the first pass** and the owner found it immediately by printing a
+   quotations list: patching the eight documents does nothing for the list
+   exports, because they share no markup with them.
+3. **Reports** — `purchases::reorder-pdf`, `pos::daily-report-pdf`,
+   `pdf.payslip`, `pos::stock-report-print`.
+
+**When adding a new printable page, drop `<x-document-footer />` in and widen
+the `@page` bottom margin to 60px.** To find them all again:
+`grep -rn "Pdf::loadView" app Modules` — every PDF in the system is rendered
+from one of those call sites.
 
 | Concern | Location |
 |---|---|
 | The band | `resources/views/components/document-footer.blade.php` — an **anonymous Blade component** that reads its own data from `Setting`, so a host document just drops `<x-document-footer />` in and passes nothing |
+| DomPDF vs a browser | The band defaults to `fixed` (per page, what DomPDF wants). A page a **browser** prints passes **`:fixed="false"`** and gets an ordinary block after the last row instead — browsers disagree about whether a fixed element repeats per page, and on screen `bottom: -50px` sits below the window entirely. The two list views serve both a Print view and a PDF download from one template, so they pass `:fixed="$forPdf"` |
+| DomPDF renders as `screen`, not `print` | `default_media_type` is **`screen`**, so a `@media print { body { margin: 0 } }` block in a shared Print/PDF view does **not** apply to the PDF — the body margin lands on top of the `@page` margin there. DomPDF's own default `@page` margin is **`1.2cm`** (`vendor/dompdf/dompdf/lib/res/html.css`), so a view with no `@page` rule of its own takes `@page { margin: 1.2cm 1.2cm 60px; }` — top and sides unchanged, only the bottom grown |
 | Data | Five General settings, all **per database**: `company.phone` (hotline, printed first), `company.phone_alt` (free list — split on `, ; /`), `company.address`, `company.email`, `company.website`. `company.phone`/`company.email` were **already read** by the limousine PDF services but had **no `ir_config_parameter` row**, so they were unreachable from Settings and every footer printed the company name alone |
 | Rows created | `SettingSeeder` (new databases) **and** core migration `2026_09_07_100002_add_company_contact_settings` (existing ones) — insert-only, never touches a saved value. The migration is the one that matters: `SettingSeeder` runs against **Main only** on deploy, while `workspaces:migrate` carries a core migration into **every workspace** |
 | Repeats per page | `position: fixed; bottom: -50px` — that is how DomPDF repeats a band on every page. Each host reserves **60px** in its `@page` bottom margin. **Measured, not guessed** (a two-page probe rendered with DomPDF and read back through the PDF's own coordinates): band occupies y 7.5–38pt on **both** pages, lowest body text at y 62 — 24pt of clearance |
@@ -2414,22 +2434,29 @@ keeps them gone.
 
 Deliberately **not** given the band:
 
-- **`agreement-print.blade.php`** — an overlay of absolute mm positions onto
+- **`rental::agreement-print`** — an overlay of absolute mm positions onto
   pre-printed stationery. That paper has its own footer; ours would land on top
   of it.
-- **`queue-print.blade.php`** — the driver queue, an internal operations list,
-  not something a customer receives.
+- **`pos::receipt-pdf` and `pos::receipt-print`** — the till slip (a 360px-wide
+  roll, `@page margin: 0`) and its browser twin. A full-width grey band does not
+  belong on a receipt, and the slip already prints the shop's phone at the top.
+
+Both are pinned by `test_the_thermal_receipt_slip_is_left_alone`, so a later
+sweep doesn't "helpfully" add them. Everything else that renders a PDF or a
+print view **does** carry the band — including `queue-print`, which was on this
+exclusion list on the first pass and is now included.
 
 Wanaan's own values (workspace 7) are **data, not code**: hotline
 `+973 17474949`, plus `+973 39991869` and `+973 39991830`, at *Shop 4, Building
 18, Road 4101, Block 341, Juffair, Bahrain*. Any admin changes them in
 **Settings → General**, and every document follows on the next print.
 
-Tests: `tests/Feature/DocumentFooterTest.php` (9 — prints name/numbers/address/
+Tests: `tests/Feature/DocumentFooterTest.php` (12 - prints name/numbers/address/
 email, hotline first, separators, no empty band, a name on its own is not worth
-a band, one contact detail is enough, fixed positioning, all eight documents
-carry the tag **and** reserve the 60px margin, the old hardcoded address stays
-gone).
+a band, one contact detail is enough, fixed positioning, **all fourteen printable
+views carry the tag and reserve the 60px margin**, a list export prints the band
+under its rows, the browser-print variant lays it out in the flow, the till slip
+and the stationery overlay are left alone, the old hardcoded address stays gone).
 
 **Profile self-service (shipped 2026-05-21):**
 

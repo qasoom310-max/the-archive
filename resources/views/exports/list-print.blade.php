@@ -14,6 +14,7 @@
     <title>{{ $title }}</title>
     <style>
         * { box-sizing: border-box; }
+        @page { margin: 1.2cm 1.2cm 60px; }
         body { font-family: DejaVu Sans, sans-serif; font-size: 9px; color: #111827; margin: 16px; }
         h1 { font-size: 14px; margin: 0 0 2px; }
         .meta { font-size: 9px; color: #6b7280; margin-bottom: 10px; }
@@ -60,5 +61,7 @@
             </tbody>
         </table>
     @endif
+
+    <x-document-footer :fixed="$forPdf" />
 </body>
 </html>

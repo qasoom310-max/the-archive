@@ -135,7 +135,6 @@ final class WorkspaceLockTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Kaleem Manager')
             ->set('email', 'kmgr@erp.test')
-            ->set('password', 'password123')
             ->set('lockToWorkspace', true)
             ->set('lockWorkspaceId', $ws->id)
             ->call('save')
@@ -172,7 +171,6 @@ final class WorkspaceLockTest extends TestCase
                 ->assertViewHas('workspaceId', (int) $ws->id)
                 ->set('name', 'Inside User')
                 ->set('email', 'inside@abc.test')
-                ->set('password', 'password123')
                 ->call('save')
                 ->assertHasNoErrors();
 
@@ -228,7 +226,6 @@ final class WorkspaceLockTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Sneaky')
             ->set('email', 'sneaky@erp.test')
-            ->set('password', 'password123')
             ->set('lockToWorkspace', true)
             ->set('lockWorkspaceId', $ws->id)
             ->call('save')

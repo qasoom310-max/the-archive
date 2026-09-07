@@ -2308,7 +2308,8 @@ Consequences to keep in mind:
   from "what the admin typed" to "what we generated" (null on edit = keep).
 - The blade note under the two fields says what happens (create vs edit
   wording). `sm:grid-cols-3` → `sm:grid-cols-2`.
-- Tests: `UserManagerTest` — 22 `->set('password', …)` calls removed, the
+- Tests: `UserManagerTest` — 22 `->set('password', …)` calls removed (+4 more in
+  `ActivityLogTest` / `WorkspaceLockTest`, which CI caught first), the
   `password => min` assertion dropped, + 3 new (generated password is emailed
   on demand to the right address with the right name and actually signs in;
   the mail carries email/password/forgot-link/login action; editing never

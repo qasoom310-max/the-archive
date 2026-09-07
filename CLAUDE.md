@@ -2500,6 +2500,30 @@ constant `WANAAN_SO_VERSION` (currently 1.0.6). Structure:
 **Live since 2026-09-03 on Tap live keys.** The plugin is edited by re-uploading a freshly
 built ZIP in WP admin (there's no CI for `wp-plugin/`).
 
+**Ad calendar — when to advertise, from what actually sold (shipped 2026-09-07):**
+
+Admin-only page at **`/calendar`** (dashboard "Reports & Team" tile), one per
+database. Ads work when they run BEFORE demand, so for every selling window
+ahead it shows last year's takings for the SAME window and the date the ads
+must be live by. Built for Wanaan (Rental + Limousine) first; works in any
+database from whatever revenue sources it runs.
+
+| Concern | Location |
+|---|---|
+| Hijri engine | `App\Erp\Calendar\Hijri` — pure-PHP tabular (civil/"Kuwaiti") Gregorian⇄Hijri via Julian Day Numbers; **no `intl` dependency** (not guaranteed on the host). Round-trips exactly; sits within the usual ±1 day of the moon-sighting date, irrelevant to multi-day windows. `fromGregorian()` / `toGregorian()` / `daysInMonth()` |
+| Windows | `App\Erp\Calendar\EventWindow` (readonly VO: key, label, start, end, kind `islamic\|national\|custom\|closed`, country, `hijri` flag). **`lastYear()` shifts an Islamic window by a HIJRI year** — Eid last year lines up with Eid this year even though they're 11 days apart on the wall calendar. That one method is the "smart" part |
+| Known seasons | `App\Erp\Calendar\KnownEvents::between($from, $to, $markets)` — shared Islamic windows (Islamic New Year, Ashura, Mawlid, Isra & Mi'raj, Ramadan, Eid al-Fitr 1–4 Shawwal, Eid al-Adha 9–13 Dhu al-Hijjah; country `GCC`) plus **per-country national days** (`COUNTRIES`: BH/SA/KW/AE/QA/OM; Qatar Sports Day = 2nd Tuesday of Feb). A long weekend in Saudi/Kuwait/Qatar is a busy weekend in Bahrain, so a database picks which **markets** count |
+| Owner's own | `calendar_events` (core migration `2026_09_07_100001`, per database) + `App\Models\CalendarEvent` — name, dates, `kind` (`custom` = a season, `closed` = not operating), `recurs` (same Gregorian dates yearly). `windowsBetween()` projects recurring ones onto each year |
+| Sales | `App\Erp\Calendar\SalesHistory` — per-day revenue from `rental_orders` (start_date, not cancelled), `limo_bookings` (pickup_at, `amount`, not cancelled), `pos_orders` (ordered_at, Done). Sources = table exists AND `Features::moduleAllowed()`. `firstRecordDate()` — **days before the first sale, and closures, are "no data", never "no demand"**, so an imported history can't invent a dead season |
+| Planner | `App\Erp\Calendar\AdPlanner` — `heatmap()` (12-month day grid, five shades by quantile, event kinds per day, best/slowest month), `baseline()` (MEDIAN weekly revenue over 52 weeks, so Eid can't inflate "normal"), `plan()` (windows in the next `HORIZON_DAYS`=120: last-year revenue via `lastYear()`, uplift vs a normal week, per-app `launch.by` = start − lead days, status `overdue\|now\|live\|upcoming\|passed`), `unnamed()` (weeks ≥1.5× / ≤0.5× baseline with no known window — "name it"). **Rules per database** via settings `adcal.lead_days.{rental,limousine,pos}` (defaults 14/7/3) + `adcal.markets` (JSON, default `["BH","SA"]`); `SettingsPage::canSee()` hides `adcal.*` from the central page |
+| UI | `App\Livewire\Pages\AdCalendar` + `resources/views/livewire/pages/ad-calendar.blade.php` — KPI row, plan cards, heatmap (`dir="ltr"`, Fri–Sat underlined, hatched = no data), unnamed weeks, rules form, owner events CRUD modal. Route `/calendar` in core `routes/web.php` |
+| Tests | `tests/Feature/HijriCalendarTest.php` (11) · `tests/Feature/AdCalendarTest.php` (14 — incl. Eid-compared-with-last-Eid-by-Hijri-date, launch-by/overdue, closure = no data + excluded from baseline, unnamed peak) |
+
+**Not built yet (v2):** overlaying actual Google/Meta ad spend by date (the ads
+accounts are connected via MCP, not the app) so campaigns can be judged against the
+sales they moved; per-country Eid lengths (the shared Islamic window covers the
+longest official break); Saudi school holidays (variable, add as owner events).
+
 ---
 
 ## 6. Known Environment Caveats

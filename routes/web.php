@@ -114,6 +114,10 @@ Route::middleware('auth')->group(function (): void {
     // Admin-only audit trail (topbar activity icon). Component gates on admin.
     Route::get('/activity', ActivityLog::class)->name('activity');
 
+    // Admin-only ad calendar: last year's sales as a heatmap, the selling
+    // windows ahead, and when the ads must be live. Component gates on admin.
+    Route::get('/calendar', \App\Livewire\Pages\AdCalendar::class)->name('calendar');
+
     // Admin-only database-backup download (the list + restore UI lives in the
     // Activity Log page). Before the /app/{module} wildcard so it isn't shadowed.
     Route::get('/app/backups/download', \App\Http\Controllers\BackupDownloadController::class)->name('backups.download');

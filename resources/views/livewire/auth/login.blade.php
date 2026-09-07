@@ -1,4 +1,10 @@
 <form wire:submit="login" class="space-y-4">
+    @if (session('status'))
+        <p class="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200">
+            {{ session('status') }}
+        </p>
+    @endif
+
     <div>
         <h2 class="text-lg font-semibold text-chrome-900">{{ __('Sign in') }}</h2>
         <p class="text-sm text-chrome-500">{{ __('Use your OpenERP credentials.') }}</p>
@@ -29,11 +35,18 @@
         @error('password') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
     </div>
 
-    <label class="flex items-center gap-2 text-sm text-chrome-600">
-        <input type="checkbox" wire:model="remember"
-            class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
-        {{ __('Remember me') }}
-    </label>
+    <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <label class="flex items-center gap-2 text-sm text-chrome-600">
+            <input type="checkbox" wire:model="remember"
+                class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
+            {{ __('Remember me') }}
+        </label>
+
+        <a href="{{ route('password.request') }}" wire:navigate
+            class="text-sm font-medium text-primary-700 hover:text-primary-800 hover:underline">
+            {{ __('Forgot your password?') }}
+        </a>
+    </div>
 
     <button type="submit" class="o-btn-primary w-full justify-center">
         <span wire:loading.remove wire:target="login">{{ __('Sign in') }}</span>

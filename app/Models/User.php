@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Models\Auth\Group;
 use App\Models\Workspace;
+use App\Notifications\ResetPasswordLink;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -103,6 +104,17 @@ final class User extends Authenticatable
     public function isAccountant(): bool
     {
         return ($this->getAttribute('is_accountant') ?? false) === true;
+    }
+
+    /**
+     * Send the "set a new password" link with our own translated mail
+     * instead of Laravel's stock English one.
+     *
+     * @param  string  $token
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordLink((string) $token));
     }
 
     /**

@@ -2229,6 +2229,56 @@ the tab, a segmented sun/moon/monitor control). It's a **per-user** preference
 
 Scope note: the **guest/login page stays light** (pre-auth, no user row) — dark mode is the authenticated app only. The **accent** likewise applies to the authenticated app only (login/receipts stay brand yellow). The brand **logo/favicon SVGs are not recoloured** by the accent (they're fixed assets). Coverage is broad (neutral surfaces/text/inputs/chrome across every screen), but bright *tinted* banners (`bg-emerald-50` etc.) and any bespoke non-chrome colours aren't remapped — refine per-screen if needed. To retune the palette, edit the values in the `.dark` block; to add a spot that needs hand-tuning, use a `dark:` Tailwind variant (now enabled).
 
+**Forgotten password — self-service reset by email (shipped 2026-09-05):**
+
+A **"Forgot your password?"** link on the login card (beside Remember me) so a
+locked-out user gets back in without an admin. Email a link → set a new
+password → sign in. Uses Laravel's stock password broker (the
+`password_reset_tokens` table already ships in `0001_01_01_000000_create_users_table`
+and `config/auth.php` already declares the `users` broker — no migration, no config).
+
+| Concern | Location |
+|---|---|
+| Request screen | `App\Livewire\Auth\ForgotPassword` (`/forgot-password`, route `password.request`, **guest** group) + `resources/views/livewire/auth/forgot-password.blade.php`. Takes an email, calls `Password::broker()->sendResetLink()`, then swaps the form for a "Check your email" notice (`$sent`) |
+| Reset screen | `App\Livewire\Auth\ResetPassword` (`/reset-password/{token}`, route `password.reset`, **guest** group) + `reset-password.blade.php`. `mount(string $token, ?string $email)`; `Password::broker()->reset()` rehashes and rotates `remember_token`, fires `PasswordReset`, flashes to `session('status')` and redirects to `/login` (the login view renders that flash in an emerald pill) |
+| Mail | `App\Notifications\ResetPasswordLink` — **deliberately NOT queued** (a person is waiting at the sign-in screen, and the queue only drains when the host's minute cron fires — same reasoning as `TwoFactorGate`'s OTP; memory `[[hostinger-cron-needed-for-queue-worker]]`). `User::sendPasswordResetNotification()` overrides Laravel's stock English mail with this translated one. **Sends through whatever `.env` configures** — prod is Hostinger SMTP (`[[prod-mail-transport-environment-specific]]`); with no SMTP the link silently never arrives |
+
+**Why the workspace layer needs no special handling here.** Both routes are in
+the **guest** group, and `SetActiveWorkspace` short-circuits an unauthenticated
+request (`if (! Auth::check()) return $next($request);`) — so a reset always
+reads and writes **Main**, the canonical identity store, which is the same row
+`Login` authenticates against. A workspace-created account's real row lives in
+its tenant DB, but only its **Main login shell** holds the password that signs
+in, so rewriting Main is both correct and sufficient. This is the opposite of
+the email-verification route's problem (that one is open to guests *and* needed
+a `ws` parameter because it edits a per-database record).
+
+Deliberate choices, don't "fix" them:
+
+- **The reply never says whether the address exists.** A hit and a miss both
+  render "Check your email"; only a genuine throttle (`RESET_THROTTLED`) or a
+  malformed address shows an error. A different message on a hit would turn the
+  box into a way of asking "does this person have an account here?".
+- **Two throttles.** The broker's own `'throttle' => 60` (config/auth.php) stops
+  one mailbox being flooded; a `RateLimiter` keyed on the visitor's IP (5 per
+  5 minutes) stops one visitor working through a list of addresses.
+- **`$token` and `$email` are `#[Locked]`** on `ResetPassword` — they identify
+  the account being rewritten, and Livewire lets the browser set any unlocked
+  public property (the engine-hardening rule from 2026-08-24 applies here too).
+- **Printable-ASCII only** on the new password (`regex:/^[\x20-\x7E]*$/` +
+  the `beforeinput` filter and `<x-password-ascii-notice />` from the profile
+  screen), so a password stays typeable on a keyboard set to any language.
+- **Username-only staff (POS cashiers) have no email**, so they cannot use this
+  — an admin still resets them from Settings → Users, or via
+  `EnsureStaffUserCommand`. That is not a bug; it is what a null email means.
+
+Tests: `tests/Feature/PasswordResetTest.php` (13 — link on the login screen,
+send emails the account, unknown address looks identical, malformed address
+refused, the emailed URL carries token + email, reset changes the password and
+kills the old one, a token is single-use, a forged token changes nothing,
+confirmation + length enforced, non-ASCII refused, `#[Locked]` binding, IP rate
+limit, signed-in users bounced). 20 `lang/ar.json` keys added.
+
 **Profile self-service (shipped 2026-05-21):**
 
 | Concern | Location |

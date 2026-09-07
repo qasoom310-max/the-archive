@@ -8,7 +8,9 @@ use App\Http\Controllers\PayslipPdfController;
 use App\Http\Controllers\ProfileEmailVerificationController;
 use App\Http\Controllers\ChooseWorkspaceController;
 use App\Http\Controllers\SwitchWorkspaceController;
+use App\Livewire\Auth\ForgotPassword;
 use App\Livewire\Auth\Login;
+use App\Livewire\Auth\ResetPassword;
 use App\Livewire\Pages\ActivityLog;
 use App\Livewire\Pages\AppFeatureSettings;
 use App\Livewire\Pages\DailySummary;
@@ -29,6 +31,13 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', Login::class)->name('login');
+
+    // Locked out: ask for a reset link, then set the new password from it.
+    // Guests always run against MAIN (SetActiveWorkspace short-circuits an
+    // unauthenticated request), which is the database login authenticates
+    // against - so the password rewritten here is the one that signs in.
+    Route::get('/forgot-password', ForgotPassword::class)->name('password.request');
+    Route::get('/reset-password/{token}', ResetPassword::class)->name('password.reset');
 });
 
 Route::post('/logout', function (): RedirectResponse {

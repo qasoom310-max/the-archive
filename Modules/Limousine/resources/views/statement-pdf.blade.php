@@ -23,6 +23,10 @@
         .ledger th { border-bottom: 2px solid #111; text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: .4px; }
         .ledger td { border-bottom: 1px solid #eee; }
         .num { text-align: right; white-space: nowrap; }
+        /* `.ledger th` is the more specific selector, so without this the
+           money HEADINGS stayed left-aligned over right-aligned figures and
+           no column read as a column. */
+        .ledger th.num { text-align: right; }
         .open td { background: #f4f4f4; font-weight: bold; }
         .close td { border-top: 2px solid #111; font-weight: bold; font-size: 11.5px; }
         .owed { color: #b00020; }
@@ -63,20 +67,23 @@
 
 <table class="ledger" style="margin-top:14px">
     <tr>
-        <th style="width:74px">{{ __('Date') }}</th>
-        <th style="width:82px">{{ __('Reference') }}</th>
+        <th style="width:60px">{{ __('Date') }}</th>
+        <th style="width:68px">{{ __('Reference') }}</th>
         <th>{{ __('Description') }}</th>
+        {{-- The customer's own order number, so their accounts department can
+             tie each line to their paperwork rather than only to ours. --}}
+        <th style="width:100px">{{ __('Company ref.') }}</th>
         {{-- The number the customer quotes back when they query a payment. --}}
-        <th style="width:82px">{{ __('Receipt no.') }}</th>
-        <th class="num" style="width:78px">{{ __('Charge') }}</th>
-        <th class="num" style="width:78px">{{ __('Payment') }}</th>
-        <th class="num" style="width:84px">{{ __('Balance') }}</th>
+        <th style="width:86px">{{ __('Receipt no.') }}</th>
+        <th class="num" style="width:72px">{{ __('Charge') }}</th>
+        <th class="num" style="width:72px">{{ __('Payment') }}</th>
+        <th class="num" style="width:80px">{{ __('Balance') }}</th>
     </tr>
 
     {{-- Without this a statement for one month would read as though the
          account opened that morning at zero. --}}
     <tr class="open">
-        <td colspan="6">{{ __('Balance brought forward') }}</td>
+        <td colspan="7">{{ __('Balance brought forward') }}</td>
         <td class="num">{{ \App\Erp\Views\ValueFormat::money($opening) }}</td>
     </tr>
 
@@ -85,17 +92,18 @@
             <td>{{ $line['date']?->isoFormat('DD-MMM-YY') }}</td>
             <td>{{ $line['reference'] }}</td>
             <td>{{ $line['description'] }}@if ($line['method'] !== '') · {{ $line['method'] }}@endif</td>
+            <td>{{ $line['company_reference'] }}</td>
             <td>{{ $line['receipt'] }}</td>
             <td class="num">@if ($line['charge'] > 0){{ \App\Erp\Views\ValueFormat::money($line['charge']) }}@endif</td>
             <td class="num settled">@if ($line['payment'] > 0){{ \App\Erp\Views\ValueFormat::money($line['payment']) }}@endif</td>
             <td class="num">{{ \App\Erp\Views\ValueFormat::money($line['balance']) }}</td>
         </tr>
     @empty
-        <tr><td colspan="7" style="padding:16px 4px; text-align:center" class="muted">{{ __('Nothing on this account for the period.') }}</td></tr>
+        <tr><td colspan="8" style="padding:16px 4px; text-align:center" class="muted">{{ __('Nothing on this account for the period.') }}</td></tr>
     @endforelse
 
     <tr class="close">
-        <td colspan="4">{{ __('Closing balance') }}</td>
+        <td colspan="5">{{ __('Closing balance') }}</td>
         <td class="num">{{ \App\Erp\Views\ValueFormat::money($charged) }}</td>
         <td class="num">{{ \App\Erp\Views\ValueFormat::money($paid) }}</td>
         <td class="num {{ $closing > 0 ? 'owed' : 'settled' }}">{{ \App\Erp\Views\ValueFormat::money($closing) }}</td>

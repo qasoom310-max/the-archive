@@ -88,6 +88,88 @@ final class LimoStatementTest extends TestCase
         $this->assertSame('Cash', $payment['method']);
     }
 
+    public function test_every_line_carries_the_customers_own_reference(): void
+    {
+        // Their accounts department reconciles against THEIR order number, not
+        // ours — and a payment must show the same one as the bill it answers,
+        // or a page of receipts cannot be traced back to anything.
+        $customer = $this->company();
+        $trip = $this->trip($customer, fare: 400, date: '2026-06-10');
+        $trip->forceFill(['company_reference' => 'PO-88231'])->save();
+
+        app(BookingPayments::class)->receive($trip, 150, 'cash');
+
+        $lines = collect(app(LimoStatement::class)->build($customer)['lines']);
+
+        $charge = $lines->firstWhere('charge', '>', 0);
+        $payment = $lines->firstWhere('payment', '>', 0);
+
+        $this->assertSame('PO-88231', $charge['company_reference']);
+        $this->assertSame('PO-88231', $payment['company_reference']);
+    }
+
+    public function test_the_statement_prints_the_company_reference_column(): void
+    {
+        $customer = $this->company();
+        $trip = $this->trip($customer, fare: 400, date: '2026-06-10');
+        $trip->forceFill(['company_reference' => 'PO-88231'])->save();
+
+        $statement = app(LimoStatement::class);
+        $html = view('limousine::statement-pdf', $statement->build($customer))->render();
+
+        $this->assertStringContainsString('Company ref.', $html);
+        $this->assertStringContainsString('PO-88231', $html);
+    }
+
+    public function test_the_money_headings_sit_over_their_figures(): void
+    {
+        // `.ledger th` out-specifies `.num`, so the Charge / Payment / Balance
+        // headings printed hard left while the figures under them were right
+        // aligned, and no column read as a column.
+        $source = (string) file_get_contents(base_path('Modules/Limousine/resources/views/statement-pdf.blade.php'));
+
+        $this->assertStringContainsString('.ledger th.num { text-align: right; }', $source);
+    }
+
+    public function test_the_ledger_rows_all_hold_the_same_number_of_columns(): void
+    {
+        // A wrong colspan on the brought-forward or closing row shunts every
+        // figure one column sideways, which is how a statement starts lying.
+        $customer = $this->company();
+        $this->trip($customer, fare: 400, date: '2026-06-10');
+
+        $html = view('limousine::statement-pdf', app(LimoStatement::class)->build($customer))->render();
+
+        $doc = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $doc->loadHTML($html);
+        libxml_clear_errors();
+
+        $ledger = null;
+        foreach ($doc->getElementsByTagName('table') as $table) {
+            if (str_contains((string) $table->getAttribute('class'), 'ledger')) {
+                $ledger = $table;
+                break;
+            }
+        }
+        $this->assertNotNull($ledger);
+
+        $widths = [];
+        foreach ($ledger->getElementsByTagName('tr') as $row) {
+            $span = 0;
+            foreach ($row->childNodes as $cell) {
+                if (! $cell instanceof \DOMElement || ! in_array($cell->tagName, ['td', 'th'], true)) {
+                    continue;
+                }
+                $span += max(1, (int) $cell->getAttribute('colspan'));
+            }
+            $widths[] = $span;
+        }
+
+        $this->assertNotEmpty($widths);
+        $this->assertSame([8], array_values(array_unique($widths)), 'Every row must span the same eight columns.');
+    }
+
     public function test_a_range_starts_from_what_was_already_owed(): void
     {
         $customer = $this->company();

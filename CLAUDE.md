@@ -2386,6 +2386,41 @@ had "given her access to all databases".
 edits a shared account from inside a workspace must stay on that side of the
 line.
 
+**Statement of account — company reference + column alignment (shipped 2026-09-07):**
+
+The owner marked up a printed statement. Two things, both in
+`limousine::statement-pdf` and `LimoStatement`:
+
+- **A "Company ref." column**, between Description and Receipt no. — the
+  customer's own order number (`limo_bookings.company_reference`, the same
+  field and the same label the combined invoice already prints), so their
+  accounts department can tie a line to **their** paperwork and not only to
+  ours. A **payment** row shows the reference of the bill it answers
+  (`receipt.invoice.booking`, falling back to the receipt's own booking) —
+  otherwise a page of receipts traces back to nothing. The nested eager load
+  needs the FK selected: `invoice:id,reference,booking_id` **plus**
+  `invoice.booking:id,reference,company_reference`.
+- **The money headings were left-aligned over right-aligned figures.**
+  `.ledger th` (0,0,1,1) out-specifies `.num` (0,0,1,0), so Charge / Payment /
+  Balance printed hard against their columns' left edge while the figures under
+  them sat right — measured at **19.8 / 24.0 / 13.3pt adrift**. Fixed with
+  `.ledger th.num { text-align: right; }`. **Watch this whenever a `.num`-style
+  utility meets an element-qualified table rule** — the utility silently loses.
+
+Column widths were then rebalanced (date 60 · reference 68 · description auto ·
+company ref. 100 · receipt 86 · charge 72 · payment 72 · balance 80) because at
+the first attempt "COMPANY REF." wrapped to a second line, and at the second
+"RECEIPT NO." did. Both were found by **rendering the PDF and reading the text
+placements back out of its content streams** — DomPDF writes **UTF-16BE**, so
+the "spaces" between letters in a `TJ` array are NUL bytes; strip `\x00` before
+matching, or every needle misses.
+
+Tests: `LimoStatementTest` (+4 — every line carries the customer's reference and
+a payment shows the bill's, the column prints, the heading rule is present, and
+**every ledger row spans the same eight columns** — a wrong `colspan` on the
+brought-forward or closing row shunts every figure sideways, which is how a
+statement starts lying).
+
 **One footer band on every printed page (shipped 2026-09-07):**
 
 Every page the system prints carries the same grey band: company name + phone

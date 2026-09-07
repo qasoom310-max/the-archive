@@ -35,14 +35,22 @@ final class LimoStatement
         $toDate = $to !== '' ? Carbon::parse($to)->endOfDay() : null;
 
         $invoices = LimoInvoice::query()
-            ->with(['booking:id,reference'])
+            ->with(['booking:id,reference,company_reference'])
             ->where('customer_id', $customer->id)
             ->orderBy('issue_date')
             ->orderBy('id')
             ->get();
 
+        // A payment shows the same company reference as the bill it answers,
+        // so a row of receipts can be traced back to the customer's own order
+        // number — hence `invoice.booking` as well as the receipt's own
+        // booking. Nested eager loading needs the foreign key selected too.
         $receipts = LimoReceipt::query()
-            ->with(['booking:id,reference', 'invoice:id,reference'])
+            ->with([
+                'booking:id,reference,company_reference',
+                'invoice:id,reference,booking_id',
+                'invoice.booking:id,reference,company_reference',
+            ])
             ->where('customer_id', $customer->id)
             ->orderBy('date')
             ->orderBy('id')
@@ -67,6 +75,9 @@ final class LimoStatement
                 'date' => $invoice->issue_date,
                 'sort' => [$invoice->issue_date->timestamp ?? 0, 0, (int) $invoice->id],
                 'reference' => (string) ($invoice->reference ?? ''),
+                // The customer's own order number for the trip, so their
+                // accounts department can match the line to their paperwork.
+                'company_reference' => (string) ($invoice->booking->company_reference ?? ''),
                 'description' => $this->describe($invoice),
                 'charge' => round((float) $invoice->total, 3),
                 'payment' => 0.0,
@@ -86,6 +97,11 @@ final class LimoStatement
                 // bill, so a statement that pays before it charges reads wrong.
                 'sort' => [$receipt->date->timestamp ?? 0, 1, (int) $receipt->id],
                 'reference' => (string) ($receipt->invoice->reference ?? ''),
+                'company_reference' => (string) (
+                    $receipt->invoice->booking->company_reference
+                    ?? $receipt->booking->company_reference
+                    ?? ''
+                ),
                 'description' => __('Payment received'),
                 'charge' => 0.0,
                 'payment' => round((float) $receipt->amount, 3),

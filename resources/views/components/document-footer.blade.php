@@ -35,7 +35,12 @@
     $contact = array_values(array_filter([$companyEmail, $companyWebsite], static fn (string $v): bool => $v !== ''));
 @endphp
 
-@if ($companyName !== '' || $phones !== [] || $companyAddress !== '' || $contact !== [])
+{{-- A company NAME alone is not worth a grey bar — every document already
+     prints it in the header, and an unconfigured database still carries the
+     "OpenERP" default, which would put a stranger's name on someone's
+     invoice. The band is for contact details, so it prints only when this
+     database has some. --}}
+@if ($phones !== [] || $companyAddress !== '' || $contact !== [])
     <style>
         .doc-footer {
             position: fixed;

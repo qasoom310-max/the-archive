@@ -2400,7 +2400,7 @@ the owner, who supplied Wanaan's numbers and its new Juffair address.
 | Data | Five General settings, all **per database**: `company.phone` (hotline, printed first), `company.phone_alt` (free list — split on `, ; /`), `company.address`, `company.email`, `company.website`. `company.phone`/`company.email` were **already read** by the limousine PDF services but had **no `ir_config_parameter` row**, so they were unreachable from Settings and every footer printed the company name alone |
 | Rows created | `SettingSeeder` (new databases) **and** core migration `2026_09_07_100002_add_company_contact_settings` (existing ones) — insert-only, never touches a saved value. The migration is the one that matters: `SettingSeeder` runs against **Main only** on deploy, while `workspaces:migrate` carries a core migration into **every workspace** |
 | Repeats per page | `position: fixed; bottom: -50px` — that is how DomPDF repeats a band on every page. Each host reserves **60px** in its `@page` bottom margin. **Measured, not guessed** (a two-page probe rendered with DomPDF and read back through the PDF's own coordinates): band occupies y 7.5–38pt on **both** pages, lowest body text at y 62 — 24pt of clearance |
-| Empty databases | The whole band is wrapped in a "has anything to say" guard, so a database with no contact details prints **no blank grey bar** |
+| Empty databases | The band prints only when this database has **at least one contact detail** (a phone, address, email or website). A company **name alone is deliberately not enough** — every document already prints the name in its header, and an unconfigured database still answers the `"OpenERP"` default, which would put a stranger's name on the foot of a real customer's invoice (Hashtag Limo's live database does exactly that). So an unconfigured business gets **no grey bar at all** |
 
 **Never hardcode an address or a number in these views.** `Modules/Rental` and
 `Modules/Limousine` are shared by every business on the system, so anything
@@ -2425,10 +2425,11 @@ Wanaan's own values (workspace 7) are **data, not code**: hotline
 18, Road 4101, Block 341, Juffair, Bahrain*. Any admin changes them in
 **Settings → General**, and every document follows on the next print.
 
-Tests: `tests/Feature/DocumentFooterTest.php` (8 — prints name/numbers/address/
-email, hotline first, separators, no empty band, fixed positioning, all eight
-documents carry the tag **and** reserve the 60px margin, the old hardcoded
-address stays gone).
+Tests: `tests/Feature/DocumentFooterTest.php` (9 — prints name/numbers/address/
+email, hotline first, separators, no empty band, a name on its own is not worth
+a band, one contact detail is enough, fixed positioning, all eight documents
+carry the tag **and** reserve the 60px margin, the old hardcoded address stays
+gone).
 
 **Profile self-service (shipped 2026-05-21):**
 

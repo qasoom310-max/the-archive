@@ -96,6 +96,38 @@ final class DocumentFooterTest extends TestCase
         $this->assertStringNotContainsString('doc-footer', $this->footer());
     }
 
+    public function test_a_name_on_its_own_is_not_worth_a_band(): void
+    {
+        // Every document already prints the company name in its header, and a
+        // database nobody has configured still answers "OpenERP" — which would
+        // put a stranger's name on the foot of a real customer's invoice.
+        Setting::set('company.name', 'OpenERP');
+        Setting::set('company.phone', '');
+        Setting::set('company.phone_alt', '');
+        Setting::set('company.address', '');
+        Setting::set('company.email', '');
+        Setting::set('company.website', '');
+        app(SettingManager::class)->flush();
+
+        $this->assertStringNotContainsString('doc-footer', $this->footer());
+    }
+
+    public function test_one_contact_detail_is_enough_to_print_it(): void
+    {
+        Setting::set('company.name', 'Hashtag Limo');
+        Setting::set('company.phone', '');
+        Setting::set('company.phone_alt', '');
+        Setting::set('company.address', 'Manama, Bahrain');
+        Setting::set('company.email', '');
+        Setting::set('company.website', '');
+        app(SettingManager::class)->flush();
+
+        $html = $this->footer();
+        $this->assertStringContainsString('doc-footer', $html);
+        $this->assertStringContainsString('Hashtag Limo', $html);
+        $this->assertStringContainsString('Manama, Bahrain', $html);
+    }
+
     public function test_it_repeats_on_every_page_and_stays_out_of_the_body(): void
     {
         // `position: fixed` is what makes DomPDF repeat it per page; the host

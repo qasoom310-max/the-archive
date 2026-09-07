@@ -42,6 +42,19 @@
     ));
 
     $contact = array_values(array_filter([$companyEmail, $companyWebsite], static fn (string $v): bool => $v !== ''));
+
+    // The registration numbers a customer's accounts department needs off a
+    // receipt to claim the VAT and to file the invoice against a real trader.
+    $vatNumber = trim((string) \App\Erp\Settings\Setting::get('company.vat_number', ''));
+    $crNumber = trim((string) \App\Erp\Settings\Setting::get('company.cr_number', ''));
+
+    $registrations = [];
+    if ($vatNumber !== '') {
+        $registrations[] = __('VAT No.') . ': ' . $vatNumber;
+    }
+    if ($crNumber !== '') {
+        $registrations[] = __('CR No.') . ': ' . $crNumber;
+    }
 @endphp
 
 {{-- A company NAME alone is not worth a grey bar — every document already
@@ -49,7 +62,7 @@
      "OpenERP" default, which would put a stranger's name on someone's
      invoice. The band is for contact details, so it prints only when this
      database has some. --}}
-@if ($phones !== [] || $companyAddress !== '' || $contact !== [])
+@if ($phones !== [] || $companyAddress !== '' || $contact !== [] || $registrations !== [])
     <style>
         .doc-footer {
             font-size: 8.5px;
@@ -96,6 +109,10 @@
                     @endif
                     @if ($phones !== [])
                         {{ __('Hotline') }}: {{ implode('  ·  ', $phones) }}
+                    @endif
+                    @if ($registrations !== [])
+                        @if ($companyName !== '' || $phones !== [])<br>@endif
+                        <span class="doc-footer-soft">{{ implode('  ·  ', $registrations) }}</span>
                     @endif
                 </td>
                 <td class="doc-footer-end">

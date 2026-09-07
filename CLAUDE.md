@@ -2421,6 +2421,16 @@ a payment shows the bill's, the column prints, the heading rule is present, and
 brought-forward or closing row shunts every figure sideways, which is how a
 statement starts lying).
 
+**The limousine receipt is stamped, not counter-signed (shipped 2026-09-07):**
+
+`limousine::receipt-pdf`'s second signature slot said **"Customer signature"**;
+it now says **"Stamp"**. A receipt is our acknowledgement that the money
+arrived — the customer is not attesting to anything by being paid up, and the
+office stamps these, exactly as the old printed pad did. The **rental
+agreement keeps its "Customer signature"**: that one is a contract, and the
+customer really is signing it. Pinned by
+`LimoReceiptDocumentTest::test_the_second_slot_is_the_company_stamp_not_a_customer_signature`.
+
 **One footer band on every printed page (shipped 2026-09-07):**
 
 Every page the system prints carries the same grey band: company name + phone
@@ -2452,7 +2462,8 @@ from one of those call sites.
 | The band | `resources/views/components/document-footer.blade.php` — an **anonymous Blade component** that reads its own data from `Setting`, so a host document just drops `<x-document-footer />` in and passes nothing |
 | DomPDF vs a browser | The band defaults to `fixed` (per page, what DomPDF wants). A page a **browser** prints passes **`:fixed="false"`** and gets an ordinary block after the last row instead — browsers disagree about whether a fixed element repeats per page, and on screen `bottom: -50px` sits below the window entirely. The two list views serve both a Print view and a PDF download from one template, so they pass `:fixed="$forPdf"` |
 | DomPDF renders as `screen`, not `print` | `default_media_type` is **`screen`**, so a `@media print { body { margin: 0 } }` block in a shared Print/PDF view does **not** apply to the PDF — the body margin lands on top of the `@page` margin there. DomPDF's own default `@page` margin is **`1.2cm`** (`vendor/dompdf/dompdf/lib/res/html.css`), so a view with no `@page` rule of its own takes `@page { margin: 1.2cm 1.2cm 60px; }` — top and sides unchanged, only the bottom grown |
-| Data | Five General settings, all **per database**: `company.phone` (hotline, printed first), `company.phone_alt` (free list — split on `, ; /`), `company.address`, `company.email`, `company.website`. `company.phone`/`company.email` were **already read** by the limousine PDF services but had **no `ir_config_parameter` row**, so they were unreachable from Settings and every footer printed the company name alone |
+| Data | Seven General settings, all **per database**: `company.phone` (hotline, printed first), `company.phone_alt` (free list — split on `, ; /`), `company.address`, `company.email`, `company.website`, and — added 2026-09-07 from the owner's old pre-printed rental receipt — `company.vat_number` and `company.cr_number` (migration `2026_09_07_100003`). `company.phone`/`company.email` were **already read** by the limousine PDF services but had **no `ir_config_parameter` row**, so they were unreachable from Settings and every footer printed the company name alone |
+| Layout | Left cell: company name, then `Hotline: …` with every number, then `VAT No.: … · CR No.: …`. Right cell (right-aligned): address, then email / website. That mirrors the pre-printed pad the office used to fill in by hand |
 | Rows created | `SettingSeeder` (new databases) **and** core migration `2026_09_07_100002_add_company_contact_settings` (existing ones) — insert-only, never touches a saved value. The migration is the one that matters: `SettingSeeder` runs against **Main only** on deploy, while `workspaces:migrate` carries a core migration into **every workspace** |
 | Repeats per page | `position: fixed; bottom: -50px` — that is how DomPDF repeats a band on every page. Each host reserves **60px** in its `@page` bottom margin. **Measured, not guessed** (a two-page probe rendered with DomPDF and read back through the PDF's own coordinates): band occupies y 7.5–38pt on **both** pages, lowest body text at y 62 — 24pt of clearance |
 | Empty databases | The band prints only when this database has **at least one contact detail** (a phone, address, email or website). A company **name alone is deliberately not enough** — every document already prints the name in its header, and an unconfigured database still answers the `"OpenERP"` default, which would put a stranger's name on the foot of a real customer's invoice (Hashtag Limo's live database does exactly that). So an unconfigured business gets **no grey bar at all** |

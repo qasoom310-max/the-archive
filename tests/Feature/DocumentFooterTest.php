@@ -117,6 +117,39 @@ final class DocumentFooterTest extends TestCase
         $this->assertStringNotContainsString('doc-footer', $this->footer());
     }
 
+    public function test_it_prints_the_trading_registrations(): void
+    {
+        // A customer's accounts department needs both off the paperwork: the
+        // VAT number to reclaim the tax, the CR number to file the document
+        // against a registered trader.
+        $this->configure('+973 17474949', '', 'Juffair');
+        Setting::set('company.vat_number', '220015215500002');
+        Setting::set('company.cr_number', '135164-1');
+        app(SettingManager::class)->flush();
+
+        $html = $this->footer();
+
+        $this->assertStringContainsString('VAT No.', $html);
+        $this->assertStringContainsString('220015215500002', $html);
+        $this->assertStringContainsString('CR No.', $html);
+        $this->assertStringContainsString('135164-1', $html);
+    }
+
+    public function test_a_registration_on_its_own_is_enough_to_print_the_band(): void
+    {
+        Setting::set('company.name', 'Wanaan Car Rental W.L.L');
+        Setting::set('company.phone', '');
+        Setting::set('company.phone_alt', '');
+        Setting::set('company.address', '');
+        Setting::set('company.email', '');
+        Setting::set('company.website', '');
+        Setting::set('company.vat_number', '220015215500002');
+        Setting::set('company.cr_number', '');
+        app(SettingManager::class)->flush();
+
+        $this->assertStringContainsString('220015215500002', $this->footer());
+    }
+
     public function test_a_name_on_its_own_is_not_worth_a_band(): void
     {
         // Every document already prints the company name in its header, and a

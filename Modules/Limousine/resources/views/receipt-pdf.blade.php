@@ -97,7 +97,10 @@
 <table class="sign">
     <tr>
         <td style="width:50%">{{ __('Received by') }}</td>
-        <td style="width:50%">{{ __('Customer signature') }}</td>
+        {{-- A receipt is our acknowledgement that the money arrived, so the
+             second slot is the company stamp, not the customer's signature —
+             the customer is not attesting to anything by being paid up. --}}
+        <td style="width:50%">{{ __('Stamp') }}</td>
     </tr>
 </table>
 

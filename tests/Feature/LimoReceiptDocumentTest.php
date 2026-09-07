@@ -82,6 +82,17 @@ final class LimoReceiptDocumentTest extends TestCase
         $this->assertEqualsWithDelta(20.0, $data['balance'], 0.001);
     }
 
+    public function test_the_second_slot_is_the_company_stamp_not_a_customer_signature(): void
+    {
+        // A receipt is our acknowledgement that the money arrived. The
+        // customer is not attesting to anything by being paid up, and the
+        // office stamps these — which is what the old printed pad did too.
+        $html = view('limousine::receipt-pdf', app(LimoReceiptPdf::class)->viewData($this->receipt()))->render();
+
+        $this->assertStringContainsString('Stamp', $html);
+        $this->assertStringNotContainsString('Customer signature', $html);
+    }
+
     public function test_the_balance_is_read_from_the_receipt_not_recomputed(): void
     {
         $receipt = $this->receipt(amount: 40, balance: 20);

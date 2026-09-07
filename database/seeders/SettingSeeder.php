@@ -60,6 +60,8 @@ final class SettingSeeder extends Seeder
             ['key' => 'company.address', 'label' => 'Address', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 23, 'description' => 'Printed on the right of the footer of every document.'],
             ['key' => 'company.email', 'label' => 'Email', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 24, 'description' => 'Printed in the footer of every document.'],
             ['key' => 'company.website', 'label' => 'Website', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 25, 'description' => 'Printed in the footer of every document.'],
+            ['key' => 'company.vat_number', 'label' => 'VAT number', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 26, 'description' => 'Printed in the footer of every document, so a customer can reclaim the tax.'],
+            ['key' => 'company.cr_number', 'label' => 'CR number', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 27, 'description' => 'Commercial registration number, printed in the footer of every document.'],
             ['key' => 'company.timezone', 'label' => 'Timezone', 'type' => 'string', 'group' => 'General', 'default' => 'UTC', 'sort' => 30, 'description' => null],
             ['key' => 'company.language', 'label' => 'Language', 'type' => 'string', 'group' => 'General', 'default' => 'en', 'sort' => 40, 'description' => 'Default language for the system.'],
             // Terms & conditions printed on the rental Car Hire Agreement PDF

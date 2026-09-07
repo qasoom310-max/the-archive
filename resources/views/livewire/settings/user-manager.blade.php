@@ -1,10 +1,16 @@
 <div class="space-y-6">
     <div>
         <h2 class="text-sm font-semibold text-chrome-800">
-            {{ $editingId ? __('Edit user') : __('Add user') }}
+            @if ($editingGlobal)
+                {{ __('Edit app access') }}
+            @else
+                {{ $editingId ? __('Edit user') : __('Add user') }}
+            @endif
         </h2>
         <p class="mt-1 text-sm text-chrome-500">
-            @if ($workspaceId)
+            @if ($editingGlobal)
+                {{ __('This account is shared with every database. Only what it can see HERE is set on this screen.') }}
+            @elseif ($workspaceId)
                 {{ __('Create an account for this database and choose which apps it can see.') }}
             @else
                 {{ __('Create a staff account and choose which apps and databases they can see (view only).') }}
@@ -18,7 +24,7 @@
         </p>
     @endif
 
-    @if ($workspaceId)
+    @if ($workspaceId && ! $editingGlobal)
         {{-- Inside a workspace: the account belongs to THIS database and signs
              straight into it. (A login shell is written to Main behind the
              scenes — the admin never has to switch databases.) --}}
@@ -29,6 +35,17 @@
 
     <form wire:submit="save" class="space-y-5">
         {{-- Credentials --}}
+        @if ($editingGlobal)
+            <div class="rounded-lg bg-chrome-50 px-3 py-2 ring-1 ring-chrome-100">
+                <p class="text-sm">
+                    <span class="font-medium text-chrome-800">{{ $name }}</span>
+                    <span class="text-chrome-400">— {{ $email }}</span>
+                </p>
+                <p class="mt-1 text-xs text-chrome-500">
+                    {{ __('Their name, email and role are managed on Main. Tick the apps they should see in :database.', ['database' => $workspaceName]) }}
+                </p>
+            </div>
+        @else
         <div class="grid gap-4 sm:grid-cols-2">
             <div>
                 <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Username') }} <span class="text-red-500">*</span></label>
@@ -75,6 +92,7 @@
             </div>
             @error('role') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
         </div>
+        @endif
 
         {{-- App access — every role below Administrator; admins bypass the ACL. --}}
         @if ($currentRole->grantsApps())
@@ -174,7 +192,7 @@
                 </button>
             @endif
             <button type="submit" class="o-btn-primary" wire:loading.attr="disabled" wire:target="save">
-                <span wire:loading.remove wire:target="save">{{ $editingId ? __('Save changes') : __('Create user') }}</span>
+                <span wire:loading.remove wire:target="save">@if ($editingGlobal){{ __('Save app access') }}@else{{ $editingId ? __('Save changes') : __('Create user') }}@endif</span>
                 <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
             </button>
         </div>
@@ -194,6 +212,10 @@
                     // editable — a global account is shared with every other
                     // database, so it stays read-only here ("Managed on Main").
                     $inScope = ! $workspaceId || (int) $user->home_workspace_id === (int) $workspaceId;
+                    // A global account's identity is Main's, but ACL grants are
+                    // per-database rows — so what it can see HERE is ours to set.
+                    // (An administrator bypasses the ACL: nothing to grant.)
+                    $canSetAccessHere = $workspaceId && ! $inScope && $user->home_workspace_id === null && ! $user->is_admin;
                 @endphp
                 <li wire:key="user-{{ $user->id }}" class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                     <span class="flex min-w-0 items-center gap-2">
@@ -234,6 +256,9 @@
                                     wire:confirm="{{ __('Delete :name?', ['name' => $user->name]) }}"
                                     class="text-xs text-red-600 hover:underline">{{ __('remove') }}</button>
                             @endif
+                        @elseif ($canSetAccessHere && $canManage)
+                            <button type="button" wire:click="editUser({{ $user->id }})"
+                                class="text-xs font-medium text-primary-700 hover:underline">{{ __('Edit access') }}</button>
                         @endif
                     </span>
                 </li>

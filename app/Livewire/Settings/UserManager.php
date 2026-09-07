@@ -52,6 +52,14 @@ final class UserManager extends Component
     public string $email = '';
 
     /**
+     * Editing a GLOBAL account (one shared with every database) from inside
+     * a workspace. Its name, email and role belong to Main and stay put;
+     * `ir_model_access` rules are per-database rows, so its app access HERE
+     * is the one thing this screen may change.
+     */
+    public bool $editingGlobal = false;
+
+    /**
      * The ONE role this account holds — see {@see StaffRole}. Mutually
      * exclusive: an Administrator is not also an Accountant. Held as the
      * enum's string value because Livewire array/scalar props can't carry a
@@ -195,6 +203,12 @@ final class UserManager extends Component
      */
     protected function rules(): array
     {
+        // A global account's identity is Main's; only its app access here is
+        // editable, so there is nothing else to check.
+        if ($this->editingGlobal) {
+            return ['apps' => ['array'], 'apps.*' => ['string']];
+        }
+
         $userId = $this->editingId;
 
         $assignable = array_map(
@@ -274,10 +288,19 @@ final class UserManager extends Component
             return;
         }
 
-        // Inside a workspace only this database's own accounts are editable.
+        // Inside a workspace this database's own accounts are fully editable.
+        // A GLOBAL account is not — it is shared with every database — but its
+        // app access here is a per-database row, so that much is ours to set.
         $workspaceId = $this->currentWorkspaceId();
+        $this->editingGlobal = false;
         if ($workspaceId !== null && ! $this->belongsHere($user, $workspaceId)) {
-            return;
+            // An administrator bypasses the ACL, so a global admin has no
+            // grants to give and nothing here to open.
+            if ($user->home_workspace_id !== null || $user->isAdmin()) {
+                return;
+            }
+
+            $this->editingGlobal = true;
         }
 
         $this->editingId = (int) $user->getKey();
@@ -295,7 +318,7 @@ final class UserManager extends Component
 
     public function cancelEdit(): void
     {
-        $this->reset(['editingId', 'name', 'email', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
+        $this->reset(['editingId', 'editingGlobal', 'name', 'email', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
         $this->resetValidation();
     }
 
@@ -394,6 +417,18 @@ final class UserManager extends Component
      */
     private function saveInWorkspace(int $workspaceId): void
     {
+        // A global account: its identity is Main's, so only its app access in
+        // this database changes and none of the checks below apply.
+        if ($this->editingGlobal && $this->editingId !== null) {
+            if (! $this->requireOtp('user.update', ['id' => $this->editingId])) {
+                return;
+            }
+
+            $this->writeGlobalAccessHere();
+
+            return;
+        }
+
         $email = strtolower(trim($this->email));
 
         // Logins are keyed by email on Main. Refuse an email already owned by a
@@ -456,7 +491,7 @@ final class UserManager extends Component
             $updating ? __('Updated :name', ['name' => $name]) : __('Created :name', ['name' => $name]),
         );
 
-        $this->reset(['editingId', 'name', 'email', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
+        $this->reset(['editingId', 'editingGlobal', 'name', 'email', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
         session()->flash('user_saved', $updating ? __('User updated.') : $this->welcome($name, $email, (string) $password));
     }
 
@@ -552,7 +587,7 @@ final class UserManager extends Component
 
         app(\App\Erp\Activity\ActivityLogger::class)->log('user_updated', (string) $user->email, __('Updated :name', ['name' => (string) $user->name]));
 
-        $this->reset(['editingId', 'name', 'email', 'role', 'apps', 'workspaces']);
+        $this->reset(['editingId', 'editingGlobal', 'name', 'email', 'role', 'apps', 'workspaces']);
         session()->flash('user_saved', __('User updated.'));
     }
 
@@ -691,9 +726,52 @@ final class UserManager extends Component
         };
     }
 
+    /**
+     * Give a GLOBAL account its app access in THIS database. Name, email and
+     * role belong to Main and are left alone; `ir_model_access` rules are
+     * per-database rows, so nothing here can reach another database.
+     *
+     * This is the only way to grant an app the current database runs but Main
+     * does not — Rent A Car inside a rental workspace, say. Main's own
+     * checklist never offers it, because Main is not that kind of business,
+     * so the tick could not be made there at all.
+     */
+    private function writeGlobalAccessHere(): void
+    {
+        $target = User::query()->find($this->editingId);
+
+        if ($target === null || ! $this->actorCanManage($target)
+            || $target->home_workspace_id !== null || $target->isAdmin()) {
+            return;
+        }
+
+        $provisioner = app(UserProvisioner::class);
+        $role = $provisioner->roleOf($target);
+
+        // An administrator bypasses the ACL, so there are no grants to write.
+        if ($role->grantsApps()) {
+            $provisioner->grantApps($target, array_values($this->apps), $role);
+        }
+
+        app(\App\Erp\Activity\ActivityLogger::class)->log(
+            'user_updated',
+            (string) $target->email,
+            __('Set :name’s app access for this database', ['name' => (string) $target->name]),
+        );
+
+        $this->reset(['editingId', 'editingGlobal', 'name', 'email', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
+        session()->flash('user_saved', __('App access updated for this database.'));
+    }
+
     private function confirmedUpdate(): void
     {
         $this->validate();
+
+        if ($this->editingGlobal) {
+            $this->writeGlobalAccessHere();
+
+            return;
+        }
 
         $workspaceId = $this->currentWorkspaceId();
         if ($workspaceId !== null) {

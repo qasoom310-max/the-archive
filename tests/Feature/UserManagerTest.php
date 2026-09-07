@@ -587,6 +587,85 @@ final class UserManagerTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_a_shared_accounts_app_access_can_be_set_from_inside_a_workspace(): void
+    {
+        // The reason this exists: an app the workspace runs but Main does not
+        // (Rent A Car in a rental database) can never be ticked on Main - its
+        // checklist only offers what Main's own business type runs. So the
+        // grant has to be makeable from inside the database it applies to.
+        $this->insideWorkspace(function (): void {
+            $shared = User::factory()->create([
+                'name' => 'Shared Accountant',
+                'email' => 'shared@example.com',
+                'is_admin' => false,
+                'home_workspace_id' => null,   // global: managed on Main
+            ]);
+
+            Livewire::test(UserManager::class)
+                ->assertSee('Edit access')
+                ->call('editUser', $shared->getKey())
+                ->assertSet('editingGlobal', true)
+                ->set('apps', ['pos'])
+                ->call('save')
+                ->assertHasNoErrors();
+
+            $group = Group::query()->where('code', 'user:' . $shared->getKey())->first();
+            $this->assertNotNull($group, 'The grant is written in THIS database.');
+            $this->assertTrue($shared->fresh()?->groups()->whereKey($group->id)->exists());
+
+            $models = ModelAccess::query()->where('group_id', $group->id)->pluck('model');
+            $this->assertNotEmpty($models);
+            $this->assertTrue($models->every(static fn (string $m): bool => str_starts_with($m, 'pos.')));
+            $this->assertTrue(ModelAccess::query()->where('group_id', $group->id)->where('perm_read', true)->exists());
+            $this->assertFalse(ModelAccess::query()->where('group_id', $group->id)->where('perm_write', true)->exists());
+        });
+    }
+
+    public function test_a_shared_accounts_name_email_and_role_are_left_to_main(): void
+    {
+        $this->insideWorkspace(function (): void {
+            $shared = User::factory()->create([
+                'name' => 'Shared Accountant',
+                'email' => 'shared@example.com',
+                'is_admin' => false,
+                'is_accountant' => true,
+                'home_workspace_id' => null,
+            ]);
+
+            Livewire::test(UserManager::class)
+                ->call('editUser', $shared->getKey())
+                ->assertSet('editingGlobal', true)
+                ->set('name', 'Renamed Here')
+                ->set('email', 'elsewhere@example.com')
+                ->set('role', StaffRole::SuperAdmin->value)
+                ->set('apps', ['pos'])
+                ->call('save')
+                ->assertHasNoErrors();
+
+            $fresh = $shared->fresh();
+            $this->assertSame('Shared Accountant', (string) $fresh?->name);
+            $this->assertSame('shared@example.com', (string) $fresh?->email);
+            $this->assertFalse((bool) $fresh?->is_super_admin);
+            $this->assertTrue((bool) $fresh?->is_accountant);
+        });
+    }
+
+    public function test_a_shared_account_still_cannot_be_deleted_from_inside_a_workspace(): void
+    {
+        $this->insideWorkspace(function (): void {
+            $shared = User::factory()->create([
+                'name' => 'Shared Accountant',
+                'email' => 'shared@example.com',
+                'is_admin' => false,
+                'home_workspace_id' => null,
+            ]);
+
+            Livewire::test(UserManager::class)->call('deleteUser', $shared->getKey());
+
+            $this->assertNotNull($shared->fresh(), 'A shared account is removed on Main, not from one database.');
+        });
+    }
+
     public function test_a_user_can_be_added_from_inside_a_workspace(): void
     {
         $workspace = $this->insideWorkspace(function (Workspace $workspace): void {
@@ -668,8 +747,9 @@ final class UserManagerTest extends TestCase
     public function test_a_global_account_stays_read_only_inside_a_workspace(): void
     {
         $this->insideWorkspace(function (): void {
-            // The owner's tenant copy is a global account (no home workspace) —
-            // editing it from inside the workspace must be a no-op.
+            // The owner's tenant copy is a global ADMIN (no home workspace).
+            // A global account's app access can be set here, but an admin
+            // bypasses the ACL entirely — so this one stays a no-op.
             $global = User::query()->where('email', 'owner@erp.test')->first();
             $this->assertNotNull($global);
             $this->assertNull($global->home_workspace_id);

@@ -2353,6 +2353,39 @@ its export query, give its Rows service an `$ids` parameter and its export
 controller the `ids()` parser, and mark the checkbox cells `data-copy-skip` +
 rows `data-row-selected`.
 
+**A shared account's app access is set inside each database (shipped 2026-09-07):**
+
+Settings → Users, inside a workspace, gained an **"Edit access"** action on a
+**global** account (one shared with every database, `home_workspace_id` null,
+labelled *Managed on Main*). It opens a cut-down form: name / email / role are
+shown read-only, and only the **apps checklist** is editable. Saving writes
+`ir_model_access` rules **in the current database only**.
+
+**Why this had to exist.** `UserManager::render()` and
+`UserProvisioner::grantApps()` both filter apps through
+`Features::moduleAllowed()`, which reads *that database's own*
+`company.business_type`. Main is a **café**, so its checklist only ever offers
+contacts / pos / inventory / accounting / purchases — **Rent A Car and
+Limousine cannot be ticked there at all**. A global account therefore could
+never be granted them for a rental workspace: the tick was unavailable on Main,
+and the workspace's own screen refused to edit the account. Found live: Prejith
+(accountant, global) had 4 rules in the Wanaan database — accounting ×2,
+contacts, purchases — and no rental/limousine access whatever, though the owner
+had "given her access to all databases".
+
+| Concern | Location |
+|---|---|
+| Flag | `UserManager::$editingGlobal` — set by `editUser()` when, inside a workspace, the target is global (`home_workspace_id === null`) **and not an admin**. An admin bypasses the ACL, so there is nothing to grant and the form does not open (the pre-existing "global stays read-only" test covers exactly that case) |
+| Validation | `rules()` returns **only** the `apps` rules while `$editingGlobal` — the identity fields aren't editable, and the role rule (`Rule::in($assignable)`) would otherwise reject a regular admin editing an accountant |
+| Write | `UserManager::writeGlobalAccessHere()` — re-reads the role with `roleOf()` (never from the form), calls `grantApps()` on the **current** connection, logs `user_updated`. Reached from `saveInWorkspace()` (which takes the email-OTP gate first) and from `confirmedUpdate()` after that gate |
+| Not editable | name / email / role (Main owns the identity - editing it here would silently diverge every other database) and **delete**: `canDeleteHere()` still requires `belongsHere()`, so a shared account is removed on Main, not from one database |
+| UI | List: `$canSetAccessHere` (`$workspaceId && ! $inScope && home_workspace_id === null && ! is_admin`) renders **Edit access** in an `@elseif` — deliberately NOT by widening the existing `@if ($inScope && $canManage)`, because the **remove** button is nested inside it. Form: heading "Edit app access", a read-only who-this-is panel, credentials + role block hidden, button "Save app access" |
+| Tests | `UserManagerTest::{test_a_shared_accounts_app_access_can_be_set_from_inside_a_workspace, test_a_shared_accounts_name_email_and_role_are_left_to_main, test_a_shared_account_still_cannot_be_deleted_from_inside_a_workspace}` + the existing global-admin no-op test, comment sharpened. 7 `lang/ar.json` keys |
+
+**Rule: ACL grants are per-database rows, identity is Main's.** Anything that
+edits a shared account from inside a workspace must stay on that side of the
+line.
+
 **Profile self-service (shipped 2026-05-21):**
 
 | Concern | Location |

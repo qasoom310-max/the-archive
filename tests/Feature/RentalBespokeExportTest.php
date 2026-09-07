@@ -114,6 +114,56 @@ final class RentalBespokeExportTest extends TestCase
         $this->assertStringNotContainsString('Other', $body);
     }
 
+    public function test_receipt_downloads_narrow_to_the_ticked_rows(): void
+    {
+        $customer = $this->customer();
+        $a = RentalReceipt::query()->create(['customer_id' => $customer->id, 'amount' => 30]);
+        RentalReceipt::query()->create(['customer_id' => $customer->id, 'amount' => 250]);
+
+        $body = $this->streamed(app(RentalReceiptExportController::class)->csv(Request::create('/x', 'GET', ['ids' => (string) $a->id])));
+        $this->assertStringContainsString('30.00', $body);
+        $this->assertStringNotContainsString('250.00', $body);
+    }
+
+    public function test_ticking_nothing_still_downloads_the_whole_receipt_list(): void
+    {
+        // The buttons must never change meaning underfoot.
+        $customer = $this->customer();
+        RentalReceipt::query()->create(['customer_id' => $customer->id, 'amount' => 30]);
+        RentalReceipt::query()->create(['customer_id' => $customer->id, 'amount' => 250]);
+
+        $body = $this->streamed(app(RentalReceiptExportController::class)->csv(Request::create('/x', 'GET', ['ids' => ''])));
+        $this->assertStringContainsString('30.00', $body);
+        $this->assertStringContainsString('250.00', $body);
+    }
+
+    public function test_the_receipt_header_box_ticks_the_page_and_the_links_carry_the_ids(): void
+    {
+        $customer = $this->customer();
+        $a = RentalReceipt::query()->create(['customer_id' => $customer->id, 'amount' => 30]);
+        $b = RentalReceipt::query()->create(['customer_id' => $customer->id, 'amount' => 250]);
+
+        \Livewire\Livewire::test(\Modules\Rental\Livewire\Receipts::class)
+            ->set('selectPage', true)
+            ->assertSet('selected', [$b->id, $a->id])
+            ->assertSee('ids=' . $b->id . '%2C' . $a->id, false)
+            ->call('clearSelection')
+            ->assertSet('selected', [])
+            ->assertDontSee('ids=' . $b->id, false); // link back to the whole list
+    }
+
+    public function test_searching_drops_a_tick_made_against_the_old_search(): void
+    {
+        $mine = $this->customer();
+        $a = RentalReceipt::query()->create(['customer_id' => $mine->id, 'amount' => 30]);
+        RentalReceipt::query()->create(['customer_id' => RentalCustomer::query()->create(['name' => 'Other'])->id, 'amount' => 15]);
+
+        \Livewire\Livewire::test(\Modules\Rental\Livewire\Receipts::class)
+            ->set('selected', [$a->id])
+            ->set('search', 'Other')
+            ->assertSet('selected', []);
+    }
+
     // --- Maintenance -----------------------------------------------------
 
     public function test_maintenance_pdf_and_print_render(): void

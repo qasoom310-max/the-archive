@@ -2353,6 +2353,16 @@ its export query, give its Rows service an `$ids` parameter and its export
 controller the `ids()` parser, and mark the checkbox cells `data-copy-skip` +
 rows `data-row-selected`.
 
+**Rental receipts got the same (2026-09-07)** — `/app/rental/receipt`, asked for
+by the owner off the Receipts screen. Its scope is a **search string**, not a
+tab, so `clearSelection()` hangs off `updatedSearch()`: a tick made against one
+search is not a tick against the next. While wiring it, `Receipts::render()` was
+switched from its **own hand-copied query** to `RentalReceiptRows::query()` —
+the two were identical, but the header checkbox reads the Rows service, so
+letting them drift would make "select all on this page" select something other
+than the page. **A list with a Rows service should render from it**; that is why
+it exists.
+
 **A shared account's app access is set inside each database (shipped 2026-09-07):**
 
 Settings → Users, inside a workspace, gained an **"Edit access"** action on a

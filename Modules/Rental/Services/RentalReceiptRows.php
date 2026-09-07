@@ -33,11 +33,17 @@ final class RentalReceiptRows
     }
 
     /**
+     * @param  list<int>  $ids  the rows ticked on screen; empty = the whole list
      * @return list<array<string, string>>
      */
-    public function all(string $search): array
+    public function all(string $search, array $ids = []): array
     {
-        return $this->query($search)->get()->map(fn (RentalReceipt $r): array => $this->row($r))->all();
+        $query = $this->query($search);
+        if ($ids !== []) {
+            $query->whereKey($ids);
+        }
+
+        return $query->get()->map(fn (RentalReceipt $r): array => $this->row($r))->all();
     }
 
     /**

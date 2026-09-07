@@ -11,7 +11,7 @@
     <meta charset="utf-8">
     <title>{{ __('Invoice') }} — {{ $customer->name ?? '' }}</title>
     <style>
-        @page { margin: 22px 24px; }
+        @page { margin: 22px 24px 60px; }
         body { font-family: DejaVu Sans, sans-serif; font-size: 8.5px; color: #111; }
         .logo { height: {{ (int) round(44 * $logoScale / 100) }}px; }
         .brand-fallback { background: #f5ef1a; display: inline-block; padding: 6px 14px; font-size: 18px; font-weight: bold; letter-spacing: 1px; }
@@ -112,9 +112,7 @@
     </tr>
 </table>
 
-<div class="foot">
-    {{ $companyName }}@if ($companyPhone !== '') · {{ $companyPhone }}@endif@if ($companyEmail !== '') · {{ $companyEmail }}@endif
-</div>
+<x-document-footer />
 
 </body>
 </html>

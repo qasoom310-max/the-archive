@@ -10,7 +10,7 @@
     <meta charset="utf-8">
     <title>{{ __('Quotation') }} {{ $reference }}</title>
     <style>
-        @page { margin: 30px 34px; }
+        @page { margin: 30px 34px 60px; }
         body { font-family: DejaVu Sans, sans-serif; font-size: 10.5px; color: #111; }
         .logo { height: {{ (int) round(52 * $logoScale / 100) }}px; }
         .brand-fallback { background: #f5ef1a; display: inline-block; padding: 8px 18px; font-size: 22px; font-weight: bold; letter-spacing: 1px; }
@@ -111,9 +111,9 @@
 
 <div class="foot">
     {{ __('Prices are in Bahraini Dinar. This quotation is valid until the date shown above.') }}
-    <br>
-    <b>{{ $companyName }}</b>@if ($companyPhone) · {{ $companyPhone }} @endif @if ($companyEmail) · {{ $companyEmail }} @endif
 </div>
+
+<x-document-footer />
 
 </body>
 </html>

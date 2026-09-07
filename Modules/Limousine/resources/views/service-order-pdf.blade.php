@@ -8,7 +8,7 @@
     <meta charset="utf-8">
     <title>{{ __('Service Order') }} {{ $confirmationNo }}</title>
     <style>
-        @page { margin: 26px 30px; }
+        @page { margin: 26px 30px 60px; }
         body { font-family: DejaVu Sans, sans-serif; font-size: 10.5px; color: #111; }
         .logo { height: {{ (int) round(52 * $logoScale / 100) }}px; }
         .brand-fallback { background: #f5ef1a; display: inline-block; padding: 8px 18px; font-size: 22px; font-weight: bold; letter-spacing: 1px; }
@@ -152,12 +152,7 @@
     @endif
 </table>
 
-<div class="foot">
-    <b>{{ $companyName }}</b><br>
-    {{ __('Shop 2082, Road 5669, Block 356, Bahrain') }}<br>
-    {{ __('Tel') }}: +973 17474949<br>
-    www.wanaan-bh.com
-</div>
+<x-document-footer />
 
 </body>
 </html>

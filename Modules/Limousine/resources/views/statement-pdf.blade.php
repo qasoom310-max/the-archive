@@ -10,7 +10,7 @@
     <meta charset="utf-8">
     <title>{{ __('Statement of account') }} — {{ $customer->name }}</title>
     <style>
-        @page { margin: 28px 30px; }
+        @page { margin: 28px 30px 60px; }
         body { font-family: DejaVu Sans, sans-serif; font-size: 10px; color: #111; }
         .logo { height: {{ (int) round(52 * $logoScale / 100) }}px; }
         .brand-fallback { background: #f5ef1a; display: inline-block; padding: 8px 18px; font-size: 22px; font-weight: bold; letter-spacing: 1px; }
@@ -108,9 +108,7 @@
     <p class="settled" style="margin-top:12px"><b>{{ __('Account settled — nothing outstanding.') }}</b></p>
 @endif
 
-<div class="foot">
-    {{ $companyName }}@if ($companyPhone !== '') · {{ $companyPhone }}@endif@if ($companyEmail !== '') · {{ $companyEmail }}@endif
-</div>
+<x-document-footer />
 
 </body>
 </html>

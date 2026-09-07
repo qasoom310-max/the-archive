@@ -17,7 +17,7 @@
 <head>
     <meta charset="utf-8">
     <style>
-        @page { margin: 22px 26px; }
+        @page { margin: 22px 26px 60px; }
         * { font-family: DejaVu Sans, sans-serif; }
         body { color: #1f2937; font-size: 11px; line-height: 1.45; }
         .head { width: 100%; border-bottom: 2px solid #111; padding-bottom: 8px; }
@@ -127,5 +127,7 @@
             <td style="width:48%"><div class="line">{{ __('For') }} {{ $companyName }}</div></td>
         </tr>
     </table>
+
+<x-document-footer />
 </body>
 </html>

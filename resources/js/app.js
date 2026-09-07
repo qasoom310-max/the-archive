@@ -74,8 +74,17 @@ function copyTableById(tableId, onDone) {
     const table = document.getElementById(tableId);
     if (!table) return;
 
-    const text = [...table.querySelectorAll('tr')]
+    // Ticked rows (data-row-selected="1") narrow the copy to just those, the
+    // way they narrow the downloads; with none ticked the whole table goes.
+    // Cells marked data-copy-skip (the checkbox column) never go.
+    const rows = [...table.querySelectorAll('tr')];
+    const ticked = rows.filter((tr) => tr.dataset.rowSelected === '1');
+    const wanted = ticked.length
+        ? rows.filter((tr) => tr.closest('thead') || ticked.includes(tr))
+        : rows;
+    const text = wanted
         .map((tr) => [...tr.querySelectorAll('th,td')]
+            .filter((cell) => !cell.hasAttribute('data-copy-skip'))
             .map((cell) => cell.innerText.replace(/\s+/g, ' ').trim())
             .join('\t'))
         .join('\n');

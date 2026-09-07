@@ -133,6 +133,47 @@ final class LimoBespokeExportTest extends TestCase
         $this->assertStringNotContainsString('30.00', $body);
     }
 
+    public function test_quotation_export_narrows_to_the_ticked_rows(): void
+    {
+        $customer = $this->customer();
+        $a = LimoQuotation::query()->create(['customer_id' => $customer->id, 'fare' => 30, 'status' => LimoQuotation::STATUS_SENT]);
+        $b = LimoQuotation::query()->create(['customer_id' => $customer->id, 'fare' => 90, 'status' => LimoQuotation::STATUS_SENT]);
+        LimoQuotation::query()->create(['customer_id' => $customer->id, 'fare' => 55, 'status' => LimoQuotation::STATUS_SENT]);
+
+        $body = $this->streamed(app(LimoQuotationExportController::class)->csv(
+            Request::create('/x', 'GET', ['tab' => 'all', 'ids' => $a->id . ',' . $b->id]),
+        ));
+        $this->assertStringContainsString('30.00', $body);
+        $this->assertStringContainsString('90.00', $body);
+        $this->assertStringNotContainsString('55.00', $body);
+
+        // Nothing ticked - or junk in the parameter - means the whole tab, as before.
+        $body = $this->streamed(app(LimoQuotationExportController::class)->csv(Request::create('/x', 'GET', ['ids' => 'x,,'])));
+        $this->assertStringContainsString('55.00', $body);
+    }
+
+    public function test_the_header_box_ticks_the_page_and_the_download_links_carry_the_ids(): void
+    {
+        $customer = $this->customer();
+        $a = LimoQuotation::query()->create(['customer_id' => $customer->id, 'fare' => 30, 'status' => LimoQuotation::STATUS_SENT]);
+        $b = LimoQuotation::query()->create(['customer_id' => $customer->id, 'fare' => 90, 'status' => LimoQuotation::STATUS_SENT]);
+
+        $component = \Livewire\Livewire::test(\Modules\Limousine\Livewire\Quotations::class)
+            ->assertSee('Tick rows to export only those.')
+            ->set('selectPage', true)
+            ->assertSet('selected', [$b->id, $a->id])       // newest first, like the list
+            ->assertSee('ids=' . $b->id . '%2C' . $a->id, false)
+            ->assertSee('2 selected');
+
+        // Ticking by hand drops the header's "all" claim; changing tab clears everything.
+        $component->set('selected', [(string) $a->id])
+            ->assertSet('selectPage', false)
+            ->assertSee('ids=' . $a->id, false)
+            ->set('tab', 'draft')
+            ->assertSet('selected', [])
+            ->assertSet('selectPage', false);
+    }
+
     // --- Petty cash -----------------------------------------------------
 
     public function test_petty_cash_export_names_the_driver(): void

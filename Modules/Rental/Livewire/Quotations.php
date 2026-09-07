@@ -13,7 +13,9 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use App\Livewire\Concerns\SelectsListRows;
 use Livewire\WithPagination;
+use Modules\Rental\Services\RentalQuotationRows;
 use Modules\Rental\Models\RentalQuotation;
 
 /**
@@ -24,6 +26,7 @@ use Modules\Rental\Models\RentalQuotation;
 final class Quotations extends Component
 {
     use GuardsModelAccess;
+    use SelectsListRows;
     use WithPagination;
 
     /** all | draft | sent | accepted | declined | converted */
@@ -43,6 +46,23 @@ final class Quotations extends Component
     public function updatedTab(): void
     {
         $this->resetPage();
+        $this->clearSelection();
+    }
+
+    /**
+     * The ids on the page being looked at, for the header checkbox. Same
+     * query and order as the list, so "select all on this page" means what
+     * the eye sees.
+     *
+     * @return list<int>
+     */
+    protected function currentPageIds(): array
+    {
+        return app(RentalQuotationRows::class)->query($this->tab)
+            ->forPage($this->getPage(), 20)
+            ->pluck('id')
+            ->map(static fn ($id): int => (int) $id)
+            ->all();
     }
 
     public function render(): View

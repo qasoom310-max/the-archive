@@ -16,7 +16,9 @@ use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use App\Livewire\Concerns\SelectsListRows;
 use Livewire\WithPagination;
+use Modules\Limousine\Services\LimoQuotationRows;
 use Modules\Limousine\Mail\QuotationMail;
 use Modules\Limousine\Models\LimoQuotation;
 use Modules\Limousine\Services\QuotationPdf;
@@ -28,6 +30,7 @@ use App\Erp\Settings\Setting;
 final class Quotations extends Component
 {
     use GuardsModelAccess;
+    use SelectsListRows;
     use WithPagination;
 
     #[Url]
@@ -171,6 +174,23 @@ final class Quotations extends Component
     public function updatedTab(): void
     {
         $this->resetPage();
+        $this->clearSelection();
+    }
+
+    /**
+     * The ids on the page being looked at, for the header checkbox. Same
+     * query and order as the list, so "select all on this page" means what
+     * the eye sees.
+     *
+     * @return list<int>
+     */
+    protected function currentPageIds(): array
+    {
+        return app(LimoQuotationRows::class)->query($this->tab)
+            ->forPage($this->getPage(), 20)
+            ->pluck('id')
+            ->map(static fn ($id): int => (int) $id)
+            ->all();
     }
 
     public function render(): View

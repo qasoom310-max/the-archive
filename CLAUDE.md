@@ -2327,6 +2327,32 @@ Consequences to keep in mind:
   the mail carries email/password/forgot-link/login action; editing never
   changes the hash and sends no second mail). 11 `lang/ar.json` keys.
 
+**Quotation lists: row checkboxes narrow the downloads (shipped 2026-09-07):**
+
+Both bespoke quotation lists (Limousine `/app/limousine/quotation`, Rental
+`/app/rental/quotation`) gained a checkbox column. Tick rows and **Copy / CSV /
+Excel / PDF / Print act on just those**; tick nothing and they act on the whole
+tab, exactly as before. Asked for by the owner as "the checkboxes like the one
+in Customers" - note the engine list's checkboxes are for bulk DELETE and its
+exports still cover the whole filtered set; this is the first list whose
+exports honour a selection.
+
+| Concern | Location |
+|---|---|
+| Selection state | `App\Livewire\Concerns\SelectsListRows` (shared trait): `$selected` (ids; the browser sends strings), `$selectPage` (header box -> `currentPageIds()`), `updatedSelected()` drops the header's "all" claim, `clearSelection()`, `selectedIdsParam()` (comma-joined for links), `isSelected()`. Host implements `currentPageIds()` and calls `clearSelection()` from `updatedTab()` - a tick on one tab is not a tick on another |
+| Hosts | `Modules\Limousine\Livewire\Quotations` + `Modules\Rental\Livewire\Quotations`: `currentPageIds()` re-runs the Rows service query for `getPage()` x 20, same order as the list |
+| Export scoping | `LimoQuotationRows::all(string $tab, array $ids = [])` / `RentalQuotationRows::all(...)` add `whereKey($ids)` when given; both `*QuotationExportController`s parse `?ids=3,7,12` via `ids()` (junk/empty = whole tab). Blades add `'ids' => $this->selectedIdsParam()` to the export query string |
+| Copy | `copyTableById()` in `resources/js/app.js`: rows with `data-row-selected="1"` narrow the copy (thead kept); cells with `data-copy-skip` (the checkbox column) never go. Server-rendered attributes, so a `wire:model.live` tick is accurate on the next copy |
+| Rental gotcha | the Rental row is `onclick="window.location=..."` (the whole row opens the quote), so its checkbox cell carries `onclick="event.stopPropagation()"` |
+| UI | header checkbox (`Select all on this page`), per-row checkbox, and in the export bar a ":count selected / Clear selection" pill, or the hint "Tick rows to export only those." `colspan` 6 -> 7. 3 `lang/ar.json` keys |
+| Tests | `LimoBespokeExportTest::{test_quotation_export_narrows_to_the_ticked_rows, test_the_header_box_ticks_the_page_and_the_download_links_carry_the_ids}`, `RentalBespokeExportTest::{test_quotation_csv_narrows_to_the_ticked_rows, test_the_header_box_ticks_the_page_and_the_download_links_carry_the_ids}` |
+
+**To give another bespoke list the same:** `use SelectsListRows`, implement
+`currentPageIds()`, call `clearSelection()` on filter change, add `'ids'` to
+its export query, give its Rows service an `$ids` parameter and its export
+controller the `ids()` parser, and mark the checkbox cells `data-copy-skip` +
+rows `data-row-selected`.
+
 **Profile self-service (shipped 2026-05-21):**
 
 | Concern | Location |

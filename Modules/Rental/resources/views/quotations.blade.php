@@ -56,6 +56,8 @@
         $exportQuery = http_build_query([
             'tab' => $tab,
             'title' => __('Quotations'),
+            // Ticked rows narrow every download to just those.
+            'ids' => $this->selectedIdsParam(),
         ]);
     @endphp
     <div class="mb-3 flex flex-wrap items-center gap-2" x-data="listExportCopy">
@@ -72,12 +74,25 @@
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('PDF') }}</a>
         <a href="{{ url('/app/rental/quotation/export/print') }}?{{ $exportQuery }}" target="_blank" rel="noopener"
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Print') }}</a>
+        @if (count($selected) > 0)
+            <span class="ms-1 inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700 ring-1 ring-primary-200">
+                {{ __(':count selected', ['count' => count($selected)]) }}
+                <button type="button" wire:click="clearSelection" class="font-semibold hover:underline">{{ __('Clear selection') }}</button>
+            </span>
+        @else
+            <span class="ms-1 text-xs text-chrome-400">{{ __('Tick rows to export only those.') }}</span>
+        @endif
     </div>
 
     <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
         <table class="w-full min-w-[720px] divide-y divide-chrome-100 text-sm" id="rental-quotations-table">
             <thead class="bg-chrome-50 text-start text-xs font-semibold uppercase tracking-wide text-chrome-500">
                 <tr>
+                    <th class="w-10 px-4 py-2" data-copy-skip>
+                        <input type="checkbox" wire:model.live="selectPage"
+                               class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500"
+                               aria-label="{{ __('Select all on this page') }}">
+                    </th>
                     <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Customer') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Car') }}</th>
@@ -97,8 +112,13 @@
                             'converted' => 'bg-violet-100 text-violet-700',
                         ][$quote->status] ?? 'bg-chrome-200 text-chrome-700';
                     @endphp
-                    <tr wire:key="quote-{{ $quote->id }}" class="cursor-pointer hover:bg-chrome-50"
+                    <tr wire:key="quote-{{ $quote->id }}" class="cursor-pointer hover:bg-chrome-50" data-row-selected="{{ $this->isSelected($quote->id) ? 1 : 0 }}"
                         onclick="window.location='{{ url('/app/rental/quotation/' . $quote->id) }}'">
+                        <td class="px-4 py-2" data-copy-skip onclick="event.stopPropagation()">
+                            <input type="checkbox" wire:model.live="selected" value="{{ $quote->id }}"
+                                   class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500"
+                                   aria-label="{{ $quote->reference }}">
+                        </td>
                         <td class="px-4 py-2 font-medium text-chrome-800">{{ $quote->reference }}</td>
                         <td class="px-4 py-2 text-chrome-700">{{ $quote->customer?->name ?? '—' }}</td>
                         <td class="px-4 py-2 text-chrome-700">{{ $quote->vehicle?->displayName() ?? '—' }}</td>
@@ -107,7 +127,7 @@
                         <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst($quote->status)) }}</span></td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No quotations found.') }}</td></tr>
+                    <tr><td colspan="7" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No quotations found.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>

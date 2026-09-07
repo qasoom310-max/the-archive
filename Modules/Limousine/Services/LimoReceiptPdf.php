@@ -48,6 +48,10 @@ final class LimoReceiptPdf
             'balance' => $balance,
             'method' => __(ucfirst((string) $receipt->method)),
             'notes' => (string) ($receipt->notes ?? ''),
+            // The account that raised it, by the name it signs in under.
+            // Blank on rows written before the column existed — those print
+            // no line rather than naming somebody who did not raise them.
+            'preparedBy' => (string) ($receipt->prepared_by ?? ''),
             'companyName' => (string) Setting::get('company.name', 'OpenERP'),
             'companyPhone' => (string) Setting::get('company.phone', ''),
             'companyEmail' => (string) Setting::get('company.email', ''),

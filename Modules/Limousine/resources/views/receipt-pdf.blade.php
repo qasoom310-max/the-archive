@@ -94,13 +94,20 @@
     @endif
 </table>
 
+{{-- The signature strip of the pad this replaced: a slot to sign, a slot to
+     stamp, and the name of whoever raised it. `Prepared by` is only a third
+     column when we know the name — older receipts keep the two even slots
+     rather than printing an empty label. --}}
 <table class="sign">
     <tr>
-        <td style="width:50%">{{ __('Received by') }}</td>
+        <td style="width:{{ $preparedBy !== '' ? '34%' : '50%' }}">{{ __('Received by') }}</td>
         {{-- A receipt is our acknowledgement that the money arrived, so the
              second slot is the company stamp, not the customer's signature —
              the customer is not attesting to anything by being paid up. --}}
-        <td style="width:50%">{{ __('Stamp') }}</td>
+        <td style="width:{{ $preparedBy !== '' ? '33%' : '50%' }}">{{ __('Stamp') }}</td>
+        @if ($preparedBy !== '')
+            <td style="width:33%">{{ __('Prepared by') }}: <b>{{ $preparedBy }}</b></td>
+        @endif
     </tr>
 </table>
 

@@ -2431,6 +2431,28 @@ a payment shows the bill's, the column prints, the heading rule is present, and
 brought-forward or closing row shunts every figure sideways, which is how a
 statement starts lying).
 
+**A limousine receipt says who raised it (shipped 2026-09-07):**
+
+`limo_receipts.prepared_by` (module migration `2026_09_07_950030`) + a
+**"Prepared by"** slot on the receipt beside Received by / Stamp — the line the
+pre-printed pad had, filled in by hand.
+
+- **A name snapshot, not a foreign key**, for the same reason `confirmed_by` is
+  one: a receipt is a financial document and must still read correctly after
+  the account that raised it is renamed or deleted.
+- **The account's `name`** — the username people sign in under — **never the
+  email**, which is not what anyone would write on a receipt.
+- Stamped in a **`creating` hook on the model**, not at the call sites: a
+  receipt is created in **five** places (`ReceiptForm`, `BookingPayments`
+  ×2, `BookingImporter`, `ReceiptImporter`) and any of them could forget. A
+  CLI import runs with nobody signed in and leaves it unset.
+- **Deliberately not backfilled**, and an unset value prints **no line** (the
+  two signing slots stay evenly split). We do not know who typed the historical
+  rows, and a name invented onto a financial document would be a lie.
+
+Tests: `LimoReceiptDocumentTest::{test_the_receipt_records_and_prints_who_raised_it,
+test_an_older_receipt_prints_no_prepared_by_line}`.
+
 **The limousine receipt is stamped, not counter-signed (shipped 2026-09-07):**
 
 `limousine::receipt-pdf`'s second signature slot said **"Customer signature"**;

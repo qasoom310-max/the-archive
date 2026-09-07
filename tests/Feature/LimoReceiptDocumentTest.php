@@ -82,6 +82,37 @@ final class LimoReceiptDocumentTest extends TestCase
         $this->assertEqualsWithDelta(20.0, $data['balance'], 0.001);
     }
 
+    public function test_the_receipt_records_and_prints_who_raised_it(): void
+    {
+        // By the name the account signs in under — an email is not what
+        // anyone would write on the "Prepared by" line of a receipt.
+        $clerk = User::factory()->create(['name' => 'Hashim', 'email' => 'hashim@wanaan-bh.com', 'is_admin' => true]);
+        $this->actingAs($clerk);
+
+        $receipt = $this->receipt();
+
+        $this->assertSame('Hashim', $receipt->prepared_by);
+
+        $html = view('limousine::receipt-pdf', app(LimoReceiptPdf::class)->viewData($receipt))->render();
+        $this->assertStringContainsString('Prepared by', $html);
+        $this->assertStringContainsString('Hashim', $html);
+        $this->assertStringNotContainsString($clerk->email, $html);
+    }
+
+    public function test_an_older_receipt_prints_no_prepared_by_line(): void
+    {
+        // We do not know who typed the rows that predate the column, and a
+        // name invented onto a financial document would be a lie.
+        $receipt = $this->receipt();
+        $receipt->forceFill(['prepared_by' => null])->saveQuietly();
+
+        $html = view('limousine::receipt-pdf', app(LimoReceiptPdf::class)->viewData($receipt->fresh()))->render();
+
+        $this->assertStringNotContainsString('Prepared by', $html);
+        // The two signing slots stay evenly split rather than leaving a gap.
+        $this->assertStringContainsString('width:50%', $html);
+    }
+
     public function test_the_second_slot_is_the_company_stamp_not_a_customer_signature(): void
     {
         // A receipt is our acknowledgement that the money arrived. The

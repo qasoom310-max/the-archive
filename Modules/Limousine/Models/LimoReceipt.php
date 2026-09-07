@@ -8,9 +8,11 @@ use App\Erp\Contracts\DefinesIrModel;
 use App\Erp\Registry\FieldDefinition;
 use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * A payment received against a limousine invoice. Saving/removing recomputes
@@ -29,6 +31,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $notes
  * @property Carbon|null $confirmed_at
  * @property string|null $confirmed_by
+ * @property string|null $prepared_by
  * @property Carbon|null $statement_date
  * @property string|null $batch_id
  * @property-read LimoInvoice|null $invoice
@@ -45,6 +48,7 @@ final class LimoReceipt extends Model implements DefinesIrModel
         'reference', 'invoice_id', 'booking_id', 'customer_id', 'date',
         'amount', 'balance_after', 'method', 'auto', 'notes',
         'confirmed_at', 'confirmed_by', 'statement_date', 'batch_id',
+        'prepared_by',
     ];
 
     /** @var array<string, mixed> */
@@ -110,6 +114,22 @@ final class LimoReceipt extends Model implements DefinesIrModel
 
     protected static function booted(): void
     {
+        // Who raised the receipt, stamped here rather than at each of the five
+        // places one gets created, so no path can forget. It is the account's
+        // NAME — the username people sign in and are known by — never the
+        // email, which is not what anyone would write on a receipt. A CLI
+        // import runs with nobody signed in and simply leaves it unset.
+        static::creating(function (LimoReceipt $receipt): void {
+            if ((string) ($receipt->prepared_by ?? '') !== '') {
+                return;
+            }
+
+            $user = Auth::user();
+            if ($user instanceof User) {
+                $receipt->prepared_by = $user->name;
+            }
+        });
+
         static::created(function (LimoReceipt $receipt): void {
             $receipt->invoice?->recomputePaid();
         });

@@ -26,6 +26,8 @@ use Throwable;
  * @property bool $is_admin
  * @property bool $is_super_admin   Owner tier above admin (a strict superset of is_admin)
  * @property bool $is_accountant    May confirm payments (with super-admins); not even a regular admin can
+ * @property bool $is_paused        Suspended by an admin — signed out and refused sign-in until unpaused
+ * @property \Illuminate\Support\Carbon|null $paused_at
  * @property int|null $home_workspace_id  Locked to this workspace (database); null = unrestricted
  * @property string $password
  */
@@ -46,6 +48,8 @@ final class User extends Authenticatable
         'is_admin',
         'is_super_admin',
         'is_accountant',
+        'is_paused',
+        'paused_at',
         'home_workspace_id',
         'password',
     ];
@@ -67,6 +71,8 @@ final class User extends Authenticatable
             'is_admin' => 'boolean',
             'is_super_admin' => 'boolean',
             'is_accountant' => 'boolean',
+            'is_paused' => 'boolean',
+            'paused_at' => 'datetime',
             // Project module: the column is added by that module's migration,
             // so it's simply absent (reads null) until Project is installed.
             'hourly_cost' => 'float',
@@ -104,6 +110,15 @@ final class User extends Authenticatable
     public function isAccountant(): bool
     {
         return ($this->getAttribute('is_accountant') ?? false) === true;
+    }
+
+    /**
+     * Suspended by an admin: signed out of every session and refused sign-in
+     * until an admin unpauses them (column-guarded like {@see isSuperAdmin()}).
+     */
+    public function isPaused(): bool
+    {
+        return ($this->getAttribute('is_paused') ?? false) === true;
     }
 
     /**

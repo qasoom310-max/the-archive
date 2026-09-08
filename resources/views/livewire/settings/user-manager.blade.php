@@ -237,6 +237,9 @@
                         @if ($user->home_workspace_id && ($workspaceNames[$user->home_workspace_id] ?? null))
                             <span class="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700">{{ __('Locked') }}: {{ $workspaceNames[$user->home_workspace_id] }}</span>
                         @endif
+                        @if ($user->is_paused)
+                            <span class="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700">{{ __('Paused') }}</span>
+                        @endif
                         <span class="min-w-0 truncate">
                             <span class="font-medium text-chrome-700">{{ $user->name }}</span>
                             <span class="text-chrome-400">— {{ $user->email }}</span>
@@ -247,15 +250,46 @@
                             <span class="text-xs text-chrome-300">{{ __('Managed on Main') }}</span>
                         @endunless
                         {{-- Role changes (incl. super admin + accountant) happen in
-                             Edit now — one place, one set of guards. --}}
+                             Edit now — one place, one set of guards. Edit / Pause /
+                             Delete live behind a 3-dot menu (the same isolated
+                             per-row Alpine scope + @click.outside pattern used by
+                             the app-bar dropdowns). --}}
                         @if ($inScope && $canManage)
-                            <button type="button" wire:click="editUser({{ $user->id }})"
-                                class="text-xs font-medium text-primary-700 hover:underline">{{ __('Edit') }}</button>
-                            @if (! $isSelf && ! $isLastAdmin)
-                                <button type="button" wire:click="deleteUser({{ $user->id }})"
-                                    wire:confirm="{{ __('Delete :name?', ['name' => $user->name]) }}"
-                                    class="text-xs text-red-600 hover:underline">{{ __('remove') }}</button>
-                            @endif
+                            <div x-data="{ open: false }" @click.outside="open = false" class="relative">
+                                <button type="button" @click="open = ! open"
+                                    class="flex size-7 items-center justify-center rounded-full text-chrome-500 hover:bg-chrome-100"
+                                    aria-label="{{ __('Actions') }}">
+                                    <svg class="size-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path d="M10 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"/>
+                                    </svg>
+                                </button>
+                                <div x-cloak x-show="open" x-transition
+                                    class="absolute end-0 z-20 mt-1 w-36 overflow-hidden rounded-lg border border-chrome-200 bg-white py-1 shadow-lg">
+                                    <button type="button" @click="open = false" wire:click="editUser({{ $user->id }})"
+                                        class="block w-full px-3 py-1.5 text-start text-xs font-medium text-chrome-700 hover:bg-chrome-50">
+                                        {{ __('Edit') }}
+                                    </button>
+                                    @if ($user->is_paused)
+                                        <button type="button" @click="open = false" wire:click="togglePause({{ $user->id }})"
+                                            class="block w-full px-3 py-1.5 text-start text-xs font-medium text-emerald-700 hover:bg-emerald-50">
+                                            {{ __('Unpause') }}
+                                        </button>
+                                    @elseif (! $isSelf && ! $isLastAdmin)
+                                        <button type="button" @click="open = false" wire:click="togglePause({{ $user->id }})"
+                                            wire:confirm="{{ __('Pause :name? They will be signed out and unable to sign in until unpaused.', ['name' => $user->name]) }}"
+                                            class="block w-full px-3 py-1.5 text-start text-xs font-medium text-amber-700 hover:bg-amber-50">
+                                            {{ __('Pause') }}
+                                        </button>
+                                    @endif
+                                    @if (! $isSelf && ! $isLastAdmin)
+                                        <button type="button" @click="open = false" wire:click="deleteUser({{ $user->id }})"
+                                            wire:confirm="{{ __('Delete :name?', ['name' => $user->name]) }}"
+                                            class="block w-full px-3 py-1.5 text-start text-xs font-medium text-red-600 hover:bg-red-50">
+                                            {{ __('Delete') }}
+                                        </button>
+                                    @endif
+                                </div>
+                            </div>
                         @elseif ($canSetAccessHere && $canManage)
                             <button type="button" wire:click="editUser({{ $user->id }})"
                                 class="text-xs font-medium text-primary-700 hover:underline">{{ __('Edit access') }}</button>

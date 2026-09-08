@@ -40,6 +40,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // SetLocale (which reads per-workspace settings). Main = no-op.
         $middleware->web(append: [
             \App\Http\Middleware\SetActiveWorkspace::class,
+            // Re-checked on every request, in every database — see the
+            // middleware's own docblock for why this is the authoritative
+            // guard rather than the pause action's session-kill alone.
+            \App\Http\Middleware\EnsureUserIsNotPaused::class,
             \App\Http\Middleware\SetLocale::class,
         ]);
     })

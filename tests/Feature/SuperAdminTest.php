@@ -117,6 +117,47 @@ final class SuperAdminTest extends TestCase
         $this->assertNull(User::query()->find($victim->id));
     }
 
+    public function test_regular_admin_must_pass_email_otp_to_pause_a_user(): void
+    {
+        Notification::fake();
+        $admin = $this->admin();
+        $this->actingAs($admin);
+
+        $victim = User::factory()->create(['is_admin' => false]);
+
+        $component = Livewire::test(UserManager::class)
+            ->call('togglePause', $victim->id)
+            ->assertSet('otpOpen', true);
+
+        // Not paused yet — awaiting the code.
+        $this->assertFalse((bool) $victim->fresh()?->is_paused);
+
+        $code = null;
+        Notification::assertSentTo($admin, AdminActionOtp::class, function (AdminActionOtp $n) use (&$code): bool {
+            $code = $n->code;
+
+            return true;
+        });
+        $this->assertIsString($code);
+
+        $component->set('otpCode', $code)->call('submitOtp')->assertSet('otpOpen', false);
+        $this->assertTrue((bool) $victim->fresh()?->is_paused);
+    }
+
+    public function test_super_admin_pauses_a_user_without_otp(): void
+    {
+        Notification::fake();
+        $this->actingAs($this->superAdmin());
+        $victim = User::factory()->create(['is_admin' => false]);
+
+        Livewire::test(UserManager::class)
+            ->call('togglePause', $victim->id)
+            ->assertSet('otpOpen', false);
+
+        $this->assertTrue((bool) $victim->fresh()?->is_paused);
+        Notification::assertNothingSent();
+    }
+
     public function test_wrong_otp_does_not_delete(): void
     {
         Notification::fake();

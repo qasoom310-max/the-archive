@@ -2060,6 +2060,31 @@ there's one place a role is set and one set of guards).
   `RentalPaymentConfirmationTest::test_only_a_super_admin_can_grant_the_accountant_role`
   retargeted from the removed toggles to the role picker. AR keys added.
 
+**Pause a user account (shipped 2026-09-08):** every user row in Settings →
+Users now has a **3-dot menu** (Edit / Pause·Unpause / Delete) replacing the
+plain "Edit"/"remove" text links — same isolated per-row Alpine scope +
+`@click.outside` pattern as the app-bar dropdowns. Pausing an account signs it
+out **immediately** and refuses sign-in until an admin unpauses it. This is
+**core** (not module-scoped) — it works identically in Main and every
+workspace, with no dependency on business type or company identity (unlike
+the Sweileh Café happy-hour feature, which is deliberately gated to one
+database).
+
+| Concern | Location |
+|---|---|
+| Schema | `users.is_paused` (bool, default false) + `paused_at` (nullable timestamp) — core migration `2026_09_08_100001_add_is_paused_to_users_table`, so it auto-applies to Main via `migrate --force` and backfills every tenant via `workspaces:migrate` |
+| Model | `User::isPaused()` — column-guarded like `isSuperAdmin()`/`isAccountant()` (reads false on a not-yet-migrated DB) |
+| Instant kill | `App\Erp\Security\SessionKiller::killFor(User)` — deletes the paused user's rows from the **sessions** table and rotates their `remember_token`. Sessions always live on the LANDLORD (Main) connection (`WorkspaceServiceProvider` pins `session.connection` to the boot-time default so a tenant swap never logs anyone out — see `[[workspaces-tenancy-architecture]]`), so the row to delete is keyed by the **Main-matched** copy of the account (by email), never a tenant-local id. Best-effort (wrapped try/catch) — it is defence-in-depth, not the authoritative guard |
+| Authoritative guard | `App\Http\Middleware\EnsureUserIsNotPaused` — appended to the `web` group right after `SetActiveWorkspace` (so it reads the correct per-database row) and before `SetLocale`. Re-checks `is_paused` on **every** request for the currently-resolved user; if paused it force `Auth::logout()`s, invalidates the session, and `abort(419)`s — reusing the app's existing "session expired" handling (a Livewire AJAX request treats 419 as expired and reloads silently via the `window.confirm` override in the master layout; a plain page load renders `errors/419.blade.php`, which reloads the current URL via JS). Either path lands on `/login` because the session is already dead. This is what actually guarantees an instant kick regardless of session driver or a live "remember me" cookie re-authenticating them on some later request |
+| Sign-in rejection | `App\Livewire\Auth\Login::login()` — after `Auth::attempt()` succeeds, checks `isPaused()`; if paused it logs them straight back out and throws a validation error ("Your account has been paused. Contact your administrator.") **without** counting it against the rate limiter (the credentials were correct) |
+| Guards on pausing | `UserManager::canPause()` — can't pause **yourself** (an instant, unrecoverable self-lockout since only another admin could undo it) or the **last admin** (mirrors the existing `canDelete()` guard). Unpausing carries no such risk and needs no guard. Only this database's own account is toggled from inside a workspace — a **global** account's pause state belongs to Main, same scoping rule as edit/delete |
+| 2FA | `togglePause()` carries the same email-OTP gate as edit/delete (`ConfirmsWithEmailOtp`, action `user.pause`) — a regular admin confirms an emailed code, a super admin acts immediately |
+| Activity log | `user_paused` / `user_unpaused` action codes added to `ActivityLog::LABELS`/`COLORS` |
+| Tests | `AccessControlTest::{test_a_paused_users_very_next_request_signs_them_out, test_a_paused_user_cannot_sign_in_even_with_the_right_password}` · `UserManagerTest::{test_pausing_a_user_kills_their_session_and_marks_them_paused, test_unpausing_a_user_restores_their_account, test_an_admin_cannot_pause_themselves}` · `SuperAdminTest::{test_regular_admin_must_pass_email_otp_to_pause_a_user, test_super_admin_pauses_a_user_without_otp}` |
+
+AR keys added: Pause / Paused / Unpause + the pause-confirm and paused-login
+strings.
+
 **App lists must go through `Features::moduleAllowed()` (fixed 2026-07-13):**
 the business-type gate has to be applied at **every** surface that lists
 installed application modules, not just the app bar. Two were missing it and

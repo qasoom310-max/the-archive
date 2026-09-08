@@ -18,6 +18,7 @@ use App\Models\Workspace;
 use App\Notifications\WelcomeCredentials;
 use Closure;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
@@ -230,6 +231,52 @@ final class UserManagerTest extends TestCase
         $this->assertNull(User::query()->find($user->getKey()));
         $this->assertNull(Group::query()->find($groupId));
         $this->assertSame(0, ModelAccess::query()->where('group_id', $groupId)->count());
+    }
+
+    public function test_pausing_a_user_kills_their_session_and_marks_them_paused(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+        $target = User::factory()->create(['is_admin' => false]);
+
+        DB::table('sessions')->insert([
+            'id' => 'fake-session-id',
+            'user_id' => $target->getKey(),
+            'ip_address' => '127.0.0.1',
+            'user_agent' => 'phpunit',
+            'payload' => base64_encode('x'),
+            'last_activity' => time(),
+        ]);
+
+        Livewire::test(UserManager::class)
+            ->call('togglePause', $target->getKey())
+            ->assertSet('otpOpen', false);
+
+        $target->refresh();
+        $this->assertTrue($target->isPaused());
+        $this->assertNotNull($target->paused_at);
+        $this->assertSame(0, DB::table('sessions')->where('user_id', $target->getKey())->count());
+    }
+
+    public function test_unpausing_a_user_restores_their_account(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+        $target = User::factory()->create(['is_admin' => false, 'is_paused' => true, 'paused_at' => now()]);
+
+        Livewire::test(UserManager::class)->call('togglePause', $target->getKey());
+
+        $target->refresh();
+        $this->assertFalse($target->isPaused());
+        $this->assertNull($target->paused_at);
+    }
+
+    public function test_an_admin_cannot_pause_themselves(): void
+    {
+        $me = User::factory()->create(['is_admin' => true, 'is_super_admin' => true]);
+        $this->actingAs($me);
+
+        Livewire::test(UserManager::class)->call('togglePause', $me->getKey());
+
+        $this->assertFalse((bool) $me->fresh()?->is_paused);
     }
 
     public function test_admin_can_create_a_full_admin_user(): void

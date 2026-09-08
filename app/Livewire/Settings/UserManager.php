@@ -8,6 +8,7 @@ use App\Erp\Admin\StaffRole;
 use App\Erp\Admin\UserProvisioner;
 use App\Erp\Business\Features;
 use App\Erp\Enums\ModuleState;
+use App\Erp\Security\SessionKiller;
 use App\Erp\Tenancy\WorkspaceManager;
 use App\Livewire\Concerns\ConfirmsWithEmailOtp;
 use App\Models\Auth\Group;
@@ -670,6 +671,75 @@ final class UserManager extends Component
     }
 
     /**
+     * Pause or unpause an account. Pausing signs it out of every session
+     * immediately ({@see SessionKiller}) and, from then on, both the sign-in
+     * screen and {@see \App\Http\Middleware\EnsureUserIsNotPaused} refuse it
+     * until an admin unpauses it. This is sensitive enough (it can lock
+     * someone out on the spot) to carry the same email-OTP gate as edit/delete.
+     */
+    public function togglePause(int $id): void
+    {
+        $this->guardAdmin();
+
+        if (! $this->requireOtp('user.pause', ['id' => $id])) {
+            return;
+        }
+
+        $this->performTogglePause($id);
+    }
+
+    private function performTogglePause(int $id): void
+    {
+        $target = User::query()->find($id);
+        if ($target === null || ! $this->actorCanManage($target)) {
+            return;
+        }
+
+        // Only this database's own account is toggled from here — a global
+        // account's identity (and its pause state) belongs to Main.
+        $workspaceId = $this->currentWorkspaceId();
+        if ($workspaceId !== null && ! $this->belongsHere($target, $workspaceId)) {
+            return;
+        }
+
+        $pausing = ! $target->isPaused();
+
+        if ($pausing && ! $this->canPause($target)) {
+            return;
+        }
+
+        $target->is_paused = $pausing;
+        $target->paused_at = $pausing ? now() : null;
+        $target->save();
+
+        if ($pausing) {
+            app(SessionKiller::class)->killFor($target);
+        }
+
+        app(\App\Erp\Activity\ActivityLogger::class)->log(
+            $pausing ? 'user_paused' : 'user_unpaused',
+            (string) $target->email,
+            $pausing
+                ? __('Paused :name', ['name' => $target->name])
+                : __('Unpaused :name', ['name' => $target->name]),
+        );
+    }
+
+    /**
+     * Guard for turning pause ON: never yourself (instant, unrecoverable
+     * self-lockout) and never the last admin (nobody left to unpause them).
+     * Turning pause OFF carries no such risk and needs no guard.
+     */
+    private function canPause(User $target): bool
+    {
+        if ($target->getKey() === Auth::id()) {
+            return false;
+        }
+
+        return ! ($target->isAdmin() && User::query()->where('is_admin', true)->count() <= 1);
+    }
+
+    /**
      * The role badge for every row of the list, resolved in ONE extra query.
      * Super admin / Admin / Accountant come straight off the flags; Supervisor
      * is only visible in the ACL (their grants carry Write), so the per-user
@@ -722,6 +792,7 @@ final class UserManager extends Component
         match ($action) {
             'user.update' => $this->confirmedUpdate(),
             'user.delete' => $this->confirmedDelete((int) ($args['id'] ?? 0)),
+            'user.pause' => $this->performTogglePause((int) ($args['id'] ?? 0)),
             default => null,
         };
     }
@@ -829,7 +900,7 @@ final class UserManager extends Component
             ->orderByDesc('is_super_admin')
             ->orderByDesc('is_admin')
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'is_admin', 'is_super_admin', 'is_accountant', 'home_workspace_id']);
+            ->get(['id', 'name', 'email', 'is_admin', 'is_super_admin', 'is_accountant', 'is_paused', 'home_workspace_id']);
 
         return view('livewire.settings.user-manager', [
             // NB: keys must NOT clash with the public $apps / $workspaces

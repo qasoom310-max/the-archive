@@ -67,6 +67,35 @@ final class AccessControlTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_a_paused_users_very_next_request_signs_them_out(): void
+    {
+        $user = User::factory()->create(['is_admin' => true]);
+        $this->actingAs($user);
+
+        $this->get('/')->assertOk();
+
+        $user->forceFill(['is_paused' => true])->save();
+
+        $this->get('/')->assertStatus(419);
+        $this->assertGuest();
+    }
+
+    public function test_a_paused_user_cannot_sign_in_even_with_the_right_password(): void
+    {
+        User::factory()->create([
+            'email' => 'paused@example.com',
+            'is_paused' => true,
+        ]);
+
+        Livewire::test(Login::class)
+            ->set('email', 'paused@example.com')
+            ->set('password', 'password')
+            ->call('login')
+            ->assertHasErrors('email');
+
+        $this->assertGuest();
+    }
+
     // ---- AccessControl service -------------------------------------------
 
     public function test_admin_bypasses_all_checks(): void

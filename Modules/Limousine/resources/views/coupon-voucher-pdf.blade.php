@@ -10,96 +10,90 @@
 <head>
     <meta charset="utf-8">
     <title>{{ __('Refund coupon') }} {{ $code }}</title>
+    <x-pdf-styles />
     <style>
         @page { margin: 30px 34px 60px; }
-        body { font-family: DejaVu Sans, sans-serif; font-size: 10.5px; color: #111; }
-        .logo { height: {{ (int) round(52 * $logoScale / 100) }}px; }
-        .brand-fallback { background: #f5ef1a; display: inline-block; padding: 8px 18px; font-size: 22px; font-weight: bold; letter-spacing: 1px; }
-        h1 { font-size: 17px; margin: 14px 0 2px; text-decoration: underline; }
-        .muted { color: #666; }
-        table { width: 100%; border-collapse: collapse; }
-        td { padding: 6px 4px; vertical-align: top; }
-        .lbl { font-weight: bold; width: 130px; }
-        .code-box { border: 2px solid #111; padding: 12px 16px; text-align: center; margin: 16px 0; }
-        .code { font-size: 26px; font-weight: bold; letter-spacing: 3px; }
-        .balance { font-size: 22px; font-weight: bold; }
-        .void { color: #b00020; font-weight: bold; }
-        .money td { border-bottom: 1px solid #ddd; }
-        .money .total td { border-bottom: none; font-weight: bold; }
-        .spent { margin-top: 18px; }
-        .spent th { text-align: left; font-size: 9.5px; color: #555; border-bottom: 1px solid #bbb; padding: 4px; }
-        .spent td { font-size: 10px; padding: 4px; border-bottom: 1px solid #eee; }
-        .foot { margin-top: 26px; font-size: 9.5px; color: #333; line-height: 1.6; }
+        .code { font-size: 24px; font-weight: bold; letter-spacing: 3px; color: #0f172a; }
     </style>
 </head>
 <body>
 
-@if ($logoPath)
-    <img src="{{ $logoPath }}" class="logo" alt="{{ $companyName }}">
-@else
-    <div class="brand-fallback">{{ $companyName }}</div>
-@endif
-
-<h1>{{ __('Refund coupon') }}</h1>
-
-<table>
+<table class="doc-head">
     <tr>
-        <td style="width:60%"><b>{{ __('Issued') }} :</b> {{ $issuedOn }}</td>
-        <td style="text-align:right">{{ __('Valid until') }}: <b>{{ $expiresOn }}</b></td>
+        <td style="width:55%">
+            @if ($logoPath)
+                <img src="{{ $logoPath }}" style="height:{{ (int) round(46 * $logoScale / 100) }}px" alt="{{ $companyName }}">
+            @else
+                <div class="doc-brand-fallback">{{ $companyName }}</div>
+            @endif
+        </td>
+        <td class="doc-title-block">
+            <div class="doc-title">{{ __('Refund coupon') }}</div>
+            <div class="doc-ref">{{ __('Issued') }}: <b>{{ $issuedOn }}</b></div>
+            <div class="doc-sub">{{ __('Valid until') }}: {{ $expiresOn }}</div>
+        </td>
     </tr>
 </table>
+<div class="doc-accent">&nbsp;</div>
 
-<div class="code-box">
-    <div class="muted" style="font-size:9.5px; letter-spacing:1px">{{ __('COUPON CODE') }}</div>
+<div class="doc-figure-box">
+    <div class="doc-figure-label">{{ __('COUPON CODE') }}</div>
     <div class="code">{{ $code }}</div>
-    <div style="margin-top:10px" class="{{ $expired || $remaining <= 0 ? 'void' : '' }}">
+    <div style="margin-top:8px" class="{{ $expired || $remaining <= 0 ? 'owed' : '' }}">
         @if ($expired)
             {{ __('EXPIRED — this coupon can no longer be used.') }}
         @elseif ($remaining <= 0)
             {{ __('FULLY USED — nothing remains on this coupon.') }}
         @else
-            <span class="muted" style="font-size:9.5px">{{ __('Value remaining') }}</span><br>
-            <span class="balance">{{ \App\Erp\Views\ValueFormat::money($remaining) }}</span>
+            <span class="doc-figure-label">{{ __('Value remaining') }}</span><br>
+            <span class="doc-figure">{{ \App\Erp\Views\ValueFormat::money($remaining) }}</span>
         @endif
     </div>
 </div>
 
-<table>
+<table class="doc-meta">
     <tr>
-        <td class="lbl">{{ __('Customer') }}</td>
-        <td>{{ $customerName ?: '—' }}@if ($customerPhone) · {{ $customerPhone }} @endif</td>
+        <td class="k">{{ __('Customer') }}</td>
+        <td class="v">{{ $customerName ?: '—' }}@if ($customerPhone) · {{ $customerPhone }} @endif</td>
     </tr>
     @if ($fromTrip)
         <tr>
-            <td class="lbl">{{ __('For cancelled trip') }}</td>
-            <td>{{ $fromTrip }}</td>
+            <td class="k">{{ __('For cancelled trip') }}</td>
+            <td class="v">{{ $fromTrip }}</td>
         </tr>
     @endif
 </table>
 
-<table class="money" style="margin-top:12px">
+<table style="width:100%; margin-top:10px">
     <tr>
-        <td>{{ __('Issued') }}</td>
-        <td style="text-align:right">{{ \App\Erp\Views\ValueFormat::money($issued) }}</td>
-    </tr>
-    <tr>
-        <td>{{ __('Used') }}</td>
-        <td style="text-align:right">{{ \App\Erp\Views\ValueFormat::money($used) }}</td>
-    </tr>
-    <tr class="total">
-        <td>{{ __('Remaining') }}</td>
-        <td style="text-align:right">{{ \App\Erp\Views\ValueFormat::money($remaining) }}</td>
+        <td></td>
+        <td style="width:230px">
+            <table class="doc-totals">
+                <tr>
+                    <td class="k">{{ __('Issued') }}</td>
+                    <td class="v">{{ \App\Erp\Views\ValueFormat::money($issued) }}</td>
+                </tr>
+                <tr>
+                    <td class="k">{{ __('Used') }}</td>
+                    <td class="v">{{ \App\Erp\Views\ValueFormat::money($used) }}</td>
+                </tr>
+                <tr class="grand">
+                    <td class="k">{{ __('Remaining') }}</td>
+                    <td class="v">{{ \App\Erp\Views\ValueFormat::money($remaining) }}</td>
+                </tr>
+            </table>
+        </td>
     </tr>
 </table>
 
 @if (count($redemptions))
-    <div class="spent">
-        <table>
+    <div style="margin-top:16px">
+        <table class="doc-table">
             <thead>
                 <tr>
                     <th>{{ __('Used on') }}</th>
                     <th>{{ __('Booking') }}</th>
-                    <th style="text-align:right">{{ __('Amount') }}</th>
+                    <th class="num">{{ __('Amount') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -107,7 +101,7 @@
                     <tr>
                         <td>{{ $r->created_at?->isoFormat('DD-MMM-YYYY') }}</td>
                         <td>{{ $r->booking_reference ?: '—' }}</td>
-                        <td style="text-align:right">{{ \App\Erp\Views\ValueFormat::money((float) $r->amount) }}</td>
+                        <td class="num">{{ \App\Erp\Views\ValueFormat::money((float) $r->amount) }}</td>
                     </tr>
                 @endforeach
             </tbody>
@@ -115,7 +109,7 @@
     </div>
 @endif
 
-<div class="foot">
+<div class="doc-note">
     {{ __('Quote this code when booking and the value is taken off your fare. It may be used across more than one trip until it runs out, and expires on the date above.') }}
 </div>
 

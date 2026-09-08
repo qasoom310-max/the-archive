@@ -9,71 +9,54 @@
 <head>
     <meta charset="utf-8">
     <title>{{ __('Quotation') }} {{ $reference }}</title>
+    <x-pdf-styles />
     <style>
         @page { margin: 30px 34px 60px; }
-        body { font-family: DejaVu Sans, sans-serif; font-size: 10.5px; color: #111; }
-        .logo { height: {{ (int) round(52 * $logoScale / 100) }}px; }
-        .brand-fallback { background: #f5ef1a; display: inline-block; padding: 8px 18px; font-size: 22px; font-weight: bold; letter-spacing: 1px; }
-        h1 { font-size: 17px; margin: 14px 0 2px; text-decoration: underline; }
-        .muted { color: #666; }
-        table { width: 100%; border-collapse: collapse; }
-        td { padding: 6px 4px; vertical-align: top; }
-        .lbl { font-weight: bold; width: 120px; }
-        .conf { text-align: right; font-size: 12px; }
-        .conf b { font-size: 17px; }
-        .trips { margin-top: 16px; }
-        .trips th { text-align: left; font-size: 9.5px; text-transform: uppercase; letter-spacing: .4px; color: #555; border-bottom: 1px solid #999; padding: 5px 4px; }
-        .trips td { border-bottom: 1px solid #eee; padding: 7px 4px; }
-        .num { text-align: right; }
-        .total-row td { border-bottom: none; border-top: 2px solid #111; font-weight: bold; font-size: 12px; padding-top: 8px; }
-        .notes { margin-top: 18px; }
-        .foot { margin-top: 26px; font-size: 9.5px; color: #333; line-height: 1.6; }
     </style>
 </head>
 <body>
 
-@if ($logoPath)
-    <img src="{{ $logoPath }}" class="logo" alt="{{ $companyName }}">
-@else
-    <div class="brand-fallback">{{ $companyName }}</div>
-@endif
-
-<h1>{{ __('Quotation') }}</h1>
-
-<table>
+<table class="doc-head">
     <tr>
-        <td style="width:60%"><b>{{ __('Date') }} :</b> {{ $quoteDate }}</td>
-        <td class="conf">{{ __('Quotation No.') }}: <b>{{ $reference }}</b>
-            @if ($validUntil)
-                <div class="muted" style="font-size:9px">{{ __('Valid until') }} {{ $validUntil }}</div>
+        <td style="width:55%">
+            @if ($logoPath)
+                <img src="{{ $logoPath }}" style="height:{{ (int) round(46 * $logoScale / 100) }}px" alt="{{ $companyName }}">
+            @else
+                <div class="doc-brand-fallback">{{ $companyName }}</div>
             @endif
+        </td>
+        <td class="doc-title-block">
+            <div class="doc-title">{{ __('Quotation') }}</div>
+            <div class="doc-ref">{{ __('Quotation No.') }}: <b>{{ $reference }}</b></div>
+            <div class="doc-sub">{{ __('Date') }}: {{ $quoteDate }}@if ($validUntil) · {{ __('Valid until') }} {{ $validUntil }}@endif</div>
         </td>
     </tr>
 </table>
+<div class="doc-accent">&nbsp;</div>
 
-<table style="margin-top:8px">
+<table class="doc-meta">
     <tr>
-        <td class="lbl">{{ __('Customer') }}</td>
-        <td>{{ $customerName ?: '—' }}@if ($customerPhone) · {{ $customerPhone }} @endif</td>
+        <td class="k">{{ __('Customer') }}</td>
+        <td class="v">{{ $customerName ?: '—' }}@if ($customerPhone) · {{ $customerPhone }} @endif</td>
     </tr>
     @if ($contactPerson)
-        <tr><td class="lbl">{{ __('Contact person') }}</td><td>{{ $contactPerson }}</td></tr>
+        <tr><td class="k">{{ __('Contact person') }}</td><td class="v">{{ $contactPerson }}</td></tr>
     @endif
     @if ($requestedBy)
-        <tr><td class="lbl">{{ __('Requested by') }}</td><td>{{ $requestedBy }}</td></tr>
+        <tr><td class="k">{{ __('Requested by') }}</td><td class="v">{{ $requestedBy }}</td></tr>
     @endif
     @if ($preparedBy)
-        <tr><td class="lbl">{{ __('Prepared by') }}</td><td>{{ $preparedBy }}</td></tr>
+        <tr><td class="k">{{ __('Prepared by') }}</td><td class="v">{{ $preparedBy }}</td></tr>
     @endif
 </table>
 
-<table class="trips">
+<table class="doc-table" style="margin-top:16px">
     <thead>
         <tr>
-            <th>#</th>
+            <th style="width:26px">#</th>
             <th>{{ __('Trip') }}</th>
-            <th>{{ __('Date & time') }}</th>
-            <th class="num">{{ __('Amount') }}</th>
+            <th style="width:110px">{{ __('Date & time') }}</th>
+            <th class="num" style="width:90px">{{ __('Amount') }}</th>
         </tr>
     </thead>
     <tbody>
@@ -95,21 +78,31 @@
                 <td class="num">{{ \App\Erp\Views\ValueFormat::money((float) $leg->net_amount) }}</td>
             </tr>
         @endforeach
-        <tr class="total-row">
-            <td colspan="3">{{ __('Total') }}</td>
-            <td class="num">{{ \App\Erp\Views\ValueFormat::money($total) }}</td>
-        </tr>
     </tbody>
 </table>
 
+<table style="width:100%; margin-top:6px">
+    <tr>
+        <td></td>
+        <td style="width:230px">
+            <table class="doc-totals">
+                <tr class="grand">
+                    <td class="k">{{ __('Total') }}</td>
+                    <td class="v">{{ \App\Erp\Views\ValueFormat::money($total) }}</td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+
 @if ($notes)
-    <div class="notes">
+    <div style="margin-top:18px">
         <b>{{ __('Comments') }}</b>
         <div class="muted" style="margin-top:3px; white-space:pre-line">{{ $notes }}</div>
     </div>
 @endif
 
-<div class="foot">
+<div class="doc-note">
     {{ __('Prices are in Bahraini Dinar. This quotation is valid until the date shown above.') }}
 </div>
 

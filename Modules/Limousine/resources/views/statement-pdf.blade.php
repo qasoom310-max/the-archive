@@ -9,63 +9,54 @@
 <head>
     <meta charset="utf-8">
     <title>{{ __('Statement of account') }} — {{ $customer->name }}</title>
+    <x-pdf-styles />
     <style>
         @page { margin: 28px 30px 60px; }
-        body { font-family: DejaVu Sans, sans-serif; font-size: 10px; color: #111; }
-        .logo { height: {{ (int) round(52 * $logoScale / 100) }}px; }
-        .brand-fallback { background: #f5ef1a; display: inline-block; padding: 8px 18px; font-size: 22px; font-weight: bold; letter-spacing: 1px; }
-        h1 { font-size: 17px; margin: 14px 0 2px; text-decoration: underline; }
-        .muted { color: #666; }
-        table { width: 100%; border-collapse: collapse; }
-        td, th { padding: 5px 4px; vertical-align: top; }
-        .head td { padding: 2px 4px; }
-        .lbl { font-weight: bold; width: 110px; }
-        .ledger th { border-bottom: 2px solid #111; text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: .4px; }
-        .ledger td { border-bottom: 1px solid #eee; }
-        .num { text-align: right; white-space: nowrap; }
+        .ledger th { font-size: 8.5px; }
         /* `.ledger th` is the more specific selector, so without this the
            money HEADINGS stayed left-aligned over right-aligned figures and
            no column read as a column. */
         .ledger th.num { text-align: right; }
-        .open td { background: #f4f4f4; font-weight: bold; }
-        .close td { border-top: 2px solid #111; font-weight: bold; font-size: 11.5px; }
-        .owed { color: #b00020; }
-        .settled { color: #0a7d33; }
-        .foot { margin-top: 22px; font-size: 9px; color: #333; line-height: 1.6; }
+        .ledger .open td { background: #f8fafc; font-weight: bold; }
+        .ledger .close td { border-top: 1.5px solid #0f172a; font-weight: bold; font-size: 11.5px; }
     </style>
 </head>
 <body>
 
-@if ($logoPath)
-    <img src="{{ $logoPath }}" class="logo" alt="{{ $companyName }}">
-@else
-    <div class="brand-fallback">{{ $companyName }}</div>
-@endif
-
-<h1>{{ __('Statement of account') }}</h1>
-
-<table class="head">
+<table class="doc-head">
     <tr>
-        <td class="lbl">{{ __('Account') }}</td>
-        <td>{{ $customer->name }}@if ($customer->phone) · {{ $customer->phone }}@endif</td>
-    </tr>
-    <tr>
-        <td class="lbl">{{ __('Period') }}</td>
-        <td>
-            @if ($from || $to)
-                {{ $from?->isoFormat('DD-MMM-YYYY') ?? '…' }} — {{ $to?->isoFormat('DD-MMM-YYYY') ?? '…' }}
+        <td style="width:55%">
+            @if ($logoPath)
+                <img src="{{ $logoPath }}" style="height:{{ (int) round(46 * $logoScale / 100) }}px" alt="{{ $companyName }}">
             @else
-                {{ __('All time') }}
+                <div class="doc-brand-fallback">{{ $companyName }}</div>
             @endif
         </td>
-    </tr>
-    <tr>
-        <td class="lbl">{{ __('Issued') }}</td>
-        <td>{{ now()->isoFormat('DD-MMM-YYYY') }}</td>
+        <td class="doc-title-block">
+            <div class="doc-title">{{ __('Statement of account') }}</div>
+            <div class="doc-ref">{{ __('Account') }}: <b>{{ $customer->name }}</b></div>
+            <div class="doc-sub">
+                {{ __('Period') }}:
+                @if ($from || $to)
+                    {{ $from?->isoFormat('DD-MMM-YYYY') ?? '…' }} — {{ $to?->isoFormat('DD-MMM-YYYY') ?? '…' }}
+                @else
+                    {{ __('All time') }}
+                @endif
+                · {{ __('Issued') }} {{ now()->isoFormat('DD-MMM-YYYY') }}
+            </div>
+        </td>
     </tr>
 </table>
+<div class="doc-accent">&nbsp;</div>
 
-<table class="ledger" style="margin-top:14px">
+@if ($customer->phone)
+    <table class="doc-meta">
+        <tr><td class="k" style="width:80px">{{ __('Phone') }}</td><td class="v">{{ $customer->phone }}</td></tr>
+    </table>
+@endif
+
+<table class="doc-table ledger" style="margin-top:14px">
+    <thead>
     <tr>
         <th style="width:60px">{{ __('Date') }}</th>
         <th style="width:68px">{{ __('Reference') }}</th>
@@ -79,7 +70,8 @@
         <th class="num" style="width:72px">{{ __('Payment') }}</th>
         <th class="num" style="width:80px">{{ __('Balance') }}</th>
     </tr>
-
+    </thead>
+    <tbody>
     {{-- Without this a statement for one month would read as though the
          account opened that morning at zero. --}}
     <tr class="open">
@@ -108,6 +100,7 @@
         <td class="num">{{ \App\Erp\Views\ValueFormat::money($paid) }}</td>
         <td class="num {{ $closing > 0 ? 'owed' : 'settled' }}">{{ \App\Erp\Views\ValueFormat::money($closing) }}</td>
     </tr>
+    </tbody>
 </table>
 
 @if ($closing > 0)

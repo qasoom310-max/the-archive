@@ -7,49 +7,41 @@
 <head>
     <meta charset="utf-8">
     <title>{{ __('Service Order') }} {{ $confirmationNo }}</title>
+    <x-pdf-styles />
     <style>
         @page { margin: 26px 30px 60px; }
-        body { font-family: DejaVu Sans, sans-serif; font-size: 10.5px; color: #111; }
-        .logo { height: {{ (int) round(52 * $logoScale / 100) }}px; }
-        .brand-fallback { background: #f5ef1a; display: inline-block; padding: 8px 18px; font-size: 22px; font-weight: bold; letter-spacing: 1px; }
-        h1 { font-size: 17px; margin: 14px 0 2px; text-decoration: underline; }
-        .muted { color: #666; }
-        .section { font-size: 11px; font-weight: bold; margin: 14px 0 2px; }
-        .rule { border-bottom: 1px solid #bbb; width: 150px; margin-bottom: 6px; }
-        table { width: 100%; border-collapse: collapse; }
-        td { padding: 7px 4px; vertical-align: bottom; }
-        .lbl { font-weight: bold; width: 118px; }
-        .val { border-bottom: 1px solid #ccc; }
-        .conf { text-align: right; font-size: 12px; }
-        .conf b { font-size: 19px; }
-        .foot { margin-top: 26px; font-size: 9.5px; color: #333; line-height: 1.5; }
+        .section {
+            font-size: 8.5px; font-weight: bold; text-transform: uppercase; letter-spacing: .5px;
+            color: #ffffff; background: #0f172a; padding: 4px 8px; margin: 14px 0 8px; border-radius: 2px;
+        }
+        table td { padding: 7px 4px; vertical-align: bottom; }
+        .lbl { font-weight: bold; color: #4b5563; width: 118px; }
+        .val { border-bottom: 1px solid #d1d5db; }
         .sig-img { max-height: 54px; }
-        .signed-note { color: #0a7d3f; font-size: 9px; }
+        .signed-note { color: #15803d; font-size: 9px; }
     </style>
 </head>
 <body>
 
-@if ($logoPath)
-    <img src="{{ $logoPath }}" class="logo" alt="{{ $companyName }}">
-@else
-    <div class="brand-fallback">{{ $companyName }}</div>
-@endif
-
-<h1>{{ __('Service Order') }}</h1>
-
-<table>
+<table class="doc-head">
     <tr>
-        <td style="width:60%"><b>{{ __('Date') }} :</b> {{ $issuedOn }}</td>
-        <td class="conf">{{ __('Confirmation No.') }}: <b>{{ $confirmationNo }}</b>
-            @if ($bookingReference)
-                <div class="muted" style="font-size:9px">{{ $bookingReference }}</div>
+        <td style="width:55%">
+            @if ($logoPath)
+                <img src="{{ $logoPath }}" style="height:{{ (int) round(46 * $logoScale / 100) }}px" alt="{{ $companyName }}">
+            @else
+                <div class="doc-brand-fallback">{{ $companyName }}</div>
             @endif
+        </td>
+        <td class="doc-title-block">
+            <div class="doc-title">{{ __('Service Order') }}</div>
+            <div class="doc-ref">{{ __('Confirmation No.') }}: <b>{{ $confirmationNo }}</b></div>
+            <div class="doc-sub">{{ __('Date') }}: {{ $issuedOn }}@if ($bookingReference) · {{ $bookingReference }}@endif</div>
         </td>
     </tr>
 </table>
+<div class="doc-accent">&nbsp;</div>
 
 <div class="section">{{ __('CUSTOMER DETAILS') }}</div>
-<div class="rule"></div>
 <table>
     <tr>
         <td class="lbl">{{ __('Customer Name') }} :</td>
@@ -60,7 +52,6 @@
 </table>
 
 <div class="section">{{ __('SERVICE DETAILS') }}</div>
-<div class="rule"></div>
 <table>
     <tr>
         <td class="lbl">{{ __('Service Date') }}:</td>
@@ -129,7 +120,7 @@
 {{-- Customer signature. Signed online → the drawn image plus when and by whom,
      which is what makes this the proof the trip was delivered. Unsigned → a
      ruled line so the sheet still works on paper. --}}
-<table style="margin-top:38px">
+<table style="margin-top:34px">
     <tr>
         <td style="width:55%"></td>
         <td class="lbl" style="width:110px">{{ __('Customer Signature') }} :</td>

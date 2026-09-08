@@ -20,7 +20,7 @@
         @page { margin: 22px 26px 60px; }
         * { font-family: DejaVu Sans, sans-serif; }
         body { color: #1f2937; font-size: 11px; line-height: 1.45; }
-        .head { width: 100%; border-bottom: 2px solid #111; padding-bottom: 8px; }
+        .head { width: 100%; border-bottom: 2.5px solid #0f172a; padding-bottom: 8px; }
         .head td { vertical-align: middle; }
         .logo { max-height: 52px; max-width: 150px; }
         .company { font-size: 17px; font-weight: bold; }
@@ -40,7 +40,7 @@
         .col { width: 49%; vertical-align: top; }
         .terms { font-size: 9.5px; color: #374151; white-space: normal; }
         .sign td { padding-top: 34px; }
-        .sign .line { border-top: 1px solid #111; padding-top: 3px; color: #6b7280; }
+        .sign .line { border-top: 1px solid #0f172a; padding-top: 3px; color: #6b7280; }
         .muted { color: #6b7280; }
     </style>
 </head>

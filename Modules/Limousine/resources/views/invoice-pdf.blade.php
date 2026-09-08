@@ -23,13 +23,19 @@
     <meta charset="utf-8">
     <title>{{ __('Invoice') }} {{ $reference }}</title>
     <style>
-        @page { margin: 0 0 60px; }
+        @page { margin: 30px 34px 60px; }
         * { box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; }
-        body { font-family: 'DejaVu Sans', sans-serif; color: #111827; font-size: 10.5px; line-height: 1.55; }
+        body { margin: 0; padding: 0; font-family: 'DejaVu Sans', sans-serif; color: #111827; font-size: 10.5px; line-height: 1.55; }
 
-        .topbar { background: #FFC837; height: 40px; }
-        .sheet { padding: 24px 36px 4px; }
+        {{-- Bled to the true page edge via NEGATIVE margins matching the
+             @page margin above, rather than zeroing the page margin itself —
+             the shared <x-document-footer /> is `position: fixed`, and DomPDF
+             computes that against the page's margin box, so a zeroed @page
+             margin silently broke the footer (it stopped rendering at all).
+             Never zero this page's margin again; bleed with negative margins
+             instead. --}}
+        .topbar { background: #FFC837; height: 40px; margin: -30px -34px 20px -34px; }
+        .sheet { padding: 0 0 4px; }
 
         table.head-meta { width: 100%; }
         table.head-meta td { vertical-align: top; }

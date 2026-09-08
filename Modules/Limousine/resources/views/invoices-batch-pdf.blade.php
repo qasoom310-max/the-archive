@@ -15,15 +15,17 @@
     <meta charset="utf-8">
     <title>{{ __('Invoices') }}</title>
     <style>
-        @page { margin: 0 0 60px; }
+        @page { margin: 30px 34px 60px; }
         * { box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; }
-        body { font-family: 'DejaVu Sans', sans-serif; color: #111827; font-size: 10.5px; line-height: 1.55; }
+        body { margin: 0; padding: 0; font-family: 'DejaVu Sans', sans-serif; color: #111827; font-size: 10.5px; line-height: 1.55; }
 
         .invoice-page { page-break-before: always; }
 
-        .topbar { background: #FFC837; height: 40px; }
-        .sheet { padding: 24px 36px 4px; }
+        {{-- Bled to the true page edge via NEGATIVE margins matching the
+             @page margin above — see invoice-pdf.blade.php for why the page
+             margin itself must never be zeroed (it breaks the fixed footer). --}}
+        .topbar { background: #FFC837; height: 40px; margin: -30px -34px 20px -34px; }
+        .sheet { padding: 0 0 4px; }
 
         table.head-meta { width: 100%; }
         table.head-meta td { vertical-align: top; }

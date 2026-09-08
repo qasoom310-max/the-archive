@@ -12,7 +12,8 @@
         @page { margin: 26px 30px 60px; }
         .section {
             font-size: 8.5px; font-weight: bold; text-transform: uppercase; letter-spacing: .5px;
-            color: #ffffff; background: #0f172a; padding: 4px 8px; margin: 14px 0 8px; border-radius: 2px;
+            color: #ffffff; background: #0b1220; padding: 5px 9px; margin: 14px 0 8px;
+            border-radius: 2px; border-bottom: 2px solid #eab308;
         }
         table td { padding: 7px 4px; vertical-align: bottom; }
         .lbl { font-weight: bold; color: #4b5563; width: 118px; }
@@ -27,7 +28,7 @@
     <tr>
         <td style="width:55%">
             @if ($logoPath)
-                <img src="{{ $logoPath }}" style="height:{{ (int) round(46 * $logoScale / 100) }}px" alt="{{ $companyName }}">
+                <div class="doc-logo-chip"><img src="{{ $logoPath }}" style="height:{{ (int) round(40 * $logoScale / 100) }}px" alt="{{ $companyName }}"></div>
             @else
                 <div class="doc-brand-fallback">{{ $companyName }}</div>
             @endif

@@ -24,7 +24,7 @@
     <tr>
         <td style="width:55%">
             @if ($logoPath)
-                <img src="{{ $logoPath }}" style="height:{{ (int) round(38 * $logoScale / 100) }}px" alt="{{ $companyName }}">
+                <div class="doc-logo-chip"><img src="{{ $logoPath }}" style="height:{{ (int) round(32 * $logoScale / 100) }}px" alt="{{ $companyName }}"></div>
             @else
                 <div class="doc-brand-fallback">{{ $companyName }}</div>
             @endif

@@ -18,7 +18,7 @@
            no column read as a column. */
         .ledger th.num { text-align: right; }
         .ledger .open td { background: #f8fafc; font-weight: bold; }
-        .ledger .close td { border-top: 1.5px solid #0f172a; font-weight: bold; font-size: 11.5px; }
+        .ledger .close td { border-top: 2px solid #eab308; font-weight: bold; font-size: 11.5px; }
     </style>
 </head>
 <body>
@@ -27,7 +27,7 @@
     <tr>
         <td style="width:55%">
             @if ($logoPath)
-                <img src="{{ $logoPath }}" style="height:{{ (int) round(46 * $logoScale / 100) }}px" alt="{{ $companyName }}">
+                <div class="doc-logo-chip"><img src="{{ $logoPath }}" style="height:{{ (int) round(40 * $logoScale / 100) }}px" alt="{{ $companyName }}"></div>
             @else
                 <div class="doc-brand-fallback">{{ $companyName }}</div>
             @endif

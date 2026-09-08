@@ -13,7 +13,7 @@
     <x-pdf-styles />
     <style>
         @page { margin: 30px 34px 60px; }
-        .code { font-size: 24px; font-weight: bold; letter-spacing: 3px; color: #0f172a; }
+        .code { font-size: 24px; font-weight: bold; letter-spacing: 3px; color: #eab308; }
     </style>
 </head>
 <body>
@@ -22,7 +22,7 @@
     <tr>
         <td style="width:55%">
             @if ($logoPath)
-                <img src="{{ $logoPath }}" style="height:{{ (int) round(46 * $logoScale / 100) }}px" alt="{{ $companyName }}">
+                <div class="doc-logo-chip"><img src="{{ $logoPath }}" style="height:{{ (int) round(40 * $logoScale / 100) }}px" alt="{{ $companyName }}"></div>
             @else
                 <div class="doc-brand-fallback">{{ $companyName }}</div>
             @endif

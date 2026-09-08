@@ -1,32 +1,26 @@
-{{-- The customer's bill — redesigned to match the clean, minimal reference
-     template the owner supplied: a solid pastel band across the very top,
-     a large plain "INVOICE" title with issue/due date + invoice number in
-     small label/value columns beside it, a two-column Bill from / Bill to,
-     a plain-ruled item table, and a right-aligned totals box with the final
-     row bold above a top rule.
+{{-- Several ticked invoices downloaded as ONE PDF — the toolbar's "PDF"
+     button on the invoices list, when rows are selected. Each invoice keeps
+     its own full page in the exact design of `invoice-pdf.blade.php` (they
+     share `partials/invoice-body.blade.php`), one after another; a single
+     ticked row is the same page a lone invoice download produces.
 
      Table-based layout with inline styles because DomPDF supports neither
-     flexbox nor grid. This document does NOT include the shared
-     `<x-pdf-styles />` component — its visual language (dark letterhead,
-     gold accents) is a different family from this reference design, so
-     this file carries its own complete `<style>` block. The BODY markup is
-     shared with `invoices-batch-pdf.blade.php` via
-     `partials/invoice-body.blade.php` (several ticked invoices downloaded
-     as one PDF, one per page) — keep both in sync when this changes.
-
-     The BALANCE is still the headline, not the total: what the customer
-     wants to know from a bill is what they still owe, and on a part-paid
-     invoice the total alone is misleading. --}}
+     flexbox nor grid — same reasoning and the same `<style>` block as the
+     single-invoice document (kept in sync by hand; both stay small). The
+     footer is declared ONCE — `position: fixed` repeats it on every physical
+     page DomPDF paginates, including the manual page breaks below. --}}
 <!doctype html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>{{ __('Invoice') }} {{ $reference }}</title>
+    <title>{{ __('Invoices') }}</title>
     <style>
         @page { margin: 0 0 60px; }
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; }
         body { font-family: 'DejaVu Sans', sans-serif; color: #111827; font-size: 10.5px; line-height: 1.55; }
+
+        .invoice-page { page-break-before: always; }
 
         .topbar { background: #FFC837; height: 40px; }
         .sheet { padding: 24px 36px 4px; }
@@ -76,7 +70,11 @@
 </head>
 <body>
 
-@include('limousine::partials.invoice-body')
+@foreach ($invoices as $invoiceData)
+    <div @if (! $loop->first) class="invoice-page" @endif>
+        @include('limousine::partials.invoice-body', $invoiceData)
+    </div>
+@endforeach
 
 <x-document-footer />
 

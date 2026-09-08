@@ -99,9 +99,31 @@ final class LimoInvoicePdf
             ->output();
     }
 
+    /**
+     * Several invoices as one PDF — one full page per invoice, in the same
+     * design {@see render()} produces. Used when more than one row is
+     * ticked on the invoices list and "PDF" is pressed.
+     *
+     * @param  \Illuminate\Support\Collection<int, LimoInvoice>  $invoices
+     */
+    public function renderMany(\Illuminate\Support\Collection $invoices): string
+    {
+        return Pdf::loadView('limousine::invoices-batch-pdf', [
+            'invoices' => $invoices->map(fn (LimoInvoice $invoice): array => $this->viewData($invoice))->all(),
+        ])
+            ->setPaper('a4')
+            ->output();
+    }
+
     public function filename(LimoInvoice $invoice): string
     {
         return 'invoice-' . str_replace(['/', '\\', ' '], '-', (string) $invoice->reference) . '.pdf';
+    }
+
+    /** Filename for a batch download of several ticked invoices. */
+    public function filenameForMany(int $count): string
+    {
+        return 'invoices-' . $count . '-' . now()->format('Ymd-His') . '.pdf';
     }
 
     /** Logo size as a percent of default, clamped to a sane 50–400 %. */

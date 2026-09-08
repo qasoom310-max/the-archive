@@ -111,6 +111,51 @@ final class LimoBespokeExportTest extends TestCase
         $this->assertStringNotContainsString('100.00', $body);
     }
 
+    public function test_invoice_pdf_with_one_ticked_row_downloads_that_invoice_document(): void
+    {
+        $customer = $this->customer();
+        $a = $this->trip($customer, 400, '2026-06-10');
+        $this->trip($customer, 100, '2026-06-11');
+
+        $invoice = \Modules\Limousine\Models\LimoInvoice::query()->where('booking_id', $a->id)->first();
+
+        $response = app(LimoInvoiceExportController::class)->pdf(Request::create('/x', 'GET', [
+            'ids' => (string) $invoice->id,
+        ]));
+
+        $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString(
+            'invoice-' . str_replace(['/', '\\', ' '], '-', (string) $invoice->reference) . '.pdf',
+            (string) $response->headers->get('Content-Disposition'),
+        );
+    }
+
+    public function test_invoice_pdf_with_several_ticked_rows_downloads_them_as_one_document(): void
+    {
+        $customer = $this->customer();
+        $a = $this->trip($customer, 400, '2026-06-10');
+        $b = $this->trip($customer, 100, '2026-06-11');
+        $ids = \Modules\Limousine\Models\LimoInvoice::query()->whereIn('booking_id', [$a->id, $b->id])->pluck('id');
+
+        $response = app(LimoInvoiceExportController::class)->pdf(Request::create('/x', 'GET', [
+            'ids' => $ids->implode(','),
+        ]));
+
+        $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('invoices-2-', (string) $response->headers->get('Content-Disposition'));
+    }
+
+    public function test_invoice_pdf_with_nothing_ticked_still_exports_the_tabular_report(): void
+    {
+        $customer = $this->customer();
+        $this->trip($customer, 400, '2026-06-10');
+
+        $response = app(LimoInvoiceExportController::class)->pdf(Request::create('/x', 'GET'));
+
+        $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('limousine-invoices-', (string) $response->headers->get('Content-Disposition'));
+    }
+
     // --- Receipt -----------------------------------------------------
 
     public function test_receipt_export_carries_the_confirmed_column(): void

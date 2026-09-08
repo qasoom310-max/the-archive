@@ -2447,6 +2447,40 @@ table so Copy narrows the same way. **Two different selection mechanisms
 narrowing exports is fine** — the export controller only cares about the
 `ids` query param, not how a screen produced it.
 
+**Limo invoice PDF redesigned + the toolbar "PDF" now downloads real invoice
+documents when rows are ticked (shipped 2026-09-08):** `invoice-pdf.blade.php`
+was rebuilt to match a reference template the owner supplied — a solid gold
+(`#FFC837`) band across the top, a large plain "INVOICE" title with issue/due
+date + invoice number as small label/value columns beside it, Bill from /
+Bill to, a plain-ruled Date/Description/Amount item table (no separate
+price/qty split — this document doesn't have that data), and a right-aligned
+totals box with **Balance due** bold above a top rule (still the headline,
+not Total). It does **not** use the shared `<x-pdf-styles />` component —
+that dark-letterhead/gold-accent family is a different visual language from
+this reference design, so the file carries its own `<style>` block. The
+Partial badge is the same gold with dark text (never white-on-brand-yellow).
+
+The body markup is shared via `Modules/Limousine/resources/views/partials/
+invoice-body.blade.php` with a new sibling document,
+`invoices-batch-pdf.blade.php`: several invoices as ONE pdf, one full page
+each (`page-break-before` between them), sharing a single `<x-document-footer
+/>` (its `position: fixed` repeats on every physical page DomPDF paginates,
+manual page breaks included). **Why this exists:** the invoices list's
+toolbar "PDF" (next to Copy/CSV/Excel/Print, narrowed by the row checkboxes)
+used to ALWAYS render the generic tabular list report
+(`exports/list-print.blade.php`, shared by every list in the app) regardless
+of what was ticked — so ticking one invoice and pressing "PDF" produced a
+plain data table, not the actual bill, which read as "the old pdf" once the
+real invoice document had a new look. `LimoInvoiceExportController::pdf()`
+now branches: ticked rows → their own invoice document(s) via the new
+`LimoInvoicePdf::renderMany()` (one row → `render()`, same as the per-row
+download icon); nothing ticked → unchanged tabular report. CSV/Excel/Print
+are untouched — still the plain tabular export, ticked or not. Tests:
+`LimoBespokeExportTest::{test_invoice_pdf_with_one_ticked_row_downloads_that_invoice_document,
+test_invoice_pdf_with_several_ticked_rows_downloads_them_as_one_document,
+test_invoice_pdf_with_nothing_ticked_still_exports_the_tabular_report}`. AR
+keys: "Bill from" / "Bill to".
+
 **A shared account's app access is set inside each database (shipped 2026-09-07):**
 
 Settings → Users, inside a workspace, gained an **"Edit access"** action on a

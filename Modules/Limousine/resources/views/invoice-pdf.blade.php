@@ -25,7 +25,7 @@
         html, body { margin: 0; padding: 0; }
         body { font-family: 'DejaVu Sans', sans-serif; color: #111827; font-size: 10.5px; line-height: 1.55; }
 
-        .topbar { background: #c7ddf0; height: 40px; }
+        .topbar { background: #FFC837; height: 40px; }
         .sheet { padding: 24px 36px 4px; }
 
         table.head-meta { width: 100%; }
@@ -40,7 +40,7 @@
             text-transform: uppercase; letter-spacing: .5px; border-radius: 9px; color: #ffffff;
         }
         .doc-badge-paid, .doc-badge-settled { background: #16a34a; }
-        .doc-badge-partial { background: #2563eb; }
+        .doc-badge-partial { background: #FFC837; color: #111827; }
         .doc-badge-unpaid, .doc-badge-void { background: #dc2626; }
 
         .rule { border-top: 1px solid #d1d5db; margin: 16px 0 20px; }

@@ -2105,6 +2105,28 @@ out-of-scope and not yet paused). Test:
 (pauses/unpauses both a shared staff row and a shared ADMIN row from inside a
 workspace, neither locked to it).
 
+**Remove a login from every database — `user:remove` (shipped 2026-09-08):**
+the CLI twin of Settings → Users' **Delete**, for the case the screen can't
+serve the job: a GLOBAL account (shared across every database, "Managed on
+Main") can only ever be deleted from Main through the UI — deleting one from
+inside a workspace is refused there on purpose (its identity belongs to
+Main). Mirrors the existing `user:ensure` / `ensure-user.yml` pair exactly,
+but for removal instead of provisioning.
+
+| Concern | Location |
+|---|---|
+| Service | `UserProvisioner::deleteEverywhere(string $email, ?array $onlyWorkspaceIds = null)` — `null` = every database (Main included); iterates `WorkspaceManager::all()`, deleting via the existing `deleteUser()` on whichever connection is active for that row (`withMain()` / `withTenant()`). A database with no matching account is silently skipped. Returns the list of database names an account was actually removed from |
+| Command | `App\Console\Commands\RemoveUserCommand` (`user:remove {email} {--databases=all}`) — `php artisan user:remove admin@example.com` removes it everywhere; `--databases=3,7` restricts to those workspace ids (Main's own id must be included explicitly to touch Main) |
+| Manual workflow | `.github/workflows/remove-user.yml` (`workflow_dispatch`, inputs `email` + `databases`) — SSHes into erp.wanaan-bh.com and runs the command, same pattern as `ensure-user.yml` |
+| Tests | `tests/Feature/RemoveUserCommandTest.php` (5 — removes on Main, no-op when nothing matches, removes a shared account from Main **and** a provisioned workspace, `--databases` restricts to just the given workspace, requires an email) |
+
+First real use: removing the seeded demo `Administrator / admin@example.com`
+account from Main and every workspace it had been copied into at provisioning
+time. **Not** the same account as `BOOTSTRAP_ADMIN_EMAIL` (the `admin:ensure`
+recovery login re-asserted on every deploy, named "Wanaan Admin") — the two
+are unrelated, so removing the demo admin does not get undone by the next
+deploy.
+
 **App lists must go through `Features::moduleAllowed()` (fixed 2026-07-13):**
 the business-type gate has to be applied at **every** surface that lists
 installed application modules, not just the app bar. Two were missing it and

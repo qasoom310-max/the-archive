@@ -384,4 +384,72 @@ final class UserProvisioner
             $user->delete();
         });
     }
+
+    /**
+     * Remove every copy of this email's account — Main and every workspace (or
+     * a chosen subset). The CLI/command-line twin of {@see deleteUser()} for a
+     * GLOBAL account: the Users tab can only ever delete one on Main (deleting
+     * it from inside a workspace is refused there on purpose — see
+     * {@see \App\Livewire\Settings\UserManager::canDeleteHere()}), so a true
+     * "remove this login everywhere" needs this instead.
+     *
+     * @param  list<int>|null  $onlyWorkspaceIds  null = every database (Main included)
+     * @return list<string> names of the databases a matching account was actually removed from
+     */
+    public function deleteEverywhere(string $email, ?array $onlyWorkspaceIds = null): array
+    {
+        if (! Schema::hasTable('workspaces')) {
+            $removed = (bool) $this->deleteByEmailOnCurrentConnection($email);
+
+            return $removed ? ['this database'] : [];
+        }
+
+        $workspaces = $this->workspaces->all();
+        if ($onlyWorkspaceIds !== null) {
+            $workspaces = $workspaces->whereIn('id', $onlyWorkspaceIds);
+        }
+
+        $removedFrom = [];
+
+        foreach ($workspaces as $workspace) {
+            if ($workspace->is_main) {
+                $removed = (bool) $this->workspaces->withMain(
+                    fn (): bool => $this->deleteByEmailOnCurrentConnection($email),
+                );
+                if ($removed) {
+                    $removedFrom[] = 'Main';
+                }
+
+                continue;
+            }
+
+            $path = $workspace->databasePath();
+            if ($path === null || ! is_file($path)) {
+                continue;
+            }
+
+            $removed = (bool) $this->workspaces->withTenant(
+                $path,
+                fn (): bool => $this->deleteByEmailOnCurrentConnection($email),
+            );
+            if ($removed) {
+                $removedFrom[] = $workspace->name;
+            }
+        }
+
+        return $removedFrom;
+    }
+
+    /** Delete the user matching this email on whatever connection is CURRENTLY active, if one exists. */
+    private function deleteByEmailOnCurrentConnection(string $email): bool
+    {
+        $user = User::query()->where('email', $email)->first();
+        if ($user === null) {
+            return false;
+        }
+
+        $this->deleteUser($user);
+
+        return true;
+    }
 }

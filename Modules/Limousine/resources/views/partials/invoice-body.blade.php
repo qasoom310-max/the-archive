@@ -39,7 +39,6 @@
     <div class="rule">&nbsp;</div>
 
     @php
-        $companyAddress = trim((string) \App\Erp\Settings\Setting::get('company.address', ''));
         $companyPhone = trim((string) \App\Erp\Settings\Setting::get('company.phone', ''));
     @endphp
     <table style="width:100%">
@@ -48,10 +47,8 @@
                 <div class="bill-label">{{ __('Bill from') }}</div>
                 @if ($logoPath)
                     <img class="bill-logo" src="{{ $logoPath }}" alt="{{ $companyName }}"><br>
-                @else
-                    <div class="bill-name">{{ $companyName }}</div>
                 @endif
-                @if ($companyAddress !== '')<div class="bill-line">{{ $companyAddress }}</div>@endif
+                <div class="bill-name">{{ $companyName }}</div>
                 @if ($companyPhone !== '')<div class="bill-line">{{ $companyPhone }}</div>@endif
             </td>
             <td style="width:4%">&nbsp;</td>

@@ -41,8 +41,9 @@ final class LimoInvoicePdf
         return [
             'invoice' => $invoice,
             'reference' => (string) ($invoice->reference ?? ''),
-            'issueDate' => $invoice->issue_date?->isoFormat('DD-MMM-YYYY') ?? '',
-            'dueDate' => $invoice->due_date?->isoFormat('DD-MMM-YYYY') ?? '',
+            // "1-9-2026", not "01-Sep-2026" — the owner's requested format.
+            'issueDate' => $invoice->issue_date?->format('j-n-Y') ?? '',
+            'dueDate' => $invoice->due_date?->format('j-n-Y') ?? '',
             'customerName' => (string) ($invoice->customer->name ?? ''),
             'customerPhone' => (string) ($invoice->customer->phone ?? ''),
             // What the bill is against, so the customer can match it to a job.

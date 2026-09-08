@@ -96,6 +96,21 @@ final class LimoBespokeExportTest extends TestCase
         app(LimoInvoiceExportController::class)->csv(Request::create('/x', 'GET'));
     }
 
+    public function test_invoice_csv_narrows_to_the_ticked_rows(): void
+    {
+        $customer = $this->customer();
+        $a = $this->trip($customer, 400, '2026-06-10');
+        $this->trip($customer, 100, '2026-06-11');
+
+        $invoiceId = \Modules\Limousine\Models\LimoInvoice::query()->where('booking_id', $a->id)->value('id');
+
+        $body = $this->streamed(app(LimoInvoiceExportController::class)->csv(Request::create('/x', 'GET', [
+            'ids' => (string) $invoiceId,
+        ])));
+        $this->assertStringContainsString('400.00', $body);
+        $this->assertStringNotContainsString('100.00', $body);
+    }
+
     // --- Receipt -----------------------------------------------------
 
     public function test_receipt_export_carries_the_confirmed_column(): void

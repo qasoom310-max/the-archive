@@ -2430,6 +2430,23 @@ letting them drift would make "select all on this page" select something other
 than the page. **A list with a Rows service should render from it**; that is why
 it exists.
 
+**Invoices got the same (shipped 2026-09-08)** — Rental `/app/rental/invoice`
+gained the full `SelectsListRows` treatment (header checkbox, per-row
+checkbox, `data-row-selected`/`data-copy-skip`, `ids` on every export link) —
+it had no selection at all before. **Limousine `/app/limousine/invoice`
+already had a checkbox column** (it exists to pick invoices for a **combined
+bill**, via its own hand-rolled `$selected`/`selectAll()` — not the
+`SelectsListRows` trait, since "select all" there means every filtered row,
+not just the current page), but ticking a row did **not** narrow Copy/CSV/
+Excel/PDF/Print — those always covered the whole tab. Wired the existing
+`$selected` into the export query (`'ids' => implode(',', $selected)`) and
+`LimoInvoiceRows::all()` (new optional `array $ids = []`, `whereKey($ids)`
+when given) + `LimoInvoiceExportController::ids()` (same parser as the
+Quotation controllers), and added `data-row-selected`/`data-copy-skip` to its
+table so Copy narrows the same way. **Two different selection mechanisms
+narrowing exports is fine** — the export controller only cares about the
+`ids` query param, not how a screen produced it.
+
 **A shared account's app access is set inside each database (shipped 2026-09-07):**
 
 Settings → Users, inside a workspace, gained an **"Edit access"** action on a

@@ -83,6 +83,8 @@
         $exportQuery = http_build_query([
             'tab' => $tab, 'from' => $from, 'to' => $to, 'q' => $search,
             'title' => __('Invoices'),
+            // Ticked rows narrow every download to just those.
+            'ids' => implode(',', $selected),
         ]);
     @endphp
     <div class="mb-3 flex flex-wrap items-center gap-2" x-data="listExportCopy">
@@ -99,13 +101,16 @@
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('PDF') }}</a>
         <a href="{{ url('/app/limousine/invoice/export/print') }}?{{ $exportQuery }}" target="_blank" rel="noopener"
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Print') }}</a>
+        @if ($selectedCount === 0)
+            <span class="ms-1 text-xs text-chrome-400">{{ __('Tick rows to export only those.') }}</span>
+        @endif
     </div>
 
     <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
         <table class="w-full min-w-[720px] divide-y divide-chrome-100 text-sm" id="limo-invoices-table">
             <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                 <tr>
-                    <th class="w-10 px-4 py-2">
+                    <th class="w-10 px-4 py-2" data-copy-skip>
                         <button type="button" wire:click="selectAll" title="{{ __('Select all') }}"
                                 class="text-[11px] font-semibold text-primary-700 hover:underline">{{ __('All') }}</button>
                     </th>
@@ -126,8 +131,8 @@
                     @endphp
                     {{-- Not clickable. A bill is a document, not a workspace —
                          the three things anyone does with one are on the row. --}}
-                    <tr wire:key="linv-{{ $invoice->id }}" class="hover:bg-chrome-50">
-                        <td class="px-4 py-2">
+                    <tr wire:key="linv-{{ $invoice->id }}" class="hover:bg-chrome-50" data-row-selected="{{ in_array($invoice->id, $selected) ? 1 : 0 }}">
+                        <td class="px-4 py-2" data-copy-skip>
                             <input type="checkbox" value="{{ $invoice->id }}" wire:model.live="selected"
                                    class="size-4 rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
                         </td>

@@ -30,11 +30,17 @@ final class RentalInvoiceRows
     }
 
     /**
+     * @param  list<int>  $ids  When given, only these rows (the ticked ones).
      * @return list<array<string, string>>
      */
-    public function all(string $tab): array
+    public function all(string $tab, array $ids = []): array
     {
-        return $this->query($tab)->get()->map(fn (RentalInvoice $i): array => $this->row($i))->all();
+        $query = $this->query($tab);
+        if ($ids !== []) {
+            $query->whereKey($ids);
+        }
+
+        return $query->get()->map(fn (RentalInvoice $i): array => $this->row($i))->all();
     }
 
     /**

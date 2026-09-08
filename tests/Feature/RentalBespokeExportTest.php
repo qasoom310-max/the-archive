@@ -100,6 +100,32 @@ final class RentalBespokeExportTest extends TestCase
         app(RentalInvoiceExportController::class)->csv(Request::create('/x', 'GET'));
     }
 
+    public function test_invoice_csv_narrows_to_the_ticked_rows(): void
+    {
+        $customer = $this->customer();
+        $a = RentalInvoice::query()->create(['customer_id' => $customer->id, 'total' => 100]);
+        RentalInvoice::query()->create(['customer_id' => $customer->id, 'total' => 250]);
+
+        $body = $this->streamed(app(RentalInvoiceExportController::class)->csv(Request::create('/x', 'GET', ['ids' => (string) $a->id])));
+        $this->assertStringContainsString('100.00', $body);
+        $this->assertStringNotContainsString('250.00', $body);
+    }
+
+    public function test_the_invoice_header_box_ticks_the_page_and_the_download_links_carry_the_ids(): void
+    {
+        $customer = $this->customer();
+        $a = RentalInvoice::query()->create(['customer_id' => $customer->id, 'total' => 100]);
+        $b = RentalInvoice::query()->create(['customer_id' => $customer->id, 'total' => 250]);
+
+        \Livewire\Livewire::test(\Modules\Rental\Livewire\Invoices::class)
+            ->set('selectPage', true)
+            ->assertSet('selected', [$b->id, $a->id])
+            ->assertSee('ids=' . $b->id . '%2C' . $a->id, false)
+            ->call('clearSelection')
+            ->assertSet('selected', [])
+            ->assertDontSee('ids=' . $b->id, false); // link back to the whole tab
+    }
+
     // --- Receipt -----------------------------------------------------
 
     public function test_receipt_csv_and_search_ride_along(): void

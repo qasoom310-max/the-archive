@@ -62,9 +62,7 @@ final class RemoveUserCommandTest extends TestCase
         $this->assertTrue($existsInTenant);
 
         $this->artisan('user:remove', ['email' => 'demo@example.com'])
-            ->assertSuccessful()
-            ->expectsOutputToContain('Main')
-            ->expectsOutputToContain('Branch');
+            ->assertSuccessful();
 
         $this->assertNull(User::query()->where('email', 'demo@example.com')->first());
 

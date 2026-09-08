@@ -216,6 +216,14 @@
                     // per-database rows — so what it can see HERE is ours to set.
                     // (An administrator bypasses the ACL: nothing to grant.)
                     $canSetAccessHere = $workspaceId && ! $inScope && $user->home_workspace_id === null && ! $user->is_admin;
+                    // Pause is NOT an identity edit — it's "block this account
+                    // in the database I'm looking at right now", so unlike
+                    // Edit/Delete it is available on EVERY row (global
+                    // accounts included) without a trip to Main. Turning pause
+                    // ON still can't target yourself or the last admin;
+                    // turning it OFF has no such risk.
+                    $canTogglePauseOn = $canManage && ! $isSelf && ! $isLastAdmin;
+                    $showActionsMenu = $canManage && ($inScope || $canSetAccessHere || $user->is_paused || $canTogglePauseOn);
                 @endphp
                 <li wire:key="user-{{ $user->id }}" class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                     <span class="flex min-w-0 items-center gap-2">
@@ -253,8 +261,10 @@
                              Edit now — one place, one set of guards. Edit / Pause /
                              Delete live behind a 3-dot menu (the same isolated
                              per-row Alpine scope + @click.outside pattern used by
-                             the app-bar dropdowns). --}}
-                        @if ($inScope && $canManage)
+                             the app-bar dropdowns). Pause·Unpause is available on
+                             EVERY row regardless of scope (see $canTogglePauseOn
+                             above) — only Edit/Edit access/Delete are scope-gated. --}}
+                        @if ($showActionsMenu)
                             <div x-data="{ open: false }" @click.outside="open = false" class="relative">
                                 <button type="button" @click="open = ! open"
                                     class="flex size-7 items-center justify-center rounded-full text-chrome-500 hover:bg-chrome-100"
@@ -265,23 +275,30 @@
                                 </button>
                                 <div x-cloak x-show="open" x-transition
                                     class="absolute end-0 z-20 mt-1 w-36 overflow-hidden rounded-lg border border-chrome-200 bg-white py-1 shadow-lg">
-                                    <button type="button" @click="open = false" wire:click="editUser({{ $user->id }})"
-                                        class="block w-full px-3 py-1.5 text-start text-xs font-medium text-chrome-700 hover:bg-chrome-50">
-                                        {{ __('Edit') }}
-                                    </button>
+                                    @if ($inScope)
+                                        <button type="button" @click="open = false" wire:click="editUser({{ $user->id }})"
+                                            class="block w-full px-3 py-1.5 text-start text-xs font-medium text-chrome-700 hover:bg-chrome-50">
+                                            {{ __('Edit') }}
+                                        </button>
+                                    @elseif ($canSetAccessHere)
+                                        <button type="button" @click="open = false" wire:click="editUser({{ $user->id }})"
+                                            class="block w-full px-3 py-1.5 text-start text-xs font-medium text-chrome-700 hover:bg-chrome-50">
+                                            {{ __('Edit access') }}
+                                        </button>
+                                    @endif
                                     @if ($user->is_paused)
                                         <button type="button" @click="open = false" wire:click="togglePause({{ $user->id }})"
                                             class="block w-full px-3 py-1.5 text-start text-xs font-medium text-emerald-700 hover:bg-emerald-50">
                                             {{ __('Unpause') }}
                                         </button>
-                                    @elseif (! $isSelf && ! $isLastAdmin)
+                                    @elseif ($canTogglePauseOn)
                                         <button type="button" @click="open = false" wire:click="togglePause({{ $user->id }})"
                                             wire:confirm="{{ __('Pause :name? They will be signed out and unable to sign in until unpaused.', ['name' => $user->name]) }}"
                                             class="block w-full px-3 py-1.5 text-start text-xs font-medium text-amber-700 hover:bg-amber-50">
                                             {{ __('Pause') }}
                                         </button>
                                     @endif
-                                    @if (! $isSelf && ! $isLastAdmin)
+                                    @if ($inScope && ! $isSelf && ! $isLastAdmin)
                                         <button type="button" @click="open = false" wire:click="deleteUser({{ $user->id }})"
                                             wire:confirm="{{ __('Delete :name?', ['name' => $user->name]) }}"
                                             class="block w-full px-3 py-1.5 text-start text-xs font-medium text-red-600 hover:bg-red-50">
@@ -290,9 +307,6 @@
                                     @endif
                                 </div>
                             </div>
-                        @elseif ($canSetAccessHere && $canManage)
-                            <button type="button" wire:click="editUser({{ $user->id }})"
-                                class="text-xs font-medium text-primary-700 hover:underline">{{ __('Edit access') }}</button>
                         @endif
                     </span>
                 </li>

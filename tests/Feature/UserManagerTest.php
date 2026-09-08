@@ -668,6 +668,41 @@ final class UserManagerTest extends TestCase
         });
     }
 
+    public function test_a_shared_accounts_pause_can_be_toggled_from_inside_a_workspace(): void
+    {
+        // Unlike Edit/Delete, Pause is not an identity edit - it blocks an
+        // account's access to THIS database, so it must not require a trip to
+        // Main even for a global (shared) account, admin or not.
+        $this->insideWorkspace(function (): void {
+            $sharedStaff = User::factory()->create([
+                'name' => 'Shared Staff',
+                'email' => 'shared-staff@example.com',
+                'is_admin' => false,
+                'home_workspace_id' => null,
+            ]);
+            $sharedAdmin = User::factory()->create([
+                'name' => 'Shared Admin',
+                'email' => 'shared-admin@example.com',
+                'is_admin' => true,
+                'home_workspace_id' => null,
+            ]);
+
+            Livewire::test(UserManager::class)
+                ->call('togglePause', $sharedStaff->getKey())
+                ->assertSet('otpOpen', false);
+            $this->assertTrue($sharedStaff->fresh()?->isPaused());
+
+            Livewire::test(UserManager::class)
+                ->call('togglePause', $sharedAdmin->getKey())
+                ->assertSet('otpOpen', false);
+            $this->assertTrue($sharedAdmin->fresh()?->isPaused());
+
+            // Unpause round-trips the same way.
+            Livewire::test(UserManager::class)->call('togglePause', $sharedStaff->getKey());
+            $this->assertFalse($sharedStaff->fresh()?->isPaused());
+        });
+    }
+
     public function test_a_shared_accounts_name_email_and_role_are_left_to_main(): void
     {
         $this->insideWorkspace(function (): void {

@@ -690,15 +690,14 @@ final class UserManager extends Component
 
     private function performTogglePause(int $id): void
     {
+        // Deliberately NOT scoped by belongsHere() like edit/delete: pausing
+        // isn't an identity edit, it's "block this account's access to the
+        // database I'm looking at right now" — including a GLOBAL account's
+        // copy in this one workspace, without needing a trip to Main. $target
+        // is looked up on the CURRENTLY ACTIVE connection, so it can only ever
+        // resolve to a row that already exists in this database.
         $target = User::query()->find($id);
         if ($target === null || ! $this->actorCanManage($target)) {
-            return;
-        }
-
-        // Only this database's own account is toggled from here — a global
-        // account's identity (and its pause state) belongs to Main.
-        $workspaceId = $this->currentWorkspaceId();
-        if ($workspaceId !== null && ! $this->belongsHere($target, $workspaceId)) {
             return;
         }
 

@@ -2077,13 +2077,33 @@ database).
 | Instant kill | `App\Erp\Security\SessionKiller::killFor(User)` — deletes the paused user's rows from the **sessions** table and rotates their `remember_token`. Sessions always live on the LANDLORD (Main) connection (`WorkspaceServiceProvider` pins `session.connection` to the boot-time default so a tenant swap never logs anyone out — see `[[workspaces-tenancy-architecture]]`), so the row to delete is keyed by the **Main-matched** copy of the account (by email), never a tenant-local id. Best-effort (wrapped try/catch) — it is defence-in-depth, not the authoritative guard |
 | Authoritative guard | `App\Http\Middleware\EnsureUserIsNotPaused` — appended to the `web` group right after `SetActiveWorkspace` (so it reads the correct per-database row) and before `SetLocale`. Re-checks `is_paused` on **every** request for the currently-resolved user; if paused it force `Auth::logout()`s, invalidates the session, and `abort(419)`s — reusing the app's existing "session expired" handling (a Livewire AJAX request treats 419 as expired and reloads silently via the `window.confirm` override in the master layout; a plain page load renders `errors/419.blade.php`, which reloads the current URL via JS). Either path lands on `/login` because the session is already dead. This is what actually guarantees an instant kick regardless of session driver or a live "remember me" cookie re-authenticating them on some later request |
 | Sign-in rejection | `App\Livewire\Auth\Login::login()` — after `Auth::attempt()` succeeds, checks `isPaused()`; if paused it logs them straight back out and throws a validation error ("Your account has been paused. Contact your administrator.") **without** counting it against the rate limiter (the credentials were correct) |
-| Guards on pausing | `UserManager::canPause()` — can't pause **yourself** (an instant, unrecoverable self-lockout since only another admin could undo it) or the **last admin** (mirrors the existing `canDelete()` guard). Unpausing carries no such risk and needs no guard. Only this database's own account is toggled from inside a workspace — a **global** account's pause state belongs to Main, same scoping rule as edit/delete |
+| Guards on pausing | `UserManager::canPause()` — can't pause **yourself** (an instant, unrecoverable self-lockout since only another admin could undo it) or the **last admin** (mirrors the existing `canDelete()` guard). Unpausing carries no such risk and needs no guard |
 | 2FA | `togglePause()` carries the same email-OTP gate as edit/delete (`ConfirmsWithEmailOtp`, action `user.pause`) — a regular admin confirms an emailed code, a super admin acts immediately |
 | Activity log | `user_paused` / `user_unpaused` action codes added to `ActivityLog::LABELS`/`COLORS` |
-| Tests | `AccessControlTest::{test_a_paused_users_very_next_request_signs_them_out, test_a_paused_user_cannot_sign_in_even_with_the_right_password}` · `UserManagerTest::{test_pausing_a_user_kills_their_session_and_marks_them_paused, test_unpausing_a_user_restores_their_account, test_an_admin_cannot_pause_themselves}` · `SuperAdminTest::{test_regular_admin_must_pass_email_otp_to_pause_a_user, test_super_admin_pauses_a_user_without_otp}` |
+| Tests | `AccessControlTest::{test_a_paused_users_very_next_request_signs_them_out, test_a_paused_user_cannot_sign_in_even_with_the_right_password}` · `UserManagerTest::{test_pausing_a_user_kills_their_session_and_marks_them_paused, test_unpausing_a_user_restores_their_account, test_an_admin_cannot_pause_themselves, test_a_shared_accounts_pause_can_be_toggled_from_inside_a_workspace}` · `SuperAdminTest::{test_regular_admin_must_pass_email_otp_to_pause_a_user, test_super_admin_pauses_a_user_without_otp}` |
 
 AR keys added: Pause / Paused / Unpause + the pause-confirm and paused-login
 strings.
+
+**Fixed same day — pause must not require a trip to Main.** The first cut
+scoped `togglePause()` by `belongsHere()` (same rule as Edit/Delete), so a
+**global** account (shared across every database — every admin in the
+screenshot the owner sent back showed "Managed on Main" with no actions at
+all) could only be paused from Main. That defeats the point: an admin managing
+one business's database needs to be able to block someone's access to THAT
+database right now, without switching databases. **Pause is not an identity
+edit** — `is_paused` is a per-database column like any other, so toggling it
+on whatever row exists in the CURRENTLY ACTIVE connection is always correct,
+global account or not. Fix: `performTogglePause()` dropped the `belongsHere()`
+check entirely; the blade's action menu now renders Pause/Unpause on **every**
+row (`$canTogglePauseOn` = `$canManage && ! $isSelf && ! $isLastAdmin`,
+independent of `$inScope`/`$canSetAccessHere`) while Edit/Edit access/Delete
+stay scope-gated exactly as before. `$showActionsMenu` decides whether the
+3-dot button renders at all (nothing to show for a self-row that's both
+out-of-scope and not yet paused). Test:
+`UserManagerTest::test_a_shared_accounts_pause_can_be_toggled_from_inside_a_workspace`
+(pauses/unpauses both a shared staff row and a shared ADMIN row from inside a
+workspace, neither locked to it).
 
 **App lists must go through `Features::moduleAllowed()` (fixed 2026-07-13):**
 the business-type gate has to be applied at **every** surface that lists

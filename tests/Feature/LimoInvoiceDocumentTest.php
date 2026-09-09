@@ -133,69 +133,43 @@ final class LimoInvoiceDocumentTest extends TestCase
         $this->assertSame('Seef', $data['lines'][0]['from']);
     }
 
-    public function test_a_legacy_multi_booking_invoice_recovers_its_journeys_from_the_notes_field(): void
+    public function test_a_legacy_invoice_with_no_single_booking_stays_a_single_line(): void
     {
         $customer = $this->customer();
 
-        $first = LimoBooking::query()->create(['customer_id' => $customer->id, 'fare' => 20]);
-        $first->legs()->create([
-            'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'Airport',
-            'to_location' => 'Hotel', 'start_at' => '2026-09-01 09:00:00', 'days' => 1,
-            'rate' => 20, 'rate_basis' => 'trip', 'net_amount' => 20,
-        ]);
-
-        $second = LimoBooking::query()->create(['customer_id' => $customer->id, 'fare' => 15]);
-        $second->legs()->create([
-            'sequence' => 0, 'service_type' => 'chauffeur', 'from_location' => 'Seef',
-            'to_location' => 'Manama', 'start_at' => '2026-09-02 09:00:00', 'days' => 1,
-            'rate' => 15, 'rate_basis' => 'trip', 'net_amount' => 15,
-        ]);
-
         // The old system let one invoice legitimately span several bookings;
         // this schema's booking_id is a single FK, so a handful of invoices
-        // carried over from the old system's own export have neither set and
-        // instead carry the covered bookings as free text in notes.
+        // carried over from the old system's own export have neither
+        // booking_id nor quotation_id set, and their notes carry a free-text
+        // summary of every booking they once covered ("Bookings: 15119,
+        // 15124, ..."). That text is NOT a reliable source of line items —
+        // parsing it back into per-booking rows once printed dozens of a
+        // customer's unrelated trips on a single bill, which read as "the
+        // whole history of his invoices" rather than this one document. The
+        // bill stays a single line for what it actually knows: its own total.
         $invoice = LimoInvoice::query()->create([
             'customer_id' => $customer->id,
             'reference' => 'INV/09999',
             'issue_date' => '2026-09-03',
             'subtotal' => 35, 'total' => 35, 'amount_paid' => 0,
-            'notes' => "Invoice #9999 | Bookings: {$first->id}, {$second->id}",
+            'notes' => 'Invoice #9999 | Bookings: 15119, 15124, 15131',
         ]);
 
         $data = app(LimoInvoicePdf::class)->viewData($invoice);
 
-        $this->assertCount(2, $data['lines']);
-        $this->assertSame($first->reference, $data['lines'][0]['booking']);
-        $this->assertSame('Airport', $data['lines'][0]['from']);
-        $this->assertSame($second->reference, $data['lines'][1]['booking']);
-        $this->assertSame('Seef', $data['lines'][1]['from']);
-    }
+        // No structured booking/quotation to itemize — the document's own
+        // @empty fallback prints the single placeholder line, not lines().
+        $this->assertSame([], $data['lines']);
 
-    public function test_legacy_multi_booking_recovery_also_dedupes_duplicate_legs(): void
-    {
-        $customer = $this->customer();
-
-        $booking = LimoBooking::query()->create(['customer_id' => $customer->id, 'fare' => 55]);
-        foreach (range(1, 2) as $ignored) {
-            $booking->legs()->create([
-                'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'Al Khobar',
-                'to_location' => 'Dammam airport', 'start_at' => '2026-09-01 09:00:00', 'days' => 1,
-                'rate' => 55, 'rate_basis' => 'trip', 'net_amount' => 55,
-            ]);
-        }
-
-        $invoice = LimoInvoice::query()->create([
-            'customer_id' => $customer->id,
-            'reference' => 'INV/08888',
-            'issue_date' => '2026-09-03',
-            'subtotal' => 55, 'total' => 55, 'amount_paid' => 0,
-            'notes' => "Invoice #8888 | Bookings: {$booking->id}",
-        ]);
-
-        $data = app(LimoInvoicePdf::class)->viewData($invoice);
-
-        $this->assertCount(1, $data['lines']);
+        // The raw notes text is still printed verbatim in the Notes
+        // paragraph — this pins that the ITEM TABLE doesn't explode it into
+        // one row per mentioned booking, not that the number disappears
+        // from the document entirely.
+        $html = view('limousine::invoice-pdf', $data)->render();
+        $itemTable = substr($html, (int) strpos($html, 'class="items"'), (int) strpos($html, '</table>') - (int) strpos($html, 'class="items"'));
+        $this->assertStringNotContainsString('15119', $itemTable);
+        $this->assertStringContainsString(__('Limousine services'), $itemTable);
+        $this->assertStringContainsString(\App\Erp\Views\ValueFormat::money($data['subtotal']), $itemTable);
     }
 
     public function test_the_row_offers_the_document_rather_than_an_editor(): void

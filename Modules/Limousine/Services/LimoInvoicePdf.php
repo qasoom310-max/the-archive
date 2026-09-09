@@ -7,7 +7,6 @@ namespace Modules\Limousine\Services;
 use App\Erp\Settings\Setting;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
-use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoLeg;
 
@@ -52,11 +51,8 @@ final class LimoInvoicePdf
             'bookingReference' => (string) ($invoice->booking->reference ?? ''),
             'quotationReference' => (string) ($invoice->quotation->reference ?? ''),
             // All of $legs comes from the SAME booking or quote (never mixed —
-            // see the ??  above), so one reference covers every line. When
-            // there's neither (a handful of invoices carried over from the
-            // old system legitimately span several bookings — see lines()),
-            // each recovered row carries its OWN booking's reference instead.
-            'lines' => $this->lines($legs, (string) ($invoice->booking->reference ?? $invoice->quotation->reference ?? ''), (string) ($invoice->notes ?? '')),
+            // see the ??  above), so one reference covers every line.
+            'lines' => $this->lines($legs, (string) ($invoice->booking->reference ?? $invoice->quotation->reference ?? '')),
             'subtotal' => round((float) $invoice->subtotal, 3),
             'discount' => round((float) $invoice->discount, 3),
             'total' => $total,
@@ -80,58 +76,13 @@ final class LimoInvoicePdf
      * @param  \Illuminate\Support\Collection<int, LimoLeg>|null  $legs
      * @return list<array{booking: string, service: string, vehicle: string, from: string, to: string, when: string, amount: float}>
      */
-    private function lines(?\Illuminate\Support\Collection $legs, string $bookingReference, string $notes): array
+    private function lines(?\Illuminate\Support\Collection $legs, string $bookingReference): array
     {
-        if ($legs !== null && $legs->isNotEmpty()) {
-            return $this->dedupeLegs($legs)->map(fn (LimoLeg $leg): array => $this->legRow($leg, $bookingReference))->all();
-        }
-
-        return $this->legacyMultiBookingLines($notes);
-    }
-
-    /**
-     * A handful of invoices carried over from the pre-rewrite system
-     * legitimately span SEVERAL bookings — this schema's `booking_id` is a
-     * single nullable FK, so the one-off data migration had no structural
-     * place to put the rest and preserved the full list as free text in
-     * `notes` instead ("Invoice #1327 | Bookings: 15119, 15124, …"), leaving
-     * both `booking_id` and `quotation_id` null. Those numbers are the OLD
-     * system's own booking numbers, which were preserved as this schema's
-     * LimoBooking row ids — recover the real journeys from there rather than
-     * printing a blank "Limousine services" placeholder.
-     *
-     * @return list<array{booking: string, service: string, vehicle: string, from: string, to: string, when: string, amount: float}>
-     */
-    private function legacyMultiBookingLines(string $notes): array
-    {
-        if (! preg_match('/Bookings:\s*([\d,\s]+)/i', $notes, $match)) {
+        if ($legs === null) {
             return [];
         }
 
-        $ids = array_values(array_unique(array_filter(array_map(
-            static fn (string $piece): int => (int) trim($piece),
-            explode(',', $match[1]),
-        ))));
-
-        if ($ids === []) {
-            return [];
-        }
-
-        $bookings = LimoBooking::query()->whereIn('id', $ids)->with('legs')->get()->keyBy('id');
-
-        $rows = [];
-        foreach ($ids as $id) {
-            $booking = $bookings->get($id);
-            if ($booking === null) {
-                continue;
-            }
-
-            foreach ($this->dedupeLegs($booking->legs) as $leg) {
-                $rows[] = $this->legRow($leg, (string) ($booking->reference ?? ''));
-            }
-        }
-
-        return $rows;
+        return $this->dedupeLegs($legs)->map(fn (LimoLeg $leg): array => $this->legRow($leg, $bookingReference))->all();
     }
 
     /**

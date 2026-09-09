@@ -109,8 +109,17 @@ final class LimoReceiptDocumentTest extends TestCase
         $html = view('limousine::receipt-pdf', app(LimoReceiptPdf::class)->viewData($receipt->fresh()))->render();
 
         $this->assertStringNotContainsString('Prepared by', $html);
-        // The two signing slots stay evenly split rather than leaving a gap.
-        $this->assertStringContainsString('width:50%', $html);
+        // The sign-off row keeps its three even columns regardless — the
+        // third simply prints nothing rather than reflowing the layout.
+        $this->assertStringContainsString('width:33%', $html);
+    }
+
+    public function test_the_document_shows_the_booking_number_as_its_own_field(): void
+    {
+        $html = view('limousine::receipt-pdf', app(LimoReceiptPdf::class)->viewData($this->receipt()))->render();
+
+        $this->assertStringContainsString(__('Booking #'), $html);
+        $this->assertStringContainsString('BK/00007', $html);
     }
 
     public function test_the_second_slot_is_the_company_stamp_not_a_customer_signature(): void

@@ -37,7 +37,8 @@ final class LimoReceiptPdf
         return [
             'receipt' => $receipt,
             'reference' => (string) ($receipt->reference ?? ''),
-            'date' => $receipt->date?->isoFormat('DD-MMM-YYYY') ?? '',
+            // "5-Sep-2026", matching the invoice's header-date format.
+            'date' => $receipt->date?->format('j-M-Y') ?? '',
             'customerName' => (string) ($receipt->customer->name ?? ''),
             'customerPhone' => (string) ($receipt->customer->phone ?? ''),
             // What the money was FOR. A receipt naming neither a booking nor an

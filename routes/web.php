@@ -118,6 +118,10 @@ Route::middleware('auth')->group(function (): void {
     // windows ahead, and when the ads must be live. Component gates on admin.
     Route::get('/calendar', \App\Livewire\Pages\AdCalendar::class)->name('calendar');
 
+    // Admin-only published fares — the single source the website reads over
+    // the pricing API. Component gates on admin.
+    Route::get('/fares', \App\Livewire\Pages\PricingManager::class)->name('pricing');
+
     // Admin-only database-backup download (the list + restore UI lives in the
     // Activity Log page). Before the /app/{module} wildcard so it isn't shadowed.
     Route::get('/app/backups/download', \App\Http\Controllers\BackupDownloadController::class)->name('backups.download');
@@ -154,3 +158,16 @@ Route::middleware('auth')->group(function (): void {
 
     Route::get('/app/{module}', ModuleHome::class)->name('module.home');
 });
+
+/*
+ * Published fares, read by the Wanaan website server-to-server.
+ *
+ * Outside the `auth` group on purpose — WordPress has no session here. Its
+ * only credential is the path-bound HMAC signature, verified in the
+ * controller against that workspace's own shared secret, so a signature
+ * minted for one database cannot read another's prices.
+ */
+Route::get('/api/v1/workspaces/{ws}/pricing', \App\Http\Controllers\PricingApiController::class)
+    ->where('ws', '[0-9]+')
+    ->middleware('throttle:60,1')
+    ->name('api.pricing');

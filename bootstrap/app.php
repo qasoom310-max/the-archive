@@ -19,6 +19,9 @@ return Application::configure(basePath: dirname(__DIR__))
             // The WordPress service-order portal posts the Tap payment result
             // here server-to-server; it is authenticated by HMAC, not CSRF.
             'limousine/payment-callback',
+            // The website reads published fares server-to-server, signed with
+            // the path-bound HMAC. No session, so no CSRF token to send.
+            'api/v1/*',
         ]);
 
         // Trust the upstream proxy that terminates TLS in front of PHP

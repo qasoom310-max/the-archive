@@ -81,7 +81,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td></td>
+                    <td>{{ $invoice->issue_date?->format('j-n-Y') ?? '' }}</td>
                     <td>{{ __('Limousine services') }}</td>
                     <td class="num">{{ \App\Erp\Views\ValueFormat::money($subtotal) }}</td>
                 </tr>

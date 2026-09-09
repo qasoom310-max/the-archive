@@ -2851,47 +2851,45 @@ accounts are connected via MCP, not the app) so campaigns can be judged against 
 sales they moved; per-country Eid lengths (the shared Islamic window covers the
 longest official break); Saudi school holidays (variable, add as owner events).
 
-**Pricing API — the ERP as the only place a fare exists (shipped 2026-09-09):**
+**Scoped Administrator — narrow an admin to specific apps (shipped 2026-09-09):**
 
-Wanaan published fares in four contradicting places (WooCommerce products, page
-copy, the fare-widget plugin's built-in table, and whatever staff quoted on
-WhatsApp). These tables are now the source; the website reads them over a signed
-endpoint and caches the answer. **Phase 2, not built:** wiring the booking and
-quotation forms to read the same fares, so staff stop quoting from memory.
+Settings → Users' role picker described Administrator as "Full access to
+every app and setting in this database" with no way to narrow it — an owner
+who wanted a manager to run just the POS side had to either give them every
+app or fall back to Supervisor (no delete rights). The app checklist below
+the role picker, previously shown only for Staff/Supervisor/Accountant (an
+Administrator "bypasses the ACL, so a selection is meaningless"), now also
+appears for Administrator — but for a **different purpose**: instead of
+GRANTING access to the ticked apps, it **narrows** the admin to them. This is
+a real restriction (a hard 403 outside the ticked apps), not menu-hiding —
+`is_admin` stays `true` throughout, so every `isAdmin()`-gated screen that
+ISN'T app-specific (central Settings, Activity Log, Backups, Workspaces,
+Daily Report, WhatsApp/WooCommerce/Stream settings, Payroll/Monthly Profit)
+is **untouched and stays fully open** to a scoped admin, exactly as for an
+unscoped one. **Never a super admin** — the owner tier is always a full,
+unscoped superset, regardless of what the new column holds.
 
 | Concern | Location |
 |---|---|
-| Schema | Core migration `2026_09_09_100001_create_pricing_tables` — `pricing_cars` / `pricing_services` (string PKs: `sedan`, `airport`, quoted back by the website so never renumbered), `pricing_options`, `pricing_rates` (`decimal(8,3)` — the dinar is 1000 fils), `pricing_extra_hours`, `pricing_offers`, `pricing_version`. Core ⇒ lands in Main AND every tenant via `workspaces:migrate`, so each business keeps its own fares and its own version counter |
-| Signing | **`PortalSignature::signRequest()` / `verifyRequest()`** — `"<METHOD>\n<PATH>\n<timestamp>.<raw-body>"`. The plain `sign()` covers only timestamp+body, which binds a POST but leaves a GET signing nothing but a timestamp: a signature for `/workspaces/7/pricing` would verify against `/workspaces/3/pricing`, so one captured read would open every database. **`sign()`/`verify()` are deliberately untouched** — the live service-order push and payment callback are signed the old way at both ends. Do NOT "upgrade" them |
-| Read endpoint | `GET /api/v1/workspaces/{ws}/pricing` (`routes/web.php`, outside `auth`, `throttle:60,1`, CSRF-exempt via `api/v1/*` in `bootstrap/app.php`) → `App\Http\Controllers\PricingApiController`. ETag = the version integer, `304` on a matching `If-None-Match` (the common case). **The workspace is resolved with `find()` BEFORE `runFor()`**, because `runFor()` deliberately falls through to the current database for an unknown id — right for a job, wrong here: workspace 999 would have been answered with whichever business the connection happened to be. `find()` not `findAny()`, so a deleted database stops serving |
-| Secret | Reuses the per-database `limo_portal_configuration.shared_secret` (encrypted, Settings → Service Portal). **Deliberately NOT gated on that row's `enabled` flag** — switching the payment portal off must not take the website's prices down with it |
-| Payload | `App\Erp\Pricing\PricingPayload` — eager-loads everything (the 500ms budget dies to N+1 otherwise). Two rules enforced here, never trusted to the website: **a car with no rate is OMITTED, never published as `0`** (a zero on a public page is worse than a missing car; the hole is `Log::warning`ed), and **`offer.active` is resolved against the server clock** — an expired or not-yet-started offer goes out inactive AND at zero percent, so no visitor's browser decides whether a discount is live. Amounts are JSON numbers with trailing zeros trimmed (`15`, not `15.000`) |
-| Writes | `App\Erp\Pricing\PricingWriter::transaction()` is the ONE door. One transaction, **one version bump per save — not per row** (a grid save touches ~20 rates; a model observer would bump 20 times and make the site's cache stale 20 times over), and one `ActivityLogger` entry with old → new per cell. A save that changes nothing does not bump |
-| Ping | `App\Erp\Pricing\PricingPortalPing` → `POST {portal}/wp-json/wanaan/v1/pricing/refresh`, body `{version, ws}` only. **Synchronous, 3s timeout, every exception caught** — queuing would mean up to a minute's staleness (once-a-minute cron) and would lose the workspace context. 5s `Cache::add()` debounce; the manual button passes `force: true`. **It carries no prices** — the site comes and fetches, so a forged ping can only make WordPress ask a question |
-| Admin screen | `/fares` → `App\Livewire\Pages\PricingManager` (admin-only, dashboard tile). One tab per service, options × cars grid, saved in a single submit. **Refuses a save where an active option has a blank fare for an active car**, naming the cell — that is the failure that would otherwise publish a zero. Shows version + updated_at, and a "Send update to website" button for when the two look out of sync |
-| Seeding | `php artisan pricing:seed --workspace=7` — idempotent, fails on an unknown workspace id rather than seeding Main. NOT in the deploy chain (deploy seeders run against Main; these fares belong to one business) |
-| Tests | `tests/Feature/PricingApiTest.php` (37 — payload shape and real fares, trimmed amounts, unsigned/wrong-secret/stale-timestamp/wrong-workspace rejections, unknown workspace never falls through, 304, one bump per grid save, no bump on a no-op, activity log, inactive service/car dropped, missing rate omitted not zeroed, expired + not-yet-started offers inactive, signed ping carrying no prices, unreachable site never breaks a save, debounce, admin screen gate + blank-fare refusal + decimals + forced ping) |
+| Schema | `users.admin_apps` (nullable JSON, core migration `2026_09_09_100001`, so it auto-applies to Main + every tenant via `workspaces:migrate`). Null/empty = unrestricted (today's default, unchanged) |
+| Model | `User::adminAppScope(): ?list<string>` (column-guarded like `isSuperAdmin()`; always null for a super admin, regardless of the column) and `User::mayAdministerApp(string $module): bool` (true when unscoped, or when `$module` is in scope) |
+| Enforcement — the ONE choke point | `App\Erp\Security\AccessControl::allows()` — the admin bypass (`if ($user->isAdmin()) return true;`) became `if ($user->isAdmin()) return $user->mayAdministerApp($this->moduleOf($modelKey));`, where `moduleOf()` reads the module prefix off the model key (every key in the registry is `<module>.<name>`, e.g. `pos.order` — the same convention `UserProvisioner::grantApps()` already relies on). Because the engine List/Form/Kanban views (`HasAccessControl`) AND every bespoke module screen (`GuardsModelAccess`) both funnel through this SAME method (the point of the 2026-08-24 hardening), scoping a regular admin here transparently restricts **everything** — data screens, `ModuleMenu`'s ACL-filtered app-dropdown/tile contents, the lot — with no other code path to keep in sync. **This is why the feature was safe to build in one place**: don't duplicate the scope check elsewhere: route it through `AccessControl` |
+| Also scoped explicitly | `App\Livewire\Pages\AppFeatureSettings` (an app's own Settings/feature-toggle tab) re-checks `mayAdministerApp($module)` in both `mount()` and `save()` — this screen is `isAdmin()`-gated, not model-key-gated, so it needed its own check to keep "tick an app" meaning "that app AND its settings tab," not just its data screens. `AppSwitcher`'s per-app "Settings" deep-link is hidden the same way |
+| Deliberately NOT scoped | Every `isAdmin()`-gated screen that isn't tied to one app — central Settings (General/Daily Report/WhatsApp/etc. tabs), Activity Log, Backups, Workspaces, `EmployeePayroll`/`EmployeeForm`/`MonthlyProfit` — these are database-wide owner tools, not "apps" in the picker, so a scoped admin keeps full, unrestricted access to them (the owner's own words: "full access to the settings of the app and database I give them, just like superadmin") |
+| Provisioning | `UserProvisioner::adminScopeFor(StaffRole, list<string> $appNames): ?list<string>` — the one place `admin_apps` is computed (null unless the role is a scopable Administrator; filtered through `Features::moduleAllowed()` so a tick from a business type that doesn't run that app can't leak in, same guard `grantApps()` already applies). Threaded through `upsertWithAccess()`/`upsertLockedRow()` alongside the `is_admin`/`is_super_admin`/`is_accountant` flags, so it is written per-database exactly like those — an admin scoped to "pos" on one database and provisioned into a second database that doesn't run POS simply has no matching app there (harmless, same as any other unmatched grant) |
+| `StaffRole` additions | `isScopableAdmin(): bool` (`=== Admin`, never SuperAdmin) and `usesAppPicker(): bool` (`grantsApps() \|\| isScopableAdmin()` — the "show the checklist" question, one level above `grantsApps()`, which stayed `!isAdmin()` and still means "write `ir_model_access` grant rows") |
+| UI | `UserManager`'s app checklist now renders whenever `$currentRole->usesAppPicker()` (was `grantsApps()`), with a hint line shown only for a scopable Administrator ("Leave every box unticked for unrestricted access… tick specific apps to limit this administrator to just those"); the "no picker" fallback message is now Super-admin-only wording. `editUser()` reads an Administrator's current apps from `$user->adminAppScope()` (a scope) rather than `currentApps()` (which reads ACL grant rows — always empty for an admin, since none are ever written for one) |
+| Tests | `UserManagerTest::{test_a_scoped_administrator_gets_full_access_to_only_the_ticked_apps, test_an_administrator_with_no_ticked_apps_still_gets_every_app, test_editing_a_scoped_administrators_apps_replaces_the_scope, test_a_super_admin_is_never_scoped}` · `AppFeatureSettingsTest::{test_a_scoped_administrator_can_open_their_own_apps_settings, test_a_scoped_administrator_is_blocked_from_another_apps_settings}` · `RentalAccessControlTest::test_an_administrator_scoped_to_rental_is_forbidden_from_limousine` (cross-module proof on a bespoke screen — not just the engine views) |
 
-**v3 increment (2026-09-09, same day): buses, per-service vehicles, settings.**
-Migration `2026_09_09_100002_extend_pricing_for_buses_and_settings` adds
-`pricing_service_vehicles` (**which vehicles each service offers — without it the
-airport widget lists a 50-seat coach**), `pricing_settings` (`whatsapp`,
-`lead_hours` — everything the widget shows that isn't a fare), a
-`pricing_services.estimated` flag, and makes `pricing_cars.bags` **nullable**
-(luggage on a coach depends on the group; an invented number is worse than none).
-Four buses (hiace / coaster / coach / sprinter) and two services (`bus`,
-`ksa_bus`) join the seed — **bus hour blocks are 6/8/12, cars are 4/8/12; do not
-normalise them.** Two new payload rules: each service carries its own ordered
-`cars` list, and **a service with no positive fare anywhere is never published**
-(the widget refuses to render one, so the guard is mirrored here). `estimated` is
-internal — it drives an admin warning, clears the first time a human saves that
-grid, and is **never sent to the website**.
-
-**Placeholders awaiting the owner's confirmation** (seeded, flagged in the PR): `pax`/`bags` per **car** (sensible per model, not measured from the fleet — the **bus** seat counts are real), chauffeur extra-hour rates (sedan 12 / suv 17 / lsuv 19 / luxury 45, derived from the 4-hour rates), KSA `return_factor` 1.80, and **all twenty `ksa_bus` fares** (estimates: each bus's own 12-hour rate scaled by the destination multipliers the car fares already imply — no bus-to-Saudi price exists on the website). The Luxury chauffeur jump from 180 (4h) to 400 (8h) is **deliberate and confirmed — do not "correct" it.**
-
-**Gotcha for tests:** Laravel's `getJson()` sends `[]` as the body even on a GET, so a signature computed over an empty body will not match. Use `->get()` and read the JSON off the response.
-
----
+**Deliberately out of scope this increment** (the owner's own words: "later"),
+offer as a follow-up if asked: scoping an Administrator to specific
+**databases** they may open/switch into (today database access is still
+provision-only + admin-only switching, unrelated to `admin_apps`, which only
+narrows which **apps** they see once they're in a given database) — and
+hiding an out-of-scope app's icon from the topbar entirely rather than
+leaving it visible-but-blocked (matches the pre-existing Staff/Supervisor
+experience today; a uniform "hide what you can't open" pass across every
+role would be a separate, broader change).
 
 ---
 

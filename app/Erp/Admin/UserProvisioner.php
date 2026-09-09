@@ -111,7 +111,7 @@ final class UserProvisioner
      * Re-running for the same email edits both rows in place. A null/blank
      * password keeps the existing one (the edit path).
      *
-     * @param  list<string>  $appNames  apps to grant on — non-admin roles only (an admin bypasses the ACL)
+     * @param  list<string>  $appNames  apps to grant on (non-admin roles) or narrow to (a scopable Administrator) — meaningless for a super admin
      */
     public function provisionLocked(
         string $name,
@@ -125,14 +125,14 @@ final class UserProvisioner
 
         // No tenancy on disk → nothing to lock to; create the account plainly.
         if (! Schema::hasTable('workspaces')) {
-            return $this->upsertLockedRow($name, $email, $hashed, null, $role);
+            return $this->upsertLockedRow($name, $email, $hashed, null, $role, $appNames);
         }
 
         $workspace = Workspace::query()->find($workspaceId);
         // Locking to Main (the identity store) is meaningless — treat as a
         // normal account on Main rather than trapping them nowhere.
         if ($workspace === null || $workspace->is_main) {
-            $user = $this->upsertLockedRow($name, $email, $hashed, null, $role);
+            $user = $this->upsertLockedRow($name, $email, $hashed, null, $role, $appNames);
             if ($role->grantsApps()) {
                 $this->grantApps($user, $appNames, $role);
             }
@@ -150,7 +150,7 @@ final class UserProvisioner
         $path = $workspace->databasePath();
         if ($path !== null && is_file($path)) {
             $this->workspaces->withTenant($path, function () use ($name, $email, $hashed, $workspaceId, $role, $appNames): void {
-                $user = $this->upsertLockedRow($name, $email, $hashed, $workspaceId, $role);
+                $user = $this->upsertLockedRow($name, $email, $hashed, $workspaceId, $role, $appNames);
 
                 // Admins bypass the ACL entirely — grants only matter below that.
                 if ($role->grantsApps()) {
@@ -226,11 +226,14 @@ final class UserProvisioner
      * Upsert a user row (by email) on the CURRENT connection with an explicit
      * role + lock. The role owns all three flags — `is_admin` is forced on for a
      * super admin (a superset), and `is_accountant` only for the Accountant role
-     * (they're mutually exclusive). A null password keeps the existing one; a
-     * brand-new row with no password gets an unusable random hash rather than a
-     * null column.
+     * (they're mutually exclusive). `admin_apps` narrows a scopable Administrator
+     * (see {@see adminScopeFor()}); every other role stores null there. A null
+     * password keeps the existing one; a brand-new row with no password gets an
+     * unusable random hash rather than a null column.
+     *
+     * @param  list<string>  $appNames
      */
-    private function upsertLockedRow(string $name, string $email, ?string $hashedPassword, ?int $homeWorkspaceId, StaffRole $role): User
+    private function upsertLockedRow(string $name, string $email, ?string $hashedPassword, ?int $homeWorkspaceId, StaffRole $role, array $appNames = []): User
     {
         if ($hashedPassword === null && ! User::query()->where('email', $email)->exists()) {
             $hashedPassword = Hash::make(Str::random(40)); // unusable placeholder
@@ -240,6 +243,7 @@ final class UserProvisioner
             'name' => $name,
             'is_admin' => $role->isAdmin(),
             'is_super_admin' => $role->isSuperAdmin(),
+            'admin_apps' => $this->adminScopeFor($role, $appNames),
             'is_accountant' => $role->isAccountant(),
             'home_workspace_id' => $homeWorkspaceId,
         ];
@@ -254,7 +258,8 @@ final class UserProvisioner
     /**
      * Create/update the user, then (re)grant the apps — all on the CURRENT
      * default connection. An admin bypasses the ACL entirely, so no per-user
-     * group / access rules are created for one.
+     * group / access rules are created for one; a scopable Administrator gets
+     * `admin_apps` instead (see {@see adminScopeFor()}).
      *
      * @param  list<string>  $appNames
      */
@@ -267,6 +272,7 @@ final class UserProvisioner
                     'name' => $name,
                     'is_admin' => $role->isAdmin(),
                     'is_super_admin' => $role->isSuperAdmin(),
+                    'admin_apps' => $this->adminScopeFor($role, $appNames),
                     'is_accountant' => $role->isAccountant(),
                     'password' => $hashedPassword,
                 ],
@@ -278,6 +284,31 @@ final class UserProvisioner
 
             return $user;
         });
+    }
+
+    /**
+     * The `admin_apps` value to store for this role/selection: null for every
+     * role except a scopable Administrator, and null there too when nothing
+     * (allowed) was ticked — an admin with no scope is unrestricted, not
+     * locked out of everything, matching the pre-existing "Administrator ==
+     * every app" default. Filtered through {@see Features::moduleAllowed()}
+     * so a tick from a business type that doesn't run that app can't leak in.
+     *
+     * @param  list<string>  $appNames
+     * @return list<string>|null
+     */
+    public function adminScopeFor(StaffRole $role, array $appNames): ?array
+    {
+        if (! $role->isScopableAdmin()) {
+            return null;
+        }
+
+        $allowed = array_values(array_filter(
+            $appNames,
+            static fn (string $module): bool => Features::moduleAllowed($module),
+        ));
+
+        return $allowed === [] ? null : $allowed;
     }
 
     /**

@@ -300,6 +300,105 @@ final class UserManagerTest extends TestCase
         $this->assertNull(Group::query()->where('code', 'user:' . $user->getKey())->first());
     }
 
+    /**
+     * An Administrator can be narrowed to specific apps instead of every
+     * app — still FULL access (incl. delete) to the ones ticked, real
+     * denial (not just a hidden menu) outside them.
+     */
+    public function test_a_scoped_administrator_gets_full_access_to_only_the_ticked_apps(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        $this->installPos();
+        app(ModuleManager::class)->install('rental');
+
+        Livewire::test(UserManager::class)
+            ->set('name', 'Scoped Admin')
+            ->set('email', 'scopedadmin@example.com')
+            ->set('role', 'admin')
+            ->set('apps', ['pos'])
+            ->set('workspaces', [$this->mainId()])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $user = User::query()->where('email', 'scopedadmin@example.com')->firstOrFail();
+        $this->assertTrue($user->isAdmin());
+        $this->assertSame(['pos'], $user->admin_apps);
+
+        $access = app(AccessControl::class);
+        $this->assertTrue($access->allows($user, 'pos.order', Permission::Read));
+        $this->assertTrue($access->allows($user, 'pos.order', Permission::Write));
+        $this->assertTrue($access->allows($user, 'pos.order', Permission::Create));
+        $this->assertTrue($access->allows($user, 'pos.order', Permission::Unlink));
+        $this->assertFalse($access->allows($user, 'rental.invoice', Permission::Read));
+    }
+
+    /** Leaving the checklist empty for an Administrator keeps today's default: every app. */
+    public function test_an_administrator_with_no_ticked_apps_still_gets_every_app(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        $this->installPos();
+        app(ModuleManager::class)->install('rental');
+
+        Livewire::test(UserManager::class)
+            ->set('name', 'Unscoped Admin')
+            ->set('email', 'unscopedadmin@example.com')
+            ->set('role', 'admin')
+            ->set('workspaces', [$this->mainId()])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $user = User::query()->where('email', 'unscopedadmin@example.com')->firstOrFail();
+        $this->assertNull($user->admin_apps);
+
+        $access = app(AccessControl::class);
+        $this->assertTrue($access->allows($user, 'pos.order', Permission::Read));
+        $this->assertTrue($access->allows($user, 'rental.invoice', Permission::Read));
+    }
+
+    /** Editing a scoped admin's ticked apps replaces the scope, not adds to it. */
+    public function test_editing_a_scoped_administrators_apps_replaces_the_scope(): void
+    {
+        // A regular admin editing another user needs an emailed OTP code
+        // (see ConfirmsWithEmailOtp) — a super admin is exempt, so the actor
+        // here is one, to exercise the scoping logic directly.
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+        $this->installPos();
+        app(ModuleManager::class)->install('rental');
+
+        Livewire::test(UserManager::class)
+            ->set('name', 'Scope Me')
+            ->set('email', 'scopeme@example.com')
+            ->set('role', 'admin')
+            ->set('apps', ['pos'])
+            ->set('workspaces', [$this->mainId()])
+            ->call('save');
+
+        $user = User::query()->where('email', 'scopeme@example.com')->firstOrFail();
+        $this->assertSame(['pos'], $user->fresh()?->admin_apps);
+
+        Livewire::test(UserManager::class)
+            ->call('editUser', $user->getKey())
+            ->assertSet('apps', ['pos'])
+            ->set('apps', ['rental'])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame(['rental'], $user->fresh()?->admin_apps);
+
+        $access = app(AccessControl::class);
+        $this->assertFalse($access->allows($user->fresh(), 'pos.order', Permission::Read));
+        $this->assertTrue($access->allows($user->fresh(), 'rental.invoice', Permission::Read));
+    }
+
+    /** The owner tier is a strict superset — never narrowed, even if the column were set. */
+    public function test_a_super_admin_is_never_scoped(): void
+    {
+        $owner = User::factory()->create(['is_admin' => true, 'is_super_admin' => true, 'admin_apps' => ['pos']]);
+
+        $this->assertTrue(app(AccessControl::class)->allows($owner, 'rental.invoice', Permission::Read));
+        $this->assertNull($owner->adminAppScope());
+    }
+
     public function test_edit_can_promote_a_staff_user_to_admin(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));

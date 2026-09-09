@@ -55,7 +55,7 @@ final class AppSwitcher extends Component
         $settingsUrls = [];
         foreach ($apps as $app) {
             $menus[$app->name] = $menu->items($app, $user);
-            $settingsUrls[$app->name] = ($isAdmin && Features::appFeatures($app->name) !== [])
+            $settingsUrls[$app->name] = ($isAdmin && $user instanceof User && $user->mayAdministerApp($app->name) && Features::appFeatures($app->name) !== [])
                 ? url('/app/' . $app->name . '/settings')
                 : null;
         }

@@ -61,6 +61,21 @@ final class RentalAccessControlTest extends TestCase
         Livewire::test(LimoInvoiceForm::class)->assertForbidden();
     }
 
+    /**
+     * A scoped Administrator (see Settings → Users) is a real restriction,
+     * not a hidden menu: full access to the app they're scoped to, a hard
+     * 403 on a bespoke screen for an app that isn't — even though `is_admin`
+     * is true on both.
+     */
+    public function test_an_administrator_scoped_to_rental_is_forbidden_from_limousine(): void
+    {
+        $scoped = User::factory()->create(['is_admin' => true, 'admin_apps' => ['rental']]);
+        $this->actingAs($scoped);
+
+        Livewire::test(InvoiceForm::class)->assertOk();
+        Livewire::test(LimoInvoiceForm::class)->assertForbidden();
+    }
+
     public function test_read_access_alone_cannot_price_a_quotation(): void
     {
         // A "view only" grant is exactly what Settings → Users hands a staff

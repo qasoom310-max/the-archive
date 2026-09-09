@@ -309,8 +309,12 @@ final class UserManager extends Component
         $this->email = (string) $user->email;
         // The account's real role, read back from its flags + ACL rules (Staff
         // vs Supervisor is only visible in the rules).
-        $this->role = app(UserProvisioner::class)->roleOf($user)->value;
-        $this->apps = $this->currentApps($user);
+        $role = app(UserProvisioner::class)->roleOf($user);
+        $this->role = $role->value;
+        // An Administrator's apps are a SCOPE (users.admin_apps), not a grant
+        // — read back separately from the per-user group's ACL rules every
+        // other role uses.
+        $this->apps = $role->isScopableAdmin() ? ($user->adminAppScope() ?? []) : $this->currentApps($user);
         $this->workspaces = [];
         $this->lockToWorkspace = false;
         $this->lockWorkspaceId = null;
@@ -483,7 +487,7 @@ final class UserManager extends Component
             $password,
             $workspaceId,
             role: $role,
-            appNames: $role->grantsApps() ? array_values($this->apps) : [],
+            appNames: $role->usesAppPicker() ? array_values($this->apps) : [],
         );
 
         app(\App\Erp\Activity\ActivityLogger::class)->log(
@@ -575,15 +579,18 @@ final class UserManager extends Component
         $user->name = trim($this->name);
         $user->email = strtolower(trim($this->email));
 
+        $provisioner = app(UserProvisioner::class);
+
         $user->is_admin = $role->isAdmin();
         $user->is_super_admin = $role->isSuperAdmin();
+        $user->admin_apps = $provisioner->adminScopeFor($role, array_values($this->apps));
         $user->is_accountant = $role->isAccountant();
 
         $user->save();
 
         // Admins bypass the ACL — grants only matter (and are rebuilt) below that.
         if ($role->grantsApps()) {
-            app(UserProvisioner::class)->grantApps($user, array_values($this->apps), $role);
+            $provisioner->grantApps($user, array_values($this->apps), $role);
         }
 
         app(\App\Erp\Activity\ActivityLogger::class)->log('user_updated', (string) $user->email, __('Updated :name', ['name' => (string) $user->name]));

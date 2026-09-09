@@ -94,10 +94,16 @@
         </div>
         @endif
 
-        {{-- App access — every role below Administrator; admins bypass the ACL. --}}
-        @if ($currentRole->grantsApps())
+        {{-- App access. Staff/Supervisor/Accountant are GRANTED the ticked
+             apps; an Administrator is instead NARROWED to them (still full
+             access, incl. delete, and that app's own Settings tab — just to
+             fewer apps). Only a super admin skips this entirely. --}}
+        @if ($currentRole->usesAppPicker())
             <div>
                 <label class="mb-2 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Apps this user can access') }}</label>
+                @if ($currentRole->isScopableAdmin())
+                    <p class="mb-2 text-xs text-chrome-400">{{ __('Leave every box unticked for unrestricted access to every app (the default). Tick specific apps to limit this administrator to just those — still with full add/edit/delete rights and that app’s own Settings tab.') }}</p>
+                @endif
                 @if ($appModules->isEmpty())
                     <p class="text-sm text-chrome-400">{{ __('No apps installed yet.') }}</p>
                 @else
@@ -120,7 +126,7 @@
             </div>
         @else
             <p class="rounded-lg bg-chrome-50 px-3 py-2 text-sm text-chrome-500 ring-1 ring-chrome-100">
-                {{ __('Administrators have full access to every app and setting.') }}
+                {{ __('Super admins have full access to every app and setting.') }}
             </p>
         @endif
 

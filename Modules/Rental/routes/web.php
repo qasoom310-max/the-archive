@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\Rental\Http\Controllers\RentalAgreementPdfController;
 use Modules\Rental\Http\Controllers\RentalAgreementPrintController;
 use Modules\Rental\Http\Controllers\RentalCustomerImportController;
+use Modules\Rental\Http\Controllers\RentalInvoiceController;
 use Modules\Rental\Http\Controllers\RentalInvoiceExportController;
 use Modules\Rental\Http\Controllers\RentalInvoiceImportController;
 use Modules\Rental\Http\Controllers\RentalMaintenanceExportController;
@@ -85,6 +86,9 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/app/rental/invoice/import', RentalInvoiceImportController::class)->name('rental.invoice.import');
     Route::get('/app/rental/invoice', Invoices::class)->name('rental.invoice.index');
     Route::get('/app/rental/invoice/new', InvoiceForm::class)->name('rental.invoice.create');
+    // Before the {id} form route, so "download" is never read as an invoice id.
+    Route::get('/app/rental/invoice/{invoice}/download', RentalInvoiceController::class)
+        ->whereNumber('invoice')->name('rental.invoice.download');
     Route::get('/app/rental/invoice/{id}', InvoiceForm::class)->whereNumber('id')->name('rental.invoice.edit');
 
     // Receipts — payments against invoices.

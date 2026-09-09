@@ -111,6 +111,44 @@ final class RentalBespokeExportTest extends TestCase
         $this->assertStringNotContainsString('250.00', $body);
     }
 
+    public function test_invoice_pdf_with_one_ticked_row_downloads_that_invoice_document(): void
+    {
+        $customer = $this->customer();
+        $a = RentalInvoice::query()->create(['reference' => 'INV/00100', 'customer_id' => $customer->id, 'total' => 100]);
+        RentalInvoice::query()->create(['reference' => 'INV/00250', 'customer_id' => $customer->id, 'total' => 250]);
+
+        $response = app(RentalInvoiceExportController::class)->pdf(Request::create('/x', 'GET', [
+            'ids' => (string) $a->id,
+        ]));
+
+        $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('invoice-INV-00100.pdf', (string) $response->headers->get('Content-Disposition'));
+    }
+
+    public function test_invoice_pdf_with_several_ticked_rows_downloads_them_as_one_document(): void
+    {
+        $customer = $this->customer();
+        $a = RentalInvoice::query()->create(['customer_id' => $customer->id, 'total' => 100]);
+        $b = RentalInvoice::query()->create(['customer_id' => $customer->id, 'total' => 250]);
+
+        $response = app(RentalInvoiceExportController::class)->pdf(Request::create('/x', 'GET', [
+            'ids' => $a->id . ',' . $b->id,
+        ]));
+
+        $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('invoices-2-', (string) $response->headers->get('Content-Disposition'));
+    }
+
+    public function test_invoice_pdf_with_nothing_ticked_still_exports_the_tabular_report(): void
+    {
+        RentalInvoice::query()->create(['customer_id' => $this->customer()->id, 'total' => 100]);
+
+        $response = app(RentalInvoiceExportController::class)->pdf(Request::create('/x', 'GET'));
+
+        $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('rental-invoices-', (string) $response->headers->get('Content-Disposition'));
+    }
+
     public function test_the_invoice_header_box_ticks_the_page_and_the_download_links_carry_the_ids(): void
     {
         $customer = $this->customer();

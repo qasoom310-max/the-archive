@@ -98,6 +98,7 @@
                     <th class="px-4 py-2 text-end">{{ __('Paid') }}</th>
                     <th class="px-4 py-2 text-end">{{ __('Balance') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Status') }}</th>
+                    <th class="px-4 py-2 text-start" data-copy-skip>{{ __('Actions') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-chrome-50">
@@ -123,9 +124,18 @@
                         <td class="px-4 py-2 text-end text-emerald-700">{{ \App\Erp\Views\ValueFormat::money($invoice->amount_paid) }}</td>
                         <td class="px-4 py-2 text-end text-chrome-700">{{ \App\Erp\Views\ValueFormat::money($invoice->balance()) }}</td>
                         <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst($invoice->status)) }}</span></td>
+                        <td class="px-4 py-2" data-copy-skip onclick="event.stopPropagation()">
+                            {{-- The copy the customer is given — the actual document,
+                                 not just this row's own summary of it. --}}
+                            <a href="{{ url('/app/rental/invoice/' . $invoice->id . '/download') }}"
+                               title="{{ __('Download invoice') }}" aria-label="{{ __('Download invoice') }}"
+                               class="inline-flex items-center justify-center rounded-lg border border-chrome-200 p-1.5 text-chrome-600 transition hover:bg-chrome-50">
+                                <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a.75.75 0 0 1 .75.75v6.44l1.72-1.72a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 1.06-1.06l1.72 1.72V3.75A.75.75 0 0 1 10 3ZM3.75 14a.75.75 0 0 1 .75.75v.75h11v-.75a.75.75 0 0 1 1.5 0v1.5a.75.75 0 0 1-.75.75h-12.5a.75.75 0 0 1-.75-.75v-1.5A.75.75 0 0 1 3.75 14Z"/></svg>
+                            </a>
+                        </td>
                     </tr>
                 @empty
-                    <tr><td colspan="8" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No invoices found.') }}</td></tr>
+                    <tr><td colspan="9" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No invoices found.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>

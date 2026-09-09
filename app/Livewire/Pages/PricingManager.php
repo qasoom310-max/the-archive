@@ -11,6 +11,7 @@ use App\Livewire\Concerns\ScrollsToFirstError;
 use App\Models\Pricing\PricingCar;
 use App\Models\Pricing\PricingOption;
 use App\Models\Pricing\PricingService;
+use App\Models\Pricing\PricingSetting;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
@@ -61,6 +62,11 @@ final class PricingManager extends Component
     public string $offerEnds = '';
 
     public string $returnFactor = '';
+
+    /** Widget settings — where "book on WhatsApp" points, and required notice. */
+    public string $whatsapp = '';
+
+    public string $leadHours = '12';
 
     #[Locked]
     public int $version = 0;
@@ -140,6 +146,10 @@ final class PricingManager extends Component
         $this->offerEnds = $offer?->ends_at?->toDateString() ?? '';
 
         $this->returnFactor = $service->return_factor === null ? '' : $this->trim($service->return_factor);
+
+        $settings = PricingSetting::current();
+        $this->whatsapp = $settings->whatsapp;
+        $this->leadHours = (string) $settings->lead_hours;
     }
 
     public function save(PricingWriter $writer, PricingPortalPing $ping): void
@@ -208,8 +218,19 @@ final class PricingManager extends Component
                 'ends_at' => $this->offerEnds !== '' ? $this->offerEnds : null,
             ]);
 
-            $changes[] = $writer->updateService($service, [
-                'return_factor' => $this->returnFactor === '' ? null : (float) $this->returnFactor,
+            $serviceAttributes = ['return_factor' => $this->returnFactor === '' ? null : (float) $this->returnFactor];
+
+            // A human has now been through this grid, so the fares are no
+            // longer assumptions — the warning clears itself on first save.
+            if ($service->estimated) {
+                $serviceAttributes['estimated'] = false;
+                $changes[] = 'estimated fares confirmed';
+            }
+
+            $changes[] = $writer->updateService($service, $serviceAttributes);
+            $changes[] = $writer->updateSettings([
+                'whatsapp' => $this->whatsapp,
+                'lead_hours' => (int) $this->leadHours,
             ]);
 
             return array_values(array_filter($changes));
@@ -253,6 +274,8 @@ final class PricingManager extends Component
             'offerStarts' => ['nullable', 'date'],
             'offerEnds' => ['nullable', 'date', 'after_or_equal:offerStarts'],
             'returnFactor' => ['nullable', 'numeric', 'min:1', 'max:9.99'],
+            'whatsapp' => ['required', 'string', 'regex:/^[0-9]{8,15}$/'],
+            'leadHours' => ['required', 'integer', 'min:0', 'max:168'],
         ];
     }
 
@@ -266,6 +289,7 @@ final class PricingManager extends Component
             'rates.*.*.decimal' => __('A fare can have at most 3 decimal places.'),
             'extraHours.*.numeric' => __('An hourly charge must be a number.'),
             'offerEnds.after_or_equal' => __('The offer cannot end before it starts.'),
+            'whatsapp.regex' => __('The WhatsApp number must be digits only, including the country code.'),
         ];
     }
 
@@ -276,15 +300,29 @@ final class PricingManager extends Component
         }
 
         return PricingService::query()
-            ->with(['options' => fn ($q) => $q->orderBy('sort')->orderBy('id'), 'options.rates', 'extraHours', 'offer'])
+            ->with(['options' => fn ($q) => $q->orderBy('sort')->orderBy('id'), 'options.rates', 'vehicles', 'extraHours', 'offer'])
             ->find($this->service);
     }
 
     /**
+     * The vehicles the OPEN service offers — an airport grid must not show a
+     * 50-seat coach. A service with no list yet falls back to the whole active
+     * fleet rather than rendering an empty grid.
+     *
      * @return \Illuminate\Support\Collection<int, PricingCar>
      */
     private function cars(): \Illuminate\Support\Collection
     {
+        $service = $this->currentService();
+
+        if ($service !== null) {
+            $own = $service->vehicles->where('active', true)->values();
+
+            if ($own->isNotEmpty()) {
+                return $own;
+            }
+        }
+
         return PricingCar::query()->where('active', true)->orderBy('sort')->orderBy('id')->get();
     }
 

@@ -44,12 +44,24 @@
                 @unless ($item->active)
                     <span class="rounded bg-chrome-200 px-1.5 text-[10px] font-semibold uppercase text-chrome-600">{{ __('Hidden') }}</span>
                 @endunless
+                @if ($item->estimated)
+                    <span class="rounded bg-amber-100 px-1.5 text-[10px] font-semibold uppercase text-amber-800">{{ __('Estimated') }}</span>
+                @endif
             </button>
         @endforeach
     </div>
 
     @if ($current)
         <form wire:submit="save" class="space-y-6">
+            @if ($current->estimated)
+                {{-- These fares were derived, not given. The flag clears itself
+                     the first time a human saves this grid. --}}
+                <div class="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
+                    <span class="font-semibold">{{ __('These fares are estimates, not your prices.') }}</span>
+                    <span class="block text-xs">{{ __('They were worked out from your other rates so the service is complete. Check every cell and save — the warning clears once you do.') }}</span>
+                </div>
+            @endif
+
             {{-- The grid: options down, cars across --}}
             <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-5">
                 <div class="mb-3">
@@ -168,6 +180,28 @@
                             @error('offerEnds') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </label>
                     </div>
+                </div>
+            </div>
+
+            {{-- Everything the widget shows that isn't a fare. Shared by every
+                 service, edited here so it is never hard-coded on the site. --}}
+            <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-5">
+                <h2 class="text-sm font-semibold text-chrome-800">{{ __('Website settings') }}</h2>
+                <p class="mb-3 text-xs text-chrome-400">{{ __('Used across every service on the website.') }}</p>
+
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <label class="block">
+                        <span class="text-xs font-medium text-chrome-500">{{ __('WhatsApp number') }}</span>
+                        <input type="text" inputmode="numeric" dir="ltr" wire:model="whatsapp" class="o-input mt-1 w-full text-sm" placeholder="97317474949">
+                        <span class="mt-1 block text-[11px] text-chrome-400">{{ __('Digits only, including the country code.') }}</span>
+                        @error('whatsapp') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </label>
+                    <label class="block">
+                        <span class="text-xs font-medium text-chrome-500">{{ __('Least notice before a trip (hours)') }}</span>
+                        <input type="number" min="0" max="168" inputmode="numeric" wire:model="leadHours" class="o-input mt-1 w-full text-sm">
+                        <span class="mt-1 block text-[11px] text-chrome-400">{{ __('How far ahead a customer must book online.') }}</span>
+                        @error('leadHours') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </label>
                 </div>
             </div>
 

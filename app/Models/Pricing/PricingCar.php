@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $name_ar
  * @property string $model
  * @property int $pax
- * @property int $bags
+ * @property int|null $bags
  * @property int $sort
  * @property bool $active
  */

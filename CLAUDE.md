@@ -2870,9 +2870,24 @@ quotation forms to read the same fares, so staff stop quoting from memory.
 | Ping | `App\Erp\Pricing\PricingPortalPing` → `POST {portal}/wp-json/wanaan/v1/pricing/refresh`, body `{version, ws}` only. **Synchronous, 3s timeout, every exception caught** — queuing would mean up to a minute's staleness (once-a-minute cron) and would lose the workspace context. 5s `Cache::add()` debounce; the manual button passes `force: true`. **It carries no prices** — the site comes and fetches, so a forged ping can only make WordPress ask a question |
 | Admin screen | `/fares` → `App\Livewire\Pages\PricingManager` (admin-only, dashboard tile). One tab per service, options × cars grid, saved in a single submit. **Refuses a save where an active option has a blank fare for an active car**, naming the cell — that is the failure that would otherwise publish a zero. Shows version + updated_at, and a "Send update to website" button for when the two look out of sync |
 | Seeding | `php artisan pricing:seed --workspace=7` — idempotent, fails on an unknown workspace id rather than seeding Main. NOT in the deploy chain (deploy seeders run against Main; these fares belong to one business) |
-| Tests | `tests/Feature/PricingApiTest.php` (27 — payload shape and real fares, trimmed amounts, unsigned/wrong-secret/stale-timestamp/wrong-workspace rejections, unknown workspace never falls through, 304, one bump per grid save, no bump on a no-op, activity log, inactive service/car dropped, missing rate omitted not zeroed, expired + not-yet-started offers inactive, signed ping carrying no prices, unreachable site never breaks a save, debounce, admin screen gate + blank-fare refusal + decimals + forced ping) |
+| Tests | `tests/Feature/PricingApiTest.php` (37 — payload shape and real fares, trimmed amounts, unsigned/wrong-secret/stale-timestamp/wrong-workspace rejections, unknown workspace never falls through, 304, one bump per grid save, no bump on a no-op, activity log, inactive service/car dropped, missing rate omitted not zeroed, expired + not-yet-started offers inactive, signed ping carrying no prices, unreachable site never breaks a save, debounce, admin screen gate + blank-fare refusal + decimals + forced ping) |
 
-**Placeholders awaiting the owner's confirmation** (seeded, flagged in the PR): `pax`/`bags` per car (sensible per model, not measured from the fleet), chauffeur extra-hour rates (sedan 12 / suv 17 / lsuv 19 / luxury 45, derived from the 4-hour rates), KSA `return_factor` 1.80. The Luxury chauffeur jump from 180 (4h) to 400 (8h) is **deliberate and confirmed — do not "correct" it.**
+**v3 increment (2026-09-09, same day): buses, per-service vehicles, settings.**
+Migration `2026_09_09_100002_extend_pricing_for_buses_and_settings` adds
+`pricing_service_vehicles` (**which vehicles each service offers — without it the
+airport widget lists a 50-seat coach**), `pricing_settings` (`whatsapp`,
+`lead_hours` — everything the widget shows that isn't a fare), a
+`pricing_services.estimated` flag, and makes `pricing_cars.bags` **nullable**
+(luggage on a coach depends on the group; an invented number is worse than none).
+Four buses (hiace / coaster / coach / sprinter) and two services (`bus`,
+`ksa_bus`) join the seed — **bus hour blocks are 6/8/12, cars are 4/8/12; do not
+normalise them.** Two new payload rules: each service carries its own ordered
+`cars` list, and **a service with no positive fare anywhere is never published**
+(the widget refuses to render one, so the guard is mirrored here). `estimated` is
+internal — it drives an admin warning, clears the first time a human saves that
+grid, and is **never sent to the website**.
+
+**Placeholders awaiting the owner's confirmation** (seeded, flagged in the PR): `pax`/`bags` per **car** (sensible per model, not measured from the fleet — the **bus** seat counts are real), chauffeur extra-hour rates (sedan 12 / suv 17 / lsuv 19 / luxury 45, derived from the 4-hour rates), KSA `return_factor` 1.80, and **all twenty `ksa_bus` fares** (estimates: each bus's own 12-hour rate scaled by the destination multipliers the car fares already imply — no bus-to-Saudi price exists on the website). The Luxury chauffeur jump from 180 (4h) to 400 (8h) is **deliberate and confirmed — do not "correct" it.**
 
 **Gotcha for tests:** Laravel's `getJson()` sends `[]` as the body even on a GET, so a signature computed over an empty body will not match. Use `->get()` and read the JSON off the response.
 

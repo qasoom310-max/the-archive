@@ -279,7 +279,8 @@ final class LimoQuotationActionsTest extends TestCase
 
         $this->assertSame('QT/00001', $data['reference']);
         $this->assertSame('Qassim Makhlooq', $data['customerName']);
-        $this->assertCount(1, $data['legs']);
+        $this->assertCount(1, $data['lines']);
+        $this->assertSame('Bahrain Airport', $data['lines'][0]['from']);
         $this->assertSame(45.0, $data['total']);
 
         $this->assertStringStartsWith('%PDF-', app(QuotationPdf::class)->render($quote));

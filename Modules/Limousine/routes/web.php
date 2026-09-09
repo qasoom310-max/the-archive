@@ -13,6 +13,7 @@ use Modules\Limousine\Http\Controllers\LimoInvoiceImportController;
 use Modules\Limousine\Http\Controllers\LimoLocationImportController;
 use Modules\Limousine\Http\Controllers\LimoPettyAdvanceExportController;
 use Modules\Limousine\Http\Controllers\LimoPettyCashImportController;
+use Modules\Limousine\Http\Controllers\LimoQuotationController;
 use Modules\Limousine\Http\Controllers\LimoQuotationExportController;
 use Modules\Limousine\Http\Controllers\LimoQuotationImportController;
 use Modules\Limousine\Http\Controllers\LimoReceiptExportController;
@@ -145,6 +146,9 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/app/limousine/quotation/import', LimoQuotationImportController::class)->name('limousine.quotation.import');
     Route::get('/app/limousine/quotation', Quotations::class)->name('limousine.quotation.index');
     Route::get('/app/limousine/quotation/new', QuotationForm::class)->name('limousine.quotation.create');
+    // Before the {id} form route, so "download" is never read as a quotation id.
+    Route::get('/app/limousine/quotation/{quotation}/download', LimoQuotationController::class)
+        ->whereNumber('quotation')->name('limousine.quotation.download');
     Route::get('/app/limousine/quotation/{id}', QuotationForm::class)->whereNumber('id')->name('limousine.quotation.edit');
 
     // Invoices.

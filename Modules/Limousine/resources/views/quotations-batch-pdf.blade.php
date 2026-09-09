@@ -1,35 +1,26 @@
-{{-- The quotation as the customer receives it — same visual family as the
-     invoice/receipt reference template: a solid #FFC837 band across the top,
-     a large plain "QUOTATION" title with Quotation No./Date/Prepared by/
-     Contact no. as small label/value columns beside it, a two-column
-     From / Quotation for, and a plain-ruled item table.
+{{-- Several ticked quotations downloaded as ONE PDF — the toolbar's "PDF"
+     button on the quotations list, when rows are selected. Each quotation
+     keeps its own full page in the exact design of `quotation-pdf.blade.php`
+     (they share `partials/quotation-body.blade.php`), one after another; a
+     single ticked row is the same page a lone quotation download produces.
 
      Table-based layout with inline styles because DomPDF supports neither
-     flexbox nor grid. This file carries its own complete <style> block
-     rather than the shared `<x-pdf-styles />` component, exactly like
-     `invoice-pdf.blade.php` and `receipt-pdf.blade.php`. The BODY markup is
-     shared with `quotations-batch-pdf.blade.php` (several ticked quotations
-     downloaded as one PDF, one per page) via
-     `partials/quotation-body.blade.php` — keep both in sync when this changes.
-
-     Item-table columns (Service / Vehicle Type / From / To / Days-Trips /
-     Unit / Rate per Unit / Amount) and the Requested By line + Subtotal/
-     Discount/VAT/Total box match the fields the owner pointed at on the old
-     system's printed quotation — summoned from our own leg data rather than
-     copied wholesale, the same way the invoice's item table was. --}}
+     flexbox nor grid — same reasoning and the same <style> block as the
+     single-quotation document (kept in sync by hand; both stay small). The
+     footer is declared ONCE — `position: fixed` repeats it on every physical
+     page DomPDF paginates, including the manual page breaks below. --}}
 <!doctype html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>{{ __('Quotation') }} {{ $reference }}</title>
+    <title>{{ __('Quotations') }}</title>
     <style>
         @page { margin: 30px 34px 60px; }
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; font-family: 'DejaVu Sans', sans-serif; color: #111827; font-size: 10.5px; line-height: 1.55; }
 
-        {{-- Bled to the true page edge via NEGATIVE margins matching the
-             @page margin above — zeroing the page margin instead would
-             silently break the fixed-position <x-document-footer /> below. --}}
+        .quotation-page { page-break-before: always; }
+
         .topbar { background: #FFC837; height: 40px; margin: -30px -34px 20px -34px; }
         .sheet { padding: 0 0 4px; }
 
@@ -70,7 +61,11 @@
 </head>
 <body>
 
-@include('limousine::partials.quotation-body')
+@foreach ($quotations as $quoteData)
+    <div @if (! $loop->first) class="quotation-page" @endif>
+        @include('limousine::partials.quotation-body', $quoteData)
+    </div>
+@endforeach
 
 <x-document-footer />
 

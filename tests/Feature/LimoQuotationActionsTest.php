@@ -286,6 +286,26 @@ final class LimoQuotationActionsTest extends TestCase
         $this->assertStringStartsWith('%PDF-', app(QuotationPdf::class)->render($quote));
     }
 
+    /**
+     * The row's own download icon — a single quotation, in the redesigned
+     * document, not the tabular list report. Module routes only mount on the
+     * boot AFTER install, so the controller is invoked directly, same
+     * workaround the invoice/receipt download tests use.
+     */
+    public function test_the_download_icon_serves_that_single_quotation_document(): void
+    {
+        $quote = $this->quote();
+
+        $response = (new \Modules\Limousine\Http\Controllers\LimoQuotationController())($quote->id, app(QuotationPdf::class));
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertStringStartsWith('%PDF', (string) $response->getContent());
+        $this->assertStringContainsString(
+            'quotation-QT-00001',
+            (string) $response->headers->get('Content-Disposition'),
+        );
+    }
+
     /* ── The rule that has no button ─────────────────────────────────────── */
 
     /**

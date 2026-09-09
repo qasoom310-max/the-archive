@@ -140,6 +140,14 @@
                                     </svg>
                                 </a>
 
+                                {{-- The copy the customer is given — the same document
+                                     "Send" emails, downloaded straight from the row. --}}
+                                <a href="{{ url('/app/limousine/quotation/' . $quote->id . '/download') }}"
+                                   title="{{ __('Download quotation') }}" aria-label="{{ __('Download quotation') }}"
+                                   class="{{ $act }} text-chrome-500 hover:bg-primary-50 hover:text-primary-700">
+                                    <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a.75.75 0 0 1 .75.75v6.44l1.72-1.72a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 1.06-1.06l1.72 1.72V3.75A.75.75 0 0 1 10 3ZM3.75 14a.75.75 0 0 1 .75.75v.75h11v-.75a.75.75 0 0 1 1.5 0v1.5a.75.75 0 0 1-.75.75h-12.5a.75.75 0 0 1-.75-.75v-1.5A.75.75 0 0 1 3.75 14Z"/></svg>
+                                </a>
+
                                 @if ($canWrite)
                                     <button type="button" wire:click="openSend({{ $quote->id }})"
                                             title="{{ $quote->sent_at ? __('Send the quotation again') : __('Email the quotation to the customer') }}"

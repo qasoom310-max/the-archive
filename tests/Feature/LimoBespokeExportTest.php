@@ -212,6 +212,44 @@ final class LimoBespokeExportTest extends TestCase
         $this->assertStringContainsString('55.00', $body);
     }
 
+    public function test_quotation_pdf_with_one_ticked_row_downloads_that_quotation_document(): void
+    {
+        $customer = $this->customer();
+        $a = LimoQuotation::query()->create(['reference' => 'QT/00030', 'customer_id' => $customer->id, 'fare' => 30, 'status' => LimoQuotation::STATUS_SENT]);
+        LimoQuotation::query()->create(['reference' => 'QT/00090', 'customer_id' => $customer->id, 'fare' => 90, 'status' => LimoQuotation::STATUS_SENT]);
+
+        $response = app(LimoQuotationExportController::class)->pdf(Request::create('/x', 'GET', [
+            'ids' => (string) $a->id,
+        ]));
+
+        $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('quotation-QT-00030.pdf', (string) $response->headers->get('Content-Disposition'));
+    }
+
+    public function test_quotation_pdf_with_several_ticked_rows_downloads_them_as_one_document(): void
+    {
+        $customer = $this->customer();
+        $a = LimoQuotation::query()->create(['customer_id' => $customer->id, 'fare' => 30, 'status' => LimoQuotation::STATUS_SENT]);
+        $b = LimoQuotation::query()->create(['customer_id' => $customer->id, 'fare' => 90, 'status' => LimoQuotation::STATUS_SENT]);
+
+        $response = app(LimoQuotationExportController::class)->pdf(Request::create('/x', 'GET', [
+            'ids' => $a->id . ',' . $b->id,
+        ]));
+
+        $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('quotations-2-', (string) $response->headers->get('Content-Disposition'));
+    }
+
+    public function test_quotation_pdf_with_nothing_ticked_still_exports_the_tabular_report(): void
+    {
+        LimoQuotation::query()->create(['customer_id' => $this->customer()->id, 'fare' => 30, 'status' => LimoQuotation::STATUS_SENT]);
+
+        $response = app(LimoQuotationExportController::class)->pdf(Request::create('/x', 'GET'));
+
+        $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('limousine-quotations-', (string) $response->headers->get('Content-Disposition'));
+    }
+
     public function test_the_header_box_ticks_the_page_and_the_download_links_carry_the_ids(): void
     {
         $customer = $this->customer();

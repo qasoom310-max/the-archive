@@ -105,9 +105,31 @@ final class QuotationPdf
             ->output();
     }
 
+    /**
+     * Several quotations as one PDF — one full page per quotation, in the
+     * same design {@see render()} produces. Used when more than one row is
+     * ticked on the quotations list and "PDF" is pressed.
+     *
+     * @param Collection<int, LimoQuotation> $quotes
+     */
+    public function renderMany(Collection $quotes): string
+    {
+        return Pdf::loadView('limousine::quotations-batch-pdf', [
+            'quotations' => $quotes->map(fn (LimoQuotation $quote): array => $this->viewData($quote))->all(),
+        ])
+            ->setPaper('a4')
+            ->output();
+    }
+
     public function filename(LimoQuotation $quote): string
     {
         return 'quotation-' . str_replace(['/', '\\', ' '], '-', (string) $quote->reference) . '.pdf';
+    }
+
+    /** Filename for a batch download of several ticked quotations. */
+    public function filenameForMany(int $count): string
+    {
+        return 'quotations-' . $count . '-' . now()->format('Ymd-His') . '.pdf';
     }
 
     /** Logo size as a percent of default, clamped to a sane 50–400 %. */

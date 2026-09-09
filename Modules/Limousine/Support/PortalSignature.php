@@ -56,4 +56,69 @@ final class PortalSignature
 
         return hash_equals(self::sign($rawBody, $timestamp, $secret), $signature);
     }
+
+    /**
+     * The same scheme, but with the METHOD and PATH folded in as well.
+     *
+     * {@see sign()} covers only the timestamp and the body, which binds a POST
+     * perfectly well — its body carries what the request means. A GET has no
+     * body, so that string collapses to "<timestamp>." and identifies nothing:
+     * a signature minted for /workspaces/7/pricing would verify unchanged
+     * against /workspaces/3/pricing, handing one signed read the run of every
+     * database. Folding the path in is what makes a workspace-scoped GET
+     * actually scoped.
+     *
+     * Signed string: "<METHOD>\n<PATH>\n<timestamp>.<raw-body>", where PATH is
+     * the URL path alone — no scheme, host, query string or trailing slash.
+     *
+     * Kept SEPARATE from sign()/verify() rather than replacing them: the live
+     * service-order push and payment callback are already signed the old way at
+     * both ends, and changing that would break money in flight.
+     */
+    public static function signRequest(
+        string $method,
+        string $path,
+        string $rawBody,
+        string $timestamp,
+        string $secret,
+    ): string {
+        return hash_hmac('sha256', self::canonical($method, $path, $rawBody, $timestamp), $secret);
+    }
+
+    /** Constant-time check of {@see signRequest()}, with the same freshness rule. */
+    public static function verifyRequest(
+        string $method,
+        string $path,
+        string $rawBody,
+        string $timestamp,
+        string $signature,
+        string $secret,
+    ): bool {
+        if ($secret === '' || $signature === '' || $timestamp === '') {
+            return false;
+        }
+
+        if (! ctype_digit($timestamp)) {
+            return false;
+        }
+
+        if (abs(time() - (int) $timestamp) > self::MAX_SKEW_SECONDS) {
+            return false;
+        }
+
+        return hash_equals(
+            self::signRequest($method, $path, $rawBody, $timestamp, $secret),
+            $signature,
+        );
+    }
+
+    /**
+     * The exact bytes {@see signRequest()} hashes. Public so a test — and the
+     * WordPress plugin's own test vectors — can assert the construction rather
+     * than only its output.
+     */
+    public static function canonical(string $method, string $path, string $rawBody, string $timestamp): string
+    {
+        return strtoupper($method) . "\n" . $path . "\n" . $timestamp . '.' . $rawBody;
+    }
 }

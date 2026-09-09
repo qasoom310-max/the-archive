@@ -2851,6 +2851,33 @@ accounts are connected via MCP, not the app) so campaigns can be judged against 
 sales they moved; per-country Eid lengths (the shared Islamic window covers the
 longest official break); Saudi school holidays (variable, add as owner events).
 
+**Pricing API — the ERP as the only place a fare exists (shipped 2026-09-09):**
+
+Wanaan published fares in four contradicting places (WooCommerce products, page
+copy, the fare-widget plugin's built-in table, and whatever staff quoted on
+WhatsApp). These tables are now the source; the website reads them over a signed
+endpoint and caches the answer. **Phase 2, not built:** wiring the booking and
+quotation forms to read the same fares, so staff stop quoting from memory.
+
+| Concern | Location |
+|---|---|
+| Schema | Core migration `2026_09_09_100001_create_pricing_tables` — `pricing_cars` / `pricing_services` (string PKs: `sedan`, `airport`, quoted back by the website so never renumbered), `pricing_options`, `pricing_rates` (`decimal(8,3)` — the dinar is 1000 fils), `pricing_extra_hours`, `pricing_offers`, `pricing_version`. Core ⇒ lands in Main AND every tenant via `workspaces:migrate`, so each business keeps its own fares and its own version counter |
+| Signing | **`PortalSignature::signRequest()` / `verifyRequest()`** — `"<METHOD>\n<PATH>\n<timestamp>.<raw-body>"`. The plain `sign()` covers only timestamp+body, which binds a POST but leaves a GET signing nothing but a timestamp: a signature for `/workspaces/7/pricing` would verify against `/workspaces/3/pricing`, so one captured read would open every database. **`sign()`/`verify()` are deliberately untouched** — the live service-order push and payment callback are signed the old way at both ends. Do NOT "upgrade" them |
+| Read endpoint | `GET /api/v1/workspaces/{ws}/pricing` (`routes/web.php`, outside `auth`, `throttle:60,1`, CSRF-exempt via `api/v1/*` in `bootstrap/app.php`) → `App\Http\Controllers\PricingApiController`. ETag = the version integer, `304` on a matching `If-None-Match` (the common case). **The workspace is resolved with `find()` BEFORE `runFor()`**, because `runFor()` deliberately falls through to the current database for an unknown id — right for a job, wrong here: workspace 999 would have been answered with whichever business the connection happened to be. `find()` not `findAny()`, so a deleted database stops serving |
+| Secret | Reuses the per-database `limo_portal_configuration.shared_secret` (encrypted, Settings → Service Portal). **Deliberately NOT gated on that row's `enabled` flag** — switching the payment portal off must not take the website's prices down with it |
+| Payload | `App\Erp\Pricing\PricingPayload` — eager-loads everything (the 500ms budget dies to N+1 otherwise). Two rules enforced here, never trusted to the website: **a car with no rate is OMITTED, never published as `0`** (a zero on a public page is worse than a missing car; the hole is `Log::warning`ed), and **`offer.active` is resolved against the server clock** — an expired or not-yet-started offer goes out inactive AND at zero percent, so no visitor's browser decides whether a discount is live. Amounts are JSON numbers with trailing zeros trimmed (`15`, not `15.000`) |
+| Writes | `App\Erp\Pricing\PricingWriter::transaction()` is the ONE door. One transaction, **one version bump per save — not per row** (a grid save touches ~20 rates; a model observer would bump 20 times and make the site's cache stale 20 times over), and one `ActivityLogger` entry with old → new per cell. A save that changes nothing does not bump |
+| Ping | `App\Erp\Pricing\PricingPortalPing` → `POST {portal}/wp-json/wanaan/v1/pricing/refresh`, body `{version, ws}` only. **Synchronous, 3s timeout, every exception caught** — queuing would mean up to a minute's staleness (once-a-minute cron) and would lose the workspace context. 5s `Cache::add()` debounce; the manual button passes `force: true`. **It carries no prices** — the site comes and fetches, so a forged ping can only make WordPress ask a question |
+| Admin screen | `/fares` → `App\Livewire\Pages\PricingManager` (admin-only, dashboard tile). One tab per service, options × cars grid, saved in a single submit. **Refuses a save where an active option has a blank fare for an active car**, naming the cell — that is the failure that would otherwise publish a zero. Shows version + updated_at, and a "Send update to website" button for when the two look out of sync |
+| Seeding | `php artisan pricing:seed --workspace=7` — idempotent, fails on an unknown workspace id rather than seeding Main. NOT in the deploy chain (deploy seeders run against Main; these fares belong to one business) |
+| Tests | `tests/Feature/PricingApiTest.php` (27 — payload shape and real fares, trimmed amounts, unsigned/wrong-secret/stale-timestamp/wrong-workspace rejections, unknown workspace never falls through, 304, one bump per grid save, no bump on a no-op, activity log, inactive service/car dropped, missing rate omitted not zeroed, expired + not-yet-started offers inactive, signed ping carrying no prices, unreachable site never breaks a save, debounce, admin screen gate + blank-fare refusal + decimals + forced ping) |
+
+**Placeholders awaiting the owner's confirmation** (seeded, flagged in the PR): `pax`/`bags` per car (sensible per model, not measured from the fleet), chauffeur extra-hour rates (sedan 12 / suv 17 / lsuv 19 / luxury 45, derived from the 4-hour rates), KSA `return_factor` 1.80. The Luxury chauffeur jump from 180 (4h) to 400 (8h) is **deliberate and confirmed — do not "correct" it.**
+
+**Gotcha for tests:** Laravel's `getJson()` sends `[]` as the body even on a GET, so a signature computed over an empty body will not match. Use `->get()` and read the JSON off the response.
+
+---
+
 ---
 
 ## 6. Known Environment Caveats

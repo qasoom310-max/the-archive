@@ -7,6 +7,7 @@ namespace App\Erp\Pricing;
 use App\Models\Pricing\PricingCar;
 use App\Models\Pricing\PricingOption;
 use App\Models\Pricing\PricingService;
+use App\Models\Pricing\PricingSetting;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 
@@ -20,6 +21,9 @@ use Illuminate\Support\Facades\Log;
  *    from that option; a zero on a public page is worse than a missing car.
  *  - An offer's `active` is resolved here, against the server's clock. The
  *    website must never decide whether a discount has expired.
+ *  - A service with no positive fare at all is never published. The widget
+ *    already refuses to render one; mirroring the guard here means a
+ *    half-configured service cannot reach a customer in the first place.
  */
 final class PricingPayload
 {
@@ -43,6 +47,7 @@ final class PricingPayload
             ->with([
                 'options' => fn ($q) => $q->where('active', true),
                 'options.rates',
+                'vehicles',
                 'extraHours',
                 'offer',
             ])
@@ -64,9 +69,14 @@ final class PricingPayload
                 'pax' => $car->pax,
                 'bags' => $car->bags,
             ])->all(),
-            'services' => $services->map(
-                fn (PricingService $service): array => $this->service($service, $activeCarIds, $now),
-            )->all(),
+            'settings' => $this->settings(),
+            'services' => $services
+                ->map(fn (PricingService $service): array => $this->service($service, $activeCarIds, $now))
+                // A service nobody has priced yet is not a service. Publishing
+                // one gives the customer a picker that leads to nothing.
+                ->filter(fn (array $service): bool => $this->hasAnyPrice($service))
+                ->values()
+                ->all(),
         ];
     }
 
@@ -76,9 +86,22 @@ final class PricingPayload
      */
     private function service(PricingService $service, array $activeCarIds, CarbonImmutable $now): array
     {
+        // Only the vehicles this service actually offers, and only those still
+        // active. A service that has never been given a vehicle list falls back
+        // to every active one rather than publishing nothing.
+        $serviceCarIds = $service->vehicles
+            ->pluck('id')
+            ->filter(static fn (string $id): bool => in_array($id, $activeCarIds, true))
+            ->values()
+            ->all();
+
+        if ($serviceCarIds === []) {
+            $serviceCarIds = $activeCarIds;
+        }
+
         $extraHour = [];
         foreach ($service->extraHours as $row) {
-            if (in_array($row->car_id, $activeCarIds, true)) {
+            if (in_array($row->car_id, $serviceCarIds, true)) {
                 $extraHour[$row->car_id] = $this->amount($row->amount);
             }
         }
@@ -95,8 +118,11 @@ final class PricingPayload
             'note_en' => $service->note_en,
             'note_ar' => $service->note_ar,
             'return_factor' => $service->return_factor === null ? null : $this->amount($service->return_factor),
+            // `estimated` is deliberately NOT here: it is an internal warning
+            // for the admin screen, not something a customer should read.
+            'cars' => $serviceCarIds,
             'options' => $service->options->map(
-                fn (PricingOption $option): array => $this->option($option, $activeCarIds, $service->id),
+                fn (PricingOption $option): array => $this->option($option, $serviceCarIds, $service->id),
             )->all(),
             'extra_hour' => (object) $extraHour,
             'offer' => [
@@ -155,6 +181,40 @@ final class PricingPayload
             'hours' => $option->hours,
             'prices' => (object) $ordered,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function settings(): array
+    {
+        $settings = PricingSetting::current();
+
+        return [
+            'whatsapp' => $settings->whatsapp,
+            'lead_hours' => $settings->lead_hours,
+        ];
+    }
+
+    /**
+     * Does this service have at least one real fare anywhere?
+     *
+     * @param  array<string, mixed>  $service
+     */
+    private function hasAnyPrice(array $service): bool
+    {
+        /** @var list<array<string, mixed>> $options */
+        $options = $service['options'];
+
+        foreach ($options as $option) {
+            foreach ((array) $option['prices'] as $amount) {
+                if ((float) $amount > 0) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

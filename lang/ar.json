@@ -2678,5 +2678,15 @@
     "Version": "الإصدار",
     "blank = no return offered": "فارغ = لا تُقدَّم رحلة عودة",
     "fares per car": "الأسعار لكل سيارة",
-    ":count hour|:count hours": "ساعة|:count ساعات"
+    ":count hour|:count hours": "ساعة|:count ساعات",
+    "Digits only, including the country code.": "أرقام فقط، شاملةً رمز الدولة.",
+    "Estimated": "تقديري",
+    "How far ahead a customer must book online.": "قبل كم من الوقت يجب أن يحجز العميل عبر الإنترنت.",
+    "Least notice before a trip (hours)": "أقل مهلة قبل الرحلة (ساعات)",
+    "The WhatsApp number must be digits only, including the country code.": "يجب أن يتكون رقم واتساب من أرقام فقط، شاملةً رمز الدولة.",
+    "These fares are estimates, not your prices.": "هذه الأسعار تقديرية، وليست أسعارك.",
+    "They were worked out from your other rates so the service is complete. Check every cell and save — the warning clears once you do.": "استُنتجت من أسعارك الأخرى لتكتمل الخدمة. راجع كل خانة ثم احفظ — وسيختفي التنبيه عندها.",
+    "Used across every service on the website.": "يُستخدم في كل خدمة على الموقع.",
+    "Website settings": "إعدادات الموقع",
+    "WhatsApp number": "رقم واتساب"
 }

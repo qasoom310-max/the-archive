@@ -84,17 +84,22 @@ final class PricingApiTest extends TestCase
             ->assertJsonPath('services.0.options.0.prices.luxury', 50)
             ->assertJsonPath('services.0.options.1.prices.suv', 33);
 
-        $services = array_column($response->json('services'), 'id');
-        $this->assertSame(['airport', 'chauffeur', 'ksa', 'city'], $services);
+        // Keyed by id, not position — the order is data and will change again.
+        $byId = collect($response->json('services'))->keyBy('id');
+        $this->assertSame(
+            ['airport', 'city', 'chauffeur', 'ksa', 'bus', 'ksa_bus'],
+            array_column($response->json('services'), 'id'),
+        );
 
         // The deliberate, confirmed Luxury jump — 4h 180 → 8h 400.
-        $this->assertSame(180, $response->json('services.1.options.0.prices.luxury'));
-        $this->assertSame(400, $response->json('services.1.options.1.prices.luxury'));
+        $chauffeur = $byId['chauffeur'];
+        $this->assertSame(180, $chauffeur['options'][0]['prices']['luxury']);
+        $this->assertSame(400, $chauffeur['options'][1]['prices']['luxury']);
 
         // Extra hours and the return factor ride along where they apply.
-        $this->assertSame(12, $response->json('services.1.extra_hour.sedan'));
-        $this->assertSame(1.8, $response->json('services.2.return_factor'));
-        $this->assertNull($response->json('services.0.return_factor'));
+        $this->assertSame(12, $chauffeur['extra_hour']['sedan']);
+        $this->assertSame(1.8, $byId['ksa']['return_factor']);
+        $this->assertNull($byId['airport']['return_factor']);
     }
 
     public function test_amounts_are_numbers_with_trailing_zeros_trimmed(): void
@@ -386,7 +391,7 @@ final class PricingApiTest extends TestCase
         $payload = app(PricingPayload::class)->build();
         $elapsed = (microtime(true) - $started) * 1000;
 
-        $this->assertCount(4, $payload['services']);
+        $this->assertCount(6, $payload['services']);
         $this->assertLessThan(500, $elapsed, 'Payload build exceeded the 500ms budget.');
     }
 
@@ -484,5 +489,138 @@ final class PricingApiTest extends TestCase
             ->assertSet('pingOk', true);
 
         Http::assertSentCount(2);
+    }
+
+    // --- 10. v3: buses, per-service vehicles, settings, estimates ---------
+
+    public function test_all_six_services_and_eight_vehicles_are_published(): void
+    {
+        $body = $this->withHeaders($this->signedHeaders())->get($this->path)->json();
+
+        $this->assertSame(
+            ['airport', 'city', 'chauffeur', 'ksa', 'bus', 'ksa_bus'],
+            array_column($body['services'], 'id'),
+        );
+        $this->assertSame(
+            ['sedan', 'suv', 'lsuv', 'luxury', 'hiace', 'coaster', 'coach', 'sprinter'],
+            array_column($body['cars'], 'id'),
+        );
+    }
+
+    public function test_a_service_publishes_only_the_vehicles_it_offers(): void
+    {
+        $body = $this->withHeaders($this->signedHeaders())->get($this->path)->json();
+        $byId = collect($body['services'])->keyBy('id');
+
+        // The airport widget must never offer a 50-seat coach.
+        $this->assertSame(['sedan', 'suv', 'lsuv', 'luxury'], $byId['airport']['cars']);
+        $this->assertSame(['hiace', 'coaster', 'coach', 'sprinter'], $byId['bus']['cars']);
+
+        $this->assertArrayNotHasKey('coach', $byId['airport']['options'][0]['prices']);
+        $this->assertArrayNotHasKey('sedan', $byId['bus']['options'][0]['prices']);
+    }
+
+    public function test_bus_blocks_are_six_eight_twelve_not_the_car_blocks(): void
+    {
+        $body = $this->withHeaders($this->signedHeaders())->get($this->path)->json();
+        $bus = collect($body['services'])->firstWhere('id', 'bus');
+
+        $this->assertSame(['h6', 'h8', 'h12'], array_column($bus['options'], 'code'));
+        $this->assertSame([6, 8, 12], array_column($bus['options'], 'hours'));
+        $this->assertSame(70, $bus['options'][0]['prices']['hiace']);
+        $this->assertSame(320, $bus['options'][2]['prices']['sprinter']);
+    }
+
+    public function test_a_bus_reports_null_bags_rather_than_an_invented_number(): void
+    {
+        $body = $this->withHeaders($this->signedHeaders())->get($this->path)->json();
+        $cars = collect($body['cars'])->keyBy('id');
+
+        $this->assertSame(50, $cars['coach']['pax']);
+        $this->assertNull($cars['coach']['bags']);
+        $this->assertSame(2, $cars['sedan']['bags']);
+    }
+
+    public function test_the_settings_ride_along_with_the_fares(): void
+    {
+        $body = $this->withHeaders($this->signedHeaders())->get($this->path)->json();
+
+        $this->assertSame('97317474949', $body['settings']['whatsapp']);
+        $this->assertSame(12, $body['settings']['lead_hours']);
+    }
+
+    public function test_the_estimated_flag_never_reaches_the_website(): void
+    {
+        $raw = (string) $this->withHeaders($this->signedHeaders())->get($this->path)->getContent();
+
+        // It is an internal warning for the admin screen, not customer copy.
+        $this->assertStringNotContainsString('estimated', $raw);
+        $this->assertTrue(PricingService::query()->whereKey('ksa_bus')->value('estimated'));
+    }
+
+    public function test_a_service_with_no_positive_fare_is_never_published(): void
+    {
+        // Half-configured: the service exists but nothing is priced.
+        $service = PricingService::query()->whereKey('bus')->firstOrFail();
+        PricingRate::query()
+            ->whereIn('option_id', PricingOption::query()->where('service_id', 'bus')->pluck('id'))
+            ->delete();
+
+        $ids = array_column(
+            $this->withHeaders($this->signedHeaders())->get($this->path)->json('services'),
+            'id',
+        );
+
+        $this->assertNotContains('bus', $ids);
+        $this->assertContains('airport', $ids);
+        $this->assertNotNull($service);
+    }
+
+    public function test_saving_an_estimated_service_clears_its_warning(): void
+    {
+        Http::fake(['*' => Http::response(['ok' => true], 200)]);
+        $this->actingAs(\App\Models\User::factory()->create(['is_admin' => true]));
+
+        $this->assertTrue(PricingService::query()->whereKey('ksa_bus')->value('estimated'));
+
+        \Livewire\Livewire::test(\App\Livewire\Pages\PricingManager::class)
+            ->set('service', 'ksa_bus')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertFalse((bool) PricingService::query()->whereKey('ksa_bus')->value('estimated'));
+    }
+
+    public function test_the_settings_are_editable_and_validated(): void
+    {
+        Http::fake(['*' => Http::response(['ok' => true], 200)]);
+        $this->actingAs(\App\Models\User::factory()->create(['is_admin' => true]));
+
+        \Livewire\Livewire::test(\App\Livewire\Pages\PricingManager::class)
+            ->set('service', 'airport')
+            ->set('whatsapp', 'not digits')
+            ->call('save')
+            ->assertHasErrors('whatsapp');
+
+        \Livewire\Livewire::test(\App\Livewire\Pages\PricingManager::class)
+            ->set('service', 'airport')
+            ->set('whatsapp', '97333001122')
+            ->set('leadHours', '24')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $settings = \App\Models\Pricing\PricingSetting::current();
+        $this->assertSame('97333001122', $settings->whatsapp);
+        $this->assertSame(24, $settings->lead_hours);
+    }
+
+    public function test_the_admin_grid_shows_only_the_open_services_vehicles(): void
+    {
+        $this->actingAs(\App\Models\User::factory()->create(['is_admin' => true]));
+
+        \Livewire\Livewire::test(\App\Livewire\Pages\PricingManager::class)
+            ->set('service', 'bus')
+            ->assertSee('Toyota Coaster')
+            ->assertDontSee('Ford Taurus 2024');
     }
 }

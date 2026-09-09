@@ -10,6 +10,7 @@ use App\Models\Pricing\PricingOffer;
 use App\Models\Pricing\PricingOption;
 use App\Models\Pricing\PricingRate;
 use App\Models\Pricing\PricingService;
+use App\Models\Pricing\PricingSetting;
 use Closure;
 use Illuminate\Support\Facades\DB;
 
@@ -189,6 +190,28 @@ final class PricingWriter
         $service->save();
 
         return 'service ' . implode(', ', $changed) . ' updated';
+    }
+
+    /**
+     * The widget's non-fare settings. Returns a description only when
+     * something actually moved, so opening and saving a form untouched does
+     * not bump the version the website caches against.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function updateSettings(array $attributes): ?string
+    {
+        $settings = PricingSetting::current();
+        $settings->fill($attributes);
+
+        if ($settings->exists && ! $settings->isDirty()) {
+            return null;
+        }
+
+        $changed = $settings->exists ? array_keys($settings->getDirty()) : ['whatsapp', 'lead_hours'];
+        $settings->save();
+
+        return 'settings ' . implode(', ', $changed) . ' updated';
     }
 
     public function setOptionActive(PricingOption $option, bool $active): ?string

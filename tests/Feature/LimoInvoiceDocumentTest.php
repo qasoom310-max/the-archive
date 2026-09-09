@@ -112,6 +112,45 @@ final class LimoInvoiceDocumentTest extends TestCase
         $this->assertSame('Seef', $data['lines'][0]['from']);
     }
 
+    public function test_a_legacy_multi_booking_invoice_recovers_its_journeys_from_the_notes_field(): void
+    {
+        $customer = $this->customer();
+
+        $first = LimoBooking::query()->create(['customer_id' => $customer->id, 'fare' => 20]);
+        $first->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'Airport',
+            'to_location' => 'Hotel', 'start_at' => '2026-09-01 09:00:00', 'days' => 1,
+            'rate' => 20, 'rate_basis' => 'trip', 'net_amount' => 20,
+        ]);
+
+        $second = LimoBooking::query()->create(['customer_id' => $customer->id, 'fare' => 15]);
+        $second->legs()->create([
+            'sequence' => 0, 'service_type' => 'chauffeur', 'from_location' => 'Seef',
+            'to_location' => 'Manama', 'start_at' => '2026-09-02 09:00:00', 'days' => 1,
+            'rate' => 15, 'rate_basis' => 'trip', 'net_amount' => 15,
+        ]);
+
+        // The old system let one invoice legitimately span several bookings;
+        // this schema's booking_id is a single FK, so a handful of invoices
+        // carried over from the old system's own export have neither set and
+        // instead carry the covered bookings as free text in notes.
+        $invoice = LimoInvoice::query()->create([
+            'customer_id' => $customer->id,
+            'reference' => 'INV/09999',
+            'issue_date' => '2026-09-03',
+            'subtotal' => 35, 'total' => 35, 'amount_paid' => 0,
+            'notes' => "Invoice #9999 | Bookings: {$first->id}, {$second->id}",
+        ]);
+
+        $data = app(LimoInvoicePdf::class)->viewData($invoice);
+
+        $this->assertCount(2, $data['lines']);
+        $this->assertSame($first->reference, $data['lines'][0]['booking']);
+        $this->assertSame('Airport', $data['lines'][0]['from']);
+        $this->assertSame($second->reference, $data['lines'][1]['booking']);
+        $this->assertSame('Seef', $data['lines'][1]['from']);
+    }
+
     public function test_the_row_offers_the_document_rather_than_an_editor(): void
     {
         $invoice = $this->invoiceForTrip();

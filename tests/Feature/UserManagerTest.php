@@ -622,6 +622,47 @@ final class UserManagerTest extends TestCase
         $this->assertNotContains('rental', $names, 'Rent A Car must not be offered on a café database.');
     }
 
+    /**
+     * Ticking a rental workspace in the "Databases this user can access"
+     * list must surface ITS apps (Rent A Car) even though Main — a café —
+     * never runs them, so the admin can actually grant them.
+     */
+    public function test_ticking_a_database_surfaces_the_apps_it_runs(): void
+    {
+        $owner = User::factory()->create(['is_admin' => true, 'is_super_admin' => true]);
+        $this->actingAs($owner);
+        app(ModuleManager::class)->install('pos');
+        Setting::set('company.business_type', 'cafe');
+
+        $workspace = app(WorkspaceManager::class)->provision('Rental Co', $owner, ['rental']);
+        app(WorkspaceManager::class)->withTenant((string) $workspace->databasePath(), static function (): void {
+            Setting::set('company.business_type', 'rental');
+        });
+
+        $component = Livewire::test(UserManager::class);
+
+        // Nothing ticked yet: Main's own list only (POS, no Rent A Car).
+        $names = collect($component->viewData('appModules'))->pluck('name')->all();
+        $this->assertContains('pos', $names);
+        $this->assertNotContains('rental', $names);
+
+        // Tick the rental workspace: its apps join the list.
+        $names = collect(
+            $component->set('workspaces', [$this->mainId(), (int) $workspace->id])
+                ->viewData('appModules')
+        )->pluck('name')->all();
+        $this->assertContains('pos', $names, 'Main is still ticked, so its apps stay offered.');
+        $this->assertContains('rental', $names, 'The ticked rental workspace\'s app must now be offered.');
+
+        // Untick Main, keep only the rental workspace: only its own apps.
+        $names = collect(
+            $component->set('workspaces', [(int) $workspace->id])
+                ->viewData('appModules')
+        )->pluck('name')->all();
+        $this->assertNotContains('pos', $names, 'POS is not installed on the rental workspace.');
+        $this->assertContains('rental', $names);
+    }
+
     public function test_a_grant_for_an_app_the_business_type_hides_creates_no_access(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => true]));

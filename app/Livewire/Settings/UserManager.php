@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Notifications\WelcomeCredentials;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -874,28 +875,89 @@ final class UserManager extends Component
         }
     }
 
+    /**
+     * The installed, business-type-allowed application modules for ONE
+     * database — a null id means "whatever is active right now". Runs the
+     * query on that database's own connection via {@see WorkspaceManager::runFor()}
+     * (a no-op for Main/null), so `Features::moduleAllowed()` reads THAT
+     * database's own `company.business_type`, not the caller's.
+     *
+     * @return Collection<int, IrModule>
+     */
+    private function appsFor(?int $workspaceId): Collection
+    {
+        return app(WorkspaceManager::class)->runFor($workspaceId, static function (): Collection {
+            return IrModule::query()
+                ->where('application', true)
+                ->where('state', ModuleState::Installed)
+                ->orderBy('sequence')
+                ->get()
+                ->filter(static fn (IrModule $module): bool => Features::moduleAllowed((string) $module->name))
+                ->values();
+        });
+    }
+
+    /**
+     * The app checklist's options. Editing/creating inside one specific
+     * database (a workspace, or a shared account's per-database access) has
+     * exactly one database in play, so its own list is enough. Creating a
+     * brand-new account from Main offers the UNION of every TICKED target
+     * database's apps instead — so an admin can tick Rent A Car for a rental
+     * workspace even though Main itself never runs it. Nothing ticked yet
+     * falls back to Main's own list (today's default view, before a pick).
+     *
+     * @return Collection<int, IrModule>
+     */
+    private function appModulesForForm(?int $currentWorkspaceId): Collection
+    {
+        if ($currentWorkspaceId !== null || $this->editingGlobal) {
+            return $this->appsFor($currentWorkspaceId);
+        }
+
+        if ($this->workspaces === []) {
+            return $this->appsFor(null);
+        }
+
+        /** @var Collection<int, IrModule> $union */
+        $union = collect();
+        $seen = [];
+        foreach ($this->workspaces as $rawId) {
+            if (! is_numeric($rawId)) {
+                continue;
+            }
+
+            foreach ($this->appsFor((int) $rawId) as $module) {
+                if (isset($seen[$module->name])) {
+                    continue;
+                }
+
+                $seen[$module->name] = true;
+                $union->push($module);
+            }
+        }
+
+        return $union->sortBy('sequence')->values();
+    }
+
     public function render(): View
     {
-        // Only the apps this database's business type actually exposes — the
-        // same gate the top app bar and module menus use. Without it the tab
-        // offered Rent A Car / Limousine / … on a database that doesn't run
-        // them, and ticking one granted access to an app the user can't see.
-        /** @var \Illuminate\Support\Collection<int, IrModule> $apps */
-        $apps = IrModule::query()
-            ->where('application', true)
-            ->where('state', ModuleState::Installed)
-            ->orderBy('sequence')
-            ->get()
-            ->filter(static fn (IrModule $module): bool => Features::moduleAllowed((string) $module->name))
-            ->values();
+        $workspaceId = $this->currentWorkspaceId();
+
+        // Only the apps actually exposed by whichever database(s) this form
+        // is acting on — the same gate the top app bar and module menus use.
+        // Without it the tab offered Rent A Car / Limousine / … on a café
+        // that doesn't run them, and ticking one granted access to an app
+        // the user can't see. When creating a brand-new account from Main,
+        // "acting on" means the UNION of the databases ticked below (a
+        // rental workspace's apps only show up once it's ticked); everywhere
+        // else there's exactly one database in play.
+        $apps = $this->appModulesForForm($workspaceId);
 
         // All databases (Main + tenants) — Main is no longer implicit, the
         // admin picks it like any other.
         $workspaces = Schema::hasTable('workspaces')
             ? app(WorkspaceManager::class)->all()
             : collect();
-
-        $workspaceId = $this->currentWorkspaceId();
         $workspaceName = null;
         if ($workspaceId !== null) {
             $workspace = app(WorkspaceManager::class)->find($workspaceId);

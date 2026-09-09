@@ -104,6 +104,9 @@
                 @if ($currentRole->isScopableAdmin())
                     <p class="mb-2 text-xs text-chrome-400">{{ __('Leave every box unticked for unrestricted access to every app (the default). Tick specific apps to limit this administrator to just those — still with full add/edit/delete rights and that app’s own Settings tab.') }}</p>
                 @endif
+                @if (! $editingId && ! $workspaceId && ! $editingGlobal && ! $lockToWorkspace)
+                    <p class="mb-2 text-xs text-chrome-400">{{ __('Showing apps run by the databases ticked below — pick a database first to see apps like Rent A Car or Limousine.') }}</p>
+                @endif
                 @if ($appModules->isEmpty())
                     <p class="text-sm text-chrome-400">{{ __('No apps installed yet.') }}</p>
                 @else
@@ -175,7 +178,7 @@
                             @foreach ($workspaceList as $workspace)
                                 <label wire:key="ws-{{ $workspace->id }}"
                                     class="flex cursor-pointer items-center gap-2 rounded-lg border border-chrome-200 px-3 py-2 text-sm hover:bg-chrome-50">
-                                    <input type="checkbox" wire:model="workspaces" value="{{ $workspace->id }}"
+                                    <input type="checkbox" wire:model.live="workspaces" value="{{ $workspace->id }}"
                                         class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
                                     <span class="text-chrome-700">{{ $workspace->name }}</span>
                                     @if ($workspace->is_main)

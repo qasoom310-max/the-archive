@@ -41,9 +41,10 @@ final class LimoInvoicePdf
         return [
             'invoice' => $invoice,
             'reference' => (string) ($invoice->reference ?? ''),
-            // "1-9-2026", not "01-Sep-2026" — the owner's requested format.
-            'issueDate' => $invoice->issue_date?->format('j-n-Y') ?? '',
-            'dueDate' => $invoice->due_date?->format('j-n-Y') ?? '',
+            // "1-Sep-2026" for the header dates, "1-9-2026" for the per-line
+            // dates below — two different formats, per the owner's request.
+            'issueDate' => $invoice->issue_date?->format('j-M-Y') ?? '',
+            'dueDate' => $invoice->due_date?->format('j-M-Y') ?? '',
             'customerName' => (string) ($invoice->customer->name ?? ''),
             'customerPhone' => (string) ($invoice->customer->phone ?? ''),
             // What the bill is against, so the customer can match it to a job.
@@ -84,7 +85,7 @@ final class LimoInvoicePdf
             $rows[] = [
                 'description' => trim(__(ucfirst(str_replace('_', ' ', $leg->service_type)))
                     . ($route !== [] ? ' — ' . implode(' → ', $route) : '')),
-                'when' => $leg->start_at?->isoFormat('DD-MMM-YYYY HH:mm') ?? '',
+                'when' => $leg->start_at?->format('j-n-Y') ?? '',
                 'amount' => round((float) $leg->net_amount, 3),
             ];
         }

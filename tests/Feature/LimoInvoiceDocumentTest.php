@@ -95,6 +95,27 @@ final class LimoInvoiceDocumentTest extends TestCase
         $this->assertEqualsWithDelta(25.0, $data['balance'], 0.001);
     }
 
+    public function test_duplicate_imported_legs_do_not_print_the_same_journey_twice(): void
+    {
+        $booking = LimoBooking::query()->create([
+            'reference' => 'BK/00099', 'customer_id' => $this->customer()->id, 'fare' => 55,
+        ]);
+
+        // A handful of imported bookings carry byte-identical duplicate legs
+        // — an import artifact, not a genuine second journey.
+        foreach (range(1, 2) as $ignored) {
+            $booking->legs()->create([
+                'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'Al Khobar',
+                'to_location' => 'Dammam airport', 'start_at' => '2026-09-01 09:00:00', 'days' => 1,
+                'rate' => 55, 'rate_basis' => 'trip', 'net_amount' => 55,
+            ]);
+        }
+
+        $data = app(LimoInvoicePdf::class)->viewData($booking->syncInvoice());
+
+        $this->assertCount(1, $data['lines']);
+    }
+
     public function test_an_invoice_raised_from_a_quote_borrows_the_quotes_legs(): void
     {
         $quote = LimoQuotation::query()->create(['customer_id' => $this->customer()->id, 'fare' => 30]);
@@ -149,6 +170,32 @@ final class LimoInvoiceDocumentTest extends TestCase
         $this->assertSame('Airport', $data['lines'][0]['from']);
         $this->assertSame($second->reference, $data['lines'][1]['booking']);
         $this->assertSame('Seef', $data['lines'][1]['from']);
+    }
+
+    public function test_legacy_multi_booking_recovery_also_dedupes_duplicate_legs(): void
+    {
+        $customer = $this->customer();
+
+        $booking = LimoBooking::query()->create(['customer_id' => $customer->id, 'fare' => 55]);
+        foreach (range(1, 2) as $ignored) {
+            $booking->legs()->create([
+                'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'Al Khobar',
+                'to_location' => 'Dammam airport', 'start_at' => '2026-09-01 09:00:00', 'days' => 1,
+                'rate' => 55, 'rate_basis' => 'trip', 'net_amount' => 55,
+            ]);
+        }
+
+        $invoice = LimoInvoice::query()->create([
+            'customer_id' => $customer->id,
+            'reference' => 'INV/08888',
+            'issue_date' => '2026-09-03',
+            'subtotal' => 55, 'total' => 55, 'amount_paid' => 0,
+            'notes' => "Invoice #8888 | Bookings: {$booking->id}",
+        ]);
+
+        $data = app(LimoInvoicePdf::class)->viewData($invoice);
+
+        $this->assertCount(1, $data['lines']);
     }
 
     public function test_the_row_offers_the_document_rather_than_an_editor(): void

@@ -83,7 +83,7 @@ final class LimoInvoicePdf
     private function lines(?\Illuminate\Support\Collection $legs, string $bookingReference, string $notes): array
     {
         if ($legs !== null && $legs->isNotEmpty()) {
-            return $legs->map(fn (LimoLeg $leg): array => $this->legRow($leg, $bookingReference))->all();
+            return $this->dedupeLegs($legs)->map(fn (LimoLeg $leg): array => $this->legRow($leg, $bookingReference))->all();
         }
 
         return $this->legacyMultiBookingLines($notes);
@@ -126,12 +126,35 @@ final class LimoInvoicePdf
                 continue;
             }
 
-            foreach ($booking->legs as $leg) {
+            foreach ($this->dedupeLegs($booking->legs) as $leg) {
                 $rows[] = $this->legRow($leg, (string) ($booking->reference ?? ''));
             }
         }
 
         return $rows;
+    }
+
+    /**
+     * The same September import that carried these bookings over duplicated
+     * a handful of their legs (byte-identical rows — same service, route,
+     * time and amount). Printing the same journey twice reads as a double
+     * charge, so collapse exact duplicates before they ever reach the page;
+     * the invoice's own stored subtotal/total (never summed from these rows)
+     * is unaffected either way.
+     *
+     * @param  \Illuminate\Support\Collection<int, LimoLeg>  $legs
+     * @return \Illuminate\Support\Collection<int, LimoLeg>
+     */
+    private function dedupeLegs(\Illuminate\Support\Collection $legs): \Illuminate\Support\Collection
+    {
+        return $legs->unique(static fn (LimoLeg $leg): string => implode('|', [
+            $leg->service_type,
+            (string) $leg->vehicle_details,
+            (string) $leg->from_location,
+            (string) $leg->to_location,
+            (string) $leg->start_at,
+            (string) $leg->net_amount,
+        ]));
     }
 
     /**

@@ -63,14 +63,23 @@
     </table>
 
     {{-- The journeys behind the figure. A bill stating one number and no trips is
-         one the customer has to ring up to understand. --}}
+         one the customer has to ring up to understand. The Vehicle column is
+         only worth a spot on the page when at least one leg actually carries
+         a booked car type — a lot of legacy/imported journeys never captured
+         one, and an always-blank column just wastes room the From/To text
+         could use. --}}
+    @php
+        $hasVehicle = collect($lines)->contains(fn (array $line): bool => trim((string) $line['vehicle']) !== '');
+    @endphp
     <table class="items">
         <thead>
             <tr>
                 <th style="width:58px">{{ __('Date') }}</th>
                 <th style="width:60px">{{ __('Booking #') }}</th>
                 <th style="width:70px">{{ __('Service') }}</th>
-                <th style="width:64px">{{ __('Vehicle') }}</th>
+                @if ($hasVehicle)
+                    <th style="width:64px">{{ __('Vehicle') }}</th>
+                @endif
                 <th>{{ __('From') }}</th>
                 <th>{{ __('To') }}</th>
                 <th class="num" style="width:80px">{{ __('Amount') }}</th>
@@ -82,7 +91,9 @@
                     <td>{{ $line['when'] }}</td>
                     <td>{{ $line['booking'] }}</td>
                     <td>{{ $line['service'] }}</td>
-                    <td>{{ $line['vehicle'] }}</td>
+                    @if ($hasVehicle)
+                        <td>{{ $line['vehicle'] }}</td>
+                    @endif
                     <td>{{ $line['from'] }}</td>
                     <td>{{ $line['to'] }}</td>
                     <td class="num">{{ \App\Erp\Views\ValueFormat::money($line['amount']) }}</td>
@@ -91,7 +102,7 @@
                 <tr>
                     <td>{{ $invoice->issue_date?->format('j-n-Y') ?? '' }}</td>
                     <td>{{ $bookingReference !== '' ? $bookingReference : $quotationReference }}</td>
-                    <td colspan="4">{{ __('Limousine services') }}</td>
+                    <td colspan="{{ $hasVehicle ? 4 : 3 }}">{{ __('Limousine services') }}</td>
                     <td class="num">{{ \App\Erp\Views\ValueFormat::money($subtotal) }}</td>
                 </tr>
             @endforelse

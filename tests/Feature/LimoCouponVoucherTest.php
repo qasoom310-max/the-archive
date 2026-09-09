@@ -156,6 +156,29 @@ final class LimoCouponVoucherTest extends TestCase
         $this->assertSame('helen@example.com', $fresh?->sent_to);
     }
 
+    /**
+     * Mail::fake() never renders the body, so a broken email TEMPLATE can
+     * pass every test above and still 500 the moment someone presses Send.
+     * This template uses <x-mail::message>/<x-mail::panel>, which only
+     * resolve when the Mailable is wired as `Content(markdown: ...)`; wired
+     * as `view:` it throws "No hint path defined for [mail]" in production.
+     */
+    public function test_the_email_body_actually_renders(): void
+    {
+        $coupon = $this->coupon();
+
+        $html = (new CouponVoucherMail(
+            coupon: $coupon,
+            companyName: 'Wanaan Car Rental',
+            remaining: 63.0,
+            pdf: '%PDF-fake',
+            filename: 'coupon.pdf',
+        ))->render();
+
+        $this->assertStringContainsString($coupon->code, $html);
+        $this->assertStringContainsString('Wanaan Car Rental', $html);
+    }
+
     /** The address is editable, because the one on file is often the wrong one. */
     public function test_a_corrected_address_is_used_and_remembered(): void
     {
@@ -210,7 +233,7 @@ final class LimoCouponVoucherTest extends TestCase
         // The code and the balance are in the MESSAGE too, not only the file:
         // most people read them off the screen without opening the attachment.
         $content = $mail->content();
-        $this->assertSame('limousine::coupon-voucher-email', $content->view);
+        $this->assertSame('limousine::coupon-voucher-email', $content->markdown);
         $this->assertSame($coupon->code, $content->with['coupon']->code);
         $this->assertSame(63.0, $content->with['remaining']);
 

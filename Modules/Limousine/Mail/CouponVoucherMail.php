@@ -46,8 +46,11 @@ final class CouponVoucherMail extends Mailable
 
     public function content(): Content
     {
+        // markdown, not view — see QuotationMail::content() for why: this
+        // template's <x-mail::message>/<x-mail::panel> only resolve through
+        // Laravel's Markdown mail renderer.
         return new Content(
-            view: 'limousine::coupon-voucher-email',
+            markdown: 'limousine::coupon-voucher-email',
             with: [
                 'coupon' => $this->coupon,
                 'companyName' => $this->companyName,

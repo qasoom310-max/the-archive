@@ -196,6 +196,44 @@ final class LimoServiceOrderTest extends TestCase
             ->assertDontSee('sig-pad');   // the canvas is gone
     }
 
+    /**
+     * Mail::fake() (used by every test below) never renders the body, so a
+     * broken email TEMPLATE can pass every one of them and still 500 the
+     * moment someone actually presses Send. Both templates use
+     * <x-mail::message>/<x-mail::table>/<x-mail::button>, which only resolve
+     * when the Mailable is wired as `Content(markdown: ...)`; wired as
+     * `view:` they throw "No hint path defined for [mail]" in production.
+     */
+    public function test_the_signing_email_body_actually_renders(): void
+    {
+        $leg = $this->leg();
+
+        $html = (new ServiceOrderMail(
+            leg: $leg,
+            signUrl: app(ServiceOrderSender::class)->signUrl($leg),
+            companyName: 'Wanaan Car Rental',
+            details: ['Trip' => 'Bahrain airport GF509 → Amwaj'],
+        ))->render();
+
+        $this->assertStringContainsString((string) $leg->reference, $html);
+        $this->assertStringContainsString('Wanaan Car Rental', $html);
+    }
+
+    public function test_the_company_notice_email_body_actually_renders(): void
+    {
+        $leg = $this->leg('accounts@acme.test', 'company', 'ops@acme.test');
+
+        $html = (new ServiceOrderCompanyMail(
+            leg: $leg,
+            companyName: 'Wanaan Car Rental',
+            customerName: 'Helen Friberg',
+            details: ['Trip' => 'Bahrain airport GF509 → Amwaj'],
+        ))->render();
+
+        $this->assertStringContainsString((string) $leg->reference, $html);
+        $this->assertStringContainsString('Wanaan Car Rental', $html);
+    }
+
     public function test_the_office_can_email_the_signing_link(): void
     {
         Mail::fake();

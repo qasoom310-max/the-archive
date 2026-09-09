@@ -42,8 +42,12 @@ final class QuotationMail extends Mailable
 
     public function content(): Content
     {
+        // markdown, not view — the template uses <x-mail::message>/<x-mail::panel>,
+        // which only resolve through Laravel's Markdown mail renderer. Wired as
+        // `view` this 500s in production with "No hint path defined for [mail]"
+        // (Mail::fake() in tests never renders the body, so it went unnoticed).
         return new Content(
-            view: 'limousine::quotation-email',
+            markdown: 'limousine::quotation-email',
             with: [
                 'quote' => $this->quote,
                 'companyName' => $this->companyName,

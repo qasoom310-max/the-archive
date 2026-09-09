@@ -254,6 +254,31 @@ final class LimoQuotationActionsTest extends TestCase
         $this->assertSame(LimoQuotation::STATUS_ACCEPTED, $quote->fresh()?->status);
     }
 
+    /**
+     * Mail::fake() never renders the body — it only records the mailable was
+     * dispatched — so a broken email TEMPLATE can pass every other test here
+     * and still 500 the moment someone actually presses Send. This template
+     * uses <x-mail::message>/<x-mail::panel>, which only resolve when the
+     * Mailable is wired as `Content(markdown: ...)`; wired as `view:` it
+     * throws "No hint path defined for [mail]" — exactly what happened in
+     * production. Rendering for real is the only way to catch that.
+     */
+    public function test_the_email_body_actually_renders(): void
+    {
+        $quote = $this->quote();
+
+        $html = (new QuotationMail(
+            quote: $quote,
+            companyName: 'Wanaan Car Rental',
+            total: 45.0,
+            pdf: '%PDF-fake',
+            filename: 'quotation.pdf',
+        ))->render();
+
+        $this->assertStringContainsString((string) $quote->reference, $html);
+        $this->assertStringContainsString('Wanaan Car Rental', $html);
+    }
+
     public function test_a_bad_address_is_refused(): void
     {
         Mail::fake();

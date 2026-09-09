@@ -39,8 +39,11 @@ final class ServiceOrderMail extends Mailable
 
     public function content(): Content
     {
+        // markdown, not view — see QuotationMail::content() for why: this
+        // template's <x-mail::message>/<x-mail::table>/<x-mail::button> only
+        // resolve through Laravel's Markdown mail renderer.
         return new Content(
-            view: 'limousine::service-order-email',
+            markdown: 'limousine::service-order-email',
             with: [
                 'leg' => $this->leg,
                 'signUrl' => $this->signUrl,

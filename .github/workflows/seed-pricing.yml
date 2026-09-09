@@ -1,0 +1,56 @@
+name: Seed published fares (manual)
+
+# Runs `php artisan pricing:seed --workspace=<id>` on the live server.
+#
+# The seed is deliberately NOT in the deploy chain: deploy seeders run against
+# Main, and these fares belong to one business. It is idempotent — re-running
+# updates the rows in place rather than duplicating — and it only ever writes
+# the pricing tables, so it is safe to press twice.
+#
+# Manual only. It never runs on push.
+on:
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: 'Workspace id to seed (Wanaan is 7)'
+        required: true
+        default: '7'
+
+concurrency:
+  group: seed-pricing
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    name: Seed fares on erp.wanaan-bh.com
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust Hostinger SSH host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run pricing:seed
+        env:
+          WORKSPACE: ${{ inputs.workspace }}
+        run: |
+          set -euo pipefail
+
+          # Numeric-only: the value goes into a remote shell command, and the
+          # artisan command itself refuses an id that does not exist.
+          if ! [[ "$WORKSPACE" =~ ^[0-9]+$ ]]; then
+            echo "Workspace must be a number."
+            exit 1
+          fi
+
+          ssh -p ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && php artisan pricing:seed --workspace=$WORKSPACE"

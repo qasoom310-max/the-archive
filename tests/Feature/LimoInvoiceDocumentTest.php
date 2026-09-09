@@ -89,7 +89,8 @@ final class LimoInvoiceDocumentTest extends TestCase
         // A bill stating one figure and no journeys is one the customer has to
         // ring up to understand.
         $this->assertCount(1, $data['lines']);
-        $this->assertStringContainsString('Airport', $data['lines'][0]['description']);
+        $this->assertSame('Airport', $data['lines'][0]['from']);
+        $this->assertSame('BK/00021', $data['lines'][0]['booking']);
         // What they actually want from a part-paid bill.
         $this->assertEqualsWithDelta(25.0, $data['balance'], 0.001);
     }
@@ -108,7 +109,7 @@ final class LimoInvoiceDocumentTest extends TestCase
         $data = app(LimoInvoicePdf::class)->viewData($quote->convertToInvoice());
 
         $this->assertCount(1, $data['lines']);
-        $this->assertStringContainsString('Seef', $data['lines'][0]['description']);
+        $this->assertSame('Seef', $data['lines'][0]['from']);
     }
 
     public function test_the_row_offers_the_document_rather_than_an_editor(): void

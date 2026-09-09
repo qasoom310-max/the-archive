@@ -67,22 +67,31 @@
     <table class="items">
         <thead>
             <tr>
-                <th style="width:100px">{{ __('Date') }}</th>
-                <th>{{ __('Description') }}</th>
-                <th class="num" style="width:100px">{{ __('Amount') }}</th>
+                <th style="width:58px">{{ __('Date') }}</th>
+                <th style="width:60px">{{ __('Booking #') }}</th>
+                <th style="width:70px">{{ __('Service') }}</th>
+                <th style="width:64px">{{ __('Vehicle') }}</th>
+                <th>{{ __('From') }}</th>
+                <th>{{ __('To') }}</th>
+                <th class="num" style="width:80px">{{ __('Amount') }}</th>
             </tr>
         </thead>
         <tbody>
             @forelse ($lines as $line)
                 <tr>
                     <td>{{ $line['when'] }}</td>
-                    <td>{{ $line['description'] }}</td>
+                    <td>{{ $line['booking'] }}</td>
+                    <td>{{ $line['service'] }}</td>
+                    <td>{{ $line['vehicle'] }}</td>
+                    <td>{{ $line['from'] }}</td>
+                    <td>{{ $line['to'] }}</td>
                     <td class="num">{{ \App\Erp\Views\ValueFormat::money($line['amount']) }}</td>
                 </tr>
             @empty
                 <tr>
                     <td>{{ $invoice->issue_date?->format('j-n-Y') ?? '' }}</td>
-                    <td>{{ __('Limousine services') }}</td>
+                    <td>{{ $bookingReference !== '' ? $bookingReference : $quotationReference }}</td>
+                    <td colspan="4">{{ __('Limousine services') }}</td>
                     <td class="num">{{ \App\Erp\Views\ValueFormat::money($subtotal) }}</td>
                 </tr>
             @endforelse

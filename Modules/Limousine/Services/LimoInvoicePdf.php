@@ -50,7 +50,9 @@ final class LimoInvoicePdf
             // What the bill is against, so the customer can match it to a job.
             'bookingReference' => (string) ($invoice->booking->reference ?? ''),
             'quotationReference' => (string) ($invoice->quotation->reference ?? ''),
-            'lines' => $this->lines($legs),
+            // All of $legs comes from the SAME booking or quote (never mixed —
+            // see the ??  above), so one reference covers every line.
+            'lines' => $this->lines($legs, (string) ($invoice->booking->reference ?? $invoice->quotation->reference ?? '')),
             'subtotal' => round((float) $invoice->subtotal, 3),
             'discount' => round((float) $invoice->discount, 3),
             'total' => $total,
@@ -67,12 +69,14 @@ final class LimoInvoicePdf
     }
 
     /**
-     * One printable row per journey.
+     * One printable row per journey — the same fields the old system's tax
+     * invoice broke out into columns (Booking #, Service, Vehicle, From, To),
+     * rather than one combined description string.
      *
      * @param  \Illuminate\Support\Collection<int, LimoLeg>|null  $legs
-     * @return list<array{description: string, when: string, amount: float}>
+     * @return list<array{booking: string, service: string, vehicle: string, from: string, to: string, when: string, amount: float}>
      */
-    private function lines(?\Illuminate\Support\Collection $legs): array
+    private function lines(?\Illuminate\Support\Collection $legs, string $bookingReference): array
     {
         if ($legs === null) {
             return [];
@@ -80,11 +84,15 @@ final class LimoInvoicePdf
 
         $rows = [];
         foreach ($legs as $leg) {
-            $route = array_filter([$leg->from_location, $leg->to_location]);
-
             $rows[] = [
-                'description' => trim(__(ucfirst(str_replace('_', ' ', $leg->service_type)))
-                    . ($route !== [] ? ' — ' . implode(' → ', $route) : '')),
+                'booking' => $bookingReference,
+                'service' => __(ucfirst(str_replace('_', ' ', $leg->service_type))),
+                // The car TYPE the customer agreed to at booking, not whichever
+                // plate the queue later assigned — same choice LimoCombinedInvoicePdf
+                // makes, for the same reason: that's what they're being billed for.
+                'vehicle' => (string) ($leg->vehicle_details ?? ''),
+                'from' => (string) ($leg->from_location ?? ''),
+                'to' => (string) ($leg->to_location ?? ''),
                 'when' => $leg->start_at?->format('j-n-Y') ?? '',
                 'amount' => round((float) $leg->net_amount, 3),
             ];

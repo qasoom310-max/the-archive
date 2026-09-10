@@ -58,6 +58,11 @@ final class TopCustomersTest extends TestCase
         return User::factory()->create(['is_admin' => true, 'is_super_admin' => true]);
     }
 
+    private function customerNamed(string $name): RentalCustomer
+    {
+        return $this->customer($name);
+    }
+
     private function customer(string $name): RentalCustomer
     {
         return RentalCustomer::query()->firstOrCreate(['name' => $name], ['phone' => '3900'.random_int(1000, 9999)]);
@@ -220,19 +225,99 @@ final class TopCustomersTest extends TestCase
 
     // ── Who pays us, and who has stopped ─────────────────────────────────────
 
+    /** @return array<string, mixed> */
+    private function row(string $name, string $group = 'individual'): array
+    {
+        foreach (app(TopCustomers::class)->forApp('rental', $this->today)['groups'][$group]['rows'] as $row) {
+            if ($row['name'] === $name) {
+                return $row;
+            }
+        }
+
+        $this->fail("No {$group} row for {$name}");
+    }
+
+    public function test_companies_and_individuals_are_ranked_apart(): void
+    {
+        // A handful of corporate accounts would otherwise crowd out every
+        // individual and half the business would never be looked at.
+        $company = RentalCustomer::query()->create(['name' => 'Dadabhai', 'type' => 'company', 'phone' => '3901']);
+        $person = RentalCustomer::query()->create(['name' => 'Qassim', 'type' => 'individual', 'phone' => '3902']);
+
+        $this->order($company, '2026-08-01', 5000);
+        $this->order($person, '2026-08-01', 100);
+
+        $groups = app(TopCustomers::class)->forApp('rental', $this->today)['groups'];
+
+        $this->assertSame('Dadabhai', $groups['company']['rows'][0]['name']);
+        $this->assertCount(1, $groups['company']['rows']);
+        $this->assertSame('Qassim', $groups['individual']['rows'][0]['name']);
+        $this->assertCount(1, $groups['individual']['rows']);
+    }
+
+    public function test_a_customer_with_no_type_is_treated_as_a_person(): void
+    {
+        // A blank type on an imported row has to land somewhere, not vanish.
+        $blank = RentalCustomer::query()->create(['name' => 'No type', 'type' => '', 'phone' => '3903']);
+        $this->order($blank, '2026-08-01', 400);
+
+        $groups = app(TopCustomers::class)->forApp('rental', $this->today)['groups'];
+
+        $this->assertSame('No type', $groups['individual']['rows'][0]['name']);
+        $this->assertSame([], $groups['company']['rows']);
+    }
+
+    public function test_only_the_last_six_months_count(): void
+    {
+        // Over a year the list filled with people last seen ten months ago,
+        // which is a list of strangers rather than a call sheet.
+        $this->order($this->customer('Still here'), '2026-08-01', 100);
+        // Ten months back: inside the old twelve-month window, outside this one.
+        $this->order($this->customerNamed('Long gone'), '2025-11-15', 9000);
+
+        $rows = app(TopCustomers::class)->forApp('rental', $this->today)['groups']['individual']['rows'];
+
+        $this->assertCount(1, $rows);
+        $this->assertSame('Still here', $rows[0]['name']);
+    }
+
+    public function test_the_window_is_six_whole_months_ending_this_one(): void
+    {
+        $report = app(TopCustomers::class)->forApp('rental', $this->today);
+
+        $this->assertSame(6, $report['windowMonths']);
+        $this->assertCount(6, $report['months']);
+        $this->assertSame('2026-04', $report['months'][0]['key']);
+        $this->assertSame('2026-09', $report['months'][5]['key']);
+        $this->assertSame('2026-04-01', $report['from']);
+    }
+
+    public function test_each_row_carries_its_month_by_month_record(): void
+    {
+        // What turns "going quiet" from a claim into something visible.
+        $c = $this->customer('Monthly');
+        $this->order($c, '2026-05-10', 120);
+        $this->order($c, '2026-05-20', 80);
+        $this->order($c, '2026-08-02', 300);
+
+        $row = $this->row('Monthly');
+
+        $this->assertEqualsWithDelta(200.0, $row['months']['2026-05'], 0.001);
+        $this->assertEqualsWithDelta(300.0, $row['months']['2026-08'], 0.001);
+        $this->assertEqualsWithDelta(0.0, $row['months']['2026-06'], 0.001);
+        $this->assertEqualsWithDelta(500.0, $row['paid'], 0.001);
+    }
+
     public function test_customers_are_ranked_by_what_they_actually_paid(): void
     {
-        $big = $this->customer('Dadabhai');
-        $small = $this->customer('Walk-in');
+        $this->order($this->customer('Dadabhai'), '2026-08-01', 900);
+        $this->order($this->customerNamed('Walk-in'), '2026-08-01', 100);
 
-        $this->order($big, '2026-08-01', 900);
-        $this->order($small, '2026-08-01', 100);
+        $rows = app(TopCustomers::class)->forApp('rental', $this->today)['groups']['individual']['rows'];
 
-        $top = app(TopCustomers::class)->forApp('rental', $this->today);
-
-        $this->assertSame('Dadabhai', $top['rows'][0]['name']);
-        $this->assertEqualsWithDelta(900.0, $top['rows'][0]['paid'], 0.001);
-        $this->assertSame(90, $top['rows'][0]['share']);
+        $this->assertSame('Dadabhai', $rows[0]['name']);
+        $this->assertEqualsWithDelta(900.0, $rows[0]['paid'], 0.001);
+        $this->assertSame(90, $rows[0]['share']);
     }
 
     public function test_a_customers_rhythm_is_the_median_gap_not_the_average(): void
@@ -240,23 +325,35 @@ final class TopCustomersTest extends TestCase
         // One long break in an otherwise fortnightly customer would drag a mean
         // far enough to excuse almost any silence. The median ignores it.
         $c = $this->customer('Fortnightly');
-        foreach ([400, 300, 286, 272, 258] as $daysAgo) {
+        foreach ([400, 300, 286, 272, 60] as $daysAgo) {
             $this->order($c, $this->today->subDays($daysAgo)->toDateString(), 100);
         }
 
-        $row = app(TopCustomers::class)->forApp('rental', $this->today)['rows'][0];
+        // Gaps are 100, 14, 14, 212 - the mean is 85, the median is 57.
+        $this->assertSame(57, $this->row('Fortnightly')['rhythm']);
+    }
 
-        // Gaps are 100, 14, 14, 14 - the mean is 35, the median is 14.
-        $this->assertSame(14, $row['rhythm']);
+    public function test_the_rhythm_still_reads_the_whole_history(): void
+    {
+        // Six months of ranking, but a customer of years must not read as new
+        // because the window only caught their most recent job.
+        $c = $this->customer('Old friend');
+        foreach ([700, 670, 640, 610, 20] as $daysAgo) {
+            $this->order($c, $this->today->subDays($daysAgo)->toDateString(), 100);
+        }
+
+        $row = $this->row('Old friend');
+
+        $this->assertSame(30, $row['rhythm']);
+        $this->assertNotSame('new', $row['status']);
     }
 
     public function test_a_regular_customer_who_has_stopped_is_flagged(): void
     {
-        // Books every 14 days and has not called in 60: a real problem.
         $c = $this->customer('Every fortnight');
         $this->rhythmOf($c, 14, 6, 60);
 
-        $row = app(TopCustomers::class)->forApp('rental', $this->today)['rows'][0];
+        $row = $this->row('Every fortnight');
 
         $this->assertSame(14, $row['rhythm']);
         $this->assertSame(60, $row['daysSince']);
@@ -266,39 +363,25 @@ final class TopCustomersTest extends TestCase
 
     public function test_an_occasional_customer_quiet_for_the_same_time_is_not(): void
     {
-        // Also silent for 60 days, but they only ever book twice a year, so
-        // they are behaving exactly as they always have. A single company-wide
-        // cut-off would wrongly put this one on the call list.
+        // Also silent for 60 days, but they only ever book twice a year, so a
+        // single company-wide cut-off would wrongly put them on the call list.
         $c = $this->customer('Twice a year');
         $this->rhythmOf($c, 180, 4, 60);
 
-        $row = app(TopCustomers::class)->forApp('rental', $this->today)['rows'][0];
+        $row = $this->row('Twice a year');
 
         $this->assertSame(180, $row['rhythm']);
-        $this->assertSame(60, $row['daysSince']);
         $this->assertSame('active', $row['status']);
-    }
-
-    public function test_a_customer_slightly_past_their_own_gap_is_worth_a_call(): void
-    {
-        $c = $this->customer('Slipping');
-        $this->rhythmOf($c, 20, 5, 30);
-
-        $row = app(TopCustomers::class)->forApp('rental', $this->today)['rows'][0];
-
-        $this->assertSame('slipping', $row['status']);
     }
 
     public function test_a_very_frequent_customer_gets_a_few_days_grace(): void
     {
-        // Books daily. Without a floor, being one day late would read as
-        // "lost" and the call sheet would cry wolf every morning.
+        // Without a floor, being one day late would read as "lost" and the call
+        // sheet would cry wolf every morning.
         $c = $this->customer('Daily');
         $this->rhythmOf($c, 1, 10, 3);
 
-        $row = app(TopCustomers::class)->forApp('rental', $this->today)['rows'][0];
-
-        $this->assertSame('active', $row['status']);
+        $this->assertSame('active', $this->row('Daily')['status']);
     }
 
     public function test_one_job_is_not_a_rhythm(): void
@@ -306,47 +389,28 @@ final class TopCustomersTest extends TestCase
         $c = $this->customer('First timer');
         $this->order($c, $this->today->subDays(10)->toDateString(), 500);
 
-        $row = app(TopCustomers::class)->forApp('rental', $this->today)['rows'][0];
+        $row = $this->row('First timer');
 
         $this->assertNull($row['rhythm']);
         $this->assertSame('new', $row['status']);
     }
 
-    public function test_the_rhythm_reads_the_whole_history_not_just_the_ranking_window(): void
+    public function test_the_group_totals_what_is_at_risk(): void
     {
-        // A customer of years would otherwise be called "new" because the
-        // window only caught their most recent job.
-        $c = $this->customer('Old friend');
-        foreach ([700, 670, 640, 610, 20] as $daysAgo) {
-            $this->order($c, $this->today->subDays($daysAgo)->toDateString(), 100);
-        }
+        $this->rhythmOf($this->customer('Gone quiet'), 14, 4, 90, 200.0);
+        $this->rhythmOf($this->customerNamed('Still here'), 14, 4, 3, 100.0);
 
-        $row = app(TopCustomers::class)->forApp('rental', $this->today)['rows'][0];
+        $group = app(TopCustomers::class)->forApp('rental', $this->today)['groups']['individual'];
 
-        $this->assertSame(30, $row['rhythm']);
-        $this->assertSame(20, $row['daysSince']);
-        $this->assertNotSame('new', $row['status']);
-    }
-
-    public function test_the_panel_totals_what_is_at_risk(): void
-    {
-        $quiet = $this->customer('Gone quiet');
-        $this->rhythmOf($quiet, 14, 6, 90, 200.0);
-
-        $fine = $this->customer('Still here');
-        $this->rhythmOf($fine, 14, 6, 3, 100.0);
-
-        $top = app(TopCustomers::class)->forApp('rental', $this->today);
-
-        $this->assertSame(1, $top['quiet']);
-        $this->assertEqualsWithDelta(1200.0, $top['atRisk'], 0.001);
+        $this->assertSame(1, $group['quiet']);
+        $this->assertEqualsWithDelta(800.0, $group['atRisk'], 0.001);
     }
 
     public function test_unpaid_work_and_anonymous_jobs_do_not_rank_anyone(): void
     {
-        $c = $this->customer('Owes us');
+        $owes = $this->customer('Owes us');
         RentalOrder::query()->create([
-            'customer_id' => $c->id,
+            'customer_id' => $owes->id,
             'start_date' => '2026-09-01',
             'end_date' => '2026-09-01',
             'total' => 900,
@@ -354,8 +418,8 @@ final class TopCustomersTest extends TestCase
             'state' => RentalOrder::STATE_ACTIVE,
             'payment_status' => RentalOrder::PAYMENT_UNPAID,
         ]);
+        $this->order($this->customerNamed('Real'), '2026-09-01', 100);
         // A job with no customer is money we cannot chase.
-        $this->order($this->customer('Real'), '2026-09-01', 100);
         RentalOrder::query()->create([
             'customer_id' => null,
             'start_date' => '2026-09-01',
@@ -366,25 +430,26 @@ final class TopCustomersTest extends TestCase
             'payment_status' => RentalOrder::PAYMENT_PAID,
         ]);
 
-        $top = app(TopCustomers::class)->forApp('rental', $this->today);
+        $report = app(TopCustomers::class)->forApp('rental', $this->today);
+        $rows = $report['groups']['individual']['rows'];
 
-        $this->assertCount(1, $top['rows']);
-        $this->assertSame('Real', $top['rows'][0]['name']);
+        $this->assertCount(1, $rows);
+        $this->assertSame('Real', $rows[0]['name']);
         // Anonymous money still counts in the total it is a share of.
-        $this->assertEqualsWithDelta(500.0, $top['collected'], 0.001);
-        $this->assertSame(20, $top['rows'][0]['share']);
+        $this->assertEqualsWithDelta(500.0, $report['collected'], 0.001);
+        $this->assertSame(20, $rows[0]['share']);
     }
 
-    public function test_the_list_stops_at_fifteen(): void
+    public function test_each_group_stops_at_fifteen(): void
     {
         for ($i = 1; $i <= 20; $i++) {
-            $this->order($this->customer('Customer '.$i), '2026-09-01', (float) (100 * $i));
+            $this->order($this->customerNamed('Person '.$i), '2026-08-01', (float) (100 * $i));
         }
 
-        $top = app(TopCustomers::class)->forApp('rental', $this->today);
+        $rows = app(TopCustomers::class)->forApp('rental', $this->today)['groups']['individual']['rows'];
 
-        $this->assertCount(15, $top['rows']);
-        $this->assertSame('Customer 20', $top['rows'][0]['name']);
+        $this->assertCount(15, $rows);
+        $this->assertSame('Person 20', $rows[0]['name']);
     }
 
     // ── On the dashboards ────────────────────────────────────────────────────

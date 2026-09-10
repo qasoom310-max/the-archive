@@ -2987,6 +2987,24 @@ point of the call sheet and the thing not to "simplify" later:
 - Statuses: `active` (within 1.25× their gap), `slipping` (to 2.5×), `lost`
   (beyond), `new` (fewer than two jobs). Retune via the constants.
 
+**Reworked 2026-09-10 after the owner saw it on live data.** The first cut
+ranked over TWELVE months in ONE list, and on real data that filled with people
+who hired once and were last seen 290-350 days ago - every row reading "too few
+jobs to know their rhythm". A list of strangers, not a call sheet. Three changes:
+
+- **Six months, not twelve** (`WINDOW_MONTHS`), as whole calendar months so the
+  columns line up with months anyone would name out loud. This alone removed
+  every stale row from the owner's screenshot.
+- **Companies and individuals are ranked APART** (`GROUPS`), as client-side
+  tabs. A handful of corporate accounts otherwise crowd out every individual
+  and half the business never gets looked at. A customer whose `type` is blank
+  is treated as a person - an imported row has to land somewhere, not vanish.
+- **Every row carries its own month-by-month record** across those six months,
+  so "going quiet" is something the owner can SEE rather than trust.
+
+The rhythm is still read from the customer's **whole history**, not the
+six-month window, or a customer of years reads as new.
+
 **Two queries, not N+1.** One grouped query ranks the top 15; one more pulls
 those 15 customers' entire paid history, and rhythm, trend and last-seen are
 all computed in PHP from it. Adding a query per customer for any of those is

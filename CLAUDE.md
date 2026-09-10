@@ -3107,6 +3107,27 @@ grid, and is **never sent to the website**.
 
 **Gotcha for tests:** Laravel's `getJson()` sends `[]` as the body even on a GET, so a signature computed over an empty body will not match. Use `->get()` and read the JSON off the response.
 
+**Offer car scoping (shipped 2026-09-10):** an offer used to discount every car in a
+service at once; not every car should get the same discount (e.g. 25% off Sedan and
+SUV on Airport Transfer but not Luxury). `pricing_offer_cars` pivot (migration
+`2026_09_10_100001`, mirrors `pricing_service_vehicles`) + `PricingOffer::cars()`
+BelongsToMany. **Empty pivot means "not configured" and resolves to every car the
+service offers** (`PricingPayload::offerCarIds()`) — the same fallback rule a service
+with no vehicle list already uses, not "applies to nothing." Published as
+`offer.cars` (a car id list), **zeroed to `[]` whenever the offer is not live** —
+same defensive reasoning as `percent`/`label_en` being zeroed, so a site checking
+only this field can't apply an expired/not-yet-started offer to anything.
+`/fares` gained an "Applies to" checkbox row (`PricingManager::$offerCarIds`,
+defaults to every car ticked when nothing's configured yet) between "Offer is on"
+and the percent/label grid; **saving with the offer ON and zero cars ticked is
+refused** ("Select at least one car for the offer, or switch it off") — the same
+never-publish-a-silent-no-op philosophy as a blank rate on a shown option.
+`PricingWriter::updateOffer()` gained a third `list<string> $carIds` param, synced
+only when the car set actually changed (no wasted write when just the label moved).
+Tests: `PricingApiTest` (+6 — scoped payload, zeroed when not live, empty-pivot
+fallback, form persists the selection, form refuses on+empty, new offer defaults
+every car ticked).
+
 **Scoped Administrator — narrow an admin to specific apps (shipped 2026-09-09):**
 
 Settings → Users' role picker described Administrator as "Full access to

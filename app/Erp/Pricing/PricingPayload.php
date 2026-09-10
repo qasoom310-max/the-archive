@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Erp\Pricing;
 
 use App\Models\Pricing\PricingCar;
+use App\Models\Pricing\PricingOffer;
 use App\Models\Pricing\PricingOption;
 use App\Models\Pricing\PricingService;
 use App\Models\Pricing\PricingSetting;
@@ -50,6 +51,7 @@ final class PricingPayload
                 'vehicles',
                 'extraHours',
                 'offer',
+                'offer.cars',
             ])
             ->orderBy('sort')
             ->orderBy('id')
@@ -135,8 +137,37 @@ final class PricingPayload
                 'label_ar' => $live && $offer !== null ? $offer->label_ar : null,
                 'starts' => $offer?->starts_at?->toDateString(),
                 'ends' => $offer?->ends_at?->toDateString(),
+                // Which cars the discount applies to — not every car in a
+                // service is necessarily on offer. Zeroed when not live for
+                // the same reason percent/label are: a site that checks only
+                // this field can't apply an expired or not-yet-started offer.
+                'cars' => $live ? $this->offerCarIds($offer, $serviceCarIds) : [],
             ],
         ];
+    }
+
+    /**
+     * @param  list<string>  $serviceCarIds
+     * @return list<string>
+     */
+    private function offerCarIds(?PricingOffer $offer, array $serviceCarIds): array
+    {
+        if ($offer === null) {
+            return [];
+        }
+
+        $selected = $offer->cars
+            ->pluck('id')
+            ->filter(static fn (string $id): bool => in_array($id, $serviceCarIds, true))
+            ->values()
+            ->all();
+
+        // Never configured (or everything was selected and later removed) —
+        // fall back to every car the service offers, the same rule a service
+        // with no vehicle list already uses. An offer that's ON must apply to
+        // SOMETHING; the admin screen refuses to save ON with zero cars
+        // ticked, so reaching this with `active=true` means legacy data.
+        return $selected === [] ? $serviceCarIds : $selected;
     }
 
     /**

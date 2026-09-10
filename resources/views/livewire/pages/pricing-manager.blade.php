@@ -154,6 +154,20 @@
                         {{ __('Offer is on') }}
                     </label>
 
+                    <div class="mb-3">
+                        <div class="mb-1 text-xs font-medium text-chrome-500">{{ __('Applies to') }}</div>
+                        <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                            @foreach ($cars as $car)
+                                <label class="flex items-center gap-1.5 text-xs text-chrome-700">
+                                    <input type="checkbox" value="{{ $car->id }}" wire:model="offerCarIds"
+                                           class="size-3.5 rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
+                                    {{ $car->name_en }}
+                                </label>
+                            @endforeach
+                        </div>
+                        @error('offerCarIds') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+
                     <div class="grid gap-3 sm:grid-cols-2">
                         <label class="block">
                             <span class="text-xs font-medium text-chrome-500">{{ __('Percent off') }}</span>

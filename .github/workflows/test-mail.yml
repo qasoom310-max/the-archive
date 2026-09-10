@@ -1,0 +1,50 @@
+name: Test mail delivery (manual)
+
+# Sends one test email through the live server's configured mail transport
+# and reports what happened: the mailer actually in use, and whether the
+# transport accepted the message or threw. Exists because a mail send (e.g.
+# the "forgot password" link) can succeed from the app's point of view —
+# no error, the UI shows success — while nothing is actually delivered,
+# most commonly because MAIL_MAILER isn't set to "smtp" in .env (Laravel
+# silently falls back to the "log" driver, which just writes to
+# storage/logs/laravel.log instead of sending — see config/mail.php).
+#
+# Manual only (workflow_dispatch). It never runs on push.
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: 'Address to send the test message to'
+        required: true
+
+concurrency:
+  group: test-mail
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Test mail on erp.wanaan-bh.com
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust Hostinger SSH host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run mail:test
+        env:
+          TEST_EMAIL: ${{ inputs.email }}
+        run: |
+          set -euo pipefail
+
+          ssh -p ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && php artisan mail:test $(printf '%q' "$TEST_EMAIL")"

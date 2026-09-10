@@ -3102,14 +3102,35 @@ Fixed: `isLive()` now only checks the admin `active` flag and whether
 unconditionally (even when inactive); **the website is responsible for
 comparing the traveller's chosen pickup date against `starts`/`ends` before
 applying `percent` to a specific quote** — that was always the plan (only the
-ERP's own "not started yet" gate was blocking it from ever mattering). This
-is a WordPress-side change too: until the widget adds that date comparison,
-turning an offer on will make `percent`/`cars` publish immediately for the
-service as a whole, but nothing on the site will act on `starts`/`ends` to
-restrict it to the right travel dates — flagged for Mohammed, not yet
-confirmed done on that side. Regression:
+ERP's own "not started yet" gate was blocking it from ever mattering). The
+`wanaan-fare-finder` WordPress plugin (a separate codebase, not in this repo)
+turned out to already implement exactly this: `WNF_Pricing::offer_applies()`
+and its JS mirror both compare the TRIP date against `starts`/`ends`, and the
+plugin's own doc comment describes this identical bug independently — so
+both halves now agree; nothing further was needed on the WordPress side for
+this one. Regression:
 `PricingApiTest::{test_an_offer_that_has_not_started_yet_is_still_published_so_it_can_be_booked_ahead,
 test_starts_and_ends_are_always_published_even_when_the_offer_is_off_or_expired}`.
+
+**Gotcha this fix immediately ran into: a code-only fix doesn't propagate on
+its own.** `PricingWriter` only bumps `pricing_version` on a genuine DATA
+write, and the website treats that version as an ETag — a conditional GET
+with a matching ETag gets 304, and `WNF_Rest::refresh()` skips a ping
+outright when the version it's told about is one it already holds. A fix to
+HOW the payload is *computed* (this one) changes what the SAME stored data
+produces without writing anything, so nothing bumps the version and the
+website's cached copy never learns anything changed — the existing "Send
+update to website" admin button is *also* powerless here, because it pings
+with the CURRENT (unchanged) version number. New command **`php artisan
+pricing:republish --workspace=<id>`**
+(`App\Console\Commands\RepublishPricingCommand`, workflow
+`.github/workflows/republish-pricing.yml`) exists for exactly this case: it
+calls `PricingVersion::bump()` with no data change, then pings with the new
+number so the website's next fetch is a genuine 200. **Run this after
+deploying any change to how `PricingPayload`/`PricingOffer::isLive()`
+computes its output** — a data-only change (a rate, an offer) doesn't need
+it, `PricingWriter` already bumps on save. Test:
+`RepublishPricingCommandTest`.
 
 **v3 increment (2026-09-09, same day): buses, per-service vehicles, settings.**
 Migration `2026_09_09_100002_extend_pricing_for_buses_and_settings` adds

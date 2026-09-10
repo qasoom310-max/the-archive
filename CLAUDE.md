@@ -3220,6 +3220,56 @@ Tests: `PricingApiTest` (+6 — scoped payload, zeroed when not live, empty-pivo
 fallback, form persists the selection, form refuses on+empty, new offer defaults
 every car ticked).
 
+**Driver pay type + a fixed commission scale (shipped 2026-09-10):** a driver is
+either a **company driver** or a **commission driver**, and a commission driver's
+rate must be one of the office's own five: **25 / 15 / 10 / 7 / 5%** — never a
+typed-in figure. New `rental_drivers.pay_type` (string, default `company`) +
+`commission_rate` (`decimal(5,2)` nullable), migration
+`2026_09_10_960021_add_pay_type_to_drivers.php` (Rental owns the shared table, same
+as the earlier licence-papers migration). **`commission_rate` is a plain column,
+NOT an enum cast** — the same reasoning that already forced `PosCategory.station`
+off one: the engine form's blank "—" option round-trips as `""`, and an enum cast
+throws on that at `setAttribute` time, before any hook can normalise it.
+
+New shared trait **`Modules\Rental\Models\Concerns\HasDriverPay`** (alongside the
+existing `HasDriverLicence`/`DriverDeletionReferences`, `use`d by both `Driver` and
+`LimoDriver` — one driver, two doors, see those traits' own docs): `PAY_TYPE_OPTIONS`
++ `commissionRateOptions()` feed the two new `select` fields on BOTH models'
+`irModelDefinition()` forms, and — this is what actually enforces the scale —
+`FormView::rules()` already derives an `in:` validation rule from whichever options
+a `select` field declares (see Phase 4/5), so a rate outside the five, or a pay type
+that isn't `company`/`commission`, can never be saved. **`bootHasDriverPay()`**
+(the Laravel `boot<TraitName>()` auto-hook convention, same as
+`GuardsDeletionWhenReferenced::bootGuardsDeletionWhenReferenced()`) clears
+`commission_rate` to null on `saving` whenever `pay_type` isn't `commission` — a
+rate left over from before a driver was switched back to Company must not linger
+unseen.
+
+**Static `select` option labels now translate.** Building this surfaced that
+`form-view.blade.php`'s `select` case rendered `{{ $opt['label'] }}` raw — never
+`__()`-wrapped — so EVERY static-option select in the app (e.g. `PosProduct.unit`)
+has been silently untranslatable since Phase 4/13; the "Unit" field's own doc note
+("the option labels stay English") was describing this gap, not a deliberate
+carve-out. Fixed to `{{ __($opt['label']) }}` — safe and additive, since `__()`
+returns its argument unchanged when no `ar.json` key matches, so every existing
+select renders exactly as before until a translation is added for it. New keys:
+Pay type / Company driver / Commission driver / Commission % / the two-driver help
+text / the five rate labels (Arabic-Indic digits, matching how `label_ar` content
+is written elsewhere in this codebase, e.g. the pricing hour options).
+
+**Limousine's own driver list — Active is now a checkbox (shipped 2026-09-10):**
+`LimoDriver`'s list arch flipped the `active` column from `format: bool` (rendered
+"Yes"/"No") to `format: toggle` (Phase 4's inline iOS-switch, `ListView::toggleBoolean`
+— already Write-ACL-gated and arch-whitelisted, no new plumbing needed). **Scoped to
+Limousine only, per the request** — Rent A Car's own driver list (`Modules\Rental\Models\Driver`,
+same shared table, separate `ir_model`/arch) is untouched and still shows Yes/No; say
+so if asked to widen it, it is a one-line arch change mirroring this one.
+
+Tests: `DriverRecordTest` (+6 — new driver defaults to Company, a commission
+driver's rate round-trips and both apps agree, switching back to Company clears the
+rate, the engine form refuses a rate outside the scale, the engine form saves a
+valid one, the Limousine list's Active column is an inline toggle).
+
 **Scoped Administrator — narrow an admin to specific apps (shipped 2026-09-09):**
 
 Settings → Users' role picker described Administrator as "Full access to

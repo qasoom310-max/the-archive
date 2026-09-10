@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Erp\Modules\ModuleManager;
+use App\Livewire\Views\FormView;
+use App\Livewire\Views\ListView;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
@@ -259,5 +261,76 @@ final class DriverRecordTest extends TestCase
         $driver = Driver::query()->create(['name' => 'Rashid']);
 
         $this->assertSame([], app(DriverJobHistory::class)->for((int) $driver->id));
+    }
+
+    /* ── Pay ─────────────────────────────────────────────────────────────── */
+
+    public function test_a_new_driver_defaults_to_a_company_pay_type(): void
+    {
+        $driver = Driver::query()->create(['name' => 'Rashid']);
+
+        $this->assertSame('company', $driver->fresh()?->pay_type);
+        $this->assertNull($driver->fresh()?->commission_rate);
+        $this->assertFalse($driver->fresh()?->isCommissionDriver());
+    }
+
+    public function test_a_commission_driver_carries_one_of_the_office_rates(): void
+    {
+        $driver = Driver::query()->create(['name' => 'Rashid', 'pay_type' => 'commission', 'commission_rate' => 15]);
+
+        $this->assertTrue($driver->fresh()?->isCommissionDriver());
+        $this->assertSame(15.0, $driver->fresh()?->commission_rate);
+
+        // The same person, seen from the other app, agrees.
+        $this->assertTrue(LimoDriver::query()->find($driver->id)?->isCommissionDriver());
+    }
+
+    /** A rate left over from before a switch back to Company must not linger unseen. */
+    public function test_switching_a_driver_back_to_company_clears_the_commission_rate(): void
+    {
+        $driver = Driver::query()->create(['name' => 'Rashid', 'pay_type' => 'commission', 'commission_rate' => 25]);
+
+        $driver->update(['pay_type' => 'company']);
+
+        $this->assertNull($driver->fresh()?->commission_rate);
+    }
+
+    public function test_the_engine_form_refuses_a_commission_rate_outside_the_office_scale(): void
+    {
+        Livewire::test(FormView::class, ['model' => Driver::class, 'modelKey' => 'rental.driver'])
+            ->set('form.name', 'Rashid')
+            ->set('form.pay_type', 'commission')
+            ->set('form.commission_rate', '12')
+            ->call('save')
+            ->assertHasErrors(['form.commission_rate']);
+
+        $this->assertSame(0, Driver::query()->where('name', 'Rashid')->count());
+    }
+
+    public function test_the_engine_form_saves_a_valid_commission_rate(): void
+    {
+        Livewire::test(FormView::class, ['model' => Driver::class, 'modelKey' => 'rental.driver'])
+            ->set('form.name', 'Rashid')
+            ->set('form.pay_type', 'commission')
+            ->set('form.commission_rate', '7')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $driver = Driver::query()->where('name', 'Rashid')->sole();
+        $this->assertTrue($driver->isCommissionDriver());
+        $this->assertSame(7.0, $driver->commission_rate);
+    }
+
+    /** Limousine's own list — the "in limo driver" request — asked for a checkbox, not Yes/No text. */
+    public function test_the_limousine_driver_list_active_column_is_an_inline_toggle(): void
+    {
+        $driver = LimoDriver::query()->create(['name' => 'Rashid', 'active' => true]);
+
+        Livewire::test(ListView::class, [
+            'model' => LimoDriver::class,
+            'modelKey' => 'limousine.driver',
+        ])->call('toggleBoolean', $driver->id, 'active');
+
+        $this->assertFalse((bool) $driver->fresh()->active);
     }
 }

@@ -33,12 +33,15 @@ use Illuminate\Database\Eloquent\Model;
  * @property \Illuminate\Support\Carbon|null $license_expiry
  * @property string|null $license_doc
  * @property bool $active
+ * @property string $pay_type
+ * @property float|null $commission_rate
  */
 final class LimoDriver extends Model implements DefinesIrModel
 {
     use \App\Models\Concerns\GuardsDeletionWhenReferenced;
     use \Modules\Rental\Models\Concerns\DriverDeletionReferences;
     use \Modules\Rental\Models\Concerns\HasDriverLicence;
+    use \Modules\Rental\Models\Concerns\HasDriverPay;
 
     /** Shared table — the single driver store for both transport apps. */
     protected $table = 'rental_drivers';
@@ -47,18 +50,18 @@ final class LimoDriver extends Model implements DefinesIrModel
     protected $fillable = [
         'name', 'phone', 'cpr', 'cpr_doc',
         'license_no', 'license_expiry', 'license_doc',
-        'nationality', 'active',
+        'nationality', 'active', 'pay_type', 'commission_rate',
     ];
 
     /** @var array<string, mixed> */
-    protected $attributes = ['active' => true];
+    protected $attributes = ['active' => true, 'pay_type' => self::PAY_TYPE_COMPANY];
 
     /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
-        return ['active' => 'boolean', 'license_expiry' => 'date'];
+        return ['active' => 'boolean', 'license_expiry' => 'date', 'commission_rate' => 'float'];
     }
 
     /** Name plus the phone the office would ring, for pickers and snapshots. */
@@ -87,6 +90,8 @@ final class LimoDriver extends Model implements DefinesIrModel
                 new FieldDefinition('cpr_doc', 'CPR copy', 'char', sequence: 35),
                 new FieldDefinition('nationality', 'Nationality', 'char', sequence: 50),
                 new FieldDefinition('active', 'Active', 'boolean', sequence: 60),
+                new FieldDefinition('pay_type', 'Pay type', 'char', required: true, sequence: 65),
+                new FieldDefinition('commission_rate', 'Commission %', 'float', sequence: 66),
             ],
             views: [
                 new ViewDefinition('Drivers', 'list', [
@@ -96,7 +101,7 @@ final class LimoDriver extends Model implements DefinesIrModel
                         ['field' => 'license_no', 'label' => 'Licence no.'],
                         ['field' => 'license_expiry', 'label' => 'Licence expires', 'sortable' => true],
                         ['field' => 'nationality', 'label' => 'Nationality', 'sortable' => true],
-                        ['field' => 'active', 'label' => 'Active', 'format' => 'bool'],
+                        ['field' => 'active', 'label' => 'Active', 'format' => 'toggle'],
                     ],
                     'default_sort' => [['field' => 'name', 'dir' => 'asc']],
                     'per_page' => 20,
@@ -115,6 +120,8 @@ final class LimoDriver extends Model implements DefinesIrModel
                         ['field' => 'cpr_doc', 'label' => 'CPR copy', 'widget' => 'file'],
                         ['field' => 'nationality', 'label' => 'Nationality', 'widget' => 'text'],
                         ['field' => 'active', 'label' => 'Active', 'widget' => 'checkbox'],
+                        ['field' => 'pay_type', 'label' => 'Pay type', 'widget' => 'select', 'required' => true, 'options' => self::PAY_TYPE_OPTIONS],
+                        ['field' => 'commission_rate', 'label' => 'Commission %', 'widget' => 'select', 'options' => self::commissionRateOptions(), 'help' => 'Only applies to commission drivers — cleared automatically for a company driver.'],
                     ],
                 ]),
             ],

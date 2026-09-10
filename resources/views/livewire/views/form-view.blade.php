@@ -195,7 +195,7 @@
                         <select wire:model.live="{{ $key }}" class="o-input">
                             <option value="">—</option>
                             @foreach (($options[$field->field] ?? $field->options) as $opt)
-                                <option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>
+                                <option value="{{ $opt['value'] }}">{{ __($opt['label']) }}</option>
                             @endforeach
                         </select>
                         @break

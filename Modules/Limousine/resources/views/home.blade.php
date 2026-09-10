@@ -100,6 +100,8 @@
             'schedules' => $schedules,
             'gradient' => 'bg-gradient-to-br from-indigo-600 to-violet-700',
             'unpaidHref' => url('/app/limousine/booking?tab=unpaid'),
+            'fleetHref' => url('/app/limousine/earnings'),
+            'fleetLabel' => __('Limousine earnings'),
         ])
         @include('partials.top-customers', ['customers' => $topCustomers, 'tile' => $tile])
     @endif

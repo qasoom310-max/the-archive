@@ -33,6 +33,7 @@ use Modules\Rental\Livewire\CustomerForm as RentalCustomerForm;
 use Modules\Limousine\Livewire\DriverForm;
 use Modules\Limousine\Livewire\Drivers;
 use Modules\Limousine\Livewire\Customers;
+use Modules\Limousine\Livewire\LimoEarnings;
 use Modules\Limousine\Livewire\CustomerSummary;
 use Modules\Limousine\Livewire\ExpenseForm;
 use Modules\Limousine\Livewire\Expenses;
@@ -88,6 +89,9 @@ Route::middleware('auth')->group(function (): void {
         ->whereNumber('leg')->name('limousine.service_order.pdf');
 
     // Masters.
+    // Limousine earnings — drivers, routes and demand (owner only).
+    Route::get('/app/limousine/earnings', LimoEarnings::class)->name('limousine.earnings');
+
     Route::get('/app/limousine/customer', Customers::class)->name('limousine.customer.index');
     // ONE customer page for both apps — the same person hires a car and books a
     // trip, so they get one record with one summary rather than half of each.

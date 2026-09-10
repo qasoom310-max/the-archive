@@ -24,7 +24,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $license_doc
  * @property bool $active
  * @property string $pay_type
- * @property float|null $commission_rate
+ * @property float|null $commission_amount
  */
 final class Driver extends Model implements DefinesIrModel
 {
@@ -39,7 +39,7 @@ final class Driver extends Model implements DefinesIrModel
     protected $fillable = [
         'name', 'phone', 'cpr', 'cpr_doc',
         'license_no', 'license_expiry', 'license_doc',
-        'nationality', 'active', 'pay_type', 'commission_rate',
+        'nationality', 'active', 'pay_type', 'commission_amount',
     ];
 
     /** @var array<string, mixed> */
@@ -50,7 +50,7 @@ final class Driver extends Model implements DefinesIrModel
      */
     protected function casts(): array
     {
-        return ['active' => 'boolean', 'license_expiry' => 'date', 'commission_rate' => 'float'];
+        return ['active' => 'boolean', 'license_expiry' => 'date', 'commission_amount' => 'float'];
     }
 
     public static function irModelDefinition(): ModelDefinition
@@ -72,7 +72,7 @@ final class Driver extends Model implements DefinesIrModel
                 new FieldDefinition('nationality', 'Nationality', 'char', sequence: 50),
                 new FieldDefinition('active', 'Active', 'boolean', sequence: 60),
                 new FieldDefinition('pay_type', 'Pay type', 'char', required: true, sequence: 65),
-                new FieldDefinition('commission_rate', 'Commission %', 'float', sequence: 66),
+                new FieldDefinition('commission_amount', 'Commission (BD)', 'float', sequence: 66),
             ],
             views: [
                 new ViewDefinition('Drivers', 'list', [
@@ -102,7 +102,7 @@ final class Driver extends Model implements DefinesIrModel
                         ['field' => 'nationality', 'label' => 'Nationality', 'widget' => 'text'],
                         ['field' => 'active', 'label' => 'Active', 'widget' => 'checkbox'],
                         ['field' => 'pay_type', 'label' => 'Pay type', 'widget' => 'select', 'required' => true, 'options' => self::PAY_TYPE_OPTIONS],
-                        ['field' => 'commission_rate', 'label' => 'Commission %', 'widget' => 'select', 'options' => self::commissionRateOptions(), 'help' => 'Only applies to commission drivers — cleared automatically for a company driver.'],
+                        ['field' => 'commission_amount', 'label' => 'Commission (BD)', 'widget' => 'number', 'placeholder' => '0.000', 'help' => 'Flat commission per trip, in Bahraini Dinar. Only applies to commission drivers — cleared automatically for a company driver.'],
                     ],
                 ]),
             ],

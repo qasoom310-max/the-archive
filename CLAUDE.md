@@ -3351,6 +3351,48 @@ invisible while creating a user from Main, a café).
 | Why this was already safe | `UserProvisioner::grantApps()` already filters every ticked app through `Features::moduleAllowed()` **per target database** (see the "grants are scoped per database" rule above) — so a stale app value left in `$this->apps` after unticking a database was never a security gap, only a UI blind spot. This change fixes the blind spot; it changes no enforcement |
 | Tests | `UserManagerTest::test_ticking_a_database_surfaces_the_apps_it_runs` (nothing ticked → Main's apps only; tick a rental workspace → its apps join the list, Main's stay too; untick Main, keep only the rental workspace → only its apps, POS drops out) |
 
+**Fixed 2026-09-10 — a staff account granted only tenant databases could never sign in.**
+Reported as "there is an issue in the login whenever someone new other than the
+superadmin tries to sign in" — every freshly-created staff account hit "These
+credentials do not match our records," no matter the password.
+
+Root cause: `Login::login()` always runs `Auth::attempt()` against **Main** — a
+brand-new browser has no `erp_workspace` cookie yet, so there is nothing to route
+it anywhere else (see `ChooseWorkspaceController`'s own docblock: "Signing in
+authenticates against Main"). But `UserProvisioner::provision()` — the plain,
+non-locked "Databases this user can access" checklist path — only ever wrote a
+row to Main **when Main itself was one of the ticked databases**; otherwise it
+returned `null` and the comment even said so ("an account can live only in
+tenant DBs"). Since **Main is a normal pickable database, not auto-included**
+(by design, documented above), the natural, common case — an owner creating
+staff scoped to their one business, never ticking the unrelated café/default
+Main database — produced an account with no row on Main whatsoever. It could
+never authenticate, full stop; only accounts that happened to include Main (like
+the superadmin) worked.
+
+Fix: `provision()` now calls the new `ensureMainLoginShell()` whenever the loop
+didn't already write a Main row — a **bare, unprivileged** row (no `is_admin`,
+no `is_super_admin`, no ACL grants) with the SAME hashed password as everywhere
+else. This can't leak Main access: `WorkspaceManager::accessibleFor()` already
+excludes Main from a non-admin's workspace picker regardless of whether a row
+exists there, and the tenant workspace(s) they were actually granted still show
+up exactly as before (matched by email, same as always). A regular tenant-only
+account now shows up on Main's Users list looking exactly like an existing
+**"global" account** ("Managed on Main") — which is accurate: its identity
+(name/email/password) genuinely is managed there now, same concept the rest of
+the multi-database system already uses.
+
+Also benefits `EnsureStaffUserCommand`'s unlocked path (`user:ensure` with
+`--databases` excluding Main) — same bug, same fix, no separate change needed.
+The **workspace-locked** path (`provisionLocked()`, "Add users from inside any
+database") was never affected — it already wrote a Main shell unconditionally.
+
+Test: `UserManagerTest::test_user_is_provisioned_into_the_selected_databases_but_still_gets_a_bare_login_row_on_main`
+(replaces the old test that asserted zero rows on Main — that assertion was
+pinning the bug). Diagnosed live via `php artisan mail:test` (ruled out a mail
+delivery problem first — SMTP was handing off cleanly) before tracing the actual
+symptom ("these credentials do not match") back through `Login`/`ChooseWorkspaceController`/`UserProvisioner`.
+
 ---
 
 ## 6. Known Environment Caveats

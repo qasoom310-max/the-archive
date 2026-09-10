@@ -574,15 +574,26 @@ final class UserManagerTest extends TestCase
         $this->assertSame(['staff', 'supervisor', 'admin'], $values);
     }
 
-    public function test_user_is_provisioned_only_into_the_selected_databases(): void
+    /**
+     * Login always checks Main first — there is no cookie yet to route a
+     * brand-new browser session anywhere else. An account granted app access
+     * ONLY in a tenant workspace still needs a row on Main to sign in with,
+     * even though that row must hold none of Main's own app access. Before
+     * the fix, `provision()` skipped Main entirely whenever it wasn't ticked,
+     * so an account like this could never authenticate at all — every new
+     * hire whose owner (reasonably) ticked only their own business's
+     * database got "these credentials do not match our records," forever.
+     */
+    public function test_user_is_provisioned_into_the_selected_databases_but_still_gets_a_bare_login_row_on_main(): void
     {
+        Notification::fake();
         $admin = User::factory()->create(['is_admin' => true, 'email' => 'admin@kaleem.test']);
         $this->actingAs($admin);
         $this->installPos();
 
         $workspace = app(WorkspaceManager::class)->provision('Branch Two', $admin, ['contacts', 'pos']);
 
-        // Tenant ONLY — Main is NOT selected, so the account lives only there.
+        // Tenant ONLY — Main is NOT ticked as a database to view.
         Livewire::test(UserManager::class)
             ->set('name', 'Branch Cashier')
             ->set('email', 'branch@example.com')
@@ -591,10 +602,20 @@ final class UserManagerTest extends TestCase
             ->call('save')
             ->assertHasNoErrors();
 
-        // Not created in Main.
-        $this->assertSame(0, User::query()->where('email', 'branch@example.com')->count());
+        // A row exists on Main — otherwise the account could never sign in —
+        // but it carries no admin flag and no Main app grants whatsoever.
+        $mainUser = User::query()->where('email', 'branch@example.com')->first();
+        $this->assertNotNull($mainUser);
+        $this->assertFalse($mainUser->isAdmin());
+        $this->assertNull($mainUser->home_workspace_id);
+        $this->assertFalse(app(AccessControl::class)->allows($mainUser, 'pos.order', Permission::Read));
 
-        // But present in the tenant DB with the view-only grant.
+        // The password just emailed to them actually signs them in on Main.
+        Notification::assertSentOnDemand(WelcomeCredentials::class, function (WelcomeCredentials $mail) use ($mainUser): bool {
+            return Hash::check($mail->password, (string) $mainUser->password);
+        });
+
+        // And present in the tenant DB with the view-only grant, as before.
         app(WorkspaceManager::class)->withTenant((string) $workspace->databasePath(), function (): void {
             $tenantUser = User::query()->where('email', 'branch@example.com')->first();
             $this->assertNotNull($tenantUser);

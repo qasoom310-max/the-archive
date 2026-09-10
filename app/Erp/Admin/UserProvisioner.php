@@ -36,9 +36,23 @@ final class UserProvisioner
     public function __construct(private readonly WorkspaceManager $workspaces) {}
 
     /**
-     * Create the user (matched by email) in EACH selected database — Main only
-     * if its workspace is among the selections (no longer implicit). Returns
-     * the Main user when Main was selected, else null.
+     * Create the user (matched by email) in EACH selected database — with
+     * Main app grants only if Main's workspace is among the selections (no
+     * longer implicit). Always returns the Main user — full when Main was
+     * selected, otherwise the bare login shell {@see ensureMainLoginShell()}
+     * writes.
+     *
+     * Login always checks Main FIRST, regardless of which databases the
+     * account was actually granted (there is no cookie yet to route a
+     * brand-new browser session anywhere else — see `ChooseWorkspaceController`).
+     * So a tenant-only account still needs A row on Main to authenticate with,
+     * even though it should hold none of Main's own app access. When Main
+     * wasn't ticked, {@see ensureMainLoginShell()} writes that bare row: no
+     * admin flags, no ACL grants — `WorkspaceManager::accessibleFor()` already
+     * excludes Main from a non-admin's workspace picker, so this can't leak
+     * Main access. Before this, such an account could never sign in at all —
+     * "credentials do not match" for every new hire whose owner (reasonably)
+     * ticked only their own business's database.
      *
      * @param  list<string>  $appNames      installed application module names to grant on
      * @param  list<int>     $workspaceIds  workspace ids (Main + tenants) to create the account in
@@ -51,7 +65,7 @@ final class UserProvisioner
         array $appNames,
         array $workspaceIds,
         StaffRole $role = StaffRole::Staff,
-    ): ?User {
+    ): User {
         $hashed = Hash::make($plainPassword);
 
         // No workspace feature on disk → just create on the current connection.
@@ -91,7 +105,28 @@ final class UserProvisioner
             );
         }
 
+        if ($mainUser === null) {
+            $mainUser = $this->ensureMainLoginShell($name, $email, $hashed);
+        }
+
         return $mainUser;
+    }
+
+    /**
+     * A bare, unprivileged row on Main so an account granted only tenant
+     * workspaces can still authenticate (see {@see provision()}). No admin
+     * flags, no app grants — just enough for `Auth::attempt()` to succeed;
+     * `WorkspaceManager::accessibleFor()` keeps Main itself off a non-admin's
+     * workspace picker regardless of this row existing.
+     */
+    private function ensureMainLoginShell(string $name, string $email, string $hashedPassword): User
+    {
+        return $this->workspaces->withMain(
+            fn (): User => User::query()->updateOrCreate(
+                ['email' => $email],
+                ['name' => $name, 'password' => $hashedPassword],
+            ),
+        );
     }
 
     /**

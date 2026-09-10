@@ -6,6 +6,8 @@ namespace Modules\Limousine\Livewire;
 
 use App\Erp\Navigation\ModuleMenu;
 use App\Erp\Security\Permission;
+use App\Erp\Targets\RevenueTargets;
+use App\Livewire\Concerns\EditsRevenueTargets;
 use App\Livewire\Concerns\GuardsModelAccess;
 use App\Models\Ir\IrModule;
 use Illuminate\Contracts\View\View;
@@ -24,7 +26,13 @@ use Modules\Limousine\Models\LimoLeg;
 #[Title('Limousine')]
 final class LimoHome extends Component
 {
+    use EditsRevenueTargets;
     use GuardsModelAccess;
+
+    protected function targetsApp(): string
+    {
+        return 'limousine';
+    }
 
     protected function accessModelKey(): string
     {
@@ -87,7 +95,15 @@ final class LimoHome extends Component
         $module = IrModule::query()->where('name', 'limousine')->first();
         $tiles = $module !== null ? app(ModuleMenu::class)->items($module, Auth::user()) : [];
 
+        // The revenue figure IS the whole income, so it and the targets
+        // measured against it are the owner's alone. Skipped entirely for
+        // everyone else rather than fetched and hidden in the view.
+        $isSuperAdmin = $this->viewerIsSuperAdmin();
+        $targets = $isSuperAdmin ? app(RevenueTargets::class)->progress('limousine') : [];
+
         return view('limousine::home', [
+            'isSuperAdmin' => $isSuperAdmin,
+            'targets' => $targets,
             'queue' => $queue,
             'confirmed' => $confirmed,
             'active' => $active,

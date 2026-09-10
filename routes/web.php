@@ -8,7 +8,9 @@ use App\Http\Controllers\PayslipPdfController;
 use App\Http\Controllers\ProfileEmailVerificationController;
 use App\Http\Controllers\ChooseWorkspaceController;
 use App\Http\Controllers\SwitchWorkspaceController;
+use App\Livewire\Auth\ForgotPassword;
 use App\Livewire\Auth\Login;
+use App\Livewire\Auth\ResetPassword;
 use App\Livewire\Pages\ActivityLog;
 use App\Livewire\Pages\AppFeatureSettings;
 use App\Livewire\Pages\DailySummary;
@@ -29,6 +31,13 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', Login::class)->name('login');
+
+    // Locked out: ask for a reset link, then set the new password from it.
+    // Guests always run against MAIN (SetActiveWorkspace short-circuits an
+    // unauthenticated request), which is the database login authenticates
+    // against - so the password rewritten here is the one that signs in.
+    Route::get('/forgot-password', ForgotPassword::class)->name('password.request');
+    Route::get('/reset-password/{token}', ResetPassword::class)->name('password.reset');
 });
 
 Route::post('/logout', function (): RedirectResponse {
@@ -105,6 +114,14 @@ Route::middleware('auth')->group(function (): void {
     // Admin-only audit trail (topbar activity icon). Component gates on admin.
     Route::get('/activity', ActivityLog::class)->name('activity');
 
+    // Admin-only ad calendar: last year's sales as a heatmap, the selling
+    // windows ahead, and when the ads must be live. Component gates on admin.
+    Route::get('/calendar', \App\Livewire\Pages\AdCalendar::class)->name('calendar');
+
+    // Admin-only published fares — the single source the website reads over
+    // the pricing API. Component gates on admin.
+    Route::get('/fares', \App\Livewire\Pages\PricingManager::class)->name('pricing');
+
     // Admin-only database-backup download (the list + restore UI lives in the
     // Activity Log page). Before the /app/{module} wildcard so it isn't shadowed.
     Route::get('/app/backups/download', \App\Http\Controllers\BackupDownloadController::class)->name('backups.download');
@@ -127,5 +144,30 @@ Route::middleware('auth')->group(function (): void {
         ->where('module', '[A-Za-z0-9_-]+')
         ->name('app.feature-settings');
 
+    // Downloads of any engine list export (Copy needs no route — it lifts
+    // the rendered table client-side). {modelKey} is a dotted ir_model id
+    // (e.g. "rental.vehicle"), so the constraint allows dots.
+    Route::get('/app/export/{modelKey}/csv', [\App\Http\Controllers\ListExportController::class, 'csv'])
+        ->where('modelKey', '[A-Za-z0-9_.]+')->name('list.export.csv');
+    Route::get('/app/export/{modelKey}/excel', [\App\Http\Controllers\ListExportController::class, 'excel'])
+        ->where('modelKey', '[A-Za-z0-9_.]+')->name('list.export.excel');
+    Route::get('/app/export/{modelKey}/pdf', [\App\Http\Controllers\ListExportController::class, 'pdf'])
+        ->where('modelKey', '[A-Za-z0-9_.]+')->name('list.export.pdf');
+    Route::get('/app/export/{modelKey}/print', [\App\Http\Controllers\ListExportController::class, 'print'])
+        ->where('modelKey', '[A-Za-z0-9_.]+')->name('list.export.print');
+
     Route::get('/app/{module}', ModuleHome::class)->name('module.home');
 });
+
+/*
+ * Published fares, read by the Wanaan website server-to-server.
+ *
+ * Outside the `auth` group on purpose — WordPress has no session here. Its
+ * only credential is the path-bound HMAC signature, verified in the
+ * controller against that workspace's own shared secret, so a signature
+ * minted for one database cannot read another's prices.
+ */
+Route::get('/api/v1/workspaces/{ws}/pricing', \App\Http\Controllers\PricingApiController::class)
+    ->where('ws', '[0-9]+')
+    ->middleware('throttle:60,1')
+    ->name('api.pricing');

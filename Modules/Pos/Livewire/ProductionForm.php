@@ -21,6 +21,7 @@ use Modules\Pos\Models\PosProductFormulaLine;
 use Modules\Pos\Models\PosProduction;
 use Modules\Pos\Models\PosProductionLine;
 use Modules\Pos\Services\PosSessionManager;
+use Livewire\Attributes\Locked;
 
 /**
  * Record a production run: pick the finished product, type the ML of each raw
@@ -31,6 +32,7 @@ use Modules\Pos\Services\PosSessionManager;
 #[Title('New production')]
 final class ProductionForm extends Component
 {
+    #[Locked]
     public ?int $id = null;
 
     public ?int $product_id = null;
@@ -73,8 +75,12 @@ final class ProductionForm extends Component
         app(AccessControl::class)->authorize(Auth::user(), 'pos.product', $permission);
     }
 
-    public function mount(?int $id = null): void
+    public function mount(int|string|null $id = null): void
     {
+        // A route segment is always a string, and a non-numeric one
+        // ("new") means a new record rather than a bad request.
+        $id = is_numeric($id) ? (int) $id : null;
+
         abort_unless(Features::enabled(Feature::Production), 404);
         $this->guard(Permission::Read);
 

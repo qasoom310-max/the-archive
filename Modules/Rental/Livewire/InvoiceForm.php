@@ -6,6 +6,7 @@ namespace Modules\Rental\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\ScrollsToFirstError;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\Layout;
@@ -24,6 +25,7 @@ use Modules\Rental\Models\RentalInvoice;
 final class InvoiceForm extends Component
 {
     use GuardsModelAccess;
+    use ScrollsToFirstError;
 
     protected function accessModelKey(): string
     {
@@ -53,10 +55,15 @@ final class InvoiceForm extends Component
 
     public float $amount_paid = 0;
 
+    #[Locked]
     public ?int $order_id = null;
 
-    public function mount(?int $id = null): void
+    public function mount(int|string|null $id = null): void
     {
+        // A route segment is always a string, and a non-numeric one
+        // ("new") means a new record rather than a bad request.
+        $id = is_numeric($id) ? (int) $id : null;
+
         $this->guardAccess(Permission::Read);
         if ($id !== null) {
             $invoice = RentalInvoice::query()->find($id);
@@ -107,7 +114,7 @@ final class InvoiceForm extends Component
     public function save(): void
     {
         $this->guardSave($this->id === null);
-        $this->validate();
+        $this->validateFocusing();
 
         $invoice = $this->id !== null ? RentalInvoice::query()->find($this->id) : new RentalInvoice();
         if ($invoice === null) {

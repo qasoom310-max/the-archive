@@ -22,6 +22,10 @@
         $sections[] = ['key' => 'woocommerce', 'label' => 'WooCommerce', 'url' => url('/app/settings/woocommerce')];
     }
 
+    if ($isAdmin && $installedModule('limousine')) {
+        $sections[] = ['key' => 'limo_portal', 'label' => 'Service Portal', 'url' => url('/app/settings/limo-portal')];
+    }
+
     // Cloudflare Stream is a core integration (no module) — admin-only tab.
     if ($isAdmin) {
         $sections[] = ['key' => 'stream', 'label' => 'Cloudflare Stream', 'url' => url('/app/settings/stream')];

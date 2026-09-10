@@ -1,6 +1,13 @@
 <!DOCTYPE html>
-@php $isRtl = in_array(app()->getLocale(), ['ar'], true); @endphp
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}" class="h-full">
+@php
+    $isRtl = in_array(app()->getLocale(), ['ar'], true);
+    // Native date pickers render in the LANGUAGE TAG's format, and a bare
+    // "en" means American. Bahrain writes day/month/year, so English is
+    // served as en-GB — same as the app layout.
+    $lang = str_replace('_', '-', app()->getLocale());
+    $lang = $lang === 'en' ? 'en-GB' : $lang;
+@endphp
+<html lang="{{ $lang }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}" class="h-full">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">

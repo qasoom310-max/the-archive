@@ -19,6 +19,7 @@ use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosOrderLine;
 use Modules\Pos\Models\PosTable;
 use Modules\Pos\Services\PosOrderSplitter;
+use Livewire\Attributes\Locked;
 
 /**
  * The "Split order" overlay — shared by the POS terminal and the Orders
@@ -33,6 +34,7 @@ final class SplitOrderModal extends Component
 {
     public bool $open = false;
 
+    #[Locked]
     public ?int $orderId = null;
 
     /**

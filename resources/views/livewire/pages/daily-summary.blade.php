@@ -17,7 +17,7 @@
             </a>
             <div>
                 <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Date') }}</label>
-                <input type="date" wire:model.live="date" class="o-input">
+                <x-date-field wire:model.live="date" class="o-input" />
             </div>
         </div>
     </div>

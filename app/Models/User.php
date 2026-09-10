@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Models\Auth\Group;
 use App\Models\Workspace;
+use App\Notifications\ResetPasswordLink;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -24,7 +25,10 @@ use Throwable;
  * @property float|null $hourly_cost    Labour rate per hour (Project module); null = use project.default_hourly_cost
  * @property bool $is_admin
  * @property bool $is_super_admin   Owner tier above admin (a strict superset of is_admin)
+ * @property list<string>|null $admin_apps   Narrows an Administrator to just these apps; null = every app (unrestricted)
  * @property bool $is_accountant    May confirm payments (with super-admins); not even a regular admin can
+ * @property bool $is_paused        Suspended by an admin — signed out and refused sign-in until unpaused
+ * @property \Illuminate\Support\Carbon|null $paused_at
  * @property int|null $home_workspace_id  Locked to this workspace (database); null = unrestricted
  * @property string $password
  */
@@ -44,7 +48,10 @@ final class User extends Authenticatable
         'hourly_cost',
         'is_admin',
         'is_super_admin',
+        'admin_apps',
         'is_accountant',
+        'is_paused',
+        'paused_at',
         'home_workspace_id',
         'password',
     ];
@@ -65,7 +72,10 @@ final class User extends Authenticatable
             'password' => 'hashed',
             'is_admin' => 'boolean',
             'is_super_admin' => 'boolean',
+            'admin_apps' => 'array',
             'is_accountant' => 'boolean',
+            'is_paused' => 'boolean',
+            'paused_at' => 'datetime',
             // Project module: the column is added by that module's migration,
             // so it's simply absent (reads null) until Project is installed.
             'hourly_cost' => 'float',
@@ -103,6 +113,56 @@ final class User extends Authenticatable
     public function isAccountant(): bool
     {
         return ($this->getAttribute('is_accountant') ?? false) === true;
+    }
+
+    /**
+     * The apps an Administrator is narrowed to, or null when unrestricted
+     * (every app — the default, and always true for a super admin regardless
+     * of what this column holds). Column-guarded like {@see isSuperAdmin()}.
+     *
+     * @return list<string>|null
+     */
+    public function adminAppScope(): ?array
+    {
+        if ($this->isSuperAdmin()) {
+            return null;
+        }
+
+        $scope = $this->getAttribute('admin_apps');
+
+        return is_array($scope) && $scope !== [] ? array_values($scope) : null;
+    }
+
+    /**
+     * May this admin operate app $module? True when unscoped (every regular
+     * admin, by default) or when $module is in their scope. Meaningless for
+     * a non-admin — callers check {@see isAdmin()} first.
+     */
+    public function mayAdministerApp(string $module): bool
+    {
+        $scope = $this->adminAppScope();
+
+        return $scope === null || in_array($module, $scope, true);
+    }
+
+    /**
+     * Suspended by an admin: signed out of every session and refused sign-in
+     * until an admin unpauses them (column-guarded like {@see isSuperAdmin()}).
+     */
+    public function isPaused(): bool
+    {
+        return ($this->getAttribute('is_paused') ?? false) === true;
+    }
+
+    /**
+     * Send the "set a new password" link with our own translated mail
+     * instead of Laravel's stock English one.
+     *
+     * @param  string  $token
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordLink((string) $token));
     }
 
     /**

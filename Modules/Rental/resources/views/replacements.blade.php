@@ -1,12 +1,36 @@
 <div class="mx-auto max-w-7xl p-4 sm:p-6">
     <x-page-header :title="__('Car replacements')" :subtitle="__('Cars swapped out for customers.')" icon="swap" accent="primary">
         <x-slot:actions>
+            @if ($canManage)
+                <button type="button" onclick="document.getElementById('import-replacements').classList.toggle('hidden')" class="o-btn-ghost">{{ __('Import') }}</button>
+            @endif
             <a href="{{ url('/app/rental/replacement/new') }}" wire:navigate class="o-btn-primary">
                 <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
                 {{ __('New replacement') }}
             </a>
         </x-slot:actions>
     </x-page-header>
+
+    {{-- Import replacements from a CSV (managers). Direct POST —
+         Hostinger-safe. The expected columns are the same shape this
+         screen's own export prints. A row lands as a plain record of a swap
+         already made, never through activate() — nothing about a LIVE order
+         or a vehicle's status is touched. --}}
+    @if ($canManage)
+        <div id="import-replacements" class="mb-4 {{ $errors->any() ? '' : 'hidden' }} rounded-2xl border border-dashed border-chrome-300 bg-white p-4">
+            <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Import replacements (CSV)') }}</h3>
+            <p class="mb-3 text-xs text-chrome-500">{{ __('Columns: Reference, Customer, Original car, Replacement car, Date, Status. Other columns are ignored. The same customer, date and cars seen before is skipped.') }}</p>
+            <form method="POST" action="{{ url('/app/rental/replacement/import') }}" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">
+                @csrf
+                <input type="file" name="file" accept=".csv,text/csv,text/plain" required class="text-sm">
+                <button type="submit" class="o-btn-primary text-sm">{{ __('Import') }}</button>
+            </form>
+            @error('file')<p class="mt-2 text-xs font-medium text-red-600">{{ $message }}</p>@enderror
+            @if (session('toast'))
+                <p class="mt-2 text-xs font-medium text-emerald-600">{{ session('toast') }}</p>
+            @endif
+        </div>
+    @endif
 
     @php $tabs = ['all' => __('All'), 'active' => __('Active'), 'closed' => __('Closed')]; @endphp
     <div class="mb-4 flex flex-wrap items-center gap-1 border-b border-chrome-200">
@@ -20,8 +44,30 @@
         @endforeach
     </div>
 
+    @php
+        $exportQuery = http_build_query([
+            'tab' => $tab,
+            'title' => __('Car replacements'),
+        ]);
+    @endphp
+    <div class="mb-3 flex flex-wrap items-center gap-2" x-data="listExportCopy">
+        <button type="button" x-on:click="copyTable('rental-replacements-table')"
+                class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
+            <span x-show="! copied">{{ __('Copy') }}</span>
+            <span x-show="copied" x-cloak class="text-emerald-600">{{ __('Copied') }}</span>
+        </button>
+        <a href="{{ url('/app/rental/replacement/export/csv') }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('CSV') }}</a>
+        <a href="{{ url('/app/rental/replacement/export/excel') }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Excel') }}</a>
+        <a href="{{ url('/app/rental/replacement/export/pdf') }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('PDF') }}</a>
+        <a href="{{ url('/app/rental/replacement/export/print') }}?{{ $exportQuery }}" target="_blank" rel="noopener"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Print') }}</a>
+    </div>
+
     <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
-        <table class="w-full min-w-[720px] divide-y divide-chrome-100 text-sm">
+        <table class="w-full min-w-[720px] divide-y divide-chrome-100 text-sm" id="rental-replacements-table">
             <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                 <tr>
                     <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
@@ -40,7 +86,7 @@
                         <td class="px-4 py-2 text-chrome-700">{{ $r->customer?->name ?? '—' }}</td>
                         <td class="px-4 py-2 text-chrome-700">{{ $r->originalVehicle?->displayName() ?? '—' }}</td>
                         <td class="px-4 py-2 text-chrome-700">{{ $r->replacementVehicle?->displayName() ?? '—' }}</td>
-                        <td class="px-4 py-2 text-chrome-600">{{ $r->date?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
+                        <td class="px-4 py-2 text-chrome-600">{{ $r->date?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $r->status === 'active' ? 'bg-sky-100 text-sky-700' : 'bg-emerald-100 text-emerald-700' }}">{{ __(ucfirst($r->status)) }}</span></td>
                     </tr>
                 @empty

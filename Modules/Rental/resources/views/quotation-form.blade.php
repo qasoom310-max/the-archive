@@ -42,34 +42,32 @@
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Customer') }} *</label>
-                        <select wire:model="customer_id" class="o-input w-full">
-                            <option value="">{{ __('— Select —') }}</option>
-                            @foreach ($customers as $c)
-                                <option value="{{ $c->id }}">{{ $c->name }}{{ $c->phone ? ' · ' . $c->phone : '' }}</option>
-                            @endforeach
-                        </select>
+                        <x-searchable-select wire:model="customer_id" class="o-input w-full"
+                            :options="collect($customers)->map(fn ($c) => [
+                                'value' => $c->id,
+                                'label' => $c->name . ($c->phone ? ' · ' . $c->phone : ''),
+                            ])->all()"
+                            :search-placeholder="__('Search name or number…')" />
                         @error('customer_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
 
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Car') }} *</label>
-                        <select wire:model.live="vehicle_id" class="o-input w-full">
-                            <option value="">{{ __('— Select —') }}</option>
-                            @foreach ($vehicles as $v)
-                                <option value="{{ $v->id }}">{{ $v->displayName() }} ({{ __(ucfirst($v->status)) }})</option>
-                            @endforeach
-                        </select>
+                        <x-searchable-select wire:model.live="vehicle_id" class="o-input w-full"
+                            :options="collect($vehicles)->map(fn ($v) => [
+                                'value' => $v->id,
+                                'label' => $v->displayName() . ' (' . __(ucfirst($v->status)) . ')',
+                            ])->all()"
+                            :search-placeholder="__('Search plate or model…')" />
                         @error('vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
 
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Driver') }}</label>
-                        <select wire:model="driver_id" class="o-input w-full">
-                            <option value="">{{ __('No driver') }}</option>
-                            @foreach ($drivers as $d)
-                                <option value="{{ $d->id }}">{{ $d->name }}</option>
-                            @endforeach
-                        </select>
+                        <x-searchable-select wire:model="driver_id" class="o-input w-full"
+                            :placeholder="__('No driver')"
+                            :options="collect($drivers)->map(fn ($d) => ['value' => $d->id, 'label' => $d->name])->all()"
+                            :search-placeholder="__('Search driver…')" />
                     </div>
 
                     <div>
@@ -84,13 +82,13 @@
 
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Pick-up date') }} *</label>
-                        <input type="date" wire:model.live="start_date" class="o-input w-full">
+                        <x-date-field wire:model.live="start_date" class="o-input w-full" />
                         @error('start_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
 
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Return date') }} *</label>
-                        <input type="date" wire:model.live="end_date" class="o-input w-full">
+                        <x-date-field wire:model.live="end_date" class="o-input w-full" />
                         @error('end_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
 
@@ -121,7 +119,7 @@
 
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Valid until') }}</label>
-                        <input type="date" wire:model="valid_until" class="o-input w-full">
+                        <x-date-field wire:model="valid_until" class="o-input w-full" />
                     </div>
                 </div>
 

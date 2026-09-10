@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Views;
 
+use App\Erp\Exceptions\RecordInUseException;
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\HasAccessControl;
 use App\Erp\Views\ColumnDef;
@@ -15,6 +16,7 @@ use App\Models\UserViewPreference;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -344,25 +346,45 @@ final class ListView extends Component
             $this->access()->authorize(Auth::user(), $this->modelKey, Permission::Unlink);
         }
 
-        // Delete record-by-record so Eloquent's `deleting`/`deleted` events fire.
+        // Through the models, not one bulk SQL delete: a receipt has to tell
+        // its invoice it has gone, and a customer with bookings has to be able
+        // to refuse. A row the database itself will not release (an account
+        // with journal lines) becomes a message on the screen, not a dead page.
         //
-        // This was `$this->model::query()->whereKey($this->selected)->delete()` —
-        // one query, but a query-builder mass delete bypasses model events
-        // entirely. Any model that unwinds derived records in a `deleting` hook
-        // (POS orders unwind their journal entries; see PosOrder::booted) had
-        // that cleanup silently skipped here, so deleting sales from a list
-        // screen left Accounting counting revenue for orders that were gone.
+        // This also matters for any model that unwinds derived records from a
+        // `deleting` hook (POS orders unwind their journal entries; see
+        // `PosOrder::booted()`) — a query-builder mass delete bypasses model
+        // events entirely, so that cleanup used to be silently skipped here,
+        // leaving Accounting counting revenue for orders that were gone.
         //
         // Selections are bounded by the page size, so the extra queries cost
         // little; one transaction keeps a mid-way failure from half-deleting.
         $records = $this->model::query()->whereKey($this->selected)->get();
-        $count = $records->count();
+        $count = 0;
 
-        DB::transaction(static function () use ($records): void {
-            foreach ($records as $record) {
-                $record->delete();
-            }
-        });
+        try {
+            DB::transaction(function () use ($records, &$count): void {
+                foreach ($records as $record) {
+                    if ($record->delete() !== false) {
+                        $count++;
+                    }
+                }
+            });
+        } catch (RecordInUseException $e) {
+            $this->addError('selected', $e->getMessage());
+
+            return;
+        } catch (QueryException) {
+            $this->addError('selected', __('Some of these records are still used elsewhere, so nothing was deleted.'));
+
+            return;
+        }
+
+        if ($count === 0) {
+            $this->clearSelection();
+
+            return;
+        }
 
         $label = \Illuminate\Support\Str::headline(\Illuminate\Support\Str::afterLast($this->modelKey, '.'));
         app(\App\Erp\Activity\ActivityLogger::class)->log(
@@ -724,7 +746,7 @@ final class ListView extends Component
             return null;
         }
 
-        return $start->format('M j') . ' → ' . $end->format('M j');
+        return $start->format('d-m') . ' → ' . $end->format('d-m');
     }
 
     private function columnByField(string $field): ?\App\Erp\Views\ColumnDef

@@ -40,7 +40,8 @@ final class AppFeatureSettings extends Component
 
     public function mount(string $module): void
     {
-        $this->guardAdmin();
+        $user = $this->guardAdmin();
+        abort_unless($user->mayAdministerApp($module), 403);
 
         $this->module = $module;
 
@@ -60,15 +61,19 @@ final class AppFeatureSettings extends Component
         }
     }
 
-    private function guardAdmin(): void
+    /** @return User the confirmed admin, so callers can re-check the app scope */
+    private function guardAdmin(): User
     {
         $user = Auth::user();
         abort_unless($user instanceof User && $user->isAdmin(), 403);
+
+        return $user;
     }
 
     public function save(): void
     {
-        $this->guardAdmin();
+        $user = $this->guardAdmin();
+        abort_unless($user->mayAdministerApp($this->module), 403);
 
         $values = [];
         foreach (Features::appFeatures($this->module) as $feature) {

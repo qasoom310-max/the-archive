@@ -2,7 +2,7 @@
 @php use Modules\Rental\Models\RentalCustomer; @endphp
 @php $lbl = 'mb-1.5 block text-xs font-medium uppercase tracking-wide text-chrome-500'; @endphp
 <div class="mx-auto max-w-5xl p-4 sm:p-6">
-    <x-form-breadcrumb :parent="__('Customers')" :parent-url="url('/app/rental/customer')" :current="$name ?: __('New customer')" />
+    <x-form-breadcrumb :parent="__('Customers')" :parent-url="url($indexUrl)" :current="$name ?: __('New customer')" />
 
     {{-- ───────── Details ───────── --}}
     <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6">
@@ -215,7 +215,7 @@
                             <tr class="cursor-pointer hover:bg-chrome-50" onclick="window.location='{{ url('/app/rental/order/' . $o->id) }}'">
                                 <td class="px-4 py-2 font-medium text-chrome-800">{{ $o->reference }}</td>
                                 <td class="px-4 py-2 text-chrome-700">{{ $o->vehicle?->displayName() ?? '—' }}</td>
-                                <td class="px-4 py-2 text-chrome-600">{{ $o->start_date?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
+                                <td class="px-4 py-2 text-chrome-600">{{ $o->start_date?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
                                 <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ ValueFormat::money($o->total) }}</td>
                                 <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst($o->state)) }}</span></td>
                                 <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $o->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($o->payment_status)) }}</span></td>
@@ -250,7 +250,7 @@
                             @php $lb = ['queue' => 'bg-amber-100 text-amber-700', 'confirmed' => 'bg-sky-100 text-sky-700', 'active' => 'bg-indigo-100 text-indigo-700', 'completed' => 'bg-emerald-100 text-emerald-700', 'cancelled' => 'bg-red-100 text-red-700'][$b->status] ?? 'bg-chrome-200 text-chrome-700'; @endphp
                             <tr class="cursor-pointer hover:bg-chrome-50" onclick="window.location='{{ url('/app/limousine/booking/' . $b->id) }}'">
                                 <td class="px-4 py-2 font-medium text-chrome-800">{{ $b->reference }}</td>
-                                <td class="px-4 py-2 text-chrome-600">{{ $b->pickup_at ? \Illuminate\Support\Carbon::parse($b->pickup_at)->isoFormat('MMM D, h:mm A') : '—' }}</td>
+                                <td class="px-4 py-2 text-chrome-600">{{ $b->pickup_at ? \Illuminate\Support\Carbon::parse($b->pickup_at)->isoFormat('DD-MMM, h:mm A') : '—' }}</td>
                                 <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ ValueFormat::money((float) $b->fare) }}</td>
                                 <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $lb }}">{{ __(ucfirst($b->status)) }}</span></td>
                                 <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $b->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($b->payment_status)) }}</span></td>

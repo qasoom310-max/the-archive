@@ -1,20 +1,13 @@
 @php
-    $fmt = function ($value, string $format) {
-        if ($value === null) return '—';
-        // Enum-cast columns surface as enum objects — normalise first.
-        $value = \App\Erp\Views\ValueFormat::label($value);
-        return match ($format) {
-            'number'   => is_numeric($value) ? number_format((float) $value, 2) : (string) $value,
-            'money'    => is_numeric($value) ? \App\Erp\Views\ValueFormat::money($value) : (string) $value,
-            'date'     => $value instanceof \Illuminate\Support\Carbon ? $value->isoFormat('MMM D, YYYY') : (string) $value,
-            'datetime' => $value instanceof \Illuminate\Support\Carbon ? $value->isoFormat('MMM D, YYYY HH:mm') : (string) $value,
-            'bool'     => $value ? 'Yes' : 'No',
-            default    => (string) $value,
-        };
-    };
+    // The same cell formatter every export (CSV/Excel/PDF/Print) uses, so a
+    // downloaded sheet can never disagree with what this table showed.
+    $fmt = fn ($value, string $format) => \App\Erp\Views\ValueFormat::cell($value, $format);
 @endphp
 
 <div class="rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5">
+    @error('selected')
+        <div class="rounded-t-xl border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{{ $message }}</div>
+    @enderror
     {{-- Toolbar / bulk-action bar. Phone (`<sm`): stacks vertically so the
          title sits above the search/totals/column-picker row instead of
          overflowing the viewport. Tablet+ (`sm`): single horizontal bar
@@ -189,11 +182,11 @@
                         </p>
                         <label class="mb-2 block">
                             <span class="block text-xs text-chrome-500">From</span>
-                            <input type="date" wire:model="customFrom" class="o-input mt-1 text-sm">
+                            <x-date-field wire:model="customFrom" class="o-input mt-1 text-sm" />
                         </label>
                         <label class="mb-3 block">
                             <span class="block text-xs text-chrome-500">To</span>
-                            <input type="date" wire:model="customTo" class="o-input mt-1 text-sm">
+                            <x-date-field wire:model="customTo" class="o-input mt-1 text-sm" />
                         </label>
                         <div class="flex gap-2">
                             <button type="button" @click="open = false"
@@ -209,11 +202,48 @@
         </div>
     @endif
 
+    @php
+        // Every arch column, even ones hidden from THIS view by the per-user
+        // column picker — an export is a copy of the record, and a column
+        // dropped from a download because it happened to be hidden from one
+        // person's table is information quietly gone missing.
+        $exportTableId = 'list-export-' . str_replace('.', '-', $modelKey);
+        $exportQuery = http_build_query([
+            'title' => $title,
+            'filter' => $filter,
+            'from' => $customFrom,
+            'to' => $customTo,
+            'df' => $dynamicFilters,
+            'q' => $search,
+            'sorts' => $sorts,
+        ]);
+    @endphp
+
+    {{-- Export bar. CSV / Excel / PDF / Print are server-rendered from the same
+         rows as the table (the current filter/search/sort ride along in the
+         query string, built above); Copy lifts the rendered table client-side,
+         so it needs no endpoint. --}}
+    <div class="mb-3 flex flex-wrap items-center gap-2 px-4 pt-3 sm:px-0" x-data="listExportCopy">
+        <button type="button" x-on:click="copyTable('{{ $exportTableId }}')"
+                class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
+            <span x-show="! copied">{{ __('Copy') }}</span>
+            <span x-show="copied" x-cloak class="text-emerald-600">{{ __('Copied') }}</span>
+        </button>
+        <a href="{{ route('list.export.csv', $modelKey) }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('CSV') }}</a>
+        <a href="{{ route('list.export.excel', $modelKey) }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Excel') }}</a>
+        <a href="{{ route('list.export.pdf', $modelKey) }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('PDF') }}</a>
+        <a href="{{ route('list.export.print', $modelKey) }}?{{ $exportQuery }}" target="_blank" rel="noopener"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Print') }}</a>
+    </div>
+
     @if (count($columns) === 0)
         <p class="p-10 text-center text-sm text-chrome-400">No columns defined for this view.</p>
     @else
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-chrome-200 text-sm">
+            <table id="{{ $exportTableId }}" class="min-w-full divide-y divide-chrome-200 text-sm">
                 <thead class="bg-chrome-50 text-xs uppercase tracking-wide text-chrome-500">
                     <tr>
                         <th class="w-10 px-4 py-2">

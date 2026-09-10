@@ -67,12 +67,32 @@ enum StaffRole: string
     }
 
     /**
-     * Does this role pick apps? Admins bypass the ACL, so an app selection is
-     * meaningless for them.
+     * Does this role pick apps? Non-admins are GRANTED access to the ticked
+     * apps (an ir_model_access row each); an Administrator is instead NARROWED
+     * to them (see {@see isScopableAdmin()}) — either way, this is the "show
+     * the app checklist" question. A super admin bypasses everything
+     * unconditionally, so a selection is meaningless for that one role only.
      */
     public function grantsApps(): bool
     {
         return ! $this->isAdmin();
+    }
+
+    /**
+     * An Administrator (never a super admin) can be narrowed to specific
+     * apps instead of every app — {@see \App\Erp\Security\AccessControl}
+     * still bypasses the ACL within that scope, so this is full access
+     * (add/edit/delete) to fewer apps, not reduced access to every app.
+     */
+    public function isScopableAdmin(): bool
+    {
+        return $this === self::Admin;
+    }
+
+    /** Show the app checklist for this role at all (grant OR scope). */
+    public function usesAppPicker(): bool
+    {
+        return $this->grantsApps() || $this->isScopableAdmin();
     }
 
     /**
@@ -109,7 +129,7 @@ enum StaffRole: string
             self::Staff => 'Can view records in the chosen apps.',
             self::Supervisor => 'Can view, add and edit records in the chosen apps (but not delete them).',
             self::Accountant => 'Can view the chosen apps, and confirm that payments were received.',
-            self::Admin => 'Full access to every app and setting in this database.',
+            self::Admin => 'Full access (including delete) to every app and setting in this database — or just the apps you tick below.',
             self::SuperAdmin => 'Everything an administrator can do, plus the owner-only controls.',
         };
     }

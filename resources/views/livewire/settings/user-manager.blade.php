@@ -1,10 +1,16 @@
 <div class="space-y-6">
     <div>
         <h2 class="text-sm font-semibold text-chrome-800">
-            {{ $editingId ? __('Edit user') : __('Add user') }}
+            @if ($editingGlobal)
+                {{ __('Edit app access') }}
+            @else
+                {{ $editingId ? __('Edit user') : __('Add user') }}
+            @endif
         </h2>
         <p class="mt-1 text-sm text-chrome-500">
-            @if ($workspaceId)
+            @if ($editingGlobal)
+                {{ __('This account is shared with every database. Only what it can see HERE is set on this screen.') }}
+            @elseif ($workspaceId)
                 {{ __('Create an account for this database and choose which apps it can see.') }}
             @else
                 {{ __('Create a staff account and choose which apps and databases they can see (view only).') }}
@@ -18,7 +24,7 @@
         </p>
     @endif
 
-    @if ($workspaceId)
+    @if ($workspaceId && ! $editingGlobal)
         {{-- Inside a workspace: the account belongs to THIS database and signs
              straight into it. (A login shell is written to Main behind the
              scenes — the admin never has to switch databases.) --}}
@@ -29,7 +35,18 @@
 
     <form wire:submit="save" class="space-y-5">
         {{-- Credentials --}}
-        <div class="grid gap-4 sm:grid-cols-3">
+        @if ($editingGlobal)
+            <div class="rounded-lg bg-chrome-50 px-3 py-2 ring-1 ring-chrome-100">
+                <p class="text-sm">
+                    <span class="font-medium text-chrome-800">{{ $name }}</span>
+                    <span class="text-chrome-400">— {{ $email }}</span>
+                </p>
+                <p class="mt-1 text-xs text-chrome-500">
+                    {{ __('Their name, email and role are managed on Main. Tick the apps they should see in :database.', ['database' => $workspaceName]) }}
+                </p>
+            </div>
+        @else
+        <div class="grid gap-4 sm:grid-cols-2">
             <div>
                 <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Username') }} <span class="text-red-500">*</span></label>
                 <input type="text" wire:model="name" autocomplete="off" class="o-input">
@@ -40,27 +57,17 @@
                 <input type="email" wire:model="email" autocomplete="off" class="o-input">
                 @error('email') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
-            <div>
-                <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">
-                    {{ __('Password') }} @unless ($editingId) <span class="text-red-500">*</span> @endunless
-                </label>
-                <div class="relative" x-data="{ show: false }">
-                    <input :type="show ? 'text' : 'password'" wire:model="password" autocomplete="new-password"
-                        placeholder="{{ $editingId ? __('Leave blank to keep') : '' }}" class="o-input pe-10">
-                    <button type="button" @click="show = !show" tabindex="-1"
-                        :aria-label="show ? @js(__('Hide password')) : @js(__('Show password'))"
-                        class="absolute inset-y-0 end-0 flex items-center px-3 text-primary-600 hover:text-primary-700">
-                        <svg x-show="!show" class="size-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M10 4C5.5 4 2.4 7.4 1.3 9.3a1.4 1.4 0 0 0 0 1.4C2.4 12.6 5.5 16 10 16s7.6-3.4 8.7-5.3a1.4 1.4 0 0 0 0-1.4C17.6 7.4 14.5 4 10 4Zm0 9a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"/>
-                        </svg>
-                        <svg x-show="show" x-cloak class="size-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M3.7 2.3A1 1 0 0 0 2.3 3.7l2 2C3 6.8 1.9 8.2 1.3 9.3a1.4 1.4 0 0 0 0 1.4C2.4 12.6 5.5 16 10 16c1.5 0 2.9-.4 4.1-1l2.2 2.2a1 1 0 0 0 1.4-1.4l-14-13.5ZM10 13a3 3 0 0 1-2.8-4.1l3.9 3.9c-.3.1-.7.2-1.1.2Zm0-9c4.5 0 7.6 3.4 8.7 5.3.3.5.3 1 0 1.4-.5.8-1.2 1.8-2.2 2.7l-2.6-2.6A3 3 0 0 0 8.2 6.6L6.4 4.8C7.5 4.3 8.7 4 10 4Z"/>
-                        </svg>
-                    </button>
-                </div>
-                @error('password') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-            </div>
         </div>
+        <p class="flex items-start gap-2 text-xs text-chrome-500">
+            <svg class="mt-0.5 size-4 shrink-0 text-primary-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd"/>
+            </svg>
+            @if ($editingId)
+                {{ __('Passwords are not set here. They change theirs with “Forgot your password?” on the sign-in page.') }}
+            @else
+                {{ __('A strong password is generated and emailed to them with the sign-in link. They can choose their own from “Forgot your password?” on the sign-in page.') }}
+            @endif
+        </p>
 
         {{-- Role — ONE mutually-exclusive choice. Super admin + Accountant only
              render for a super admin (owner-only to assign; the `role.in` rule
@@ -85,11 +92,21 @@
             </div>
             @error('role') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
         </div>
+        @endif
 
-        {{-- App access — every role below Administrator; admins bypass the ACL. --}}
-        @if ($currentRole->grantsApps())
+        {{-- App access. Staff/Supervisor/Accountant are GRANTED the ticked
+             apps; an Administrator is instead NARROWED to them (still full
+             access, incl. delete, and that app's own Settings tab — just to
+             fewer apps). Only a super admin skips this entirely. --}}
+        @if ($currentRole->usesAppPicker())
             <div>
                 <label class="mb-2 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Apps this user can access') }}</label>
+                @if ($currentRole->isScopableAdmin())
+                    <p class="mb-2 text-xs text-chrome-400">{{ __('Leave every box unticked for unrestricted access to every app (the default). Tick specific apps to limit this administrator to just those — still with full add/edit/delete rights and that app’s own Settings tab.') }}</p>
+                @endif
+                @if (! $editingId && ! $workspaceId && ! $editingGlobal && ! $lockToWorkspace)
+                    <p class="mb-2 text-xs text-chrome-400">{{ __('Showing apps run by the databases ticked below — pick a database first to see apps like Rent A Car or Limousine.') }}</p>
+                @endif
                 @if ($appModules->isEmpty())
                     <p class="text-sm text-chrome-400">{{ __('No apps installed yet.') }}</p>
                 @else
@@ -112,7 +129,7 @@
             </div>
         @else
             <p class="rounded-lg bg-chrome-50 px-3 py-2 text-sm text-chrome-500 ring-1 ring-chrome-100">
-                {{ __('Administrators have full access to every app and setting.') }}
+                {{ __('Super admins have full access to every app and setting.') }}
             </p>
         @endif
 
@@ -161,7 +178,7 @@
                             @foreach ($workspaceList as $workspace)
                                 <label wire:key="ws-{{ $workspace->id }}"
                                     class="flex cursor-pointer items-center gap-2 rounded-lg border border-chrome-200 px-3 py-2 text-sm hover:bg-chrome-50">
-                                    <input type="checkbox" wire:model="workspaces" value="{{ $workspace->id }}"
+                                    <input type="checkbox" wire:model.live="workspaces" value="{{ $workspace->id }}"
                                         class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
                                     <span class="text-chrome-700">{{ $workspace->name }}</span>
                                     @if ($workspace->is_main)
@@ -184,7 +201,7 @@
                 </button>
             @endif
             <button type="submit" class="o-btn-primary" wire:loading.attr="disabled" wire:target="save">
-                <span wire:loading.remove wire:target="save">{{ $editingId ? __('Save changes') : __('Create user') }}</span>
+                <span wire:loading.remove wire:target="save">@if ($editingGlobal){{ __('Save app access') }}@else{{ $editingId ? __('Save changes') : __('Create user') }}@endif</span>
                 <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
             </button>
         </div>
@@ -204,6 +221,18 @@
                     // editable — a global account is shared with every other
                     // database, so it stays read-only here ("Managed on Main").
                     $inScope = ! $workspaceId || (int) $user->home_workspace_id === (int) $workspaceId;
+                    // A global account's identity is Main's, but ACL grants are
+                    // per-database rows — so what it can see HERE is ours to set.
+                    // (An administrator bypasses the ACL: nothing to grant.)
+                    $canSetAccessHere = $workspaceId && ! $inScope && $user->home_workspace_id === null && ! $user->is_admin;
+                    // Pause is NOT an identity edit — it's "block this account
+                    // in the database I'm looking at right now", so unlike
+                    // Edit/Delete it is available on EVERY row (global
+                    // accounts included) without a trip to Main. Turning pause
+                    // ON still can't target yourself or the last admin;
+                    // turning it OFF has no such risk.
+                    $canTogglePauseOn = $canManage && ! $isSelf && ! $isLastAdmin;
+                    $showActionsMenu = $canManage && ($inScope || $canSetAccessHere || $user->is_paused || $canTogglePauseOn);
                 @endphp
                 <li wire:key="user-{{ $user->id }}" class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                     <span class="flex min-w-0 items-center gap-2">
@@ -225,6 +254,9 @@
                         @if ($user->home_workspace_id && ($workspaceNames[$user->home_workspace_id] ?? null))
                             <span class="shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700">{{ __('Locked') }}: {{ $workspaceNames[$user->home_workspace_id] }}</span>
                         @endif
+                        @if ($user->is_paused)
+                            <span class="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700">{{ __('Paused') }}</span>
+                        @endif
                         <span class="min-w-0 truncate">
                             <span class="font-medium text-chrome-700">{{ $user->name }}</span>
                             <span class="text-chrome-400">— {{ $user->email }}</span>
@@ -235,15 +267,55 @@
                             <span class="text-xs text-chrome-300">{{ __('Managed on Main') }}</span>
                         @endunless
                         {{-- Role changes (incl. super admin + accountant) happen in
-                             Edit now — one place, one set of guards. --}}
-                        @if ($inScope && $canManage)
-                            <button type="button" wire:click="editUser({{ $user->id }})"
-                                class="text-xs font-medium text-primary-700 hover:underline">{{ __('Edit') }}</button>
-                            @if (! $isSelf && ! $isLastAdmin)
-                                <button type="button" wire:click="deleteUser({{ $user->id }})"
-                                    wire:confirm="{{ __('Delete :name?', ['name' => $user->name]) }}"
-                                    class="text-xs text-red-600 hover:underline">{{ __('remove') }}</button>
-                            @endif
+                             Edit now — one place, one set of guards. Edit / Pause /
+                             Delete live behind a 3-dot menu (the same isolated
+                             per-row Alpine scope + @click.outside pattern used by
+                             the app-bar dropdowns). Pause·Unpause is available on
+                             EVERY row regardless of scope (see $canTogglePauseOn
+                             above) — only Edit/Edit access/Delete are scope-gated. --}}
+                        @if ($showActionsMenu)
+                            <div x-data="{ open: false }" @click.outside="open = false" class="relative">
+                                <button type="button" @click="open = ! open"
+                                    class="flex size-7 items-center justify-center rounded-full text-chrome-500 hover:bg-chrome-100"
+                                    aria-label="{{ __('Actions') }}">
+                                    <svg class="size-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path d="M10 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"/>
+                                    </svg>
+                                </button>
+                                <div x-cloak x-show="open" x-transition
+                                    class="absolute end-0 z-20 mt-1 w-36 overflow-hidden rounded-lg border border-chrome-200 bg-white py-1 shadow-lg">
+                                    @if ($inScope)
+                                        <button type="button" @click="open = false" wire:click="editUser({{ $user->id }})"
+                                            class="block w-full px-3 py-1.5 text-start text-xs font-medium text-chrome-700 hover:bg-chrome-50">
+                                            {{ __('Edit') }}
+                                        </button>
+                                    @elseif ($canSetAccessHere)
+                                        <button type="button" @click="open = false" wire:click="editUser({{ $user->id }})"
+                                            class="block w-full px-3 py-1.5 text-start text-xs font-medium text-chrome-700 hover:bg-chrome-50">
+                                            {{ __('Edit access') }}
+                                        </button>
+                                    @endif
+                                    @if ($user->is_paused)
+                                        <button type="button" @click="open = false" wire:click="togglePause({{ $user->id }})"
+                                            class="block w-full px-3 py-1.5 text-start text-xs font-medium text-emerald-700 hover:bg-emerald-50">
+                                            {{ __('Unpause') }}
+                                        </button>
+                                    @elseif ($canTogglePauseOn)
+                                        <button type="button" @click="open = false" wire:click="togglePause({{ $user->id }})"
+                                            wire:confirm="{{ __('Pause :name? They will be signed out and unable to sign in until unpaused.', ['name' => $user->name]) }}"
+                                            class="block w-full px-3 py-1.5 text-start text-xs font-medium text-amber-700 hover:bg-amber-50">
+                                            {{ __('Pause') }}
+                                        </button>
+                                    @endif
+                                    @if ($inScope && ! $isSelf && ! $isLastAdmin)
+                                        <button type="button" @click="open = false" wire:click="deleteUser({{ $user->id }})"
+                                            wire:confirm="{{ __('Delete :name?', ['name' => $user->name]) }}"
+                                            class="block w-full px-3 py-1.5 text-start text-xs font-medium text-red-600 hover:bg-red-50">
+                                            {{ __('Delete') }}
+                                        </button>
+                                    @endif
+                                </div>
+                            </div>
                         @endif
                     </span>
                 </li>

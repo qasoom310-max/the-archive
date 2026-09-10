@@ -16,6 +16,7 @@ use Livewire\Component;
 use Modules\Pos\Enums\SettlementState;
 use Modules\Pos\Models\PosSettlement;
 use Modules\Pos\Services\PosSettlementService;
+use Livewire\Attributes\Locked;
 
 /**
  * Delivery money tracker: what the delivery company still holds, what we've
@@ -30,6 +31,7 @@ use Modules\Pos\Services\PosSettlementService;
 final class PosSettlements extends Component
 {
     /** Settlement whose "record received" form is open (null = none). */
+    #[Locked]
     public ?int $receivingId = null;
 
     public string $receivedAmount = '';

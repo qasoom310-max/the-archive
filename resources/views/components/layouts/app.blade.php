@@ -19,8 +19,14 @@
     // the CSS `[data-accent="…"]` remaps the `primary` palette immediately (no
     // FOUC, and wire:navigate keeps the attribute).
     $accentPref = \App\Erp\Branding\Appearance::accent();
+    // Native <x-date-field  /> renders in the LANGUAGE TAG's format, and a
+    // bare "en" means American — 08/31/2026 for the 31st of August. Bahrain
+    // writes day/month/year, so English is served as en-GB and every date
+    // picker in the app follows without a single one being touched.
+    $lang = str_replace('_', '-', app()->getLocale());
+    $lang = $lang === 'en' ? 'en-GB' : $lang;
 @endphp
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}" data-theme="{{ $themePref }}" data-accent="{{ $accentPref }}" class="{{ $htmlClass }}">
+<html lang="{{ $lang }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}" data-theme="{{ $themePref }}" data-accent="{{ $accentPref }}" class="{{ $htmlClass }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -87,7 +93,8 @@
     x-data
     x-on:language-changed.window="window.location.reload()"
     x-on:theme-changed.window="window.applyTheme($event.detail.value)"
-    x-on:accent-changed.window="document.documentElement.setAttribute('data-accent', $event.detail.value)">
+    x-on:accent-changed.window="document.documentElement.setAttribute('data-accent', $event.detail.value)"
+    x-on:scroll-to-error.window="window.scrollToFieldError && window.scrollToFieldError($event.detail.field)">
 @php
     $segments = request()->segments();
     $activeModule = ($segments[0] ?? null) === 'app' ? ($segments[1] ?? null) : null;
@@ -335,14 +342,47 @@
         $flashMsg = (string) session('toast', __('Saved.'));
         $savedLabel = __('Saved.');
     @endphp
-    <div x-data="{ show: {{ $hasFlash ? 'true' : 'false' }}, msg: @js($flashMsg), flash(t) { this.msg = t; this.show = true; setTimeout(() => this.show = false, 2500); } }"
-         x-init="if (show) setTimeout(() => show = false, 2500)"
+    {{-- The confirmation is not only a notice: it carries the REFERENCE, which
+         the office passes straight on to the customer. So it can be clicked, it
+         holds still while a hand is on the way to it, and it copies. A message
+         reading "Ref. # 10004" that vanishes in two and a half seconds is a
+         number you then have to go and find again. --}}
+    <div x-data="{
+            show: {{ $hasFlash ? 'true' : 'false' }},
+            msg: @js($flashMsg),
+            copied: false,
+            timer: null,
+            flash(t) { this.msg = t; this.copied = false; this.show = true; this.arm(); },
+            arm() { clearTimeout(this.timer); this.timer = setTimeout(() => { this.show = false; }, 7000); },
+            hold() { clearTimeout(this.timer); },
+            copy() {
+                $store.clip.copy(this.msg);
+                this.copied = true;
+                clearTimeout(this.timer);
+                setTimeout(() => { this.copied = false; this.show = false; }, 1200);
+            },
+         }"
+         x-init="if (show) arm()"
          x-on:record-saved.window="flash(@js($savedLabel))"
+         x-on:mouseenter="hold()" x-on:mouseleave="arm()"
          x-show="show" x-transition x-cloak
-         class="pointer-events-none fixed end-4 top-16 z-50 flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-pop"
+         class="fixed end-4 top-16 z-50 flex max-w-sm items-start gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-pop"
          role="status" aria-live="polite">
-        <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-8 8a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L8 12.6l7.3-7.3a1 1 0 0 1 1.4 0Z" clip-rule="evenodd"/></svg>
-        <span x-text="msg"></span>
+        <svg class="mt-0.5 size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-8 8a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L8 12.6l7.3-7.3a1 1 0 0 1 1.4 0Z" clip-rule="evenodd"/></svg>
+        {{-- pre-line: a multi-leg booking confirms one reference per line, and
+             they must not run together into a single unreadable sentence. --}}
+        <span class="whitespace-pre-line" x-text="msg"></span>
+        <button type="button" x-on:click="copy()"
+                :title="copied ? @js(__('Copied')) : @js(__('Copy this message'))"
+                :aria-label="copied ? @js(__('Copied')) : @js(__('Copy this message'))"
+                class="-me-1 ms-1 shrink-0 rounded-md p-1 transition hover:bg-white/20">
+            <svg x-show="! copied" class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25"/>
+            </svg>
+            <svg x-show="copied" x-cloak class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+            </svg>
+        </button>
     </div>
 </div>
 

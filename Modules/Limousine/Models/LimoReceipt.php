@@ -8,9 +8,11 @@ use App\Erp\Contracts\DefinesIrModel;
 use App\Erp\Registry\FieldDefinition;
 use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * A payment received against a limousine invoice. Saving/removing recomputes
@@ -18,12 +20,20 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property string|null $reference
+ * @property int|null $booking_id
+ * @property float|null $balance_after
+ * @property bool $auto
  * @property int|null $invoice_id
  * @property int|null $customer_id
  * @property Carbon|null $date
  * @property float $amount
  * @property string $method
  * @property string|null $notes
+ * @property Carbon|null $confirmed_at
+ * @property string|null $confirmed_by
+ * @property string|null $prepared_by
+ * @property Carbon|null $statement_date
+ * @property string|null $batch_id
  * @property-read LimoInvoice|null $invoice
  * @property-read LimoCustomer|null $customer
  */
@@ -34,7 +44,12 @@ final class LimoReceipt extends Model implements DefinesIrModel
     protected $table = 'limo_receipts';
 
     /** @var list<string> */
-    protected $fillable = ['reference', 'invoice_id', 'customer_id', 'date', 'amount', 'method', 'notes'];
+    protected $fillable = [
+        'reference', 'invoice_id', 'booking_id', 'customer_id', 'date',
+        'amount', 'balance_after', 'method', 'auto', 'notes',
+        'confirmed_at', 'confirmed_by', 'statement_date', 'batch_id',
+        'prepared_by',
+    ];
 
     /** @var array<string, mixed> */
     protected $attributes = ['amount' => 0, 'method' => 'cash'];
@@ -46,10 +61,50 @@ final class LimoReceipt extends Model implements DefinesIrModel
     {
         return [
             'invoice_id' => 'integer',
+            'booking_id' => 'integer',
             'customer_id' => 'integer',
             'date' => 'date',
             'amount' => 'float',
+            'balance_after' => 'float',
+            'auto' => 'boolean',
+            'confirmed_at' => 'datetime',
+            'statement_date' => 'date',
         ];
+    }
+
+    public function isConfirmed(): bool
+    {
+        return $this->confirmed_at !== null;
+    }
+
+    /** Cash is checked against the drawer; everything else against the bank. */
+    public function isCash(): bool
+    {
+        return $this->method === 'cash';
+    }
+
+    /**
+     * The accountant closes the receipt: the money is REALLY here.
+     *
+     * For a bank method the statement date is what was checked — the day the
+     * amount showed on the company statement — and confirming without having
+     * found it there is exactly what this step exists to prevent.
+     */
+    public function confirm(string $byName, ?Carbon $statementDate = null): void
+    {
+        $this->confirmed_at = Carbon::now();
+        $this->confirmed_by = $byName;
+        $this->statement_date = $statementDate;
+        $this->save();
+    }
+
+    /** A confirmation taken back — a mistake, not a deletion of history. */
+    public function unconfirm(): void
+    {
+        $this->confirmed_at = null;
+        $this->confirmed_by = null;
+        $this->statement_date = null;
+        $this->save();
     }
 
     public function referencePrefix(): string
@@ -59,6 +114,22 @@ final class LimoReceipt extends Model implements DefinesIrModel
 
     protected static function booted(): void
     {
+        // Who raised the receipt, stamped here rather than at each of the five
+        // places one gets created, so no path can forget. It is the account's
+        // NAME — the username people sign in and are known by — never the
+        // email, which is not what anyone would write on a receipt. A CLI
+        // import runs with nobody signed in and simply leaves it unset.
+        static::creating(function (LimoReceipt $receipt): void {
+            if ((string) ($receipt->prepared_by ?? '') !== '') {
+                return;
+            }
+
+            $user = Auth::user();
+            if ($user instanceof User) {
+                $receipt->prepared_by = $user->name;
+            }
+        });
+
         static::created(function (LimoReceipt $receipt): void {
             $receipt->invoice?->recomputePaid();
         });
@@ -74,6 +145,19 @@ final class LimoReceipt extends Model implements DefinesIrModel
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(LimoInvoice::class, 'invoice_id');
+    }
+
+    /**
+     * The job this money was for.
+     *
+     * Receipts can exist without an invoice — money is taken on the booking
+     * itself — so this is what names the trip on the customer's copy.
+     *
+     * @return BelongsTo<LimoBooking, $this>
+     */
+    public function booking(): BelongsTo
+    {
+        return $this->belongsTo(LimoBooking::class, 'booking_id');
     }
 
     /**
@@ -123,7 +207,9 @@ final class LimoReceipt extends Model implements DefinesIrModel
                     'default_sort' => [['field' => 'id', 'dir' => 'desc']],
                     'per_page' => 20,
                     'searchable' => ['reference'],
-                    'open' => '/app/limousine/receipt/{id}',
+                    // No 'open': a receipt records money already taken, so there
+                    // is nothing to open it for. The list offers Download and
+                    // Send, which is the whole of what anyone needs.
                 ]),
             ],
         );

@@ -335,6 +335,20 @@ final class SettingsPage extends Component
             return false;
         }
 
+        // Ad-calendar rules (lead days, markets) are edited on the calendar
+        // page itself, never as raw rows here.
+        if (str_starts_with($key, 'adcal.')) {
+            return false;
+        }
+
+        // Revenue targets are set on each app's own dashboard, beside the
+        // revenue they are measured against, and are super-admin-only there.
+        // Rendering them here as plain rows would hand a regular admin both
+        // the figure and the ability to change it.
+        if (str_starts_with($key, 'targets.')) {
+            return false;
+        }
+
         // Theme + accent are edited by the dedicated "Appearance" widget at the
         // top of the General tab, so they must not ALSO render as raw text rows.
         if (in_array($key, self::WIDGET_KEYS, true)) {

@@ -92,17 +92,20 @@
                     </div>
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Date') }} *</label>
-                        <input type="date" wire:model="date" class="o-input w-full">
+                        <x-date-field wire:model="date" class="o-input w-full" />
                         @error('date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div class="sm:col-span-2">
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Replacement car') }} *</label>
-                        <select wire:model="replacement_vehicle_id" class="o-input w-full">
-                            <option value="">{{ __('— Select an available car —') }}</option>
-                            @foreach ($availableVehicles as $v)
-                                <option value="{{ $v->id }}">{{ $v->displayName() }}@if ($v->status !== 'available') · {{ __(ucfirst($v->status)) }}@endif@if ($v->needsRenewal()) · {{ __('no valid papers') }}@endif</option>
-                            @endforeach
-                        </select>
+                        <x-searchable-select wire:model="replacement_vehicle_id" class="o-input w-full"
+                            :placeholder="__('— Select an available car —')"
+                            :options="collect($availableVehicles)->map(fn ($v) => [
+                                'value' => $v->id,
+                                'label' => $v->displayName()
+                                    . ($v->status !== 'available' ? ' · ' . __(ucfirst($v->status)) : '')
+                                    . ($v->needsRenewal() ? ' · ' . __('no valid papers') : ''),
+                            ])->all()"
+                            :search-placeholder="__('Search plate or model…')" />
                         @error('replacement_vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         @if ($availableVehicles->isEmpty())
                             <p class="mt-1 text-xs text-amber-600">

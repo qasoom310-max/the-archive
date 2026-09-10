@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Customers\TopCustomers;
 use App\Erp\Navigation\ModuleMenu;
 use App\Erp\Security\Permission;
+use App\Erp\Targets\RevenueSchedule;
+use App\Erp\Targets\RevenueTargets;
+use App\Livewire\Concerns\EditsRevenueTargets;
 use App\Livewire\Concerns\GuardsModelAccess;
 use App\Models\Ir\IrModule;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -29,7 +34,13 @@ use Modules\Rental\Models\Vehicle;
 #[Title('Rent A Car')]
 final class RentalHome extends Component
 {
+    use EditsRevenueTargets;
     use GuardsModelAccess;
+
+    protected function targetsApp(): string
+    {
+        return 'rental';
+    }
 
     protected function accessModelKey(): string
     {
@@ -157,7 +168,28 @@ final class RentalHome extends Component
         $module = IrModule::query()->where('name', 'rental')->first();
         $tiles = $module !== null ? app(ModuleMenu::class)->items($module, Auth::user()) : [];
 
+        // The revenue figure IS the whole income, so it and the targets
+        // measured against it are the owner's alone. Skipped entirely for
+        // everyone else rather than fetched and hidden in the view.
+        $isSuperAdmin = $this->viewerIsSuperAdmin();
+        $targets = $isSuperAdmin ? app(RevenueTargets::class)->progress('rental') : [];
+
+        // The schedules and the call sheet are the owner's too, and they
+        // cost four more queries, so nobody else pays for them.
+        $now = CarbonImmutable::now();
+        $schedule = app(RevenueSchedule::class);
+        $schedules = $isSuperAdmin ? [
+            'month' => $schedule->forWindow('rental', $now->startOfMonth(), $now->endOfMonth()),
+            // A car's target is monthly, so the year is judged against twelve of them.
+            'year' => $schedule->forWindow('rental', $now->startOfYear(), $now->endOfYear(), 12.0),
+        ] : [];
+        $topCustomers = $isSuperAdmin ? app(TopCustomers::class)->forApp('rental', $now) : [];
+
         return view('rental::home', [
+            'isSuperAdmin' => $isSuperAdmin,
+            'targets' => $targets,
+            'schedules' => $schedules,
+            'topCustomers' => $topCustomers,
             'pendingWorkOrders' => $pendingWorkOrders,
             'canApproveMaintenance' => $canApprove,
             'myRequests' => $myRequests,

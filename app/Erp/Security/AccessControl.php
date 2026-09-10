@@ -12,7 +12,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Resolves ir_model_access rules. Mirrors Odoo's ACL semantics:
- *  - an `is_admin` user bypasses every check (superuser);
+ *  - an `is_admin` user bypasses every check (superuser) — UNLESS they are an
+ *    Administrator narrowed to specific apps ({@see User::adminAppScope()}),
+ *    in which case the bypass only covers models belonging to those apps;
+ *    a super admin is never narrowed, regardless of that column;
  *  - otherwise access is granted only if some rule for the model — owned
  *    by one of the user's groups, or global (null group) — grants the
  *    requested permission. No rule = no access (deny by default).
@@ -26,7 +29,7 @@ final class AccessControl
         }
 
         if ($user->isAdmin()) {
-            return true;
+            return $user->mayAdministerApp($this->moduleOf($modelKey));
         }
 
         $groupIds = $user->groups()->pluck('res_groups.id')->all();
@@ -59,5 +62,17 @@ final class AccessControl
         if ($this->denies($user, $modelKey, $permission)) {
             throw new AuthorizationException("Forbidden: {$permission->name} on {$modelKey}.");
         }
+    }
+
+    /**
+     * The owning app of a model key — every key in the registry is
+     * `<module>.<name>` (e.g. "pos.order", "rental.invoice"), the same
+     * convention {@see \App\Erp\Admin\UserProvisioner::grantApps()} relies on.
+     */
+    private function moduleOf(string $modelKey): string
+    {
+        $module = strstr($modelKey, '.', true);
+
+        return $module === false ? $modelKey : $module;
     }
 }

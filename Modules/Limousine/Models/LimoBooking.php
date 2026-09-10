@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Modules\Limousine\Models;
 
 use App\Erp\Contracts\DefinesIrModel;
+use App\Erp\Contracts\TakesCouponCredit;
 use App\Erp\Registry\FieldDefinition;
 use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -49,12 +51,14 @@ use Illuminate\Support\Carbon;
  * @property string $status
  * @property string $payment_status
  * @property string|null $notes
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read LimoCustomer|null $customer
  * @property-read LimoLocation|null $pickupLocation
  * @property-read LimoLocation|null $dropoffLocation
  * @property-read \Illuminate\Database\Eloquent\Collection<int, LimoLeg> $legs
  */
-final class LimoBooking extends Model implements DefinesIrModel
+final class LimoBooking extends Model implements DefinesIrModel, TakesCouponCredit
 {
     use \App\Models\Concerns\HasReference;
 
@@ -124,12 +128,59 @@ final class LimoBooking extends Model implements DefinesIrModel
         return $this->morphMany(LimoLeg::class, 'legable')->orderBy('sequence');
     }
 
-    /** Grand total = sum of leg nets; stored on `fare` (and mirrored to amount). */
+    /**
+     * Grand total = sum of the leg nets that are still BILLABLE; stored on
+     * `fare` (and mirrored to amount).
+     *
+     * A cancelled trip comes off the bill. The customer is not charged for a
+     * car that never came, so a booking of three trips with one called off is
+     * billed for two — the old sum charged for all three and left the office
+     * chasing money that was never owed.
+     *
+     * One exception, and it is the reason this is a query rather than a sum: a
+     * trip cancelled too late for a refund forfeited its payment, and that
+     * money came back to the customer as a coupon instead. It was earned on
+     * this booking and stays on it; the coupon carries their side. Taking it
+     * off the bill as well would hand the same money over twice.
+     */
     public function recalcTotal(): void
     {
-        $total = round((float) $this->legs()->sum('net_amount'), 3);
+        $total = round((float) $this->legs()
+            ->where(function (Builder $q): void {
+                $q->where('status', '!=', LimoLeg::STATUS_CANCELLED)
+                    // A leg with no status yet is still to run, and SQL will not
+                    // match NULL against '!=' on its own.
+                    ->orWhereNull('status')
+                    ->orWhere('refund_outcome', LimoLeg::REFUND_COUPON);
+            })
+            ->sum('net_amount'), 3);
+
         $this->fare = $total;
         $this->amount = $total;
+    }
+
+    /* ── Credit (see TakesCouponCredit) ─────────────────────────────────── */
+
+    public function couponBalanceDue(): float
+    {
+        return $this->balanceDue();
+    }
+
+    /**
+     * Credit lands on the advance, the same field a cash payment lands on, so
+     * "paid" settles through one path rather than learning a second way to
+     * become true.
+     */
+    public function applyCouponCredit(float $amount): void
+    {
+        $this->advance = round((float) $this->advance + $amount, 3);
+        $this->save();
+        $this->syncPaymentFromAdvance();
+    }
+
+    public function couponReference(): string
+    {
+        return (string) ($this->reference ?? '');
     }
 
     /** Net booking amount = the grand total across all legs. */
@@ -144,9 +195,88 @@ final class LimoBooking extends Model implements DefinesIrModel
         return round(max(0.0, $this->netAmount() - $this->advance), 3);
     }
 
+    /**
+     * Take the payment flag from the money actually taken.
+     *
+     * The advance used to be a number nobody read: taking the full fare at the
+     * counter left the booking reading "unpaid" until somebody also remembered
+     * to press Mark paid. Nothing owed means paid.
+     *
+     * A part-payment is still unpaid — that is what a deposit is. A booking
+     * settled through an INVOICE RECEIPT is left alone: that money did not come
+     * through the advance field and must not be un-marked by editing it.
+     */
+    public function syncPaymentFromAdvance(): void
+    {
+        if ($this->netAmount() <= 0) {
+            return; // nothing priced yet — an empty booking isn't "paid"
+        }
+
+        if ($this->balanceDue() <= 0) {
+            $this->payment_status = self::PAYMENT_PAID;
+            $this->save();
+
+            return;
+        }
+
+        $settledByReceipt = LimoInvoice::query()
+            ->where('booking_id', $this->id)
+            ->where('status', LimoInvoice::STATUS_PAID)
+            ->exists();
+
+        if (! $settledByReceipt && $this->payment_status === self::PAYMENT_PAID) {
+            // The advance was lowered (a correction), and no receipt backs the
+            // paid flag, so the booking owes money again.
+            $this->payment_status = self::PAYMENT_UNPAID;
+            $this->save();
+        }
+    }
+
     public function referencePrefix(): string
     {
         return 'BK';
+    }
+
+    /**
+     * Re-derive this booking's status from its legs.
+     *
+     * Legs are dispatched one by one, so the booking is a summary of them: it
+     * reads as whatever the LEAST-progressed live leg is. A job with one leg
+     * finished and one still waiting is not "completed", it is still in the
+     * queue. Cancelled legs are ignored unless every leg is cancelled, and a
+     * booking with no legs is left alone.
+     */
+    public function syncStatusFromLegs(): void
+    {
+        $statuses = $this->legs()->pluck('status')->filter()->all();
+        if ($statuses === []) {
+            return;
+        }
+
+        $live = array_values(array_filter($statuses, static fn (string $s): bool => $s !== LimoLeg::STATUS_CANCELLED));
+        if ($live === []) {
+            $this->status = self::STATUS_CANCELLED;
+            $this->save();
+
+            return;
+        }
+
+        // Ordered least → most progressed; the first one present wins.
+        foreach ([
+            LimoLeg::STATUS_QUEUE => self::STATUS_QUEUE,
+            LimoLeg::STATUS_CONFIRMED => self::STATUS_CONFIRMED,
+            LimoLeg::STATUS_ACTIVE => self::STATUS_ACTIVE,
+        ] as $legStatus => $bookingStatus) {
+            if (in_array($legStatus, $live, true)) {
+                $this->status = $bookingStatus;
+                $this->save();
+
+                return;
+            }
+        }
+
+        $this->status = self::STATUS_COMPLETED;
+        $this->save();
     }
 
     /**
@@ -183,6 +313,24 @@ final class LimoBooking extends Model implements DefinesIrModel
      * Generate an invoice from this booking (idempotent — returns the existing
      * one if already raised).
      */
+    /**
+     * The trip's invoice, raised if it does not exist and kept in step if it
+     * does.
+     *
+     * Every trip is invoiced — a booking with no invoice is money nobody is
+     * accounting for — so this runs when the booking is written and again
+     * whenever its price moves. The invoice follows the fare only while nothing
+     * has been paid against it; after that {@see LimoInvoice::followTotal()}
+     * refuses, and a change needs a new document rather than a rewritten one.
+     */
+    public function syncInvoice(): LimoInvoice
+    {
+        $invoice = $this->createInvoice();
+        $invoice->followTotal((float) $this->fare);
+
+        return $invoice;
+    }
+
     public function createInvoice(): LimoInvoice
     {
         $existing = LimoInvoice::query()->where('booking_id', $this->id)->first();

@@ -14,7 +14,7 @@
                 <h2 class="text-sm font-semibold text-chrome-800">{{ __('Register is open') }}</h2>
                 <p class="mt-1 text-xs text-chrome-400">
                     {{ $active->reference }} · {{ __('float') }} {{ $money($active->opening_cash) }} ·
-                    {{ __('opened') }} {{ $active->opened_at?->isoFormat('MMM D, HH:mm') }}
+                    {{ __('opened') }} {{ $active->opened_at?->isoFormat('DD-MMM, HH:mm') }}
                 </p>
                 <p class="mt-1 text-xs text-chrome-400">
                     {{ __('Opened by') }} {{ $active->user?->name ?? __('Unknown') }}
@@ -96,7 +96,7 @@
                                         <span class="ms-2 text-xs text-chrome-400">{{ $s->user?->name ?? __('Unknown') }}</span>
                                     </td>
                                     <td class="px-4 py-2 text-end text-chrome-500">{{ __('diff') }} {{ $money($s->cash_difference) }}</td>
-                                    <td class="px-4 py-2 text-end text-chrome-400">{{ $s->closed_at?->isoFormat('MMM D, HH:mm') }}</td>
+                                    <td class="px-4 py-2 text-end text-chrome-400">{{ $s->closed_at?->isoFormat('DD-MMM, HH:mm') }}</td>
                                 </tr>
                             @endforeach
                         </tbody>

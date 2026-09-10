@@ -17,30 +17,34 @@
 <head>
     <meta charset="utf-8">
     <style>
-        @page { margin: 22px 26px; }
+        @page { margin: 24px 28px 60px; }
         * { font-family: DejaVu Sans, sans-serif; }
-        body { color: #1f2937; font-size: 11px; line-height: 1.45; }
-        .head { width: 100%; border-bottom: 2px solid #111; padding-bottom: 8px; }
-        .head td { vertical-align: middle; }
+        body { color: #1e293b; font-size: 11px; line-height: 1.5; }
+        .head { width: 100%; background: #0b1220; border-radius: 7px; }
+        .head td { vertical-align: middle; padding: 14px 18px; }
+        .logo-chip { display: inline-block; background: #ffffff; padding: 6px 12px; border-radius: 5px; line-height: 0; }
         .logo { max-height: 52px; max-width: 150px; }
-        .company { font-size: 17px; font-weight: bold; }
-        .title { font-size: 15px; font-weight: bold; text-align: right; }
-        .ref { text-align: right; color: #6b7280; font-size: 11px; }
-        h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #6b7280;
-             margin: 14px 0 4px; border-bottom: 1px solid #e5e7eb; padding-bottom: 3px; }
+        .company { display: inline-block; background: #ffffff; color: #0b1220; padding: 9px 16px;
+                   border-radius: 5px; font-size: 15px; font-weight: bold; }
+        .title { font-size: 18px; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase; text-align: right; color: #eab308; }
+        .ref { text-align: right; color: #cbd5e1; font-size: 10.5px; margin-top: 3px; }
+        .accent { height: 3px; background: #eab308; border-radius: 2px; margin: 0 0 14px; font-size: 0; line-height: 0; }
+        h2 { font-size: 9.5px; text-transform: uppercase; letter-spacing: .6px; color: #0f172a; font-weight: bold;
+             margin: 14px 0 5px; padding-bottom: 4px; border-bottom: 2px solid #eab308; display: inline-block; }
         table.kv { width: 100%; border-collapse: collapse; }
-        table.kv td { padding: 2px 0; vertical-align: top; }
-        table.kv td.k { color: #6b7280; width: 38%; }
-        table.kv td.v { font-weight: bold; }
+        table.kv td { padding: 3px 0; vertical-align: top; }
+        table.kv td.k { color: #64748b; width: 38%; }
+        table.kv td.v { font-weight: bold; color: #0f172a; }
         table.money { width: 100%; border-collapse: collapse; margin-top: 4px; }
         table.money td { padding: 3px 0; }
         table.money td.r { text-align: right; }
-        .net td { border-top: 1px solid #d1d5db; font-weight: bold; font-size: 12px; padding-top: 5px; }
-        .bal td { font-weight: bold; color: #b45309; }
+        .net td { border-top: 2px solid #eab308; font-weight: bold; font-size: 12.5px; padding-top: 6px; color: #0f172a; }
+        .bal td { font-weight: bold; color: #b45309; background: #fffbeb; border-radius: 4px; }
         .col { width: 49%; vertical-align: top; }
         .terms { font-size: 9.5px; color: #374151; white-space: normal; }
         .sign td { padding-top: 34px; }
-        .sign .line { border-top: 1px solid #111; padding-top: 3px; color: #6b7280; }
+        .sign .line { border-top: 1.3px dotted #94a3b8; padding-top: 4px; color: #64748b;
+                      font-size: 9px; text-transform: uppercase; letter-spacing: .5px; }
         .muted { color: #6b7280; }
     </style>
 </head>
@@ -48,8 +52,7 @@
     <table class="head">
         <tr>
             <td>
-                @if ($logoPath)<img class="logo" style="max-height:{{ $logoH }}px; max-width:{{ $logoW }}px" src="{{ $logoPath }}" alt="">@endif
-                <div class="company">{{ $companyName }}</div>
+                @if ($logoPath)<span class="logo-chip"><img class="logo" style="max-height:{{ $logoH }}px; max-width:{{ $logoW }}px" src="{{ $logoPath }}" alt=""></span>@else<div class="company">{{ $companyName }}</div>@endif
             </td>
             <td>
                 <div class="title">{{ __('Car Hire Agreement') }}</div>
@@ -57,6 +60,7 @@
             </td>
         </tr>
     </table>
+    <div class="accent">&nbsp;</div>
 
     <table style="width:100%"><tr>
         <td class="col">
@@ -127,5 +131,7 @@
             <td style="width:48%"><div class="line">{{ __('For') }} {{ $companyName }}</div></td>
         </tr>
     </table>
+
+<x-document-footer />
 </body>
 </html>

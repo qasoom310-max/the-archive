@@ -130,7 +130,7 @@ final class SendPosOrderReceiptViaWhatsApp
         // "May 24, 2026 6:27 PM" instead of "May 24, 2026 18:27" — matches
         // the on-screen receipt and is what every retail POS uses here.
         $orderedAt = $order->ordered_at ?? Carbon::now();
-        $orderedFormatted = $orderedAt->format('M j, Y g:i A');
+        $orderedFormatted = $orderedAt->format('d-m-Y g:i A');
 
         return [
             $storeName,

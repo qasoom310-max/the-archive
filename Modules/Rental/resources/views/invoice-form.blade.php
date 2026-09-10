@@ -34,23 +34,23 @@
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Customer') }} *</label>
-                        <select wire:model="customer_id" class="o-input w-full">
-                            <option value="">{{ __('— Select —') }}</option>
-                            @foreach ($customers as $c)
-                                <option value="{{ $c->id }}">{{ $c->name }}{{ $c->phone ? ' · ' . $c->phone : '' }}</option>
-                            @endforeach
-                        </select>
+                        <x-searchable-select wire:model="customer_id" class="o-input w-full"
+                            :options="collect($customers)->map(fn ($c) => [
+                                'value' => $c->id,
+                                'label' => $c->name . ($c->phone ? ' · ' . $c->phone : ''),
+                            ])->all()"
+                            :search-placeholder="__('Search name or number…')" />
                         @error('customer_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div></div>
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Issue date') }} *</label>
-                        <input type="date" wire:model="issue_date" class="o-input w-full">
+                        <x-date-field wire:model="issue_date" class="o-input w-full" />
                         @error('issue_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Due date') }}</label>
-                        <input type="date" wire:model="due_date" class="o-input w-full">
+                        <x-date-field wire:model="due_date" class="o-input w-full" />
                     </div>
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Subtotal (BHD)') }} *</label>
@@ -79,7 +79,7 @@
                             @foreach ($receipts as $r)
                                 <li wire:key="rcpt-{{ $r->id }}" class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2">
                                     <a href="{{ url('/app/rental/receipt/' . $r->id) }}" wire:navigate class="font-medium text-primary-700 hover:underline">{{ $r->reference }}</a>
-                                    <span class="text-chrome-500">{{ $r->date?->isoFormat('MMM D, YYYY') }}</span>
+                                    <span class="text-chrome-500">{{ $r->date?->isoFormat('DD-MMM-YYYY') }}</span>
                                     <span class="text-chrome-500">{{ __(ucfirst($r->method)) }}</span>
                                     <span class="font-semibold text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($r->amount) }}</span>
                                 </li>

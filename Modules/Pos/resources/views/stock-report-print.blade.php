@@ -64,6 +64,7 @@
         </tbody>
     </table>
 
+    <x-document-footer :fixed="false" />
     <div class="actions"><button type="button" onclick="window.print()">{{ __('Print') }}</button></div>
 </body>
 </html>

@@ -6,9 +6,12 @@ namespace Modules\Limousine\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\ScrollsToFirstError;
+use Carbon\Exceptions\InvalidFormatException;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -25,7 +28,16 @@ use Modules\Limousine\Models\LimoQuotation;
 #[Title('Quotation')]
 final class QuotationForm extends Component
 {
+    public const VALIDITY_WEEK = 'week';
+
+    public const VALIDITY_MONTH = 'month';
+
+    public const VALIDITY_YEAR = 'year';
+
+    public const VALIDITY_CUSTOM = 'custom';
+
     use GuardsModelAccess;
+    use ScrollsToFirstError;
 
     protected function accessModelKey(): string
     {
@@ -48,16 +60,39 @@ final class QuotationForm extends Component
 
     public string $requested_by = '';
 
+    /**
+     * Who raised this quotation — stamped from the signed-in user, never typed.
+     *
+     * The same rule as the booking form, and for the same reason: this is a
+     * sign-off, so it must not depend on what arrived from the browser.
+     * #[Locked] because Livewire lets the client set any unlocked property, and
+     * an existing quote keeps whoever actually raised it rather than being
+     * re-stamped with whoever opened it next.
+     */
+    #[Locked]
     public string $prepared_by = '';
 
     public string $contact_number = '';
 
     public string $valid_until = '';
 
+    /**
+     * How long the quote stands, as a choice rather than a date to work out.
+     *
+     * "Valid for a month" is what the office decides; 07-Oct-2026 is only what
+     * that comes to. So the periods are the buttons and the date follows them,
+     * with `custom` for the times a customer asks for a particular day.
+     *
+     * Not stored — the DATE is the record. This only says how it was arrived at,
+     * which is why re-opening a quote works it back out from the date.
+     */
+    public string $validity = self::VALIDITY_WEEK;
+
     public string $notes = '';
 
     public string $status = LimoQuotation::STATUS_DRAFT;
 
+    #[Locked]
     public ?int $booking_id = null;
 
     /** Inline "New customer" modal (shared transport customer). */
@@ -66,8 +101,12 @@ final class QuotationForm extends Component
     /** @var array<string, string> */
     public array $newCustomer = ['name' => '', 'phone' => '', 'email' => '', 'type' => 'individual'];
 
-    public function mount(?int $id = null): void
+    public function mount(int|string|null $id = null): void
     {
+        // A route segment is always a string, and a non-numeric one
+        // ("new") means a new record rather than a bad request.
+        $id = is_numeric($id) ? (int) $id : null;
+
         $this->guardAccess(Permission::Read);
         if ($id !== null) {
             $quote = LimoQuotation::query()->with('legs')->find($id);
@@ -78,12 +117,17 @@ final class QuotationForm extends Component
                 $this->customer_id = $quote->customer_id;
                 $this->contact_person = $quote->contact_person ?? '';
                 $this->requested_by = $quote->requested_by ?? '';
-                $this->prepared_by = $quote->prepared_by ?? '';
+                // Keep whoever actually raised it; only fill in when the quote
+                // predates the stamp, since the field can no longer be typed.
+                $this->prepared_by = trim((string) $quote->prepared_by) !== ''
+                    ? (string) $quote->prepared_by
+                    : $this->currentUserName();
                 $this->contact_number = $quote->contact_number ?? '';
                 $this->valid_until = $quote->valid_until?->format('Y-m-d') ?? '';
                 $this->notes = $quote->notes ?? '';
                 $this->status = $quote->status;
                 $this->booking_id = $quote->booking_id;
+                $this->validity = $this->validityFromDates();
                 $this->loadLegs($quote);
 
                 return;
@@ -92,7 +136,131 @@ final class QuotationForm extends Component
 
         $this->quote_date = now()->format('Y-m-d');
         $this->valid_until = now()->addWeek()->format('Y-m-d');
+        $this->prepared_by = $this->currentUserName();
         $this->seedLegs();
+    }
+
+    /**
+     * Choose how long the quote stands, and set the date to match.
+     *
+     * Measured from the QUOTE's date, not today: a quote dated last week that
+     * is good for a month runs out a month after it was written, not a month
+     * after somebody happened to open it.
+     */
+    public function setValidity(string $period): void
+    {
+        if ($period === self::VALIDITY_CUSTOM) {
+            $this->validity = self::VALIDITY_CUSTOM;
+
+            return;
+        }
+
+        if (! in_array($period, [self::VALIDITY_WEEK, self::VALIDITY_MONTH, self::VALIDITY_YEAR], true)) {
+            return;
+        }
+
+        $this->validity = $period;
+        $this->valid_until = $this->addPeriod($this->validFrom(), $period)->format('Y-m-d');
+    }
+
+    /** A period re-measures itself when the quote's own date moves. */
+    public function updatedQuoteDate(): void
+    {
+        if ($this->validity !== self::VALIDITY_CUSTOM) {
+            $this->setValidity($this->validity);
+        }
+    }
+
+    /** Typing a date by hand is the custom case, by definition. */
+    public function updatedValidUntil(): void
+    {
+        $this->validity = self::VALIDITY_CUSTOM;
+    }
+
+    /**
+     * One period on, without rolling over the end of a month.
+     *
+     * A plain "+1 month" from the 31st of August lands on the 1st of October,
+     * because the 31st of September does not exist — so a quote written on the
+     * 31st would claim a day more than the month it was given. The 30th is what
+     * "a month" means here.
+     */
+    private function addPeriod(Carbon $from, string $period): Carbon
+    {
+        return match ($period) {
+            self::VALIDITY_MONTH => $from->addMonthNoOverflow(),
+            self::VALIDITY_YEAR => $from->addYearNoOverflow(),
+            default => $from->addWeek(),
+        };
+    }
+
+    private function validFrom(): Carbon
+    {
+        return $this->parseDate($this->quote_date) ?? Carbon::now();
+    }
+
+    /**
+     * Work out which period an existing quote was written with, so re-opening
+     * it shows the button that was pressed rather than always saying custom.
+     */
+    private function validityFromDates(): string
+    {
+        if ($this->quote_date === '' || $this->valid_until === '') {
+            return self::VALIDITY_CUSTOM;
+        }
+
+        $from = $this->parseDate($this->quote_date);
+        if ($from === null) {
+            return self::VALIDITY_CUSTOM;
+        }
+        $until = $this->valid_until;
+
+        foreach ([self::VALIDITY_WEEK, self::VALIDITY_MONTH, self::VALIDITY_YEAR] as $period) {
+            if ($this->addPeriod($from->copy(), $period)->format('Y-m-d') === $until) {
+                return $period;
+            }
+        }
+
+        return self::VALIDITY_CUSTOM;
+    }
+
+    /**
+     * A typed date as Carbon, or null while it is empty or not a date yet.
+     *
+     * Read on every render, before validation has had its say, so a half-typed
+     * value must not take the page down the way one once did on the chauffeur
+     * schedule.
+     */
+    private function parseDate(string $value): ?Carbon
+    {
+        if (trim($value) === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (InvalidFormatException) {
+            return null;
+        }
+    }
+
+    /**
+     * Display name for the signed-in user, for the "Prepared by" stamp.
+     *
+     * Falls back to the email because staff accounts can be username-only, and
+     * an empty string would trip the `required` rule on a field nobody can type
+     * into.
+     */
+    private function currentUserName(): string
+    {
+        $user = Auth::user();
+        if ($user === null) {
+            return '';
+        }
+
+        $name = trim((string) ($user->name ?? ''));
+
+        return $name !== '' ? $name : trim((string) ($user->email ?? ''));
     }
 
     /**
@@ -116,7 +284,7 @@ final class QuotationForm extends Component
     public function save(): void
     {
         $this->guardSave($this->id === null);
-        $this->validate();
+        $this->validateFocusing();
 
         $quote = $this->id !== null ? LimoQuotation::query()->find($this->id) : new LimoQuotation();
         if ($quote === null) {
@@ -129,7 +297,7 @@ final class QuotationForm extends Component
         $quote->customer_id = $this->customer_id;
         $quote->contact_person = $this->trimOrNull($this->contact_person);
         $quote->requested_by = $this->trimOrNull($this->requested_by);
-        $quote->prepared_by = $this->trimOrNull($this->prepared_by);
+        $quote->prepared_by = $this->trimOrNull($this->prepared_by) ?? $this->currentUserName();
         $quote->contact_number = $this->trimOrNull($this->contact_number);
         $quote->valid_until = $this->valid_until !== '' ? Carbon::parse($this->valid_until) : null;
         $quote->notes = $this->trimOrNull($this->notes);
@@ -167,7 +335,7 @@ final class QuotationForm extends Component
     public function saveCustomer(): void
     {
         $this->guardAccess(Permission::Write);
-        $this->validate([
+        $this->validateFocusing([
             'newCustomer.name' => ['required', 'string', 'max:255'],
             'newCustomer.phone' => ['required', 'string', 'max:50'],
             'newCustomer.email' => ['required', 'email', 'max:255'],
@@ -223,9 +391,9 @@ final class QuotationForm extends Component
             return;
         }
 
-        $booking = $quote->convertToBooking();
-        session()->flash('toast', __('Converted to booking.'));
-        $this->redirect('/app/limousine/booking/' . $booking->id, navigate: true);
+        $invoice = $quote->convertToInvoice();
+        session()->flash('toast', __('Invoice raised from this quotation.'));
+        $this->redirect('/app/limousine/invoice', navigate: true);
     }
 
     private function withQuote(Closure $fn): void
@@ -250,6 +418,7 @@ final class QuotationForm extends Component
         return view('limousine::quotation-form', [
             'customers' => LimoCustomer::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'phone']),
             'isEditing' => $this->id !== null,
+            'validUntilLabel' => $this->parseDate($this->valid_until)?->isoFormat('DD-MMM-YYYY') ?? '—',
             ...$this->legViewData(),
         ]);
     }

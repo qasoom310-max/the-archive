@@ -38,7 +38,7 @@
                     @forelse ($backups as $b)
                         <tr wire:key="backup-{{ $b['name'] }}">
                             <td class="px-4 py-2.5">
-                                <div class="font-medium text-chrome-800">{{ $b['created_at']->isoFormat('ddd, MMM D · h:mm A') }}</div>
+                                <div class="font-medium text-chrome-800">{{ $b['created_at']->isoFormat('ddd, DD-MMM · h:mm A') }}</div>
                                 <div class="text-xs text-chrome-400">{{ $b['created_at']->diffForHumans() }}</div>
                             </td>
                             <td class="px-4 py-2.5 text-end tabular-nums text-chrome-600">{{ number_format($b['size'] / 1024, 0) }} KB</td>
@@ -126,7 +126,7 @@
                     @forelse ($logs as $log)
                         <tr wire:key="log-{{ $log->id }}" class="hover:bg-chrome-50/60">
                             <td class="whitespace-nowrap px-4 py-3 align-top">
-                                <span class="block font-medium text-chrome-800">{{ $log->created_at?->format('M j, Y') }}</span>
+                                <span class="block font-medium text-chrome-800">{{ $log->created_at?->isoFormat('DD-MMM-YYYY') }}</span>
                                 <span class="block text-xs text-chrome-400">{{ $log->created_at?->format('g:i A') }} · {{ $log->created_at?->diffForHumans() }}</span>
                             </td>
                             <td class="px-4 py-3 align-top">

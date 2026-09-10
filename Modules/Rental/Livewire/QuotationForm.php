@@ -6,6 +6,7 @@ namespace Modules\Rental\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\ScrollsToFirstError;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
@@ -29,6 +30,7 @@ use Modules\Rental\Models\Vehicle;
 final class QuotationForm extends Component
 {
     use GuardsModelAccess;
+    use ScrollsToFirstError;
 
     protected function accessModelKey(): string
     {
@@ -67,10 +69,15 @@ final class QuotationForm extends Component
 
     public string $status = RentalQuotation::STATUS_DRAFT;
 
+    #[Locked]
     public ?int $order_id = null;
 
-    public function mount(?int $id = null): void
+    public function mount(int|string|null $id = null): void
     {
+        // A route segment is always a string, and a non-numeric one
+        // ("new") means a new record rather than a bad request.
+        $id = is_numeric($id) ? (int) $id : null;
+
         $this->guardAccess(Permission::Read);
         if ($id !== null) {
             $quote = RentalQuotation::query()->find($id);
@@ -156,7 +163,7 @@ final class QuotationForm extends Component
     public function save(): void
     {
         $this->guardSave($this->id === null);
-        $this->validate();
+        $this->validateFocusing();
 
         $quote = $this->id !== null ? RentalQuotation::query()->find($this->id) : new RentalQuotation();
         if ($quote === null) {

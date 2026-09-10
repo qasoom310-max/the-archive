@@ -42,6 +42,9 @@ final class FormImageUploadController extends BaseFileUploadController
             // evidence photos.
             'rental_orders',
             'rental_deposits',
+            // Limousine petty cash: photos of the paper receipts drivers hand
+            // back — the evidence a settlement is argued from.
+            'limo_petty',
         ];
     }
 }

@@ -14,11 +14,11 @@
         @php
             $isChauffeur = ($leg['service_type'] ?? 'transfer') === 'chauffeur';
             $basis = $leg['rate_basis'] ?? 'trip';
-            $rate = (float) ($leg['rate'] === '' ? 0 : $leg['rate']);
-            $hours = (float) ($leg['hours'] === '' ? 0 : $leg['hours']);
-            $days = max(1, (int) ($leg['days'] === '' ? 1 : $leg['days']));
+            $rate = (float) (($leg['rate'] ?? '') === '' ? 0 : $leg['rate']);
+            $hours = (float) (($leg['hours'] ?? '') === '' ? 0 : $leg['hours']);
+            $days = max(1, (int) (($leg['days'] ?? '') === '' ? 1 : $leg['days']));
             $gross = match ($basis) { 'hour' => $rate * $hours * $days, 'day' => $rate * $days, default => $rate };
-            $net = max(0, $gross - (float) ($leg['discount'] === '' ? 0 : $leg['discount'])) + (float) ($leg['vat'] === '' ? 0 : $leg['vat']);
+            $net = max(0, $gross - (float) (($leg['discount'] ?? '') === '' ? 0 : $leg['discount'])) + (float) (($leg['vat'] ?? '') === '' ? 0 : $leg['vat']);
         @endphp
         <div wire:key="leg-{{ $i }}" class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -49,12 +49,17 @@
                     <label class="{{ $lbl }}">{{ __('From') }} *</label>
                     <input type="text" list="limo-locations" wire:model="legs.{{ $i }}.from_location" class="o-input w-full" placeholder="{{ __('e.g. Bahrain Airport') }}">
                     @error('legs.'.$i.'.from_location') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    {{-- An address finds the street; a pin finds the door. The link
+                         rides along to the driver in the trip message. --}}
+                    <input type="url" wire:model="legs.{{ $i }}.from_location_url" class="o-input mt-1 w-full text-xs"
+                           placeholder="{{ __('Pick-up map link (optional)') }}">
+                    @error('legs.'.$i.'.from_location_url') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
 
                 @if ($isChauffeur)
                     <div>
                         <label class="{{ $lbl }}">{{ __('Start date & time') }} *</label>
-                        <input type="datetime-local" wire:model.live="legs.{{ $i }}.start_at" class="o-input w-full">
+                        <x-date-field type="datetime-local" wire:model.live="legs.{{ $i }}.start_at" class="o-input w-full" />
                         @error('legs.'.$i.'.start_at') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
@@ -72,22 +77,32 @@
                         <label class="{{ $lbl }}">{{ __('To') }} *</label>
                         <input type="text" list="limo-locations" wire:model="legs.{{ $i }}.to_location" class="o-input w-full" placeholder="{{ __('e.g. Manama') }}">
                         @error('legs.'.$i.'.to_location') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        <input type="url" wire:model="legs.{{ $i }}.to_location_url" class="o-input mt-1 w-full text-xs"
+                               placeholder="{{ __('Drop-off map link (optional)') }}">
+                        @error('legs.'.$i.'.to_location_url') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label class="{{ $lbl }}">{{ __('Date & time') }} *</label>
-                        <input type="datetime-local" wire:model.live="legs.{{ $i }}.start_at" class="o-input w-full">
+                        <x-date-field type="datetime-local" wire:model.live="legs.{{ $i }}.start_at" class="o-input w-full" />
                         @error('legs.'.$i.'.start_at') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                 @endif
 
-                <div>
-                    <label class="{{ $lbl }}">{{ __('Car') }} *</label>
-                    <select wire:model="legs.{{ $i }}.car_id" class="o-input w-full">
-                        <option value="">{{ count($carOptions) ? __('— Select —') : __('No cars available') }}</option>
-                        @foreach ($carOptions as $opt)<option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>@endforeach
-                    </select>
-                    @error('legs.'.$i.'.car_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                </div>
+                {{-- Bookings are taken before anyone knows which vehicle will run
+                     them, so the booking form passes $showCar => false and the car
+                     is assigned later from the Bookings list (Queue tab). Defaults
+                     to ON so the quotation form, which shares this partial, keeps
+                     its picker. --}}
+                @if ($showCar ?? true)
+                    <div>
+                        <label class="{{ $lbl }}">{{ __('Car') }}</label>
+                        <x-searchable-select wire:model="legs.{{ $i }}.car_id" class="o-input w-full"
+                            :options="$carOptions"
+                            :empty="__('No cars available')"
+                            :search-placeholder="__('Search plate or model…')" />
+                        @error('legs.'.$i.'.car_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                @endif
                 <div>
                     <label class="{{ $lbl }}">{{ __('Car details') }}</label>
                     <input type="text" wire:model="legs.{{ $i }}.car_details" class="o-input w-full" placeholder="{{ __('Any note about the car') }}">
@@ -95,7 +110,7 @@
 
                 <div>
                     <label class="{{ $lbl }}">{{ __('Rate (BHD)') }} *</label>
-                    <input type="number" step="0.001" min="0" wire:model.live="legs.{{ $i }}.rate" class="o-input w-full">
+                    <input type="number" step="0.001" min="0" placeholder="0" wire:model.live="legs.{{ $i }}.rate" class="o-input w-full">
                     @error('legs.'.$i.'.rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
                 <div>
@@ -106,23 +121,25 @@
                 </div>
                 <div>
                     <label class="{{ $lbl }}">{{ __('Discount (BHD)') }}</label>
-                    <input type="number" step="0.001" min="0" wire:model.live="legs.{{ $i }}.discount" class="o-input w-full">
+                    <input type="number" step="0.001" min="0" placeholder="0" wire:model.live="legs.{{ $i }}.discount" class="o-input w-full">
                 </div>
                 <div>
                     <label class="{{ $lbl }}">{{ __('VAT (BHD)') }}</label>
-                    <input type="number" step="0.001" min="0" wire:model.live="legs.{{ $i }}.vat" class="o-input w-full">
+                    <input type="number" step="0.001" min="0" placeholder="0" wire:model.live="legs.{{ $i }}.vat" class="o-input w-full">
                 </div>
             </div>
 
-            {{-- Chauffeur day-by-day schedule preview (auto-generated). --}}
-            @if ($isChauffeur && ($leg['start_at'] ?? '') !== '')
-                @php $start = \Illuminate\Support\Carbon::parse($leg['start_at']); @endphp
+            {{-- Chauffeur day-by-day schedule preview (auto-generated). The date
+                 is still being typed half the time this renders, so it waits for
+                 a real one rather than failing on a half-typed value. --}}
+            @php $start = $isChauffeur ? $this->legStart($leg) : null; @endphp
+            @if ($start !== null)
                 <div class="mt-4 rounded-lg bg-chrome-50 p-3">
                     <p class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Schedule') }} · {{ $days }} {{ __('day(s)') }}</p>
                     <div class="flex flex-wrap gap-1.5">
                         @for ($d = 0; $d < min($days, 60); $d++)
                             <span class="rounded-md bg-white px-2 py-1 text-xs text-chrome-600 ring-1 ring-chrome-200">
-                                {{ $start->copy()->addDays($d)->isoFormat('ddd D MMM') }}@if ($leg['hours'] !== '') · {{ rtrim(rtrim(number_format((float) $leg['hours'], 1), '0'), '.') }}h @endif
+                                {{ $start->copy()->addDays($d)->isoFormat('ddd D MMM') }}@if ($hours > 0) · {{ rtrim(rtrim(number_format($hours, 1), '0'), '.') }}h @endif
                             </span>
                         @endfor
                     </div>

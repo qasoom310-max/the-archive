@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Auth;
 
+use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -47,6 +48,18 @@ final class Login extends Component
 
             throw ValidationException::withMessages([
                 'email' => 'These credentials do not match our records.',
+            ]);
+        }
+
+        // Correct credentials, but the account is paused — refuse the sign-in
+        // and log them right back out (Auth::attempt() above already logged
+        // them in). Not counted as a bad attempt: the password was right.
+        $authenticated = Auth::user();
+        if ($authenticated instanceof User && $authenticated->isPaused()) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'email' => __('Your account has been paused. Contact your administrator.'),
             ]);
         }
 

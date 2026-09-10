@@ -90,7 +90,6 @@ final class ActivityLogTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'New Staff')
             ->set('email', 'newstaff@example.com')
-            ->set('password', 'secret12')
             ->set('apps', ['pos'])
             ->set('workspaces', [$mainId])
             ->call('save')

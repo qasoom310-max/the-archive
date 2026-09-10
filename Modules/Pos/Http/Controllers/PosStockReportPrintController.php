@@ -58,7 +58,7 @@ final class PosStockReportPrintController extends Controller
             'summary' => $data->summary($includeInactive),
             'summaryValue' => Currencies::format($data->summary($includeInactive)['value']),
             'company' => is_string($company) && $company !== '' ? $company : 'OpenERP',
-            'generatedAt' => Carbon::now()->isoFormat('MMM D, YYYY h:mm A'),
+            'generatedAt' => Carbon::now()->isoFormat('DD-MMM-YYYY h:mm A'),
         ]);
     }
 }

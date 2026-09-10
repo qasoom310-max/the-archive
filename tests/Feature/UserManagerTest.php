@@ -15,8 +15,12 @@ use App\Models\Auth\Group;
 use App\Models\Auth\ModelAccess;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Notifications\WelcomeCredentials;
 use Closure;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -47,7 +51,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Cashier One')
             ->set('email', 'cashier1@example.com')
-            ->set('password', 'secret12')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId()])
             ->call('save')
@@ -79,7 +82,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Pos Only')
             ->set('email', 'posonly@example.com')
-            ->set('password', 'secret12')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId()])
             ->call('save')
@@ -99,7 +101,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'No DB')
             ->set('email', 'nodb@example.com')
-            ->set('password', 'secret12')
             ->set('workspaces', [])
             ->call('save')
             ->assertHasErrors(['workspaces']);
@@ -121,10 +122,9 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', '')
             ->set('email', 'not-an-email')
-            ->set('password', 'short')
             ->set('workspaces', [$this->mainId()])
             ->call('save')
-            ->assertHasErrors(['name' => 'required', 'email' => 'email', 'password' => 'min']);
+            ->assertHasErrors(['name' => 'required', 'email' => 'email']);
     }
 
     public function test_duplicate_email_is_rejected(): void
@@ -135,7 +135,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Dupe')
             ->set('email', 'taken@example.com')
-            ->set('password', 'secret12')
             ->set('workspaces', [$this->mainId()])
             ->call('save')
             ->assertHasErrors(['email']);
@@ -151,7 +150,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Editable')
             ->set('email', 'edit@example.com')
-            ->set('password', 'secret12')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId()])
             ->call('save');
@@ -183,7 +181,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Keeper')
             ->set('email', 'keep@example.com')
-            ->set('password', 'secret12')
             ->set('workspaces', [$this->mainId()])
             ->call('save');
 
@@ -193,7 +190,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->call('editUser', $user->getKey())
             ->set('name', 'Keeper Two')
-            ->set('password', '') // blank → keep
             ->call('save')
             ->assertHasNoErrors();
 
@@ -223,7 +219,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Temp Staff')
             ->set('email', 'temp@example.com')
-            ->set('password', 'secret12')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId()])
             ->call('save');
@@ -238,6 +233,52 @@ final class UserManagerTest extends TestCase
         $this->assertSame(0, ModelAccess::query()->where('group_id', $groupId)->count());
     }
 
+    public function test_pausing_a_user_kills_their_session_and_marks_them_paused(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+        $target = User::factory()->create(['is_admin' => false]);
+
+        DB::table('sessions')->insert([
+            'id' => 'fake-session-id',
+            'user_id' => $target->getKey(),
+            'ip_address' => '127.0.0.1',
+            'user_agent' => 'phpunit',
+            'payload' => base64_encode('x'),
+            'last_activity' => time(),
+        ]);
+
+        Livewire::test(UserManager::class)
+            ->call('togglePause', $target->getKey())
+            ->assertSet('otpOpen', false);
+
+        $target->refresh();
+        $this->assertTrue($target->isPaused());
+        $this->assertNotNull($target->paused_at);
+        $this->assertSame(0, DB::table('sessions')->where('user_id', $target->getKey())->count());
+    }
+
+    public function test_unpausing_a_user_restores_their_account(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+        $target = User::factory()->create(['is_admin' => false, 'is_paused' => true, 'paused_at' => now()]);
+
+        Livewire::test(UserManager::class)->call('togglePause', $target->getKey());
+
+        $target->refresh();
+        $this->assertFalse($target->isPaused());
+        $this->assertNull($target->paused_at);
+    }
+
+    public function test_an_admin_cannot_pause_themselves(): void
+    {
+        $me = User::factory()->create(['is_admin' => true, 'is_super_admin' => true]);
+        $this->actingAs($me);
+
+        Livewire::test(UserManager::class)->call('togglePause', $me->getKey());
+
+        $this->assertFalse((bool) $me->fresh()?->is_paused);
+    }
+
     public function test_admin_can_create_a_full_admin_user(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => true]));
@@ -246,7 +287,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'New Admin')
             ->set('email', 'newadmin@example.com')
-            ->set('password', 'secret12')
             ->set('role', 'admin')
             ->set('workspaces', [$this->mainId()])
             ->call('save')
@@ -260,6 +300,105 @@ final class UserManagerTest extends TestCase
         $this->assertNull(Group::query()->where('code', 'user:' . $user->getKey())->first());
     }
 
+    /**
+     * An Administrator can be narrowed to specific apps instead of every
+     * app — still FULL access (incl. delete) to the ones ticked, real
+     * denial (not just a hidden menu) outside them.
+     */
+    public function test_a_scoped_administrator_gets_full_access_to_only_the_ticked_apps(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        $this->installPos();
+        app(ModuleManager::class)->install('rental');
+
+        Livewire::test(UserManager::class)
+            ->set('name', 'Scoped Admin')
+            ->set('email', 'scopedadmin@example.com')
+            ->set('role', 'admin')
+            ->set('apps', ['pos'])
+            ->set('workspaces', [$this->mainId()])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $user = User::query()->where('email', 'scopedadmin@example.com')->firstOrFail();
+        $this->assertTrue($user->isAdmin());
+        $this->assertSame(['pos'], $user->admin_apps);
+
+        $access = app(AccessControl::class);
+        $this->assertTrue($access->allows($user, 'pos.order', Permission::Read));
+        $this->assertTrue($access->allows($user, 'pos.order', Permission::Write));
+        $this->assertTrue($access->allows($user, 'pos.order', Permission::Create));
+        $this->assertTrue($access->allows($user, 'pos.order', Permission::Unlink));
+        $this->assertFalse($access->allows($user, 'rental.invoice', Permission::Read));
+    }
+
+    /** Leaving the checklist empty for an Administrator keeps today's default: every app. */
+    public function test_an_administrator_with_no_ticked_apps_still_gets_every_app(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        $this->installPos();
+        app(ModuleManager::class)->install('rental');
+
+        Livewire::test(UserManager::class)
+            ->set('name', 'Unscoped Admin')
+            ->set('email', 'unscopedadmin@example.com')
+            ->set('role', 'admin')
+            ->set('workspaces', [$this->mainId()])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $user = User::query()->where('email', 'unscopedadmin@example.com')->firstOrFail();
+        $this->assertNull($user->admin_apps);
+
+        $access = app(AccessControl::class);
+        $this->assertTrue($access->allows($user, 'pos.order', Permission::Read));
+        $this->assertTrue($access->allows($user, 'rental.invoice', Permission::Read));
+    }
+
+    /** Editing a scoped admin's ticked apps replaces the scope, not adds to it. */
+    public function test_editing_a_scoped_administrators_apps_replaces_the_scope(): void
+    {
+        // A regular admin editing another user needs an emailed OTP code
+        // (see ConfirmsWithEmailOtp) — a super admin is exempt, so the actor
+        // here is one, to exercise the scoping logic directly.
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+        $this->installPos();
+        app(ModuleManager::class)->install('rental');
+
+        Livewire::test(UserManager::class)
+            ->set('name', 'Scope Me')
+            ->set('email', 'scopeme@example.com')
+            ->set('role', 'admin')
+            ->set('apps', ['pos'])
+            ->set('workspaces', [$this->mainId()])
+            ->call('save');
+
+        $user = User::query()->where('email', 'scopeme@example.com')->firstOrFail();
+        $this->assertSame(['pos'], $user->fresh()?->admin_apps);
+
+        Livewire::test(UserManager::class)
+            ->call('editUser', $user->getKey())
+            ->assertSet('apps', ['pos'])
+            ->set('apps', ['rental'])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame(['rental'], $user->fresh()?->admin_apps);
+
+        $access = app(AccessControl::class);
+        $this->assertFalse($access->allows($user->fresh(), 'pos.order', Permission::Read));
+        $this->assertTrue($access->allows($user->fresh(), 'rental.invoice', Permission::Read));
+    }
+
+    /** The owner tier is a strict superset — never narrowed, even if the column were set. */
+    public function test_a_super_admin_is_never_scoped(): void
+    {
+        $owner = User::factory()->create(['is_admin' => true, 'is_super_admin' => true, 'admin_apps' => ['pos']]);
+
+        $this->assertTrue(app(AccessControl::class)->allows($owner, 'rental.invoice', Permission::Read));
+        $this->assertNull($owner->adminAppScope());
+    }
+
     public function test_edit_can_promote_a_staff_user_to_admin(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
@@ -268,7 +407,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Promote Me')
             ->set('email', 'promote@example.com')
-            ->set('password', 'secret12')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId()])
             ->call('save');
@@ -331,7 +469,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Shift Lead')
             ->set('email', 'lead@example.com')
-            ->set('password', 'secret12')
             ->set('role', 'supervisor')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId()])
@@ -358,7 +495,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Shift Lead')
             ->set('email', 'lead@example.com')
-            ->set('password', 'secret12')
             ->set('role', 'supervisor')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId()])
@@ -387,7 +523,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Book Keeper')
             ->set('email', 'books@example.com')
-            ->set('password', 'secret12')
             ->set('role', 'accountant')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId()])
@@ -413,7 +548,6 @@ final class UserManagerTest extends TestCase
             Livewire::test(UserManager::class)
                 ->set('name', 'Sneaky ' . $role)
                 ->set('email', $role . '@example.com')
-                ->set('password', 'secret12')
                 ->set('role', $role)
                 ->set('workspaces', [$this->mainId()])
                 ->call('save')
@@ -452,7 +586,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Branch Cashier')
             ->set('email', 'branch@example.com')
-            ->set('password', 'secret12')
             ->set('apps', ['pos'])
             ->set('workspaces', [$workspace->id])
             ->call('save')
@@ -489,6 +622,47 @@ final class UserManagerTest extends TestCase
         $this->assertNotContains('rental', $names, 'Rent A Car must not be offered on a café database.');
     }
 
+    /**
+     * Ticking a rental workspace in the "Databases this user can access"
+     * list must surface ITS apps (Rent A Car) even though Main — a café —
+     * never runs them, so the admin can actually grant them.
+     */
+    public function test_ticking_a_database_surfaces_the_apps_it_runs(): void
+    {
+        $owner = User::factory()->create(['is_admin' => true, 'is_super_admin' => true]);
+        $this->actingAs($owner);
+        app(ModuleManager::class)->install('pos');
+        Setting::set('company.business_type', 'cafe');
+
+        $workspace = app(WorkspaceManager::class)->provision('Rental Co', $owner, ['rental']);
+        app(WorkspaceManager::class)->withTenant((string) $workspace->databasePath(), static function (): void {
+            Setting::set('company.business_type', 'rental');
+        });
+
+        $component = Livewire::test(UserManager::class);
+
+        // Nothing ticked yet: Main's own list only (POS, no Rent A Car).
+        $names = collect($component->viewData('appModules'))->pluck('name')->all();
+        $this->assertContains('pos', $names);
+        $this->assertNotContains('rental', $names);
+
+        // Tick the rental workspace: its apps join the list.
+        $names = collect(
+            $component->set('workspaces', [$this->mainId(), (int) $workspace->id])
+                ->viewData('appModules')
+        )->pluck('name')->all();
+        $this->assertContains('pos', $names, 'Main is still ticked, so its apps stay offered.');
+        $this->assertContains('rental', $names, 'The ticked rental workspace\'s app must now be offered.');
+
+        // Untick Main, keep only the rental workspace: only its own apps.
+        $names = collect(
+            $component->set('workspaces', [(int) $workspace->id])
+                ->viewData('appModules')
+        )->pluck('name')->all();
+        $this->assertNotContains('pos', $names, 'POS is not installed on the rental workspace.');
+        $this->assertContains('rental', $names);
+    }
+
     public function test_a_grant_for_an_app_the_business_type_hides_creates_no_access(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => true]));
@@ -500,7 +674,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Cafe Staff')
             ->set('email', 'cafestaff@example.com')
-            ->set('password', 'secret12')
             ->set('apps', ['pos', 'rental'])
             ->set('workspaces', [$this->mainId()])
             ->call('save')
@@ -536,7 +709,6 @@ final class UserManagerTest extends TestCase
         Livewire::test(UserManager::class)
             ->set('name', 'Shared Staff')
             ->set('email', 'shared@example.com')
-            ->set('password', 'secret12')
             ->set('apps', ['pos'])
             ->set('workspaces', [$this->mainId(), (int) $workspace->id])
             ->call('save')
@@ -602,6 +774,120 @@ final class UserManagerTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_a_shared_accounts_app_access_can_be_set_from_inside_a_workspace(): void
+    {
+        // The reason this exists: an app the workspace runs but Main does not
+        // (Rent A Car in a rental database) can never be ticked on Main - its
+        // checklist only offers what Main's own business type runs. So the
+        // grant has to be makeable from inside the database it applies to.
+        $this->insideWorkspace(function (): void {
+            $shared = User::factory()->create([
+                'name' => 'Shared Accountant',
+                'email' => 'shared@example.com',
+                'is_admin' => false,
+                'home_workspace_id' => null,   // global: managed on Main
+            ]);
+
+            Livewire::test(UserManager::class)
+                ->assertSee('Edit access')
+                ->call('editUser', $shared->getKey())
+                ->assertSet('editingGlobal', true)
+                ->set('apps', ['pos'])
+                ->call('save')
+                ->assertHasNoErrors();
+
+            $group = Group::query()->where('code', 'user:' . $shared->getKey())->first();
+            $this->assertNotNull($group, 'The grant is written in THIS database.');
+            $this->assertTrue($shared->fresh()?->groups()->whereKey($group->id)->exists());
+
+            $models = ModelAccess::query()->where('group_id', $group->id)->pluck('model');
+            $this->assertNotEmpty($models);
+            $this->assertTrue($models->every(static fn (string $m): bool => str_starts_with($m, 'pos.')));
+            $this->assertTrue(ModelAccess::query()->where('group_id', $group->id)->where('perm_read', true)->exists());
+            $this->assertFalse(ModelAccess::query()->where('group_id', $group->id)->where('perm_write', true)->exists());
+        });
+    }
+
+    public function test_a_shared_accounts_pause_can_be_toggled_from_inside_a_workspace(): void
+    {
+        // Unlike Edit/Delete, Pause is not an identity edit - it blocks an
+        // account's access to THIS database, so it must not require a trip to
+        // Main even for a global (shared) account, admin or not.
+        $this->insideWorkspace(function (): void {
+            $sharedStaff = User::factory()->create([
+                'name' => 'Shared Staff',
+                'email' => 'shared-staff@example.com',
+                'is_admin' => false,
+                'home_workspace_id' => null,
+            ]);
+            $sharedAdmin = User::factory()->create([
+                'name' => 'Shared Admin',
+                'email' => 'shared-admin@example.com',
+                'is_admin' => true,
+                'home_workspace_id' => null,
+            ]);
+
+            Livewire::test(UserManager::class)
+                ->call('togglePause', $sharedStaff->getKey())
+                ->assertSet('otpOpen', false);
+            $this->assertTrue($sharedStaff->fresh()?->isPaused());
+
+            Livewire::test(UserManager::class)
+                ->call('togglePause', $sharedAdmin->getKey())
+                ->assertSet('otpOpen', false);
+            $this->assertTrue($sharedAdmin->fresh()?->isPaused());
+
+            // Unpause round-trips the same way.
+            Livewire::test(UserManager::class)->call('togglePause', $sharedStaff->getKey());
+            $this->assertFalse($sharedStaff->fresh()?->isPaused());
+        });
+    }
+
+    public function test_a_shared_accounts_name_email_and_role_are_left_to_main(): void
+    {
+        $this->insideWorkspace(function (): void {
+            $shared = User::factory()->create([
+                'name' => 'Shared Accountant',
+                'email' => 'shared@example.com',
+                'is_admin' => false,
+                'is_accountant' => true,
+                'home_workspace_id' => null,
+            ]);
+
+            Livewire::test(UserManager::class)
+                ->call('editUser', $shared->getKey())
+                ->assertSet('editingGlobal', true)
+                ->set('name', 'Renamed Here')
+                ->set('email', 'elsewhere@example.com')
+                ->set('role', StaffRole::SuperAdmin->value)
+                ->set('apps', ['pos'])
+                ->call('save')
+                ->assertHasNoErrors();
+
+            $fresh = $shared->fresh();
+            $this->assertSame('Shared Accountant', (string) $fresh?->name);
+            $this->assertSame('shared@example.com', (string) $fresh?->email);
+            $this->assertFalse((bool) $fresh?->is_super_admin);
+            $this->assertTrue((bool) $fresh?->is_accountant);
+        });
+    }
+
+    public function test_a_shared_account_still_cannot_be_deleted_from_inside_a_workspace(): void
+    {
+        $this->insideWorkspace(function (): void {
+            $shared = User::factory()->create([
+                'name' => 'Shared Accountant',
+                'email' => 'shared@example.com',
+                'is_admin' => false,
+                'home_workspace_id' => null,
+            ]);
+
+            Livewire::test(UserManager::class)->call('deleteUser', $shared->getKey());
+
+            $this->assertNotNull($shared->fresh(), 'A shared account is removed on Main, not from one database.');
+        });
+    }
+
     public function test_a_user_can_be_added_from_inside_a_workspace(): void
     {
         $workspace = $this->insideWorkspace(function (Workspace $workspace): void {
@@ -609,7 +895,6 @@ final class UserManagerTest extends TestCase
             Livewire::test(UserManager::class)
                 ->set('name', 'Kaleem Cashier')
                 ->set('email', 'kcashier@example.com')
-                ->set('password', 'secret12')
                 ->set('apps', ['pos'])
                 ->call('save')
                 ->assertHasNoErrors();
@@ -637,7 +922,6 @@ final class UserManagerTest extends TestCase
             Livewire::test(UserManager::class)
                 ->set('name', 'Kaleem Manager')
                 ->set('email', 'kmanager@example.com')
-                ->set('password', 'secret12')
                 ->set('role', 'admin')
                 ->call('save')
                 ->assertHasNoErrors();
@@ -669,7 +953,6 @@ final class UserManagerTest extends TestCase
             Livewire::test(UserManager::class)
                 ->set('name', 'Impostor')
                 ->set('email', 'global@example.com')
-                ->set('password', 'secret12')
                 ->call('save')
                 ->assertHasErrors('email');
 
@@ -686,8 +969,9 @@ final class UserManagerTest extends TestCase
     public function test_a_global_account_stays_read_only_inside_a_workspace(): void
     {
         $this->insideWorkspace(function (): void {
-            // The owner's tenant copy is a global account (no home workspace) —
-            // editing it from inside the workspace must be a no-op.
+            // The owner's tenant copy is a global ADMIN (no home workspace).
+            // A global account's app access can be set here, but an admin
+            // bypasses the ACL entirely — so this one stays a no-op.
             $global = User::query()->where('email', 'owner@erp.test')->first();
             $this->assertNotNull($global);
             $this->assertNull($global->home_workspace_id);
@@ -704,7 +988,6 @@ final class UserManagerTest extends TestCase
             $component = Livewire::test(UserManager::class)
                 ->set('name', 'Temp Staff')
                 ->set('email', 'temp@example.com')
-                ->set('password', 'secret12')
                 ->call('save')
                 ->assertHasNoErrors();
 
@@ -718,5 +1001,71 @@ final class UserManagerTest extends TestCase
 
         // The Main login shell is gone with them.
         $this->assertSame(0, User::query()->where('email', 'temp@example.com')->count());
+    }
+    public function test_creating_a_user_emails_them_a_generated_password_that_signs_in(): void
+    {
+        Notification::fake();
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+
+        Livewire::test(UserManager::class)
+            ->set('name', 'Mailed One')
+            ->set('email', 'mailed@example.com')
+            ->set('workspaces', [$this->mainId()])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $user = User::query()->where('email', 'mailed@example.com')->firstOrFail();
+
+        Notification::assertSentOnDemand(WelcomeCredentials::class, function (WelcomeCredentials $mail, array $channels, object $notifiable) use ($user): bool {
+            $routes = $notifiable->routes ?? [];
+
+            return ($routes['mail'] ?? null) === 'mailed@example.com'
+                && $mail->name === 'Mailed One' // captured before the form resets
+                && $mail->email === 'mailed@example.com'
+                && strlen($mail->password) >= 16
+                && ctype_alnum($mail->password)
+                && Hash::check($mail->password, (string) $user->password);
+        });
+    }
+
+    public function test_the_welcome_mail_carries_the_credentials_and_the_way_to_change_them(): void
+    {
+        $mail = (new WelcomeCredentials('Mailed One', 'mailed@example.com', 'Abcdef1234567890'))
+            ->toMail(new \Illuminate\Notifications\AnonymousNotifiable());
+
+        $text = implode("\n", array_map(
+            static fn ($line): string => (string) $line,
+            [...$mail->introLines, ...$mail->outroLines],
+        ));
+
+        $this->assertStringContainsString('mailed@example.com', $text);
+        $this->assertStringContainsString('Abcdef1234567890', $text);
+        $this->assertStringContainsString(route('password.request'), $text);
+        $this->assertSame(route('login'), $mail->actionUrl);
+    }
+
+    public function test_editing_a_user_never_changes_their_password(): void
+    {
+        Notification::fake();
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+
+        Livewire::test(UserManager::class)
+            ->set('name', 'Steady')
+            ->set('email', 'steady@example.com')
+            ->set('workspaces', [$this->mainId()])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $user = User::query()->where('email', 'steady@example.com')->firstOrFail();
+        $hash = (string) $user->password;
+
+        Livewire::test(UserManager::class)
+            ->call('editUser', $user->getKey())
+            ->set('name', 'Steady Renamed')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame($hash, (string) $user->fresh()?->password);
+        Notification::assertSentOnDemandTimes(WelcomeCredentials::class, 1); // only the creation
     }
 }

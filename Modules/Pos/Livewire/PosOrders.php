@@ -24,6 +24,7 @@ use Modules\Pos\Models\PosOrder;
 use Modules\Pos\Models\PosPayment;
 use Modules\Pos\Models\PosTable;
 use Modules\Pos\Services\PosSaleEraser;
+use Livewire\Attributes\Locked;
 
 /**
  * POS Orders browser — a SierraPOS-style actionable list: search by
@@ -49,11 +50,13 @@ final class PosOrders extends Component
     public string $status = '';
 
     /** The order whose date is being changed (null = the box is closed). */
+    #[Locked]
     public ?int $dateOrderId = null;
 
     public string $orderDate = '';
 
     /** The order being marked as delivered (null = the box is closed). */
+    #[Locked]
     public ?int $deliveryOrderId = null;
 
     /** What we pay the driver for that order — our cost, not the customer's. */
@@ -339,7 +342,7 @@ final class PosOrders extends Component
                 'type' => $order->pos_table_id !== null ? __('Dine-in') : __('Walk-in'),
                 // Shown instead of table/type on a walk-in-only shop (Restaurant off).
                 'cashier' => $order->processed_by,
-                'time' => $order->ordered_at?->isoFormat('MMM D, h:mm A') ?? '—',
+                'time' => $order->ordered_at?->isoFormat('DD-MMM, h:mm A') ?? '—',
                 'units' => $units,
                 'payment' => $methods !== '' ? $methods : '—',
                 'state' => $order->state,

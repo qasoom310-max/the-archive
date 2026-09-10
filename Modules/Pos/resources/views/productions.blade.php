@@ -30,12 +30,9 @@
                 <p class="mb-4 text-xs text-chrome-400">{{ __('Release finished bottles from the store to the shop so the register can sell them.') }}</p>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Product') }}</label>
-                    <select wire:model.live="move_product_id" class="o-input w-full">
-                        <option value="">{{ __('— Select —') }}</option>
-                        @foreach ($stocked as $p)
-                            <option value="{{ $p->id }}">{{ $p->name }} · {{ __('store') }} {{ $num($p->store_stock) }}</option>
-                        @endforeach
-                    </select>
+                    <x-searchable-select wire:model.live="move_product_id" class="o-input w-full"
+                        :options="collect($stocked)->map(fn ($p) => ['value' => $p->id, 'label' => $p->name . ' · ' . __('store') . ' ' . $num($p->store_stock)])->all()"
+                        :search-placeholder="__('Search product…')" />
                     @error('move_product_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
                 @if ($move_product_id && $productionOptions->isNotEmpty())
@@ -44,7 +41,7 @@
                         <select wire:model="move_production_id" class="o-input w-full">
                             <option value="">{{ __('— Not from a specific run —') }}</option>
                             @foreach ($productionOptions as $run)
-                                <option value="{{ $run->id }}">{{ $run->reference }} · {{ $run->produced_units }} {{ __('bottles') }} · {{ $run->created_at?->isoFormat('MMM D') }}</option>
+                                <option value="{{ $run->id }}">{{ $run->reference }} · {{ $run->produced_units }} {{ __('bottles') }} · {{ $run->created_at?->isoFormat('DD-MMM') }}</option>
                             @endforeach
                         </select>
                         <p class="mt-1 text-xs text-chrome-400">{{ __('Tags this move with the run it came from — the date + ID show in the history.') }}</p>
@@ -62,12 +59,9 @@
                     <p class="mb-3 text-xs text-chrome-400">{{ __('Pull bottles off the register back into the store — e.g. to return a run’s bottles so it can be reopened or reversed.') }}</p>
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Product') }}</label>
-                        <select wire:model="back_product_id" class="o-input w-full">
-                            <option value="">{{ __('— Select —') }}</option>
-                            @foreach ($stocked as $p)
-                                <option value="{{ $p->id }}">{{ $p->name }} · {{ __('shop') }} {{ $num($p->stock_on_hand) }}</option>
-                            @endforeach
-                        </select>
+                        <x-searchable-select wire:model="back_product_id" class="o-input w-full"
+                            :options="collect($stocked)->map(fn ($p) => ['value' => $p->id, 'label' => $p->name . ' · ' . __('shop') . ' ' . $num($p->stock_on_hand)])->all()"
+                            :search-placeholder="__('Search product…')" />
                         @error('back_product_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div class="mt-3">
@@ -87,12 +81,9 @@
                         <p class="mb-3 text-xs text-chrome-400">{{ __('Take bottles entered by mistake out of the store. Materials are not returned — to also put them back, delete the production run instead.') }}</p>
                         <div>
                             <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Product') }}</label>
-                            <select wire:model="remove_product_id" class="o-input w-full">
-                                <option value="">{{ __('— Select —') }}</option>
-                                @foreach ($stocked as $p)
-                                    <option value="{{ $p->id }}">{{ $p->name }} · {{ __('store') }} {{ $num($p->store_stock) }}</option>
-                                @endforeach
-                            </select>
+                            <x-searchable-select wire:model="remove_product_id" class="o-input w-full"
+                                :options="collect($stocked)->map(fn ($p) => ['value' => $p->id, 'label' => $p->name . ' · ' . __('store') . ' ' . $num($p->store_stock)])->all()"
+                                :search-placeholder="__('Search product…')" />
                             @error('remove_product_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
                         <div class="mt-3">
@@ -162,7 +153,7 @@
                                 <td class="px-4 py-2 text-end tabular-nums text-chrome-600">{{ $r->expected_units }}</td>
                                 <td class="px-4 py-2 text-end tabular-nums font-medium text-chrome-800">{{ $r->produced_units }}</td>
                                 <td class="px-4 py-2 text-end tabular-nums {{ $r->variance() > 0 ? 'font-semibold text-red-600' : 'text-chrome-400' }}">{{ $r->variance() > 0 ? $r->variance() : '—' }}</td>
-                                <td class="px-4 py-2 text-chrome-500">{{ $r->created_at?->isoFormat('MMM D · h:mm A') }}</td>
+                                <td class="px-4 py-2 text-chrome-500">{{ $r->created_at?->isoFormat('DD-MMM · h:mm A') }}</td>
                                 <td class="px-4 py-2 text-end" onclick="event.stopPropagation()">
                                     <a href="{{ url('/app/pos/production/' . $r->id) }}" wire:navigate
                                         class="inline-flex items-center gap-1 rounded-lg bg-chrome-100 px-2.5 py-1 text-xs font-medium text-chrome-700 hover:bg-primary-400 hover:text-chrome-900">
@@ -203,7 +194,7 @@
                                             —
                                         @endif
                                     </td>
-                                    <td class="px-4 py-2 text-chrome-500">{{ $t->created_at?->isoFormat('MMM D · h:mm A') }}</td>
+                                    <td class="px-4 py-2 text-chrome-500">{{ $t->created_at?->isoFormat('DD-MMM · h:mm A') }}</td>
                                 </tr>
                             @endforeach
                         </tbody>

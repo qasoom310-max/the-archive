@@ -25,6 +25,7 @@ use Modules\Purchases\Models\Purchase;
 use Modules\Purchases\Models\PurchaseLine;
 use Modules\Purchases\Services\PurchaseConfirmer;
 use Throwable;
+use Livewire\Attributes\Locked;
 
 /**
  * Custom master/detail editor for a vendor bill: header (vendor, date) plus
@@ -38,6 +39,7 @@ final class PurchaseForm extends Component
 {
     use CreatesProductInline;
 
+    #[Locked]
     public ?int $id = null;
 
     /**
@@ -82,8 +84,12 @@ final class PurchaseForm extends Component
      */
     public ?int $productLineIndex = null;
 
-    public function mount(?int $id = null): void
+    public function mount(int|string|null $id = null): void
     {
+        // A route segment is always a string, and a non-numeric one
+        // ("new") means a new record rather than a bad request.
+        $id = is_numeric($id) ? (int) $id : null;
+
         $this->id = $id;
 
         if ($id === null) {

@@ -1,0 +1,56 @@
+name: Set default language (manual)
+
+# Runs `php artisan language:set-default` on the live server. Sets
+# `company.language` — the fallback locale a guest on the login page (and
+# any signed-in user with no personal preference) gets — on one or every
+# database. There is no in-app control for this: the Settings page's
+# "Language" row is deliberately a PERSONAL preference and never touches
+# this system-wide row.
+#
+# Manual only (workflow_dispatch). It never runs on push.
+on:
+  workflow_dispatch:
+    inputs:
+      code:
+        description: 'Default locale code (en or ar)'
+        required: true
+        default: 'en'
+      databases:
+        description: '"all", or comma-separated workspace ids (Main included)'
+        required: true
+        default: 'all'
+
+concurrency:
+  group: set-default-language
+  cancel-in-progress: false
+
+jobs:
+  set:
+    name: Set on erp.wanaan-bh.com
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust Hostinger SSH host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run language:set-default
+        env:
+          LANGUAGE_CODE: ${{ inputs.code }}
+          LANGUAGE_DATABASES: ${{ inputs.databases }}
+        run: |
+          set -euo pipefail
+
+          ssh -p ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && php artisan language:set-default \
+               $(printf '%q' "$LANGUAGE_CODE") \
+               --databases=$(printf '%q' "$LANGUAGE_DATABASES")"

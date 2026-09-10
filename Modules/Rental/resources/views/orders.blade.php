@@ -1,12 +1,36 @@
 <div class="mx-auto max-w-7xl p-4 sm:p-6">
     <x-page-header :title="__('Orders')" :subtitle="__('Rental contracts.')" icon="doc" accent="primary">
         <x-slot:actions>
+            @if ($canManage ?? false)
+                <button type="button" onclick="document.getElementById('import-orders').classList.toggle('hidden')" class="o-btn-ghost">{{ __('Import') }}</button>
+            @endif
             <a href="{{ url('/app/rental/order/new') }}" wire:navigate class="o-btn-primary">
                 <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
                 {{ __('New order') }}
             </a>
         </x-slot:actions>
     </x-page-header>
+
+    {{-- Import orders from a CSV (managers). Direct POST — Hostinger-safe. The
+         expected columns are the same shape this screen's own export prints,
+         so a sheet pulled off this page's own download needs no re-typing to
+         come back in. Every row lands as settled history at the figures the
+         old system recorded. --}}
+    @if ($canManage ?? false)
+        <div id="import-orders" class="mb-4 {{ $errors->any() ? '' : 'hidden' }} rounded-2xl border border-dashed border-chrome-300 bg-white p-4">
+            <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Import orders (CSV)') }}</h3>
+            <p class="mb-3 text-xs text-chrome-500">{{ __('Columns: Reference, Customer, Car, Pick-up, Return, Total, Received, Status, Payment. Other columns are ignored. The same customer, pick-up date and total seen before is skipped.') }}</p>
+            <form method="POST" action="{{ url('/app/rental/order/import') }}" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">
+                @csrf
+                <input type="file" name="file" accept=".csv,text/csv,text/plain" required class="text-sm">
+                <button type="submit" class="o-btn-primary text-sm">{{ __('Import') }}</button>
+            </form>
+            @error('file')<p class="mt-2 text-xs font-medium text-red-600">{{ $message }}</p>@enderror
+            @if (session('toast'))
+                <p class="mt-2 text-xs font-medium text-emerald-600">{{ session('toast') }}</p>
+            @endif
+        </div>
+    @endif
 
     {{-- Status tabs --}}
     @php
@@ -41,11 +65,11 @@
         </div>
         <div>
             <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Pick-up from') }}</label>
-            <input type="date" wire:model.live="from" class="o-input text-sm">
+            <x-date-field wire:model.live="from" class="o-input text-sm" />
         </div>
         <div>
             <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Pick-up to') }}</label>
-            <input type="date" wire:model.live="to" class="o-input text-sm">
+            <x-date-field wire:model.live="to" class="o-input text-sm" />
         </div>
         @if ($from !== '' || $to !== '' || $search !== '')
             <button wire:click="$set('from', ''); $set('to', ''); $set('search', '')" class="text-sm text-chrome-500 hover:underline">{{ __('Clear') }}</button>
@@ -53,8 +77,30 @@
     </div>
 
     {{-- Table --}}
+    @php
+        $exportQuery = http_build_query([
+            'tab' => $tab, 'from' => $from, 'to' => $to, 'q' => $search,
+            'title' => __('Orders'),
+        ]);
+    @endphp
+    <div class="mb-3 flex flex-wrap items-center gap-2" x-data="listExportCopy">
+        <button type="button" x-on:click="copyTable('rental-orders-table')"
+                class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
+            <span x-show="! copied">{{ __('Copy') }}</span>
+            <span x-show="copied" x-cloak class="text-emerald-600">{{ __('Copied') }}</span>
+        </button>
+        <a href="{{ url('/app/rental/order/export/csv') }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('CSV') }}</a>
+        <a href="{{ url('/app/rental/order/export/excel') }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Excel') }}</a>
+        <a href="{{ url('/app/rental/order/export/pdf') }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('PDF') }}</a>
+        <a href="{{ url('/app/rental/order/export/print') }}?{{ $exportQuery }}" target="_blank" rel="noopener"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Print') }}</a>
+    </div>
+
     <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
-        <table class="w-full min-w-[760px] divide-y divide-chrome-100 text-sm">
+        <table class="w-full min-w-[760px] divide-y divide-chrome-100 text-sm" id="rental-orders-table">
             <thead class="bg-chrome-50 text-start text-xs font-semibold uppercase tracking-wide text-chrome-500">
                 <tr>
                     <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
@@ -97,8 +143,8 @@
                                 <span class="text-chrome-400">—</span>
                             @endif
                         </td>
-                        <td class="px-4 py-2 text-chrome-600">{{ $order->start_date?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
-                        <td class="px-4 py-2 text-chrome-600">{{ $order->end_date?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
+                        <td class="px-4 py-2 text-chrome-600">{{ $order->start_date?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
+                        <td class="px-4 py-2 text-chrome-600">{{ $order->end_date?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($order->total) }}</td>
                         <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ $order->state === 'draft' ? __('Reservation') : __(ucfirst($order->state)) }}</span></td>
                         <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $order->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($order->payment_status)) }}</span></td>

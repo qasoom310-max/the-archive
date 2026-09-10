@@ -9,6 +9,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Pos\Models\PosFloor;
+use Livewire\Attributes\Locked;
 
 /**
  * Create/edit a POS floor via the engine FormView. Thin wrapper.
@@ -17,10 +18,15 @@ use Modules\Pos\Models\PosFloor;
 #[Title('POS Floor')]
 final class PosFloorForm extends Component
 {
+    #[Locked]
     public ?int $id = null;
 
-    public function mount(?int $id = null): void
+    public function mount(int|string|null $id = null): void
     {
+        // A route segment is always a string, and a non-numeric one
+        // ("new") means a new record rather than a bad request.
+        $id = is_numeric($id) ? (int) $id : null;
+
         $this->id = $id;
     }
 

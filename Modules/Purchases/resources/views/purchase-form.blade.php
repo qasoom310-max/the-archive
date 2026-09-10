@@ -80,7 +80,7 @@
 
             <div>
                 <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Date') }} <span class="text-red-500">*</span></label>
-                <input type="date" wire:model="form.date" @disabled($isConfirmed) class="o-input">
+                <x-date-field wire:model="form.date" @disabled($isConfirmed) class="o-input" />
                 @error('form.date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
 
@@ -93,7 +93,7 @@
 
             <div>
                 <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Expiry date') }}</label>
-                <input type="date" wire:model="form.expiry_date" @disabled($isConfirmed) class="o-input">
+                <x-date-field wire:model="form.expiry_date" @disabled($isConfirmed) class="o-input" />
                 @error('form.expiry_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
 

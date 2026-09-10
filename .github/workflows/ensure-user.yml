@@ -1,0 +1,81 @@
+name: Ensure a staff user (manual)
+
+# Runs `php artisan user:ensure` on the live server. This is the CLI twin of
+# Settings → Users, for the case the screen can't serve the job — e.g. a global
+# account that the Users tab renders read-only from inside a workspace, or
+# nobody left who can sign in at the right tier.
+#
+# Manual only (workflow_dispatch). It never runs on push.
+#
+# NOTE: the password typed here is visible in this run's "Inputs" panel to
+# anyone with repo access, so treat it as a temporary one and change it in
+# Settings → Profile after the first sign-in.
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: 'Login email'
+        required: true
+      password:
+        description: 'Password to set (min 8 chars) — treat as temporary'
+        required: true
+      name:
+        description: 'Display name'
+        required: false
+        default: ''
+      role:
+        description: 'Role'
+        required: true
+        default: 'accountant'
+        type: choice
+        options:
+          - staff
+          - supervisor
+          - accountant
+      databases:
+        description: '"all", or comma-separated workspace ids'
+        required: true
+        default: 'all'
+
+concurrency:
+  group: ensure-user
+  cancel-in-progress: false
+
+jobs:
+  ensure:
+    name: Provision on erp.wanaan-bh.com
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust Hostinger SSH host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      # The password is passed through an env var rather than interpolated into
+      # the command string, so it is never rendered into the step's shell trace.
+      - name: Run user:ensure
+        env:
+          USER_EMAIL: ${{ inputs.email }}
+          USER_PASSWORD: ${{ inputs.password }}
+          USER_NAME: ${{ inputs.name }}
+          USER_ROLE: ${{ inputs.role }}
+          USER_DATABASES: ${{ inputs.databases }}
+        run: |
+          set -euo pipefail
+
+          ssh -p ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && php artisan user:ensure \
+               $(printf '%q' "$USER_EMAIL") \
+               $(printf '%q' "$USER_PASSWORD") \
+               --name=$(printf '%q' "$USER_NAME") \
+               --role=$(printf '%q' "$USER_ROLE") \
+               --databases=$(printf '%q' "$USER_DATABASES")"

@@ -68,7 +68,7 @@ final class Dashboard extends Component
             [$start, $end] = $report->currentWindow();
             $dailySales = $report->sales($start, $end);
             $stockSummary = $report->stock();
-            $periodLabel = $start->isoFormat('MMM D, h:mm A') . ' – ' . $end->isoFormat('MMM D, h:mm A');
+            $periodLabel = $start->isoFormat('DD-MMM, h:mm A') . ' – ' . $end->isoFormat('DD-MMM, h:mm A');
             // Total money tied up in stock (on-hand × cost), active items only.
             $inventoryValue = app(PosStockReportData::class)->summary(false)['value'];
         }

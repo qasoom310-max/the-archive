@@ -35,7 +35,7 @@ final class DailyReportMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: $this->venue . ' — Daily Report — ' . $this->periodEnd->isoFormat('MMM D, YYYY'),
+            subject: $this->venue . ' — Daily Report — ' . $this->periodEnd->isoFormat('DD-MMM-YYYY'),
         );
     }
 

@@ -8,6 +8,7 @@ use App\Erp\Admin\StaffRole;
 use App\Erp\Admin\UserProvisioner;
 use App\Erp\Business\Features;
 use App\Erp\Enums\ModuleState;
+use App\Erp\Security\SessionKiller;
 use App\Erp\Tenancy\WorkspaceManager;
 use App\Livewire\Concerns\ConfirmsWithEmailOtp;
 use App\Models\Auth\Group;
@@ -16,17 +17,22 @@ use App\Models\Ir\IrModel;
 use App\Models\Ir\IrModule;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Notifications\WelcomeCredentials;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
+use Throwable;
+use Livewire\Attributes\Locked;
 
 /**
  * Admin-only "Users" tab in Settings: create or edit a user account (name /
- * email / password) and grant **view-only** access to a chosen set of apps and
+ * email — the password is generated and emailed) and grant **view-only** access to a chosen set of apps and
  * databases. Embedded inside the Settings page under its own tab.
  *
  * Every action re-checks the admin gate (defence in depth against a crafted
@@ -40,13 +46,20 @@ final class UserManager extends Component
     use ConfirmsWithEmailOtp;
 
     /** Set while editing an existing user; null in create mode. */
+    #[Locked]
     public ?int $editingId = null;
 
     public string $name = '';
 
     public string $email = '';
 
-    public string $password = '';
+    /**
+     * Editing a GLOBAL account (one shared with every database) from inside
+     * a workspace. Its name, email and role belong to Main and stay put;
+     * `ir_model_access` rules are per-database rows, so its app access HERE
+     * is the one thing this screen may change.
+     */
+    public bool $editingGlobal = false;
 
     /**
      * The ONE role this account holds — see {@see StaffRole}. Mutually
@@ -192,6 +205,12 @@ final class UserManager extends Component
      */
     protected function rules(): array
     {
+        // A global account's identity is Main's; only its app access here is
+        // editable, so there is nothing else to check.
+        if ($this->editingGlobal) {
+            return ['apps' => ['array'], 'apps.*' => ['string']];
+        }
+
         $userId = $this->editingId;
 
         $assignable = array_map(
@@ -202,8 +221,6 @@ final class UserManager extends Component
         return [
             'name' => ['required', 'string', 'max:255', Rule::unique('users', 'name')->ignore($userId)],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($userId)],
-            // Password required when creating; optional (blank = keep) when editing.
-            'password' => [$userId === null ? 'required' : 'nullable', 'string', 'min:8', 'max:255'],
             // Only roles this admin may actually assign — a crafted payload
             // asking for `super` or `accountant` from a regular admin fails here.
             'role' => ['required', Rule::in($assignable)],
@@ -231,8 +248,38 @@ final class UserManager extends Component
     }
 
     /**
+     * A strong password nobody has to type: 16 letters and digits (~95 bits),
+     * no symbols so it survives being copied out of an email. It is emailed
+     * to the person and never shown to the admin.
+     */
+    private function generatePassword(): string
+    {
+        return Str::password(16, symbols: false);
+    }
+
+    /**
+     * Email the new account its credentials and return the message to show
+     * the admin. The account is already written by the time this runs, so a
+     * mail failure (SMTP down) must not undo it — the person can still get in
+     * through "Forgot your password?", and the admin is told so.
+     */
+    private function welcome(string $name, string $email, #[\SensitiveParameter] string $password): string
+    {
+        try {
+            Notification::route('mail', $email)->notify(new WelcomeCredentials($name, $email, $password));
+        } catch (Throwable $e) {
+            report($e);
+
+            return __('User created, but the email could not be sent. Ask them to use “Forgot your password?” on the sign-in page.');
+        }
+
+        return __('User created. Their password has been emailed to :email.', ['email' => $email]);
+    }
+
+    /**
      * Load an existing user into the form for editing (name / email / current
-     * app grants). Password is left blank — only written if a new one is typed.
+     * app grants). Passwords are never edited here — the person changes their
+     * own from "Forgot your password?" on the sign-in screen.
      */
     public function editUser(int $id): void
     {
@@ -243,20 +290,32 @@ final class UserManager extends Component
             return;
         }
 
-        // Inside a workspace only this database's own accounts are editable.
+        // Inside a workspace this database's own accounts are fully editable.
+        // A GLOBAL account is not — it is shared with every database — but its
+        // app access here is a per-database row, so that much is ours to set.
         $workspaceId = $this->currentWorkspaceId();
+        $this->editingGlobal = false;
         if ($workspaceId !== null && ! $this->belongsHere($user, $workspaceId)) {
-            return;
+            // An administrator bypasses the ACL, so a global admin has no
+            // grants to give and nothing here to open.
+            if ($user->home_workspace_id !== null || $user->isAdmin()) {
+                return;
+            }
+
+            $this->editingGlobal = true;
         }
 
         $this->editingId = (int) $user->getKey();
         $this->name = (string) $user->name;
         $this->email = (string) $user->email;
-        $this->password = '';
         // The account's real role, read back from its flags + ACL rules (Staff
         // vs Supervisor is only visible in the rules).
-        $this->role = app(UserProvisioner::class)->roleOf($user)->value;
-        $this->apps = $this->currentApps($user);
+        $role = app(UserProvisioner::class)->roleOf($user);
+        $this->role = $role->value;
+        // An Administrator's apps are a SCOPE (users.admin_apps), not a grant
+        // — read back separately from the per-user group's ACL rules every
+        // other role uses.
+        $this->apps = $role->isScopableAdmin() ? ($user->adminAppScope() ?? []) : $this->currentApps($user);
         $this->workspaces = [];
         $this->lockToWorkspace = false;
         $this->lockWorkspaceId = null;
@@ -265,7 +324,7 @@ final class UserManager extends Component
 
     public function cancelEdit(): void
     {
-        $this->reset(['editingId', 'name', 'email', 'password', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
+        $this->reset(['editingId', 'editingGlobal', 'name', 'email', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
         $this->resetValidation();
     }
 
@@ -319,6 +378,7 @@ final class UserManager extends Component
         }
 
         $email = strtolower(trim($this->email));
+        $password = $this->generatePassword();
 
         if ($this->lockToWorkspace) {
             // A workspace-locked owner is all-powerful inside that database, so
@@ -332,7 +392,7 @@ final class UserManager extends Component
             app(UserProvisioner::class)->provisionLocked(
                 trim($this->name),
                 $email,
-                $this->password,
+                $password,
                 (int) $this->lockWorkspaceId,
                 role: StaffRole::SuperAdmin,
             );
@@ -340,7 +400,7 @@ final class UserManager extends Component
             app(UserProvisioner::class)->provision(
                 trim($this->name),
                 $email,
-                $this->password,
+                $password,
                 array_values($this->apps),
                 array_map('intval', array_values($this->workspaces)),
                 $this->selectedRole(),
@@ -349,8 +409,9 @@ final class UserManager extends Component
 
         app(\App\Erp\Activity\ActivityLogger::class)->log('user_created', $email, __('Created :name', ['name' => trim($this->name)]));
 
-        $this->reset(['name', 'email', 'password', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
-        session()->flash('user_saved', __('User created.'));
+        $name = trim($this->name);
+        $this->reset(['name', 'email', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
+        session()->flash('user_saved', $this->welcome($name, $email, $password));
     }
 
     /**
@@ -362,6 +423,18 @@ final class UserManager extends Component
      */
     private function saveInWorkspace(int $workspaceId): void
     {
+        // A global account: its identity is Main's, so only its app access in
+        // this database changes and none of the checks below apply.
+        if ($this->editingGlobal && $this->editingId !== null) {
+            if (! $this->requireOtp('user.update', ['id' => $this->editingId])) {
+                return;
+            }
+
+            $this->writeGlobalAccessHere();
+
+            return;
+        }
+
         $email = strtolower(trim($this->email));
 
         // Logins are keyed by email on Main. Refuse an email already owned by a
@@ -390,7 +463,7 @@ final class UserManager extends Component
 
     /**
      * Write the workspace-scoped account (both rows) and reset the form.
-     * A blank password keeps the existing one. On an edit the role is put
+     * A new account gets a generated password, emailed to them. On an edit the role is put
      * through {@see safeRole()} so this can't strip the last admin / super
      * admin of the database, or demote the person doing the editing.
      */
@@ -398,6 +471,8 @@ final class UserManager extends Component
     {
         $email = strtolower(trim($this->email));
         $name = trim($this->name);
+
+        $password = $updating ? null : $this->generatePassword();
 
         $role = $this->selectedRole();
         if ($updating) {
@@ -410,10 +485,10 @@ final class UserManager extends Component
         app(UserProvisioner::class)->provisionLocked(
             $name,
             $email,
-            $this->password !== '' ? $this->password : null,
+            $password,
             $workspaceId,
             role: $role,
-            appNames: $role->grantsApps() ? array_values($this->apps) : [],
+            appNames: $role->usesAppPicker() ? array_values($this->apps) : [],
         );
 
         app(\App\Erp\Activity\ActivityLogger::class)->log(
@@ -422,8 +497,8 @@ final class UserManager extends Component
             $updating ? __('Updated :name', ['name' => $name]) : __('Created :name', ['name' => $name]),
         );
 
-        $this->reset(['editingId', 'name', 'email', 'password', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
-        session()->flash('user_saved', $updating ? __('User updated.') : __('User created.'));
+        $this->reset(['editingId', 'editingGlobal', 'name', 'email', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
+        session()->flash('user_saved', $updating ? __('User updated.') : $this->welcome($name, $email, (string) $password));
     }
 
     /**
@@ -504,24 +579,24 @@ final class UserManager extends Component
 
         $user->name = trim($this->name);
         $user->email = strtolower(trim($this->email));
-        if ($this->password !== '') {
-            $user->password = Hash::make($this->password);
-        }
+
+        $provisioner = app(UserProvisioner::class);
 
         $user->is_admin = $role->isAdmin();
         $user->is_super_admin = $role->isSuperAdmin();
+        $user->admin_apps = $provisioner->adminScopeFor($role, array_values($this->apps));
         $user->is_accountant = $role->isAccountant();
 
         $user->save();
 
         // Admins bypass the ACL — grants only matter (and are rebuilt) below that.
         if ($role->grantsApps()) {
-            app(UserProvisioner::class)->grantApps($user, array_values($this->apps), $role);
+            $provisioner->grantApps($user, array_values($this->apps), $role);
         }
 
         app(\App\Erp\Activity\ActivityLogger::class)->log('user_updated', (string) $user->email, __('Updated :name', ['name' => (string) $user->name]));
 
-        $this->reset(['editingId', 'name', 'email', 'password', 'role', 'apps', 'workspaces']);
+        $this->reset(['editingId', 'editingGlobal', 'name', 'email', 'role', 'apps', 'workspaces']);
         session()->flash('user_saved', __('User updated.'));
     }
 
@@ -604,6 +679,74 @@ final class UserManager extends Component
     }
 
     /**
+     * Pause or unpause an account. Pausing signs it out of every session
+     * immediately ({@see SessionKiller}) and, from then on, both the sign-in
+     * screen and {@see \App\Http\Middleware\EnsureUserIsNotPaused} refuse it
+     * until an admin unpauses it. This is sensitive enough (it can lock
+     * someone out on the spot) to carry the same email-OTP gate as edit/delete.
+     */
+    public function togglePause(int $id): void
+    {
+        $this->guardAdmin();
+
+        if (! $this->requireOtp('user.pause', ['id' => $id])) {
+            return;
+        }
+
+        $this->performTogglePause($id);
+    }
+
+    private function performTogglePause(int $id): void
+    {
+        // Deliberately NOT scoped by belongsHere() like edit/delete: pausing
+        // isn't an identity edit, it's "block this account's access to the
+        // database I'm looking at right now" — including a GLOBAL account's
+        // copy in this one workspace, without needing a trip to Main. $target
+        // is looked up on the CURRENTLY ACTIVE connection, so it can only ever
+        // resolve to a row that already exists in this database.
+        $target = User::query()->find($id);
+        if ($target === null || ! $this->actorCanManage($target)) {
+            return;
+        }
+
+        $pausing = ! $target->isPaused();
+
+        if ($pausing && ! $this->canPause($target)) {
+            return;
+        }
+
+        $target->is_paused = $pausing;
+        $target->paused_at = $pausing ? now() : null;
+        $target->save();
+
+        if ($pausing) {
+            app(SessionKiller::class)->killFor($target);
+        }
+
+        app(\App\Erp\Activity\ActivityLogger::class)->log(
+            $pausing ? 'user_paused' : 'user_unpaused',
+            (string) $target->email,
+            $pausing
+                ? __('Paused :name', ['name' => $target->name])
+                : __('Unpaused :name', ['name' => $target->name]),
+        );
+    }
+
+    /**
+     * Guard for turning pause ON: never yourself (instant, unrecoverable
+     * self-lockout) and never the last admin (nobody left to unpause them).
+     * Turning pause OFF carries no such risk and needs no guard.
+     */
+    private function canPause(User $target): bool
+    {
+        if ($target->getKey() === Auth::id()) {
+            return false;
+        }
+
+        return ! ($target->isAdmin() && User::query()->where('is_admin', true)->count() <= 1);
+    }
+
+    /**
      * The role badge for every row of the list, resolved in ONE extra query.
      * Super admin / Admin / Accountant come straight off the flags; Supervisor
      * is only visible in the ACL (their grants carry Write), so the per-user
@@ -656,13 +799,57 @@ final class UserManager extends Component
         match ($action) {
             'user.update' => $this->confirmedUpdate(),
             'user.delete' => $this->confirmedDelete((int) ($args['id'] ?? 0)),
+            'user.pause' => $this->performTogglePause((int) ($args['id'] ?? 0)),
             default => null,
         };
+    }
+
+    /**
+     * Give a GLOBAL account its app access in THIS database. Name, email and
+     * role belong to Main and are left alone; `ir_model_access` rules are
+     * per-database rows, so nothing here can reach another database.
+     *
+     * This is the only way to grant an app the current database runs but Main
+     * does not — Rent A Car inside a rental workspace, say. Main's own
+     * checklist never offers it, because Main is not that kind of business,
+     * so the tick could not be made there at all.
+     */
+    private function writeGlobalAccessHere(): void
+    {
+        $target = User::query()->find($this->editingId);
+
+        if ($target === null || ! $this->actorCanManage($target)
+            || $target->home_workspace_id !== null || $target->isAdmin()) {
+            return;
+        }
+
+        $provisioner = app(UserProvisioner::class);
+        $role = $provisioner->roleOf($target);
+
+        // An administrator bypasses the ACL, so there are no grants to write.
+        if ($role->grantsApps()) {
+            $provisioner->grantApps($target, array_values($this->apps), $role);
+        }
+
+        app(\App\Erp\Activity\ActivityLogger::class)->log(
+            'user_updated',
+            (string) $target->email,
+            __('Set :name’s app access for this database', ['name' => (string) $target->name]),
+        );
+
+        $this->reset(['editingId', 'editingGlobal', 'name', 'email', 'role', 'apps', 'workspaces', 'lockToWorkspace', 'lockWorkspaceId']);
+        session()->flash('user_saved', __('App access updated for this database.'));
     }
 
     private function confirmedUpdate(): void
     {
         $this->validate();
+
+        if ($this->editingGlobal) {
+            $this->writeGlobalAccessHere();
+
+            return;
+        }
 
         $workspaceId = $this->currentWorkspaceId();
         if ($workspaceId !== null) {
@@ -688,28 +875,89 @@ final class UserManager extends Component
         }
     }
 
+    /**
+     * The installed, business-type-allowed application modules for ONE
+     * database — a null id means "whatever is active right now". Runs the
+     * query on that database's own connection via {@see WorkspaceManager::runFor()}
+     * (a no-op for Main/null), so `Features::moduleAllowed()` reads THAT
+     * database's own `company.business_type`, not the caller's.
+     *
+     * @return Collection<int, IrModule>
+     */
+    private function appsFor(?int $workspaceId): Collection
+    {
+        return app(WorkspaceManager::class)->runFor($workspaceId, static function (): Collection {
+            return IrModule::query()
+                ->where('application', true)
+                ->where('state', ModuleState::Installed)
+                ->orderBy('sequence')
+                ->get()
+                ->filter(static fn (IrModule $module): bool => Features::moduleAllowed((string) $module->name))
+                ->values();
+        });
+    }
+
+    /**
+     * The app checklist's options. Editing/creating inside one specific
+     * database (a workspace, or a shared account's per-database access) has
+     * exactly one database in play, so its own list is enough. Creating a
+     * brand-new account from Main offers the UNION of every TICKED target
+     * database's apps instead — so an admin can tick Rent A Car for a rental
+     * workspace even though Main itself never runs it. Nothing ticked yet
+     * falls back to Main's own list (today's default view, before a pick).
+     *
+     * @return Collection<int, IrModule>
+     */
+    private function appModulesForForm(?int $currentWorkspaceId): Collection
+    {
+        if ($currentWorkspaceId !== null || $this->editingGlobal) {
+            return $this->appsFor($currentWorkspaceId);
+        }
+
+        if ($this->workspaces === []) {
+            return $this->appsFor(null);
+        }
+
+        /** @var Collection<int, IrModule> $union */
+        $union = collect();
+        $seen = [];
+        foreach ($this->workspaces as $rawId) {
+            if (! is_numeric($rawId)) {
+                continue;
+            }
+
+            foreach ($this->appsFor((int) $rawId) as $module) {
+                if (isset($seen[$module->name])) {
+                    continue;
+                }
+
+                $seen[$module->name] = true;
+                $union->push($module);
+            }
+        }
+
+        return $union->sortBy('sequence')->values();
+    }
+
     public function render(): View
     {
-        // Only the apps this database's business type actually exposes — the
-        // same gate the top app bar and module menus use. Without it the tab
-        // offered Rent A Car / Limousine / … on a database that doesn't run
-        // them, and ticking one granted access to an app the user can't see.
-        /** @var \Illuminate\Support\Collection<int, IrModule> $apps */
-        $apps = IrModule::query()
-            ->where('application', true)
-            ->where('state', ModuleState::Installed)
-            ->orderBy('sequence')
-            ->get()
-            ->filter(static fn (IrModule $module): bool => Features::moduleAllowed((string) $module->name))
-            ->values();
+        $workspaceId = $this->currentWorkspaceId();
+
+        // Only the apps actually exposed by whichever database(s) this form
+        // is acting on — the same gate the top app bar and module menus use.
+        // Without it the tab offered Rent A Car / Limousine / … on a café
+        // that doesn't run them, and ticking one granted access to an app
+        // the user can't see. When creating a brand-new account from Main,
+        // "acting on" means the UNION of the databases ticked below (a
+        // rental workspace's apps only show up once it's ticked); everywhere
+        // else there's exactly one database in play.
+        $apps = $this->appModulesForForm($workspaceId);
 
         // All databases (Main + tenants) — Main is no longer implicit, the
         // admin picks it like any other.
         $workspaces = Schema::hasTable('workspaces')
             ? app(WorkspaceManager::class)->all()
             : collect();
-
-        $workspaceId = $this->currentWorkspaceId();
         $workspaceName = null;
         if ($workspaceId !== null) {
             $workspace = app(WorkspaceManager::class)->find($workspaceId);
@@ -720,7 +968,7 @@ final class UserManager extends Component
             ->orderByDesc('is_super_admin')
             ->orderByDesc('is_admin')
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'is_admin', 'is_super_admin', 'is_accountant', 'home_workspace_id']);
+            ->get(['id', 'name', 'email', 'is_admin', 'is_super_admin', 'is_accountant', 'is_paused', 'home_workspace_id']);
 
         return view('livewire.settings.user-manager', [
             // NB: keys must NOT clash with the public $apps / $workspaces

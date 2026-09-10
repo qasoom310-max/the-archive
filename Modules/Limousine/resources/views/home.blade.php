@@ -51,7 +51,7 @@
                     <svg class="size-4" viewBox="0 0 20 20" fill="currentColor">{!! $ic['plus'] !!}</svg>{{ __('New booking') }}
                 </a>
                 <div class="flex flex-wrap gap-2 lg:justify-end">
-                    @foreach ([['Bookings', '/app/limousine/booking'], ['Quotations', '/app/limousine/quotation'], ['Invoices', '/app/limousine/invoice'], ['Receipts', '/app/limousine/receipt'], ['Expenses', '/app/limousine/expense'], ['Reports', '/app/limousine/reports']] as [$lbl, $href])
+                    @foreach ([['Bookings', '/app/limousine/booking'], ['Quotations', '/app/limousine/quotation'], ['Invoices', '/app/limousine/invoice'], ['Receipts', '/app/limousine/receipt'], ['Coupons', '/app/limousine/coupon'], ['Expenses', '/app/limousine/expense'], ['Reports', '/app/limousine/reports']] as [$lbl, $href])
                         <a href="{{ url($href) }}" wire:navigate class="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90 ring-1 ring-white/10 transition hover:bg-white/20">{{ __($lbl) }}</a>
                     @endforeach
                 </div>
@@ -68,9 +68,13 @@
         @php
             $cards = [
                 ['label' => __('Bookings Queue'), 'value' => $queue, 'href' => url('/app/limousine/booking?tab=queue'), 'icon' => 'queue', 'tint' => 'bg-amber-50 text-amber-600 ring-amber-100'],
+                // Confirmed sits between Queue and Active and had no card, so a
+                // trip that had been confirmed was counted on none of them: agreed
+                // with the customer, and invisible everywhere but the queue's own tab.
+                ['label' => __('Confirmed Trips'), 'value' => $confirmed, 'href' => url('/app/limousine/booking?tab=confirmed'), 'icon' => 'calendar', 'tint' => 'bg-sky-50 text-sky-600 ring-sky-100'],
                 ['label' => __('Active Bookings'), 'value' => $active, 'href' => url('/app/limousine/booking?tab=active'), 'icon' => 'bolt', 'tint' => 'bg-indigo-50 text-indigo-600 ring-indigo-100'],
                 ['label' => __('Completed Trips'), 'value' => $completed, 'href' => url('/app/limousine/booking?tab=completed'), 'icon' => 'check', 'tint' => 'bg-emerald-50 text-emerald-600 ring-emerald-100'],
-                ['label' => __('Unpaid Bookings'), 'value' => $unpaid, 'href' => url('/app/limousine/booking'), 'icon' => 'alert', 'tint' => 'bg-red-50 text-red-600 ring-red-100'],
+                ['label' => __('Unpaid Bookings'), 'value' => $unpaid, 'href' => url('/app/limousine/booking?tab=unpaid'), 'icon' => 'alert', 'tint' => 'bg-red-50 text-red-600 ring-red-100'],
             ];
         @endphp
         @foreach ($cards as $card)
@@ -85,18 +89,22 @@
                 <div class="text-sm font-medium text-chrome-500">{{ $card['label'] }}</div>
             </a>
         @endforeach
-        {{-- Revenue --}}
-        <div class="{{ $tile }} bg-gradient-to-br from-indigo-600 to-violet-700 ring-0">
-            <div class="flex items-center justify-between">
-                <span class="flex size-9 items-center justify-center rounded-xl bg-white/15 text-white ring-1 ring-white/20">
-                    <svg class="size-5" viewBox="0 0 20 20" fill="currentColor">{!! $ic['cash'] !!}</svg>
-                </span>
-                <span class="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/90">{{ __('Collected') }}</span>
-            </div>
-            <div class="mt-3 text-2xl font-bold tracking-tight text-white">{{ \App\Erp\Views\ValueFormat::money($revenue) }}</div>
-            <div class="text-sm font-medium text-white/70">{{ __('Revenue') }}</div>
-        </div>
     </div>
+
+    {{-- Revenue and the targets measured against it: the owner's alone. --}}
+    @if ($isSuperAdmin)
+        @include('partials.revenue-targets', [
+            'tile' => $tile,
+            'revenue' => $revenue,
+            'targets' => $targets,
+            'schedules' => $schedules,
+            'gradient' => 'bg-gradient-to-br from-indigo-600 to-violet-700',
+            'unpaidHref' => url('/app/limousine/booking?tab=unpaid'),
+            'fleetHref' => url('/app/limousine/earnings'),
+            'fleetLabel' => __('Limousine earnings'),
+        ])
+        @include('partials.top-customers', ['customers' => $topCustomers, 'tile' => $tile])
+    @endif
 
     {{-- ───────── Schedule strip ───────── --}}
     <div class="mb-3 flex items-center gap-2">
@@ -105,14 +113,20 @@
     </div>
     <div class="mb-8 grid gap-4 sm:grid-cols-3">
         @php
+            // Each card opens the queue filtered to its own day, so the number
+            // is a way in rather than a fact to go and look up by hand.
             $dayCards = [
-                ['label' => __("Yesterday's Bookings"), 'value' => $yesterdayCount, 'badge' => __('Yesterday'), 'active' => false],
-                ['label' => __("Today's Bookings"), 'value' => $todayCount, 'badge' => __('Today'), 'active' => true],
-                ['label' => __("Tomorrow's Bookings"), 'value' => $tomorrowCount, 'badge' => __('Tomorrow'), 'active' => false],
+                ['label' => __("Yesterday's Bookings"), 'value' => $yesterdayCount, 'badge' => __('Yesterday'), 'active' => false, 'date' => $yesterdayDate],
+                ['label' => __("Today's Bookings"), 'value' => $todayCount, 'badge' => __('Today'), 'active' => true, 'date' => $todayDate],
+                ['label' => __("Tomorrow's Bookings"), 'value' => $tomorrowCount, 'badge' => __('Tomorrow'), 'active' => false, 'date' => $tomorrowDate],
             ];
         @endphp
         @foreach ($dayCards as $card)
-            <div class="relative overflow-hidden rounded-2xl p-5 shadow-sm ring-1 {{ $card['active'] ? 'bg-gradient-to-br from-chrome-900 to-chrome-800 ring-0' : 'bg-white ring-chrome-900/[0.06]' }}">
+            {{-- tab=all explicitly: the queue opens on Queue now, but this card counts
+                 the whole day across every status, and the number has to equal the
+                 rows it opens. --}}
+            <a href="{{ url('/app/limousine/booking') }}?tab=all&from={{ $card['date'] }}&to={{ $card['date'] }}" wire:navigate
+               class="relative block overflow-hidden rounded-2xl p-5 shadow-sm ring-1 transition hover:-translate-y-0.5 hover:shadow-pop {{ $card['active'] ? 'bg-gradient-to-br from-chrome-900 to-chrome-800 ring-0' : 'bg-white ring-chrome-900/[0.06]' }}">
                 @if ($card['active'])<div class="pointer-events-none absolute -right-8 -top-10 size-32 rounded-full bg-indigo-500/25 blur-2xl"></div>@endif
                 <div class="relative flex items-center justify-between">
                     <span class="flex size-9 items-center justify-center rounded-xl ring-1 {{ $card['active'] ? 'bg-white/10 text-indigo-300 ring-white/15' : 'bg-chrome-100 text-chrome-500 ring-chrome-200' }}">
@@ -122,7 +136,7 @@
                 </div>
                 <div class="relative mt-3 text-3xl font-bold tracking-tight {{ $card['active'] ? 'text-white' : 'text-chrome-900' }}">{{ $card['value'] }}</div>
                 <div class="relative text-sm font-medium {{ $card['active'] ? 'text-white/60' : 'text-chrome-500' }}">{{ $card['label'] }}</div>
-            </div>
+            </a>
         @endforeach
     </div>
 

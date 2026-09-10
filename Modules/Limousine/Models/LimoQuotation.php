@@ -32,6 +32,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $car_type
  * @property float $fare
  * @property string $status
+ * @property Carbon|null $sent_at
+ * @property string|null $sent_to
  * @property string|null $notes
  * @property-read LimoCustomer|null $customer
  * @property-read \Illuminate\Database\Eloquent\Collection<int, LimoLeg> $legs
@@ -57,6 +59,7 @@ final class LimoQuotation extends Model implements DefinesIrModel
         'reference', 'quote_date', 'customer_id', 'contact_person', 'requested_by',
         'prepared_by', 'contact_number', 'pickup_location_id', 'dropoff_location_id',
         'booking_id', 'pickup_at', 'valid_until', 'car_type', 'fare', 'status', 'notes',
+        'sent_at', 'sent_to',
     ];
 
     /** @var array<string, mixed> */
@@ -75,6 +78,7 @@ final class LimoQuotation extends Model implements DefinesIrModel
             'booking_id' => 'integer',
             'pickup_at' => 'datetime',
             'valid_until' => 'date',
+            'sent_at' => 'datetime',
             'fare' => 'float',
         ];
     }
@@ -107,6 +111,56 @@ final class LimoQuotation extends Model implements DefinesIrModel
     }
 
     /** Spawn a queued booking from this quotation (idempotent). */
+    /**
+     * Accepting a quote raises the INVOICE, not the trip.
+     *
+     * The chain the accountant works to is quote → invoice → trip → receipt:
+     * the customer agrees a price, we bill it, and the journey is dispatched
+     * against that bill. Going straight to a trip skipped the document the
+     * money is actually owed under.
+     *
+     * The quote stays ACCEPTED rather than converted — it becomes converted
+     * when the trip is created from the invoice, which is the step that turns
+     * a price into a journey.
+     */
+    /**
+     * The invoice this quote was billed as, if it has been accepted.
+     *
+     * What tells the list a quote has already been processed: `booking_id` no
+     * longer does, because the trip is now dispatched from the invoice rather
+     * than raised with it — so between the two steps a quote has an invoice and
+     * no booking, and would otherwise be offered for processing all over again.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne<LimoInvoice, $this>
+     */
+    public function invoice(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(LimoInvoice::class, 'quotation_id');
+    }
+
+    public function convertToInvoice(): LimoInvoice
+    {
+        $existing = LimoInvoice::query()->where('quotation_id', $this->id)->first();
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $invoice = new LimoInvoice();
+        $invoice->customer_id = $this->customer_id;
+        $invoice->quotation_id = $this->id;
+        $invoice->issue_date = Carbon::now();
+        $invoice->due_date = Carbon::now()->addWeek();
+        $invoice->subtotal = (float) $this->fare;
+        $invoice->total = (float) $this->fare;
+        $invoice->notes = $this->notes;
+        $invoice->save();
+
+        $this->status = self::STATUS_ACCEPTED;
+        $this->save();
+
+        return $invoice;
+    }
+
     public function convertToBooking(): LimoBooking
     {
         if ($this->booking_id !== null) {
@@ -131,10 +185,24 @@ final class LimoQuotation extends Model implements DefinesIrModel
         $booking->save();
 
         // Copy the priced legs across so the booking carries the same trip plan.
+        //
+        // Deliberately NOT everything. A leg's reference is unique, so copying
+        // it verbatim made converting a quote fail outright — the new trip is a
+        // new trip and takes its own running number. The rest left behind is a
+        // life the quotation's leg never had: a quote is not dispatched, not
+        // signed for and not cancelled, so those fields start empty rather than
+        // arriving pre-filled with another row's history.
         foreach ($this->legs as $leg) {
-            $copy = $leg->replicate(['legable_type', 'legable_id']);
+            $copy = $leg->replicate([
+                'legable_type', 'legable_id', 'reference', 'status',
+                'signature_path', 'signed_at', 'signed_name', 'signed_ip',
+                'service_order_sent_at',
+                'cancelled_at', 'cancellation_reason', 'refund_outcome', 'refund_amount',
+            ]);
             $copy->legable_type = $booking->getMorphClass();
             $copy->legable_id = $booking->id;
+            // A booked trip starts in the queue, waiting to be dispatched.
+            $copy->status = LimoLeg::STATUS_QUEUE;
             $copy->save();
         }
         if ($this->legs->isNotEmpty()) {

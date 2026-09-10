@@ -691,6 +691,56 @@ found the earlier audit's fixes all intact but surfaced two it hadn't reached:
   embeds customer data must carry an unguessable filename** (a random token), not just a
   sequential id.
 
+**Bespoke forms scroll to the first invalid field (shipped 2026-08-27).** On a tall
+hand-written form (the limousine booking was the report — a required *Requested by*
+sitting below the fold) the stock `$this->validate()` rendered the inline `@error` but
+left the viewport put, so pressing **Save** looked like it did nothing — the message the
+user needed was off-screen and the page never scrolled. New reusable trait
+**`App\Livewire\Concerns\ScrollsToFirstError`** exposes `validateFocusing(...)`, a drop-in
+for `$this->validate(...)` with the same signature: on failure it reads the first key from
+the validator's error bag and `$this->dispatch('scroll-to-error', field: <key>)` **before
+re-throwing** (the exception is unchanged, so every inline `@error` still renders exactly
+as before — the Livewire dispatch survives the thrown `ValidationException`, verified by
+test). The master layout's `<body>` carries
+`x-on:scroll-to-error.window="window.scrollToFieldError($event.detail.field)"` (same pattern
+as `record-saved`/`theme-changed`), and `window.scrollToFieldError` (in `resources/js/app.js`)
+scans `input/select/textarea` for the control whose `wire:model` (any modifier) value equals
+the field — nested keys like `legs.0.start_at` included — `scrollIntoView({block:'center'})`s
+it and focuses it (both honour `prefers-reduced-motion`). Wired into **all 11 bespoke
+Rental + Limousine forms** (every `*Form` that calls `$this->validate()` — Rental
+Customer/Invoice/Maintenance/Order/Quotation/Receipt/Replacement, Limousine
+Booking/Invoice/Quotation/Receipt). **Rule: a bespoke form's save uses `validateFocusing()`,
+not `validate()`** — the engine FormView already scrolls its own errors, so this is only for
+the hand-written module forms. No new user-facing strings (nothing to translate); the JS
+ships via deploy's `npm run build`. Test: `tests/Feature/ScrollsToFirstErrorTest.php` (failed
+save dispatches the first failing field, a later required field is the one pointed at, a valid
+save dispatches nothing).
+
+**Mobile form polish (shipped 2026-09-03).** Two touch-device fixes in the ERP chrome
+(not the WordPress plugin — that's a separate codebase):
+
+- **No iOS auto-zoom on inputs.** iOS Safari zooms the page whenever a focused input's
+  font-size is `< 16px`. Rather than lock the viewport scale (which also kills pinch-zoom,
+  an accessibility regression), a `@media (max-width: 767px)` block at the **end of
+  `resources/css/app.css`** forces `font-size: 16px` on `input` (except checkbox/radio/range),
+  `select`, `textarea`. Light-mode/desktop untouched.
+- **Native OS date picker on phones.** The shared **`<x-date-field>`** component
+  (`resources/views/components/date-field.blade.php`) draws a desktop-only formatted text
+  overlay + calendar button on top of a real (hidden) `datetime-local`/`date` input. On a
+  phone that overlay is useless — the scripted picker is unreliable — so a
+  `@media (pointer: coarse)` block in `app.css` **reveals the real native input** (class
+  `date-field-native`) as the visible, tappable control and **hides** the desktop text box
+  + calendar button (`date-field-text` / `date-field-cal`). So mobile taps open the phone's
+  own OS date/time wheel. **Do NOT "fix" the empty/hidden desktop overlay or the
+  0-opacity native input — that layering is deliberate** (the native input carries the
+  Livewire binding on both platforms; only its visibility swaps by pointer type).
+
+Also that day: the limousine leg **Rate/Discount/VAT** number fields now show a **`0`
+placeholder** instead of a literal `'0'` value (`HandlesTripLegs::emptyLeg()` seeds `''`,
+`legs.blade.php` adds `placeholder="0"`), so typing doesn't have to clear a leading zero.
+Rate stays `required|numeric`, discount/VAT are `nullable|numeric` (Laravel `nullable`
+accepts `''`), and `buildLegs()` coerces blank → 0 at save.
+
 **Phase 7 — Point of Sale module (`Modules/Pos/`, depends on `contacts`):**
 
 | Concern | Location |
@@ -2010,6 +2060,95 @@ there's one place a role is set and one set of guards).
   `RentalPaymentConfirmationTest::test_only_a_super_admin_can_grant_the_accountant_role`
   retargeted from the removed toggles to the role picker. AR keys added.
 
+**Pause a user account (shipped 2026-09-08):** every user row in Settings →
+Users now has a **3-dot menu** (Edit / Pause·Unpause / Delete) replacing the
+plain "Edit"/"remove" text links — same isolated per-row Alpine scope +
+`@click.outside` pattern as the app-bar dropdowns. Pausing an account signs it
+out **immediately** and refuses sign-in until an admin unpauses it. This is
+**core** (not module-scoped) — it works identically in Main and every
+workspace, with no dependency on business type or company identity (unlike
+the Sweileh Café happy-hour feature, which is deliberately gated to one
+database).
+
+| Concern | Location |
+|---|---|
+| Schema | `users.is_paused` (bool, default false) + `paused_at` (nullable timestamp) — core migration `2026_09_08_100001_add_is_paused_to_users_table`, so it auto-applies to Main via `migrate --force` and backfills every tenant via `workspaces:migrate` |
+| Model | `User::isPaused()` — column-guarded like `isSuperAdmin()`/`isAccountant()` (reads false on a not-yet-migrated DB) |
+| Instant kill | `App\Erp\Security\SessionKiller::killFor(User)` — deletes the paused user's rows from the **sessions** table and rotates their `remember_token`. Sessions always live on the LANDLORD (Main) connection (`WorkspaceServiceProvider` pins `session.connection` to the boot-time default so a tenant swap never logs anyone out — see `[[workspaces-tenancy-architecture]]`), so the row to delete is keyed by the **Main-matched** copy of the account (by email), never a tenant-local id. Best-effort (wrapped try/catch) — it is defence-in-depth, not the authoritative guard |
+| Authoritative guard | `App\Http\Middleware\EnsureUserIsNotPaused` — appended to the `web` group right after `SetActiveWorkspace` (so it reads the correct per-database row) and before `SetLocale`. Re-checks `is_paused` on **every** request for the currently-resolved user; if paused it force `Auth::logout()`s, invalidates the session, and `abort(419)`s — reusing the app's existing "session expired" handling (a Livewire AJAX request treats 419 as expired and reloads silently via the `window.confirm` override in the master layout; a plain page load renders `errors/419.blade.php`, which reloads the current URL via JS). Either path lands on `/login` because the session is already dead. This is what actually guarantees an instant kick regardless of session driver or a live "remember me" cookie re-authenticating them on some later request |
+| Sign-in rejection | `App\Livewire\Auth\Login::login()` — after `Auth::attempt()` succeeds, checks `isPaused()`; if paused it logs them straight back out and throws a validation error ("Your account has been paused. Contact your administrator.") **without** counting it against the rate limiter (the credentials were correct) |
+| Guards on pausing | `UserManager::canPause()` — can't pause **yourself** (an instant, unrecoverable self-lockout since only another admin could undo it) or the **last admin** (mirrors the existing `canDelete()` guard). Unpausing carries no such risk and needs no guard |
+| 2FA | `togglePause()` carries the same email-OTP gate as edit/delete (`ConfirmsWithEmailOtp`, action `user.pause`) — a regular admin confirms an emailed code, a super admin acts immediately |
+| Activity log | `user_paused` / `user_unpaused` action codes added to `ActivityLog::LABELS`/`COLORS` |
+| Tests | `AccessControlTest::{test_a_paused_users_very_next_request_signs_them_out, test_a_paused_user_cannot_sign_in_even_with_the_right_password}` · `UserManagerTest::{test_pausing_a_user_kills_their_session_and_marks_them_paused, test_unpausing_a_user_restores_their_account, test_an_admin_cannot_pause_themselves, test_a_shared_accounts_pause_can_be_toggled_from_inside_a_workspace}` · `SuperAdminTest::{test_regular_admin_must_pass_email_otp_to_pause_a_user, test_super_admin_pauses_a_user_without_otp}` |
+
+AR keys added: Pause / Paused / Unpause + the pause-confirm and paused-login
+strings.
+
+**Fixed same day — pause must not require a trip to Main.** The first cut
+scoped `togglePause()` by `belongsHere()` (same rule as Edit/Delete), so a
+**global** account (shared across every database — every admin in the
+screenshot the owner sent back showed "Managed on Main" with no actions at
+all) could only be paused from Main. That defeats the point: an admin managing
+one business's database needs to be able to block someone's access to THAT
+database right now, without switching databases. **Pause is not an identity
+edit** — `is_paused` is a per-database column like any other, so toggling it
+on whatever row exists in the CURRENTLY ACTIVE connection is always correct,
+global account or not. Fix: `performTogglePause()` dropped the `belongsHere()`
+check entirely; the blade's action menu now renders Pause/Unpause on **every**
+row (`$canTogglePauseOn` = `$canManage && ! $isSelf && ! $isLastAdmin`,
+independent of `$inScope`/`$canSetAccessHere`) while Edit/Edit access/Delete
+stay scope-gated exactly as before. `$showActionsMenu` decides whether the
+3-dot button renders at all (nothing to show for a self-row that's both
+out-of-scope and not yet paused). Test:
+`UserManagerTest::test_a_shared_accounts_pause_can_be_toggled_from_inside_a_workspace`
+(pauses/unpauses both a shared staff row and a shared ADMIN row from inside a
+workspace, neither locked to it).
+
+**Remove a login from every database — `user:remove` (shipped 2026-09-08):**
+the CLI twin of Settings → Users' **Delete**, for the case the screen can't
+serve the job: a GLOBAL account (shared across every database, "Managed on
+Main") can only ever be deleted from Main through the UI — deleting one from
+inside a workspace is refused there on purpose (its identity belongs to
+Main). Mirrors the existing `user:ensure` / `ensure-user.yml` pair exactly,
+but for removal instead of provisioning.
+
+| Concern | Location |
+|---|---|
+| Service | `UserProvisioner::deleteEverywhere(string $email, ?array $onlyWorkspaceIds = null)` — `null` = every database (Main included); iterates `WorkspaceManager::all()`, deleting via the existing `deleteUser()` on whichever connection is active for that row (`withMain()` / `withTenant()`). A database with no matching account is silently skipped. Returns the list of database names an account was actually removed from |
+| Command | `App\Console\Commands\RemoveUserCommand` (`user:remove {email} {--databases=all}`) — `php artisan user:remove admin@example.com` removes it everywhere; `--databases=3,7` restricts to those workspace ids (Main's own id must be included explicitly to touch Main) |
+| Manual workflow | `.github/workflows/remove-user.yml` (`workflow_dispatch`, inputs `email` + `databases`) — SSHes into erp.wanaan-bh.com and runs the command, same pattern as `ensure-user.yml` |
+| Tests | `tests/Feature/RemoveUserCommandTest.php` (5 — removes on Main, no-op when nothing matches, removes a shared account from Main **and** a provisioned workspace, `--databases` restricts to just the given workspace, requires an email) |
+
+First real use: removing the seeded demo `Administrator / admin@example.com`
+account from Main and every workspace it had been copied into at provisioning
+time. **Not** the same account as `BOOTSTRAP_ADMIN_EMAIL` (the `admin:ensure`
+recovery login re-asserted on every deploy, named "Wanaan Admin") — the two
+are unrelated, so removing the demo admin does not get undone by the next
+deploy.
+
+**Set the system-wide default language — `language:set-default` (shipped
+2026-09-10):** `company.language` is the fallback locale a **guest** on the
+login page (and any signed-in user with no personal preference) gets — see
+`App\Http\Middleware\SetLocale`. There is **no in-app control for it**:
+the Settings page's "Language" row looks like it should own this, but it's
+deliberately a **personal** preference (reads/writes `Auth::user()->language`,
+never the `ir_config_parameter` row — see `SettingsPage`'s `PER_USER_LANGUAGE_KEY`),
+so an admin toggling their own language never touches what a brand-new visitor
+sees. This command is the only way to change it, same shape as `user:remove`.
+
+| Concern | Location |
+|---|---|
+| Command | `App\Console\Commands\SetDefaultLanguageCommand` (`language:set-default {code=en} {--databases=all}`) — validates `code` against `en`/`ar` (same whitelist `SetLocale` enforces), iterates `WorkspaceManager::all()` via `withMain()`/`withTenant()` and calls `Setting::set('company.language', $code)` on each (idempotent; a database already on the code is just re-set and still reported) |
+| Manual workflow | `.github/workflows/set-default-language.yml` (`workflow_dispatch`, inputs `code` + `databases`) — SSHes into erp.wanaan-bh.com and runs the command, same pattern as `remove-user.yml` |
+| Tests | `tests/Feature/SetDefaultLanguageCommandTest.php` (4 — sets on Main, rejects an unsupported code, sets every workspace too, `--databases` restricts to just the given workspace) |
+
+First real use: forcing every live database (Cheeky, Hashtag limo, Kaleem
+Perfume W.L.L, Wanaan Car Rental W.L.L, Swelieh Cafe/Main) to `en`, so a
+brand-new visitor or freshly-created user with no personal language choice
+always lands in English regardless of what `company.language` had drifted to
+on that database.
+
 **App lists must go through `Features::moduleAllowed()` (fixed 2026-07-13):**
 the business-type gate has to be applied at **every** surface that lists
 installed application modules, not just the app bar. Two were missing it and
@@ -2179,6 +2318,364 @@ the tab, a segmented sun/moon/monitor control). It's a **per-user** preference
 
 Scope note: the **guest/login page stays light** (pre-auth, no user row) — dark mode is the authenticated app only. The **accent** likewise applies to the authenticated app only (login/receipts stay brand yellow). The brand **logo/favicon SVGs are not recoloured** by the accent (they're fixed assets). Coverage is broad (neutral surfaces/text/inputs/chrome across every screen), but bright *tinted* banners (`bg-emerald-50` etc.) and any bespoke non-chrome colours aren't remapped — refine per-screen if needed. To retune the palette, edit the values in the `.dark` block; to add a spot that needs hand-tuning, use a `dark:` Tailwind variant (now enabled).
 
+**Forgotten password — self-service reset by email (shipped 2026-09-05):**
+
+A **"Forgot your password?"** link on the login card (beside Remember me) so a
+locked-out user gets back in without an admin. Email a link → set a new
+password → sign in. Uses Laravel's stock password broker (the
+`password_reset_tokens` table already ships in `0001_01_01_000000_create_users_table`
+and `config/auth.php` already declares the `users` broker — no migration, no config).
+
+| Concern | Location |
+|---|---|
+| Request screen | `App\Livewire\Auth\ForgotPassword` (`/forgot-password`, route `password.request`, **guest** group) + `resources/views/livewire/auth/forgot-password.blade.php`. Takes an email, calls `Password::broker()->sendResetLink()`, then swaps the form for a "Check your email" notice (`$sent`) |
+| Reset screen | `App\Livewire\Auth\ResetPassword` (`/reset-password/{token}`, route `password.reset`, **guest** group) + `reset-password.blade.php`. `mount(string $token, ?string $email)`; `Password::broker()->reset()` rehashes and rotates `remember_token`, fires `PasswordReset`, flashes to `session('status')` and redirects to `/login` (the login view renders that flash in an emerald pill) |
+| Mail | `App\Notifications\ResetPasswordLink` — **deliberately NOT queued** (a person is waiting at the sign-in screen, and the queue only drains when the host's minute cron fires — same reasoning as `TwoFactorGate`'s OTP; memory `[[hostinger-cron-needed-for-queue-worker]]`). `User::sendPasswordResetNotification()` overrides Laravel's stock English mail with this translated one. **Sends through whatever `.env` configures** — prod is Hostinger SMTP (`[[prod-mail-transport-environment-specific]]`); with no SMTP the link silently never arrives |
+
+**Why the workspace layer needs no special handling here.** Both routes are in
+the **guest** group, and `SetActiveWorkspace` short-circuits an unauthenticated
+request (`if (! Auth::check()) return $next($request);`) — so a reset always
+reads and writes **Main**, the canonical identity store, which is the same row
+`Login` authenticates against. A workspace-created account's real row lives in
+its tenant DB, but only its **Main login shell** holds the password that signs
+in, so rewriting Main is both correct and sufficient. This is the opposite of
+the email-verification route's problem (that one is open to guests *and* needed
+a `ws` parameter because it edits a per-database record).
+
+Deliberate choices, don't "fix" them:
+
+- **The reply never says whether the address exists.** A hit and a miss both
+  render "Check your email"; only a genuine throttle (`RESET_THROTTLED`) or a
+  malformed address shows an error. A different message on a hit would turn the
+  box into a way of asking "does this person have an account here?".
+- **Two throttles.** The broker's own `'throttle' => 60` (config/auth.php) stops
+  one mailbox being flooded; a `RateLimiter` keyed on the visitor's IP (5 per
+  5 minutes) stops one visitor working through a list of addresses.
+- **`$token` is `#[Locked]`** on `ResetPassword` — it identifies the account
+  being rewritten, and Livewire lets the browser set any unlocked public property
+  (the engine-hardening rule from 2026-08-24). `$email` is deliberately NOT
+  locked: it isn't secret and the token is bound to it, so typing a different
+  one can never reset anybody else — and it has to be typeable when a link
+  arrives without it.
+- **The email rides in the QUERY STRING, and Livewire does not pass query
+  parameters to `mount()`** — only route segments. `mount()` reads
+  `request()->query('email')` explicitly. The first cut didn't, so every mailed
+  link opened a screen that refused with "The email field is required" (found
+  by the owner on 2026-09-07). When the link carries no email the screen shows
+  an Email box instead of failing. Pinned by
+  `test_the_emailed_link_fills_the_email_in_so_nobody_types_it`, which hits the
+  real GET URL — `Livewire::test()` with mount params cannot reproduce it.
+- **Printable-ASCII only** on the new password (`regex:/^[\x20-\x7E]*$/` +
+  the `beforeinput` filter and `<x-password-ascii-notice />` from the profile
+  screen), so a password stays typeable on a keyboard set to any language.
+- **Username-only staff (POS cashiers) have no email**, so they cannot use this
+  — an admin still resets them from Settings → Users, or via
+  `EnsureStaffUserCommand`. That is not a bug; it is what a null email means.
+
+Tests: `tests/Feature/PasswordResetTest.php` (16 — link on the login screen,
+send emails the account, unknown address looks identical, malformed address
+refused, the emailed URL carries token + email, reset changes the password and
+kills the old one, a token is single-use, a forged token changes nothing,
+confirmation + length enforced, non-ASCII refused, the link's email is read from
+the real URL, a bare link asks for it, `#[Locked]` token, IP rate limit,
+signed-in users bounced). 20 `lang/ar.json` keys added.
+
+**New users get a generated password by email — no password field (shipped 2026-09-07):**
+
+The Settings → Users form (every database) no longer has a Password box. On
+**create**, the ERP generates a strong password, provisions the account with it,
+and **emails the person** their sign-in details plus the way to pick their own.
+On **edit**, passwords are never touched — the person changes theirs from
+"Forgot your password?" on the sign-in screen (the self-service reset above).
+
+| Concern | Location |
+|---|---|
+| Generation | `UserManager::generatePassword()` → `Str::password(16, symbols: false)` — 16 letters + digits (~95 bits), **no symbols** so it survives being copied out of an email, and it satisfies the printable-ASCII rule the profile/reset screens enforce. Never shown to the admin |
+| Mail | `App\Notifications\WelcomeCredentials(name, email, password)` — subject "Your {company} account" (`Setting::get('company.name')`, falling back to `app.name`), the email + password, a **Sign in** button (`route('login')`), and the **forgot-password URL** for choosing their own. Sent **on demand** (`Notification::route('mail', $email)`) because the row may have just been written into a *different* database from the one the admin is in — only the address matters. **Synchronous**, same reasoning as the reset link and the OTP |
+| Wiring | `UserManager::welcome()` runs AFTER provisioning in both create paths (Main `save()` and workspace `writeWorkspaceUser()`) and returns the flash text. The form is `reset()` before it runs, so **capture `$name` first** — the greeting read an empty name until that was pinned (`test_creating_a_user_emails_them_a_generated_password_that_signs_in` asserts `$mail->name`) |
+| Failure | A mail failure (SMTP down) is caught + `report()`ed and the flash says so: *"User created, but the email could not be sent. Ask them to use 'Forgot your password?'"*. The account is **not** rolled back — it already exists across the chosen databases, and the reset flow is the recovery path |
+
+Why the "choose your own" link is the **forgot-password page, not a reset
+token**: a token expires in 60 minutes and a welcome mail is routinely opened
+days later. The person asks for a fresh link when they are ready.
+
+Consequences to keep in mind:
+
+- **`EnsureStaffUserCommand` (CLI) still takes a typed password** — it is the
+  break-glass path when the Users screen can't be used, and it prints nothing
+  by email. Unchanged on purpose.
+- **`UserProvisioner` signatures are unchanged** (`provision(..., string $plainPassword, ...)`,
+  `provisionLocked(..., ?string $plainPassword, ...)`); only the caller changed
+  from "what the admin typed" to "what we generated" (null on edit = keep).
+- The blade note under the two fields says what happens (create vs edit
+  wording). `sm:grid-cols-3` → `sm:grid-cols-2`.
+- Tests: `UserManagerTest` — 22 `->set('password', …)` calls removed (+4 more in
+  `ActivityLogTest` / `WorkspaceLockTest`, which CI caught first), the
+  `password => min` assertion dropped, + 3 new (generated password is emailed
+  on demand to the right address with the right name and actually signs in;
+  the mail carries email/password/forgot-link/login action; editing never
+  changes the hash and sends no second mail). 11 `lang/ar.json` keys.
+
+**Quotation lists: row checkboxes narrow the downloads (shipped 2026-09-07):**
+
+Both bespoke quotation lists (Limousine `/app/limousine/quotation`, Rental
+`/app/rental/quotation`) gained a checkbox column. Tick rows and **Copy / CSV /
+Excel / PDF / Print act on just those**; tick nothing and they act on the whole
+tab, exactly as before. Asked for by the owner as "the checkboxes like the one
+in Customers" - note the engine list's checkboxes are for bulk DELETE and its
+exports still cover the whole filtered set; this is the first list whose
+exports honour a selection.
+
+| Concern | Location |
+|---|---|
+| Selection state | `App\Livewire\Concerns\SelectsListRows` (shared trait): `$selected` (ids; the browser sends strings), `$selectPage` (header box -> `currentPageIds()`), `updatedSelected()` drops the header's "all" claim, `clearSelection()`, `selectedIdsParam()` (comma-joined for links), `isSelected()`. Host implements `currentPageIds()` and calls `clearSelection()` from `updatedTab()` - a tick on one tab is not a tick on another |
+| Hosts | `Modules\Limousine\Livewire\Quotations` + `Modules\Rental\Livewire\Quotations`: `currentPageIds()` re-runs the Rows service query for `getPage()` x 20, same order as the list |
+| Export scoping | `LimoQuotationRows::all(string $tab, array $ids = [])` / `RentalQuotationRows::all(...)` add `whereKey($ids)` when given; both `*QuotationExportController`s parse `?ids=3,7,12` via `ids()` (junk/empty = whole tab). Blades add `'ids' => $this->selectedIdsParam()` to the export query string |
+| Copy | `copyTableById()` in `resources/js/app.js`: rows with `data-row-selected="1"` narrow the copy (thead kept); cells with `data-copy-skip` (the checkbox column) never go. Server-rendered attributes, so a `wire:model.live` tick is accurate on the next copy |
+| Rental gotcha | the Rental row is `onclick="window.location=..."` (the whole row opens the quote), so its checkbox cell carries `onclick="event.stopPropagation()"` |
+| UI | header checkbox (`Select all on this page`), per-row checkbox, and in the export bar a ":count selected / Clear selection" pill, or the hint "Tick rows to export only those." `colspan` 6 -> 7. 3 `lang/ar.json` keys |
+| Tests | `LimoBespokeExportTest::{test_quotation_export_narrows_to_the_ticked_rows, test_the_header_box_ticks_the_page_and_the_download_links_carry_the_ids}`, `RentalBespokeExportTest::{test_quotation_csv_narrows_to_the_ticked_rows, test_the_header_box_ticks_the_page_and_the_download_links_carry_the_ids}` |
+
+**To give another bespoke list the same:** `use SelectsListRows`, implement
+`currentPageIds()`, call `clearSelection()` on filter change, add `'ids'` to
+its export query, give its Rows service an `$ids` parameter and its export
+controller the `ids()` parser, and mark the checkbox cells `data-copy-skip` +
+rows `data-row-selected`.
+
+**Rental receipts got the same (2026-09-07)** — `/app/rental/receipt`, asked for
+by the owner off the Receipts screen. Its scope is a **search string**, not a
+tab, so `clearSelection()` hangs off `updatedSearch()`: a tick made against one
+search is not a tick against the next. While wiring it, `Receipts::render()` was
+switched from its **own hand-copied query** to `RentalReceiptRows::query()` —
+the two were identical, but the header checkbox reads the Rows service, so
+letting them drift would make "select all on this page" select something other
+than the page. **A list with a Rows service should render from it**; that is why
+it exists.
+
+**Invoices got the same (shipped 2026-09-08)** — Rental `/app/rental/invoice`
+gained the full `SelectsListRows` treatment (header checkbox, per-row
+checkbox, `data-row-selected`/`data-copy-skip`, `ids` on every export link) —
+it had no selection at all before. **Limousine `/app/limousine/invoice`
+already had a checkbox column** (it exists to pick invoices for a **combined
+bill**, via its own hand-rolled `$selected`/`selectAll()` — not the
+`SelectsListRows` trait, since "select all" there means every filtered row,
+not just the current page), but ticking a row did **not** narrow Copy/CSV/
+Excel/PDF/Print — those always covered the whole tab. Wired the existing
+`$selected` into the export query (`'ids' => implode(',', $selected)`) and
+`LimoInvoiceRows::all()` (new optional `array $ids = []`, `whereKey($ids)`
+when given) + `LimoInvoiceExportController::ids()` (same parser as the
+Quotation controllers), and added `data-row-selected`/`data-copy-skip` to its
+table so Copy narrows the same way. **Two different selection mechanisms
+narrowing exports is fine** — the export controller only cares about the
+`ids` query param, not how a screen produced it.
+
+**Limo invoice PDF redesigned + the toolbar "PDF" now downloads real invoice
+documents when rows are ticked (shipped 2026-09-08):** `invoice-pdf.blade.php`
+was rebuilt to match a reference template the owner supplied — a solid gold
+(`#FFC837`) band across the top, a large plain "INVOICE" title with issue/due
+date + invoice number as small label/value columns beside it, Bill from /
+Bill to, a plain-ruled Date/Description/Amount item table (no separate
+price/qty split — this document doesn't have that data), and a right-aligned
+totals box with **Balance due** bold above a top rule (still the headline,
+not Total). It does **not** use the shared `<x-pdf-styles />` component —
+that dark-letterhead/gold-accent family is a different visual language from
+this reference design, so the file carries its own `<style>` block. The
+Partial badge is the same gold with dark text (never white-on-brand-yellow).
+
+The body markup is shared via `Modules/Limousine/resources/views/partials/
+invoice-body.blade.php` with a new sibling document,
+`invoices-batch-pdf.blade.php`: several invoices as ONE pdf, one full page
+each (`page-break-before` between them), sharing a single `<x-document-footer
+/>` (its `position: fixed` repeats on every physical page DomPDF paginates,
+manual page breaks included). **Why this exists:** the invoices list's
+toolbar "PDF" (next to Copy/CSV/Excel/Print, narrowed by the row checkboxes)
+used to ALWAYS render the generic tabular list report
+(`exports/list-print.blade.php`, shared by every list in the app) regardless
+of what was ticked — so ticking one invoice and pressing "PDF" produced a
+plain data table, not the actual bill, which read as "the old pdf" once the
+real invoice document had a new look. `LimoInvoiceExportController::pdf()`
+now branches: ticked rows → their own invoice document(s) via the new
+`LimoInvoicePdf::renderMany()` (one row → `render()`, same as the per-row
+download icon); nothing ticked → unchanged tabular report. CSV/Excel/Print
+are untouched — still the plain tabular export, ticked or not. Tests:
+`LimoBespokeExportTest::{test_invoice_pdf_with_one_ticked_row_downloads_that_invoice_document,
+test_invoice_pdf_with_several_ticked_rows_downloads_them_as_one_document,
+test_invoice_pdf_with_nothing_ticked_still_exports_the_tabular_report}`. AR
+keys: "Bill from" / "Bill to".
+
+**A shared account's app access is set inside each database (shipped 2026-09-07):**
+
+Settings → Users, inside a workspace, gained an **"Edit access"** action on a
+**global** account (one shared with every database, `home_workspace_id` null,
+labelled *Managed on Main*). It opens a cut-down form: name / email / role are
+shown read-only, and only the **apps checklist** is editable. Saving writes
+`ir_model_access` rules **in the current database only**.
+
+**Why this had to exist.** `UserManager::render()` and
+`UserProvisioner::grantApps()` both filter apps through
+`Features::moduleAllowed()`, which reads *that database's own*
+`company.business_type`. Main is a **café**, so its checklist only ever offers
+contacts / pos / inventory / accounting / purchases — **Rent A Car and
+Limousine cannot be ticked there at all**. A global account therefore could
+never be granted them for a rental workspace: the tick was unavailable on Main,
+and the workspace's own screen refused to edit the account. Found live: Prejith
+(accountant, global) had 4 rules in the Wanaan database — accounting ×2,
+contacts, purchases — and no rental/limousine access whatever, though the owner
+had "given her access to all databases".
+
+| Concern | Location |
+|---|---|
+| Flag | `UserManager::$editingGlobal` — set by `editUser()` when, inside a workspace, the target is global (`home_workspace_id === null`) **and not an admin**. An admin bypasses the ACL, so there is nothing to grant and the form does not open (the pre-existing "global stays read-only" test covers exactly that case) |
+| Validation | `rules()` returns **only** the `apps` rules while `$editingGlobal` — the identity fields aren't editable, and the role rule (`Rule::in($assignable)`) would otherwise reject a regular admin editing an accountant |
+| Write | `UserManager::writeGlobalAccessHere()` — re-reads the role with `roleOf()` (never from the form), calls `grantApps()` on the **current** connection, logs `user_updated`. Reached from `saveInWorkspace()` (which takes the email-OTP gate first) and from `confirmedUpdate()` after that gate |
+| Not editable | name / email / role (Main owns the identity - editing it here would silently diverge every other database) and **delete**: `canDeleteHere()` still requires `belongsHere()`, so a shared account is removed on Main, not from one database |
+| UI | List: `$canSetAccessHere` (`$workspaceId && ! $inScope && home_workspace_id === null && ! is_admin`) renders **Edit access** in an `@elseif` — deliberately NOT by widening the existing `@if ($inScope && $canManage)`, because the **remove** button is nested inside it. Form: heading "Edit app access", a read-only who-this-is panel, credentials + role block hidden, button "Save app access" |
+| Tests | `UserManagerTest::{test_a_shared_accounts_app_access_can_be_set_from_inside_a_workspace, test_a_shared_accounts_name_email_and_role_are_left_to_main, test_a_shared_account_still_cannot_be_deleted_from_inside_a_workspace}` + the existing global-admin no-op test, comment sharpened. 7 `lang/ar.json` keys |
+
+**Rule: ACL grants are per-database rows, identity is Main's.** Anything that
+edits a shared account from inside a workspace must stay on that side of the
+line.
+
+**Statement of account — company reference + column alignment (shipped 2026-09-07):**
+
+The owner marked up a printed statement. Two things, both in
+`limousine::statement-pdf` and `LimoStatement`:
+
+- **A "Company ref." column**, between Description and Receipt no. — the
+  customer's own order number (`limo_bookings.company_reference`, the same
+  field and the same label the combined invoice already prints), so their
+  accounts department can tie a line to **their** paperwork and not only to
+  ours. A **payment** row shows the reference of the bill it answers
+  (`receipt.invoice.booking`, falling back to the receipt's own booking) —
+  otherwise a page of receipts traces back to nothing. The nested eager load
+  needs the FK selected: `invoice:id,reference,booking_id` **plus**
+  `invoice.booking:id,reference,company_reference`.
+- **The money headings were left-aligned over right-aligned figures.**
+  `.ledger th` (0,0,1,1) out-specifies `.num` (0,0,1,0), so Charge / Payment /
+  Balance printed hard against their columns' left edge while the figures under
+  them sat right — measured at **19.8 / 24.0 / 13.3pt adrift**. Fixed with
+  `.ledger th.num { text-align: right; }`. **Watch this whenever a `.num`-style
+  utility meets an element-qualified table rule** — the utility silently loses.
+
+Column widths were then rebalanced (date 60 · reference 68 · description auto ·
+company ref. 100 · receipt 86 · charge 72 · payment 72 · balance 80) because at
+the first attempt "COMPANY REF." wrapped to a second line, and at the second
+"RECEIPT NO." did. Both were found by **rendering the PDF and reading the text
+placements back out of its content streams** — DomPDF writes **UTF-16BE**, so
+the "spaces" between letters in a `TJ` array are NUL bytes; strip `\x00` before
+matching, or every needle misses.
+
+Tests: `LimoStatementTest` (+4 — every line carries the customer's reference and
+a payment shows the bill's, the column prints, the heading rule is present, and
+**every ledger row spans the same eight columns** — a wrong `colspan` on the
+brought-forward or closing row shunts every figure sideways, which is how a
+statement starts lying).
+
+**A limousine receipt says who raised it (shipped 2026-09-07):**
+
+`limo_receipts.prepared_by` (module migration `2026_09_07_950030`) + a
+**"Prepared by"** slot on the receipt beside Received by / Stamp — the line the
+pre-printed pad had, filled in by hand.
+
+- **A name snapshot, not a foreign key**, for the same reason `confirmed_by` is
+  one: a receipt is a financial document and must still read correctly after
+  the account that raised it is renamed or deleted.
+- **The account's `name`** — the username people sign in under — **never the
+  email**, which is not what anyone would write on a receipt.
+- Stamped in a **`creating` hook on the model**, not at the call sites: a
+  receipt is created in **five** places (`ReceiptForm`, `BookingPayments`
+  ×2, `BookingImporter`, `ReceiptImporter`) and any of them could forget. A
+  CLI import runs with nobody signed in and leaves it unset.
+- **Deliberately not backfilled**, and an unset value prints **no line** (the
+  two signing slots stay evenly split). We do not know who typed the historical
+  rows, and a name invented onto a financial document would be a lie.
+
+Tests: `LimoReceiptDocumentTest::{test_the_receipt_records_and_prints_who_raised_it,
+test_an_older_receipt_prints_no_prepared_by_line}`.
+
+**The limousine receipt is stamped, not counter-signed (shipped 2026-09-07):**
+
+`limousine::receipt-pdf`'s second signature slot said **"Customer signature"**;
+it now says **"Stamp"**. A receipt is our acknowledgement that the money
+arrived — the customer is not attesting to anything by being paid up, and the
+office stamps these, exactly as the old printed pad did. The **rental
+agreement keeps its "Customer signature"**: that one is a contract, and the
+customer really is signing it. Pinned by
+`LimoReceiptDocumentTest::test_the_second_slot_is_the_company_stamp_not_a_customer_signature`.
+
+**One footer band on every printed page (shipped 2026-09-07):**
+
+Every page the system prints carries the same grey band: company name + phone
+numbers on the left, address (and email / website) on the right. Asked for by
+the owner, who supplied Wanaan's numbers and its new Juffair address.
+
+Three families, all fed by the same component:
+
+1. **The documents a customer receives** — the rental **agreement**, and the
+   limousine **quotation / invoice / combined invoice / receipt / statement /
+   coupon voucher / service order**.
+2. **Every list Print and PDF in the app** — they all render through the one
+   shared `resources/views/exports/list-print.blade.php`
+   (`App\Erp\Export\TabularRenderer`), plus the limousine driver queue's own
+   copy of that layout, `limousine::queue-print`. **This family was missed on
+   the first pass** and the owner found it immediately by printing a
+   quotations list: patching the eight documents does nothing for the list
+   exports, because they share no markup with them.
+3. **Reports** — `purchases::reorder-pdf`, `pos::daily-report-pdf`,
+   `pdf.payslip`, `pos::stock-report-print`.
+
+**When adding a new printable page, drop `<x-document-footer />` in and widen
+the `@page` bottom margin to 60px.** To find them all again:
+`grep -rn "Pdf::loadView" app Modules` — every PDF in the system is rendered
+from one of those call sites.
+
+| Concern | Location |
+|---|---|
+| The band | `resources/views/components/document-footer.blade.php` — an **anonymous Blade component** that reads its own data from `Setting`, so a host document just drops `<x-document-footer />` in and passes nothing |
+| DomPDF vs a browser | The band defaults to `fixed` (per page, what DomPDF wants). A page a **browser** prints passes **`:fixed="false"`** and gets an ordinary block after the last row instead — browsers disagree about whether a fixed element repeats per page, and on screen `bottom: -50px` sits below the window entirely. The two list views serve both a Print view and a PDF download from one template, so they pass `:fixed="$forPdf"` |
+| DomPDF renders as `screen`, not `print` | `default_media_type` is **`screen`**, so a `@media print { body { margin: 0 } }` block in a shared Print/PDF view does **not** apply to the PDF — the body margin lands on top of the `@page` margin there. DomPDF's own default `@page` margin is **`1.2cm`** (`vendor/dompdf/dompdf/lib/res/html.css`), so a view with no `@page` rule of its own takes `@page { margin: 1.2cm 1.2cm 60px; }` — top and sides unchanged, only the bottom grown |
+| Data | Seven General settings, all **per database**: `company.phone` (hotline, printed first), `company.phone_alt` (free list — split on `, ; /`), `company.address`, `company.email`, `company.website`, and — added 2026-09-07 from the owner's old pre-printed rental receipt — `company.vat_number` and `company.cr_number` (migration `2026_09_07_100003`). `company.phone`/`company.email` were **already read** by the limousine PDF services but had **no `ir_config_parameter` row**, so they were unreachable from Settings and every footer printed the company name alone |
+| Layout | Left cell: company name, then `Hotline: …` with every number, then `VAT No.: … · CR No.: …`. Right cell (right-aligned): address, then email / website. That mirrors the pre-printed pad the office used to fill in by hand |
+| Rows created | `SettingSeeder` (new databases) **and** core migration `2026_09_07_100002_add_company_contact_settings` (existing ones) — insert-only, never touches a saved value. The migration is the one that matters: `SettingSeeder` runs against **Main only** on deploy, while `workspaces:migrate` carries a core migration into **every workspace** |
+| Repeats per page | `position: fixed; bottom: -50px` — that is how DomPDF repeats a band on every page. Each host reserves **60px** in its `@page` bottom margin. **Measured, not guessed** (a two-page probe rendered with DomPDF and read back through the PDF's own coordinates): band occupies y 7.5–38pt on **both** pages, lowest body text at y 62 — 24pt of clearance |
+| Empty databases | The band prints only when this database has **at least one contact detail** (a phone, address, email or website). A company **name alone is deliberately not enough** — every document already prints the name in its header, and an unconfigured database still answers the `"OpenERP"` default, which would put a stranger's name on the foot of a real customer's invoice (Hashtag Limo's live database does exactly that). So an unconfigured business gets **no grey bar at all** |
+
+**Never hardcode an address or a number in these views.** `Modules/Rental` and
+`Modules/Limousine` are shared by every business on the system, so anything
+baked in prints on Hashtag Limo's paperwork too. That had already happened:
+`service-order-pdf` carried `Shop 2082, Road 5669, Block 356` and
+`Tel: +973 17474949` in its markup — the office has since moved, so it was
+printing the **wrong** address for Wanaan and someone else's for everyone else.
+Both are gone; the band supplies them from settings.
+`DocumentFooterTest::test_the_old_hardcoded_address_is_gone_from_the_service_order`
+keeps them gone.
+
+Deliberately **not** given the band:
+
+- **`rental::agreement-print`** — an overlay of absolute mm positions onto
+  pre-printed stationery. That paper has its own footer; ours would land on top
+  of it.
+- **`pos::receipt-pdf` and `pos::receipt-print`** — the till slip (a 360px-wide
+  roll, `@page margin: 0`) and its browser twin. A full-width grey band does not
+  belong on a receipt, and the slip already prints the shop's phone at the top.
+
+Both are pinned by `test_the_thermal_receipt_slip_is_left_alone`, so a later
+sweep doesn't "helpfully" add them. Everything else that renders a PDF or a
+print view **does** carry the band — including `queue-print`, which was on this
+exclusion list on the first pass and is now included.
+
+Wanaan's own values (workspace 7) are **data, not code**: hotline
+`+973 17474949`, plus `+973 39991869` and `+973 39991830`, at *Shop 4, Building
+18, Road 4101, Block 341, Juffair, Bahrain*. Any admin changes them in
+**Settings → General**, and every document follows on the next print.
+
+Tests: `tests/Feature/DocumentFooterTest.php` (12 - prints name/numbers/address/
+email, hotline first, separators, no empty band, a name on its own is not worth
+a band, one contact detail is enough, fixed positioning, **all fourteen printable
+views carry the tag and reserve the 60px margin**, a list export prints the band
+under its rows, the browser-print variant lays it out in the flow, the till slip
+and the stationery overlay are left alone, the old hardcoded address stays gone).
+
 **Profile self-service (shipped 2026-05-21):**
 
 | Concern | Location |
@@ -2218,6 +2715,641 @@ a tenant can't switch in); background **queue jobs** run in the Main context
 (queue pinned to Main); no backup/duplicate/rename; provisioning is synchronous
 (~seconds, installs every module); creating a MySQL/Postgres workspace isn't
 supported (SQLite files only, per the chosen architecture).
+
+**A form component's `id` must not be typed `?int` (fixed 2026-09-05):**
+
+Opening **`/app/rental/customer/new`** 500ed with
+`CustomerForm::mount(): Argument #1 ($id) must be of type ?int, string given`.
+**A route segment is always a STRING**, and a non-numeric one ("new") cannot
+coerce to `int`, so the mount blew up before any of the component's own logic
+ran. The same signature sat in **29 form components across every module**
+(`grep "public function mount(?int \$id"`), so every `/new` page carried the
+same latent 500. All of them now take **`int|string|null $id = null`** and
+normalise as their first statement:
+
+```php
+// A route segment is always a string, and a non-numeric one
+// ("new") means a new record rather than a bad request.
+$id = is_numeric($id) ? (int) $id : null;
+```
+
+**Rule: a full-page Livewire component's route-bound scalar takes
+`int|string|null` and normalises in the body — never `?int`.** (`whereNumber()`
+on the route is not enough on its own: it constrains one route, while the
+component is reachable from several — the Rental customer form also serves the
+Limousine customer routes.) Test:
+`RentalCustomerProfileTest::test_a_non_numeric_id_opens_the_create_form_instead_of_erroring`,
+which calls `mount()` **through the container** with string params (how Livewire
+mounts a page component) — `Livewire::test($class, ['id' => 'new'])` does NOT
+reproduce it, because the test harness also assigns params onto the typed public
+property and fails differently.
+
+**Rental customer import — full column set + enrichment + workspace targeting (shipped 2026-09-03; phone matching 2026-09-05):**
+
+`Modules\Rental\Support\CustomerImporter` (shared by the Import button on both apps'
+Customers pages AND `php artisan rental:import-customers <file.csv>`) was extended for
+the full Wanaan customer export:
+
+- **Columns:** on top of Name / Type / CPR / Phone / E-mail it now reads Country
+  (name **or** ISO-2 → stored as the ISO-2 code the customer form uses; unknown names
+  store null — see `COUNTRY_ALIASES` for spellings beyond `RentalCustomer::countries()`,
+  e.g. UAE / USA / Canada / Turkey), Licence No., Nationality, CR Number, Contact
+  Person, Contact Person Phone, Address. Header aliases cover "Customer Type" /
+  "CPR / ID" etc. Phones with two numbers jammed together (`+9665…+44…`) keep the
+  first number.
+- **Enrichment, not just skip:** an existing customer matched by CPR/CR → phone →
+  (only when the row has neither) name gets their **blank** fields filled from the row
+  — a filled field is NEVER overwritten. Result counts are
+  `{imported, updated, skipped}`; the upload toast shows all three.
+- **Phones match across country codes (2026-09-05).** A local number and the same
+  number carrying its country code are ONE phone: matching is exact-first, then by
+  a shared **ending of at least `PHONE_SUFFIX_MIN` (7) digits** (trunk zero dropped),
+  via a `$byPhoneEnding` index so it stays O(1) per row. This is the same rule
+  `PosCustomerDiscount::findForPhone()` uses. It matters a lot on real exports: the
+  Wanaan limousine customer list held "38381200" for people we store as
+  "+97338381200" — without it the import would have created **449** customers where
+  only **108** were genuinely new. A `Status` column of `Inactive`/`no`/`0`/`false`
+  creates the customer switched off (**on create only** — a matched customer keeps
+  the active flag we already have).
+- **`--workspace=<id>`** on the command imports into a tenant database via
+  `WorkspaceManager::runFor()`; an unknown id **fails** instead of silently falling
+  through to Main (a bulk import into the wrong database is the disaster case).
+- **Wanaan data migration (2026-09-03 → 09-05), all into workspace id 7.** The old
+  system's exports were loaded in this order, each behind a fresh server-side
+  backup (`~/wanaan-pre-*.sqlite`): customers (3,769) → invoices (1,318, original
+  `INV/…` numbers) → receipts (12,799, which recompute each invoice's paid status)
+  → drivers (124) → rental orders (1,658, with 27 retired cars kept **inactive** so
+  their history still opens) → quotations (558) → fleet (164 active cars, matched by
+  plate so orders stayed attached) → limousine bookings (15,393 + 16,074 legs) →
+  the limousine-only customers (108 new). **Original document numbers were preserved
+  as the row ids** wherever the old system had them, so "Booking #15329" is `BK/15329`.
+  Sheet columns with no model field (rental "Vehicle Type", per-leg hours) were
+  dropped deliberately.
+- Tests: `tests/Feature/RentalCustomerImportTest.php` (13 — full-column mapping +
+  ISO codes, enrich-blank-keep-filled, jammed phone, country-code phone match,
+  short-number guard, inactive status, name-fallback dedupe, unknown-workspace
+  refusal, plus the original import/dedupe/endpoint/gate set).
+
+**Wanaan service-order payment portal (built 2026-09-01; FULLY LIVE on Tap live keys 2026-09-03):**
+
+Lets a limousine booking be paid online: the agent raises a **payment link** for a
+trip (a "partition" — a deposit, one leg, or the whole balance; the amount is
+agent-chosen, pre-filled with the remaining balance), the link is generated on the
+**Wanaan WordPress site** (`wanaan-bh.com`), the customer opens it and pays via
+**WooCommerce + Tap WebConnect**, and WordPress calls back to mark the booking paid.
+Both halves now ship — the ERP module (below) AND the WordPress plugin
+`wanaan-service-order` (see the plugin section below). Deployed and **fully live on
+Tap live keys — taking real money end-to-end** for the `wanaan` database. TEST-mode
+notes elsewhere are historical.
+
+| Concern | Location |
+|---|---|
+| Config (per-database, OFF by default) | `limo_portal_configuration` table + `Modules\Limousine\Models\LimoPortalConfiguration` (`portal_url`, `shared_secret` **encrypted**, `enabled`). `enabled` defaults **false** — the master switch the manager can flip off in one place; `isConfigured()` gates every push |
+| Payment link ("partition") | `limo_payment_links` table + `LimoPaymentLink` — one row per link (booking can have many). The **row id is the idempotency key** the portal + callback quote back (`erp_payment_id`), so a re-send updates and a replayed callback can't pay twice. `leg_id`/`booking_id`/`created_by_user_id` are logical refs |
+| Signing scheme (shared with WP) | `Modules\Limousine\Support\PortalSignature` — `X-Wanaan-Timestamp` + `X-Wanaan-Signature` = hex HMAC-SHA256 of `"<timestamp>.<raw-body>"`, keyed by the shared secret; constant-time verify, 5-min window. **The WP plugin MUST reproduce `hash_hmac('sha256', $timestamp.'.'.$rawBody, $secret)` byte-for-byte** |
+| Outbound push | `Modules\Limousine\Services\ServiceOrderPortalClient::push()` — builds the Service-Order payload (same fields/sources as `ServiceOrderPdf`: trip facts from the **leg**, customer/PAX from the parent **booking**; **`amount` sent as an exact 3-dp BHD string** e.g. `45.000`; a customer **`email`** field — `serviceEmail()` prefers `service_email` then the general email — so WooCommerce/Tap prefills the checkout billing email), signs the raw JSON, POSTs to `{portal_url}/wp-json/wanaan/v1/booking` with a 5s timeout. **Never throws** — a WordPress outage returns false and the booking is untouched. Carries `ws` (the workspace id) so the callback re-enters the right database |
+| Inbound callback | `Modules\Limousine\Http\Controllers\PaymentCallbackController` at **public** `POST /limousine/payment-callback` (CSRF-excepted in `bootstrap/app.php`; HMAC is the only credential). Resolves `ws` via `WorkspaceManager::runFor()`, verifies against THAT database's secret, then settles once (lock + `credit`-guard) through the existing `BookingPayments::receive($booking, $amount, 'online')` — which issues the receipt and flips the booking to Paid only when the balance clears. **Uses OUR billed amount**, not the callback's; a mismatch is logged. Idempotent |
+| Agent action | `Bookings::openPaymentLink/createPaymentLink/closePaymentLink` + a "Create payment link" button (only shown when the portal is on) and modal on the bookings list — amount pre-filled with the balance, capped at it; the generated URL is **shown on-screen with a Copy button** to send the customer |
+| Settings | `LimoPortalSettings` at `/app/settings/limo-portal` (admin-only), a **"Service Portal"** tab in settings-nav — portal URL, shared secret (write-only), and the ON/OFF switch; shows the callback URL to give WordPress |
+| Deploy | The existing `deploy.yml` Limousine step (`migrate --path=Modules/Limousine/... --force` + `module:resync limousine`) auto-applies the two new migrations on live once merged to `main` — no manual SSH. **Until then it lives on a feature branch (deploy runs only on `main`), so live is untouched** |
+| Tests | `tests/Feature/LimoServiceOrderPortalTest.php` (6 — off-by-default no-op, signed push + stored link + exact `45.000`, callback settles + receipt + marks paid, bad signature 401, idempotent, agent creates a link) |
+
+**WordPress plugin `wanaan-service-order` (built 2026-09-03, lives in `wp-plugin/` in this repo but is NOT deployed by `deploy.yml` — `--exclude='wp-plugin/'`; installed by uploading the ZIP in WP admin):**
+
+The WP half. Distributed as a zip built from `wp-plugin/wanaan-service-order/` — **build
+the zip with .NET `ZipArchive` forcing forward-slash entry paths** (`.Replace('\\','/')`);
+Windows `Compress-Archive` writes backslash entries that WP's unzip rejects. Version
+constant `WANAAN_SO_VERSION` (currently 1.0.6). Structure:
+
+| Piece | File | What it does |
+|---|---|---|
+| Signature | `includes/class-wso-signature.php` | Mirrors the ERP `PortalSignature` exactly — `secret()` reads the **`WANAAN_PORTAL_SECRET` wp-config constant** (the shared HMAC secret lives ONLY here + the ERP encrypted config, never in the repo); `sign()`/`verify()` = `hash_hmac('sha256', "$ts.$rawBody", $secret)`, constant-time, 5-min window |
+| Install / schema | `includes/class-wso-install.php` | Creates `{prefix}wanaan_service_orders` via dbDelta; `SCHEMA_VERSION` self-heals on upgrade (v2 added `customer_email`) |
+| Repository | `includes/class-wso-repository.php` | Upserts keyed on `erp_payment_id` (the ERP row id = idempotency key); mints a `token` (`bin2hex(random_bytes(16))`); stores `customer_email` |
+| REST receiver | `includes/class-wso-rest.php` | `POST /wp-json/wanaan/v1/booking` (`permission_callback => __return_true`, HMAC is the only credential); verifies signature over the **raw** body, upserts, returns `{url, token}` |
+| Public pay page | `includes/class-wso-page.php` + `templates/service-order.php` | Rewrite `/service-order/{token}`, `noindex`. **No T&C checkbox** (removed 2026-09-03 — the customer already agrees on the ERP-side flow; don't double-gate). Shows trip facts + amount + a **Pay Now** button; `handle_pay` (admin-post) still records consent (time/IP/UA) then routes to checkout |
+| WooCommerce → Tap | `includes/class-wso-woo.php` | **cart → `/checkout/` flow** (see gotcha below). Loads the cart (`wc_load_cart()`), empties it, adds a hidden virtual "service" product carrying `wanaan_so_row/token/amount` as cart-item data, stashes customer name/email/phone to session, redirects to `wc_get_checkout_url()`. Hooks: `woocommerce_before_calculate_totals` (set the cart line's price to the exact amount), `woocommerce_checkout_create_order` (tag the order `_wanaan_service_order_id`), `woocommerce_checkout_order_processed` (link), `simplify_checkout_fields`/`prefill_checkout_value` (drop billing-address noise, prefill name/email/phone), `restrict_gateways` (keep only Tap when the cart holds a service item — **fails open**), `on_paid` (mark the row paid → fire the callback). `service_product_id()` lazily creates a hidden virtual `WC_Product_Simple` with `set_tax_status('none')` on the **product** |
+| Callback → ERP | `includes/class-wso-callback.php` | On paid, signs + POSTs to the ERP `{callback_url}/limousine/payment-callback`; WP-Cron backoff retry (`MAX_RETRIES=5`); callback URL in `wanaan_so_callback_url` option |
+| Admin | `includes/class-wso-admin.php` | Settings screen (capability + nonce guarded) for the callback URL etc. |
+
+**Hard-won WooCommerce/Tap gotchas (don't re-derive these):**
+- The Wanaan site is a **React front end** — the WooCommerce **order-pay** page
+  (`/checkout/order-pay/...`) is a **dead/blank route** there. Paying an existing order
+  by its pay URL shows nothing. The ONLY reliable flow is **cart → `/checkout/`** (a fresh
+  standard checkout), which is why the plugin adds a product to the cart and redirects.
+- **Tap builds its charge from product LINE ITEMS, not fee items.** A fee-only order gives
+  the Tap hosted page nothing to charge and it renders blank. Use a real product line.
+- `WC_Order_Item_Product` has **no `set_tax_status()`** (only `WC_Order_Item_Fee` does) —
+  calling it is a fatal white-screen. Set `tax_status` on the **product** instead. Catch
+  `\Throwable` (not just `Exception`) around the checkout wiring so a fatal degrades to a
+  `WP_Error`, not a white screen.
+- Verify the endpoints are live + HMAC-enforced with a signed-vs-unsigned curl — an unsigned
+  `POST /wp-json/wanaan/v1/booking` must return **401**.
+
+**Live since 2026-09-03 on Tap live keys.** The plugin is edited by re-uploading a freshly
+built ZIP in WP admin (there's no CI for `wp-plugin/`).
+
+**Ad calendar — when to advertise, from what actually sold (shipped 2026-09-07):**
+
+Admin-only page at **`/calendar`** (dashboard "Reports & Team" tile), one per
+database. Ads work when they run BEFORE demand, so for every selling window
+ahead it shows last year's takings for the SAME window and the date the ads
+must be live by. Built for Wanaan (Rental + Limousine) first; works in any
+database from whatever revenue sources it runs.
+
+| Concern | Location |
+|---|---|
+| Hijri engine | `App\Erp\Calendar\Hijri` — pure-PHP tabular (civil/"Kuwaiti") Gregorian⇄Hijri via Julian Day Numbers; **no `intl` dependency** (not guaranteed on the host). Round-trips exactly; sits within the usual ±1 day of the moon-sighting date, irrelevant to multi-day windows. `fromGregorian()` / `toGregorian()` / `daysInMonth()` |
+| Windows | `App\Erp\Calendar\EventWindow` (readonly VO: key, label, start, end, kind `islamic\|national\|custom\|closed`, country, `hijri` flag). **`lastYear()` shifts an Islamic window by a HIJRI year** — Eid last year lines up with Eid this year even though they're 11 days apart on the wall calendar. That one method is the "smart" part |
+| Known seasons | `App\Erp\Calendar\KnownEvents::between($from, $to, $markets)` — shared Islamic windows (Islamic New Year, Ashura, Mawlid, Isra & Mi'raj, Ramadan, Eid al-Fitr 1–4 Shawwal, Eid al-Adha 9–13 Dhu al-Hijjah; country `GCC`) plus **per-country national days** (`COUNTRIES`: BH/SA/KW/AE/QA/OM; Qatar Sports Day = 2nd Tuesday of Feb). A long weekend in Saudi/Kuwait/Qatar is a busy weekend in Bahrain, so a database picks which **markets** count |
+| Owner's own | `calendar_events` (core migration `2026_09_07_100001`, per database) + `App\Models\CalendarEvent` — name, dates, `kind` (`custom` = a season, `closed` = not operating), `recurs` (same Gregorian dates yearly). `windowsBetween()` projects recurring ones onto each year |
+| Sales | `App\Erp\Calendar\SalesHistory` — per-day revenue from `rental_orders` (start_date, not cancelled), `limo_bookings` (pickup_at, `amount`, not cancelled), `pos_orders` (ordered_at, Done). Sources = table exists AND `Features::moduleAllowed()`. `firstRecordDate()` — **days before the first sale, and closures, are "no data", never "no demand"**, so an imported history can't invent a dead season |
+| Planner | `App\Erp\Calendar\AdPlanner` — `heatmap()` (12-month day grid, five shades by quantile, event kinds per day, best/slowest month), `baseline()` (MEDIAN weekly revenue over 52 weeks, so Eid can't inflate "normal"), `plan()` (windows in the next `HORIZON_DAYS`=120: last-year revenue via `lastYear()`, uplift vs a normal week, per-app `launch.by` = start − lead days, status `overdue\|now\|live\|upcoming\|passed`), `unnamed()` (weeks ≥1.5× / ≤0.5× baseline with no known window — "name it"). **Rules per database** via settings `adcal.lead_days.{rental,limousine,pos}` (defaults 14/7/3) + `adcal.markets` (JSON, default `["BH","SA"]`); `SettingsPage::canSee()` hides `adcal.*` from the central page |
+| UI | `App\Livewire\Pages\AdCalendar` + `resources/views/livewire/pages/ad-calendar.blade.php` — KPI row, plan cards, heatmap (`dir="ltr"`, Fri–Sat underlined, hatched = no data), unnamed weeks, rules form, owner events CRUD modal. Route `/calendar` in core `routes/web.php` |
+| Tests | `tests/Feature/HijriCalendarTest.php` (11) · `tests/Feature/AdCalendarTest.php` (14 — incl. Eid-compared-with-last-Eid-by-Hijri-date, launch-by/overdue, closure = no data + excluded from baseline, unnamed peak) |
+
+**Not built yet (v2):** overlaying actual Google/Meta ad spend by date (the ads
+accounts are connected via MCP, not the app) so campaigns can be judged against the
+sales they moved; per-country Eid lengths (the shared Islamic window covers the
+longest official break); Saudi school holidays (variable, add as owner events).
+
+**Revenue is the owner's alone, with monthly + yearly targets (shipped 2026-09-10):**
+
+The Rental and Limousine dashboards each carried a gradient **Revenue** card
+showing all-time collected income to anyone who could open the screen. That
+figure is the whole business's takings, so it is now **super-admin only**, and
+it sits in a gated "Money" band together with a **monthly** and a **yearly**
+target measured against it.
+
+**The targets are gated for the same reason as the revenue card, not as an
+extra.** A box reading "62% of target" plus a target of 40,000 hands the income
+to anyone who can divide, so gating the card while leaving the targets on screen
+would gate nothing. Do not "helpfully" show the targets more widely.
+
+| Concern | Location |
+|---|---|
+| Engine | `App\Erp\Targets\RevenueTargets` — `monthly()` / `yearly()` / `set()` (settings-backed, so **per database**), `earned(app, from, to)`, `outstanding(app, from?, to?)`, and `progress(app, now?)` which returns everything the three boxes render |
+| Storage | `targets.{rental,limousine}.{monthly,yearly}` in `ir_config_parameter`. **`SettingsPage::canSee()` hides the `targets.` prefix** (like `features.` and `adcal.`) — `SettingManager::persist` would otherwise drop them into the General group, handing a regular admin both the figure and the box to change it |
+| Edit path | `App\Livewire\Concerns\EditsRevenueTargets` (shared trait; host supplies `targetsApp()`). `openTargets` / `closeTargets` / `saveTargets`, each `abort_unless(isSuperAdmin)` — **re-checked on the action**, since Livewire dispatches straight to a method and a mount-time gate is not a gate. Writes an `ActivityLogger` `settings_updated` entry |
+| UI | `resources/views/partials/revenue-targets.blade.php` (+ `revenue-targets-unpaid.blade.php`), `@include`d by both `rental::home` and `limousine::home` inside `@if ($isSuperAdmin)`. One partial, so the two dashboards cannot drift; each passes its own `gradient` and `unpaidHref` |
+| Tests | `tests/Feature/RevenueTargetsTest.php` (24) |
+
+Decisions to keep:
+
+- **Monthly and yearly are stored independently, NOT yearly = monthly × 12.**
+  Trade is seasonal — Eid and the F1 weekend are not a twelfth of the year each
+  — so a derived annual figure would be wrong in both directions.
+- **Each app counts revenue its own way, mirroring the card beside it.** Rental
+  is `SUM(total - outside_cost)` on paid orders (**net of outside vendors** —
+  markup, not gross); Limousine is `SUM(fare)` on paid bookings. A target
+  measured against a different number from the card next to it would be worse
+  than no target at all.
+- **"Not set" is a real state, distinct from a target of zero.** A blank box
+  clears the target and the box shows "Set a target" rather than 0% attained.
+- **Attainment counts COLLECTED money only**, so each box also carries what is
+  **still owed** in its own window (and the revenue card carries the all-time
+  total). A month at 60% with a big unpaid pile is a collection problem; the
+  same 60% with nothing owed is a sales one. The two apps owe differently — a
+  rental order has a settled `balance` column, a booking owes `fare - advance`
+  floored per row — and both rules live in `outstanding()`.
+- **The year is also shown as a PACE figure** (attainment against the part of
+  the year already elapsed), because comparing a part-year against a whole-year
+  target reads as failure every month until December.
+- **Rental's "Unpaid" link left the revenue card and became its own KPI tile**
+  in the Orders grid, visible to everyone. Chasing a balance is counter work,
+  not a report on the takings — gating the revenue card must not take it away.
+
+**Date-window gotcha (this bit an implementation and will again).**
+`rental_orders.start_date` is declared `date()`, but Eloquent's `date` cast
+writes **`"2026-09-01 00:00:00"`** into SQLite, while MySQL stores the bare
+`"2026-09-01"` — and SQLite compares either as a **plain string**. So a period
+must be bounded with a **date lower bound and a datetime upper bound**
+(`$from->toDateString()` … `$to->endOfDay()->toDateTimeString()`). Bounding both
+ends the same way silently drops a whole day at one end or the other, which is
+exactly how a target starts under-reporting without anyone noticing. Pinned by
+`test_a_sale_on_the_first_day_of_the_month_counts_toward_it`.
+
+**The money band shows its working, and names who to call (shipped 2026-09-10):**
+
+Built straight on top of the revenue/targets band above. Three additions, all
+**super-admin only** for the same reason the revenue card is — each of them
+states, or gives away, what the business earns.
+
+| Concern | Location |
+|---|---|
+| Where the money came from | `App\Erp\Targets\RevenueSchedule::forWindow(app, from, to, targetFactor)` — Rent A Car groups by **car**, Limousine by **car type** (it has no vehicle register). Rendered by `resources/views/partials/revenue-schedule.blade.php`, folded away behind "Where it came from" inside each target box |
+| Where the target came from | `RevenueTargets::fleet('rental')` = `SUM(monthly_target)` over **active, owned** vehicles + the count. Rendered by `partials/revenue-target-source.blade.php` |
+| Who pays us, and who stopped | `App\Erp\Customers\TopCustomers::forApp(app, now, limit)` + `partials/top-customers.blade.php` — top 15 by money collected over a rolling 12 months |
+| Tests | `tests/Feature/TopCustomersTest.php` (21) |
+
+**The schedule never disappears.** The first cut rendered nothing at all when
+a period had no collected money, so on a live database whose current month had
+no paid rows the owner went looking for the breakdown and could not find it —
+a control that vanishes is indistinguishable from a feature that was never
+built. An empty period now says "Nothing collected in this period yet.", and
+the closed state names the biggest single source so the panel is worth
+something before anyone clicks it. Pinned by
+`test_a_period_with_no_money_says_so_instead_of_vanishing`.
+
+**The schedule must reconcile with the box above it.** Same paid-only filter,
+same bounds, and everything past the top 8 folded into an "others" row rather
+than dropped — including money earned against **no car at all**, which is real
+money. A breakdown that does not add up to its own headline teaches people to
+distrust both. Pinned by `test_the_schedule_adds_up_to_the_figure_in_the_box_above_it`.
+
+**A target can now derive itself from the cars.** Every vehicle already carries
+a `monthly_target` (set on the car page, reported on Reports → Targets), so
+when the owner has typed no monthly target the fleet total is used and the box
+says "Added up from 12 cars' own monthly targets". What the owner typed always
+wins. A derived **year** is labelled an **estimate** (12 × the monthly) and says
+so, because twelve equal months is not how this trade runs — the same
+seasonality argument that keeps monthly and yearly stored independently.
+Limousine has no vehicle register, so it has no fleet figure and always types
+its targets.
+
+**Each customer is judged against THEIR OWN booking rhythm.** This is the whole
+point of the call sheet and the thing not to "simplify" later:
+
+- A company that hires every three weeks and has been quiet for eight has a
+  problem. A family that hires once a year and has been quiet for eight weeks
+  is behaving completely normally. One company-wide "quiet for 60 days" rule
+  calls both the same thing and is therefore **wrong about one of them every
+  time**. Pinned by the pair `test_a_regular_customer_who_has_stopped_is_flagged`
+  / `test_an_occasional_customer_quiet_for_the_same_time_is_not` — both quiet
+  for exactly 60 days, opposite verdicts.
+- The rhythm is the **MEDIAN** gap between jobs, never the mean: one long break
+  in an otherwise fortnightly customer would drag an average far enough to
+  excuse almost any silence.
+- Rhythm is read from the customer's **whole history**, not the 12-month
+  ranking window, or a customer of ten years reads as "new".
+- A **7-day grace floor** (`GRACE_DAYS`) stops a daily customer being called
+  "lost" for being one day late.
+- Statuses: `active` (within 1.25× their gap), `slipping` (to 2.5×), `lost`
+  (beyond), `new` (fewer than two jobs). Retune via the constants.
+
+**Reworked 2026-09-10 after the owner saw it on live data.** The first cut
+ranked over TWELVE months in ONE list, and on real data that filled with people
+who hired once and were last seen 290-350 days ago - every row reading "too few
+jobs to know their rhythm". A list of strangers, not a call sheet. Three changes:
+
+- **Six months, not twelve** (`WINDOW_MONTHS`), as whole calendar months so the
+  columns line up with months anyone would name out loud. This alone removed
+  every stale row from the owner's screenshot.
+- **Companies and individuals are ranked APART** (`GROUPS`), as client-side
+  tabs. A handful of corporate accounts otherwise crowd out every individual
+  and half the business never gets looked at. A customer whose `type` is blank
+  is treated as a person - an imported row has to land somewhere, not vanish.
+- **Every row carries its own month-by-month record** across those six months,
+  so "going quiet" is something the owner can SEE rather than trust.
+
+The rhythm is still read from the customer's **whole history**, not the
+six-month window, or a customer of years reads as new.
+
+**Two queries, not N+1.** One grouped query ranks the top 15; one more pulls
+those 15 customers' entire paid history, and rhythm, trend and last-seen are
+all computed in PHP from it. Adding a query per customer for any of those is
+the mistake to avoid.
+
+**Unpaid and anonymous work are excluded from the ranking**, since neither is
+money collected from someone we can ring — but anonymous money still counts in
+the `collected` total the shares are a percentage of.
+
+Every date comparison in this feature goes through
+**`RevenueTargets::windowBounds()`**, which is the one place the date/datetime
+rule below is decided. Use it for any new query here rather than writing bounds
+by hand.
+
+**Fleet earnings — is this car worth owning (shipped 2026-09-10):**
+
+Owner-only page at **`/app/rental/fleet`**, linked from the Rent A Car money
+band. Keeps the month-by-month matrix the office recognises (the same shape as
+Reports → Sales) and puts a scorecard under every row.
+
+**Why a revenue matrix was not enough.** It ranks a fleet BACKWARDS. A car that
+earned 24,000 over 300 rented days is a worse asset than one that earned 17,000
+over 120, and a revenue column puts the first one top. Pinned by
+`test_the_car_that_billed_more_can_be_the_worse_asset`.
+
+| Concern | Location |
+|---|---|
+| Engine | `Modules\Rental\Support\FleetPerformance::report()` — per-car months, utilisation, revenue per available day, maintenance, net, pace, idle cost, verdict; plus the fleet summary |
+| Page | `Modules\Rental\Livewire\FleetEarnings` + `rental::fleet-earnings` and `rental::partials.fleet-scorecard` |
+| Exports | `Modules\Rental\Http\Controllers\RentalFleetExportController` (CSV / Excel / PDF / Print via the shared `TabularRenderer`), gated the same as the page |
+| Per-car yearly target | `rental_vehicles.yearly_target` (migration `2026_09_10_900040`), edited beside the monthly one on the car page |
+| Tests | `tests/Feature/FleetEarningsTest.php` (21) |
+
+Decisions to keep:
+
+- **Utilisation and per-day are measured against the year SO FAR**, not all 365
+  days, or every car reads as a failure until December.
+- **Revenue per AVAILABLE day is the ranking**, not per rented day and not
+  total: a car earns nothing on the days it stands still and those days still
+  cost money.
+- **Idle cost uses each car's OWN achieved rate** (its list `daily_rate` when it
+  never moved, so a car that earned nothing still shows the full cost of
+  standing still). It is the page headline because it is the figure the owner
+  can act on today.
+- **`underused` and `behind` are different verdicts.** Not hired often enough is
+  a demand problem; hired constantly but cheaply is a pricing one. They look
+  identical in a revenue column and need opposite fixes.
+- **A hire is clamped to the window**, so one running December into January is
+  not counted twice, and an open hire counts up to today.
+- **A retired car that earned is shown but contributes 0 available days** — we
+  do not record when it left, so counting it as available all year would invent
+  idle days it never had. A retired car that earned nothing is dropped entirely.
+- **"Others" (money billed against no car) stays**, as it did in the old report,
+  or the page would disagree with the dashboard.
+- **A car's yearly target is its own, not twelve monthly ones.** Left blank it
+  falls back to 12 × monthly and the scorecard says on screen that it did.
+- **Limousine earnings on the same car are added in** — the limo desk books out
+  of this fleet, so a car's whole contribution was invisible while the two apps
+  reported separately. The column hides itself when no leg carries a car, which
+  is the case on imported data.
+
+**The limousine revenue breakdown was regrouped the same day.** It grouped by
+`limo_bookings.car_type`, which no import ever filled, so a whole year of
+takings rendered as one row reading "No car type recorded · 100%". `car_id` on
+the leg is empty on historic data too. It now groups by the **service type** of
+a booking's first leg (transfer / chauffeur), which is always set — while still
+summing the BOOKING's fare, so the rows keep reconciling with the box above.
+**Rule: pick the grouping field by what the data actually contains, not by what
+the schema offers.**
+
+**Two gotchas hit while building this:**
+
+- `chunkById()` needs the primary key in the `select()`, or it throws "the
+  chunkById operation was aborted because the [id] column is not present".
+- **Use `url()`, not `route()`, for module links in a view.** A module's routes
+  only register while it is installed, so a named-route lookup is fragile — and
+  it breaks outright in tests, where an in-test install happens after boot. The
+  test loads the module's routes by hand (`Route::middleware('web')->group(...)`),
+  the same workaround the other module route tests use.
+
+**Limousine earnings — drivers, routes and demand (shipped 2026-09-10):**
+
+Owner-only page at **`/app/limousine/earnings`**, linked from the Limousine
+money band. The counterpart to Fleet earnings, built on different units because
+**this desk has no car to rank**: no trip ever recorded one (`car_type` and the
+leg's `vehicle` both come from an import column that was absent, and `car_id`
+is never set by the importer). A per-car page here would be a single row
+reading "not recorded" — the exact mistake the first revenue breakdown made.
+
+| Concern | Location |
+|---|---|
+| Engine | `Modules\Limousine\Support\LimoPerformance::report()` — summary, drivers, routes, services, demand grid |
+| Page | `Modules\Limousine\Livewire\LimoEarnings` + `limousine::earnings` |
+| Tests | `tests/Feature/LimoEarningsTest.php` (18) |
+
+Decisions to keep:
+
+- **Everything counts TRIPS (legs), not bookings.** A driver drives a leg, a
+  route is a leg, and an hour belongs to a leg — it is the only grain on which
+  any of the three questions can be asked.
+- **A section that cannot be built SAYS SO** rather than rendering an empty
+  table. `drivers.available` / `routes.available` are false when no trip in the
+  year names one, and the page explains what to record to fill it in. This is
+  the whole lesson of the car-type mistake, made structural.
+- **The headline is the AVERAGE FARE against last year**, not the total. A desk
+  can run more trips than ever while discounting itself into trouble, and a
+  trip count alone calls that a good year.
+- **Routes are compared against the SAME route a year before**, never against
+  the fleet average — otherwise a genuinely cheap route reads as a decline.
+- **Driver and place names are trimmed and title-cased before grouping.** They
+  are free text filled in by hand over years, so "RAMESH", " ramesh " and
+  "Ramesh" are one person.
+- **The best-paying demand slot needs at least 5 paid trips.** One lucky airport
+  run at 400 would otherwise send the whole roster to an hour that never repeats.
+- **`limo_legs` is shared with quotations**, so every query filters
+  `legable_type` — without it a quote nobody accepted is reported as takings.
+  Pinned by `test_a_quotations_legs_are_never_counted_as_takings`.
+- **The night band wraps past midnight** and is the one range that cannot be
+  tested with a plain `between`.
+- **Petty-cash advances key on `driver_id`** while historic trips name a driver
+  in text, so "Advanced" shows a dash for a name that was never a record. That
+  is reported, not hidden.
+- The demand grid is `dir="ltr"` — it is a grid of times, and mirroring it puts
+  the week backwards.
+
+The shared money-band partial takes an optional **`fleetLabel`**, because
+"Fleet earnings" is the wrong name for a desk with no fleet.
+
+**Pricing API — the ERP as the only place a fare exists (shipped 2026-09-09):**
+
+Wanaan published fares in four contradicting places (WooCommerce products, page
+copy, the fare-widget plugin's built-in table, and whatever staff quoted on
+WhatsApp). These tables are now the source; the website reads them over a signed
+endpoint and caches the answer. **Phase 2, not built:** wiring the booking and
+quotation forms to read the same fares, so staff stop quoting from memory.
+
+| Concern | Location |
+|---|---|
+| Schema | Core migration `2026_09_09_100001_create_pricing_tables` — `pricing_cars` / `pricing_services` (string PKs: `sedan`, `airport`, quoted back by the website so never renumbered), `pricing_options`, `pricing_rates` (`decimal(8,3)` — the dinar is 1000 fils), `pricing_extra_hours`, `pricing_offers`, `pricing_version`. Core ⇒ lands in Main AND every tenant via `workspaces:migrate`, so each business keeps its own fares and its own version counter |
+| Signing | **`PortalSignature::signRequest()` / `verifyRequest()`** — `"<METHOD>\n<PATH>\n<timestamp>.<raw-body>"`. The plain `sign()` covers only timestamp+body, which binds a POST but leaves a GET signing nothing but a timestamp: a signature for `/workspaces/7/pricing` would verify against `/workspaces/3/pricing`, so one captured read would open every database. **`sign()`/`verify()` are deliberately untouched** — the live service-order push and payment callback are signed the old way at both ends. Do NOT "upgrade" them |
+| Read endpoint | `GET /api/v1/workspaces/{ws}/pricing` (`routes/web.php`, outside `auth`, `throttle:60,1`, CSRF-exempt via `api/v1/*` in `bootstrap/app.php`) → `App\Http\Controllers\PricingApiController`. ETag = the version integer, `304` on a matching `If-None-Match` (the common case). **The workspace is resolved with `find()` BEFORE `runFor()`**, because `runFor()` deliberately falls through to the current database for an unknown id — right for a job, wrong here: workspace 999 would have been answered with whichever business the connection happened to be. `find()` not `findAny()`, so a deleted database stops serving |
+| Secret | Reuses the per-database `limo_portal_configuration.shared_secret` (encrypted, Settings → Service Portal). **Deliberately NOT gated on that row's `enabled` flag** — switching the payment portal off must not take the website's prices down with it |
+| Payload | `App\Erp\Pricing\PricingPayload` — eager-loads everything (the 500ms budget dies to N+1 otherwise). Two rules enforced here, never trusted to the website: **a car with no rate is OMITTED, never published as `0`** (a zero on a public page is worse than a missing car; the hole is `Log::warning`ed), and **`offer.active` is resolved against the server clock — but only as an off/expired guard** (see the fixed-2026-09-10 note below for what `starts`/`ends` actually mean and why a not-yet-started offer still publishes). Amounts are JSON numbers with trailing zeros trimmed (`15`, not `15.000`) |
+| Writes | `App\Erp\Pricing\PricingWriter::transaction()` is the ONE door. One transaction, **one version bump per save — not per row** (a grid save touches ~20 rates; a model observer would bump 20 times and make the site's cache stale 20 times over), and one `ActivityLogger` entry with old → new per cell. A save that changes nothing does not bump |
+| Ping | `App\Erp\Pricing\PricingPortalPing` → `POST {portal}/wp-json/wanaan/v1/pricing/refresh`, body `{version, ws}` only. **Synchronous, 3s timeout, every exception caught** — queuing would mean up to a minute's staleness (once-a-minute cron) and would lose the workspace context. 5s `Cache::add()` debounce; the manual button passes `force: true`. **It carries no prices** — the site comes and fetches, so a forged ping can only make WordPress ask a question |
+| Admin screen | `/fares` → `App\Livewire\Pages\PricingManager` (admin-only, dashboard tile). One tab per service, options × cars grid, saved in a single submit. **Refuses a save where an active option has a blank fare for an active car**, naming the cell — that is the failure that would otherwise publish a zero. Shows version + updated_at, and a "Send update to website" button for when the two look out of sync |
+| Seeding | `php artisan pricing:seed --workspace=7` — idempotent, fails on an unknown workspace id rather than seeding Main. NOT in the deploy chain (deploy seeders run against Main; these fares belong to one business) |
+| Tests | `tests/Feature/PricingApiTest.php` (39 — payload shape and real fares, trimmed amounts, unsigned/wrong-secret/stale-timestamp/wrong-workspace rejections, unknown workspace never falls through, 304, one bump per grid save, no bump on a no-op, activity log, inactive service/car dropped, missing rate omitted not zeroed, expired offers inactive, **not-yet-started offer still published so it can be booked ahead**, **starts/ends always published regardless of active**, signed ping carrying no prices, unreachable site never breaks a save, debounce, admin screen gate + blank-fare refusal + decimals + forced ping) |
+
+**Offer window means travel dates, not booking dates (fixed 2026-09-10):** a
+National Day offer dated 16–24 Sept was entered on the 10th and the website
+still showed no discount — `PricingOffer::isLive()` originally required
+*today* to fall between `starts_at`/`ends_at`, so a promo scheduled for the
+future was published `active: false, percent: 0` right up until its first
+day, which is backwards: `starts_at`/`ends_at` are the **travel** dates the
+discount applies to (a trip taken between the 16th and the 24th), and a
+customer has to be able to book that trip **today**, ahead of the window.
+Fixed: `isLive()` now only checks the admin `active` flag and whether
+`ends_at` has already passed — a not-yet-started offer publishes its real
+`percent`/`label`/`cars` immediately. `starts`/`ends` were already published
+unconditionally (even when inactive); **the website is responsible for
+comparing the traveller's chosen pickup date against `starts`/`ends` before
+applying `percent` to a specific quote** — that was always the plan (only the
+ERP's own "not started yet" gate was blocking it from ever mattering). The
+`wanaan-fare-finder` WordPress plugin (a separate codebase, not in this repo)
+turned out to already implement exactly this: `WNF_Pricing::offer_applies()`
+and its JS mirror both compare the TRIP date against `starts`/`ends`, and the
+plugin's own doc comment describes this identical bug independently — so
+both halves now agree; nothing further was needed on the WordPress side for
+this one. Regression:
+`PricingApiTest::{test_an_offer_that_has_not_started_yet_is_still_published_so_it_can_be_booked_ahead,
+test_starts_and_ends_are_always_published_even_when_the_offer_is_off_or_expired}`.
+
+**Gotcha this fix immediately ran into: a code-only fix doesn't propagate on
+its own.** `PricingWriter` only bumps `pricing_version` on a genuine DATA
+write, and the website treats that version as an ETag — a conditional GET
+with a matching ETag gets 304, and `WNF_Rest::refresh()` skips a ping
+outright when the version it's told about is one it already holds. A fix to
+HOW the payload is *computed* (this one) changes what the SAME stored data
+produces without writing anything, so nothing bumps the version and the
+website's cached copy never learns anything changed — the existing "Send
+update to website" admin button is *also* powerless here, because it pings
+with the CURRENT (unchanged) version number. New command **`php artisan
+pricing:republish --workspace=<id>`**
+(`App\Console\Commands\RepublishPricingCommand`, workflow
+`.github/workflows/republish-pricing.yml`) exists for exactly this case: it
+calls `PricingVersion::bump()` with no data change, then pings with the new
+number so the website's next fetch is a genuine 200. **Run this after
+deploying any change to how `PricingPayload`/`PricingOffer::isLive()`
+computes its output** — a data-only change (a rate, an offer) doesn't need
+it, `PricingWriter` already bumps on save. Test:
+`RepublishPricingCommandTest`.
+
+**v3 increment (2026-09-09, same day): buses, per-service vehicles, settings.**
+Migration `2026_09_09_100002_extend_pricing_for_buses_and_settings` adds
+`pricing_service_vehicles` (**which vehicles each service offers — without it the
+airport widget lists a 50-seat coach**), `pricing_settings` (`whatsapp`,
+`lead_hours` — everything the widget shows that isn't a fare), a
+`pricing_services.estimated` flag, and makes `pricing_cars.bags` **nullable**
+(luggage on a coach depends on the group; an invented number is worse than none).
+Four buses (hiace / coaster / coach / sprinter) and two services (`bus`,
+`ksa_bus`) join the seed — **bus hour blocks are 6/8/12, cars are 4/8/12; do not
+normalise them.** Two new payload rules: each service carries its own ordered
+`cars` list, and **a service with no positive fare anywhere is never published**
+(the widget refuses to render one, so the guard is mirrored here). `estimated` is
+internal — it drives an admin warning, clears the first time a human saves that
+grid, and is **never sent to the website**.
+
+**Placeholders awaiting the owner's confirmation** (seeded, flagged in the PR): `pax`/`bags` per **car** (sensible per model, not measured from the fleet — the **bus** seat counts are real), chauffeur extra-hour rates (sedan 12 / suv 17 / lsuv 19 / luxury 45, derived from the 4-hour rates), KSA `return_factor` 1.80, and **all twenty `ksa_bus` fares** (estimates: each bus's own 12-hour rate scaled by the destination multipliers the car fares already imply — no bus-to-Saudi price exists on the website). The Luxury chauffeur jump from 180 (4h) to 400 (8h) is **deliberate and confirmed — do not "correct" it.**
+
+**Gotcha for tests:** Laravel's `getJson()` sends `[]` as the body even on a GET, so a signature computed over an empty body will not match. Use `->get()` and read the JSON off the response.
+
+**Offer car scoping (shipped 2026-09-10):** an offer used to discount every car in a
+service at once; not every car should get the same discount (e.g. 25% off Sedan and
+SUV on Airport Transfer but not Luxury). `pricing_offer_cars` pivot (migration
+`2026_09_10_100001`, mirrors `pricing_service_vehicles`) + `PricingOffer::cars()`
+BelongsToMany. **Empty pivot means "not configured" and resolves to every car the
+service offers** (`PricingPayload::offerCarIds()`) — the same fallback rule a service
+with no vehicle list already uses, not "applies to nothing." Published as
+`offer.cars` (a car id list), **zeroed to `[]` whenever the offer is not live** —
+same defensive reasoning as `percent`/`label_en` being zeroed, so a site checking
+only this field can't apply an expired/not-yet-started offer to anything.
+`/fares` gained an "Applies to" checkbox row (`PricingManager::$offerCarIds`,
+defaults to every car ticked when nothing's configured yet) between "Offer is on"
+and the percent/label grid; **saving with the offer ON and zero cars ticked is
+refused** ("Select at least one car for the offer, or switch it off") — the same
+never-publish-a-silent-no-op philosophy as a blank rate on a shown option.
+`PricingWriter::updateOffer()` gained a third `list<string> $carIds` param, synced
+only when the car set actually changed (no wasted write when just the label moved).
+Tests: `PricingApiTest` (+6 — scoped payload, zeroed when not live, empty-pivot
+fallback, form persists the selection, form refuses on+empty, new offer defaults
+every car ticked).
+
+**Driver pay type + a free BD commission amount (shipped 2026-09-10, revised same
+day):** a driver is either a **company driver** or a **commission driver**. New
+`rental_drivers.pay_type` (string, default `company`) + a nullable decimal column
+for the commission figure, migration `2026_09_10_960021_add_pay_type_to_drivers.php`
+(Rental owns the shared table, same as the earlier licence-papers migration).
+
+The first cut locked the commission to one of the office's own five percentages
+(25/15/10/7/5%) via a `select`. **The owner asked for the opposite same-day: not
+locked, not a percentage — a free amount in Bahraini Dinar.** Migration
+`2026_09_10_970022_convert_driver_commission_rate_to_amount.php` renamed the column
+`commission_rate` → **`commission_amount`** and widened it to `decimal(8,2)` (a
+percentage never exceeds 100; a BD figure needs more headroom), and the form field
+became a plain `number` widget (`nullable|numeric` via `FormView::rules()`) instead
+of a `select` — so any BD amount the admin types is accepted, with no scale to pick
+from. **`commission_amount` stays a plain column, not an enum cast** — irrelevant to
+enforcement now that it isn't a `select`, but kept for the same reason `PosCategory.station`
+avoids one: the engine form's blank "—" round-trips as `""` on any field that reuses
+this pattern later.
+
+New shared trait **`Modules\Rental\Models\Concerns\HasDriverPay`** (alongside the
+existing `HasDriverLicence`/`DriverDeletionReferences`, `use`d by both `Driver` and
+`LimoDriver` — one driver, two doors, see those traits' own docs): `PAY_TYPE_OPTIONS`
+feeds the `pay_type` `select` on BOTH models' `irModelDefinition()` forms (still
+whitelisted via `FormView::rules()`'s `in:` derivation — a pay type that isn't
+`company`/`commission` can never be saved). **`bootHasDriverPay()`** (the Laravel
+`boot<TraitName>()` auto-hook convention, same as
+`GuardsDeletionWhenReferenced::bootGuardsDeletionWhenReferenced()`) clears
+`commission_amount` to null on `saving` whenever `pay_type` isn't `commission` — an
+amount left over from before a driver was switched back to Company must not linger
+unseen.
+
+**Static `select` option labels now translate.** Building the first cut surfaced
+that `form-view.blade.php`'s `select` case rendered `{{ $opt['label'] }}` raw —
+never `__()`-wrapped — so EVERY static-option select in the app (e.g.
+`PosProduct.unit`) has been silently untranslatable since Phase 4/13; the "Unit"
+field's own doc note ("the option labels stay English") was describing this gap,
+not a deliberate carve-out. Fixed to `{{ __($opt['label']) }}` — safe and additive,
+since `__()` returns its argument unchanged when no `ar.json` key matches, so every
+existing select renders exactly as before until a translation is added for it. This
+fix outlived the percentage scale it was built for — still in effect for `pay_type`'s
+own options. New keys: Pay type / Company driver / Commission driver / "Commission
+(BD)" / the BD help text.
+
+**Limousine's own driver list — Active is now a checkbox (shipped 2026-09-10):**
+`LimoDriver`'s list arch flipped the `active` column from `format: bool` (rendered
+"Yes"/"No") to `format: toggle` (Phase 4's inline iOS-switch, `ListView::toggleBoolean`
+— already Write-ACL-gated and arch-whitelisted, no new plumbing needed). **Scoped to
+Limousine only, per the request** — Rent A Car's own driver list (`Modules\Rental\Models\Driver`,
+same shared table, separate `ir_model`/arch) is untouched and still shows Yes/No; say
+so if asked to widen it, it is a one-line arch change mirroring this one.
+
+Tests: `DriverRecordTest` (+6 — new driver defaults to Company, a commission
+driver carries a free BD amount and both apps agree, switching back to Company
+clears the amount, the engine form saves any BD figure typed in, the engine form
+still refuses a non-numeric value, the Limousine list's Active column is an inline
+toggle).
+
+**Scoped Administrator — narrow an admin to specific apps (shipped 2026-09-09):**
+
+Settings → Users' role picker described Administrator as "Full access to
+every app and setting in this database" with no way to narrow it — an owner
+who wanted a manager to run just the POS side had to either give them every
+app or fall back to Supervisor (no delete rights). The app checklist below
+the role picker, previously shown only for Staff/Supervisor/Accountant (an
+Administrator "bypasses the ACL, so a selection is meaningless"), now also
+appears for Administrator — but for a **different purpose**: instead of
+GRANTING access to the ticked apps, it **narrows** the admin to them. This is
+a real restriction (a hard 403 outside the ticked apps), not menu-hiding —
+`is_admin` stays `true` throughout, so every `isAdmin()`-gated screen that
+ISN'T app-specific (central Settings, Activity Log, Backups, Workspaces,
+Daily Report, WhatsApp/WooCommerce/Stream settings, Payroll/Monthly Profit)
+is **untouched and stays fully open** to a scoped admin, exactly as for an
+unscoped one. **Never a super admin** — the owner tier is always a full,
+unscoped superset, regardless of what the new column holds.
+
+| Concern | Location |
+|---|---|
+| Schema | `users.admin_apps` (nullable JSON, core migration `2026_09_09_100001`, so it auto-applies to Main + every tenant via `workspaces:migrate`). Null/empty = unrestricted (today's default, unchanged) |
+| Model | `User::adminAppScope(): ?list<string>` (column-guarded like `isSuperAdmin()`; always null for a super admin, regardless of the column) and `User::mayAdministerApp(string $module): bool` (true when unscoped, or when `$module` is in scope) |
+| Enforcement — the ONE choke point | `App\Erp\Security\AccessControl::allows()` — the admin bypass (`if ($user->isAdmin()) return true;`) became `if ($user->isAdmin()) return $user->mayAdministerApp($this->moduleOf($modelKey));`, where `moduleOf()` reads the module prefix off the model key (every key in the registry is `<module>.<name>`, e.g. `pos.order` — the same convention `UserProvisioner::grantApps()` already relies on). Because the engine List/Form/Kanban views (`HasAccessControl`) AND every bespoke module screen (`GuardsModelAccess`) both funnel through this SAME method (the point of the 2026-08-24 hardening), scoping a regular admin here transparently restricts **everything** — data screens, `ModuleMenu`'s ACL-filtered app-dropdown/tile contents, the lot — with no other code path to keep in sync. **This is why the feature was safe to build in one place**: don't duplicate the scope check elsewhere: route it through `AccessControl` |
+| Also scoped explicitly | `App\Livewire\Pages\AppFeatureSettings` (an app's own Settings/feature-toggle tab) re-checks `mayAdministerApp($module)` in both `mount()` and `save()` — this screen is `isAdmin()`-gated, not model-key-gated, so it needed its own check to keep "tick an app" meaning "that app AND its settings tab," not just its data screens. `AppSwitcher`'s per-app "Settings" deep-link is hidden the same way |
+| Deliberately NOT scoped | Every `isAdmin()`-gated screen that isn't tied to one app — central Settings (General/Daily Report/WhatsApp/etc. tabs), Activity Log, Backups, Workspaces, `EmployeePayroll`/`EmployeeForm`/`MonthlyProfit` — these are database-wide owner tools, not "apps" in the picker, so a scoped admin keeps full, unrestricted access to them (the owner's own words: "full access to the settings of the app and database I give them, just like superadmin") |
+| Provisioning | `UserProvisioner::adminScopeFor(StaffRole, list<string> $appNames): ?list<string>` — the one place `admin_apps` is computed (null unless the role is a scopable Administrator; filtered through `Features::moduleAllowed()` so a tick from a business type that doesn't run that app can't leak in, same guard `grantApps()` already applies). Threaded through `upsertWithAccess()`/`upsertLockedRow()` alongside the `is_admin`/`is_super_admin`/`is_accountant` flags, so it is written per-database exactly like those — an admin scoped to "pos" on one database and provisioned into a second database that doesn't run POS simply has no matching app there (harmless, same as any other unmatched grant) |
+| `StaffRole` additions | `isScopableAdmin(): bool` (`=== Admin`, never SuperAdmin) and `usesAppPicker(): bool` (`grantsApps() \|\| isScopableAdmin()` — the "show the checklist" question, one level above `grantsApps()`, which stayed `!isAdmin()` and still means "write `ir_model_access` grant rows") |
+| UI | `UserManager`'s app checklist now renders whenever `$currentRole->usesAppPicker()` (was `grantsApps()`), with a hint line shown only for a scopable Administrator ("Leave every box unticked for unrestricted access… tick specific apps to limit this administrator to just those"); the "no picker" fallback message is now Super-admin-only wording. `editUser()` reads an Administrator's current apps from `$user->adminAppScope()` (a scope) rather than `currentApps()` (which reads ACL grant rows — always empty for an admin, since none are ever written for one) |
+| Tests | `UserManagerTest::{test_a_scoped_administrator_gets_full_access_to_only_the_ticked_apps, test_an_administrator_with_no_ticked_apps_still_gets_every_app, test_editing_a_scoped_administrators_apps_replaces_the_scope, test_a_super_admin_is_never_scoped}` · `AppFeatureSettingsTest::{test_a_scoped_administrator_can_open_their_own_apps_settings, test_a_scoped_administrator_is_blocked_from_another_apps_settings}` · `RentalAccessControlTest::test_an_administrator_scoped_to_rental_is_forbidden_from_limousine` (cross-module proof on a bespoke screen — not just the engine views) |
+
+**Deliberately out of scope this increment** (the owner's own words: "later"),
+offer as a follow-up if asked: scoping an Administrator to specific
+**databases** they may open/switch into (today database access is still
+provision-only + admin-only switching, unrelated to `admin_apps`, which only
+narrows which **apps** they see once they're in a given database) — and
+hiding an out-of-scope app's icon from the topbar entirely rather than
+leaving it visible-but-blocked (matches the pre-existing Staff/Supervisor
+experience today; a uniform "hide what you can't open" pass across every
+role would be a separate, broader change).
+
+**Settings → Users: the app checklist reacts to which databases you pick
+(shipped 2026-09-09):** creating a user from Main always offered **Main's own
+apps only**, no matter which databases were ticked below — so a rental
+workspace's Rent A Car / Limousine could never even be TICKED for a shared
+account, because the checklist had nothing to do with the database picker
+sitting right below it (found live: Wanaan Car Rental W.L.L's apps were
+invisible while creating a user from Main, a café).
+
+| Concern | Location |
+|---|---|
+| Per-database app list | `UserManager::appsFor(?int $workspaceId): Collection<int, IrModule>` — the installed, business-type-allowed application modules for ONE database, run on THAT database's own connection via `WorkspaceManager::runFor()` (a no-op for Main/null) so `Features::moduleAllowed()` reads that database's own `company.business_type`, not the caller's |
+| Reactive union | `UserManager::appModulesForForm(?int $currentWorkspaceId): Collection` — editing/creating inside ONE specific database (a workspace, or a shared account's per-database access) still uses `appsFor()` alone (exactly one database in play, unchanged). Creating a brand-new account from Main instead returns the **UNION** of every app run by the databases currently ticked in `$this->workspaces`, deduped by module name and sorted by `sequence`. Nothing ticked yet falls back to Main's own list (today's default view, unchanged) |
+| Live reactivity | The "Databases this user can access" checkboxes flipped from `wire:model` to `wire:model.live="workspaces"` — ticking one now round-trips and re-renders `appModules` immediately, so Rent A Car appears in the checklist the instant Wanaan is ticked (and disappears again if it's unticked, unless another ticked database also runs it). A hint line under "Apps this user can access" explains the behaviour |
+| Why this was already safe | `UserProvisioner::grantApps()` already filters every ticked app through `Features::moduleAllowed()` **per target database** (see the "grants are scoped per database" rule above) — so a stale app value left in `$this->apps` after unticking a database was never a security gap, only a UI blind spot. This change fixes the blind spot; it changes no enforcement |
+| Tests | `UserManagerTest::test_ticking_a_database_surfaces_the_apps_it_runs` (nothing ticked → Main's apps only; tick a rental workspace → its apps join the list, Main's stay too; untick Main, keep only the rental workspace → only its apps, POS drops out) |
 
 ---
 

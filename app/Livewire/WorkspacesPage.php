@@ -14,6 +14,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
+use Livewire\Attributes\Locked;
 
 /**
  * The database manager (Odoo-style) reached from the topbar "My database"
@@ -35,11 +36,13 @@ final class WorkspacesPage extends Component
     public string $newName = '';
 
     /** Workspace currently being renamed inline (null = none). */
+    #[Locked]
     public ?int $editingId = null;
 
     public string $editName = '';
 
     /** Workspace whose delete-confirmation (password) modal is open (null = none). */
+    #[Locked]
     public ?int $deletingId = null;
 
     public string $deletePassword = '';

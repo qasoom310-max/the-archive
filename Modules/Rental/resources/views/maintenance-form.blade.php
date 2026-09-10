@@ -77,12 +77,12 @@
             <div>
                 <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Car') }} *</label>
                 @php $carLocked = $isEditing && ! in_array($status, ['pending', 'approved'], true); @endphp
-                <select wire:model.live="vehicle_id" class="o-input w-full" @disabled($carLocked)>
-                    <option value="">{{ __('— Select —') }}</option>
-                    @foreach ($vehicles as $v)
-                        <option value="{{ $v->id }}">{{ $v->displayName() }} ({{ __(ucfirst($v->status)) }})</option>
-                    @endforeach
-                </select>
+                <x-searchable-select wire:model.live="vehicle_id" class="o-input w-full" :disabled="$carLocked"
+                    :options="collect($vehicles)->map(fn ($v) => [
+                        'value' => $v->id,
+                        'label' => $v->displayName() . ' (' . __(ucfirst($v->status)) . ')',
+                    ])->all()"
+                    :search-placeholder="__('Search plate or model…')" />
                 @error('vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 @if ($carLocked)
                     <p class="mt-1 text-xs text-chrome-400">{{ __('The car can’t be changed once maintenance has started.') }}</p>
@@ -99,7 +99,7 @@
             </div>
             <div>
                 <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Date') }} *</label>
-                <input type="date" wire:model="date" class="o-input w-full">
+                <x-date-field wire:model="date" class="o-input w-full" />
                 @error('date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
             <div>

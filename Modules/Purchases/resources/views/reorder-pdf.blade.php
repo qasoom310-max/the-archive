@@ -6,6 +6,7 @@
 <head>
     <meta charset="utf-8">
     <style>
+        @page { margin: 1.2cm 1.2cm 60px; }
         * { font-family: DejaVu Sans, sans-serif; }
         body { color: #1f2937; font-size: 11px; }
         h1 { font-size: 18px; margin: 0 0 2px; }
@@ -27,7 +28,7 @@
         {{ __('To reorder') }}: {{ $summary['total'] }} ·
         {{ __('Low stock') }}: {{ $summary['low'] }} ·
         {{ __('Out of stock') }}: {{ $summary['out'] }} ·
-        {{ $generatedAt->isoFormat('YYYY-MM-DD HH:mm') }}
+        {{ $generatedAt->isoFormat('DD-MMM-YYYY HH:mm') }}
     </p>
 
     <table>
@@ -66,5 +67,7 @@
             @endforelse
         </tbody>
     </table>
+
+    <x-document-footer />
 </body>
 </html>

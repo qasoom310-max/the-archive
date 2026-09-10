@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Modules\Rental\Livewire;
 
 use App\Erp\Security\Permission;
+use App\Erp\Views\ValueFormat;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\ScrollsToFirstError;
 use App\Erp\Activity\ActivityLogger;
 use App\Erp\Settings\Setting;
 use App\Models\User;
@@ -16,6 +18,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
+use Modules\Limousine\Services\CouponRedeemer;
 use Modules\Rental\Mail\RentalAgreementMail;
 use Modules\Rental\Services\RentalAgreementPdf;
 use Livewire\Attributes\Layout;
@@ -40,6 +43,7 @@ use Modules\Rental\Models\Vehicle;
 final class OrderForm extends Component
 {
     use GuardsModelAccess;
+    use ScrollsToFirstError;
 
     protected function accessModelKey(): string
     {
@@ -92,6 +96,9 @@ final class OrderForm extends Component
     public string $delivery_location = '';
 
     public string $advance_amount = '0';
+
+    /** A limousine refund coupon being spent on this rental, if any. */
+    public string $couponCode = '';
 
     /** What we pay the outside vendor for this booking (outside cars only). */
     public string $outside_cost = '0';
@@ -188,8 +195,12 @@ final class OrderForm extends Component
 
     public bool $payment_confirmed = false;
 
-    public function mount(?int $id = null): void
+    public function mount(int|string|null $id = null): void
     {
+        // A route segment is always a string, and a non-numeric one
+        // ("new") means a new record rather than a bad request.
+        $id = is_numeric($id) ? (int) $id : null;
+
         $this->guardAccess(Permission::Read);
         if ($id !== null) {
             $order = RentalOrder::query()->find($id);
@@ -234,6 +245,30 @@ final class OrderForm extends Component
         $this->order_date = now()->format('Y-m-d');
         $this->start_date = now()->format('Y-m-d');
         $this->end_date = now()->addDay()->format('Y-m-d');
+
+        $this->seedCoupon();
+    }
+
+    /**
+     * Started from a customer's credit — "use this coupon on a rental car".
+     *
+     * The credit is issued by the limousine side, but it is the CUSTOMER's
+     * money and they are entitled to spend it here. Code and customer travel in
+     * the URL so neither is retyped and a mistyped code cannot lose them their
+     * balance; the credit itself is applied on save, once there is a total for
+     * it to come off.
+     */
+    private function seedCoupon(): void
+    {
+        $code = trim((string) request()->query('coupon', ''));
+        if ($code !== '') {
+            $this->couponCode = $code;
+        }
+
+        $customer = (int) request()->query('customer', 0);
+        if ($customer > 0 && RentalCustomer::query()->whereKey($customer)->exists()) {
+            $this->customer_id = $customer;
+        }
     }
 
     /**
@@ -359,7 +394,7 @@ final class OrderForm extends Component
         // On a validation failure, point the user at the first missing field
         // (the form is long and the Save button sits at the bottom).
         try {
-            $this->validate();
+            $this->validateFocusing();
         } catch (ValidationException $e) {
             $this->dispatch('order-scroll-to-error');
 
@@ -443,7 +478,11 @@ final class OrderForm extends Component
             $order->reserveVehicle();
         }
 
-        session()->flash('toast', __('Order saved.'));
+        // Credit carried in from a coupon is spent HERE, once the order has a
+        // total for it to come off.
+        $credit = $this->spendCarriedCoupon($order);
+
+        session()->flash('toast', trim(__('Order saved.') . ' ' . $credit));
         $this->redirect('/app/rental/order', navigate: true);
     }
 
@@ -469,7 +508,7 @@ final class OrderForm extends Component
     public function saveCustomer(): void
     {
         $this->guardAccess(Permission::Write);
-        $this->validate([
+        $this->validateFocusing([
             'newCustomer.name' => ['required', 'string', 'max:255'],
             'newCustomer.phone' => ['nullable', 'string', 'max:50'],
             'newCustomer.email' => ['nullable', 'email', 'max:255'],
@@ -538,7 +577,7 @@ final class OrderForm extends Component
             return;
         }
 
-        $this->validate([
+        $this->validateFocusing([
             'handover_km' => ['nullable', 'integer', 'min:0'],
             'handover_fuel' => ['required', 'in:' . $this->fuelValues()],
             'handover_notes' => ['nullable', 'string', 'max:1000'],
@@ -626,7 +665,7 @@ final class OrderForm extends Component
             return;
         }
 
-        $this->validate([
+        $this->validateFocusing([
             'fines_amount' => ['required', 'numeric', 'min:0'],
             'fines_notes' => ['nullable', 'string', 'max:500'],
         ]);
@@ -666,7 +705,7 @@ final class OrderForm extends Component
         // The car can't come back with fewer KM than it went out with.
         $floor = $order->handover_km ?? 0;
 
-        $this->validate([
+        $this->validateFocusing([
             'return_km' => ['required', 'integer', 'min:' . $floor],
             'return_fuel' => ['required', 'in:' . $this->fuelValues()],
             'fuel_charge' => ['nullable', 'numeric', 'min:0'],
@@ -882,7 +921,7 @@ final class OrderForm extends Component
             $rules['deposit_reason'] = ['required', 'string', 'max:1000'];
         }
 
-        $this->validate($rules, [
+        $this->validateFocusing($rules, [
             'deposit_deducted.max' => __('The deduction can’t be more than the deposit (:amount).', ['amount' => $order->deposit]),
         ]);
 
@@ -1000,6 +1039,41 @@ final class OrderForm extends Component
             'locked' => $this->id !== null
                 && $this->state === RentalOrder::STATE_CLOSED
                 && ! $this->isSuperAdmin(),
+        ]);
+    }
+    /**
+     * Spend the coupon this order was started from, if there was one.
+     *
+     * Credit comes off a bill, and there was no bill until the order was
+     * priced — so it happens after the save and says so in the same breath.
+     * Cleared either way: applied it is spent, refused it should not be
+     * silently retried the next time this form is saved.
+     */
+    private function spendCarriedCoupon(RentalOrder $order): string
+    {
+        $code = trim($this->couponCode);
+        if ($code === '') {
+            return '';
+        }
+
+        $redeemer = app(CouponRedeemer::class);
+        $result = $redeemer->apply($code, $order);
+
+        $this->couponCode = '';
+
+        if ($result['ok'] !== true) {
+            return (string) __('Coupon :code not applied — :why', [
+                'code' => $code,
+                'why' => $redeemer->errorMessage((string) ($result['error'] ?? '')),
+            ]);
+        }
+
+        $this->advance_amount = (string) $order->fresh()->advance_amount;
+
+        return (string) __('Coupon :code applied: :amount off, :left left on it.', [
+            'code' => $code,
+            'amount' => ValueFormat::money((float) ($result['applied'] ?? 0)),
+            'left' => ValueFormat::money((float) ($result['remaining'] ?? 0)),
         ]);
     }
 }

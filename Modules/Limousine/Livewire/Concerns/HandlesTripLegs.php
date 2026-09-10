@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire\Concerns;
 
+use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Support\Carbon;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoLeg;
@@ -28,10 +29,13 @@ trait HandlesTripLegs
     protected function emptyLeg(): array
     {
         return [
+            // Blank on a new leg; carries the DB row id once saved, so an edit
+            // updates that row instead of replacing it and burning its reference.
+            'id' => '',
             'service_type' => LimoLeg::TYPE_TRANSFER,
-            'car_id' => '', 'from_location' => '', 'to_location' => '', 'start_at' => '',
+            'car_id' => '', 'from_location' => '', 'from_location_url' => '', 'to_location' => '', 'to_location_url' => '', 'start_at' => '',
             'hours' => '', 'days' => '1', 'car_details' => '',
-            'rate' => '0', 'rate_basis' => LimoLeg::BASIS_TRIP, 'discount' => '0', 'vat' => '0',
+            'rate' => '', 'rate_basis' => LimoLeg::BASIS_TRIP, 'discount' => '', 'vat' => '',
         ];
     }
 
@@ -61,10 +65,13 @@ trait HandlesTripLegs
     protected function loadLegs(LimoBooking|LimoQuotation $parent): void
     {
         $this->legs = $parent->legs->map(fn (LimoLeg $l): array => [
+            'id' => (string) $l->id,
             'service_type' => $l->service_type,
             'car_id' => $l->car_id !== null ? (string) $l->car_id : '',
             'from_location' => $l->from_location ?? '',
+            'from_location_url' => $l->from_location_url ?? '',
             'to_location' => $l->to_location ?? '',
+            'to_location_url' => $l->to_location_url ?? '',
             'start_at' => $l->start_at?->format('Y-m-d\TH:i') ?? '',
             'hours' => $l->hours !== null ? (string) $l->hours : '',
             'days' => (string) $l->days,
@@ -89,8 +96,16 @@ trait HandlesTripLegs
 
         foreach ($this->legs as $i => $leg) {
             $rules["legs.$i.service_type"] = ['required', 'in:transfer,chauffeur'];
-            $rules["legs.$i.car_id"] = ['required', 'integer'];
+            // The car is assigned later, when the trip is dispatched — not when
+            // the booking is taken. A quotation never needs one at all. The
+            // requirement is enforced at the point it actually matters, in
+            // BookingForm::start().
+            $rules["legs.$i.car_id"] = ['nullable', 'integer'];
             $rules["legs.$i.from_location"] = ['required', 'string', 'max:255'];
+            // Map pins are optional, but must be a real URL if given — a
+            // mistyped link is worse than none for a driver at speed.
+            $rules["legs.$i.from_location_url"] = ['nullable', 'url', 'max:500'];
+            $rules["legs.$i.to_location_url"] = ['nullable', 'url', 'max:500'];
             $rules["legs.$i.start_at"] = ['required', 'date'];
             $rules["legs.$i.car_details"] = ['nullable', 'string', 'max:255'];
             $rules["legs.$i.rate"] = ['required', 'numeric', 'min:0'];
@@ -117,7 +132,7 @@ trait HandlesTripLegs
             $sum += LimoLeg::netFor(
                 $leg['rate_basis'] ?? LimoLeg::BASIS_TRIP,
                 (float) ($leg['rate'] ?? 0),
-                $leg['hours'] !== '' && isset($leg['hours']) ? (float) $leg['hours'] : null,
+                ($leg['hours'] ?? '') !== '' ? (float) $leg['hours'] : null,
                 max(1, (int) ($leg['days'] ?? 1)),
                 (float) ($leg['discount'] ?? 0),
                 (float) ($leg['vat'] ?? 0),
@@ -127,10 +142,53 @@ trait HandlesTripLegs
         return round($sum, 3);
     }
 
+    /**
+     * A leg's start date, or null when it is not a date yet.
+     *
+     * The date box updates live, so the server re-renders on every keystroke
+     * holding whatever the browser has at that instant — a year still standing
+     * at `0000`, a pasted string, digits in another numeral set. `Carbon::parse`
+     * throws on those, and a throw during render is a 500 on a form somebody is
+     * halfway through filling. A half-typed date is an ordinary state of a form,
+     * not an error: it reads as "no date yet" and the schedule waits for it.
+     *
+     * @param  array<string, string>  $leg
+     */
+    public function legStart(array $leg): ?Carbon
+    {
+        $value = trim($leg['start_at'] ?? '');
+
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (InvalidFormatException) {
+            return null;
+        }
+    }
+
     /** Replace the parent's legs from the form array and recalc its total. */
+    /**
+     * Write the on-screen legs back to the parent, UPDATING rows that already
+     * exist rather than replacing them.
+     *
+     * This used to `delete()` every leg and recreate the lot. That was harmless
+     * while a leg was just a line of pricing, but a leg now owns a reference the
+     * office quotes over the phone and a status it is dispatched by — recreating
+     * it would issue a new number and reset its progress on every save. So each
+     * on-screen leg carries its row id, existing rows are updated in place, and
+     * only legs actually removed from the form are deleted.
+     *
+     * The ids arrive from the browser, so they are checked against the parent's
+     * own legs: an id belonging to somebody else's booking is treated as new
+     * rather than hijacked.
+     */
     protected function persistLegs(LimoBooking|LimoQuotation $parent): void
     {
-        $parent->legs()->delete();
+        $existing = $parent->legs()->get()->keyBy('id');
+        $keptIds = [];
 
         // Snapshot the car label so a leg still shows its car if the fleet changes.
         $carIds = collect($this->legs)->pluck('car_id')->filter()->map(fn ($x): int => (int) $x)->all();
@@ -147,16 +205,16 @@ trait HandlesTripLegs
             $vat = (float) ($leg['vat'] === '' ? '0' : $leg['vat']);
             $carId = ($leg['car_id'] ?? '') !== '' ? (int) $leg['car_id'] : null;
 
-            $parent->legs()->create([
+            $attributes = [
                 'sequence' => $i,
                 'service_type' => $leg['service_type'] ?? LimoLeg::TYPE_TRANSFER,
-                'car_id' => $carId,
                 'from_location' => $this->blankToNull($leg['from_location'] ?? ''),
+                'from_location_url' => $this->blankToNull($leg['from_location_url'] ?? ''),
                 'to_location' => $chauffeur ? null : $this->blankToNull($leg['to_location'] ?? ''),
+                'to_location_url' => $chauffeur ? null : $this->blankToNull($leg['to_location_url'] ?? ''),
                 'start_at' => ($leg['start_at'] ?? '') !== '' ? Carbon::parse($leg['start_at']) : null,
                 'hours' => $hours,
                 'days' => $days,
-                'vehicle' => $carId !== null ? ($carLabels[$carId] ?? null) : null,
                 'vehicle_details' => $this->blankToNull($leg['car_details'] ?? ''),
                 'rate' => $rate,
                 'rate_basis' => $basis,
@@ -164,8 +222,36 @@ trait HandlesTripLegs
                 'vat' => $vat,
                 'line_total' => LimoLeg::grossFor($basis, $rate, $hours, $days),
                 'net_amount' => LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat),
+            ];
+
+            // The car is only carried through the form where the form actually
+            // offers one (quotations). On a booking it is assigned from the
+            // queue, so leaving it out here keeps this from wiping it.
+            if ($carId !== null) {
+                $attributes['car_id'] = $carId;
+                $attributes['vehicle'] = $carLabels[$carId] ?? null;
+            }
+
+            $id = (int) ($leg['id'] ?? 0);
+            $row = $id > 0 ? $existing->get($id) : null;
+
+            if ($row instanceof LimoLeg) {
+                $row->fill($attributes)->save();
+                $keptIds[] = $row->id;
+
+                continue;
+            }
+
+            $created = $parent->legs()->create($attributes + [
+                // A booking's legs are dispatched, so they start in the queue.
+                // Quotation legs are not, and stay status-less.
+                'status' => $parent instanceof LimoBooking ? LimoLeg::STATUS_QUEUE : null,
             ]);
+            $keptIds[] = $created->id;
         }
+
+        // Only legs genuinely taken off the form are removed.
+        $parent->legs()->whereNotIn('id', $keptIds === [] ? [0] : $keptIds)->delete();
 
         $parent->recalcTotal();
         $parent->save();

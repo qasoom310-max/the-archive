@@ -125,7 +125,7 @@
                                 <span class="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
                                     {{ __('Paid') }} {{ $money($payment->amount) }}
                                 </span>
-                                <span class="ms-1 text-xs text-chrome-400">{{ $payment->paid_on->isoFormat('MMM D') }}</span>
+                                <span class="ms-1 text-xs text-chrome-400">{{ $payment->paid_on->isoFormat('DD-MMM') }}</span>
                             @else
                                 <span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">{{ __('Due') }}</span>
                             @endif
@@ -135,7 +135,7 @@
                                 {{-- Inline mark-paid editor --}}
                                 <div class="flex items-center justify-end gap-2">
                                     <input type="number" step="0.001" min="0" wire:model="payAmount" class="o-input w-24 text-end" placeholder="{{ __('Amount') }}">
-                                    <input type="date" wire:model="payDate" class="o-input w-36">
+                                    <x-date-field wire:model="payDate" class="o-input w-36" />
                                     <button wire:click="savePay" class="o-btn-primary">{{ __('Save') }}</button>
                                     <button wire:click="closePay" class="text-xs text-chrome-500 hover:underline">{{ __('Cancel') }}</button>
                                 </div>

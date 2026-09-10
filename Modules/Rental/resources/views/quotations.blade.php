@@ -1,12 +1,35 @@
 <div class="mx-auto max-w-7xl p-4 sm:p-6">
     <x-page-header :title="__('Quotations')" :subtitle="__('Estimates for customers.')" icon="quote" accent="primary">
         <x-slot:actions>
+            @if ($canManage)
+                <button type="button" onclick="document.getElementById('import-quotations').classList.toggle('hidden')" class="o-btn-ghost">{{ __('Import') }}</button>
+            @endif
             <a href="{{ url('/app/rental/quotation/new') }}" wire:navigate class="o-btn-primary">
                 <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
                 {{ __('New quotation') }}
             </a>
         </x-slot:actions>
     </x-page-header>
+
+    {{-- Import quotations from a CSV (managers). Direct POST — Hostinger-safe.
+         The expected columns are the same shape this screen's own export
+         prints. A quote is a price offered, not billed, so nothing else is
+         backfilled. --}}
+    @if ($canManage)
+        <div id="import-quotations" class="mb-4 {{ $errors->any() ? '' : 'hidden' }} rounded-2xl border border-dashed border-chrome-300 bg-white p-4">
+            <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Import quotations (CSV)') }}</h3>
+            <p class="mb-3 text-xs text-chrome-500">{{ __('Columns: Reference, Customer, Car, Valid until, Total, Status. Other columns are ignored. The same customer, expiry and total seen before is skipped.') }}</p>
+            <form method="POST" action="{{ url('/app/rental/quotation/import') }}" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">
+                @csrf
+                <input type="file" name="file" accept=".csv,text/csv,text/plain" required class="text-sm">
+                <button type="submit" class="o-btn-primary text-sm">{{ __('Import') }}</button>
+            </form>
+            @error('file')<p class="mt-2 text-xs font-medium text-red-600">{{ $message }}</p>@enderror
+            @if (session('toast'))
+                <p class="mt-2 text-xs font-medium text-emerald-600">{{ session('toast') }}</p>
+            @endif
+        </div>
+    @endif
 
     @php
         $tabs = [
@@ -29,10 +52,47 @@
         @endforeach
     </div>
 
+    @php
+        $exportQuery = http_build_query([
+            'tab' => $tab,
+            'title' => __('Quotations'),
+            // Ticked rows narrow every download to just those.
+            'ids' => $this->selectedIdsParam(),
+        ]);
+    @endphp
+    <div class="mb-3 flex flex-wrap items-center gap-2" x-data="listExportCopy">
+        <button type="button" x-on:click="copyTable('rental-quotations-table')"
+                class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
+            <span x-show="! copied">{{ __('Copy') }}</span>
+            <span x-show="copied" x-cloak class="text-emerald-600">{{ __('Copied') }}</span>
+        </button>
+        <a href="{{ url('/app/rental/quotation/export/csv') }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('CSV') }}</a>
+        <a href="{{ url('/app/rental/quotation/export/excel') }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Excel') }}</a>
+        <a href="{{ url('/app/rental/quotation/export/pdf') }}?{{ $exportQuery }}"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('PDF') }}</a>
+        <a href="{{ url('/app/rental/quotation/export/print') }}?{{ $exportQuery }}" target="_blank" rel="noopener"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Print') }}</a>
+        @if (count($selected) > 0)
+            <span class="ms-1 inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700 ring-1 ring-primary-200">
+                {{ __(':count selected', ['count' => count($selected)]) }}
+                <button type="button" wire:click="clearSelection" class="font-semibold hover:underline">{{ __('Clear selection') }}</button>
+            </span>
+        @else
+            <span class="ms-1 text-xs text-chrome-400">{{ __('Tick rows to export only those.') }}</span>
+        @endif
+    </div>
+
     <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
-        <table class="w-full min-w-[720px] divide-y divide-chrome-100 text-sm">
+        <table class="w-full min-w-[720px] divide-y divide-chrome-100 text-sm" id="rental-quotations-table">
             <thead class="bg-chrome-50 text-start text-xs font-semibold uppercase tracking-wide text-chrome-500">
                 <tr>
+                    <th class="w-10 px-4 py-2" data-copy-skip>
+                        <input type="checkbox" wire:model.live="selectPage"
+                               class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500"
+                               aria-label="{{ __('Select all on this page') }}">
+                    </th>
                     <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Customer') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Car') }}</th>
@@ -52,17 +112,22 @@
                             'converted' => 'bg-violet-100 text-violet-700',
                         ][$quote->status] ?? 'bg-chrome-200 text-chrome-700';
                     @endphp
-                    <tr wire:key="quote-{{ $quote->id }}" class="cursor-pointer hover:bg-chrome-50"
+                    <tr wire:key="quote-{{ $quote->id }}" class="cursor-pointer hover:bg-chrome-50" data-row-selected="{{ $this->isSelected($quote->id) ? 1 : 0 }}"
                         onclick="window.location='{{ url('/app/rental/quotation/' . $quote->id) }}'">
+                        <td class="px-4 py-2" data-copy-skip onclick="event.stopPropagation()">
+                            <input type="checkbox" wire:model.live="selected" value="{{ $quote->id }}"
+                                   class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500"
+                                   aria-label="{{ $quote->reference }}">
+                        </td>
                         <td class="px-4 py-2 font-medium text-chrome-800">{{ $quote->reference }}</td>
                         <td class="px-4 py-2 text-chrome-700">{{ $quote->customer?->name ?? '—' }}</td>
                         <td class="px-4 py-2 text-chrome-700">{{ $quote->vehicle?->displayName() ?? '—' }}</td>
-                        <td class="px-4 py-2 text-chrome-600">{{ $quote->valid_until?->isoFormat('MMM D, YYYY') ?? '—' }}</td>
+                        <td class="px-4 py-2 text-chrome-600">{{ $quote->valid_until?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($quote->total) }}</td>
                         <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst($quote->status)) }}</span></td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No quotations found.') }}</td></tr>
+                    <tr><td colspan="7" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No quotations found.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>

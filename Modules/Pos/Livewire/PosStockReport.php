@@ -23,6 +23,7 @@ use Modules\Pos\Models\PosCondiment;
 use Modules\Pos\Models\PosIngredient;
 use Modules\Pos\Models\PosProduct;
 use Modules\Pos\Services\PosStockReportData;
+use Livewire\Attributes\Locked;
 
 /**
  * POS Stock Report — an Odoo-style on-screen view of every product's stock
@@ -60,6 +61,7 @@ final class PosStockReport extends Component
     public bool $includeInactive = false;
 
     /** Inline restock modal: the item being adjusted + its new on-hand. */
+    #[Locked]
     public ?int $adjustId = null;
 
     /** 'product' | 'condiment' | 'ingredient' — which catalogue the adjusted row belongs to. */

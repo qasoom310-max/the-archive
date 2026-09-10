@@ -138,7 +138,7 @@ class PosReceiptImageRenderer
             'companyName' => $companyName,
             'logoPath' => $logoPath,
             'orderReference' => (string) $order->reference,
-            'orderedAt' => optional($order->ordered_at)->format('M j, Y g:i A') ?? '',
+            'orderedAt' => optional($order->ordered_at)->format('d-m-Y g:i A') ?? '',
             'customerPhone' => $order->customer_phone,
             // Remote / delivery details — only meaningful on a remote order.
             'customerName' => $order->customer_name,

@@ -16,6 +16,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // the module is installed) but must skip CSRF verification.
         $middleware->validateCsrfTokens(except: [
             'whatsapp/webhook',
+            // The WordPress service-order portal posts the Tap payment result
+            // here server-to-server; it is authenticated by HMAC, not CSRF.
+            'limousine/payment-callback',
+            // The website reads published fares server-to-server, signed with
+            // the path-bound HMAC. No session, so no CSRF token to send.
+            'api/v1/*',
         ]);
 
         // Trust the upstream proxy that terminates TLS in front of PHP
@@ -37,6 +43,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // SetLocale (which reads per-workspace settings). Main = no-op.
         $middleware->web(append: [
             \App\Http\Middleware\SetActiveWorkspace::class,
+            // Re-checked on every request, in every database — see the
+            // middleware's own docblock for why this is the authoritative
+            // guard rather than the pause action's session-kill alone.
+            \App\Http\Middleware\EnsureUserIsNotPaused::class,
             \App\Http\Middleware\SetLocale::class,
         ]);
     })

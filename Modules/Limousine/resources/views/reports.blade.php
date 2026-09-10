@@ -14,11 +14,11 @@
     <div class="mb-6 flex flex-wrap items-end gap-3">
         <div>
             <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('From') }}</label>
-            <input type="date" wire:model.live="from" class="o-input text-sm">
+            <x-date-field wire:model.live="from" class="o-input text-sm" />
         </div>
         <div>
             <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('To') }}</label>
-            <input type="date" wire:model.live="to" class="o-input text-sm">
+            <x-date-field wire:model.live="to" class="o-input text-sm" />
         </div>
         @if ($tab === 'bookings')
             <a href="{{ url('/app/limousine/reports/bookings/export?from=' . $from . '&to=' . $to) }}" class="o-btn-ghost text-sm">{{ __('Export CSV') }}</a>
@@ -68,7 +68,7 @@
                             <td class="px-4 py-2 font-medium text-chrome-800">{{ $b->reference }}</td>
                             <td class="px-4 py-2 text-chrome-700">{{ $b->customer?->name ?? '—' }}</td>
                             <td class="px-4 py-2 text-chrome-600">{{ $b->pickupLocation?->name ?? '—' }} → {{ $b->dropoffLocation?->name ?? '—' }}</td>
-                            <td class="px-4 py-2 text-chrome-600">{{ $b->pickup_at?->isoFormat('MMM D, h:mm A') ?? '—' }}</td>
+                            <td class="px-4 py-2 text-chrome-600">{{ $b->pickup_at?->isoFormat('DD-MMM, h:mm A') ?? '—' }}</td>
                             <td class="px-4 py-2 text-chrome-600">{{ __(ucfirst($b->status)) }}</td>
                             <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($b->fare) }}</td>
                         </tr>

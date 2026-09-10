@@ -271,7 +271,7 @@
                     </div>
                     <div>
                         <label class="{{ $lbl }}">{{ __('Date') }}</label>
-                        <input type="date" wire:model="order_date" class="o-input w-full">
+                        <x-date-field wire:model="order_date" class="o-input w-full" />
                     </div>
 
                     <div>
@@ -283,12 +283,12 @@
                                 {{ __('New customer') }}
                             </button>
                         </div>
-                        <select wire:model.live="customer_id" class="o-input w-full">
-                            <option value="">{{ __('— Select —') }}</option>
-                            @foreach ($customers as $c)
-                                <option value="{{ $c->id }}">{{ $c->name }}{{ $c->phone ? ' · ' . $c->phone : '' }}</option>
-                            @endforeach
-                        </select>
+                        <x-searchable-select wire:model.live="customer_id" class="o-input w-full"
+                            :options="collect($customers)->map(fn ($c) => [
+                                'value' => $c->id,
+                                'label' => $c->name . ($c->phone ? ' · ' . $c->phone : ''),
+                            ])->all()"
+                            :search-placeholder="__('Search name or number…')" />
                         @error('customer_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
@@ -440,12 +440,12 @@
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
                         <label class="{{ $lbl }}">{{ __('Pick-up date') }} <span class="text-red-500">*</span></label>
-                        <input type="date" wire:model.live="start_date" class="o-input w-full" @unless ($canBackdate) min="{{ now()->toDateString() }}" @endunless>
+                        <x-date-field wire:model.live="start_date" class="o-input w-full" @unless ($canBackdate) min="{{ now()->toDateString() }}" @endunless />
                         @error('start_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label class="{{ $lbl }}">{{ __('Return date') }} <span class="text-red-500">*</span></label>
-                        <input type="date" wire:model.live="end_date" class="o-input w-full" @if ($start_date) min="{{ $start_date }}" @endif>
+                        <x-date-field wire:model.live="end_date" class="o-input w-full" @if ($start_date) min="{{ $start_date }}" @endif />
                         @error('end_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
@@ -513,7 +513,10 @@
                     <label class="{{ $lbl }}">{{ __('Payment type') }}</label>
                     <div class="flex flex-wrap gap-2">
                         @foreach ($paymentTypes as $pt)
-                            <label class="cursor-pointer" wire:key="pt-{{ $pt['value'] }}">
+                            {{-- `relative` anchors the sr-only input here; without it, focusing
+                                 the hidden radio scrolls the page (see the Limousine payment
+                                 selector for the same fix). --}}
+                            <label class="relative cursor-pointer" wire:key="pt-{{ $pt['value'] }}">
                                 <input type="radio" wire:model.live="payment_type" value="{{ $pt['value'] }}" class="peer sr-only">
                                 <span class="block rounded-lg border border-chrome-200 px-3 py-1.5 text-sm text-chrome-600 transition hover:bg-chrome-50 peer-checked:border-primary-500 peer-checked:bg-primary-50 peer-checked:font-medium peer-checked:text-primary-700">{{ __($pt['label']) }}</span>
                             </label>

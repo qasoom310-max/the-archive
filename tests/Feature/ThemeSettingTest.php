@@ -180,4 +180,77 @@ final class ThemeSettingTest extends TestCase
             $this->assertSame('sky', Appearance::accent());
         });
     }
+
+    /**
+     * Dark mode is built by remapping the neutral utility CLASSES under `.dark`
+     * instead of editing hundreds of views — which holds only while every
+     * neutral background a view uses has a counterpart in that block.
+     *
+     * Two did not. `group-hover:bg-chrome-50`, on the pinned Actions column of
+     * the trip queue. Remapping `.hover\:bg-*:hover` does nothing for it,
+     * because hover driven by a PARENT compiles to a different selector — so
+     * the pinned cell, which carries its own background in order to sit above
+     * the row scrolling under it, was repainted from the LIGHT palette and
+     * flashed white the moment the mouse crossed the row.
+     *
+     * And `disabled:bg-*`, which compiles to its own selector as well — a locked
+     * field kept the light grey and sat as a pale block in a dark form.
+     *
+     * Reading the stylesheet from a test is unusual, but the rule being checked
+     * is that the views and that block agree, and nothing else checked it.
+     */
+    public function test_every_neutral_hover_background_a_view_uses_is_remapped_for_dark(): void
+    {
+        $css = (string) file_get_contents(resource_path('css/app.css'));
+
+        $used = [];
+        foreach (['resources/views', 'Modules'] as $dir) {
+            /** @var iterable<\SplFileInfo> $files */
+            $files = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator(base_path($dir), \FilesystemIterator::SKIP_DOTS)
+            );
+
+            foreach ($files as $file) {
+                if (! $file->isFile() || ! str_ends_with($file->getFilename(), '.blade.php')) {
+                    continue;
+                }
+
+                preg_match_all(
+                    '/\b(group-hover|hover|disabled):(bg-(?:white|chrome-\d+))\b/',
+                    (string) file_get_contents($file->getPathname()),
+                    $matches,
+                    PREG_SET_ORDER
+                );
+
+                foreach ($matches as $m) {
+                    $used[$m[1] . ':' . $m[2]] = true;
+                }
+            }
+        }
+
+        $this->assertNotSame([], $used, 'Found no hover backgrounds at all — the scan itself is broken.');
+
+        $missing = [];
+        foreach (array_keys($used) as $class) {
+            [$variant, $utility] = explode(':', $class, 2);
+
+            // How Tailwind compiles each variant, and so what `.dark` has to
+            // out-specify to win.
+            $selector = $variant === 'group-hover'
+                ? '.dark .group:hover .group-hover\\:' . $utility
+                : '.dark .hover\\:' . $utility . ':hover';
+
+            if (! str_contains($css, $selector . ' ')) {
+                $missing[] = $class . '  (needs: ' . $selector . ')';
+            }
+        }
+
+        sort($missing);
+
+        $this->assertSame([], $missing, sprintf(
+            "%d hover background(s) used in views have no dark remap, so they repaint in the light palette:\n  - %s",
+            count($missing),
+            implode("\n  - ", $missing)
+        ));
+    }
 }

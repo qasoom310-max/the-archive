@@ -1,0 +1,60 @@
+name: Republish fares to the website (manual)
+
+# Runs `php artisan pricing:republish --workspace=<id>` on the live server.
+#
+# Bumps the pricing version and pings the website even though no fare data
+# changed — needed after a fix to HOW the published payload is COMPUTED
+# (e.g. a change to what makes an offer "live"), since PricingWriter only
+# bumps the version on a genuine data write and the website's cache is keyed
+# to that version as an ETag. Without a bump, the website's next fetch is
+# either skipped outright (it already holds this version) or answered 304 by
+# the ERP itself — so a code-only fix would silently never reach it.
+#
+# Only ever writes the pricing_version row (no fare touched). Safe to press
+# twice. Manual only — it never runs on push.
+on:
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: 'Workspace id to republish (Wanaan is 7)'
+        required: true
+        default: '7'
+
+concurrency:
+  group: republish-pricing
+  cancel-in-progress: false
+
+jobs:
+  republish:
+    name: Republish fares on erp.wanaan-bh.com
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust Hostinger SSH host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run pricing:republish
+        env:
+          WORKSPACE: ${{ inputs.workspace }}
+        run: |
+          set -euo pipefail
+
+          # Numeric-only: the value goes into a remote shell command, and the
+          # artisan command itself refuses an id that does not exist.
+          if ! [[ "$WORKSPACE" =~ ^[0-9]+$ ]]; then
+            echo "Workspace must be a number."
+            exit 1
+          fi
+
+          ssh -p ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && php artisan pricing:republish --workspace=$WORKSPACE"

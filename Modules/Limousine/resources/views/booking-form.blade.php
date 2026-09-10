@@ -54,10 +54,16 @@
                         {{ __('New customer') }}
                     </button>
                 </div>
-                <select wire:model="customer_id" class="o-input w-full">
-                    <option value="">{{ __('— Select —') }}</option>
-                    @foreach ($customers as $c)<option value="{{ $c->id }}">{{ $c->name }}{{ $c->phone ? ' · ' . $c->phone : '' }}</option>@endforeach
-                </select>
+                {{-- .live so picking a customer fills the passenger block straight
+                     away. Searchable because this is every customer there has ever
+                     been: scrolling to a name you already know is not a way to
+                     pick it. --}}
+                <x-searchable-select wire:model.live="customer_id" class="o-input w-full"
+                    :options="collect($customers)->map(fn ($c) => [
+                        'value' => $c->id,
+                        'label' => $c->name . ($c->phone ? ' · ' . $c->phone : ''),
+                    ])->all()"
+                    :search-placeholder="__('Search name or number…')" />
                 @error('customer_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
             <div>
@@ -66,10 +72,6 @@
                     <option value="">{{ __('— Select —') }}</option>
                     @foreach ($bookingTypes as $opt)<option value="{{ $opt['value'] }}">{{ __($opt['label']) }}</option>@endforeach
                 </select>
-            </div>
-            <div>
-                <label class="{{ $lbl }}">{{ __('Contact person') }}</label>
-                <input type="text" wire:model="contact_person" class="o-input w-full">
             </div>
             <div>
                 <label class="{{ $lbl }}">{{ __('Company reference') }}</label>
@@ -99,9 +101,12 @@
                 @error('requested_by') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
             <div>
-                <label class="{{ $lbl }}">{{ __('Prepared by') }} *</label>
-                <input type="text" wire:model="prepared_by" class="o-input w-full">
-                @error('prepared_by') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                <label class="{{ $lbl }}">{{ __('Prepared by') }}</label>
+                {{-- Stamped from the signed-in user. No wire:model: the property is
+                     #[Locked], so binding it would only invite a tampering error. --}}
+                <input type="text" value="{{ $prepared_by }}" readonly tabindex="-1"
+                       class="o-input w-full cursor-not-allowed opacity-70">
+                <p class="mt-1 text-xs text-chrome-500">{{ __('Recorded automatically from your account.') }}</p>
             </div>
             <div class="sm:col-span-2">
                 <label class="{{ $lbl }}">{{ __('Comments') }}</label>
@@ -112,7 +117,10 @@
 
     {{-- ── Trip legs ── --}}
     <div class="mt-5">
-        @include('limousine::partials.legs')
+        {{-- No car on the booking sheet at all: the vehicle is unknown when the
+             trip is taken and is assigned from the Bookings list (Queue tab).
+             Quotations include this partial without the flag and keep theirs. --}}
+        @include('limousine::partials.legs', ['showCar' => false])
     </div>
 
     {{-- ── Payment & total ── --}}
@@ -122,12 +130,40 @@
             <div>
                 <label class="{{ $lbl }}">{{ __('Advance (BHD)') }}</label>
                 <input type="number" step="0.001" min="0" wire:model.live="advance" class="o-input w-full">
+                {{-- Credit from a cancelled trip counts as money already taken, so
+                     applying it raises the advance and the balance falls through the
+                     same path a cash payment takes. --}}
+                <div class="mt-2 flex gap-2">
+                    <input type="text" wire:model="couponCode" wire:keydown.enter.prevent="applyCoupon"
+                           class="o-input w-full text-sm"
+                           placeholder="{{ __('Refund coupon code') }}">
+                    <button type="button" wire:click="applyCoupon" class="o-btn-ghost shrink-0 text-sm">{{ __('Apply') }}</button>
+                </div>
+                @error('couponCode') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                {{-- Checked, and showing against the total. It is taken off the
+                     coupon when the booking is saved — there is no bill to take
+                     it off before then, and an abandoned form must not quietly
+                     consume somebody's credit. --}}
+                @if ($couponCredit > 0)
+                    <p class="mt-1 text-xs font-medium text-emerald-700">
+                        {{ __(':amount comes off this booking. Taken from the coupon when you save.', [
+                            'amount' => \App\Erp\Views\ValueFormat::money($couponCredit),
+                        ]) }}
+                    </p>
+                @endif
+                <p class="mt-1 text-[11px]">
+                    <a href="{{ url('/app/limousine/coupon') }}" class="text-primary-700 hover:underline">{{ __('Refund coupons') }}</a>
+                </p>
             </div>
             <div>
                 <label class="{{ $lbl }}">{{ __('Payment method') }} *</label>
                 <div class="flex flex-wrap gap-2">
                     @foreach ($paymentMethods as $pm)
-                        <label class="cursor-pointer" wire:key="pm-{{ $pm['value'] }}">
+                        {{-- `relative` matters: the sr-only input is position:absolute, so
+                             without a positioned ancestor it anchors to a distant one. Clicking
+                             the label focuses that hidden radio, the browser scrolls it into
+                             view, and the page jumps. Anchoring it here keeps the scroll still. --}}
+                        <label class="relative cursor-pointer" wire:key="pm-{{ $pm['value'] }}">
                             <input type="radio" wire:model.live="payment_method" value="{{ $pm['value'] }}" class="peer sr-only">
                             <span class="block rounded-lg border border-chrome-200 px-3 py-1.5 text-sm text-chrome-600 transition hover:bg-chrome-50 peer-checked:border-primary-500 peer-checked:bg-primary-50 peer-checked:font-medium peer-checked:text-primary-700">{{ __($pm['label']) }}</span>
                         </label>
@@ -140,6 +176,12 @@
         <dl class="mt-4 space-y-2 border-t border-chrome-100 pt-4 text-sm">
             <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Grand total') }} <span class="text-chrome-400">· {{ count($legs) }} {{ __('leg(s)') }}</span></dt><dd class="text-lg font-bold text-chrome-900">{{ \App\Erp\Views\ValueFormat::money($grandTotal) }}</dd></div>
             <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Advance') }}</dt><dd class="text-chrome-600">− {{ \App\Erp\Views\ValueFormat::money((float) ($advance === '' ? '0' : $advance)) }}</dd></div>
+            @if ($couponCredit > 0)
+                <div class="flex justify-between">
+                    <dt class="text-chrome-500">{{ __('Coupon') }} <span class="text-chrome-400">· {{ $couponAccepted }}</span></dt>
+                    <dd class="font-medium text-emerald-700">− {{ \App\Erp\Views\ValueFormat::money($couponCredit) }}</dd>
+                </div>
+            @endif
             <div class="flex items-center justify-between rounded-lg bg-primary-50 px-3 py-2"><dt class="font-semibold text-primary-800">{{ __('Balance') }}</dt><dd class="text-base font-bold text-primary-700">{{ \App\Erp\Views\ValueFormat::money($balance) }}</dd></div>
         </dl>
 

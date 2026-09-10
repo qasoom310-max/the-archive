@@ -7,6 +7,7 @@ namespace Modules\Limousine\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * One leg of a limousine trip, shared by bookings and quotations. A leg is a
@@ -18,10 +19,16 @@ use Illuminate\Support\Carbon;
  * @property string $legable_type
  * @property int $legable_id
  * @property int $sequence
+ * @property string|null $reference  Plain running number, e.g. "10000"
+ * @property string|null $status     queue|confirmed|active|completed|cancelled; null on quotation legs
  * @property string $service_type
  * @property int|null $car_id
+ * @property int|null $driver_id  Logical ref to the shared rental_drivers table
+ * @property string|null $driver  Driver name at assignment time
  * @property string|null $from_location
+ * @property string|null $from_location_url  Map pin for the pick-up (a link gets the driver to the door)
  * @property string|null $to_location
+ * @property string|null $to_location_url    Map pin for the drop-off
  * @property Carbon|null $start_at
  * @property float|null $hours
  * @property int $days
@@ -34,6 +41,15 @@ use Illuminate\Support\Carbon;
  * @property float $line_total
  * @property float $net_amount
  * @property string|null $notes
+ * @property string|null $signature_path   Customer's drawn signature (public disk)
+ * @property Carbon|null $signed_at        When they signed — the proof's timestamp
+ * @property string|null $signed_name      Name typed alongside the signature
+ * @property string|null $signed_ip        Where it was signed from (audit)
+ * @property Carbon|null $service_order_sent_at
+ * @property Carbon|null $cancelled_at
+ * @property string|null $cancellation_reason
+ * @property string|null $refund_outcome   none|refunded|coupon — what the customer got back
+ * @property float $refund_amount
  */
 final class LimoLeg extends Model
 {
@@ -49,12 +65,58 @@ final class LimoLeg extends Model
 
     public const BASIS_DAY = 'day';
 
+    /**
+     * Each leg is dispatched on its own, so it carries its own status —
+     * mirroring the booking's, which now only summarises its legs.
+     */
+    public const STATUS_QUEUE = 'queue';
+
+    public const STATUS_CONFIRMED = 'confirmed';
+
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_COMPLETED = 'completed';
+
+    public const STATUS_CANCELLED = 'cancelled';
+
+    /**
+     * What became of the money when a trip was called off — the values stored
+     * in `refund_outcome`. They live here, on the row whose column holds them,
+     * because the bill reads them too: whether a cancelled trip is still
+     * charged for depends on which of these it ended as.
+     */
+    public const REFUND_NONE = 'none';
+
+    public const REFUND_REFUNDED = 'refunded';
+
+    public const REFUND_COUPON = 'coupon';
+
+    /** First reference handed out. Kept in step with the backfill migration. */
+    public const REFERENCE_START = 10000;
+
     /** @var list<string> */
     protected $fillable = [
-        'legable_type', 'legable_id', 'sequence', 'service_type', 'car_id', 'from_location',
-        'to_location', 'start_at', 'hours', 'days', 'vehicle', 'vehicle_details',
-        'rate', 'rate_basis', 'discount', 'vat', 'line_total', 'net_amount', 'notes',
+        'legable_type', 'legable_id', 'sequence', 'reference', 'status', 'service_type',
+        'car_id', 'driver_id', 'driver', 'from_location', 'from_location_url', 'to_location', 'to_location_url', 'start_at', 'hours', 'days', 'vehicle',
+        'vehicle_details', 'rate', 'rate_basis', 'discount', 'vat', 'line_total', 'net_amount', 'notes',
+        'signature_path', 'signed_at', 'signed_name', 'signed_ip', 'service_order_sent_at',
+        'cancelled_at', 'cancellation_reason', 'refund_outcome', 'refund_amount',
     ];
+
+    protected static function booted(): void
+    {
+        // Derive the running number from the row's own id rather than
+        // `max(reference) + 1`: the id is already unique and monotonic, so two
+        // legs created at the same moment cannot collide, and a deleted leg
+        // leaves a gap instead of handing its number to someone else. The
+        // offset keeps it clear of the backfilled range — see the migration.
+        static::created(static function (self $leg): void {
+            if ($leg->reference === null || $leg->reference === '') {
+                $leg->reference = (string) (self::REFERENCE_START - 1 + (int) $leg->getKey());
+                $leg->saveQuietly();
+            }
+        });
+    }
 
     /** @var array<string, mixed> */
     protected $attributes = [
@@ -77,6 +139,7 @@ final class LimoLeg extends Model
             'legable_id' => 'integer',
             'sequence' => 'integer',
             'car_id' => 'integer',
+            'driver_id' => 'integer',
             'start_at' => 'datetime',
             'hours' => 'float',
             'days' => 'integer',
@@ -85,7 +148,50 @@ final class LimoLeg extends Model
             'vat' => 'float',
             'line_total' => 'float',
             'net_amount' => 'float',
+            'signed_at' => 'datetime',
+            'service_order_sent_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'refund_amount' => 'float',
         ];
+    }
+
+    /**
+     * Does this trip still belong on the bill?
+     *
+     * A cancelled trip is not charged for — nobody pays for a car that never
+     * came. The exception is one cancelled too late to be refunded: that money
+     * was forfeited and handed back as credit instead, so it stays earned on
+     * the booking it was paid to, and the coupon carries the customer's half of
+     * it. Taking it off the bill as well would give the same money away twice.
+     */
+    public function isBillable(): bool
+    {
+        return $this->status !== self::STATUS_CANCELLED
+            || $this->refund_outcome === self::REFUND_COUPON;
+    }
+
+    /** Whether the customer has signed this leg's Service Order. */
+    public function isSigned(): bool
+    {
+        return $this->signed_at !== null && $this->signature_path !== null;
+    }
+
+    /**
+     * Public URL of the drawn signature, or null when unsigned — or when the
+     * stored file has since gone missing, so a stale path renders nothing
+     * rather than a broken image on the printed proof.
+     */
+    public function signatureUrl(): ?string
+    {
+        if (! $this->isSigned()) {
+            return null;
+        }
+
+        $disk = Storage::disk('public');
+
+        return $disk->exists((string) $this->signature_path)
+            ? $disk->url((string) $this->signature_path)
+            : null;
     }
 
     /**

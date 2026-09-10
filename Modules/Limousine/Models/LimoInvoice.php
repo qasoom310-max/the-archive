@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $reference
  * @property int|null $customer_id
  * @property int|null $booking_id
+ * @property int|null $quotation_id
  * @property Carbon|null $issue_date
  * @property Carbon|null $due_date
  * @property float $subtotal
@@ -29,6 +30,7 @@ use Illuminate\Support\Carbon;
  * @property float $amount_paid
  * @property string $status
  * @property string|null $notes
+ * @property string|null $charge_label
  * @property-read LimoCustomer|null $customer
  * @property-read \Illuminate\Database\Eloquent\Collection<int, LimoReceipt> $receipts
  */
@@ -46,8 +48,8 @@ final class LimoInvoice extends Model implements DefinesIrModel
 
     /** @var list<string> */
     protected $fillable = [
-        'reference', 'customer_id', 'booking_id', 'issue_date', 'due_date',
-        'subtotal', 'discount', 'total', 'amount_paid', 'status', 'notes',
+        'reference', 'customer_id', 'booking_id', 'quotation_id', 'issue_date', 'due_date',
+        'subtotal', 'discount', 'total', 'amount_paid', 'status', 'notes', 'charge_label',
     ];
 
     /** @var array<string, mixed> */
@@ -64,6 +66,7 @@ final class LimoInvoice extends Model implements DefinesIrModel
         return [
             'customer_id' => 'integer',
             'booking_id' => 'integer',
+            'quotation_id' => 'integer',
             'issue_date' => 'date',
             'due_date' => 'date',
             'subtotal' => 'float',
@@ -71,6 +74,30 @@ final class LimoInvoice extends Model implements DefinesIrModel
             'total' => 'float',
             'amount_paid' => 'float',
         ];
+    }
+
+    /**
+     * A charge that is not a journey — today, a late-payment fee.
+     *
+     * It has no trip and never will, which is what separates it from a bill
+     * raised off a quotation and still waiting to be dispatched.
+     */
+    public function isCharge(): bool
+    {
+        return $this->charge_label !== null && $this->charge_label !== '';
+    }
+
+    /**
+     * Billed, but the journey it bills for has not been created yet.
+     *
+     * This — not "has no booking" — is what stops money being taken: a receipt
+     * belongs to a job, and a quote's trip does not exist until someone
+     * dispatches it. A standalone charge has no job to wait for, so it is
+     * payable the moment it is raised.
+     */
+    public function isAwaitingTrip(): bool
+    {
+        return $this->booking_id === null && $this->quotation_id !== null;
     }
 
     public function referencePrefix(): string
@@ -92,6 +119,93 @@ final class LimoInvoice extends Model implements DefinesIrModel
     public function receipts(): HasMany
     {
         return $this->hasMany(LimoReceipt::class, 'invoice_id');
+    }
+
+    /**
+     * @return BelongsTo<LimoQuotation, $this>
+     */
+    public function quotation(): BelongsTo
+    {
+        return $this->belongsTo(LimoQuotation::class, 'quotation_id');
+    }
+
+    /**
+     * @return BelongsTo<LimoBooking, $this>
+     */
+    public function booking(): BelongsTo
+    {
+        return $this->belongsTo(LimoBooking::class, 'booking_id');
+    }
+
+    /**
+     * Has money landed against this invoice?
+     *
+     * Once it has, the document stops following the trip. An invoice somebody
+     * has paid against must not change its own total afterwards — the customer
+     * holds a receipt quoting a figure, and a document that quietly re-prices
+     * itself makes that receipt a lie.
+     */
+    public function isFrozen(): bool
+    {
+        return round((float) $this->amount_paid, 3) > 0.0;
+    }
+
+    /**
+     * Follow the trip's price — but only while nothing is paid.
+     *
+     * A booking is shaped after it is taken: legs are added, priced, cancelled.
+     * The invoice tracks that so the two never disagree, and stops the moment
+     * the first payment lands.
+     */
+    public function followTotal(float $total): bool
+    {
+        if ($this->isFrozen()) {
+            return false;
+        }
+
+        $total = round($total, 3);
+        if (abs($total - round((float) $this->total, 3)) < 0.0005) {
+            return false;
+        }
+
+        $this->subtotal = $total;
+        $this->total = $total;
+        $this->save();
+
+        return true;
+    }
+
+    /**
+     * Dispatch the journey this invoice bills for.
+     *
+     * The trip is built from the QUOTATION, because that is what holds the
+     * journey — the legs, the route, the hours. An invoice holds only totals,
+     * so without the quote behind it there is nothing to build and the office
+     * would be retyping a trip it had already priced.
+     *
+     * Returns null when there is no quotation to build from; idempotent once a
+     * trip exists, so pressing twice never raises a second one.
+     */
+    public function createTrip(): ?LimoBooking
+    {
+        if ($this->booking_id !== null) {
+            return LimoBooking::query()->find($this->booking_id);
+        }
+
+        $quotation = $this->quotation;
+        if ($quotation === null) {
+            return null;
+        }
+
+        $booking = $quotation->convertToBooking();
+
+        // Linked BEFORE anything else touches the booking: syncInvoice() finds
+        // an invoice by booking_id, so claiming it here is what stops a second
+        // invoice being raised for the same trip.
+        $this->booking_id = $booking->id;
+        $this->save();
+
+        return $booking;
     }
 
     public function balance(): float
@@ -148,7 +262,6 @@ final class LimoInvoice extends Model implements DefinesIrModel
                     'default_sort' => [['field' => 'id', 'dir' => 'desc']],
                     'per_page' => 20,
                     'searchable' => ['reference'],
-                    'open' => '/app/limousine/invoice/{id}',
                 ]),
             ],
         );

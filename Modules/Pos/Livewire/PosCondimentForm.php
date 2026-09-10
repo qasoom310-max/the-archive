@@ -12,6 +12,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Pos\Models\PosCondiment;
+use Livewire\Attributes\Locked;
 
 /**
  * Create/edit a POS condiment via the engine FormView (EN/AR name pills,
@@ -21,10 +22,15 @@ use Modules\Pos\Models\PosCondiment;
 #[Title('POS Condiment')]
 final class PosCondimentForm extends Component
 {
+    #[Locked]
     public ?int $id = null;
 
-    public function mount(?int $id = null): void
+    public function mount(int|string|null $id = null): void
     {
+        // A route segment is always a string, and a non-numeric one
+        // ("new") means a new record rather than a bad request.
+        $id = is_numeric($id) ? (int) $id : null;
+
         $this->id = $id;
     }
 

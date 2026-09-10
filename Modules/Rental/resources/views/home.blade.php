@@ -230,26 +230,34 @@
                 <div class="text-sm font-medium text-chrome-500">{{ $card['label'] }}</div>
             </a>
         @endforeach
-        {{-- Money: collected revenue + what's still owed (unpaid / part-paid). --}}
-        <div class="{{ $tile }} flex flex-col bg-gradient-to-br from-emerald-600 to-emerald-700 ring-0">
+        {{-- Unpaid stays with the operational cards: chasing a balance is the
+             job of whoever runs the counter, not a report on the takings. --}}
+        <a href="{{ url('/app/rental/order?tab=unpaid') }}" wire:navigate class="{{ $tile }} flex flex-col hover:ring-red-300">
             <div class="flex items-center justify-between">
-                <span class="flex size-9 items-center justify-center rounded-xl bg-white/15 text-white ring-1 ring-white/20">
-                    <svg class="size-5" viewBox="0 0 20 20" fill="currentColor">{!! $ic['cash'] !!}</svg>
+                <span class="flex size-9 items-center justify-center rounded-xl bg-red-50 text-red-600 ring-1 ring-red-100">
+                    <svg class="size-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10A8 8 0 1 1 2 10a8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a1 1 0 0 0 0 2v3a1 1 0 0 0 1 1h1a1 1 0 1 0 0-2v-3a1 1 0 0 0-1-1H9Z" clip-rule="evenodd"/></svg>
                 </span>
-                <span class="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/90">{{ __('Collected') }}</span>
+                <svg class="size-4 text-chrome-300 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/></svg>
             </div>
-            <div class="mt-3 text-2xl font-bold tracking-tight text-white">{{ \App\Erp\Views\ValueFormat::money($revenue) }}</div>
-            <div class="text-sm font-medium text-white/70">{{ __('Revenue') }}</div>
-            <a href="{{ url('/app/rental/order?tab=unpaid') }}" wire:navigate
-                class="mt-3 flex items-center justify-between rounded-lg bg-black/15 px-3 py-2 transition hover:bg-black/25">
-                <span class="flex items-center gap-1.5 text-xs font-medium text-white/80">
-                    <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10A8 8 0 1 1 2 10a8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a1 1 0 0 0 0 2v3a1 1 0 0 0 1 1h1a1 1 0 1 0 0-2v-3a1 1 0 0 0-1-1H9Z" clip-rule="evenodd"/></svg>
-                    {{ __('Unpaid') }} · {{ $unpaidOrders }}
-                </span>
-                <span class="text-sm font-bold text-white">{{ \App\Erp\Views\ValueFormat::money($unpaidOutstanding) }}</span>
-            </a>
-        </div>
+            <div class="mt-3 text-3xl font-bold tracking-tight text-chrome-900">{{ $unpaidOrders }}</div>
+            <div class="text-sm font-medium text-chrome-500">{{ __('Unpaid Orders') }}</div>
+            <div class="mt-2 text-xs font-semibold text-red-600">{{ __(':amount outstanding', ['amount' => \App\Erp\Views\ValueFormat::money($unpaidOutstanding)]) }}</div>
+        </a>
     </div>
+
+    {{-- Revenue and the targets measured against it: the owner's alone. --}}
+    @if ($isSuperAdmin)
+        @include('partials.revenue-targets', [
+            'tile' => $tile,
+            'revenue' => $revenue,
+            'targets' => $targets,
+            'schedules' => $schedules,
+            'gradient' => 'bg-gradient-to-br from-emerald-600 to-emerald-700',
+            'unpaidHref' => url('/app/rental/order?tab=unpaid'),
+            'fleetHref' => url('/app/rental/fleet'),
+        ])
+        @include('partials.top-customers', ['customers' => $topCustomers, 'tile' => $tile])
+    @endif
 
     {{-- ───────── Fleet status ───────── --}}
     <div class="mb-3 flex items-center gap-2">

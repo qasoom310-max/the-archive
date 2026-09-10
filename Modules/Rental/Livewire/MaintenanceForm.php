@@ -6,6 +6,7 @@ namespace Modules\Rental\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\ScrollsToFirstError;
 use App\Erp\Activity\ActivityLogger;
 use App\Models\User;
 use Closure;
@@ -28,6 +29,7 @@ use Modules\Rental\Models\Vehicle;
 final class MaintenanceForm extends Component
 {
     use GuardsModelAccess;
+    use ScrollsToFirstError;
 
     protected function accessModelKey(): string
     {
@@ -58,8 +60,12 @@ final class MaintenanceForm extends Component
 
     public string $reference = '';
 
-    public function mount(?int $id = null): void
+    public function mount(int|string|null $id = null): void
     {
+        // A route segment is always a string, and a non-numeric one
+        // ("new") means a new record rather than a bad request.
+        $id = is_numeric($id) ? (int) $id : null;
+
         $this->guardAccess(Permission::Read);
         if ($id !== null) {
             $record = RentalMaintenance::query()->find($id);
@@ -116,7 +122,7 @@ final class MaintenanceForm extends Component
     public function save(): void
     {
         $this->guardSave($this->id === null);
-        $this->validate();
+        $this->validateFocusing();
 
         $record = $this->id !== null ? RentalMaintenance::query()->find($this->id) : new RentalMaintenance();
         if ($record === null) {

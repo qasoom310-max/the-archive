@@ -6,13 +6,17 @@ namespace Modules\Rental\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\SelectsListRows;
+use App\Models\User;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Modules\Rental\Models\RentalInvoice;
+use Modules\Rental\Services\RentalInvoiceRows;
 
 /**
  * Rental invoices list — status tabs over "view invoices".
@@ -22,6 +26,7 @@ use Modules\Rental\Models\RentalInvoice;
 final class Invoices extends Component
 {
     use GuardsModelAccess;
+    use SelectsListRows;
     use WithPagination;
 
     /** all | unpaid | partial | paid */
@@ -41,6 +46,23 @@ final class Invoices extends Component
     public function updatedTab(): void
     {
         $this->resetPage();
+        $this->clearSelection();
+    }
+
+    /**
+     * The ids on the page being looked at, for the header checkbox. Same
+     * query and order as the list, so "select all on this page" means what
+     * the eye sees.
+     *
+     * @return list<int>
+     */
+    protected function currentPageIds(): array
+    {
+        return app(RentalInvoiceRows::class)->query($this->tab)
+            ->forPage($this->getPage(), 20)
+            ->pluck('id')
+            ->map(static fn ($id): int => (int) $id)
+            ->all();
     }
 
     public function render(): View
@@ -62,10 +84,13 @@ final class Invoices extends Component
             ->groupBy('status')
             ->pluck('aggregate', 'status');
 
+        $user = Auth::user();
+
         return view('rental::invoices', [
             'invoices' => $query->paginate(20),
             'counts' => $counts,
             'totalCount' => (int) $counts->sum(),
+            'canManage' => $user instanceof User && $user->canApproveMaintenance(),
         ]);
     }
 }

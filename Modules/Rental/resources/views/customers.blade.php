@@ -18,6 +18,7 @@
             <p class="mb-3 text-xs text-chrome-500">{{ __('Columns: Name, Type, CPR / CR, Phone, E-mail. Other columns are ignored. Duplicates (by CPR/CR then phone) are skipped.') }}</p>
             <form method="POST" action="{{ url('/app/rental/customer/import') }}" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">
                 @csrf
+                <input type="hidden" name="redirect" value="/app/rental/customer">
                 <input type="file" name="file" accept=".csv,text/csv,text/plain" required class="text-sm">
                 <button type="submit" class="o-btn-primary text-sm">{{ __('Import') }}</button>
             </form>

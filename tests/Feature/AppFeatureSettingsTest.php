@@ -244,6 +244,28 @@ final class AppFeatureSettingsTest extends TestCase
         Livewire::test(AppFeatureSettings::class, ['module' => 'pos'])->assertForbidden();
     }
 
+    /** A scoped Administrator gets full access to their OWN apps' settings. */
+    public function test_a_scoped_administrator_can_open_their_own_apps_settings(): void
+    {
+        $this->actingAs($this->admin());
+        $this->bootPos();
+
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'admin_apps' => ['pos']]));
+
+        Livewire::test(AppFeatureSettings::class, ['module' => 'pos'])->assertOk();
+    }
+
+    /** …but is blocked from an app's settings that isn't in their scope. */
+    public function test_a_scoped_administrator_is_blocked_from_another_apps_settings(): void
+    {
+        $this->actingAs($this->admin());
+        $this->bootPos();
+
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'admin_apps' => ['contacts']]));
+
+        Livewire::test(AppFeatureSettings::class, ['module' => 'pos'])->assertForbidden();
+    }
+
     public function test_an_app_without_feature_toggles_404s(): void
     {
         $this->actingAs($this->admin());

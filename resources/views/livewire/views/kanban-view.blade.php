@@ -2,7 +2,7 @@
     $val = function ($record, ?string $field) {
         if ($field === null) return null;
         $v = $record->getAttribute($field);
-        if ($v instanceof \Illuminate\Support\Carbon) return $v->isoFormat('MMM D');
+        if ($v instanceof \Illuminate\Support\Carbon) return $v->isoFormat('DD-MMM');
         // Enum-cast columns (e.g. order state) → human label.
         return \App\Erp\Views\ValueFormat::label($v);
     };

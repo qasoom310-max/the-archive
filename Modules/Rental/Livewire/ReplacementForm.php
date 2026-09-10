@@ -6,6 +6,7 @@ namespace Modules\Rental\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\ScrollsToFirstError;
 use App\Erp\Activity\ActivityLogger;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
@@ -31,6 +32,7 @@ use Modules\Rental\Models\Vehicle;
 final class ReplacementForm extends Component
 {
     use GuardsModelAccess;
+    use ScrollsToFirstError;
 
     protected function accessModelKey(): string
     {
@@ -41,6 +43,7 @@ final class ReplacementForm extends Component
     #[Locked]
     public ?int $id = null;
 
+    #[Locked]
     public ?int $order_id = null;
 
     public ?int $customer_id = null;
@@ -76,8 +79,12 @@ final class ReplacementForm extends Component
     /** Set when a new replacement is opened without a live, on-road order. */
     public bool $blocked = false;
 
-    public function mount(?int $id = null, ?int $order = null): void
+    public function mount(int|string|null $id = null, ?int $order = null): void
     {
+        // A route segment is always a string, and a non-numeric one
+        // ("new") means a new record rather than a bad request.
+        $id = is_numeric($id) ? (int) $id : null;
+
         $this->guardAccess(Permission::Read);
         if ($id !== null) {
             $this->loadExisting($id);
@@ -187,7 +194,7 @@ final class ReplacementForm extends Component
         $this->original_vehicle_id = $order->vehicle_id;
         $this->customer_id = $order->customer_id;
 
-        $this->validate();
+        $this->validateFocusing();
 
         // The replacement car must be free (available). Valid papers are required
         // too — except a super-admin may override for an urgent swap, matching

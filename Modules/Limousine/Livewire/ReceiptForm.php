@@ -6,8 +6,10 @@ namespace Modules\Limousine\Livewire;
 
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\ScrollsToFirstError;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -24,6 +26,7 @@ use Modules\Limousine\Models\LimoReceipt;
 final class ReceiptForm extends Component
 {
     use GuardsModelAccess;
+    use ScrollsToFirstError;
 
     protected function accessModelKey(): string
     {
@@ -46,9 +49,32 @@ final class ReceiptForm extends Component
 
     public string $reference = '';
 
-    public function mount(?int $id = null): void
+    /**
+     * This screen is the owner's alone, coming and going.
+     *
+     * Money taken on a booking issues its own receipt, so touching one by hand
+     * — writing it or repairing it — is a correction rather than the normal way
+     * in, and two receipts for the same payment is a hard mistake to spot after
+     * the fact.
+     */
+    private function guardManualCreate(): void
     {
+        abort_unless(Auth::user()?->isSuperAdmin() ?? false, 403);
+    }
+
+    public function mount(int|string|null $id = null): void
+    {
+        // A route segment is always a string, and a non-numeric one
+        // ("new") means a new record rather than a bad request.
+        $id = is_numeric($id) ? (int) $id : null;
+
         $this->guardAccess(Permission::Read);
+
+        // Nothing links here any more: a receipt is a record of money already
+        // taken, and the list offers Download and Send instead. The screen is
+        // kept only so the owner can write one by hand, or repair one — so the
+        // same rule guards BOTH doors rather than just the new one.
+        $this->guardManualCreate();
         if ($id !== null) {
             $receipt = LimoReceipt::query()->find($id);
             if ($receipt !== null) {
@@ -103,7 +129,12 @@ final class ReceiptForm extends Component
     public function save(): void
     {
         $this->guardSave($this->id === null);
-        $this->validate();
+        if ($this->id === null) {
+            // mount() gates are not gates on their own — Livewire dispatches to
+            // methods directly, so the create path re-checks here.
+            $this->guardManualCreate();
+        }
+        $this->validateFocusing();
 
         $invoice = LimoInvoice::query()->find($this->invoice_id);
         if ($invoice === null) {
@@ -126,7 +157,7 @@ final class ReceiptForm extends Component
         $invoice->refresh()->recomputePaid();
 
         session()->flash('toast', __('Payment recorded.'));
-        $this->redirect('/app/limousine/invoice/' . $invoice->id, navigate: true);
+        $this->redirect('/app/limousine/invoice', navigate: true);
     }
 
     public function render(): View

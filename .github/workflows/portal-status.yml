@@ -1,0 +1,58 @@
+name: Check portal connection status (manual)
+
+# Runs `php artisan portal:status` on the live server. Reports whether the
+# Wanaan portal URL/shared secret are configured for a database, WITHOUT ever
+# printing the secret itself — the Settings -> Service Portal field is
+# write-only, so this is the only way to confirm "is a secret already set
+# here" without the browser session of whoever originally configured it.
+#
+# Manual only (workflow_dispatch). It never runs on push.
+on:
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: 'Workspace id to check (Wanaan is 7; blank = current database)'
+        required: false
+        default: '7'
+
+concurrency:
+  group: portal-status
+  cancel-in-progress: false
+
+jobs:
+  status:
+    name: Check on erp.wanaan-bh.com
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust Hostinger SSH host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run portal:status
+        env:
+          WORKSPACE: ${{ inputs.workspace }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "$WORKSPACE" ] && ! [[ "$WORKSPACE" =~ ^[0-9]+$ ]]; then
+            echo "Workspace must be a number."
+            exit 1
+          fi
+
+          FLAG=""
+          if [ -n "$WORKSPACE" ]; then
+            FLAG="--workspace=$WORKSPACE"
+          fi
+
+          ssh -p ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && php artisan portal:status $FLAG"

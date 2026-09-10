@@ -33,12 +33,14 @@
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
                 <label class="{{ $lbl }}">{{ __('Product') }} *</label>
-                <select wire:model.live="product_id" @disabled(! $editable) class="o-input w-full disabled:bg-chrome-50 disabled:text-chrome-500">
-                    <option value="">{{ __('— Select —') }}</option>
-                    @foreach ($products as $p)
-                        <option value="{{ $p->id }}">{{ $p->name }}@if ($p->bottle_size_ml) · {{ rtrim(rtrim(number_format((float) $p->bottle_size_ml, 1), '0'), '.') }} ml @endif</option>
-                    @endforeach
-                </select>
+                <x-searchable-select wire:model.live="product_id" class="o-input w-full" :disabled="! $editable"
+                    :options="collect($products)->map(fn ($p) => [
+                        'value' => $p->id,
+                        'label' => $p->name . ($p->bottle_size_ml
+                            ? ' · ' . rtrim(rtrim(number_format((float) $p->bottle_size_ml, 1), '0'), '.') . ' ml'
+                            : ''),
+                    ])->all()"
+                    :search-placeholder="__('Search product…')" />
                 @error('product_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
             <div>

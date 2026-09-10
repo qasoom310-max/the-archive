@@ -2127,6 +2127,28 @@ recovery login re-asserted on every deploy, named "Wanaan Admin") — the two
 are unrelated, so removing the demo admin does not get undone by the next
 deploy.
 
+**Set the system-wide default language — `language:set-default` (shipped
+2026-09-10):** `company.language` is the fallback locale a **guest** on the
+login page (and any signed-in user with no personal preference) gets — see
+`App\Http\Middleware\SetLocale`. There is **no in-app control for it**:
+the Settings page's "Language" row looks like it should own this, but it's
+deliberately a **personal** preference (reads/writes `Auth::user()->language`,
+never the `ir_config_parameter` row — see `SettingsPage`'s `PER_USER_LANGUAGE_KEY`),
+so an admin toggling their own language never touches what a brand-new visitor
+sees. This command is the only way to change it, same shape as `user:remove`.
+
+| Concern | Location |
+|---|---|
+| Command | `App\Console\Commands\SetDefaultLanguageCommand` (`language:set-default {code=en} {--databases=all}`) — validates `code` against `en`/`ar` (same whitelist `SetLocale` enforces), iterates `WorkspaceManager::all()` via `withMain()`/`withTenant()` and calls `Setting::set('company.language', $code)` on each (idempotent; a database already on the code is just re-set and still reported) |
+| Manual workflow | `.github/workflows/set-default-language.yml` (`workflow_dispatch`, inputs `code` + `databases`) — SSHes into erp.wanaan-bh.com and runs the command, same pattern as `remove-user.yml` |
+| Tests | `tests/Feature/SetDefaultLanguageCommandTest.php` (4 — sets on Main, rejects an unsupported code, sets every workspace too, `--databases` restricts to just the given workspace) |
+
+First real use: forcing every live database (Cheeky, Hashtag limo, Kaleem
+Perfume W.L.L, Wanaan Car Rental W.L.L, Swelieh Cafe/Main) to `en`, so a
+brand-new visitor or freshly-created user with no personal language choice
+always lands in English regardless of what `company.language` had drifted to
+on that database.
+
 **App lists must go through `Features::moduleAllowed()` (fixed 2026-07-13):**
 the business-type gate has to be applied at **every** surface that lists
 installed application modules, not just the app bar. Two were missing it and

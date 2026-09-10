@@ -33,6 +33,7 @@ use Illuminate\Support\Carbon;
  * @property float $monthly_rate
  * @property float $deposit
  * @property float $monthly_target
+ * @property float $yearly_target
  * @property float $purchase_price
  * @property string|null $purchase_invoice
  * @property string|null $agreement_copy
@@ -85,7 +86,7 @@ final class Vehicle extends Model implements DefinesIrModel
     protected $fillable = [
         'name', 'plate_no', 'branch_id', 'make', 'model', 'year', 'color',
         'category', 'fuel_type', 'status', 'daily_rate', 'weekly_rate', 'monthly_rate',
-        'deposit', 'monthly_target', 'purchase_price', 'purchase_invoice', 'agreement_copy',
+        'deposit', 'monthly_target', 'yearly_target', 'purchase_price', 'purchase_invoice', 'agreement_copy',
         'odometer', 'next_maintenance_date', 'next_maintenance_mileage',
         'registration_expiry', 'registration_doc', 'insurance_expiry', 'insurance_doc', 'active', 'is_outside',
     ];
@@ -98,6 +99,7 @@ final class Vehicle extends Model implements DefinesIrModel
         'monthly_rate' => 0,
         'deposit' => 0,
         'monthly_target' => 0,
+        'yearly_target' => 0,
         'active' => true,
     ];
 
@@ -114,6 +116,7 @@ final class Vehicle extends Model implements DefinesIrModel
             'monthly_rate' => 'float',
             'deposit' => 'float',
             'monthly_target' => 'float',
+            'yearly_target' => 'float',
             'purchase_price' => 'float',
             'odometer' => 'integer',
             'next_maintenance_date' => 'date',

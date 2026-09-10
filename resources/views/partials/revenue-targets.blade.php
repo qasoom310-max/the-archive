@@ -40,6 +40,15 @@
     <h2 class="text-xs font-bold uppercase tracking-wider text-chrome-500">{{ __('Money') }}</h2>
     <span class="rounded-full bg-chrome-100 px-2 py-0.5 text-[11px] font-medium text-chrome-500">{{ __('Owner only') }}</span>
     <span class="h-px flex-1 bg-chrome-200"></span>
+    @isset($fleetHref)
+        {{-- The car-by-car scorecard: the same money, broken down far enough
+             to say whether each car is worth owning. --}}
+        <a href="{{ $fleetHref }}" wire:navigate
+            class="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-semibold text-chrome-500 transition hover:bg-chrome-100 hover:text-chrome-800">
+            <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 3.5A1.5 1.5 0 0 1 4.5 2h11A1.5 1.5 0 0 1 17 3.5v13a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 16.5v-13ZM6 6a.75.75 0 0 0 0 1.5h8A.75.75 0 0 0 14 6H6Zm0 3.5a.75.75 0 0 0 0 1.5h8a.75.75 0 0 0 0-1.5H6ZM6 13a.75.75 0 0 0 0 1.5h4A.75.75 0 0 0 10 13H6Z"/></svg>
+            {{ __('Fleet earnings') }}
+        </a>
+    @endisset
     <button type="button" wire:click="openTargets"
         class="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-semibold text-chrome-500 transition hover:bg-chrome-100 hover:text-chrome-800">
         <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 0 0 .65.65l3.155-1.262a4 4 0 0 0 1.343-.885L17.5 5.5a2.121 2.121 0 0 0-3-3L3.58 13.42a4 4 0 0 0-.885 1.343Z"/></svg>

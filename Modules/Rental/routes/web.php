@@ -21,6 +21,7 @@ use Modules\Rental\Http\Controllers\RentalReplacementExportController;
 use Modules\Rental\Http\Controllers\RentalReplacementImportController;
 use Modules\Rental\Http\Controllers\RentalDriverImportController;
 use Modules\Rental\Http\Controllers\RentalReportExportController;
+use Modules\Rental\Http\Controllers\RentalFleetExportController;
 use Modules\Rental\Http\Controllers\RentalSalesExportController;
 use Modules\Rental\Http\Controllers\RentalSalesImportController;
 use Modules\Rental\Http\Controllers\RentalVehicleImportController;
@@ -44,6 +45,7 @@ use Modules\Rental\Livewire\RentalHome;
 use Modules\Rental\Livewire\ReplacementForm;
 use Modules\Rental\Livewire\Replacements;
 use Modules\Rental\Livewire\Reports;
+use Modules\Rental\Livewire\FleetEarnings;
 use Modules\Rental\Livewire\Sales;
 use Modules\Rental\Livewire\VehicleForm;
 use Modules\Rental\Livewire\Vehicles;
@@ -125,6 +127,11 @@ Route::middleware('auth')->group(function (): void {
     // export route is declared before the page so it isn't shadowed.
     Route::get('/app/rental/reports/orders/export', RentalReportExportController::class)->name('rental.reports.export');
     Route::get('/app/rental/reports', Reports::class)->name('rental.reports');
+
+    // Fleet earnings — the car-by-car scorecard (owner only). The export is
+    // declared before the page so it isn't shadowed, and is gated the same way.
+    Route::get('/app/rental/fleet/export', RentalFleetExportController::class)->name('rental.fleet.export');
+    Route::get('/app/rental/fleet', FleetEarnings::class)->name('rental.fleet');
 
     // Sales — booking-revenue matrix by car/month + seasonal analysis.
     Route::get('/app/rental/sales/export', RentalSalesExportController::class)->name('rental.sales.export');

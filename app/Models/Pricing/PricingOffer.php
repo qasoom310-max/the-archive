@@ -47,12 +47,19 @@ final class PricingOffer extends Model
     }
 
     /**
-     * Live right now — the flag AND the window.
+     * Worth publishing right now — the flag, and not yet fully expired.
      *
-     * Expiry and scheduling are decided here and published as a plain boolean,
-     * so the website never runs date logic against a visitor's browser clock.
-     * An offer that has ended, or has not started, goes out as inactive
-     * whatever its flag says.
+     * `starts_at`/`ends_at` describe the TRAVEL window the discount applies
+     * to (e.g. "book any trip between 16 and 24 Sept"), not a window on
+     * when the offer may be BOOKED — a customer must be able to book that
+     * trip today, ahead of the 16th. So a not-yet-started offer is still
+     * live (its percent/cars publish in full the moment an admin switches
+     * it on); only OFF or already-ENDED zeroes it. The website is the one
+     * that knows which date the visitor is asking about, so it compares
+     * the visitor's chosen travel date against the published `starts`/
+     * `ends` before applying `percent` to that particular quote — this
+     * flag only guards against a stale or forgotten-off promo publishing
+     * forever.
      */
     public function isLive(?CarbonImmutable $on = null): bool
     {
@@ -60,17 +67,13 @@ final class PricingOffer extends Model
             return false;
         }
 
+        if ($this->ends_at === null) {
+            return true;
+        }
+
         $day = ($on ?? CarbonImmutable::now())->startOfDay();
 
-        if ($this->starts_at !== null && $day->lessThan(CarbonImmutable::instance($this->starts_at)->startOfDay())) {
-            return false;
-        }
-
-        if ($this->ends_at !== null && $day->greaterThan(CarbonImmutable::instance($this->ends_at)->startOfDay())) {
-            return false;
-        }
-
-        return true;
+        return ! $day->greaterThan(CarbonImmutable::instance($this->ends_at)->startOfDay());
     }
 
     /**

@@ -291,17 +291,45 @@ final class PricingApiTest extends TestCase
         $this->assertNull($offer['label_en']);
     }
 
-    public function test_an_offer_that_has_not_started_is_published_as_inactive(): void
+    public function test_an_offer_that_has_not_started_yet_is_still_published_so_it_can_be_booked_ahead(): void
     {
-        PricingOffer::query()->where('service_id', 'airport')->update([
-            'active' => true, 'percent' => 25,
-            'starts_at' => CarbonImmutable::now()->addDay()->toDateString(),
-            'ends_at' => CarbonImmutable::now()->addDays(10)->toDateString(),
+        // starts_at/ends_at are the TRAVEL window the discount applies to, not
+        // a window on when it may be booked — a customer must be able to book
+        // a trip within Sept 16-24 today, well before the 16th arrives.
+        $offer = PricingOffer::query()->where('service_id', 'airport')->firstOrFail();
+        $offer->update([
+            'active' => true, 'percent' => 25, 'label_en' => 'National Day 25%',
+            'starts_at' => CarbonImmutable::now()->addDays(6)->toDateString(),
+            'ends_at' => CarbonImmutable::now()->addDays(14)->toDateString(),
+        ]);
+        $offer->cars()->sync(['sedan', 'suv']);
+
+        $published = $this->withHeaders($this->signedHeaders())->get($this->path)->json('services.0.offer');
+
+        $this->assertTrue($published['active']);
+        $this->assertSame(25, $published['percent']);
+        $this->assertSame('National Day 25%', $published['label_en']);
+        $this->assertSame(['sedan', 'suv'], $published['cars']);
+        $this->assertSame(CarbonImmutable::now()->addDays(6)->toDateString(), $published['starts']);
+        $this->assertSame(CarbonImmutable::now()->addDays(14)->toDateString(), $published['ends']);
+    }
+
+    public function test_starts_and_ends_are_always_published_even_when_the_offer_is_off_or_expired(): void
+    {
+        // The travel window is reference data (for a site that wants to show
+        // "coming soon"), independent of whether the discount itself applies
+        // right now — only percent/label/cars are gated on that.
+        $offer = PricingOffer::query()->where('service_id', 'airport')->firstOrFail();
+        $offer->update([
+            'active' => false,
+            'starts_at' => '2026-09-16', 'ends_at' => '2026-09-24',
         ]);
 
-        $this->assertFalse(
-            $this->withHeaders($this->signedHeaders())->get($this->path)->json('services.0.offer.active'),
-        );
+        $published = $this->withHeaders($this->signedHeaders())->get($this->path)->json('services.0.offer');
+
+        $this->assertSame('2026-09-16', $published['starts']);
+        $this->assertSame('2026-09-24', $published['ends']);
+        $this->assertFalse($published['active']);
     }
 
     public function test_a_live_offer_is_published_with_its_percent_and_labels(): void

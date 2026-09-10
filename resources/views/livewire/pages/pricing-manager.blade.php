@@ -147,7 +147,7 @@
                 {{-- Offer --}}
                 <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-5">
                     <h2 class="text-sm font-semibold text-chrome-800">{{ __('Offer on this service') }}</h2>
-                    <p class="mb-3 text-xs text-chrome-400">{{ __('The website is told whether an offer is live — it never works that out from dates itself.') }}</p>
+                    <p class="mb-3 text-xs text-chrome-400">{{ __('Starts/Ends are the travel dates this discount applies to — turning the offer on makes it bookable right away, even for trips before Starts arrives. Turning it off (or Ends passing) is what takes it off the website.') }}</p>
 
                     <label class="mb-3 flex items-center gap-2 text-sm text-chrome-700">
                         <input type="checkbox" wire:model="offerActive" class="size-4 rounded border-chrome-300 text-primary-600 focus:ring-primary-500">

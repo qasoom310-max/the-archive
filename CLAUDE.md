@@ -2942,6 +2942,15 @@ states, or gives away, what the business earns.
 | Who pays us, and who stopped | `App\Erp\Customers\TopCustomers::forApp(app, now, limit)` + `partials/top-customers.blade.php` — top 15 by money collected over a rolling 12 months |
 | Tests | `tests/Feature/TopCustomersTest.php` (21) |
 
+**The schedule never disappears.** The first cut rendered nothing at all when
+a period had no collected money, so on a live database whose current month had
+no paid rows the owner went looking for the breakdown and could not find it —
+a control that vanishes is indistinguishable from a feature that was never
+built. An empty period now says "Nothing collected in this period yet.", and
+the closed state names the biggest single source so the panel is worth
+something before anyone clicks it. Pinned by
+`test_a_period_with_no_money_says_so_instead_of_vanishing`.
+
 **The schedule must reconcile with the box above it.** Same paid-only filter,
 same bounds, and everything past the top 8 folded into an "others" row rather
 than dropped — including money earned against **no car at all**, which is real

@@ -413,4 +413,33 @@ final class TopCustomersTest extends TestCase
             ->assertDontSee('Where it came from')
             ->assertDontSee('Dadabhai');
     }
+
+    public function test_the_schedule_is_on_the_dashboard_and_names_its_biggest_source(): void
+    {
+        // The biggest single source reads without opening anything, so the
+        // panel is worth something before anyone thinks to click it.
+        $car = $this->car('Sunny', '111111', 400.0);
+        $this->order($this->customer('Qassim'), '2026-09-02', 300, $car);
+        $this->actingAs($this->owner());
+
+        Livewire::test(RentalHome::class)
+            ->assertSee('Where it came from')
+            ->assertSee('Sunny · 111111');
+    }
+
+    public function test_a_period_with_no_money_says_so_instead_of_vanishing(): void
+    {
+        // An earlier version rendered nothing at all here, which is
+        // indistinguishable from a feature that was never built - the owner
+        // went looking for the breakdown and could not find it.
+        $this->actingAs($this->owner());
+
+        Livewire::test(RentalHome::class)
+            ->assertSee('Where it came from')
+            ->assertSee('Nothing collected in this period yet.');
+
+        Livewire::test(LimoHome::class)
+            ->assertSee('Where it came from')
+            ->assertSee('Nothing collected in this period yet.');
+    }
 }

@@ -3009,6 +3009,22 @@ leaving it visible-but-blocked (matches the pre-existing Staff/Supervisor
 experience today; a uniform "hide what you can't open" pass across every
 role would be a separate, broader change).
 
+**Settings → Users: the app checklist reacts to which databases you pick
+(shipped 2026-09-09):** creating a user from Main always offered **Main's own
+apps only**, no matter which databases were ticked below — so a rental
+workspace's Rent A Car / Limousine could never even be TICKED for a shared
+account, because the checklist had nothing to do with the database picker
+sitting right below it (found live: Wanaan Car Rental W.L.L's apps were
+invisible while creating a user from Main, a café).
+
+| Concern | Location |
+|---|---|
+| Per-database app list | `UserManager::appsFor(?int $workspaceId): Collection<int, IrModule>` — the installed, business-type-allowed application modules for ONE database, run on THAT database's own connection via `WorkspaceManager::runFor()` (a no-op for Main/null) so `Features::moduleAllowed()` reads that database's own `company.business_type`, not the caller's |
+| Reactive union | `UserManager::appModulesForForm(?int $currentWorkspaceId): Collection` — editing/creating inside ONE specific database (a workspace, or a shared account's per-database access) still uses `appsFor()` alone (exactly one database in play, unchanged). Creating a brand-new account from Main instead returns the **UNION** of every app run by the databases currently ticked in `$this->workspaces`, deduped by module name and sorted by `sequence`. Nothing ticked yet falls back to Main's own list (today's default view, unchanged) |
+| Live reactivity | The "Databases this user can access" checkboxes flipped from `wire:model` to `wire:model.live="workspaces"` — ticking one now round-trips and re-renders `appModules` immediately, so Rent A Car appears in the checklist the instant Wanaan is ticked (and disappears again if it's unticked, unless another ticked database also runs it). A hint line under "Apps this user can access" explains the behaviour |
+| Why this was already safe | `UserProvisioner::grantApps()` already filters every ticked app through `Features::moduleAllowed()` **per target database** (see the "grants are scoped per database" rule above) — so a stale app value left in `$this->apps` after unticking a database was never a security gap, only a UI blind spot. This change fixes the blind spot; it changes no enforcement |
+| Tests | `UserManagerTest::test_ticking_a_database_surfaces_the_apps_it_runs` (nothing ticked → Main's apps only; tick a rental workspace → its apps join the list, Main's stay too; untick Main, keep only the rental workspace → only its apps, POS drops out) |
+
 ---
 
 ## 6. Known Environment Caveats

@@ -2862,5 +2862,11 @@
     "from :place": "من :place",
     "on trips already run": "على رحلات تم تنفيذها",
     "to :place": "إلى :place",
-    "vs last year": "مقارنة بالعام الماضي"
+    "vs last year": "مقارنة بالعام الماضي",
+    ":count have gone quiet — :amount between them.": ":count منهم توقفوا عن الحجز — :amount بينهم.",
+    "Companies": "الشركات",
+    "Individuals": "الأفراد",
+    "Last :count months": "آخر :count أشهر",
+    "No :group paid for work in the last :count months.": "لا يوجد :group دفعوا مقابل عمل خلال آخر :count أشهر.",
+    "Ranked by money collected between :from and :to, companies and individuals apart. \"Going quiet\" and \"Lost\" are measured against each customer's own booking rhythm, read from their whole history, not one rule for everybody.": "مرتبة حسب المبالغ المحصّلة بين :from و :to، والشركات والأفراد كل على حدة. \"يقل نشاطه\" و\"مفقود\" تُقاس بوتيرة حجز كل عميل الخاصة به، مقروءة من تاريخه الكامل، وليس بقاعدة واحدة للجميع."
 }

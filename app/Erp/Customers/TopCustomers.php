@@ -31,8 +31,16 @@ use Illuminate\Support\Facades\Schema;
  */
 final class TopCustomers
 {
-    /** How far back "what this customer is worth" looks. */
-    public const WINDOW_MONTHS = 12;
+    /**
+     * How far back the ranking looks, in whole calendar months including this
+     * one.
+     *
+     * Six, not twelve. Over a year the list filled with people who hired once
+     * and were last seen ten months ago - every row reading "too few jobs to
+     * know their rhythm" - which is a list of strangers, not a call sheet. Six
+     * months is short enough that everyone on it is still a live relationship.
+     */
+    public const WINDOW_MONTHS = 6;
 
     /** No customer is chased before this many days, however tight their rhythm. */
     private const GRACE_DAYS = 7;
@@ -45,6 +53,9 @@ final class TopCustomers
 
     /** Someone with too little history to have a rhythm is judged on this. */
     private const NO_RHYTHM_LOST_DAYS = 180;
+
+    /** Ranked apart, because they are different businesses. */
+    private const GROUPS = ['company', 'individual'];
 
     /** Length of each half of the up/down comparison. */
     private const TREND_DAYS = 90;
@@ -76,13 +87,12 @@ final class TopCustomers
 
     /**
      * @return array{
-     *     rows: list<array{
-     *         id: int, name: string, paid: float, jobs: int, average: float,
-     *         lastAt: string|null, daysSince: int|null, rhythm: int|null,
-     *         status: string, overdueBy: int|null, trend: string, href: string, share: int
+     *     months: list<array{key: string, label: string}>,
+     *     groups: array<string, array{
+     *         rows: list<array<string, mixed>>, total: float, share: int|null,
+     *         quiet: int, atRisk: float
      *     }>,
-     *     total: float, collected: float, share: int|null,
-     *     quiet: int, atRisk: float, months: int
+     *     collected: float, windowMonths: int, from: string, to: string
      * }
      */
     public function forApp(string $app, ?CarbonImmutable $now = null, int $limit = 15): array
@@ -90,16 +100,21 @@ final class TopCustomers
         $now ??= CarbonImmutable::now();
         $spec = self::APPS[$app] ?? null;
 
+        // Whole calendar months, not a rolling 183 days, so the month columns
+        // line up with the months anyone would name out loud.
+        $from = $now->startOfMonth()->subMonths(self::WINDOW_MONTHS - 1);
+        $to = $now->endOfMonth();
+        $months = $this->monthColumns($from);
+
         if ($spec === null || ! Schema::hasTable($spec['jobs']) || ! Schema::hasTable($spec['customers'])) {
-            return $this->empty();
+            return $this->empty($months, $from, $to);
         }
 
-        $from = $now->subMonths(self::WINDOW_MONTHS)->startOfDay();
-        $bounds = RevenueTargets::windowBounds($from, $now);
+        $bounds = RevenueTargets::windowBounds($from, $to);
 
-        // 1. Rank by money actually collected in the window. Anonymous jobs
-        //    (no customer on the row) are money we cannot chase, so they are
-        //    excluded from the ranking but still counted in `collected`.
+        // 1. Everyone with collected work in the window. Not limited yet: the
+        //    two groups are ranked separately, so the cut has to come after
+        //    each customer's type is known.
         $ranked = DB::table($spec['jobs'])
             ->where('payment_status', 'paid')
             ->whereNotNull('customer_id')
@@ -107,20 +122,54 @@ final class TopCustomers
             ->selectRaw("customer_id, COALESCE(SUM({$spec['amount']}), 0) as paid, COUNT(*) as jobs")
             ->groupBy('customer_id')
             ->orderByDesc('paid')
-            ->limit($limit)
             ->get();
 
+        $collected = round((float) DB::table($spec['jobs'])
+            ->where('payment_status', 'paid')
+            ->whereBetween($spec['date'], $bounds)
+            ->selectRaw("COALESCE(SUM({$spec['amount']}), 0) as total")
+            ->value('total'), 3);
+
         if ($ranked->isEmpty()) {
-            return $this->empty();
+            return $this->empty($months, $from, $to, $collected);
+        }
+
+        $customers = DB::table($spec['customers'])
+            ->whereIn('id', $ranked->pluck('customer_id')->all())
+            ->get(['id', 'name', 'type'])
+            ->keyBy('id');
+
+        // 2. Split, then take the top of each. A handful of corporate accounts
+        //    would otherwise crowd out every individual and the individual half
+        //    of the business would never be looked at.
+        $keep = [];
+
+        foreach (self::GROUPS as $group) {
+            $of = $ranked->filter(function (object $row) use ($customers, $group): bool {
+                $type = (string) ($customers[$row->customer_id]->type ?? 'individual');
+
+                // Anything not explicitly a company is a person - a blank type
+                // on an imported row must land somewhere, not vanish.
+                return $group === 'company' ? $type === 'company' : $type !== 'company';
+            })->take($limit)->values();
+
+            $keep[$group] = $of;
         }
 
         /** @var list<int> $ids */
-        $ids = $ranked->pluck('customer_id')->map(static fn (mixed $id): int => (int) $id)->all();
+        $ids = [];
 
-        // 2. Their WHOLE paid history in one query - not just the window. A
-        //    rhythm measured only over the ranking window would call a customer
-        //    of ten years "new" and misjudge every gap at the window's edge.
-        $history = DB::table($spec['jobs'])
+        foreach ($keep as $rows) {
+            foreach ($rows as $row) {
+                $ids[] = (int) $row->customer_id;
+            }
+        }
+
+        // 3. Their WHOLE paid history in one query - not just the window. A
+        //    rhythm measured only over six months would call a customer of ten
+        //    years "new" and misjudge every gap at the window's edge. The month
+        //    columns are filtered out of the same rows, so they cost nothing.
+        $history = $ids === [] ? collect() : DB::table($spec['jobs'])
             ->where('payment_status', 'paid')
             ->whereIn('customer_id', $ids)
             ->whereNotNull($spec['date'])
@@ -129,39 +178,69 @@ final class TopCustomers
             ->get()
             ->groupBy('customer_id');
 
-        $names = DB::table($spec['customers'])
-            ->whereIn('id', $ids)
-            ->get(['id', 'name'])
-            ->keyBy('id');
+        $groups = [];
 
-        // Everything collected in the window, so the top rows can be reported
-        // as a share of the whole rather than as a number with no scale.
-        $collected = (float) DB::table($spec['jobs'])
-            ->where('payment_status', 'paid')
-            ->whereBetween($spec['date'], $bounds)
-            ->selectRaw("COALESCE(SUM({$spec['amount']}), 0) as total")
-            ->value('total');
+        foreach (self::GROUPS as $group) {
+            $groups[$group] = $this->group($keep[$group], $customers, $history, $months, $collected, $now, $app, $spec);
+        }
 
+        return [
+            'months' => $months,
+            'groups' => $groups,
+            'collected' => $collected,
+            'windowMonths' => self::WINDOW_MONTHS,
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+        ];
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, \stdClass>  $ranked
+     * @param  \Illuminate\Support\Collection<int|string, \stdClass>  $customers
+     * @param  \Illuminate\Support\Collection<int|string, \Illuminate\Support\Collection<int, \stdClass>>  $history
+     * @param  list<array{key: string, label: string}>  $months
+     * @param  array{jobs: string, customers: string, date: string, amount: string, href: string}  $spec
+     * @return array{rows: list<array<string, mixed>>, total: float, share: int|null, quiet: int, atRisk: float}
+     */
+    private function group(
+        \Illuminate\Support\Collection $ranked,
+        \Illuminate\Support\Collection $customers,
+        \Illuminate\Support\Collection $history,
+        array $months,
+        float $collected,
+        CarbonImmutable $now,
+        string $app,
+        array $spec,
+    ): array {
         $rows = [];
         $total = 0.0;
         $quiet = 0;
         $atRisk = 0.0;
+        $keys = array_column($months, 'key');
 
-        foreach ($ranked as $row) {
-            $id = (int) $row->customer_id;
-            $paid = round((float) $row->paid, 3);
-            $jobs = (int) $row->jobs;
+        foreach ($ranked as $entry) {
+            $id = (int) $entry->customer_id;
+            $paid = round((float) $entry->paid, 3);
+            $jobs = (int) $entry->jobs;
             $total += $paid;
 
             /** @var list<CarbonImmutable> $dates */
             $dates = [];
             /** @var list<array{date: CarbonImmutable, amount: float}> $entries */
             $entries = [];
+            $byMonth = array_fill_keys($keys, 0.0);
 
             foreach ($history->get($id, collect()) as $job) {
                 $date = CarbonImmutable::parse((string) $job->job_date);
+                $amount = (float) $job->amount;
                 $dates[] = $date;
-                $entries[] = ['date' => $date, 'amount' => (float) $job->amount];
+                $entries[] = ['date' => $date, 'amount' => $amount];
+
+                $key = $date->format('Y-m');
+
+                if (array_key_exists($key, $byMonth)) {
+                    $byMonth[$key] = round($byMonth[$key] + $amount, 3);
+                }
             }
 
             $lastAt = $dates === [] ? null : end($dates);
@@ -176,38 +255,44 @@ final class TopCustomers
 
             $rows[] = [
                 'id' => $id,
-                'name' => (string) ($names[$id]->name ?? __('Unnamed customer')),
+                'name' => (string) ($customers[$id]->name ?? __('Unnamed customer')),
                 'paid' => $paid,
                 'jobs' => $jobs,
                 'average' => $jobs > 0 ? round($paid / $jobs, 3) : 0.0,
+                'months' => $byMonth,
                 'lastAt' => $lastAt?->toDateString(),
                 'daysSince' => $daysSince,
                 'rhythm' => $rhythm,
                 'status' => $status,
                 'overdueBy' => $rhythm !== null && $daysSince !== null ? max(0, $daysSince - $rhythm) : null,
                 'trend' => $this->trend($entries, $now),
-                'href' => $app === 'limousine'
-                    ? $spec['href'].$id.'/summary'
-                    : $spec['href'].$id,
-                'share' => 0,
+                'href' => $app === 'limousine' ? $spec['href'].$id.'/summary' : $spec['href'].$id,
+                'share' => $collected > 0.0 ? (int) round($paid / $collected * 100) : 0,
             ];
-        }
-
-        $collected = round($collected, 3);
-
-        foreach ($rows as $i => $row) {
-            $rows[$i]['share'] = $collected > 0.0 ? (int) round($row['paid'] / $collected * 100) : 0;
         }
 
         return [
             'rows' => $rows,
             'total' => round($total, 3),
-            'collected' => $collected,
             'share' => $collected > 0.0 ? (int) round($total / $collected * 100) : null,
             'quiet' => $quiet,
             'atRisk' => round($atRisk, 3),
-            'months' => self::WINDOW_MONTHS,
         ];
+    }
+
+    /**
+     * @return list<array{key: string, label: string}>
+     */
+    private function monthColumns(CarbonImmutable $from): array
+    {
+        $months = [];
+
+        for ($i = 0; $i < self::WINDOW_MONTHS; $i++) {
+            $month = $from->addMonths($i);
+            $months[] = ['key' => $month->format('Y-m'), 'label' => $month->isoFormat('MMM')];
+        }
+
+        return $months;
     }
 
     /**
@@ -311,18 +396,24 @@ final class TopCustomers
     }
 
     /**
-     * @return array{rows: list<array{id: int, name: string, paid: float, jobs: int, average: float, lastAt: string|null, daysSince: int|null, rhythm: int|null, status: string, overdueBy: int|null, trend: string, href: string, share: int}>, total: float, collected: float, share: int|null, quiet: int, atRisk: float, months: int}
+     * @param  list<array{key: string, label: string}>  $months
+     * @return array{months: list<array{key: string, label: string}>, groups: array<string, array{rows: list<array<string, mixed>>, total: float, share: int|null, quiet: int, atRisk: float}>, collected: float, windowMonths: int, from: string, to: string}
      */
-    private function empty(): array
+    private function empty(array $months, CarbonImmutable $from, CarbonImmutable $to, float $collected = 0.0): array
     {
+        $groups = [];
+
+        foreach (self::GROUPS as $group) {
+            $groups[$group] = ['rows' => [], 'total' => 0.0, 'share' => null, 'quiet' => 0, 'atRisk' => 0.0];
+        }
+
         return [
-            'rows' => [],
-            'total' => 0.0,
-            'collected' => 0.0,
-            'share' => null,
-            'quiet' => 0,
-            'atRisk' => 0.0,
-            'months' => self::WINDOW_MONTHS,
+            'months' => $months,
+            'groups' => $groups,
+            'collected' => $collected,
+            'windowMonths' => self::WINDOW_MONTHS,
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
         ];
     }
 }

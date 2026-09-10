@@ -320,6 +320,41 @@ final class PricingApiTest extends TestCase
         $this->assertSame('National Day 25%', $offer['label_en']);
     }
 
+    public function test_an_offer_scoped_to_specific_cars_only_lists_those_in_the_payload(): void
+    {
+        $offer = PricingOffer::query()->where('service_id', 'airport')->firstOrFail();
+        $offer->update(['active' => true, 'percent' => 25]);
+        $offer->cars()->sync(['sedan', 'suv']);
+
+        $published = $this->withHeaders($this->signedHeaders())->get($this->path)->json('services.0.offer.cars');
+
+        $this->assertSame(['sedan', 'suv'], $published);
+    }
+
+    public function test_offer_cars_are_empty_when_the_offer_is_not_live(): void
+    {
+        $offer = PricingOffer::query()->where('service_id', 'airport')->firstOrFail();
+        $offer->update(['active' => false, 'percent' => 25]);
+        $offer->cars()->sync(['sedan']);
+
+        $published = $this->withHeaders($this->signedHeaders())->get($this->path)->json('services.0.offer.cars');
+
+        $this->assertSame([], $published);
+    }
+
+    public function test_an_offer_with_no_car_selection_falls_back_to_every_car_the_service_offers(): void
+    {
+        // Legacy/defensive path only — the admin screen refuses to save
+        // active+empty, but a row reaching this state some other way must
+        // still publish something rather than a discount applying to nothing.
+        $offer = PricingOffer::query()->where('service_id', 'airport')->firstOrFail();
+        $offer->update(['active' => true, 'percent' => 25]);
+
+        $published = $this->withHeaders($this->signedHeaders())->get($this->path)->json('services.0.offer.cars');
+
+        $this->assertSame(['sedan', 'suv', 'lsuv', 'luxury'], $published);
+    }
+
     // --- 7. the ping ------------------------------------------------------
 
     public function test_the_ping_is_signed_and_carries_only_the_version(): void
@@ -489,6 +524,48 @@ final class PricingApiTest extends TestCase
             ->assertSet('pingOk', true);
 
         Http::assertSentCount(2);
+    }
+
+    public function test_saving_an_offer_persists_which_cars_it_applies_to(): void
+    {
+        Http::fake(['*' => Http::response(['ok' => true], 200)]);
+        $this->actingAs(\App\Models\User::factory()->create(['is_admin' => true]));
+
+        \Livewire\Livewire::test(\App\Livewire\Pages\PricingManager::class)
+            ->set('service', 'airport')
+            ->set('offerActive', true)
+            ->set('offerPercent', '25')
+            ->set('offerCarIds', ['sedan', 'suv'])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $offer = PricingOffer::query()->where('service_id', 'airport')->firstOrFail();
+        $this->assertSame(['sedan', 'suv'], $offer->cars->pluck('id')->sort()->values()->all());
+    }
+
+    public function test_turning_an_offer_on_with_no_cars_ticked_is_refused(): void
+    {
+        $this->actingAs(\App\Models\User::factory()->create(['is_admin' => true]));
+        $before = PricingVersion::current();
+
+        \Livewire\Livewire::test(\App\Livewire\Pages\PricingManager::class)
+            ->set('service', 'airport')
+            ->set('offerActive', true)
+            ->set('offerCarIds', [])
+            ->call('save')
+            ->assertHasErrors('offerCarIds');
+
+        // Nothing was published — the version did not move.
+        $this->assertSame($before, PricingVersion::current());
+    }
+
+    public function test_opening_a_service_with_no_offer_configured_defaults_every_car_ticked(): void
+    {
+        $this->actingAs(\App\Models\User::factory()->create(['is_admin' => true]));
+
+        \Livewire\Livewire::test(\App\Livewire\Pages\PricingManager::class)
+            ->set('service', 'airport')
+            ->assertSet('offerCarIds', ['sedan', 'suv', 'lsuv', 'luxury']);
     }
 
     // --- 10. v3: buses, per-service vehicles, settings, estimates ---------

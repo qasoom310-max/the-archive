@@ -51,6 +51,9 @@ final class PricingManager extends Component
 
     public bool $offerActive = false;
 
+    /** @var list<string> which of the service's cars the offer applies to */
+    public array $offerCarIds = [];
+
     public string $offerPercent = '0';
 
     public string $offerLabelEn = '';
@@ -145,6 +148,15 @@ final class PricingManager extends Component
         $this->offerStarts = $offer?->starts_at?->toDateString() ?? '';
         $this->offerEnds = $offer?->ends_at?->toDateString() ?? '';
 
+        // Nothing selected yet (a brand-new offer, or one never touched under
+        // this feature) shows every car ticked — the admin unchecks the ones
+        // that should NOT get the discount, rather than starting from a blank
+        // grid that reads as "the offer applies to nothing".
+        $existingOfferCarIds = $offer?->cars->pluck('id')->all() ?? [];
+        $this->offerCarIds = $existingOfferCarIds !== []
+            ? $existingOfferCarIds
+            : $this->cars()->pluck('id')->all();
+
         $this->returnFactor = $service->return_factor === null ? '' : $this->trim($service->return_factor);
 
         $settings = PricingSetting::current();
@@ -186,13 +198,21 @@ final class PricingManager extends Component
             }
         }
 
+        // An offer that's ON must apply to something — otherwise "Offer is on"
+        // reads as live while discounting nothing, which is worse than making
+        // the admin pick at least one car.
+        $offerCarIds = array_values(array_intersect($this->offerCarIds, $cars->pluck('id')->all()));
+        if ($this->offerActive && $offerCarIds === []) {
+            $this->addError('offerCarIds', __('Select at least one car for the offer, or switch it off.'));
+        }
+
         if ($this->getErrorBag()->isNotEmpty()) {
             $this->dispatch('scroll-to-error', field: (string) array_key_first($this->getErrorBag()->messages()));
 
             return;
         }
 
-        $version = $writer->transaction($service->name_en, function () use ($writer, $service, $cars): array {
+        $version = $writer->transaction($service->name_en, function () use ($writer, $service, $cars, $offerCarIds): array {
             $changes = [];
 
             foreach ($service->options as $option) {
@@ -216,7 +236,7 @@ final class PricingManager extends Component
                 'label_ar' => $this->offerLabelAr !== '' ? $this->offerLabelAr : null,
                 'starts_at' => $this->offerStarts !== '' ? $this->offerStarts : null,
                 'ends_at' => $this->offerEnds !== '' ? $this->offerEnds : null,
-            ]);
+            ], $offerCarIds);
 
             $serviceAttributes = ['return_factor' => $this->returnFactor === '' ? null : (float) $this->returnFactor];
 
@@ -300,7 +320,7 @@ final class PricingManager extends Component
         }
 
         return PricingService::query()
-            ->with(['options' => fn ($q) => $q->orderBy('sort')->orderBy('id'), 'options.rates', 'vehicles', 'extraHours', 'offer'])
+            ->with(['options' => fn ($q) => $q->orderBy('sort')->orderBy('id'), 'options.rates', 'vehicles', 'extraHours', 'offer', 'offer.cars'])
             ->find($this->service);
     }
 

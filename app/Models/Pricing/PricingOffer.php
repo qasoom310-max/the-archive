@@ -6,6 +6,7 @@ namespace App\Models\Pricing;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -70,5 +71,17 @@ final class PricingOffer extends Model
         }
 
         return true;
+    }
+
+    /**
+     * Which of the service's cars this offer applies to. Empty means "not
+     * configured yet" — the admin screen and the published payload both fall
+     * back to every car the service offers, not to nothing.
+     *
+     * @return BelongsToMany<PricingCar, $this>
+     */
+    public function cars(): BelongsToMany
+    {
+        return $this->belongsToMany(PricingCar::class, 'pricing_offer_cars', 'offer_id', 'car_id');
     }
 }

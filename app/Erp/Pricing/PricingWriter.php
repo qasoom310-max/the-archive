@@ -133,10 +133,13 @@ final class PricingWriter
 
     /**
      * @param  array<string, mixed>  $attributes
+     * @param  list<string>  $carIds  which of the service's cars this offer applies to — empty
+     *                                means "not configured", resolved to every car at publish time
      */
-    public function updateOffer(PricingService $service, array $attributes): ?string
+    public function updateOffer(PricingService $service, array $attributes, array $carIds = []): ?string
     {
         $offer = PricingOffer::query()->firstOrNew(['service_id' => $service->id]);
+        $offerExisted = $offer->exists;
 
         $before = [
             'active' => (bool) $offer->active,
@@ -144,6 +147,7 @@ final class PricingWriter
             'starts_at' => $offer->starts_at?->toDateString(),
             'ends_at' => $offer->ends_at?->toDateString(),
         ];
+        $beforeCarIds = $offerExisted ? $offer->cars->pluck('id')->sort()->values()->all() : [];
 
         $offer->fill($attributes);
         $offer->service_id = $service->id;
@@ -154,25 +158,38 @@ final class PricingWriter
             'starts_at' => $offer->starts_at?->toDateString(),
             'ends_at' => $offer->ends_at?->toDateString(),
         ];
+        $afterCarIds = collect($carIds)->unique()->sort()->values()->all();
 
-        if (! $offer->isDirty() && $offer->exists) {
+        $fieldsChanged = $offer->isDirty();
+        $carsChanged = $beforeCarIds !== $afterCarIds;
+
+        if (! $fieldsChanged && ! $carsChanged && $offerExisted) {
             return null;
         }
 
         $offer->save();
+        if ($carsChanged) {
+            $offer->cars()->sync($carIds);
+        }
 
-        if ($before === $after) {
+        if ($before === $after && ! $carsChanged) {
             // Only the labels moved — worth recording, not worth spelling out.
             return 'offer labels updated';
         }
 
-        return sprintf(
+        $summary = sprintf(
             'offer %s %s%% → %s %s%%',
             $before['active'] ? 'on' : 'off',
             $before['percent'],
             $after['active'] ? 'on' : 'off',
             $after['percent'],
         );
+
+        if ($carsChanged) {
+            $summary .= ' (applies to: ' . ($afterCarIds === [] ? 'every car' : implode(', ', $afterCarIds)) . ')';
+        }
+
+        return $summary;
     }
 
     /**

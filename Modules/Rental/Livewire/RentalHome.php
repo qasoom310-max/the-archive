@@ -6,6 +6,8 @@ namespace Modules\Rental\Livewire;
 
 use App\Erp\Navigation\ModuleMenu;
 use App\Erp\Security\Permission;
+use App\Erp\Targets\RevenueTargets;
+use App\Livewire\Concerns\EditsRevenueTargets;
 use App\Livewire\Concerns\GuardsModelAccess;
 use App\Models\Ir\IrModule;
 use App\Models\User;
@@ -29,7 +31,13 @@ use Modules\Rental\Models\Vehicle;
 #[Title('Rent A Car')]
 final class RentalHome extends Component
 {
+    use EditsRevenueTargets;
     use GuardsModelAccess;
+
+    protected function targetsApp(): string
+    {
+        return 'rental';
+    }
 
     protected function accessModelKey(): string
     {
@@ -157,7 +165,15 @@ final class RentalHome extends Component
         $module = IrModule::query()->where('name', 'rental')->first();
         $tiles = $module !== null ? app(ModuleMenu::class)->items($module, Auth::user()) : [];
 
+        // The revenue figure IS the whole income, so it and the targets
+        // measured against it are the owner's alone. Skipped entirely for
+        // everyone else rather than fetched and hidden in the view.
+        $isSuperAdmin = $this->viewerIsSuperAdmin();
+        $targets = $isSuperAdmin ? app(RevenueTargets::class)->progress('rental') : [];
+
         return view('rental::home', [
+            'isSuperAdmin' => $isSuperAdmin,
+            'targets' => $targets,
             'pendingWorkOrders' => $pendingWorkOrders,
             'canApproveMaintenance' => $canApprove,
             'myRequests' => $myRequests,

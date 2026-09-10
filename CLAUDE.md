@@ -2851,6 +2851,102 @@ accounts are connected via MCP, not the app) so campaigns can be judged against 
 sales they moved; per-country Eid lengths (the shared Islamic window covers the
 longest official break); Saudi school holidays (variable, add as owner events).
 
+**Revenue is the owner's alone, with monthly + yearly targets (shipped 2026-09-10):**
+
+The Rental and Limousine dashboards each carried a gradient **Revenue** card
+showing all-time collected income to anyone who could open the screen. That
+figure is the whole business's takings, so it is now **super-admin only**, and
+it sits in a gated "Money" band together with a **monthly** and a **yearly**
+target measured against it.
+
+**The targets are gated for the same reason as the revenue card, not as an
+extra.** A box reading "62% of target" plus a target of 40,000 hands the income
+to anyone who can divide, so gating the card while leaving the targets on screen
+would gate nothing. Do not "helpfully" show the targets more widely.
+
+| Concern | Location |
+|---|---|
+| Engine | `App\Erp\Targets\RevenueTargets` — `monthly()` / `yearly()` / `set()` (settings-backed, so **per database**), `earned(app, from, to)`, `outstanding(app, from?, to?)`, and `progress(app, now?)` which returns everything the three boxes render |
+| Storage | `targets.{rental,limousine}.{monthly,yearly}` in `ir_config_parameter`. **`SettingsPage::canSee()` hides the `targets.` prefix** (like `features.` and `adcal.`) — `SettingManager::persist` would otherwise drop them into the General group, handing a regular admin both the figure and the box to change it |
+| Edit path | `App\Livewire\Concerns\EditsRevenueTargets` (shared trait; host supplies `targetsApp()`). `openTargets` / `closeTargets` / `saveTargets`, each `abort_unless(isSuperAdmin)` — **re-checked on the action**, since Livewire dispatches straight to a method and a mount-time gate is not a gate. Writes an `ActivityLogger` `settings_updated` entry |
+| UI | `resources/views/partials/revenue-targets.blade.php` (+ `revenue-targets-unpaid.blade.php`), `@include`d by both `rental::home` and `limousine::home` inside `@if ($isSuperAdmin)`. One partial, so the two dashboards cannot drift; each passes its own `gradient` and `unpaidHref` |
+| Tests | `tests/Feature/RevenueTargetsTest.php` (24) |
+
+Decisions to keep:
+
+- **Monthly and yearly are stored independently, NOT yearly = monthly × 12.**
+  Trade is seasonal — Eid and the F1 weekend are not a twelfth of the year each
+  — so a derived annual figure would be wrong in both directions.
+- **Each app counts revenue its own way, mirroring the card beside it.** Rental
+  is `SUM(total - outside_cost)` on paid orders (**net of outside vendors** —
+  markup, not gross); Limousine is `SUM(fare)` on paid bookings. A target
+  measured against a different number from the card next to it would be worse
+  than no target at all.
+- **"Not set" is a real state, distinct from a target of zero.** A blank box
+  clears the target and the box shows "Set a target" rather than 0% attained.
+- **Attainment counts COLLECTED money only**, so each box also carries what is
+  **still owed** in its own window (and the revenue card carries the all-time
+  total). A month at 60% with a big unpaid pile is a collection problem; the
+  same 60% with nothing owed is a sales one. The two apps owe differently — a
+  rental order has a settled `balance` column, a booking owes `fare - advance`
+  floored per row — and both rules live in `outstanding()`.
+- **The year is also shown as a PACE figure** (attainment against the part of
+  the year already elapsed), because comparing a part-year against a whole-year
+  target reads as failure every month until December.
+- **Rental's "Unpaid" link left the revenue card and became its own KPI tile**
+  in the Orders grid, visible to everyone. Chasing a balance is counter work,
+  not a report on the takings — gating the revenue card must not take it away.
+
+**Date-window gotcha (this bit an implementation and will again).**
+`rental_orders.start_date` is declared `date()`, but Eloquent's `date` cast
+writes **`"2026-09-01 00:00:00"`** into SQLite, while MySQL stores the bare
+`"2026-09-01"` — and SQLite compares either as a **plain string**. So a period
+must be bounded with a **date lower bound and a datetime upper bound**
+(`$from->toDateString()` … `$to->endOfDay()->toDateTimeString()`). Bounding both
+ends the same way silently drops a whole day at one end or the other, which is
+exactly how a target starts under-reporting without anyone noticing. Pinned by
+`test_a_sale_on_the_first_day_of_the_month_counts_toward_it`.
+
+**Pricing API — the ERP as the only place a fare exists (shipped 2026-09-09):**
+
+Wanaan published fares in four contradicting places (WooCommerce products, page
+copy, the fare-widget plugin's built-in table, and whatever staff quoted on
+WhatsApp). These tables are now the source; the website reads them over a signed
+endpoint and caches the answer. **Phase 2, not built:** wiring the booking and
+quotation forms to read the same fares, so staff stop quoting from memory.
+
+| Concern | Location |
+|---|---|
+| Schema | Core migration `2026_09_09_100001_create_pricing_tables` — `pricing_cars` / `pricing_services` (string PKs: `sedan`, `airport`, quoted back by the website so never renumbered), `pricing_options`, `pricing_rates` (`decimal(8,3)` — the dinar is 1000 fils), `pricing_extra_hours`, `pricing_offers`, `pricing_version`. Core ⇒ lands in Main AND every tenant via `workspaces:migrate`, so each business keeps its own fares and its own version counter |
+| Signing | **`PortalSignature::signRequest()` / `verifyRequest()`** — `"<METHOD>\n<PATH>\n<timestamp>.<raw-body>"`. The plain `sign()` covers only timestamp+body, which binds a POST but leaves a GET signing nothing but a timestamp: a signature for `/workspaces/7/pricing` would verify against `/workspaces/3/pricing`, so one captured read would open every database. **`sign()`/`verify()` are deliberately untouched** — the live service-order push and payment callback are signed the old way at both ends. Do NOT "upgrade" them |
+| Read endpoint | `GET /api/v1/workspaces/{ws}/pricing` (`routes/web.php`, outside `auth`, `throttle:60,1`, CSRF-exempt via `api/v1/*` in `bootstrap/app.php`) → `App\Http\Controllers\PricingApiController`. ETag = the version integer, `304` on a matching `If-None-Match` (the common case). **The workspace is resolved with `find()` BEFORE `runFor()`**, because `runFor()` deliberately falls through to the current database for an unknown id — right for a job, wrong here: workspace 999 would have been answered with whichever business the connection happened to be. `find()` not `findAny()`, so a deleted database stops serving |
+| Secret | Reuses the per-database `limo_portal_configuration.shared_secret` (encrypted, Settings → Service Portal). **Deliberately NOT gated on that row's `enabled` flag** — switching the payment portal off must not take the website's prices down with it |
+| Payload | `App\Erp\Pricing\PricingPayload` — eager-loads everything (the 500ms budget dies to N+1 otherwise). Two rules enforced here, never trusted to the website: **a car with no rate is OMITTED, never published as `0`** (a zero on a public page is worse than a missing car; the hole is `Log::warning`ed), and **`offer.active` is resolved against the server clock** — an expired or not-yet-started offer goes out inactive AND at zero percent, so no visitor's browser decides whether a discount is live. Amounts are JSON numbers with trailing zeros trimmed (`15`, not `15.000`) |
+| Writes | `App\Erp\Pricing\PricingWriter::transaction()` is the ONE door. One transaction, **one version bump per save — not per row** (a grid save touches ~20 rates; a model observer would bump 20 times and make the site's cache stale 20 times over), and one `ActivityLogger` entry with old → new per cell. A save that changes nothing does not bump |
+| Ping | `App\Erp\Pricing\PricingPortalPing` → `POST {portal}/wp-json/wanaan/v1/pricing/refresh`, body `{version, ws}` only. **Synchronous, 3s timeout, every exception caught** — queuing would mean up to a minute's staleness (once-a-minute cron) and would lose the workspace context. 5s `Cache::add()` debounce; the manual button passes `force: true`. **It carries no prices** — the site comes and fetches, so a forged ping can only make WordPress ask a question |
+| Admin screen | `/fares` → `App\Livewire\Pages\PricingManager` (admin-only, dashboard tile). One tab per service, options × cars grid, saved in a single submit. **Refuses a save where an active option has a blank fare for an active car**, naming the cell — that is the failure that would otherwise publish a zero. Shows version + updated_at, and a "Send update to website" button for when the two look out of sync |
+| Seeding | `php artisan pricing:seed --workspace=7` — idempotent, fails on an unknown workspace id rather than seeding Main. NOT in the deploy chain (deploy seeders run against Main; these fares belong to one business) |
+| Tests | `tests/Feature/PricingApiTest.php` (37 — payload shape and real fares, trimmed amounts, unsigned/wrong-secret/stale-timestamp/wrong-workspace rejections, unknown workspace never falls through, 304, one bump per grid save, no bump on a no-op, activity log, inactive service/car dropped, missing rate omitted not zeroed, expired + not-yet-started offers inactive, signed ping carrying no prices, unreachable site never breaks a save, debounce, admin screen gate + blank-fare refusal + decimals + forced ping) |
+
+**v3 increment (2026-09-09, same day): buses, per-service vehicles, settings.**
+Migration `2026_09_09_100002_extend_pricing_for_buses_and_settings` adds
+`pricing_service_vehicles` (**which vehicles each service offers — without it the
+airport widget lists a 50-seat coach**), `pricing_settings` (`whatsapp`,
+`lead_hours` — everything the widget shows that isn't a fare), a
+`pricing_services.estimated` flag, and makes `pricing_cars.bags` **nullable**
+(luggage on a coach depends on the group; an invented number is worse than none).
+Four buses (hiace / coaster / coach / sprinter) and two services (`bus`,
+`ksa_bus`) join the seed — **bus hour blocks are 6/8/12, cars are 4/8/12; do not
+normalise them.** Two new payload rules: each service carries its own ordered
+`cars` list, and **a service with no positive fare anywhere is never published**
+(the widget refuses to render one, so the guard is mirrored here). `estimated` is
+internal — it drives an admin warning, clears the first time a human saves that
+grid, and is **never sent to the website**.
+
+**Placeholders awaiting the owner's confirmation** (seeded, flagged in the PR): `pax`/`bags` per **car** (sensible per model, not measured from the fleet — the **bus** seat counts are real), chauffeur extra-hour rates (sedan 12 / suv 17 / lsuv 19 / luxury 45, derived from the 4-hour rates), KSA `return_factor` 1.80, and **all twenty `ksa_bus` fares** (estimates: each bus's own 12-hour rate scaled by the destination multipliers the car fares already imply — no bus-to-Saudi price exists on the website). The Luxury chauffeur jump from 180 (4h) to 400 (8h) is **deliberate and confirmed — do not "correct" it.**
+
+**Gotcha for tests:** Laravel's `getJson()` sends `[]` as the body even on a GET, so a signature computed over an empty body will not match. Use `->get()` and read the JSON off the response.
+
 **Scoped Administrator — narrow an admin to specific apps (shipped 2026-09-09):**
 
 Settings → Users' role picker described Administrator as "Full access to

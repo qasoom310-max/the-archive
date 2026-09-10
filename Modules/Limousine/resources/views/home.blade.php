@@ -74,7 +74,7 @@
                 ['label' => __('Confirmed Trips'), 'value' => $confirmed, 'href' => url('/app/limousine/booking?tab=confirmed'), 'icon' => 'calendar', 'tint' => 'bg-sky-50 text-sky-600 ring-sky-100'],
                 ['label' => __('Active Bookings'), 'value' => $active, 'href' => url('/app/limousine/booking?tab=active'), 'icon' => 'bolt', 'tint' => 'bg-indigo-50 text-indigo-600 ring-indigo-100'],
                 ['label' => __('Completed Trips'), 'value' => $completed, 'href' => url('/app/limousine/booking?tab=completed'), 'icon' => 'check', 'tint' => 'bg-emerald-50 text-emerald-600 ring-emerald-100'],
-                ['label' => __('Unpaid Bookings'), 'value' => $unpaid, 'href' => url('/app/limousine/booking'), 'icon' => 'alert', 'tint' => 'bg-red-50 text-red-600 ring-red-100'],
+                ['label' => __('Unpaid Bookings'), 'value' => $unpaid, 'href' => url('/app/limousine/booking?tab=unpaid'), 'icon' => 'alert', 'tint' => 'bg-red-50 text-red-600 ring-red-100'],
             ];
         @endphp
         @foreach ($cards as $card)
@@ -89,18 +89,18 @@
                 <div class="text-sm font-medium text-chrome-500">{{ $card['label'] }}</div>
             </a>
         @endforeach
-        {{-- Revenue --}}
-        <div class="{{ $tile }} bg-gradient-to-br from-indigo-600 to-violet-700 ring-0">
-            <div class="flex items-center justify-between">
-                <span class="flex size-9 items-center justify-center rounded-xl bg-white/15 text-white ring-1 ring-white/20">
-                    <svg class="size-5" viewBox="0 0 20 20" fill="currentColor">{!! $ic['cash'] !!}</svg>
-                </span>
-                <span class="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/90">{{ __('Collected') }}</span>
-            </div>
-            <div class="mt-3 text-2xl font-bold tracking-tight text-white">{{ \App\Erp\Views\ValueFormat::money($revenue) }}</div>
-            <div class="text-sm font-medium text-white/70">{{ __('Revenue') }}</div>
-        </div>
     </div>
+
+    {{-- Revenue and the targets measured against it: the owner's alone. --}}
+    @if ($isSuperAdmin)
+        @include('partials.revenue-targets', [
+            'tile' => $tile,
+            'revenue' => $revenue,
+            'targets' => $targets,
+            'gradient' => 'bg-gradient-to-br from-indigo-600 to-violet-700',
+            'unpaidHref' => url('/app/limousine/booking?tab=unpaid'),
+        ])
+    @endif
 
     {{-- ───────── Schedule strip ───────── --}}
     <div class="mb-3 flex items-center gap-2">

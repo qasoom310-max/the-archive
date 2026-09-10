@@ -2698,5 +2698,22 @@
     "They were worked out from your other rates so the service is complete. Check every cell and save — the warning clears once you do.": "استُنتجت من أسعارك الأخرى لتكتمل الخدمة. راجع كل خانة ثم احفظ — وسيختفي التنبيه عندها.",
     "Used across every service on the website.": "يُستخدم في كل خدمة على الموقع.",
     "Website settings": "إعدادات الموقع",
-    "WhatsApp number": "رقم واتساب"
+    "WhatsApp number": "رقم واتساب",
+    "Money": "الأموال",
+    "Owner only": "للمالك فقط",
+    "Edit targets": "تعديل الأهداف",
+    "Monthly target": "الهدف الشهري",
+    "Yearly target": "الهدف السنوي",
+    "Set a target": "حدد هدفًا",
+    ":percent% of target": ":percent% من الهدف",
+    ":amount to go": "متبقٍ :amount",
+    "Target met": "تم تحقيق الهدف",
+    "Ahead of pace (:percent%)": "متقدم عن الوتيرة (:percent%)",
+    "Behind pace (:percent%)": "متأخر عن الوتيرة (:percent%)",
+    "Revenue targets": "أهداف الإيرادات",
+    "Save targets": "حفظ الأهداف",
+    "Not set": "غير محدد",
+    "Targets saved.": "تم حفظ الأهداف.",
+    ":amount outstanding": ":amount مستحقة",
+    "The yearly target is set on its own, not twelve times the monthly one, because trade is seasonal. Leave a box empty for no target.": "يُحدَّد الهدف السنوي بشكل مستقل، وليس اثني عشر ضعف الهدف الشهري، لأن العمل موسمي. اترك الحقل فارغًا إذا لم يكن هناك هدف."
 }

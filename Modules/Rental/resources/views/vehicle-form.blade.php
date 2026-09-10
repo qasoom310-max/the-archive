@@ -30,12 +30,19 @@
         @if ($vehicle->monthly_target > 0 || $canManage)
             <div class="mb-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/[0.06]">
                 <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <h3 class="text-sm font-semibold text-chrome-800">{{ __('Monthly sales target') }}</h3>
+                    <h3 class="text-sm font-semibold text-chrome-800">{{ __('Sales targets') }}</h3>
                     @if ($canManage)
                         <div class="flex items-end gap-2">
                             <div>
-                                <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Target (BHD)') }}</label>
+                                <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Monthly (BHD)') }}</label>
                                 <input type="number" min="0" step="0.001" wire:model="targetInput" placeholder="0.000" class="o-input w-32 text-sm">
+                            </div>
+                            <div>
+                                {{-- A year is not twelve identical months: the car is off
+                                     the road for service and the trade has seasons. Blank
+                                     falls back to 12 × the monthly, and says so. --}}
+                                <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Yearly (BHD)') }}</label>
+                                <input type="number" min="0" step="0.001" wire:model="yearlyTargetInput" placeholder="{{ __('12 × monthly') }}" class="o-input w-32 text-sm">
                             </div>
                             <button wire:click="saveTarget" class="o-btn-primary text-sm">{{ __('Save') }}</button>
                         </div>

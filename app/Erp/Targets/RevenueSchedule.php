@@ -38,7 +38,7 @@ final class RevenueSchedule
     {
         return match ($app) {
             'rental' => $this->byCar($from, $to, $targetFactor),
-            'limousine' => $this->byCarType($from, $to),
+            'limousine' => $this->byServiceType($from, $to),
             default => $this->empty('—'),
         };
     }
@@ -94,40 +94,89 @@ final class RevenueSchedule
     }
 
     /**
-     * Limousine: one row per type of car booked. There is no vehicle register
-     * to hang a per-car target on, so these rows report earnings only.
+     * Limousine: one row per kind of work - a transfer, a chauffeur day.
+     *
+     * This deliberately does NOT group by the car. The first cut used
+     * `limo_bookings.car_type`, which no import ever filled, so a whole year of
+     * takings landed in one row reading "No car type recorded, 100%" - a
+     * breakdown that broke nothing and told nobody anything. `car_id` on the
+     * leg is empty on historic data too. The service type is set on every leg
+     * (it defaults to a transfer), so it is the one dimension here with real
+     * data behind it.
+     *
+     * Grouping still happens over BOOKINGS, so the rows keep adding up to the
+     * box above: the leg only says what kind of work a booking was, and the
+     * money stays the booking's own fare.
      *
      * @return array{rows: list<array{label: string, amount: float, jobs: int, target: float|null, pct: int|null, share: int}>, others: float, othersCount: int, total: float, dimension: string}
      */
-    private function byCarType(CarbonImmutable $from, CarbonImmutable $to): array
+    private function byServiceType(CarbonImmutable $from, CarbonImmutable $to): array
     {
         if (! Schema::hasTable('limo_bookings')) {
-            return $this->empty(__('Car type'));
+            return $this->empty(__('Service'));
         }
 
-        $rows = DB::table('limo_bookings')
+        $bookings = DB::table('limo_bookings')
             ->where('payment_status', 'paid')
             ->whereBetween('pickup_at', RevenueTargets::windowBounds($from, $to))
-            ->selectRaw('car_type, COALESCE(SUM(fare), 0) as amount, COUNT(*) as jobs')
-            ->groupBy('car_type')
-            ->get();
+            ->get(['id', 'fare']);
+
+        if ($bookings->isEmpty()) {
+            return $this->empty(__('Service'));
+        }
+
+        // A booking takes the kind of its FIRST leg. A job that starts as a
+        // transfer and continues as a chauffeur day is one sale, and splitting
+        // its fare between two rows would invent money that was never billed
+        // that way.
+        $kinds = [];
+
+        if (Schema::hasTable('limo_legs')) {
+            $legs = DB::table('limo_legs')
+                ->where('legable_type', 'Modules\\Limousine\\Models\\LimoBooking')
+                ->whereIn('legable_id', $bookings->pluck('id')->all())
+                ->orderBy('sequence')
+                ->get(['legable_id', 'service_type']);
+
+            foreach ($legs as $leg) {
+                $kinds[(int) $leg->legable_id] ??= (string) $leg->service_type;
+            }
+        }
+
+        $totals = [];
+
+        foreach ($bookings as $booking) {
+            $kind = $kinds[(int) $booking->id] ?? '';
+            // Mapped explicitly rather than prettifying the raw column, so the
+            // labels can be translated and an unknown value is visible as
+            // itself instead of being quietly title-cased into looking fine.
+            $label = match ($kind) {
+                'transfer' => __('Pick & drop (transfer)'),
+                'chauffeur' => __('Chauffeur (hours)'),
+                '' => __('Not recorded'),
+                default => $kind,
+            };
+
+            $totals[$label] ??= ['amount' => 0.0, 'jobs' => 0];
+            $totals[$label]['amount'] = round($totals[$label]['amount'] + (float) $booking->fare, 3);
+            $totals[$label]['jobs']++;
+        }
 
         $mapped = [];
 
-        foreach ($rows as $row) {
-            $type = $row->car_type === null ? '' : trim((string) $row->car_type);
-
+        foreach ($totals as $label => $bucket) {
             $mapped[] = [
-                'label' => $type === '' ? __('No car type recorded') : ucfirst($type),
-                'amount' => round((float) $row->amount, 3),
-                'jobs' => (int) $row->jobs,
+                'label' => (string) $label,
+                'amount' => $bucket['amount'],
+                'jobs' => $bucket['jobs'],
+                // No vehicle register, so no per-row target to score against.
                 'target' => null,
                 'pct' => null,
                 'share' => 0,
             ];
         }
 
-        return $this->rank($mapped, __('Car type'));
+        return $this->rank($mapped, __('Service'));
     }
 
     /**

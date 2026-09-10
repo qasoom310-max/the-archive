@@ -35,6 +35,16 @@ final class VehicleForm extends Component
     /** Inline monthly-target editor value (BHD). */
     public string $targetInput = '';
 
+    /**
+     * Inline YEARLY-target editor value (BHD).
+     *
+     * Kept separate from twelve monthly ones: a car is off the road for
+     * service, and the trade has seasons, so a year is not twelve identical
+     * months. Blank means "not set" and the fleet report falls back to 12x the
+     * monthly figure, saying on screen that it has done so.
+     */
+    public string $yearlyTargetInput = '';
+
     /** Cost & documents editor (chiefly for outside / rented-in cars). */
     public string $purchaseInput = '';
 
@@ -58,6 +68,9 @@ final class VehicleForm extends Component
             $car = Vehicle::query()->find($id);
             $this->targetInput = $car !== null && $car->monthly_target > 0
                 ? rtrim(rtrim(number_format($car->monthly_target, 3, '.', ''), '0'), '.')
+                : '';
+            $this->yearlyTargetInput = $car !== null && $car->yearly_target > 0
+                ? rtrim(rtrim(number_format($car->yearly_target, 3, '.', ''), '0'), '.')
                 : '';
             $this->purchaseInput = $car !== null && $car->purchase_price > 0
                 ? rtrim(rtrim(number_format($car->purchase_price, 3, '.', ''), '0'), '.')
@@ -119,14 +132,19 @@ final class VehicleForm extends Component
         }
 
         $value = $this->targetInput === '' ? 0.0 : max(0.0, (float) $this->targetInput);
+        $yearly = $this->yearlyTargetInput === '' ? 0.0 : max(0.0, (float) $this->yearlyTargetInput);
         $car->monthly_target = $value;
+        $car->yearly_target = $yearly;
         $car->save();
 
-        app(ActivityLogger::class)->logFor($car, 'updated', __('Monthly target set to :amount', [
+        app(ActivityLogger::class)->logFor($car, 'updated', __('Targets set to :amount a month, :yearly a year', [
             'amount' => \App\Erp\Views\ValueFormat::money($value),
+            'yearly' => $yearly > 0.0
+                ? \App\Erp\Views\ValueFormat::money($yearly)
+                : __('12 × the monthly'),
         ]));
 
-        session()->flash('toast', __('Monthly target saved.'));
+        session()->flash('toast', __('Targets saved.'));
     }
 
     /**

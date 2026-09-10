@@ -143,29 +143,32 @@ final class TopCustomersTest extends TestCase
         $this->assertEqualsWithDelta(4800.0, $year['rows'][0]['target'], 0.001);
     }
 
-    public function test_the_limousine_schedule_groups_by_car_type(): void
+    public function test_a_limousine_booking_with_no_leg_is_still_counted(): void
     {
+        // The breakdown used to group by `car_type`, which no import ever
+        // filled, so a whole year landed in one row reading "No car type
+        // recorded, 100%". It groups by the kind of WORK now - but a booking
+        // with no leg at all still has to appear, or the rows would stop
+        // adding up to the box above them.
         $customer = LimoCustomer::query()->create(['name' => 'Dadabhai', 'type' => 'company']);
 
-        foreach ([['sedan', 100.0], ['suv', 250.0], ['sedan', 50.0]] as [$type, $fare]) {
-            LimoBooking::query()->create([
-                'customer_id' => $customer->id,
-                'pickup_at' => '2026-09-05 10:00:00',
-                'car_type' => $type,
-                'fare' => $fare,
-                'amount' => $fare,
-                'status' => LimoBooking::STATUS_COMPLETED,
-                'payment_status' => LimoBooking::PAYMENT_PAID,
-            ]);
-        }
+        LimoBooking::query()->create([
+            'customer_id' => $customer->id,
+            'pickup_at' => '2026-09-05 10:00:00',
+            'fare' => 400.0,
+            'amount' => 400.0,
+            'status' => LimoBooking::STATUS_COMPLETED,
+            'payment_status' => LimoBooking::PAYMENT_PAID,
+        ]);
 
         $schedule = app(RevenueSchedule::class)->forWindow('limousine', $this->today->startOfMonth(), $this->today->endOfMonth());
+        $earned = app(RevenueTargets::class)->earned('limousine', $this->today->startOfMonth(), $this->today->endOfMonth());
 
-        $this->assertSame('Suv', $schedule['rows'][0]['label']);
-        $this->assertEqualsWithDelta(250.0, $schedule['rows'][0]['amount'], 0.001);
-        $this->assertEqualsWithDelta(150.0, $schedule['rows'][1]['amount'], 0.001);
+        $this->assertSame('Not recorded', $schedule['rows'][0]['label']);
+        $this->assertEqualsWithDelta(400.0, $schedule['rows'][0]['amount'], 0.001);
+        $this->assertEqualsWithDelta($earned, $schedule['total'], 0.001);
         // No vehicle register, so no per-row target to score against.
-        $this->assertNull($schedule['rows'][1]['target']);
+        $this->assertNull($schedule['rows'][0]['target']);
     }
 
     // ── Where the target came from ───────────────────────────────────────────

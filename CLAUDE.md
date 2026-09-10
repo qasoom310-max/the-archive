@@ -3001,6 +3001,72 @@ Every date comparison in this feature goes through
 rule below is decided. Use it for any new query here rather than writing bounds
 by hand.
 
+**Fleet earnings — is this car worth owning (shipped 2026-09-10):**
+
+Owner-only page at **`/app/rental/fleet`**, linked from the Rent A Car money
+band. Keeps the month-by-month matrix the office recognises (the same shape as
+Reports → Sales) and puts a scorecard under every row.
+
+**Why a revenue matrix was not enough.** It ranks a fleet BACKWARDS. A car that
+earned 24,000 over 300 rented days is a worse asset than one that earned 17,000
+over 120, and a revenue column puts the first one top. Pinned by
+`test_the_car_that_billed_more_can_be_the_worse_asset`.
+
+| Concern | Location |
+|---|---|
+| Engine | `Modules\Rental\Support\FleetPerformance::report()` — per-car months, utilisation, revenue per available day, maintenance, net, pace, idle cost, verdict; plus the fleet summary |
+| Page | `Modules\Rental\Livewire\FleetEarnings` + `rental::fleet-earnings` and `rental::partials.fleet-scorecard` |
+| Exports | `Modules\Rental\Http\Controllers\RentalFleetExportController` (CSV / Excel / PDF / Print via the shared `TabularRenderer`), gated the same as the page |
+| Per-car yearly target | `rental_vehicles.yearly_target` (migration `2026_09_10_900040`), edited beside the monthly one on the car page |
+| Tests | `tests/Feature/FleetEarningsTest.php` (21) |
+
+Decisions to keep:
+
+- **Utilisation and per-day are measured against the year SO FAR**, not all 365
+  days, or every car reads as a failure until December.
+- **Revenue per AVAILABLE day is the ranking**, not per rented day and not
+  total: a car earns nothing on the days it stands still and those days still
+  cost money.
+- **Idle cost uses each car's OWN achieved rate** (its list `daily_rate` when it
+  never moved, so a car that earned nothing still shows the full cost of
+  standing still). It is the page headline because it is the figure the owner
+  can act on today.
+- **`underused` and `behind` are different verdicts.** Not hired often enough is
+  a demand problem; hired constantly but cheaply is a pricing one. They look
+  identical in a revenue column and need opposite fixes.
+- **A hire is clamped to the window**, so one running December into January is
+  not counted twice, and an open hire counts up to today.
+- **A retired car that earned is shown but contributes 0 available days** — we
+  do not record when it left, so counting it as available all year would invent
+  idle days it never had. A retired car that earned nothing is dropped entirely.
+- **"Others" (money billed against no car) stays**, as it did in the old report,
+  or the page would disagree with the dashboard.
+- **A car's yearly target is its own, not twelve monthly ones.** Left blank it
+  falls back to 12 × monthly and the scorecard says on screen that it did.
+- **Limousine earnings on the same car are added in** — the limo desk books out
+  of this fleet, so a car's whole contribution was invisible while the two apps
+  reported separately. The column hides itself when no leg carries a car, which
+  is the case on imported data.
+
+**The limousine revenue breakdown was regrouped the same day.** It grouped by
+`limo_bookings.car_type`, which no import ever filled, so a whole year of
+takings rendered as one row reading "No car type recorded · 100%". `car_id` on
+the leg is empty on historic data too. It now groups by the **service type** of
+a booking's first leg (transfer / chauffeur), which is always set — while still
+summing the BOOKING's fare, so the rows keep reconciling with the box above.
+**Rule: pick the grouping field by what the data actually contains, not by what
+the schema offers.**
+
+**Two gotchas hit while building this:**
+
+- `chunkById()` needs the primary key in the `select()`, or it throws "the
+  chunkById operation was aborted because the [id] column is not present".
+- **Use `url()`, not `route()`, for module links in a view.** A module's routes
+  only register while it is installed, so a named-route lookup is fragile — and
+  it breaks outright in tests, where an in-test install happens after boot. The
+  test loads the module's routes by hand (`Route::middleware('web')->group(...)`),
+  the same workaround the other module route tests use.
+
 **Pricing API — the ERP as the only place a fare exists (shipped 2026-09-09):**
 
 Wanaan published fares in four contradicting places (WooCommerce products, page

@@ -350,6 +350,15 @@ final class ListView extends Component
         // its invoice it has gone, and a customer with bookings has to be able
         // to refuse. A row the database itself will not release (an account
         // with journal lines) becomes a message on the screen, not a dead page.
+        //
+        // This also matters for any model that unwinds derived records from a
+        // `deleting` hook (POS orders unwind their journal entries; see
+        // `PosOrder::booted()`) — a query-builder mass delete bypasses model
+        // events entirely, so that cleanup used to be silently skipped here,
+        // leaving Accounting counting revenue for orders that were gone.
+        //
+        // Selections are bounded by the page size, so the extra queries cost
+        // little; one transaction keeps a mid-way failure from half-deleting.
         $records = $this->model::query()->whereKey($this->selected)->get();
         $count = 0;
 

@@ -3081,12 +3081,35 @@ quotation forms to read the same fares, so staff stop quoting from memory.
 | Signing | **`PortalSignature::signRequest()` / `verifyRequest()`** — `"<METHOD>\n<PATH>\n<timestamp>.<raw-body>"`. The plain `sign()` covers only timestamp+body, which binds a POST but leaves a GET signing nothing but a timestamp: a signature for `/workspaces/7/pricing` would verify against `/workspaces/3/pricing`, so one captured read would open every database. **`sign()`/`verify()` are deliberately untouched** — the live service-order push and payment callback are signed the old way at both ends. Do NOT "upgrade" them |
 | Read endpoint | `GET /api/v1/workspaces/{ws}/pricing` (`routes/web.php`, outside `auth`, `throttle:60,1`, CSRF-exempt via `api/v1/*` in `bootstrap/app.php`) → `App\Http\Controllers\PricingApiController`. ETag = the version integer, `304` on a matching `If-None-Match` (the common case). **The workspace is resolved with `find()` BEFORE `runFor()`**, because `runFor()` deliberately falls through to the current database for an unknown id — right for a job, wrong here: workspace 999 would have been answered with whichever business the connection happened to be. `find()` not `findAny()`, so a deleted database stops serving |
 | Secret | Reuses the per-database `limo_portal_configuration.shared_secret` (encrypted, Settings → Service Portal). **Deliberately NOT gated on that row's `enabled` flag** — switching the payment portal off must not take the website's prices down with it |
-| Payload | `App\Erp\Pricing\PricingPayload` — eager-loads everything (the 500ms budget dies to N+1 otherwise). Two rules enforced here, never trusted to the website: **a car with no rate is OMITTED, never published as `0`** (a zero on a public page is worse than a missing car; the hole is `Log::warning`ed), and **`offer.active` is resolved against the server clock** — an expired or not-yet-started offer goes out inactive AND at zero percent, so no visitor's browser decides whether a discount is live. Amounts are JSON numbers with trailing zeros trimmed (`15`, not `15.000`) |
+| Payload | `App\Erp\Pricing\PricingPayload` — eager-loads everything (the 500ms budget dies to N+1 otherwise). Two rules enforced here, never trusted to the website: **a car with no rate is OMITTED, never published as `0`** (a zero on a public page is worse than a missing car; the hole is `Log::warning`ed), and **`offer.active` is resolved against the server clock — but only as an off/expired guard** (see the fixed-2026-09-10 note below for what `starts`/`ends` actually mean and why a not-yet-started offer still publishes). Amounts are JSON numbers with trailing zeros trimmed (`15`, not `15.000`) |
 | Writes | `App\Erp\Pricing\PricingWriter::transaction()` is the ONE door. One transaction, **one version bump per save — not per row** (a grid save touches ~20 rates; a model observer would bump 20 times and make the site's cache stale 20 times over), and one `ActivityLogger` entry with old → new per cell. A save that changes nothing does not bump |
 | Ping | `App\Erp\Pricing\PricingPortalPing` → `POST {portal}/wp-json/wanaan/v1/pricing/refresh`, body `{version, ws}` only. **Synchronous, 3s timeout, every exception caught** — queuing would mean up to a minute's staleness (once-a-minute cron) and would lose the workspace context. 5s `Cache::add()` debounce; the manual button passes `force: true`. **It carries no prices** — the site comes and fetches, so a forged ping can only make WordPress ask a question |
 | Admin screen | `/fares` → `App\Livewire\Pages\PricingManager` (admin-only, dashboard tile). One tab per service, options × cars grid, saved in a single submit. **Refuses a save where an active option has a blank fare for an active car**, naming the cell — that is the failure that would otherwise publish a zero. Shows version + updated_at, and a "Send update to website" button for when the two look out of sync |
 | Seeding | `php artisan pricing:seed --workspace=7` — idempotent, fails on an unknown workspace id rather than seeding Main. NOT in the deploy chain (deploy seeders run against Main; these fares belong to one business) |
-| Tests | `tests/Feature/PricingApiTest.php` (37 — payload shape and real fares, trimmed amounts, unsigned/wrong-secret/stale-timestamp/wrong-workspace rejections, unknown workspace never falls through, 304, one bump per grid save, no bump on a no-op, activity log, inactive service/car dropped, missing rate omitted not zeroed, expired + not-yet-started offers inactive, signed ping carrying no prices, unreachable site never breaks a save, debounce, admin screen gate + blank-fare refusal + decimals + forced ping) |
+| Tests | `tests/Feature/PricingApiTest.php` (39 — payload shape and real fares, trimmed amounts, unsigned/wrong-secret/stale-timestamp/wrong-workspace rejections, unknown workspace never falls through, 304, one bump per grid save, no bump on a no-op, activity log, inactive service/car dropped, missing rate omitted not zeroed, expired offers inactive, **not-yet-started offer still published so it can be booked ahead**, **starts/ends always published regardless of active**, signed ping carrying no prices, unreachable site never breaks a save, debounce, admin screen gate + blank-fare refusal + decimals + forced ping) |
+
+**Offer window means travel dates, not booking dates (fixed 2026-09-10):** a
+National Day offer dated 16–24 Sept was entered on the 10th and the website
+still showed no discount — `PricingOffer::isLive()` originally required
+*today* to fall between `starts_at`/`ends_at`, so a promo scheduled for the
+future was published `active: false, percent: 0` right up until its first
+day, which is backwards: `starts_at`/`ends_at` are the **travel** dates the
+discount applies to (a trip taken between the 16th and the 24th), and a
+customer has to be able to book that trip **today**, ahead of the window.
+Fixed: `isLive()` now only checks the admin `active` flag and whether
+`ends_at` has already passed — a not-yet-started offer publishes its real
+`percent`/`label`/`cars` immediately. `starts`/`ends` were already published
+unconditionally (even when inactive); **the website is responsible for
+comparing the traveller's chosen pickup date against `starts`/`ends` before
+applying `percent` to a specific quote** — that was always the plan (only the
+ERP's own "not started yet" gate was blocking it from ever mattering). This
+is a WordPress-side change too: until the widget adds that date comparison,
+turning an offer on will make `percent`/`cars` publish immediately for the
+service as a whole, but nothing on the site will act on `starts`/`ends` to
+restrict it to the right travel dates — flagged for Mohammed, not yet
+confirmed done on that side. Regression:
+`PricingApiTest::{test_an_offer_that_has_not_started_yet_is_still_published_so_it_can_be_booked_ahead,
+test_starts_and_ends_are_always_published_even_when_the_offer_is_off_or_expired}`.
 
 **v3 increment (2026-09-09, same day): buses, per-service vehicles, settings.**
 Migration `2026_09_09_100002_extend_pricing_for_buses_and_settings` adds

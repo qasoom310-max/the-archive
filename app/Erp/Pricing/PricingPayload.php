@@ -20,8 +20,15 @@ use Illuminate\Support\Facades\Log;
  *
  *  - A missing rate is NOT a zero. A car with no fare for an option is omitted
  *    from that option; a zero on a public page is worse than a missing car.
- *  - An offer's `active` is resolved here, against the server's clock. The
- *    website must never decide whether a discount has expired.
+ *  - An offer's `active` is resolved here, against the server's clock — but
+ *    ONLY to guard against a stale/forgotten-off promo publishing forever.
+ *    `starts`/`ends` describe the TRAVEL window the discount applies to, not
+ *    a window on when it may be booked, so a not-yet-started offer still
+ *    publishes its real percent/cars the moment it's switched on (a customer
+ *    must be able to book a discounted trip today, ahead of the window). The
+ *    website compares the traveller's chosen date against `starts`/`ends`
+ *    before applying `percent` to a specific quote — only it knows what date
+ *    is being asked about.
  *  - A service with no positive fare at all is never published. The widget
  *    already refuses to render one; mirroring the guard here means a
  *    half-configured service cannot reach a customer in the first place.
@@ -128,19 +135,27 @@ final class PricingPayload
             )->all(),
             'extra_hour' => (object) $extraHour,
             'offer' => [
+                // True as soon as an admin switches the offer on, right up
+                // until it fully ends — NOT "does today fall in the travel
+                // window". A promo for 16-24 Sept must be bookable today.
                 'active' => $live,
-                // A discount that isn't live is published as zero percent as
-                // well as inactive, so a site that reads only one of the two
-                // fields still can't apply an expired offer.
+                // A discount that's off, or has already ended, is published
+                // as zero percent as well as inactive, so a site that reads
+                // only one of the two fields still can't apply it.
                 'percent' => $live && $offer !== null ? $this->amount($offer->percent) : 0,
                 'label_en' => $live && $offer !== null ? $offer->label_en : null,
                 'label_ar' => $live && $offer !== null ? $offer->label_ar : null,
+                // The TRAVEL dates this discount applies to. Always present
+                // (even before `starts`) so the website can compare the
+                // traveller's chosen date against this window itself — apply
+                // `percent` only when that date falls between `starts` and
+                // `ends` inclusive. Null on either side = open-ended.
                 'starts' => $offer?->starts_at?->toDateString(),
                 'ends' => $offer?->ends_at?->toDateString(),
                 // Which cars the discount applies to — not every car in a
                 // service is necessarily on offer. Zeroed when not live for
                 // the same reason percent/label are: a site that checks only
-                // this field can't apply an expired or not-yet-started offer.
+                // this field can't apply an off or already-ended offer.
                 'cars' => $live ? $this->offerCarIds($offer, $serviceCarIds) : [],
             ],
         ];

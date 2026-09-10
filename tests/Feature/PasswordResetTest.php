@@ -243,6 +243,26 @@ final class PasswordResetTest extends TestCase
             ->assertSet('sent', false);
     }
 
+    public function test_a_transport_failure_is_reported_instead_of_silently_swallowed(): void
+    {
+        // The broker call is synchronous (mail is not queued), so an SMTP
+        // exception used to propagate straight out of the Livewire action
+        // uncaught — the button just failed with no explanation, which looked
+        // identical to "nothing happened". It must surface as a clear error
+        // instead, without leaking whether the address is actually on file.
+        User::factory()->create(['email' => 'owner@example.com']);
+
+        Password::shouldReceive('broker')->once()->andReturnSelf();
+        Password::shouldReceive('sendResetLink')->once()->andThrow(new \RuntimeException('Connection could not be established with host.'));
+
+        Livewire::test(ForgotPassword::class)
+            ->set('email', 'owner@example.com')
+            ->call('send')
+            ->assertHasErrors(['email'])
+            ->assertSet('sent', false)
+            ->assertSee(__("We couldn't send the email right now. Please try again in a few minutes."));
+    }
+
     public function test_a_signed_in_user_is_kept_away_from_these_screens(): void
     {
         $this->actingAs(User::factory()->create());

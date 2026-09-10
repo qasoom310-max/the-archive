@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Auth;
 
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
@@ -12,6 +13,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
+use Throwable;
 
 /**
  * "I've forgotten my password" — takes an email and sends a reset link.
@@ -56,7 +58,20 @@ final class ForgotPassword extends Component
         // Never branch on the result: a missing account and a sent email must
         // look identical from out here. A genuine send failure (SMTP down) is
         // reported, because that is our fault, not a hint about the account.
-        $status = Password::broker()->sendResetLink(['email' => $this->email]);
+        try {
+            $status = Password::broker()->sendResetLink(['email' => $this->email]);
+        } catch (Throwable $e) {
+            // The broker call reaches out to the mail transport synchronously
+            // (this notification is deliberately not queued), so a transport
+            // exception propagates straight up here uncaught unless we catch
+            // it ourselves — otherwise the button just hangs/errors with no
+            // explanation, indistinguishable from "nothing happened".
+            Log::error('Password reset email failed to send.', ['exception' => $e]);
+
+            throw ValidationException::withMessages([
+                'email' => __("We couldn't send the email right now. Please try again in a few minutes."),
+            ]);
+        }
 
         if ($status === Password::RESET_THROTTLED) {
             throw ValidationException::withMessages([

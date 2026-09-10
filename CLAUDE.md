@@ -3067,6 +3067,54 @@ the schema offers.**
   test loads the module's routes by hand (`Route::middleware('web')->group(...)`),
   the same workaround the other module route tests use.
 
+**Limousine earnings — drivers, routes and demand (shipped 2026-09-10):**
+
+Owner-only page at **`/app/limousine/earnings`**, linked from the Limousine
+money band. The counterpart to Fleet earnings, built on different units because
+**this desk has no car to rank**: no trip ever recorded one (`car_type` and the
+leg's `vehicle` both come from an import column that was absent, and `car_id`
+is never set by the importer). A per-car page here would be a single row
+reading "not recorded" — the exact mistake the first revenue breakdown made.
+
+| Concern | Location |
+|---|---|
+| Engine | `Modules\Limousine\Support\LimoPerformance::report()` — summary, drivers, routes, services, demand grid |
+| Page | `Modules\Limousine\Livewire\LimoEarnings` + `limousine::earnings` |
+| Tests | `tests/Feature/LimoEarningsTest.php` (18) |
+
+Decisions to keep:
+
+- **Everything counts TRIPS (legs), not bookings.** A driver drives a leg, a
+  route is a leg, and an hour belongs to a leg — it is the only grain on which
+  any of the three questions can be asked.
+- **A section that cannot be built SAYS SO** rather than rendering an empty
+  table. `drivers.available` / `routes.available` are false when no trip in the
+  year names one, and the page explains what to record to fill it in. This is
+  the whole lesson of the car-type mistake, made structural.
+- **The headline is the AVERAGE FARE against last year**, not the total. A desk
+  can run more trips than ever while discounting itself into trouble, and a
+  trip count alone calls that a good year.
+- **Routes are compared against the SAME route a year before**, never against
+  the fleet average — otherwise a genuinely cheap route reads as a decline.
+- **Driver and place names are trimmed and title-cased before grouping.** They
+  are free text filled in by hand over years, so "RAMESH", " ramesh " and
+  "Ramesh" are one person.
+- **The best-paying demand slot needs at least 5 paid trips.** One lucky airport
+  run at 400 would otherwise send the whole roster to an hour that never repeats.
+- **`limo_legs` is shared with quotations**, so every query filters
+  `legable_type` — without it a quote nobody accepted is reported as takings.
+  Pinned by `test_a_quotations_legs_are_never_counted_as_takings`.
+- **The night band wraps past midnight** and is the one range that cannot be
+  tested with a plain `between`.
+- **Petty-cash advances key on `driver_id`** while historic trips name a driver
+  in text, so "Advanced" shows a dash for a name that was never a record. That
+  is reported, not hidden.
+- The demand grid is `dir="ltr"` — it is a grid of times, and mirroring it puts
+  the week backwards.
+
+The shared money-band partial takes an optional **`fleetLabel`**, because
+"Fleet earnings" is the wrong name for a desk with no fleet.
+
 **Pricing API — the ERP as the only place a fare exists (shipped 2026-09-09):**
 
 Wanaan published fares in four contradicting places (WooCommerce products, page

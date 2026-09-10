@@ -270,55 +270,57 @@ final class DriverRecordTest extends TestCase
         $driver = Driver::query()->create(['name' => 'Rashid']);
 
         $this->assertSame('company', $driver->fresh()?->pay_type);
-        $this->assertNull($driver->fresh()?->commission_rate);
+        $this->assertNull($driver->fresh()?->commission_amount);
         $this->assertFalse($driver->fresh()?->isCommissionDriver());
     }
 
-    public function test_a_commission_driver_carries_one_of_the_office_rates(): void
+    /** Commission is a free BD figure, not a percentage off a fixed scale. */
+    public function test_a_commission_driver_carries_a_free_bd_amount(): void
     {
-        $driver = Driver::query()->create(['name' => 'Rashid', 'pay_type' => 'commission', 'commission_rate' => 15]);
+        $driver = Driver::query()->create(['name' => 'Rashid', 'pay_type' => 'commission', 'commission_amount' => 12.500]);
 
         $this->assertTrue($driver->fresh()?->isCommissionDriver());
-        $this->assertSame(15.0, $driver->fresh()?->commission_rate);
+        $this->assertSame(12.5, $driver->fresh()?->commission_amount);
 
         // The same person, seen from the other app, agrees.
         $this->assertTrue(LimoDriver::query()->find($driver->id)?->isCommissionDriver());
     }
 
-    /** A rate left over from before a switch back to Company must not linger unseen. */
-    public function test_switching_a_driver_back_to_company_clears_the_commission_rate(): void
+    /** An amount left over from before a switch back to Company must not linger unseen. */
+    public function test_switching_a_driver_back_to_company_clears_the_commission_amount(): void
     {
-        $driver = Driver::query()->create(['name' => 'Rashid', 'pay_type' => 'commission', 'commission_rate' => 25]);
+        $driver = Driver::query()->create(['name' => 'Rashid', 'pay_type' => 'commission', 'commission_amount' => 25]);
 
         $driver->update(['pay_type' => 'company']);
 
-        $this->assertNull($driver->fresh()?->commission_rate);
+        $this->assertNull($driver->fresh()?->commission_amount);
     }
 
-    public function test_the_engine_form_refuses_a_commission_rate_outside_the_office_scale(): void
+    /** No fixed scale any more — any BD figure the admin types is accepted. */
+    public function test_the_engine_form_saves_a_free_form_commission_amount(): void
     {
         Livewire::test(FormView::class, ['model' => Driver::class, 'modelKey' => 'rental.driver'])
             ->set('form.name', 'Rashid')
             ->set('form.pay_type', 'commission')
-            ->set('form.commission_rate', '12')
-            ->call('save')
-            ->assertHasErrors(['form.commission_rate']);
-
-        $this->assertSame(0, Driver::query()->where('name', 'Rashid')->count());
-    }
-
-    public function test_the_engine_form_saves_a_valid_commission_rate(): void
-    {
-        Livewire::test(FormView::class, ['model' => Driver::class, 'modelKey' => 'rental.driver'])
-            ->set('form.name', 'Rashid')
-            ->set('form.pay_type', 'commission')
-            ->set('form.commission_rate', '7')
+            ->set('form.commission_amount', '12.750')
             ->call('save')
             ->assertHasNoErrors();
 
         $driver = Driver::query()->where('name', 'Rashid')->sole();
         $this->assertTrue($driver->isCommissionDriver());
-        $this->assertSame(7.0, $driver->commission_rate);
+        $this->assertSame(12.75, $driver->commission_amount);
+    }
+
+    public function test_the_engine_form_refuses_a_non_numeric_commission_amount(): void
+    {
+        Livewire::test(FormView::class, ['model' => Driver::class, 'modelKey' => 'rental.driver'])
+            ->set('form.name', 'Rashid')
+            ->set('form.pay_type', 'commission')
+            ->set('form.commission_amount', 'twelve')
+            ->call('save')
+            ->assertHasErrors(['form.commission_amount']);
+
+        $this->assertSame(0, Driver::query()->where('name', 'Rashid')->count());
     }
 
     /** Limousine's own list — the "in limo driver" request — asked for a checkbox, not Yes/No text. */

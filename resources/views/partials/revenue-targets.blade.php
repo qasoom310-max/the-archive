@@ -19,6 +19,7 @@
             'key' => 'month',
             'title' => __('Monthly target'),
             'data' => $targets['month'],
+            'schedule' => $schedules['month'] ?? null,
             'tint' => 'bg-sky-50 text-sky-600 ring-sky-100',
             'bar' => 'bg-sky-500',
             'icon' => '<path fill-rule="evenodd" d="M5.75 2a.75.75 0 0 1 .75.75V4h7V2.75a.75.75 0 0 1 1.5 0V4h.25A2.75 2.75 0 0 1 18 6.75v8.5A2.75 2.75 0 0 1 15.25 18H4.75A2.75 2.75 0 0 1 2 15.25v-8.5A2.75 2.75 0 0 1 4.75 4H5V2.75A.75.75 0 0 1 5.75 2Zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75Z" clip-rule="evenodd"/>',
@@ -27,6 +28,7 @@
             'key' => 'year',
             'title' => __('Yearly target'),
             'data' => $targets['year'],
+            'schedule' => $schedules['year'] ?? null,
             'tint' => 'bg-violet-50 text-violet-600 ring-violet-100',
             'bar' => 'bg-violet-500',
             'icon' => '<path fill-rule="evenodd" d="M10 1a6 6 0 0 0-3.815 10.631A4.5 4.5 0 0 0 5.5 15v2.25a.75.75 0 0 0 1.1.664L10 16.15l3.4 1.764a.75.75 0 0 0 1.1-.664V15a4.5 4.5 0 0 0-.685-3.369A6 6 0 0 0 10 1Zm0 1.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Z" clip-rule="evenodd"/>',
@@ -98,7 +100,7 @@
                 <div class="text-sm font-medium text-chrome-500">{{ $box['title'] }}</div>
                 @include('partials.revenue-targets-unpaid', ['unpaid' => $data['unpaid'], 'href' => $unpaidHref])
                 <button type="button" wire:click="openTargets"
-                    class="mt-auto flex items-center justify-center rounded-lg bg-chrome-100 px-3 py-2 text-xs font-semibold text-chrome-600 transition hover:bg-chrome-200">
+                    class="mt-3 flex items-center justify-center rounded-lg bg-chrome-100 px-3 py-2 text-xs font-semibold text-chrome-600 transition hover:bg-chrome-200">
                     {{ __('Set a target') }}
                 </button>
             @else
@@ -117,6 +119,7 @@
                     @endif
                 </div>
                 @include('partials.revenue-targets-unpaid', ['unpaid' => $data['unpaid'], 'href' => $unpaidHref])
+                @include('partials.revenue-target-source', ['source' => $data['source'], 'fleet' => $targets['fleet'] ?? null])
                 @if ($box['key'] === 'year' && $targets['pace'] !== null)
                     {{-- Attainment against the part of the year already gone, so a
                          year that is on schedule reads 100 in March as in December. --}}
@@ -127,6 +130,12 @@
                     </div>
                 @endif
             @endif
+
+            @include('partials.revenue-schedule', [
+                'schedule' => $box['schedule'],
+                'key' => $box['key'],
+                'period' => $data['label'],
+            ])
         </div>
     @endforeach
 </div>

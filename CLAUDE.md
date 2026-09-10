@@ -2929,6 +2929,69 @@ ends the same way silently drops a whole day at one end or the other, which is
 exactly how a target starts under-reporting without anyone noticing. Pinned by
 `test_a_sale_on_the_first_day_of_the_month_counts_toward_it`.
 
+**The money band shows its working, and names who to call (shipped 2026-09-10):**
+
+Built straight on top of the revenue/targets band above. Three additions, all
+**super-admin only** for the same reason the revenue card is — each of them
+states, or gives away, what the business earns.
+
+| Concern | Location |
+|---|---|
+| Where the money came from | `App\Erp\Targets\RevenueSchedule::forWindow(app, from, to, targetFactor)` — Rent A Car groups by **car**, Limousine by **car type** (it has no vehicle register). Rendered by `resources/views/partials/revenue-schedule.blade.php`, folded away behind "Where it came from" inside each target box |
+| Where the target came from | `RevenueTargets::fleet('rental')` = `SUM(monthly_target)` over **active, owned** vehicles + the count. Rendered by `partials/revenue-target-source.blade.php` |
+| Who pays us, and who stopped | `App\Erp\Customers\TopCustomers::forApp(app, now, limit)` + `partials/top-customers.blade.php` — top 15 by money collected over a rolling 12 months |
+| Tests | `tests/Feature/TopCustomersTest.php` (21) |
+
+**The schedule must reconcile with the box above it.** Same paid-only filter,
+same bounds, and everything past the top 8 folded into an "others" row rather
+than dropped — including money earned against **no car at all**, which is real
+money. A breakdown that does not add up to its own headline teaches people to
+distrust both. Pinned by `test_the_schedule_adds_up_to_the_figure_in_the_box_above_it`.
+
+**A target can now derive itself from the cars.** Every vehicle already carries
+a `monthly_target` (set on the car page, reported on Reports → Targets), so
+when the owner has typed no monthly target the fleet total is used and the box
+says "Added up from 12 cars' own monthly targets". What the owner typed always
+wins. A derived **year** is labelled an **estimate** (12 × the monthly) and says
+so, because twelve equal months is not how this trade runs — the same
+seasonality argument that keeps monthly and yearly stored independently.
+Limousine has no vehicle register, so it has no fleet figure and always types
+its targets.
+
+**Each customer is judged against THEIR OWN booking rhythm.** This is the whole
+point of the call sheet and the thing not to "simplify" later:
+
+- A company that hires every three weeks and has been quiet for eight has a
+  problem. A family that hires once a year and has been quiet for eight weeks
+  is behaving completely normally. One company-wide "quiet for 60 days" rule
+  calls both the same thing and is therefore **wrong about one of them every
+  time**. Pinned by the pair `test_a_regular_customer_who_has_stopped_is_flagged`
+  / `test_an_occasional_customer_quiet_for_the_same_time_is_not` — both quiet
+  for exactly 60 days, opposite verdicts.
+- The rhythm is the **MEDIAN** gap between jobs, never the mean: one long break
+  in an otherwise fortnightly customer would drag an average far enough to
+  excuse almost any silence.
+- Rhythm is read from the customer's **whole history**, not the 12-month
+  ranking window, or a customer of ten years reads as "new".
+- A **7-day grace floor** (`GRACE_DAYS`) stops a daily customer being called
+  "lost" for being one day late.
+- Statuses: `active` (within 1.25× their gap), `slipping` (to 2.5×), `lost`
+  (beyond), `new` (fewer than two jobs). Retune via the constants.
+
+**Two queries, not N+1.** One grouped query ranks the top 15; one more pulls
+those 15 customers' entire paid history, and rhythm, trend and last-seen are
+all computed in PHP from it. Adding a query per customer for any of those is
+the mistake to avoid.
+
+**Unpaid and anonymous work are excluded from the ranking**, since neither is
+money collected from someone we can ring — but anonymous money still counts in
+the `collected` total the shares are a percentage of.
+
+Every date comparison in this feature goes through
+**`RevenueTargets::windowBounds()`**, which is the one place the date/datetime
+rule below is decided. Use it for any new query here rather than writing bounds
+by hand.
+
 **Pricing API — the ERP as the only place a fare exists (shipped 2026-09-09):**
 
 Wanaan published fares in four contradicting places (WooCommerce products, page

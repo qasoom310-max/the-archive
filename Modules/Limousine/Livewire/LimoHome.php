@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire;
 
+use App\Erp\Customers\TopCustomers;
 use App\Erp\Navigation\ModuleMenu;
 use App\Erp\Security\Permission;
+use App\Erp\Targets\RevenueSchedule;
 use App\Erp\Targets\RevenueTargets;
 use App\Livewire\Concerns\EditsRevenueTargets;
 use App\Livewire\Concerns\GuardsModelAccess;
 use App\Models\Ir\IrModule;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -101,9 +104,22 @@ final class LimoHome extends Component
         $isSuperAdmin = $this->viewerIsSuperAdmin();
         $targets = $isSuperAdmin ? app(RevenueTargets::class)->progress('limousine') : [];
 
+        // The schedules and the call sheet are the owner's too, and they
+        // cost four more queries, so nobody else pays for them.
+        $now = CarbonImmutable::now();
+        $schedule = app(RevenueSchedule::class);
+        $schedules = $isSuperAdmin ? [
+            'month' => $schedule->forWindow('limousine', $now->startOfMonth(), $now->endOfMonth()),
+            // A car's target is monthly, so the year is judged against twelve of them.
+            'year' => $schedule->forWindow('limousine', $now->startOfYear(), $now->endOfYear(), 12.0),
+        ] : [];
+        $topCustomers = $isSuperAdmin ? app(TopCustomers::class)->forApp('limousine', $now) : [];
+
         return view('limousine::home', [
             'isSuperAdmin' => $isSuperAdmin,
             'targets' => $targets,
+            'schedules' => $schedules,
+            'topCustomers' => $topCustomers,
             'queue' => $queue,
             'confirmed' => $confirmed,
             'active' => $active,

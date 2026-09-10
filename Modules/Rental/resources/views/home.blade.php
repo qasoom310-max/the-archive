@@ -251,9 +251,11 @@
             'tile' => $tile,
             'revenue' => $revenue,
             'targets' => $targets,
+            'schedules' => $schedules,
             'gradient' => 'bg-gradient-to-br from-emerald-600 to-emerald-700',
             'unpaidHref' => url('/app/rental/order?tab=unpaid'),
         ])
+        @include('partials.top-customers', ['customers' => $topCustomers, 'tile' => $tile])
     @endif
 
     {{-- ───────── Fleet status ───────── --}}

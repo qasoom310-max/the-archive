@@ -97,9 +97,11 @@
             'tile' => $tile,
             'revenue' => $revenue,
             'targets' => $targets,
+            'schedules' => $schedules,
             'gradient' => 'bg-gradient-to-br from-indigo-600 to-violet-700',
             'unpaidHref' => url('/app/limousine/booking?tab=unpaid'),
         ])
+        @include('partials.top-customers', ['customers' => $topCustomers, 'tile' => $tile])
     @endif
 
     {{-- ───────── Schedule strip ───────── --}}

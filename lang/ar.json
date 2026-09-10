@@ -2749,5 +2749,6 @@
     "in :count months": "خلال :count شهرًا",
     "of everything collected": "من إجمالي المحصّل",
     "{1} :count job|[2,*] :count jobs": "{1} عملية واحدة|[2,*] :count عمليات",
-    "{0} Today|{1} :count day ago|[2,*] :count days ago": "{0} اليوم|{1} منذ يوم|[2,*] منذ :count يومًا"
+    "{0} Today|{1} :count day ago|[2,*] :count days ago": "{0} اليوم|{1} منذ يوم|[2,*] منذ :count يومًا",
+    "Nothing collected in this period yet.": "لم يتم تحصيل أي مبلغ في هذه الفترة بعد."
 }

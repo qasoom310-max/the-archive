@@ -38,7 +38,9 @@ final class UserProvisioner
     /**
      * Create the user (matched by email) in EACH selected database — with
      * Main app grants only if Main's workspace is among the selections (no
-     * longer implicit). Returns the Main user when Main was selected.
+     * longer implicit). Always returns the Main user — full when Main was
+     * selected, otherwise the bare login shell {@see ensureMainLoginShell()}
+     * writes.
      *
      * Login always checks Main FIRST, regardless of which databases the
      * account was actually granted (there is no cookie yet to route a
@@ -63,7 +65,7 @@ final class UserProvisioner
         array $appNames,
         array $workspaceIds,
         StaffRole $role = StaffRole::Staff,
-    ): ?User {
+    ): User {
         $hashed = Hash::make($plainPassword);
 
         // No workspace feature on disk → just create on the current connection.

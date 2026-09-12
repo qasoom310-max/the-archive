@@ -30,6 +30,7 @@ use Modules\Limousine\Livewire\BookingForm;
 use Modules\Limousine\Livewire\Coupons;
 use Modules\Limousine\Livewire\CustomerForm;
 use Modules\Rental\Livewire\CustomerForm as RentalCustomerForm;
+use Modules\Limousine\Livewire\DriverAliases;
 use Modules\Limousine\Livewire\DriverForm;
 use Modules\Limousine\Livewire\Drivers;
 use Modules\Limousine\Livewire\Customers;
@@ -116,6 +117,10 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/driver', Drivers::class)->name('limousine.driver.index');
     Route::get('/app/limousine/driver/new', DriverForm::class)->name('limousine.driver.create');
     Route::get('/app/limousine/driver/{id}', DriverForm::class)->whereNumber('id')->name('limousine.driver.edit');
+
+    // Saying who the old system's driver LOGINS were. Its own path rather than
+    // /driver/names so it can never be read as a driver called "names".
+    Route::get('/app/limousine/driver-names', DriverAliases::class)->name('limousine.driver_alias');
 
     Route::post('/app/limousine/location/import', LimoLocationImportController::class)->name('limousine.location.import');
     Route::get('/app/limousine/location', Locations::class)->name('limousine.location.index');

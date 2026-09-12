@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoLeg;
+use Modules\Limousine\Support\DriverAliases;
 
 /**
  * The one definition of a queue row.
@@ -297,7 +298,9 @@ final class LimoQueueRows
             'pickup' => (string) ($leg->from_location ?? ''),
             'dropoff' => (string) ($leg->to_location ?? ''),
             'vehicle' => (string) ($leg->vehicle ?? ''),
-            'driver' => (string) ($leg->driver ?? ''),
+            // A trip carried over names the old system's login; once that
+            // login has been matched, the person is shown in its place.
+            'driver' => app(DriverAliases::class)->resolve((string) ($leg->driver ?? ''))['name'],
             'added_by' => (string) ($booking->prepared_by ?? ''),
             'comments' => (string) ($booking->notes ?? ''),
             'booked_time' => $booking?->created_at?->isoFormat('DD-MMM-YY HH:mm') ?? '',

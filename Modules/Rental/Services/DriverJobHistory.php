@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Services;
 
+use Illuminate\Database\Eloquent\Builder;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoLeg;
+use Modules\Limousine\Support\DriverAliases;
 use Modules\Rental\Models\RentalOrder;
 
 /**
@@ -87,8 +89,27 @@ final class DriverJobHistory
      */
     private function trips(int $driverId): array
     {
+        // Trips brought over from the old system name a login rather than
+        // pointing at a record, so a driver's history used to begin on the day
+        // this system did. Once that login has been matched to him, the older
+        // trips are his again — found by the name they carry.
+        $aliases = app(DriverAliases::class)->aliasesFor($driverId);
+
         return LimoLeg::query()
-            ->where('driver_id', $driverId)
+            ->where(function (Builder $q) use ($driverId, $aliases): void {
+                $q->where('driver_id', $driverId);
+
+                if ($aliases === []) {
+                    return;
+                }
+
+                $q->orWhere(function (Builder $inner) use ($aliases): void {
+                    $placeholders = implode(', ', array_fill(0, count($aliases), '?'));
+
+                    $inner->whereNull('driver_id')
+                        ->whereRaw('lower(trim(driver)) in (' . $placeholders . ')', $aliases);
+                });
+            })
             ->with('legable')
             ->orderByDesc('start_at')
             ->limit(self::MAX_PER_SOURCE)

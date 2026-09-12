@@ -3185,6 +3185,63 @@ the schema offers.**
   test loads the module's routes by hand (`Route::middleware('web')->group(...)`),
   the same workaround the other module route tests use.
 
+**Old driver names — the imported "driver" is a LOGIN, not a person (shipped 2026-09-12):**
+
+The owner opened Limousine earnings and asked who "Kown" was, because no such
+driver exists in the register. The answer: the previous system recorded the
+driver as **the account that was logged in**, and `BookingImporter` copied that
+column into `limo_legs.driver` verbatim. Across the 13,919-row Wanaan export the
+column holds 112 distinct values, and they are three different things mixed
+together:
+
+| Kind | Examples | How it shows |
+|---|---|---|
+| A real driver's login | `habib` (1,220 trips), `sali`, `sohail`, `kown`, `smakhlooq`, `qmakki` | Many cars over several years, never appears in "Added By" |
+| Office / owner staff | `admin` (1,448), `mariam` (1,014 trips but 1,581 bookings entered), `hassan`, `ali`, `qassim` | Also appears in the export's "Added By" column |
+| Not a person | `via`, `apiuser`, `p`, `geasy`, `fone rent` | System logins and one supplier name |
+
+Not a default, either: driver == whoever entered the booking on only **3.8%** of
+rows, so these were deliberate assignments. `admin` was the catch-all, and its
+use fell from 869 trips in 2023 to 21 in 2026.
+
+**The fix resolves at READ time and rewrites nothing.** No backfill stamps
+`driver_id`, and `limo_legs.driver` keeps the exact text the import wrote. Every
+screen asks `DriverAliases` what the name means, so a match decided wrongly is a
+match *changed* — there is never a history to repair. (An earlier design that
+stamped the id was dropped for exactly this: un-stamping a wrong guess needs to
+know which ids a rule had set, and nothing records that.)
+
+| Concern | Location |
+|---|---|
+| Table | `limo_driver_aliases` — `alias` (unique, lowercased + space-collapsed), `driver_id` (logical ref to shared `rental_drivers`, no FK — Limousine installs without Rental), `is_office`, `decided_by`. **Both empty = seen but undecided**, which is why a cleared row is kept rather than deleted |
+| Resolver | `Modules\Limousine\Support\DriverAliases` — `resolve()`, `aliasesFor()`, `candidates()`, `save()`. **Singleton** (bound in `LimousineServiceProvider::register`) so a 500-row queue asks once, not 500 times; `LimoDriverAlias::booted()` flushes it on every write so the cache cannot outlive its answer |
+| Screen | `Modules\Limousine\Livewire\DriverAliases` + `limousine::driver-aliases` at **`/app/limousine/driver-names`** (its own path, never `/driver/names`). Gated on `limousine.driver`: Read to look, **Write to decide** |
+| Readers | `LimoPerformance::drivers()` (league + new `office` count), `DriverJobHistory::trips()` (finds a driver's pre-ERP trips by the names he was recorded under), `LimoQueueRows::row()` (shows the person, not the login) |
+| Tests | `tests/Feature/LimoDriverAliasTest.php` (16) |
+
+Rules worth keeping:
+
+- **An undecided name reads as itself.** `resolve()` returns the raw text when
+  no row exists, so an unanswered question never quietly becomes an answer.
+- **A guess is offered, never saved.** `suggestions()` reduces each register
+  driver to the forms a login is built from (full name, no-space, first,
+  surname, initial+surname, first+initial) and suggests **only when exactly one
+  driver produces that login** — two Alis make `ali` mean nothing. The guess
+  arrives pre-filled in the box wearing an amber "check it before saving" note,
+  and is written only by pressing Save.
+- **Two spellings are one row.** `habib` / `Habib` / `  HABIB ` merge on the
+  normalised key, so the office is asked once.
+- **Office rows leave the league rather than joining `unnamed`.** The earnings
+  page prints them on their own line, because "on an office account" and "no
+  driver named" are different facts about the records.
+- A matched login carries its **petty-cash advances** too — that column was a
+  row of dashes purely because the text names pointed at no driver id.
+
+Not done, and deliberate: the export's **"Added By"** column is still not in
+`BookingImporter::HEADER_MAP`, so imported history has an empty `prepared_by`
+and the screen cannot show "this name also entered N bookings" as a hint that a
+login is office staff. Worth adding if that export is ever re-run.
+
 **Limousine earnings — drivers, routes and demand (shipped 2026-09-10):**
 
 Owner-only page at **`/app/limousine/earnings`**, linked from the Limousine

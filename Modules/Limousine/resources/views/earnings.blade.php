@@ -131,8 +131,20 @@
                     {{ __(':count trips name no driver and are left out of this table.', ['count' => number_format($report['drivers']['unnamed'])]) }}
                 </p>
             @endif
+            @if (($report['drivers']['office'] ?? 0) > 0)
+                <p class="mt-1 text-[11px] text-chrome-400">
+                    {{ __(':count trips are on an office or system account rather than a driver, and are left out too.', ['count' => number_format($report['drivers']['office'])]) }}
+                </p>
+            @endif
             <p class="mt-1 text-[11px] leading-snug text-chrome-400">
                 {{ __('"Advanced" is petty cash handed out this year. It only appears for a driver held in the driver register, so older trips that name a driver in text alone show a dash.') }}
+            </p>
+            {{-- The names carried over are the old system's logins. Whoever is
+                 looking at a row they do not recognise needs the screen that
+                 explains it to be one click away, not something to be told. --}}
+            <p class="mt-1 text-[11px] leading-snug text-chrome-400">
+                {{ __('A name here you do not recognise is a login from the old system.') }}
+                <a href="{{ url('/app/limousine/driver-names') }}" wire:navigate class="font-medium text-primary-700 hover:underline">{{ __('Say who they were') }}</a>
             </p>
         @endif
     </div>

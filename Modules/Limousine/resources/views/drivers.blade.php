@@ -6,6 +6,7 @@
             @if ($canManage)
                 <button type="button" onclick="document.getElementById('import-drivers').classList.toggle('hidden')" class="o-btn-ghost">{{ __('Import') }}</button>
             @endif
+            <a href="{{ url('/app/limousine/driver-names') }}" wire:navigate class="o-btn-ghost">{{ __('Old driver names') }}</a>
             <a href="{{ url('/app/limousine/driver/new') }}" wire:navigate class="o-btn-primary">
                 <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
                 {{ __('New') }}

@@ -47,7 +47,7 @@ final class LimoPerformance
      * @return array{
      *     year: int,
      *     summary: array<string, mixed>,
-     *     drivers: array{rows: list<array<string, mixed>>, available: bool, unnamed: int},
+     *     drivers: array{rows: list<array<string, mixed>>, available: bool, unnamed: int, office: int},
      *     routes: array{rows: list<array<string, mixed>>, available: bool, unnamed: int},
      *     services: list<array<string, mixed>>,
      *     demand: array{grid: array<string, array<int, array{trips: int, earned: float}>>, busiest: string|null, bestPaying: string|null}
@@ -151,18 +151,26 @@ final class LimoPerformance
     /**
      * The driver league, and what each has been advanced against it.
      *
-     * Historic trips name a driver in text rather than pointing at a record, so
-     * rows are keyed by name. Petty-cash advances point at a driver id, so they
-     * are matched back through the driver register and simply do not appear for
-     * a name that was never a record.
+     * Trips carried over from the old system name their driver in TEXT, and the
+     * text is that system's LOGIN — so this league used to rank logins, with
+     * the office's own account sitting near the top of it. Every name is read
+     * through {@see DriverAliases} first: a login matched to a driver becomes
+     * that driver, and one marked as the office is counted apart instead of
+     * pretending to be a person. A name nobody has decided on yet stands as it
+     * always did, because a question left open must not answer itself.
+     *
+     * Petty-cash advances point at a driver id, so a matched login now carries
+     * its advances too — which is why that column was a row of dashes before.
      *
      * @param  list<array<string, mixed>>  $trips
-     * @return array{rows: list<array<string, mixed>>, available: bool, unnamed: int}
+     * @return array{rows: list<array<string, mixed>>, available: bool, unnamed: int, office: int}
      */
     private function drivers(array $trips): array
     {
+        $aliases = app(DriverAliases::class);
         $totals = [];
         $unnamed = 0;
+        $office = 0;
         $ids = [];
 
         foreach ($trips as $trip) {
@@ -172,7 +180,15 @@ final class LimoPerformance
                 continue;
             }
 
-            $key = $trip['driver'];
+            $who = $aliases->resolve((string) $trip['driver']);
+
+            if ($who['office'] === true) {
+                $office++;
+
+                continue;
+            }
+
+            $key = $who['name'] !== '' ? $who['name'] : $trip['driver'];
             $totals[$key] ??= ['name' => $key, 'trips' => 0, 'earned' => 0.0, 'unpaid' => 0.0, 'advanced' => 0.0];
             $totals[$key]['trips']++;
 
@@ -182,8 +198,10 @@ final class LimoPerformance
                 $totals[$key]['unpaid'] = round($totals[$key]['unpaid'] + $trip['amount'], 3);
             }
 
-            if ($trip['driverId'] !== null) {
-                $ids[$trip['driverId']] = $key;
+            $driverId = $trip['driverId'] ?? $who['driverId'];
+
+            if ($driverId !== null) {
+                $ids[$driverId] = $key;
             }
         }
 
@@ -218,6 +236,7 @@ final class LimoPerformance
             'rows' => array_slice($rows, 0, self::TOP),
             'available' => $rows !== [],
             'unnamed' => $unnamed,
+            'office' => $office,
         ];
     }
 
@@ -456,14 +475,14 @@ final class LimoPerformance
     }
 
     /**
-     * @return array{year: int, summary: array<string, mixed>, drivers: array{rows: list<array<string, mixed>>, available: bool, unnamed: int}, routes: array{rows: list<array<string, mixed>>, available: bool, unnamed: int}, services: list<array<string, mixed>>, demand: array{grid: array<string, array<int, array{trips: int, earned: float}>>, busiest: string|null, bestPaying: string|null}}
+     * @return array{year: int, summary: array<string, mixed>, drivers: array{rows: list<array<string, mixed>>, available: bool, unnamed: int, office: int}, routes: array{rows: list<array<string, mixed>>, available: bool, unnamed: int}, services: list<array<string, mixed>>, demand: array{grid: array<string, array<int, array{trips: int, earned: float}>>, busiest: string|null, bestPaying: string|null}}
      */
     private function empty(): array
     {
         return [
             'year' => $this->year,
             'summary' => ['trips' => 0, 'paidTrips' => 0, 'earned' => 0.0, 'unpaid' => 0.0, 'avgFare' => 0.0, 'lastAvgFare' => 0.0, 'fareShift' => null],
-            'drivers' => ['rows' => [], 'available' => false, 'unnamed' => 0],
+            'drivers' => ['rows' => [], 'available' => false, 'unnamed' => 0, 'office' => 0],
             'routes' => ['rows' => [], 'available' => false, 'unnamed' => 0],
             'services' => [],
             'demand' => $this->demand([]),

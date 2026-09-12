@@ -22,8 +22,8 @@ use Tests\TestCase;
 
 /**
  * Sweileh Café afternoon happy hour (12:00–18:00 Bahrain, that database only):
- * shisha is capped at 1.400 (never raised), food comes off by 25%, drinks are
- * excluded.
+ * shisha is capped at 1.400 (never raised), food comes off by 25%, drinks and
+ * sweets are excluded.
  */
 final class PosHappyHourTest extends TestCase
 {
@@ -82,6 +82,19 @@ final class PosHappyHourTest extends TestCase
 
         return PosProduct::query()->create([
             'name' => 'Karak', 'price' => $price, 'tax_rate' => 0.0,
+            'active' => true, 'pos_category_id' => $category->id,
+        ]);
+    }
+
+    private function sweetProduct(float $price = 1.0): PosProduct
+    {
+        // Excluded by the category NAME containing "Sweets" — no flag needed.
+        $category = PosCategory::query()->create([
+            'name' => 'Arabic Sweets', 'slug' => 'arabic-sweets', 'active' => true,
+        ]);
+
+        return PosProduct::query()->create([
+            'name' => 'Kunafa', 'price' => $price, 'tax_rate' => 0.0,
             'active' => true, 'pos_category_id' => $category->id,
         ]);
     }
@@ -187,6 +200,22 @@ final class PosHappyHourTest extends TestCase
         $this->assertSame(0.8, round((float) $line->unit_price, 2));   // full price…
         $this->assertSame(0.0, round((float) $line->discount, 2));     // …no discount
         $this->assertSame(0.8, round((float) $line->total, 2));
+    }
+
+    public function test_sweets_are_excluded_from_the_discount(): void
+    {
+        $this->beSweilehCafeAt('2026-07-14 14:00');
+        $session = $this->openSession();
+        $sweet = $this->sweetProduct(1.0);
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('addProduct', $sweet->id);
+
+        $line = PosOrder::query()->latest('id')->first()?->lines()->first();
+        $this->assertNotNull($line);
+        $this->assertSame(1.0, round((float) $line->unit_price, 2));   // full price…
+        $this->assertSame(0.0, round((float) $line->discount, 2));     // …no discount
+        $this->assertSame(1.0, round((float) $line->total, 2));
     }
 
     public function test_a_shisha_cheaper_than_the_cap_keeps_its_price(): void

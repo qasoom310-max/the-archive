@@ -16,6 +16,7 @@ use Modules\Rental\Http\Controllers\RentalOrderImportController;
 use Modules\Rental\Http\Controllers\RentalQuotationController;
 use Modules\Rental\Http\Controllers\RentalQuotationExportController;
 use Modules\Rental\Http\Controllers\RentalQuotationImportController;
+use Modules\Rental\Http\Controllers\RentalReceiptController;
 use Modules\Rental\Http\Controllers\RentalReceiptExportController;
 use Modules\Rental\Http\Controllers\RentalReceiptImportController;
 use Modules\Rental\Http\Controllers\RentalReplacementExportController;
@@ -105,6 +106,9 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/app/rental/receipt/import', RentalReceiptImportController::class)->name('rental.receipt.import');
     Route::get('/app/rental/receipt', Receipts::class)->name('rental.receipt.index');
     Route::get('/app/rental/receipt/new', ReceiptForm::class)->name('rental.receipt.create');
+    // Before the {id} form route, so "download" is never read as a receipt id.
+    Route::get('/app/rental/receipt/{receipt}/download', RentalReceiptController::class)
+        ->whereNumber('receipt')->name('rental.receipt.download');
     Route::get('/app/rental/receipt/{id}', ReceiptForm::class)->whereNumber('id')->name('rental.receipt.edit');
 
     // Replacements — swap a customer's car for another.

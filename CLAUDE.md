@@ -2518,6 +2518,43 @@ document(s), nothing ticked still exports the tabular report). Also added to
 `DocumentFooterTest::DOCUMENTS` alongside the (previously missing) Rental
 invoice/invoices-batch PDFs.
 
+**Rental receipt gets a real document too (shipped 2026-09-12):** unlike the
+invoice and quotation, `/app/rental/receipt` had no per-document PDF at all
+— not even in an older style — so this is a new document, not a restyle.
+`Modules\Rental\Services\RentalReceiptPdf` + `receipt-pdf.blade.php` use the
+SAME gold-band reference-template design as the invoice/quotation, with the
+fields the owner pointed at on the old system's printed cash receipt:
+Receipt No. / Received with thanks from (customer name **+ their CPR/ID**,
+`RentalCustomer::cpr`, when on file) / a sum-of breakdown (Rental + VAT +
+Extra charge) / Rental Agreement # / By Cash/Cheque/Credit Card / Remarks.
+**The breakdown only prints when it actually foots to the receipt's own
+`amount`** — computed from the linked invoice's `order` (`subtotal − discount`
+as the rental figure, `vat_amount`, and `delivery_charges + extra_charge +
+fuelChargeTotal()` as Extra) and compared against what was really recorded;
+a partial payment against a bigger invoice would otherwise print a
+breakdown that doesn't match what was actually handed over, so it silently
+falls back to a flat "Amount received" line instead. "Rental Agreement #" is
+the ORDER's own reference (`RA…`), not the invoice's — reached via
+`receipt->invoice->order`, since that's what the customer's paperwork calls
+it. **The sign-off row is "Received by" / "Stamp", not a customer
+signature** — same reasoning already established for the Limousine receipt
+(a receipt acknowledges money arrived; it isn't a contract the customer
+signs), applied here for consistency even though the old paper form itself
+had a "Signature" line. `RentalReceiptController` (new,
+`/app/rental/receipt/{id}/download`) serves a single receipt, mirroring
+`RentalInvoiceController`/`RentalQuotationController`; the receipts list
+gained the same download icon + Actions column. **Unlike invoices/
+quotations, `RentalReceiptExportController::pdf()` was NOT changed to branch
+on ticked rows** — the Limousine receipt's own export controller doesn't do
+that either (only its per-row download exists), so Rental stays consistent
+with that sibling rather than the invoice/quotation pattern. Test:
+`RentalReceiptDocumentTest` (customer/CPR/agreement carried through, the
+breakdown appears only when it foots to the amount, a partial payment or a
+receipt with no invoice shows no breakdown, Remarks prints the receipt's own
+`notes`, the second sign-off slot is the stamp not a signature, the PDF
+renders and the download icon serves it). Also added to
+`DocumentFooterTest::DOCUMENTS`.
+
 **Limo invoice PDF redesigned + the toolbar "PDF" now downloads real invoice
 documents when rows are ticked (shipped 2026-09-08):** `invoice-pdf.blade.php`
 was rebuilt to match a reference template the owner supplied — a solid gold

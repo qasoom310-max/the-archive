@@ -3587,6 +3587,32 @@ pinning the bug). Diagnosed live via `php artisan mail:test` (ruled out a mail
 delivery problem first — SMTP was handing off cleanly) before tracing the actual
 symptom ("these credentials do not match") back through `Login`/`ChooseWorkspaceController`/`UserProvisioner`.
 
+**The fix above was not retroactive — 3 accounts stayed broken for 2 days
+(data-repaired 2026-09-12).** Reported again as "no one can sign in except the
+super admin." The code fix (2026-09-10 17:54) only changes what happens the
+NEXT time `provision()` runs — it does nothing for a row that was already
+written broken. Three accounts created via the plain "Databases this user can
+access" checklist (Main unticked, Wanaan Car Rental ticked) **before** that
+timestamp — Hasan Makhlooq, Abbas Hamdan, Hashim, all `hasan.fuad@hotmail.com`
+/ `hamdanabbas98@gmail.com` / `reservations@wanaan-bh.com` — had a real,
+correct row inside the Wanaan tenant database and **zero** row on Main, so
+`Login::login()` (which always authenticates against Main) rejected them with
+"credentials do not match" regardless of password. Confirmed live: sessions
+for other, unaffected non-admin accounts (a POS cashier, a Kaleem Perfume
+staff member, plus every `provisionLocked()`-created account) were active and
+working at the time — this was never a blanket outage, just these 3 specific
+rows. A fresh reproduction of `withTenant(withMain(...))`'s connection swap
+confirmed the CURRENT code correctly writes to Main even when called from
+inside an active tenant context — ruling out a second, still-live bug. Fixed
+by a one-time **data repair** (no code change): a Main login shell was created
+for each of the 3 (bare, unprivileged, matching what `ensureMainLoginShell()`
+would have produced), a freshly generated password was hashed and stored, and
+each person was emailed their new credentials via the same `WelcomeCredentials`
+notification the create flow already sends. **If another account from before
+2026-09-10 17:54 turns up with the same symptom, the repair is the same:**
+confirm it has a tenant row but no Main row, then create the Main row + email
+a new password — there is no remaining code defect to chase.
+
 ---
 
 ## 6. Known Environment Caveats

@@ -287,6 +287,58 @@ final class LimoDriverAliasTest extends TestCase
         $this->assertSame('Hussain Makhlooq', $rows->row($leg)['driver']);
     }
 
+    /* ── What the screen shows so a person can answer ────────────────────── */
+
+    /**
+     * The cars a name drove are what identifies the person when the name
+     * cannot. The office recognises the round even when the login means
+     * nothing to them.
+     */
+    public function test_a_row_shows_the_cars_that_name_was_driving(): void
+    {
+        foreach (['FORD EXPEDITION 37398', 'FORD EXPEDITION 37398', 'MERCEDES VITO 626503'] as $car) {
+            $leg = $this->trip('smakhlooq');
+            $leg->forceFill(['vehicle' => $car])->save();
+        }
+
+        $row = app(DriverAliases::class)->candidates()[0];
+
+        $this->assertSame('FORD EXPEDITION 37398', $row['cars'][0], 'the car used most comes first');
+        $this->assertContains('MERCEDES VITO 626503', $row['cars']);
+    }
+
+    /**
+     * A near miss is named rather than acted on: a register that spells it
+     * "Makhloog" is something a person settles at a glance and a matcher
+     * should not settle at all.
+     */
+    public function test_a_row_names_the_closest_drivers_in_the_register(): void
+    {
+        LimoDriver::query()->create(['name' => 'Sayed Makhloog']);
+        LimoDriver::query()->create(['name' => 'Totally Different']);
+        $this->trip('smakhlooq');
+
+        $row = app(DriverAliases::class)->candidates()[0];
+        $names = array_column($row['closest'], 'name');
+
+        $this->assertContains('Sayed Makhloog', $names);
+        $this->assertNotContains('Totally Different', $names);
+        // Named only. Nothing was decided by it.
+        $this->assertSame(0, LimoDriverAlias::query()->count());
+    }
+
+    /** Ambiguity is exactly when naming the candidates helps most. */
+    public function test_an_ambiguous_login_still_names_who_it_could_be(): void
+    {
+        LimoDriver::query()->create(['name' => 'Ali Hasan']);
+        LimoDriver::query()->create(['name' => 'Ali Mansoor']);
+        $this->trip('ali');
+
+        $names = array_column(app(DriverAliases::class)->candidates()[0]['closest'], 'name');
+
+        $this->assertContains('Ali Hasan', $names);
+        $this->assertContains('Ali Mansoor', $names);
+    }
     /* ── The guess ───────────────────────────────────────────────────────── */
 
     /** An initial welded to a surname is how the old logins were built. */

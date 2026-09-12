@@ -23,7 +23,8 @@ use Modules\Limousine\Models\LimoDriverAlias;
  *
  * @phpstan-type Candidate array{key: string, display: string, trips: int, collected: float,
  *     linked: int, from: string, to: string, driverId: int|null, office: bool, auto: bool,
- *     decided: bool, suggestion: int|null, suggestionStrong: bool, slug: string}
+ *     decided: bool, suggestion: int|null, suggestionStrong: bool, slug: string,
+ *     cars: list<string>, closest: list<array{id: int, name: string}>}
  */
 final class DriverAliases
 {
@@ -182,6 +183,8 @@ final class DriverAliases
                     && ($entry['driverId'] !== null || $entry['office'] === true || $entry['auto'] === false),
                 'suggestion' => null,
                 'suggestionStrong' => false,
+                'cars' => [],
+                'closest' => [],
                 'slug' => substr(sha1($key), 0, 12),
             ];
 
@@ -193,6 +196,13 @@ final class DriverAliases
         }
 
         $suggestions = $this->suggestions(array_keys($merged));
+        $cars = $this->carsByName();
+        $closest = $this->closest(array_keys($merged));
+
+        foreach ($merged as $key => $row) {
+            $merged[$key]['cars'] = $cars[$key] ?? [];
+            $merged[$key]['closest'] = $closest[$key] ?? [];
+        }
 
         foreach ($merged as $key => $row) {
             // Worked out for anything a PERSON has not settled — including a row
@@ -268,6 +278,131 @@ final class DriverAliases
         $this->flush();
 
         return $counts;
+    }
+
+    /**
+     * The cars a name was driving, most used first.
+     *
+     * This is the fact that identifies a person when a name cannot. Somebody in
+     * the office looks at "37398 FORD EXPEDITION, every week for two years" and
+     * knows exactly who that was — and no amount of matching on spelling gets
+     * there. Three is enough to recognise a round; a full list is a wall.
+     *
+     * @return array<string, list<string>>
+     */
+    private function carsByName(): array
+    {
+        if (! Schema::hasTable('limo_legs')) {
+            return [];
+        }
+
+        $rows = DB::table('limo_legs')
+            ->where('legable_type', LimoBooking::class)
+            ->whereNotNull('driver')->where('driver', '!=', '')
+            ->whereNotNull('vehicle')->where('vehicle', '!=', '')
+            ->groupBy('driver', 'vehicle')
+            ->get(['driver', 'vehicle', DB::raw('count(*) as trips')]);
+
+        /** @var array<string, array<string, int>> $tally */
+        $tally = [];
+
+        foreach ($rows as $row) {
+            $key = self::key((string) $row->driver);
+
+            if ($key === '') {
+                continue;
+            }
+
+            $car = trim((string) $row->vehicle);
+            $tally[$key][$car] = ($tally[$key][$car] ?? 0) + (int) $row->trips;
+        }
+
+        $out = [];
+
+        foreach ($tally as $key => $cars) {
+            arsort($cars);
+            $out[$key] = array_slice(array_keys($cars), 0, 3);
+        }
+
+        return $out;
+    }
+
+    /**
+     * The drivers whose names come nearest this login, best first.
+     *
+     * Offered for the eye, never acted on: "smakhlooq" against a register that
+     * spells it "Makhloog" is a near miss a person settles at a glance and a
+     * matcher should not settle at all. Shown even when a login is ambiguous —
+     * ESPECIALLY then, because ambiguous means several plausible people and
+     * naming them is the whole help.
+     *
+     * @param  list<string>  $keys
+     * @return array<string, list<array{id: int, name: string}>>
+     */
+    private function closest(array $keys): array
+    {
+        /** @var list<array{id: int, name: string, forms: list<string>}> $drivers */
+        $drivers = [];
+
+        foreach (LimoDriver::query()->get(['id', 'name']) as $driver) {
+            $name = self::key((string) $driver->name);
+
+            if ($name === '') {
+                continue;
+            }
+
+            $parts = array_values(array_filter(explode(' ', $name), static fn (string $p): bool => $p !== ''));
+
+            if ($parts === []) {
+                continue;
+            }
+
+            $first = $parts[0];
+            $last = $parts[count($parts) - 1];
+
+            $drivers[] = [
+                'id' => (int) $driver->getKey(),
+                'name' => (string) $driver->name,
+                'forms' => array_values(array_unique([
+                    $name,
+                    str_replace(' ', '', $name),
+                    $first,
+                    $last,
+                    mb_substr($first, 0, 1) . $last,
+                    $first . mb_substr($last, 0, 1),
+                ])),
+            ];
+        }
+
+        $out = [];
+
+        foreach ($keys as $key) {
+            $probe = str_replace(' ', '', $key);
+            $scored = [];
+
+            foreach ($drivers as $driver) {
+                $best = 0.0;
+
+                foreach ($driver['forms'] as $form) {
+                    $percent = 0.0;
+                    similar_text($probe, $form, $percent);
+                    $best = max($best, $percent);
+                }
+
+                if ($best >= 60.0) {
+                    $scored[] = ['id' => $driver['id'], 'name' => $driver['name'], 'score' => $best];
+                }
+            }
+
+            usort($scored, static fn (array $a, array $b): int => $b['score'] <=> $a['score']);
+
+            $out[$key] = array_map(
+                static fn (array $row): array => ['id' => $row['id'], 'name' => $row['name']],
+                array_slice($scored, 0, 3),
+            );
+        }
+
+        return $out;
     }
 
     /**

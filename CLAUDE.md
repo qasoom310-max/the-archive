@@ -3249,6 +3249,16 @@ withdraw an answer that was right. The screen shows a **Decided by the system**
 badge and a filter tab for reviewing exactly those rows — an answer nobody can
 see is an answer nobody can correct.
 
+**The screen carries the evidence, because the last mile is a person's.**
+A login the matcher cannot settle is not a question anyone can answer from the
+name alone, so each row also shows **the cars that name was driving** (top three,
+from `limo_legs.vehicle`) and **the closest names in the register** (`similar_text`
+>= 60% against the same forms, best three, display only — never acted on). The
+office recognises "37398 FORD EXPEDITION every week for two years" when the login
+means nothing to them. The command likewise prints the **drivers nobody has
+claimed**: an unanswered login and an unclaimed driver are usually the two ends
+of one missing match, and seeing them apart is what makes the pairing invisible.
+
 Never overwrites a decision a person made, idempotent, `--pretend` to dry-run,
 and it **prints the names it could not answer** so the screen has a short list
 rather than a full one. Re-run after adding drivers to the register and the

@@ -2898,5 +2898,7 @@
     "BD": "د.ب",
     "Decided by the system": "حدّده النظام",
     "Only half the name matches, so the system would not decide this one. Check it before saving.": "نصف الاسم فقط يتطابق، لذا لم يحسمه النظام. تحقّق منه قبل الحفظ.",
-    "The system fills in what it can on its own and marks those rows. It will never change one you have decided yourself.": "يملأ النظام ما يستطيع بنفسه ويؤشّر على تلك الصفوف، ولن يغيّر أبدًا صفًّا حسمته أنت."
+    "The system fills in what it can on its own and marks those rows. It will never change one you have decided yourself.": "يملأ النظام ما يستطيع بنفسه ويؤشّر على تلك الصفوف، ولن يغيّر أبدًا صفًّا حسمته أنت.",
+    "Cars driven": "السيارات المستخدمة",
+    "Closest names in the register:": "أقرب الأسماء في السجل:"
 }

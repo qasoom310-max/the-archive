@@ -222,7 +222,42 @@ final class MatchDriverNames extends Command
             $this->line(sprintf('    still unknown: %-16s %d trips', (string) $row['display'], (int) $row['trips']));
         }
 
+        // The other half of the same question. An unanswered login and a driver
+        // nobody has claimed are usually the two ends of one missing match, and
+        // seeing them apart is what makes the pairing invisible.
+        $this->unclaimedDrivers();
+
         app(DriverAliases::class)->flush();
+    }
+
+    /**
+     * Drivers in the register that no old login points at.
+     *
+     * Either they only ever drove for this system, or their login is sitting in
+     * the unanswered list under a spelling nothing matched.
+     */
+    private function unclaimedDrivers(): void
+    {
+        $claimed = LimoDriverAlias::query()
+            ->whereNotNull('driver_id')
+            ->pluck('driver_id')
+            ->all();
+
+        $names = LimoDriver::query()
+            ->when($claimed !== [], fn ($q) => $q->whereNotIn('id', $claimed))
+            ->orderBy('name')
+            ->pluck('name')
+            ->all();
+
+        if ($names === []) {
+            return;
+        }
+
+        $this->line(sprintf('    %d driver(s) in the register that no old name points at:', count($names)));
+
+        foreach (array_chunk($names, 4) as $chunk) {
+            $this->line('      ' . implode(' · ', array_map('strval', $chunk)));
+        }
     }
 
     /**

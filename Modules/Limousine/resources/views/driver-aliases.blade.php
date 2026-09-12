@@ -73,6 +73,7 @@
                             <th class="py-2 text-end">{{ __('Trips') }}</th>
                             <th class="py-2 text-end">{{ __('Collected') }}</th>
                             <th class="py-2 text-center">{{ __('Active') }}</th>
+                            <th class="py-2 text-start ps-4">{{ __('Cars driven') }}</th>
                             <th class="py-2 text-start ps-4 w-[22rem]">{{ __('This is') }}</th>
                         </tr>
                     </thead>
@@ -100,12 +101,28 @@
                                     @php $from = $year($row['from']); $to = $year($row['to']); @endphp
                                     {{ $from === '' ? '—' : ($from === $to ? $from : $from . '–' . $to) }}
                                 </td>
+                                <td class="py-3 ps-4 text-[11px] leading-snug text-chrome-500">
+                                    {{-- The fact that identifies a person when the
+                                         name cannot: the office recognises the round
+                                         even when the login means nothing. --}}
+                                    @forelse ($row['cars'] as $car)
+                                        <div class="whitespace-nowrap">{{ $car }}</div>
+                                    @empty
+                                        <span class="text-chrome-300">—</span>
+                                    @endforelse
+                                </td>
                                 <td class="py-3 ps-4">
                                     <x-searchable-select
                                         wire:model="choices.{{ $row['slug'] }}"
                                         :options="$options"
                                         :placeholder="__('— Not decided —')"
                                         :search-placeholder="__('Type a driver\'s name…')" />
+                                    @if (! $row['decided'] && $row['closest'] !== [])
+                                        <p class="mt-1 text-[11px] text-chrome-500">
+                                            {{ __('Closest names in the register:') }}
+                                            @foreach ($row['closest'] as $near)<span class="whitespace-nowrap">{{ $near['name'] }}@if (! $loop->last), @endif</span>@endforeach
+                                        </p>
+                                    @endif
                                     @if (! $row['decided'] && $row['suggestion'] !== null)
                                         <p class="mt-1 text-[11px] text-amber-600">
                                             @if ($row['suggestionStrong'])

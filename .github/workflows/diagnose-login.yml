@@ -1,8 +1,8 @@
 name: Diagnose login issue (manual)
 
-# Read-only diagnostics for "nobody but the super admin can sign in" -
-# tails the log and inspects the users table on Main. Never writes
-# anything. Manual only (workflow_dispatch); never runs on push.
+# Diagnostics (and, in the final step, a targeted repair) for "nobody but
+# the super admin can sign in". Manual only (workflow_dispatch); never
+# runs on push.
 on:
   workflow_dispatch:
 
@@ -26,7 +26,7 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Reproduce a nested withTenant(withMain()) write from inside workspace 7
+      - name: Repair the 3 accounts orphaned by the pre-fix bug (creates missing Main shells + emails fresh passwords)
         run: |
           ssh -p ${{ secrets.SSH_PORT }} \
             -o StrictHostKeyChecking=accept-new \
@@ -34,25 +34,20 @@ jobs:
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             'cd ${{ secrets.DEPLOY_PATH }} && \
              php artisan tinker --execute="
+               \$emails = [\"hasan.fuad@hotmail.com\", \"hamdanabbas98@gmail.com\", \"reservations@wanaan-bh.com\"];
                \$mgr = app(App\Erp\Tenancy\WorkspaceManager::class);
                \$ws = App\Models\Workspace::find(7);
-               echo \"before: default=\".DB::getDefaultConnection().PHP_EOL;
-               \$mgr->withTenant(\$ws->databasePath(), function () use (\$mgr) {
-                 echo \"inside withTenant: default=\".DB::getDefaultConnection().PHP_EOL;
-                 \$mgr->withMain(function () {
-                   echo \"inside nested withMain: default=\".DB::getDefaultConnection().PHP_EOL;
-                   \$id = DB::table(\"users\")->insertGetId([\"name\"=>\"diag-probe\",\"email\"=>\"diag-probe@example.invalid\",\"password\"=>\"x\",\"created_at\"=>now(),\"updated_at\"=>now()]);
-                   echo \"wrote id={\$id} while default was \".DB::getDefaultConnection().PHP_EOL;
+               foreach (\$emails as \$email) {
+                 \$existing = App\Models\User::query()->where(\"email\", \$email)->first();
+                 if (\$existing !== null) { echo \"SKIP {\$email}: already exists on Main (id={\$existing->id})\".PHP_EOL; continue; }
+                 \$tenantUser = \$mgr->withTenant(\$ws->databasePath(), fn () => App\Models\User::query()->where(\"email\", \$email)->first());
+                 if (\$tenantUser === null) { echo \"SKIP {\$email}: no tenant row found either\".PHP_EOL; continue; }
+                 \$password = \Illuminate\Support\Str::password(16, symbols: false);
+                 \$hashed = \Illuminate\Support\Facades\Hash::make(\$password);
+                 \$mgr->withMain(fn () => App\Models\User::query()->updateOrCreate([\"email\" => \$email], [\"name\" => \$tenantUser->name, \"password\" => \$hashed]));
+                 \$mgr->withTenant(\$ws->databasePath(), function () use (\$tenantUser, \$email, \$password): void {
+                   \Illuminate\Support\Facades\Notification::route(\"mail\", \$email)->notify(new App\Notifications\WelcomeCredentials(\$tenantUser->name, \$email, \$password));
                  });
-                 echo \"back inside withTenant after nested withMain: default=\".DB::getDefaultConnection().PHP_EOL;
-               });
-               echo \"after: default=\".DB::getDefaultConnection().PHP_EOL;
-               echo \"--- where did diag-probe land? ---\".PHP_EOL;
-               echo \"on MAIN (current default, \".DB::getDefaultConnection().\"): count=\".App\Models\User::query()->where(\"email\",\"diag-probe@example.invalid\")->count().PHP_EOL;
-               \$mgr->withTenant(\$ws->databasePath(), function () {
-                 echo \"inside workspace 7: count=\".DB::table(\"users\")->where(\"email\",\"diag-probe@example.invalid\")->count().PHP_EOL;
-                 DB::table(\"users\")->where(\"email\",\"diag-probe@example.invalid\")->delete();
-               });
-               DB::table(\"users\")->where(\"email\",\"diag-probe@example.invalid\")->delete();
-               echo \"cleaned up both places\".PHP_EOL;
+                 echo \"REPAIRED {\$email} ({\$tenantUser->name}) - Main shell created, new password emailed\".PHP_EOL;
+               }
              "'

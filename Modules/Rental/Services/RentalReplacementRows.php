@@ -30,11 +30,17 @@ final class RentalReplacementRows
     }
 
     /**
+     * @param  list<int>  $ids  the rows ticked on screen; empty = the whole list
      * @return list<array<string, string>>
      */
-    public function all(string $tab): array
+    public function all(string $tab, array $ids = []): array
     {
-        return $this->query($tab)->get()->map(fn (RentalReplacement $r): array => $this->row($r))->all();
+        $query = $this->query($tab);
+        if ($ids !== []) {
+            $query->whereKey($ids);
+        }
+
+        return $query->get()->map(fn (RentalReplacement $r): array => $this->row($r))->all();
     }
 
     /**

@@ -383,6 +383,67 @@ final class RentalBespokeExportTest extends TestCase
         $this->assertStringContainsString('Sedan Plus', $body);
     }
 
+    public function test_replacement_csv_narrows_to_the_ticked_rows(): void
+    {
+        $customer = $this->customer();
+        $vehicle = $this->vehicle();
+        $a = RentalReplacement::query()->create([
+            'reference' => 'REP00100', 'customer_id' => $customer->id, 'original_vehicle_id' => $vehicle->id, 'replacement_vehicle_id' => $vehicle->id,
+        ]);
+        RentalReplacement::query()->create([
+            'reference' => 'REP00200', 'customer_id' => $customer->id, 'original_vehicle_id' => $vehicle->id, 'replacement_vehicle_id' => $vehicle->id,
+        ]);
+
+        $body = $this->streamed(app(RentalReplacementExportController::class)->csv(Request::create('/x', 'GET', ['ids' => (string) $a->id])));
+        $this->assertStringContainsString('REP00100', $body);
+        $this->assertStringNotContainsString('REP00200', $body);
+    }
+
+    public function test_ticking_nothing_still_downloads_the_whole_replacement_list(): void
+    {
+        // The buttons must never change meaning underfoot.
+        $customer = $this->customer();
+        $vehicle = $this->vehicle();
+        RentalReplacement::query()->create([
+            'reference' => 'REP00100', 'customer_id' => $customer->id, 'original_vehicle_id' => $vehicle->id, 'replacement_vehicle_id' => $vehicle->id,
+        ]);
+        RentalReplacement::query()->create([
+            'reference' => 'REP00200', 'customer_id' => $customer->id, 'original_vehicle_id' => $vehicle->id, 'replacement_vehicle_id' => $vehicle->id,
+        ]);
+
+        $body = $this->streamed(app(RentalReplacementExportController::class)->csv(Request::create('/x', 'GET', ['ids' => ''])));
+        $this->assertStringContainsString('REP00100', $body);
+        $this->assertStringContainsString('REP00200', $body);
+    }
+
+    public function test_the_replacement_header_box_ticks_the_page_and_the_links_carry_the_ids(): void
+    {
+        $customer = $this->customer();
+        $vehicle = $this->vehicle();
+        $a = RentalReplacement::query()->create(['customer_id' => $customer->id, 'original_vehicle_id' => $vehicle->id, 'replacement_vehicle_id' => $vehicle->id]);
+        $b = RentalReplacement::query()->create(['customer_id' => $customer->id, 'original_vehicle_id' => $vehicle->id, 'replacement_vehicle_id' => $vehicle->id]);
+
+        \Livewire\Livewire::test(\Modules\Rental\Livewire\Replacements::class)
+            ->set('selectPage', true)
+            ->assertSet('selected', [$b->id, $a->id])
+            ->assertSee('ids=' . $b->id . '%2C' . $a->id, false)
+            ->call('clearSelection')
+            ->assertSet('selected', [])
+            ->assertDontSee('ids=' . $b->id, false); // link back to the whole tab
+    }
+
+    public function test_changing_the_replacement_tab_drops_a_tick_made_against_the_old_tab(): void
+    {
+        $customer = $this->customer();
+        $vehicle = $this->vehicle();
+        $a = RentalReplacement::query()->create(['customer_id' => $customer->id, 'original_vehicle_id' => $vehicle->id, 'replacement_vehicle_id' => $vehicle->id]);
+
+        \Livewire\Livewire::test(\Modules\Rental\Livewire\Replacements::class)
+            ->set('selected', [$a->id])
+            ->set('tab', 'closed')
+            ->assertSet('selected', []);
+    }
+
     // --- Order -----------------------------------------------------
 
     public function test_order_export_honours_tab_dates_and_search_together(): void

@@ -26,7 +26,7 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Find where the 3 missing accounts actually live
+      - name: Reproduce a nested withTenant(withMain()) write from inside workspace 7
         run: |
           ssh -p ${{ secrets.SSH_PORT }} \
             -o StrictHostKeyChecking=accept-new \
@@ -34,19 +34,25 @@ jobs:
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             'cd ${{ secrets.DEPLOY_PATH }} && \
              php artisan tinker --execute="
-               \$emails = [\"hasan.fuad@hotmail.com\", \"hamdanabbas98@gmail.com\", \"reservations@wanaan-bh.com\"];
                \$mgr = app(App\Erp\Tenancy\WorkspaceManager::class);
-               foreach (App\Models\Workspace::query()->get() as \$ws) {
-                 if (\$ws->is_main) { continue; }
-                 \$path = \$ws->databasePath();
-                 if (\$path === null || ! is_file(\$path)) { echo \"workspace {\$ws->id} ({\$ws->name}): file missing\".PHP_EOL; continue; }
-                 \$mgr->withTenant(\$path, function () use (\$ws, \$emails): void {
-                   foreach (\$emails as \$email) {
-                     \$u = App\Models\User::query()->where(\"email\", \$email)->first();
-                     if (\$u !== null) {
-                       echo \"FOUND {\$email} in workspace {\$ws->id} ({\$ws->name}): id={\$u->id} admin=\".(\$u->is_admin?1:0).\" home=\".(\$u->home_workspace_id ?? \"null\").\" password_len=\".strlen((string)\$u->password).\" created_at=\".\$u->created_at.\" updated_at=\".\$u->updated_at.PHP_EOL;
-                     }
-                   }
+               \$ws = App\Models\Workspace::find(7);
+               echo \"before: default=\".DB::getDefaultConnection().PHP_EOL;
+               \$mgr->withTenant(\$ws->databasePath(), function () use (\$mgr) {
+                 echo \"inside withTenant: default=\".DB::getDefaultConnection().PHP_EOL;
+                 \$mgr->withMain(function () {
+                   echo \"inside nested withMain: default=\".DB::getDefaultConnection().PHP_EOL;
+                   \$id = DB::table(\"users\")->insertGetId([\"name\"=>\"diag-probe\",\"email\"=>\"diag-probe@example.invalid\",\"password\"=>\"x\",\"created_at\"=>now(),\"updated_at\"=>now()]);
+                   echo \"wrote id={\$id} while default was \".DB::getDefaultConnection().PHP_EOL;
                  });
-               }
+                 echo \"back inside withTenant after nested withMain: default=\".DB::getDefaultConnection().PHP_EOL;
+               });
+               echo \"after: default=\".DB::getDefaultConnection().PHP_EOL;
+               echo \"--- where did diag-probe land? ---\".PHP_EOL;
+               echo \"on MAIN (current default, \".DB::getDefaultConnection().\"): count=\".App\Models\User::query()->where(\"email\",\"diag-probe@example.invalid\")->count().PHP_EOL;
+               \$mgr->withTenant(\$ws->databasePath(), function () {
+                 echo \"inside workspace 7: count=\".DB::table(\"users\")->where(\"email\",\"diag-probe@example.invalid\")->count().PHP_EOL;
+                 DB::table(\"users\")->where(\"email\",\"diag-probe@example.invalid\")->delete();
+               });
+               DB::table(\"users\")->where(\"email\",\"diag-probe@example.invalid\")->delete();
+               echo \"cleaned up both places\".PHP_EOL;
              "'

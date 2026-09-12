@@ -2469,6 +2469,22 @@ table so Copy narrows the same way. **Two different selection mechanisms
 narrowing exports is fine** — the export controller only cares about the
 `ids` query param, not how a screen produced it.
 
+**Maintenance got the same (shipped 2026-09-12)** — Rental `/app/rental/maintenance`
+gained the full `SelectsListRows` treatment. Its scope is the status **tab**
+(All/Pending/Approved/In progress/Done), so `clearSelection()` hangs off
+`updatedTab()` — a tick made against one tab is not a tick against another,
+same rule as the receipts screen's search box. `MaintenanceRecords::render()`
+was also switched from its own hand-copied query to
+`RentalMaintenanceRows::query()` (the Rows service already existed and the
+export controller already used it, but the screen didn't) — same "a list with
+a Rows service should render from it" reasoning as the receipts fix.
+`RentalMaintenanceRows::all()` gained the `array $ids = []` parameter and
+`RentalMaintenanceExportController` gained the same `ids()` parser as every
+other bespoke list. Test: `RentalBespokeExportTest` (+4 — CSV narrows to a
+ticked row, ticking nothing still exports the whole list, the header
+checkbox ticks the page and the links carry the ids, changing the tab drops
+a tick made against the old one).
+
 **Limo invoice PDF redesigned + the toolbar "PDF" now downloads real invoice
 documents when rows are ticked (shipped 2026-09-08):** `invoice-pdf.blade.php`
 was rebuilt to match a reference template the owner supplied — a solid gold

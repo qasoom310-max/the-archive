@@ -239,6 +239,55 @@ final class RentalBespokeExportTest extends TestCase
         $this->addToAssertionCount(1); // no exception = the view rendered
     }
 
+    public function test_maintenance_csv_narrows_to_the_ticked_rows(): void
+    {
+        $vehicle = $this->vehicle();
+        $a = RentalMaintenance::query()->create(['vehicle_id' => $vehicle->id, 'cost' => 12]);
+        RentalMaintenance::query()->create(['vehicle_id' => $vehicle->id, 'cost' => 99]);
+
+        $body = $this->streamed(app(RentalMaintenanceExportController::class)->csv(Request::create('/x', 'GET', ['ids' => (string) $a->id])));
+        $this->assertStringContainsString('12.00', $body);
+        $this->assertStringNotContainsString('99.00', $body);
+    }
+
+    public function test_ticking_nothing_still_downloads_the_whole_maintenance_list(): void
+    {
+        // The buttons must never change meaning underfoot.
+        $vehicle = $this->vehicle();
+        RentalMaintenance::query()->create(['vehicle_id' => $vehicle->id, 'cost' => 12]);
+        RentalMaintenance::query()->create(['vehicle_id' => $vehicle->id, 'cost' => 99]);
+
+        $body = $this->streamed(app(RentalMaintenanceExportController::class)->csv(Request::create('/x', 'GET', ['ids' => ''])));
+        $this->assertStringContainsString('12.00', $body);
+        $this->assertStringContainsString('99.00', $body);
+    }
+
+    public function test_the_maintenance_header_box_ticks_the_page_and_the_links_carry_the_ids(): void
+    {
+        $vehicle = $this->vehicle();
+        $a = RentalMaintenance::query()->create(['vehicle_id' => $vehicle->id, 'cost' => 12]);
+        $b = RentalMaintenance::query()->create(['vehicle_id' => $vehicle->id, 'cost' => 99]);
+
+        \Livewire\Livewire::test(\Modules\Rental\Livewire\MaintenanceRecords::class)
+            ->set('selectPage', true)
+            ->assertSet('selected', [$b->id, $a->id])
+            ->assertSee('ids=' . $b->id . '%2C' . $a->id, false)
+            ->call('clearSelection')
+            ->assertSet('selected', [])
+            ->assertDontSee('ids=' . $b->id, false); // link back to the whole tab
+    }
+
+    public function test_changing_the_maintenance_tab_drops_a_tick_made_against_the_old_tab(): void
+    {
+        $vehicle = $this->vehicle();
+        $a = RentalMaintenance::query()->create(['vehicle_id' => $vehicle->id, 'cost' => 12]);
+
+        \Livewire\Livewire::test(\Modules\Rental\Livewire\MaintenanceRecords::class)
+            ->set('selected', [$a->id])
+            ->set('tab', 'pending')
+            ->assertSet('selected', []);
+    }
+
     // --- Quotation -----------------------------------------------------
 
     public function test_quotation_excel_downloads(): void

@@ -327,6 +327,44 @@ final class RentalBespokeExportTest extends TestCase
             ->assertDontSee('ids=' . $b->id, false); // link back to the whole tab
     }
 
+    public function test_quotation_pdf_with_one_ticked_row_downloads_that_quotation_document(): void
+    {
+        $vehicle = $this->vehicle();
+        $a = RentalQuotation::query()->create(['reference' => 'QT00100', 'customer_id' => $this->customer()->id, 'vehicle_id' => $vehicle->id, 'total' => 100]);
+        RentalQuotation::query()->create(['reference' => 'QT00250', 'customer_id' => $this->customer()->id, 'vehicle_id' => $vehicle->id, 'total' => 250]);
+
+        $response = app(RentalQuotationExportController::class)->pdf(Request::create('/x', 'GET', [
+            'ids' => (string) $a->id,
+        ]));
+
+        $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('quotation-QT00100.pdf', (string) $response->headers->get('Content-Disposition'));
+    }
+
+    public function test_quotation_pdf_with_several_ticked_rows_downloads_them_as_one_document(): void
+    {
+        $vehicle = $this->vehicle();
+        $a = RentalQuotation::query()->create(['customer_id' => $this->customer()->id, 'vehicle_id' => $vehicle->id, 'total' => 100]);
+        $b = RentalQuotation::query()->create(['customer_id' => $this->customer()->id, 'vehicle_id' => $vehicle->id, 'total' => 250]);
+
+        $response = app(RentalQuotationExportController::class)->pdf(Request::create('/x', 'GET', [
+            'ids' => $a->id . ',' . $b->id,
+        ]));
+
+        $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('quotations-2-', (string) $response->headers->get('Content-Disposition'));
+    }
+
+    public function test_quotation_pdf_with_nothing_ticked_still_exports_the_tabular_report(): void
+    {
+        RentalQuotation::query()->create(['customer_id' => $this->customer()->id, 'vehicle_id' => $this->vehicle()->id, 'total' => 100]);
+
+        $response = app(RentalQuotationExportController::class)->pdf(Request::create('/x', 'GET'));
+
+        $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('rental-quotations-', (string) $response->headers->get('Content-Disposition'));
+    }
+
     // --- Replacement -----------------------------------------------------
 
     public function test_replacement_export_names_both_cars(): void

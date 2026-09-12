@@ -13,6 +13,7 @@ use Modules\Rental\Http\Controllers\RentalMaintenanceExportController;
 use Modules\Rental\Http\Controllers\RentalMaintenanceImportController;
 use Modules\Rental\Http\Controllers\RentalOrderExportController;
 use Modules\Rental\Http\Controllers\RentalOrderImportController;
+use Modules\Rental\Http\Controllers\RentalQuotationController;
 use Modules\Rental\Http\Controllers\RentalQuotationExportController;
 use Modules\Rental\Http\Controllers\RentalQuotationImportController;
 use Modules\Rental\Http\Controllers\RentalReceiptExportController;
@@ -78,6 +79,9 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/app/rental/quotation/import', RentalQuotationImportController::class)->name('rental.quotation.import');
     Route::get('/app/rental/quotation', Quotations::class)->name('rental.quotation.index');
     Route::get('/app/rental/quotation/new', QuotationForm::class)->name('rental.quotation.create');
+    // Before the {id} form route, so "download" is never read as a quotation id.
+    Route::get('/app/rental/quotation/{quotation}/download', RentalQuotationController::class)
+        ->whereNumber('quotation')->name('rental.quotation.download');
     Route::get('/app/rental/quotation/{id}', QuotationForm::class)->whereNumber('id')->name('rental.quotation.edit');
 
     // Invoices — bills (one-click from an order, or standalone).

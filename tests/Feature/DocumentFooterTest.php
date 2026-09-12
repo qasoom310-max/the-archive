@@ -26,6 +26,10 @@ final class DocumentFooterTest extends TestCase
     private const DOCUMENTS = [
         // The documents a customer receives.
         'Modules/Rental/resources/views/agreement-pdf.blade.php',
+        'Modules/Rental/resources/views/invoice-pdf.blade.php',
+        'Modules/Rental/resources/views/invoices-batch-pdf.blade.php',
+        'Modules/Rental/resources/views/quotation-pdf.blade.php',
+        'Modules/Rental/resources/views/quotations-batch-pdf.blade.php',
         'Modules/Limousine/resources/views/combined-invoice-pdf.blade.php',
         'Modules/Limousine/resources/views/coupon-voucher-pdf.blade.php',
         'Modules/Limousine/resources/views/invoice-pdf.blade.php',

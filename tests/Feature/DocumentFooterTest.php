@@ -30,6 +30,7 @@ final class DocumentFooterTest extends TestCase
         'Modules/Rental/resources/views/invoices-batch-pdf.blade.php',
         'Modules/Rental/resources/views/quotation-pdf.blade.php',
         'Modules/Rental/resources/views/quotations-batch-pdf.blade.php',
+        'Modules/Rental/resources/views/receipt-pdf.blade.php',
         'Modules/Limousine/resources/views/combined-invoice-pdf.blade.php',
         'Modules/Limousine/resources/views/coupon-voucher-pdf.blade.php',
         'Modules/Limousine/resources/views/invoice-pdf.blade.php',

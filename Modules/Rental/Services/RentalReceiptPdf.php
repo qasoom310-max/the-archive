@@ -39,7 +39,7 @@ final class RentalReceiptPdf
             'receipt' => $receipt,
             'reference' => (string) ($receipt->reference ?? ''),
             'date' => $receipt->date?->format('j-M-Y') ?? '',
-            'agreementReference' => (string) ($order?->reference ?? ''),
+            'agreementReference' => (string) ($order->reference ?? ''),
             'customerName' => (string) ($receipt->customer->name ?? ''),
             'customerCpr' => (string) ($receipt->customer->cpr ?? ''),
             'customerPhone' => (string) ($receipt->customer->phone ?? ''),

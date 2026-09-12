@@ -50,7 +50,7 @@ final class DriverAliases extends Component
     #[Url(except: '')]
     public string $search = '';
 
-    /** 'todo' = only the names still to decide; 'all' = every name. */
+    /** 'todo' = still to decide; 'auto' = decided by the system; 'all' = every name. */
     #[Url(except: 'todo')]
     public string $filter = 'todo';
 
@@ -67,7 +67,7 @@ final class DriverAliases extends Component
 
     public function updatedFilter(string $value): void
     {
-        $this->filter = in_array($value, ['todo', 'all'], true) ? $value : 'todo';
+        $this->filter = in_array($value, ['todo', 'auto', 'all'], true) ? $value : 'todo';
     }
 
     public function setFilter(string $filter): void
@@ -141,8 +141,17 @@ final class DriverAliases extends Component
             static fn (array $r): bool => $r['decided'] === false && $r['linked'] < $r['trips'],
         ));
 
+        // What the system answered for itself. Worth its own list: an answer
+        // nobody can see is an answer nobody can correct.
+        $auto = array_values(array_filter(
+            $rows,
+            static fn (array $r): bool => $r['auto'] === true && $r['decided'] === true,
+        ));
+
         if ($this->filter === 'todo') {
             $rows = $todo;
+        } elseif ($this->filter === 'auto') {
+            $rows = $auto;
         }
 
         if ($term !== '') {
@@ -168,6 +177,7 @@ final class DriverAliases extends Component
             'options' => $options,
             'driverNames' => $drivers->pluck('name', 'id')->all(),
             'todoCount' => count($todo),
+            'autoCount' => count($auto),
             'totalCount' => count($this->candidates()),
             'canSave' => $this->mayAccess(Permission::Write),
         ]);

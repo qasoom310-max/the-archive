@@ -22,12 +22,12 @@ use Modules\Limousine\Models\LimoDriverAlias;
  * a mapping decided wrongly is a mapping changed, not a history to repair.
  *
  * @phpstan-type Candidate array{key: string, display: string, trips: int, collected: float,
- *     linked: int, from: string, to: string, driverId: int|null, office: bool,
- *     decided: bool, suggestion: int|null, slug: string}
+ *     linked: int, from: string, to: string, driverId: int|null, office: bool, auto: bool,
+ *     decided: bool, suggestion: int|null, suggestionStrong: bool, slug: string}
  */
 final class DriverAliases
 {
-    /** @var array<string, array{driverId: int|null, office: bool}>|null */
+    /** @var array<string, array{driverId: int|null, office: bool, auto: bool}>|null */
     private ?array $map = null;
 
     /** @var array<int, string>|null */
@@ -174,8 +174,14 @@ final class DriverAliases
                 'to' => '',
                 'driverId' => $entry['driverId'] ?? null,
                 'office' => $entry['office'] ?? false,
-                'decided' => $entry !== null,
+                'auto' => $entry['auto'] ?? false,
+                // A machine row with no answer in it is the machine saying it
+                // does not know — which is still an open question. A PERSON'S
+                // empty row is an answer: leave this one alone.
+                'decided' => $entry !== null
+                    && ($entry['driverId'] !== null || $entry['office'] === true || $entry['auto'] === false),
                 'suggestion' => null,
+                'suggestionStrong' => false,
                 'slug' => substr(sha1($key), 0, 12),
             ];
 
@@ -189,8 +195,19 @@ final class DriverAliases
         $suggestions = $this->suggestions(array_keys($merged));
 
         foreach ($merged as $key => $row) {
-            if (! $row['decided']) {
-                $merged[$key]['suggestion'] = $suggestions[$key] ?? null;
+            // Worked out for anything a PERSON has not settled — including a row
+            // the matcher answered itself, which it may need to re-check when
+            // its rules change. Without this, re-checking sees no match and
+            // withdraws an answer that was right.
+            if ($row['decided'] === true && $row['auto'] === false) {
+                continue;
+            }
+
+            $hit = $suggestions[$key] ?? null;
+
+            if ($hit !== null) {
+                $merged[$key]['suggestion'] = $hit['driverId'];
+                $merged[$key]['suggestionStrong'] = $hit['strong'];
             }
         }
 
@@ -244,7 +261,7 @@ final class DriverAliases
 
             LimoDriverAlias::query()->updateOrCreate(
                 ['alias' => $row['key']],
-                ['driver_id' => $driverId, 'is_office' => $office, 'decided_by' => $decidedBy],
+                ['driver_id' => $driverId, 'is_office' => $office, 'auto' => false, 'decided_by' => $decidedBy],
             );
         }
 
@@ -266,12 +283,14 @@ final class DriverAliases
      * person to agree with, and the screen says plainly that it is a guess.
      *
      * @param  list<string>  $keys
-     * @return array<string, int>
+     * @return array<string, array{driverId: int, strong: bool}>
      */
     private function suggestions(array $keys): array
     {
-        /** @var array<string, list<int>> $forms */
-        $forms = [];
+        /** @var array<string, array<int, int>> $strong */
+        $strong = [];
+        /** @var array<string, array<int, int>> $weak */
+        $weak = [];
 
         foreach (LimoDriver::query()->get(['id', 'name']) as $driver) {
             $id = (int) $driver->getKey();
@@ -290,21 +309,20 @@ final class DriverAliases
             $first = $parts[0];
             $last = $parts[count($parts) - 1];
 
-            $candidates = [
-                $name,
-                str_replace(' ', '', $name),
-                $first,
-                $last,
-                mb_substr($first, 0, 1) . $last,
-                $first . mb_substr($last, 0, 1),
-            ];
-
-            foreach (array_unique($candidates) as $form) {
-                if ($form === '') {
-                    continue;
+            // A whole name, or a name welded together the way a login is: only
+            // the person it belongs to produces these.
+            foreach ([$name, str_replace(' ', '', $name), mb_substr($first, 0, 1) . $last, $first . mb_substr($last, 0, 1)] as $form) {
+                if ($form !== '') {
+                    $strong[$form][$id] = $id;
                 }
+            }
 
-                $forms[$form][$id] = $id;
+            // Half a name. Enough to offer on the screen, not enough to decide
+            // by itself — half the office shares a first name with a driver.
+            foreach ([$first, $last] as $form) {
+                if ($form !== '') {
+                    $weak[$form][$id] = $id;
+                }
             }
         }
 
@@ -312,21 +330,30 @@ final class DriverAliases
 
         foreach ($keys as $key) {
             foreach ([$key, str_replace(' ', '', $key)] as $probe) {
-                $hit = $forms[$probe] ?? [];
+                $hit = $strong[$probe] ?? [];
 
                 if (count($hit) === 1) {
-                    $out[$key] = (int) array_values($hit)[0];
+                    $out[$key] = ['driverId' => (int) array_values($hit)[0], 'strong' => true];
 
-                    break;
+                    continue 2;
+                }
+            }
+
+            foreach ([$key, str_replace(' ', '', $key)] as $probe) {
+                $hit = $weak[$probe] ?? [];
+
+                if (count($hit) === 1) {
+                    $out[$key] = ['driverId' => (int) array_values($hit)[0], 'strong' => false];
+
+                    continue 2;
                 }
             }
         }
 
         return $out;
     }
-
     /**
-     * @return array<string, array{driverId: int|null, office: bool}>
+     * @return array<string, array{driverId: int|null, office: bool, auto: bool}>
      */
     private function map(): array
     {
@@ -344,6 +371,7 @@ final class DriverAliases
             $out[(string) $row->alias] = [
                 'driverId' => $row->driver_id === null ? null : (int) $row->driver_id,
                 'office' => (bool) $row->is_office,
+                'auto' => (bool) $row->auto,
             ];
         }
 

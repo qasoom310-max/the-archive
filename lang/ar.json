@@ -2895,5 +2895,8 @@
     ":count trips are on an office or system account rather than a driver, and are left out too.": ":count رحلة مسجّلة على حساب مكتب أو نظام لا على سائق، وهي مستثناة أيضًا.",
     "A name here you do not recognise is a login from the old system.": "أي اسم هنا لا تعرفه هو حساب دخول من النظام القديم.",
     "Say who they were": "حدّد من كانوا",
-    "BD": "د.ب"
+    "BD": "د.ب",
+    "Decided by the system": "حدّده النظام",
+    "Only half the name matches, so the system would not decide this one. Check it before saving.": "نصف الاسم فقط يتطابق، لذا لم يحسمه النظام. تحقّق منه قبل الحفظ.",
+    "The system fills in what it can on its own and marks those rows. It will never change one you have decided yourself.": "يملأ النظام ما يستطيع بنفسه ويؤشّر على تلك الصفوف، ولن يغيّر أبدًا صفًّا حسمته أنت."
 }

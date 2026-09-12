@@ -3227,14 +3227,27 @@ runs **on every deploy** (in `deploy.yml`, after `optimize:clear` and wrapped in
 `|| true` so a fleet without Limousine installed cannot fail the deploy on a
 command that is not registered; across Main and every workspace) and decides each still-undecided login:
 
-1. **A driver** when exactly ONE register driver could have produced the login
-   (the same forms `suggestions()` uses). Ambiguous → left alone.
+1. **A driver** when exactly ONE register driver produces the login from a
+   WHOLE name — full name, name welded together, initial+surname, first+initial.
+   **A half name (first name alone, surname alone) decides nothing**: it is
+   offered on the screen and left there. This is the Mariam rule — she entered
+   1,581 bookings AND is named on 1,014 trips, so if the register holds a
+   "Mariam Hasan", half a name cannot say they are the same person.
 2. **The office** when the login belongs to a `users` row — by name or by the
    part of the e-mail before the `@` — and no driver answers to it. Somebody who
    signs in here and is not in the driver register was booking, not driving.
    A person in BOTH lists stays a driver; the register is the list of who drives.
 3. **Not a person** for `SYSTEM_LOGINS` — `admin`, `via`, `apiuser`, `mac`,
    `asprinter` (a Sprinter typed into the driver box), `fone rent`, `p`, `geasy`.
+
+**The matcher may revise its OWN answers** (`limo_driver_aliases.auto`, added
+by `2026_09_12_950034`) — rules improve, and an answer given under a worse rule
+should not outlive it; a run that can no longer justify one WITHDRAWS it back to
+undecided. A decision a PERSON made is never touched. `candidates()` therefore
+computes a suggestion for auto rows too, or re-checking would see no match and
+withdraw an answer that was right. The screen shows a **Decided by the system**
+badge and a filter tab for reviewing exactly those rows — an answer nobody can
+see is an answer nobody can correct.
 
 Never overwrites a decision a person made, idempotent, `--pretend` to dry-run,
 and it **prints the names it could not answer** so the screen has a short list

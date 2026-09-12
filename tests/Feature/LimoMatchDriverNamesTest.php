@@ -99,16 +99,102 @@ final class LimoMatchDriverNamesTest extends TestCase
         $this->assertSame('Hussain Makhlooq', app(DriverAliases::class)->resolve('hmakhlooq')['name']);
     }
 
-    public function test_a_first_name_login_is_matched(): void
+    /**
+     * The Mariam case, which is what this rule exists for.
+     *
+     * Mariam entered 1,581 bookings in the old system and is named as the
+     * driver on 1,014 trips. If the register happens to hold a driver whose
+     * FIRST name is Mariam, half a name is not enough to say they are the same
+     * person — and the office noticing it in a report is the wrong way to find
+     * out. It is left for someone to say.
+     */
+    public function test_half_a_name_does_not_beat_the_office_check(): void
+    {
+        LimoDriver::query()->create(['name' => 'Mariam Hasan']);
+        User::query()->create([
+            'name' => 'Mariam', 'email' => 'mariam@wanaan-bh.com', 'password' => bcrypt('x'),
+        ]);
+        $this->trip('mariam');
+
+        $this->matchNames();
+
+        $resolved = app(DriverAliases::class)->resolve('mariam');
+        $this->assertSame('mariam', $resolved['name'], 'half a name should not have decided this');
+        $this->assertFalse($resolved['office']);
+    }
+
+    /** A whole name still decides it, office login or not. */
+    public function test_a_whole_name_still_decides_it(): void
+    {
+        LimoDriver::query()->create(['name' => 'Mariam Hasan']);
+        User::query()->create([
+            'name' => 'Mariam', 'email' => 'mariam@wanaan-bh.com', 'password' => bcrypt('x'),
+        ]);
+        $this->trip('mariam hasan');
+
+        $this->matchNames();
+
+        $this->assertSame('Mariam Hasan', app(DriverAliases::class)->resolve('mariam hasan')['name']);
+    }
+
+    /** A first name alone is left alone even when nobody signs in as it. */
+    public function test_a_first_name_alone_is_offered_but_not_decided(): void
     {
         LimoDriver::query()->create(['name' => 'Habib Ali']);
         $this->trip('habib');
 
         $this->matchNames();
 
-        $this->assertSame('Habib Ali', app(DriverAliases::class)->resolve('habib')['name']);
+        $this->assertSame('habib', app(DriverAliases::class)->resolve('habib')['name']);
+
+        // …but the screen still offers it, marked as only half a match.
+        $row = app(DriverAliases::class)->candidates()[0];
+        $this->assertNotNull($row['suggestion']);
+        $this->assertFalse($row['suggestionStrong']);
     }
 
+    /**
+     * The machine may take back its own answer when its rules improve. A run
+     * under the old rule matched "mariam" on a first name; this run withdraws it.
+     */
+    public function test_it_takes_back_its_own_answer_under_a_better_rule(): void
+    {
+        $driver = LimoDriver::query()->create(['name' => 'Mariam Hasan']);
+        User::query()->create([
+            'name' => 'Mariam', 'email' => 'mariam@wanaan-bh.com', 'password' => bcrypt('x'),
+        ]);
+        $this->trip('mariam');
+
+        // What the looser rule wrote.
+        LimoDriverAlias::query()->create([
+            'alias' => 'mariam', 'driver_id' => $driver->id, 'auto' => true,
+            'decided_by' => 'Matched automatically',
+        ]);
+
+        $this->matchNames();
+
+        $this->assertSame('mariam', app(DriverAliases::class)->resolve('mariam')['name']);
+        $this->assertNull(LimoDriverAlias::query()->where('alias', 'mariam')->sole()->driver_id);
+    }
+
+    /** But a PERSON's answer is never taken back, however the rules change. */
+    public function test_it_never_takes_back_a_persons_answer(): void
+    {
+        $driver = LimoDriver::query()->create(['name' => 'Mariam Hasan']);
+        User::query()->create([
+            'name' => 'Mariam', 'email' => 'mariam@wanaan-bh.com', 'password' => bcrypt('x'),
+        ]);
+        $this->trip('mariam');
+
+        // The office says: yes, our Mariam really does drive.
+        LimoDriverAlias::query()->create([
+            'alias' => 'mariam', 'driver_id' => $driver->id, 'auto' => false, 'decided_by' => 'Qassim',
+        ]);
+
+        $this->matchNames();
+
+        $this->assertSame('Mariam Hasan', app(DriverAliases::class)->resolve('mariam')['name']);
+    }
     /** Two people who could both answer to it mean it answers to neither. */
     public function test_an_ambiguous_login_is_left_for_a_person_to_say(): void
     {
@@ -206,7 +292,7 @@ final class LimoMatchDriverNamesTest extends TestCase
     public function test_running_it_twice_changes_nothing_the_second_time(): void
     {
         LimoDriver::query()->create(['name' => 'Habib Ali']);
-        $this->trip('habib');
+        $this->trip('habib ali');
         $this->trip('admin');
 
         $this->matchNames();

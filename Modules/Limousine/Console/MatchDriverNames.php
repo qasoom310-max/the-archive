@@ -22,26 +22,38 @@ use Throwable;
  * hand is asking him to do the system's job, so the system does what it can
  * from what it already knows and leaves only the genuinely unknowable.
  *
- * Three rules, in order, and only ever on a name nobody has decided yet:
+ * The rules, in order:
  *
- *  1. **It is a driver** when exactly ONE person in the driver register could
- *     have produced that login — by full name, by first name, by surname, or by
- *     an initial welded to a surname, which is how these logins were built. Two
- *     drivers called Ali make "ali" mean nothing, so nothing is decided.
- *  2. **It is the office** when the login belongs to a USER of this system and
- *     no driver answers to it. Someone who signs in here and is not in the
- *     driver register was booking the trip, not driving it.
+ *  1. **It is a driver** when exactly one person in the register produces that
+ *     login from a WHOLE name — the full name, the name welded together, or an
+ *     initial stuck to a surname, which is how these logins were built. Only
+ *     the person it belongs to produces one of those.
+ *  2. **It is the office** when the login belongs to somebody who signs into
+ *     this system — by name, or by the part of their e-mail before the `@` —
+ *     and NO driver in the register is even half-suggested for it. Someone who
+ *     signs in here and answers to no driver was booking the trip, not driving
+ *     it. If a driver IS half-suggested, the two could be one person, and that
+ *     is a question rather than an answer: it goes to the screen.
  *  3. **It is not a person** when it is one of the logins the old system used
  *     for itself — the shared office machine, the API account, the catch-all
- *     "admin" that a trip was parked on when nobody picked anybody.
+ *     "admin" a trip was parked on when nobody picked anybody.
+ *  4. **A half name decides nothing on its own.** A login that matches only a
+ *     driver's FIRST name or only a surname is offered on the screen and left
+ *     there. Half the office shares a first name with a driver: "mariam" is
+ *     both the dispatcher who entered 1,581 bookings and, if the register
+ *     holds one, a driver called Mariam. That is a question for a person.
  *
- * A decision made here is worth no more than one typed on the screen: the trips
- * are never rewritten, so anything this gets wrong is put right by changing it
- * at /app/limousine/driver-names. That is what makes deciding automatically
- * safe — being wrong costs a click, not a history.
+ * The machine may revise ITS OWN answers — the rules improve, and an answer it
+ * gave under a worse rule should not outlive it — but a decision a PERSON made
+ * on the screen is never touched. `auto` is what tells them apart.
  *
- * Idempotent. Re-run after adding drivers to the register and the names that
- * now have exactly one answer get it.
+ * Deciding automatically is only safe because nothing is rewritten: the trips
+ * keep the text the import gave them, so anything this gets wrong is put right
+ * by changing it at /app/limousine/driver-names. Being wrong costs a click,
+ * not a history.
+ *
+ * Idempotent. Re-run after adding drivers to the register and the logins that
+ * now have exactly one whole-name answer get it.
  */
 final class MatchDriverNames extends Command
 {
@@ -131,25 +143,40 @@ final class MatchDriverNames extends Command
         $matched = [];
         $office = [];
         $left = [];
+        $withdrawn = [];
 
         foreach ($rows as $row) {
-            if ($row['decided'] === true) {
-                continue; // somebody has already answered this one
+            $key = (string) $row['key'];
+
+            // A person's answer stands, whatever the rules now say. Only an
+            // answer this command gave itself is its to reconsider.
+            if ($row['decided'] === true && $row['auto'] === false) {
+                continue;
             }
 
-            $key = (string) $row['key'];
-            $driverId = $row['suggestion'];
+            $hadAuto = $row['auto'] === true && ($row['driverId'] !== null || $row['office'] === true);
 
-            if ($driverId !== null) {
-                $matched[$key] = (int) $driverId;
+            // 1. A whole name: only the person it belongs to produces it.
+            if ($row['suggestion'] !== null && $row['suggestionStrong'] === true) {
+                $matched[$key] = (int) $row['suggestion'];
 
                 continue;
             }
 
-            if (in_array($key, self::SYSTEM_LOGINS, true) || isset($userLogins[$key])) {
+            $isOfficeLogin = in_array($key, self::SYSTEM_LOGINS, true) || isset($userLogins[$key]);
+
+            // 2 + 3. Signs in here, or is one of the old system's own logins —
+            //        and no driver is even half-suggested for it.
+            if ($isOfficeLogin && $row['suggestion'] === null) {
                 $office[] = $key;
 
                 continue;
+            }
+
+            // 4. Half a name, or nothing at all: a question for a person. If an
+            // earlier run answered it under a looser rule, take that back.
+            if ($hadAuto) {
+                $withdrawn[] = $key;
             }
 
             $left[] = $row;
@@ -157,10 +184,7 @@ final class MatchDriverNames extends Command
 
         foreach ($matched as $alias => $driverId) {
             if (! $pretend) {
-                LimoDriverAlias::query()->updateOrCreate(
-                    ['alias' => $alias],
-                    ['driver_id' => $driverId, 'is_office' => false, 'decided_by' => 'Matched automatically'],
-                );
+                $this->decide($alias, $driverId, false);
             }
 
             $this->line('  ' . $alias . '  →  ' . ($this->driverName($driverId) ?? '#' . $driverId));
@@ -168,20 +192,28 @@ final class MatchDriverNames extends Command
 
         foreach ($office as $alias) {
             if (! $pretend) {
-                LimoDriverAlias::query()->updateOrCreate(
-                    ['alias' => $alias],
-                    ['driver_id' => null, 'is_office' => true, 'decided_by' => 'Matched automatically'],
-                );
+                $this->decide($alias, null, true);
             }
 
             $this->line('  ' . $alias . '  →  office / not a driver');
         }
 
+        foreach ($withdrawn as $alias) {
+            if (! $pretend) {
+                // Kept as a row rather than removed, so the screen can still
+                // show that this one was looked at and found unanswerable.
+                $this->decide($alias, null, false);
+            }
+
+            $this->warn('  ' . $alias . '  →  taken back: only half a name matched, so a person should say');
+        }
+
         $this->line(sprintf(
-            '  %d matched to a driver, %d marked as the office, %d left for someone to say.',
+            '  %d matched to a driver, %d marked as the office, %d left for someone to say%s.',
             count($matched),
             count($office),
             count($left),
+            $withdrawn === [] ? '' : sprintf(' (%d taken back from an earlier run)', count($withdrawn)),
         ));
 
         // Named, not just counted: these are what the screen is now FOR, and a
@@ -221,6 +253,23 @@ final class MatchDriverNames extends Command
         }
 
         return $out;
+    }
+
+    /**
+     * Write an answer of the machine's own, stamped so it can be told from a
+     * person's and revised later without touching theirs.
+     */
+    private function decide(string $alias, ?int $driverId, bool $office): void
+    {
+        LimoDriverAlias::query()->updateOrCreate(
+            ['alias' => $alias],
+            [
+                'driver_id' => $driverId,
+                'is_office' => $office,
+                'auto' => true,
+                'decided_by' => 'Matched automatically',
+            ],
+        );
     }
 
     private function driverName(int $id): ?string

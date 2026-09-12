@@ -30,6 +30,9 @@
         <p class="mt-2 text-chrome-500">
             {{ __('The trips themselves are never changed. Earnings, a driver\'s job history and petty cash all read them through these matches, so a name matched wrongly is put right by changing it here.') }}
         </p>
+        <p class="mt-2 text-chrome-500">
+            {{ __('The system fills in what it can on its own and marks those rows. It will never change one you have decided yourself.') }}
+        </p>
     </div>
 
     <div class="mb-4 flex flex-wrap items-center gap-2">
@@ -37,6 +40,10 @@
             <button type="button" wire:click="setFilter('todo')"
                 class="o-btn {{ $filter === 'todo' ? 'bg-white text-chrome-900 shadow-sm' : 'text-chrome-600' }}">
                 {{ __('Still to decide') }} ({{ number_format($todoCount) }})
+            </button>
+            <button type="button" wire:click="setFilter('auto')"
+                class="o-btn {{ $filter === 'auto' ? 'bg-white text-chrome-900 shadow-sm' : 'text-chrome-600' }}">
+                {{ __('Decided by the system') }} ({{ number_format($autoCount) }})
             </button>
             <button type="button" wire:click="setFilter('all')"
                 class="o-btn {{ $filter === 'all' ? 'bg-white text-chrome-900 shadow-sm' : 'text-chrome-600' }}">
@@ -81,6 +88,11 @@
                                     @elseif ($row['linked'] >= $row['trips'])
                                         <span class="ms-2 text-[11px] text-emerald-600">{{ __('Already linked') }}</span>
                                     @endif
+                                    @if ($row['auto'] && $row['decided'])
+                                        {{-- An answer nobody can see is an answer
+                                             nobody can correct. --}}
+                                        <span class="ms-2 inline-flex whitespace-nowrap rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700 ring-1 ring-sky-200">{{ __('Decided by the system') }}</span>
+                                    @endif
                                 </td>
                                 <td class="py-3 text-end text-chrome-600">{{ number_format($row['trips']) }}</td>
                                 <td class="py-3 text-end font-medium text-chrome-800">{{ $money($row['collected']) }}</td>
@@ -96,7 +108,11 @@
                                         :search-placeholder="__('Type a driver\'s name…')" />
                                     @if (! $row['decided'] && $row['suggestion'] !== null)
                                         <p class="mt-1 text-[11px] text-amber-600">
-                                            {{ __('Guessed from the spelling — check it before saving.') }}
+                                            @if ($row['suggestionStrong'])
+                                                {{ __('Guessed from the spelling — check it before saving.') }}
+                                            @else
+                                                {{ __('Only half the name matches, so the system would not decide this one. Check it before saving.') }}
+                                            @endif
                                         </p>
                                     @endif
                                 </td>

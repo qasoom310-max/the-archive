@@ -18,6 +18,7 @@ use Modules\Limousine\Support\DriverAliases;
  * @property string $alias
  * @property int|null $driver_id
  * @property bool $is_office
+ * @property bool $auto
  * @property string|null $decided_by
  */
 final class LimoDriverAlias extends Model
@@ -25,14 +26,14 @@ final class LimoDriverAlias extends Model
     protected $table = 'limo_driver_aliases';
 
     /** @var list<string> */
-    protected $fillable = ['alias', 'driver_id', 'is_office', 'decided_by'];
+    protected $fillable = ['alias', 'driver_id', 'is_office', 'auto', 'decided_by'];
 
     /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
-        return ['is_office' => 'boolean'];
+        return ['is_office' => 'boolean', 'auto' => 'boolean'];
     }
 
     protected static function booted(): void

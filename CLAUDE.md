@@ -2485,6 +2485,20 @@ ticked row, ticking nothing still exports the whole list, the header
 checkbox ticks the page and the links carry the ids, changing the tab drops
 a tick made against the old one).
 
+**Car replacements got the same (shipped 2026-09-12)** — Rental
+`/app/rental/replacement` gained the full `SelectsListRows` treatment,
+scoped to the status **tab** (All/Active/Closed) exactly like Maintenance —
+`clearSelection()` hangs off `updatedTab()`. `Replacements::render()` was
+also switched from its own hand-copied query to `RentalReplacementRows::query()`
+(the Rows service already existed and the export controller already used it,
+but the screen didn't — same gap Maintenance and Receipts had before this).
+`RentalReplacementRows::all()` gained the `array $ids = []` parameter and
+`RentalReplacementExportController` gained the same `ids()` parser as every
+other bespoke list. The row is `onclick="window.location=..."` (the whole row
+opens the record), so its checkbox cell carries `event.stopPropagation()`,
+same as every other list with this treatment. Test: `RentalBespokeExportTest`
+(+4 — same shape as Maintenance's).
+
 **Rental quotation gets a real document, matching the invoice (shipped
 2026-09-12):** `/app/rental/quotation` used to have no per-document PDF at
 all — its list's "PDF"/"Print" buttons only ever rendered the generic tabular

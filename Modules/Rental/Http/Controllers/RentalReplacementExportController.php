@@ -26,32 +26,47 @@ final class RentalReplacementExportController
     {
         $this->authorizeExport('rental.replacement');
 
-        return $this->renderer->csv($this->rows->headings(), $this->rows->all($this->tab($request)), $this->exportFilename('rental-replacements'));
+        return $this->renderer->csv($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request)), $this->exportFilename('rental-replacements'));
     }
 
     public function excel(Request $request): StreamedResponse
     {
         $this->authorizeExport('rental.replacement');
 
-        return $this->renderer->excel($this->rows->headings(), $this->rows->all($this->tab($request)), $this->exportFilename('rental-replacements'));
+        return $this->renderer->excel($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request)), $this->exportFilename('rental-replacements'));
     }
 
     public function pdf(Request $request): Response
     {
         $this->authorizeExport('rental.replacement');
 
-        return $this->renderer->pdf($this->rows->headings(), $this->rows->all($this->tab($request)), __('Replacements'), $this->exportFilename('rental-replacements'));
+        return $this->renderer->pdf($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request)), __('Replacements'), $this->exportFilename('rental-replacements'));
     }
 
     public function print(Request $request): View
     {
         $this->authorizeExport('rental.replacement');
 
-        return $this->renderer->print($this->rows->headings(), $this->rows->all($this->tab($request)), __('Replacements'));
+        return $this->renderer->print($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request)), __('Replacements'));
     }
 
     private function tab(Request $request): string
     {
         return (string) $request->query('tab', 'all');
+    }
+
+    /**
+     * The ticked rows, as `?ids=3,7,12`; empty (or junk) = the whole list.
+     *
+     * @return list<int>
+     */
+    private function ids(Request $request): array
+    {
+        $raw = $request->query('ids');
+        if (! is_string($raw) || trim($raw) === '') {
+            return [];
+        }
+
+        return array_values(array_unique(array_map('intval', array_filter(explode(',', $raw), 'is_numeric'))));
     }
 }

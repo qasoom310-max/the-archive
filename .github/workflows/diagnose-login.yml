@@ -26,20 +26,26 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Inspect users table + tail the log
+      - name: Inspect workspaces + locked-user rebind + tail the log
         run: |
           ssh -p ${{ secrets.SSH_PORT }} \
             -o StrictHostKeyChecking=accept-new \
             -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             'cd ${{ secrets.DEPLOY_PATH }} && \
-             echo "=== migrate:status (core, last 20) ===" && \
-             php artisan migrate:status | tail -n 20 && \
-             echo "=== users table columns ===" && \
-             php artisan tinker --execute="print_r(Schema::getColumnListing(\"users\"));" && \
-             echo "=== user counts ===" && \
-             php artisan tinker --execute="echo \"total=\".App\Models\User::count().\" admin=\".App\Models\User::where(\"is_admin\",true)->count().\" super=\".App\Models\User::where(\"is_super_admin\",true)->count().\" paused=\".App\Models\User::where(\"is_paused\",true)->count().PHP_EOL;" && \
-             echo "=== sample non-admin users ===" && \
-             php artisan tinker --execute="foreach (App\Models\User::where(\"is_admin\",false)->limit(5)->get([\"id\",\"name\",\"email\",\"is_paused\",\"home_workspace_id\"]) as \$u) { echo json_encode(\$u).PHP_EOL; }" && \
+             echo "=== workspaces table ===" && \
+             php artisan tinker --execute="foreach (App\Models\Workspace::query()->get([\"id\",\"name\",\"is_main\",\"database\",\"deleted_at\"]) as \$w) { echo json_encode(\$w).PHP_EOL; }" && \
+             echo "=== every locked (home_workspace_id set) user, checked against their tenant file ===" && \
+             php artisan tinker --execute="
+               foreach (App\Models\User::query()->whereNotNull(\"home_workspace_id\")->get([\"id\",\"name\",\"email\",\"home_workspace_id\",\"is_admin\"]) as \$u) {
+                 \$ws = App\Models\Workspace::find(\$u->home_workspace_id);
+                 if (\$ws === null) { echo \"user {\$u->id} {\$u->email}: home workspace {\$u->home_workspace_id} NOT FOUND (soft-deleted or missing row)\".PHP_EOL; continue; }
+                 \$path = \$ws->databasePath();
+                 if (\$path === null || ! is_file(\$path)) { echo \"user {\$u->id} {\$u->email}: workspace {\$ws->id} ({\$ws->name}) file MISSING at \".(\$path ?? \"null\").PHP_EOL; continue; }
+                 \$found = App\Erp\Tenancy\WorkspaceManager::class;
+                 \$hasRow = app(\$found)->withTenant(\$path, function () use (\$u) { return App\Models\User::query()->where(\"email\", \$u->email)->first([\"id\",\"email\",\"is_admin\"]); });
+                 echo \"user {\$u->id} {\$u->email} -> workspace {\$ws->id} ({\$ws->name}): tenant row = \".json_encode(\$hasRow).PHP_EOL;
+               }
+             " && \
              echo "=== last 150 lines of laravel.log ===" && \
              tail -n 150 storage/logs/laravel.log || echo "(no log file / empty)"'

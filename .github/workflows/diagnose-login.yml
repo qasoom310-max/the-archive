@@ -1,0 +1,45 @@
+name: Diagnose login issue (manual)
+
+# Read-only diagnostics for "nobody but the super admin can sign in" -
+# tails the log and inspects the users table on Main. Never writes
+# anything. Manual only (workflow_dispatch); never runs on push.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: diagnose-login
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    name: Diagnose on erp.wanaan-bh.com
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust Hostinger SSH host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Inspect users table + tail the log
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            'cd ${{ secrets.DEPLOY_PATH }} && \
+             echo "=== migrate:status (core, last 20) ===" && \
+             php artisan migrate:status | tail -n 20 && \
+             echo "=== users table columns ===" && \
+             php artisan tinker --execute="print_r(Schema::getColumnListing(\"users\"));" && \
+             echo "=== user counts ===" && \
+             php artisan tinker --execute="echo \"total=\".App\Models\User::count().\" admin=\".App\Models\User::where(\"is_admin\",true)->count().\" super=\".App\Models\User::where(\"is_super_admin\",true)->count().\" paused=\".App\Models\User::where(\"is_paused\",true)->count().PHP_EOL;" && \
+             echo "=== sample non-admin users ===" && \
+             php artisan tinker --execute="foreach (App\Models\User::where(\"is_admin\",false)->limit(5)->get([\"id\",\"name\",\"email\",\"is_paused\",\"home_workspace_id\"]) as \$u) { echo json_encode(\$u).PHP_EOL; }" && \
+             echo "=== last 150 lines of laravel.log ===" && \
+             tail -n 150 storage/logs/laravel.log || echo "(no log file / empty)"'

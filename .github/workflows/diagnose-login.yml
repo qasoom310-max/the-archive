@@ -26,33 +26,28 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Check the sessions/cache/rate-limiter tables directly
+      - name: Inspect the specific reported accounts
         run: |
           ssh -p ${{ secrets.SSH_PORT }} \
             -o StrictHostKeyChecking=accept-new \
             -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             'cd ${{ secrets.DEPLOY_PATH }} && \
-             echo "=== sessions table: row count + newest 5 ===" && \
              php artisan tinker --execute="
-               echo \"count=\".DB::table(\"sessions\")->count().PHP_EOL;
-               foreach (DB::table(\"sessions\")->orderByDesc(\"last_activity\")->limit(5)->get([\"id\",\"user_id\",\"last_activity\",\"ip_address\"]) as \$s) {
-                 echo json_encode(\$s).\" (\".date(\"Y-m-d H:i:s\", \$s->last_activity).\")\".PHP_EOL;
+               \$emails = [
+                 \"hasan.fuad@hotmail.com\", \"hamdanabbas98@gmail.com\", \"reservations@wanaan-bh.com\",
+                 \"account@wanaan-bh.com\", \"secretary@wanaan-bh.com\", \"bu7sen_96@hotmail.com\",
+               ];
+               foreach (\$emails as \$email) {
+                 \$exact = App\Models\User::query()->where(\"email\", \$email)->first();
+                 \$ci = App\Models\User::query()->whereRaw(\"LOWER(email) = ?\", [strtolower(\$email)])->get();
+                 echo \"--- {\$email} ---\".PHP_EOL;
+                 if (\$exact === null) {
+                   echo \"  NO EXACT MATCH on email column.\".PHP_EOL;
+                 } else {
+                   echo \"  id={\$exact->id} name=\".\$exact->name.\" admin=\".(\$exact->is_admin?1:0).\" super=\".(\$exact->is_super_admin?1:0).\" paused=\".(\$exact->is_paused?1:0).\" home=\".(\$exact->home_workspace_id ?? \"null\").PHP_EOL;
+                   echo \"  password_len=\".strlen((string)\$exact->password).\" password_prefix=\".substr((string)\$exact->password,0,7).\" updated_at=\".\$exact->updated_at.PHP_EOL;
+                 }
+                 echo \"  case-insensitive matches: \".\$ci->count().\" -> \".\$ci->pluck(\"email\")->implode(\", \").PHP_EOL;
                }
-             " && \
-             echo "=== cache table: row count + any login: keys ===" && \
-             php artisan tinker --execute="
-               echo \"count=\".DB::table(\"cache\")->count().PHP_EOL;
-               foreach (DB::table(\"cache\")->where(\"key\",\"like\",\"%login%\")->limit(10)->get([\"key\",\"expiration\"]) as \$c) { echo json_encode(\$c).PHP_EOL; }
-             " && \
-             echo "=== can a fresh DB write actually happen right now? ===" && \
-             php artisan tinker --execute="
-               try {
-                 \$id = DB::table(\"activity_logs\")->insertGetId([\"action\"=>\"diagnostic_probe\",\"description\"=>\"login-incident check\",\"created_at\"=>now()]);
-                 echo \"write OK, id={\$id}\".PHP_EOL;
-                 DB::table(\"activity_logs\")->where(\"id\",\$id)->delete();
-                 echo \"cleanup OK\".PHP_EOL;
-               } catch (\Throwable \$e) { echo \"WRITE FAILED: \".get_class(\$e).\": \".\$e->getMessage().PHP_EOL; }
-             " && \
-             echo "=== session + queue config actually in effect ===" && \
-             php artisan tinker --execute="echo \"session.driver=\".config(\"session.driver\").\" session.connection=\".(config(\"session.connection\") ?? \"default\").\" session.domain=\".(config(\"session.domain\") ?? \"null\").\" session.secure=\".(config(\"session.secure_cookie\")?1:0).\" APP_URL=\".config(\"app.url\").PHP_EOL;"'
+             "'

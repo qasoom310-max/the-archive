@@ -3219,6 +3219,29 @@ know which ids a rule had set, and nothing records that.)
 | Readers | `LimoPerformance::drivers()` (league + new `office` count), `DriverJobHistory::trips()` (finds a driver's pre-ERP trips by the names he was recorded under), `LimoQueueRows::row()` (shows the person, not the login) |
 | Tests | `tests/Feature/LimoDriverAliasTest.php` (16) |
 
+**The system decides for itself first (`limo:match-driver-names`, added 2026-09-12).**
+A hundred and twelve names is a job, not a question, and handing the owner a job
+the records can mostly answer is the wrong way round. `Modules\Limousine\Console\MatchDriverNames`
+runs **on every deploy** (in `deploy.yml`, after `optimize:clear` and wrapped in
+`|| true` so a fleet without Limousine installed cannot fail the deploy on a
+command that is not registered; across Main and every workspace) and decides each still-undecided login:
+
+1. **A driver** when exactly ONE register driver could have produced the login
+   (the same forms `suggestions()` uses). Ambiguous → left alone.
+2. **The office** when the login belongs to a `users` row — by name or by the
+   part of the e-mail before the `@` — and no driver answers to it. Somebody who
+   signs in here and is not in the driver register was booking, not driving.
+   A person in BOTH lists stays a driver; the register is the list of who drives.
+3. **Not a person** for `SYSTEM_LOGINS` — `admin`, `via`, `apiuser`, `mac`,
+   `asprinter` (a Sprinter typed into the driver box), `fone rent`, `p`, `geasy`.
+
+Never overwrites a decision a person made, idempotent, `--pretend` to dry-run,
+and it **prints the names it could not answer** so the screen has a short list
+rather than a full one. Re-run after adding drivers to the register and the
+logins that now have exactly one answer get it. Deciding automatically is only
+safe because nothing is rewritten — being wrong costs a click, not a history.
+Tests: `tests/Feature/LimoMatchDriverNamesTest.php` (12).
+
 Rules worth keeping:
 
 - **An undecided name reads as itself.** `resolve()` returns the raw text when

@@ -2485,6 +2485,39 @@ ticked row, ticking nothing still exports the whole list, the header
 checkbox ticks the page and the links carry the ids, changing the tab drops
 a tick made against the old one).
 
+**Rental quotation gets a real document, matching the invoice (shipped
+2026-09-12):** `/app/rental/quotation` used to have no per-document PDF at
+all — its list's "PDF"/"Print" buttons only ever rendered the generic tabular
+report, and there was no download icon per row. `Modules\Rental\Services\RentalQuotationPdf`
++ `quotation-pdf.blade.php` / `quotations-batch-pdf.blade.php` /
+`partials/quotation-body.blade.php` now give it the SAME reference-template
+design as `RentalInvoicePdf` (gold band, title + meta cells, From/Quotation-for
+blocks, ruled item table, Subtotal/Discount/VAT/Total box) — item-table
+columns are the ones the owner pointed at on the old system's printed
+quotation: No. / Service / Vehicle / From / To / Days / Rate / Amount. A
+rental quotation prices exactly ONE vehicle for ONE period (no legs/lines
+relation, unlike the Limousine quotation), so there is at most a single item
+row, or an honest "Rental services" fallback line when no vehicle is chosen
+yet. **VAT is computed for display only** — `RentalQuotation` has no stored
+`vat_rate`/`vat_amount` columns (those only exist on `RentalOrder`, once a
+quote converts) — at `RentalOrder::DEFAULT_VAT_RATE`, so a quotation previews
+the same tax an accepted order would actually charge without a schema change.
+A **Requirements** note prints under the summary whenever the quotation
+carries a `deposit`, naming that figure dynamically (never hardcoded) in the
+same sentence the old system's printed quotation used. `RentalQuotationController`
+(new, `/app/rental/quotation/{id}/download`) serves a single quotation, mirroring
+`RentalInvoiceController`; the quotations list gained the same download icon
++ Actions column as the invoices list. `RentalQuotationExportController::pdf()`
+now branches exactly like the invoice's: ticked rows download their own
+document(s) (one page each, batched into one PDF past a single row), nothing
+ticked still exports the plain tabular report. Tests:
+`RentalQuotationDocumentTest` (figures multiply out, VAT is computed off the
+discounted subtotal, no-vehicle fallback, deposit-driven Requirements note)
++ `RentalBespokeExportTest` (+3 — one/several ticked rows download the real
+document(s), nothing ticked still exports the tabular report). Also added to
+`DocumentFooterTest::DOCUMENTS` alongside the (previously missing) Rental
+invoice/invoices-batch PDFs.
+
 **Limo invoice PDF redesigned + the toolbar "PDF" now downloads real invoice
 documents when rows are ticked (shipped 2026-09-08):** `invoice-pdf.blade.php`
 was rebuilt to match a reference template the owner supplied — a solid gold

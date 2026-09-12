@@ -35,6 +35,8 @@ use Illuminate\Support\Carbon;
  * @property float $total
  * @property string $status
  * @property string|null $notes
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  * @property-read RentalCustomer|null $customer
  * @property-read Vehicle|null $vehicle
  */

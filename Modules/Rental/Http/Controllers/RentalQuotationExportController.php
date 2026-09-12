@@ -9,18 +9,30 @@ use App\Erp\Export\TabularRenderer;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Modules\Rental\Models\RentalQuotation;
+use Modules\Rental\Services\RentalQuotationPdf;
 use Modules\Rental\Services\RentalQuotationRows;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Downloads of the quotations list: CSV, Excel, PDF and a printable view —
  * all four from the SAME filtered rows as {@see RentalQuotationRows}.
+ *
+ * "PDF" is the exception: when rows are ticked, it does not export a data
+ * table of them — it downloads the actual quotation document(s) those rows
+ * represent (one page each, {@see RentalQuotationPdf}), same as the download
+ * icon on a single row. Untick everything and it goes back to the plain
+ * tabular report of the whole tab, exactly like CSV/Excel/Print still do.
  */
 final class RentalQuotationExportController
 {
     use GuardsExport;
 
-    public function __construct(private readonly RentalQuotationRows $rows, private readonly TabularRenderer $renderer) {}
+    public function __construct(
+        private readonly RentalQuotationRows $rows,
+        private readonly TabularRenderer $renderer,
+        private readonly RentalQuotationPdf $quotationPdf,
+    ) {}
 
     public function csv(Request $request): StreamedResponse
     {
@@ -40,7 +52,46 @@ final class RentalQuotationExportController
     {
         $this->authorizeExport('rental.quotation');
 
-        return $this->renderer->pdf($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request)), __('Quotations'), $this->exportFilename('rental-quotations'));
+        $ids = $this->ids($request);
+        if ($ids !== []) {
+            return $this->quotationDocuments($ids);
+        }
+
+        return $this->renderer->pdf($this->rows->headings(), $this->rows->all($this->tab($request), $ids), __('Quotations'), $this->exportFilename('rental-quotations'));
+    }
+
+    /**
+     * The ticked rows' own quotation documents, one page each, in ticked order.
+     *
+     * @param  list<int>  $ids
+     */
+    private function quotationDocuments(array $ids): Response
+    {
+        $order = array_flip($ids);
+
+        $quotations = RentalQuotation::query()
+            ->with(['customer', 'vehicle'])
+            ->whereIn('id', $ids)
+            ->get()
+            ->sortBy(static fn (RentalQuotation $quote): int => $order[$quote->id] ?? PHP_INT_MAX)
+            ->values();
+
+        $first = $quotations->first();
+        if ($first === null) {
+            abort(404);
+        }
+
+        if ($quotations->count() === 1) {
+            return response($this->quotationPdf->render($first), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="' . $this->quotationPdf->filename($first) . '"',
+            ]);
+        }
+
+        return response($this->quotationPdf->renderMany($quotations), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $this->quotationPdf->filenameForMany($quotations->count()) . '"',
+        ]);
     }
 
     public function print(Request $request): View

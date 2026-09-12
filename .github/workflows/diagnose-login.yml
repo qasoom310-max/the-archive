@@ -26,7 +26,7 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Repair the 3 accounts orphaned by the pre-fix bug (creates missing Main shells + emails fresh passwords)
+      - name: Verify the 3 repaired accounts now have a real Main row
         run: |
           ssh -p ${{ secrets.SSH_PORT }} \
             -o StrictHostKeyChecking=accept-new \
@@ -35,19 +35,9 @@ jobs:
             'cd ${{ secrets.DEPLOY_PATH }} && \
              php artisan tinker --execute="
                \$emails = [\"hasan.fuad@hotmail.com\", \"hamdanabbas98@gmail.com\", \"reservations@wanaan-bh.com\"];
-               \$mgr = app(App\Erp\Tenancy\WorkspaceManager::class);
-               \$ws = App\Models\Workspace::find(7);
                foreach (\$emails as \$email) {
-                 \$existing = App\Models\User::query()->where(\"email\", \$email)->first();
-                 if (\$existing !== null) { echo \"SKIP {\$email}: already exists on Main (id={\$existing->id})\".PHP_EOL; continue; }
-                 \$tenantUser = \$mgr->withTenant(\$ws->databasePath(), fn () => App\Models\User::query()->where(\"email\", \$email)->first());
-                 if (\$tenantUser === null) { echo \"SKIP {\$email}: no tenant row found either\".PHP_EOL; continue; }
-                 \$password = \Illuminate\Support\Str::password(16, symbols: false);
-                 \$hashed = \Illuminate\Support\Facades\Hash::make(\$password);
-                 \$mgr->withMain(fn () => App\Models\User::query()->updateOrCreate([\"email\" => \$email], [\"name\" => \$tenantUser->name, \"password\" => \$hashed]));
-                 \$mgr->withTenant(\$ws->databasePath(), function () use (\$tenantUser, \$email, \$password): void {
-                   \Illuminate\Support\Facades\Notification::route(\"mail\", \$email)->notify(new App\Notifications\WelcomeCredentials(\$tenantUser->name, \$email, \$password));
-                 });
-                 echo \"REPAIRED {\$email} ({\$tenantUser->name}) - Main shell created, new password emailed\".PHP_EOL;
+                 \$u = App\Models\User::query()->where(\"email\", \$email)->first();
+                 if (\$u === null) { echo \"{\$email}: STILL MISSING\".PHP_EOL; continue; }
+                 echo \"{\$email}: OK id={\$u->id} name={\$u->name} password_len=\".strlen((string)\$u->password).\" admin=\".(\$u->is_admin?1:0).\" home=\".(\$u->home_workspace_id ?? \"null\").PHP_EOL;
                }
              "'

@@ -26,26 +26,22 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Inspect workspaces + locked-user rebind + tail the log
+      - name: Check the log, deployed commit, and build for anything broken
         run: |
           ssh -p ${{ secrets.SSH_PORT }} \
             -o StrictHostKeyChecking=accept-new \
             -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             'cd ${{ secrets.DEPLOY_PATH }} && \
-             echo "=== workspaces table ===" && \
-             php artisan tinker --execute="foreach (App\Models\Workspace::query()->get([\"id\",\"name\",\"is_main\",\"database\",\"deleted_at\"]) as \$w) { echo json_encode(\$w).PHP_EOL; }" && \
-             echo "=== every locked (home_workspace_id set) user, checked against their tenant file ===" && \
-             php artisan tinker --execute="
-               foreach (App\Models\User::query()->whereNotNull(\"home_workspace_id\")->get([\"id\",\"name\",\"email\",\"home_workspace_id\",\"is_admin\"]) as \$u) {
-                 \$ws = App\Models\Workspace::find(\$u->home_workspace_id);
-                 if (\$ws === null) { echo \"user {\$u->id} {\$u->email}: home workspace {\$u->home_workspace_id} NOT FOUND (soft-deleted or missing row)\".PHP_EOL; continue; }
-                 \$path = \$ws->databasePath();
-                 if (\$path === null || ! is_file(\$path)) { echo \"user {\$u->id} {\$u->email}: workspace {\$ws->id} ({\$ws->name}) file MISSING at \".(\$path ?? \"null\").PHP_EOL; continue; }
-                 \$found = App\Erp\Tenancy\WorkspaceManager::class;
-                 \$hasRow = app(\$found)->withTenant(\$path, function () use (\$u) { return App\Models\User::query()->where(\"email\", \$u->email)->first([\"id\",\"email\",\"is_admin\"]); });
-                 echo \"user {\$u->id} {\$u->email} -> workspace {\$ws->id} ({\$ws->name}): tenant row = \".json_encode(\$hasRow).PHP_EOL;
-               }
-             " && \
-             echo "=== last 150 lines of laravel.log ===" && \
-             tail -n 150 storage/logs/laravel.log || echo "(no log file / empty)"'
+             echo "=== deployed commit ===" && \
+             cat storage/app/.deployed_commit 2>/dev/null || git rev-parse HEAD 2>/dev/null || echo "(no marker)" && \
+             echo "=== laravel.log file info ===" && \
+             ls -la storage/logs/laravel.log 2>/dev/null || echo "(no log file)" && \
+             echo "=== ERROR/CRITICAL lines from the last 3 days ===" && \
+             grep -E "^\[2026-09-(1[0-2])" storage/logs/laravel.log | grep -E "ERROR|CRITICAL|EMERGENCY" | tail -n 80 || echo "(none found)" && \
+             echo "=== public/build manifest present? ===" && \
+             ls -la public/build/manifest.json 2>/dev/null || echo "MISSING — this breaks every page including login" && \
+             echo "=== config cache timestamp vs .env ===" && \
+             ls -la bootstrap/cache/config.php .env 2>/dev/null && \
+             echo "=== can the app even boot? artisan about ===" && \
+             php artisan about 2>&1 | head -n 40'

@@ -1,0 +1,97 @@
+name: Export limousine driver legs (manual)
+
+# One-off, read-only export answering "which legs make up each name in the
+# Limousine earnings Driver league?" for the Wanaan database. For every trip
+# leg (all years), it resolves the imported login through DriverAliases (the
+# same resolver LimoPerformance::drivers() uses) and writes a CSV with the
+# resolved driver name alongside the raw login and the underlying trip
+# fields. Nothing is written to the database. Manual only (workflow_dispatch);
+# never runs on push.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: export-limo-driver-legs
+  cancel-in-progress: false
+
+jobs:
+  export:
+    name: Export from erp.wanaan-bh.com
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust Hostinger SSH host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Build the CSV on the server
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            'cd ${{ secrets.DEPLOY_PATH }} && \
+             php artisan tinker --execute="
+               \$bs = chr(92);
+               \$workspaceClass = \"App\".\$bs.\"Models\".\$bs.\"Workspace\";
+               \$legableType = \"Modules\".\$bs.\"Limousine\".\$bs.\"Models\".\$bs.\"LimoBooking\";
+               \$aliasesClass = \"Modules\".\$bs.\"Limousine\".\$bs.\"Support\".\$bs.\"DriverAliases\";
+               \$wsMgrClass = \"App\".\$bs.\"Erp\".\$bs.\"Tenancy\".\$bs.\"WorkspaceManager\";
+               \$all = \$workspaceClass::all();
+               \$matches = [];
+               foreach (\$all as \$w) { if (str_contains(strtolower(\$w->name), \"wanaan\")) { \$matches[] = \$w; } }
+               foreach (\$matches as \$m) { echo \"CANDIDATE \".\$m->id.\" \".\$m->name.PHP_EOL; }
+               if (count(\$matches) !== 1) { echo \"AMBIGUOUS OR NONE - STOPPING\".PHP_EOL; exit(1); }
+               \$ws = \$matches[0];
+               echo \"WORKSPACE \".\$ws->id.\" \".\$ws->name.PHP_EOL;
+               \$mgr = app(\$wsMgrClass);
+               \$path = storage_path(\"app/wanaan-driver-legs.csv\");
+               \$mgr->withTenant(\$ws->databasePath(), function () use (\$path, \$legableType, \$aliasesClass) {
+                 \$aliases = app(\$aliasesClass);
+                 \$rows = DB::table(\"limo_legs as l\")
+                   ->join(\"limo_bookings as b\", \"b.id\", \"=\", \"l.legable_id\")
+                   ->where(\"l.legable_type\", \$legableType)
+                   ->where(\"b.status\", \"!=\", \"cancelled\")
+                   ->whereNotNull(\"l.start_at\")
+                   ->orderBy(\"l.start_at\")
+                   ->get([\"b.reference as booking_ref\", \"l.driver\", \"l.driver_id\", \"l.from_location\", \"l.to_location\", \"l.service_type\", \"l.start_at\", \"l.net_amount\", \"b.payment_status\"]);
+                 \$fh = fopen(\$path, \"w\");
+                 fputcsv(\$fh, [\"resolved_driver\",\"is_office\",\"raw_login\",\"booking_ref\",\"start_at\",\"from_location\",\"to_location\",\"service_type\",\"amount\",\"paid\",\"driver_id\"]);
+                 foreach (\$rows as \$r) {
+                   \$raw = (string) (\$r->driver ?? \"\");
+                   \$who = \$raw === \"\" ? [\"name\" => \"\", \"office\" => false, \"driverId\" => null] : \$aliases->resolve(\$raw);
+                   \$name = \$who[\"name\"] !== \"\" ? \$who[\"name\"] : \$raw;
+                   fputcsv(\$fh, [\$name, \$who[\"office\"] ? 1 : 0, \$raw, \$r->booking_ref, \$r->start_at, \$r->from_location, \$r->to_location, \$r->service_type, \$r->net_amount, (\$r->payment_status === \"paid\") ? 1 : 0, \$r->driver_id]);
+                 }
+                 fclose(\$fh);
+                 echo \"ROWS WRITTEN \".\$rows->count().PHP_EOL;
+               });
+             "'
+
+      - name: Fetch the CSV back to the runner
+        run: |
+          scp -P ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/storage/app/wanaan-driver-legs.csv \
+            ./wanaan-driver-legs.csv
+          wc -l ./wanaan-driver-legs.csv
+
+      - name: Remove the temp file from the server
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            'rm -f ${{ secrets.DEPLOY_PATH }}/storage/app/wanaan-driver-legs.csv'
+
+      - name: Upload the CSV as a build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wanaan-driver-legs
+          path: ./wanaan-driver-legs.csv
+          retention-days: 3

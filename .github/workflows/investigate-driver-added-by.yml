@@ -122,5 +122,21 @@ jobs:
                  arsort(\$dist3);
                  echo \"HASSAN-AS-PREPARED_BY driver distribution (\".count(\$preparedByHassan).\" legs):\".PHP_EOL;
                  foreach (\$dist3 as \$d => \$c) { echo \"  [\".\$d.\"] => \".\$c.PHP_EOL; }
+
+                 if (Schema::hasTable(\"limo_driver_aliases\")) {
+                   \$aliasRows = DB::table(\"limo_driver_aliases\")->whereIn(\"alias\", [\"mariam\", \"hassan\"])->get();
+                   foreach (\$aliasRows as \$a) {
+                     echo \"ALIAS ROW alias=[\".\$a->alias.\"] driver_id=[\".(\$a->driver_id ?? \"NULL\").\"] is_office=[\".(\$a->is_office ? 1 : 0).\"] auto=[\".(\$a->auto ? 1 : 0).\"] decided_by=[\".(\$a->decided_by ?? \"NULL\").\"]\".PHP_EOL;
+                   }
+                   if (count(\$aliasRows) === 0) { echo \"NO ALIAS ROWS FOR mariam OR hassan (still fully undecided)\".PHP_EOL; }
+                 } else {
+                   echo \"NO limo_driver_aliases TABLE\".PHP_EOL;
+                 }
+
+                 \$driverNames = DB::table(\"rental_drivers\")->where(function (\$q) {
+                   \$q->whereRaw(\"lower(name) like ?\", [\"%mariam%\"])->orWhereRaw(\"lower(name) like ?\", [\"%hassan%\"]);
+                 })->get([\"id\", \"name\", \"active\"]);
+                 foreach (\$driverNames as \$d) { echo \"REGISTER DRIVER id=\".\$d->id.\" name=[\".\$d->name.\"] active=\".(\$d->active ? 1 : 0).PHP_EOL; }
+                 if (count(\$driverNames) === 0) { echo \"NO REGISTER DRIVER NAMED LIKE mariam OR hassan\".PHP_EOL; }
                });
              "'

@@ -1,0 +1,40 @@
+name: Move BK/15445 to its own customer (manual, one-off)
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Apply the change
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust Hostinger SSH host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Upload script
+        run: |
+          scp -P ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new \
+            .github/scripts/split-limo-customer-15445.php \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:split-limo-customer-15445.php
+
+      - name: Run
+        env:
+          APPLY: ${{ inputs.apply && '1' || '0' }}
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && SPLIT_APPLY=$APPLY php artisan tinker --execute=\"require getenv('HOME').'/split-limo-customer-15445.php';\"; rc=\$?; rm -f ~/split-limo-customer-15445.php; exit \$rc"

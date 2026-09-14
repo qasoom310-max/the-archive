@@ -31,6 +31,8 @@ use Illuminate\Support\Carbon;
  * @property string $status
  * @property string|null $notes
  * @property string|null $charge_label
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read LimoCustomer|null $customer
  * @property-read \Illuminate\Database\Eloquent\Collection<int, LimoReceipt> $receipts
  */

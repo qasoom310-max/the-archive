@@ -1,0 +1,72 @@
+name: Import legacy limousine invoices (manual)
+
+# Runs `php artisan limo:import-legacy-invoices` on the live server. Brings
+# invoices over from the previous system's own invoices export that this
+# database does not have yet — keyed to their original invoice numbers, never
+# touching an invoice already imported. Re-running against a fresher export
+# only picks up what's new.
+#
+# The CSV itself must already be sitting on the server first — this input is
+# strings only, not a file — at storage/app/imports/<file> by default (upload
+# it there via SCP/SFTP/hPanel File Manager; that path is excluded from the
+# deploy rsync so a push never wipes it).
+#
+# Always run with pretend=true first and read the job log before running for
+# real. Manual only (workflow_dispatch); never runs on push.
+on:
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: 'Workspace id to import into (e.g. 7 for Wanaan)'
+        required: true
+      csv_path:
+        description: 'Path to the CSV on the server (relative to the deploy path)'
+        required: true
+        default: 'storage/app/imports/limo-invoice.csv'
+      pretend:
+        description: 'Dry run — report only, save nothing'
+        type: boolean
+        required: true
+        default: true
+
+concurrency:
+  group: import-legacy-invoices
+  cancel-in-progress: false
+
+jobs:
+  import:
+    name: Import on erp.wanaan-bh.com
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust Hostinger SSH host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run limo:import-legacy-invoices
+        env:
+          IMPORT_WORKSPACE: ${{ inputs.workspace }}
+          IMPORT_CSV_PATH: ${{ inputs.csv_path }}
+          IMPORT_PRETEND: ${{ inputs.pretend }}
+        run: |
+          set -euo pipefail
+
+          PRETEND_FLAG=""
+          if [ "$IMPORT_PRETEND" = "true" ]; then
+            PRETEND_FLAG="--pretend"
+          fi
+
+          ssh -p ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && php artisan limo:import-legacy-invoices \
+               $(printf '%q' "$IMPORT_CSV_PATH") \
+               --workspace=$(printf '%q' "$IMPORT_WORKSPACE") \
+               $PRETEND_FLAG"

@@ -35,6 +35,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $sent_at
  * @property string|null $sent_to
  * @property string|null $notes
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  * @property-read LimoCustomer|null $customer
  * @property-read \Illuminate\Database\Eloquent\Collection<int, LimoLeg> $legs
  */

@@ -226,6 +226,7 @@ jobs:
               --exclude='storage/app/public/limo_petty/' \
               --exclude='storage/app/workspaces/' \
               --exclude='storage/app/backups/' \
+              --exclude='storage/app/imports/' \
               --exclude='storage/logs/' \
               --exclude='storage/framework/cache/data/' \
               --exclude='storage/framework/sessions/' \

@@ -135,8 +135,11 @@ final class LegacyBookingImporter
         if ($existing !== null) {
             $result['skipped']++;
 
+            // The earlier migration stored some times a minute early (20:29:59
+            // for 20:30), so "the same booking" allows a couple of minutes.
             $same = strcasecmp(trim((string) $existing->customer?->name), $customerText['name']) === 0
-                && $existing->pickup_at?->format('Y-m-d H:i') === $pickupAt->format('Y-m-d H:i');
+                && $existing->pickup_at !== null
+                && abs($existing->pickup_at->diffInMinutes($pickupAt)) <= 2;
 
             return $same
                 ? "EXISTS  {$label}"
@@ -146,11 +149,14 @@ final class LegacyBookingImporter
 
         [$customer, $how] = $this->resolveCustomer($customerText);
 
-        // The same trip keyed in by hand under another number. The passenger
-        // counts too: a company books two guests into two cars at the same
-        // time and fare, and those are two trips, not one twice.
+        // The same trip keyed in by hand in the ERP under another number. Only
+        // bookings made here count: two old-system bookings carry two numbers
+        // and are two trips (two cars at one time), so another booking brought
+        // over from the old system ("Booking #…" notes) is never a twin. The
+        // passenger counts too: two guests at one time and fare are two trips.
         $twin = LimoBooking::query()
             ->where('customer_id', $customer->id)
+            ->where(fn ($q) => $q->whereNull('notes')->orWhere('notes', 'not like', 'Booking #%'))
             ->whereBetween('pickup_at', [$pickupAt->copy()->subMinute(), $pickupAt->copy()->addMinute()])
             ->whereBetween('fare', [$amount - 0.001, $amount + 0.001])
             ->when(
@@ -418,11 +424,14 @@ final class LegacyBookingImporter
      */
     private function splitLocation(string $value): array
     {
-        if (preg_match('~^(.*?)[\s,]*(https?://\S+)\s*$~s', $value, $m) === 1) {
-            return [$this->clean($m[1]), $m[2]];
+        $url = null;
+        if (preg_match('~^(.*?)(https?://\S+)\s*$~s', $value, $m) === 1) {
+            [$value, $url] = [$m[1], $m[2]];
         }
 
-        return [$this->clean($value), null];
+        // "Riffa - Villa 879-https://…" and the "." the old system took for
+        // "no address" both leave debris behind.
+        return [$this->clean(trim($value, " \t,.-")), $url];
     }
 
     private function phone(string $value): ?string

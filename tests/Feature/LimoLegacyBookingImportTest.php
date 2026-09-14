@@ -92,15 +92,40 @@ final class LimoLegacyBookingImportTest extends TestCase
         $this->assertSame(1, LimoBooking::query()->count());
     }
 
-    public function test_the_same_trip_under_another_number_is_not_added_twice(): void
+    public function test_a_trip_already_keyed_in_here_under_another_number_is_not_added_twice(): void
     {
-        $importer = app(LegacyBookingImporter::class);
-        $importer->import($this->csv(self::ACTIVE_HEADER, $this->activeRow('15452')), LimoBooking::STATUS_ACTIVE);
+        $fursan = LimoCustomer::query()->create(['name' => 'Fursan Travel', 'active' => true]);
+        LimoBooking::query()->create([
+            'customer_id' => $fursan->id, 'pickup_at' => '2026-09-14 11:00:00', 'pax_name' => 'Adel',
+            'fare' => 37, 'amount' => 37, 'status' => LimoBooking::STATUS_QUEUE, 'payment_status' => LimoBooking::PAYMENT_UNPAID,
+        ]);
 
-        $result = $importer->import($this->csv(self::ACTIVE_HEADER, $this->activeRow('15999')), LimoBooking::STATUS_ACTIVE);
+        $result = app(LegacyBookingImporter::class)->import($this->csv(self::ACTIVE_HEADER, $this->activeRow('15999')), LimoBooking::STATUS_ACTIVE);
 
         $this->assertSame(0, $result['imported']);
         $this->assertStringStartsWith('TWIN', $result['lines'][0]);
+    }
+
+    public function test_two_old_bookings_for_two_cars_at_the_same_time_both_come_over(): void
+    {
+        $customer = 'Fouad Aldossary,0, +966505862641.  -';
+        $result = app(LegacyBookingImporter::class)->import($this->csv(
+            self::ACTIVE_HEADER,
+            $this->activeRow('15462', $customer).$this->activeRow('15463', $customer),
+        ), LimoBooking::STATUS_QUEUE);
+
+        $this->assertSame(2, $result['imported']);
+    }
+
+    public function test_a_booking_stored_a_minute_early_by_the_earlier_migration_is_the_same_booking(): void
+    {
+        $importer = app(LegacyBookingImporter::class);
+        $importer->import($this->csv(self::ACTIVE_HEADER, $this->activeRow()), LimoBooking::STATUS_ACTIVE);
+        LimoBooking::query()->whereKey(15452)->update(['pickup_at' => '2026-09-14 10:59:59']);
+
+        $again = $importer->import($this->csv(self::ACTIVE_HEADER, $this->activeRow()), LimoBooking::STATUS_ACTIVE);
+
+        $this->assertStringStartsWith('EXISTS', $again['lines'][0]);
     }
 
     public function test_two_guests_of_one_company_at_the_same_time_are_two_trips(): void

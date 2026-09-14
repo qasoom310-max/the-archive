@@ -1,0 +1,71 @@
+name: Import old-system limousine bookings (manual)
+
+# Adds the bookings from one of the previous system's booking-list exports
+# (committed at the repo root, so each deploy puts it on the server) that the
+# Wanaan database does not have yet, under their original booking numbers.
+# Leave "pretend" ticked first: it reports every row and saves nothing.
+# A real run takes an in-app backup first (Activity Log → Backups).
+on:
+  workflow_dispatch:
+    inputs:
+      file:
+        description: CSV at the repo root
+        required: true
+        type: choice
+        options:
+          - limo-active-booking.csv
+          - limo-booking-queue.csv
+          - limo-cancelled-booking.csv
+          - limo-closed-booking.csv
+      kind:
+        description: Which old list the file came from
+        required: true
+        type: choice
+        options:
+          - active
+          - queue
+          - cancelled
+          - closed
+      workspace:
+        description: Workspace id
+        required: true
+        default: '7'
+      pretend:
+        description: Dry run (save nothing)
+        required: true
+        type: boolean
+        default: true
+
+concurrency:
+  group: import-limo-legacy-bookings
+  cancel-in-progress: false
+
+jobs:
+  import:
+    name: Import on erp.wanaan-bh.com
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust Hostinger SSH host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run import
+        env:
+          FILE: ${{ inputs.file }}
+          KIND: ${{ inputs.kind }}
+          WS: ${{ inputs.workspace }}
+          PRETEND: ${{ inputs.pretend && '--pretend' || '' }}
+        run: |
+          case "$WS" in (*[!0-9]*|'') echo "workspace must be a number"; exit 1;; esac
+          ssh -p ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && php artisan limo:import-legacy-bookings '$FILE' --kind=$KIND --workspace=$WS $PRETEND"

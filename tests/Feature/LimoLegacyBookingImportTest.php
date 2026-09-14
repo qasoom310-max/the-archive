@@ -103,6 +103,17 @@ final class LimoLegacyBookingImportTest extends TestCase
         $this->assertStringStartsWith('TWIN', $result['lines'][0]);
     }
 
+    public function test_two_guests_of_one_company_at_the_same_time_are_two_trips(): void
+    {
+        $result = app(LegacyBookingImporter::class)->import($this->csv(
+            self::ACTIVE_HEADER,
+            $this->activeRow('15452').$this->activeRow('15454', 'Fursan Travel,0, +966 59 781 7502Kubra - +973 3963 5392'),
+        ), LimoBooking::STATUS_ACTIVE);
+
+        $this->assertSame(2, $result['imported']);
+        $this->assertSame('Kubra', LimoBooking::query()->findOrFail(15454)->pax_name);
+    }
+
     public function test_a_dry_run_saves_nothing(): void
     {
         $result = app(LegacyBookingImporter::class)->import($this->csv(self::ACTIVE_HEADER, $this->activeRow()), LimoBooking::STATUS_ACTIVE, pretend: true);

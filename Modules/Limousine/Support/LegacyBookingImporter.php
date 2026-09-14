@@ -146,11 +146,17 @@ final class LegacyBookingImporter
 
         [$customer, $how] = $this->resolveCustomer($customerText);
 
-        // The same trip keyed in by hand under another number.
+        // The same trip keyed in by hand under another number. The passenger
+        // counts too: a company books two guests into two cars at the same
+        // time and fare, and those are two trips, not one twice.
         $twin = LimoBooking::query()
             ->where('customer_id', $customer->id)
             ->whereBetween('pickup_at', [$pickupAt->copy()->subMinute(), $pickupAt->copy()->addMinute()])
             ->whereBetween('fare', [$amount - 0.001, $amount + 0.001])
+            ->when(
+                $customerText['pax_name'] !== null,
+                fn ($q) => $q->where(fn ($p) => $p->whereNull('pax_name')->orWhereRaw('lower(trim(pax_name)) = ?', [strtolower($customerText['pax_name'])])),
+            )
             ->value('id');
         if ($twin !== null) {
             $result['skipped']++;

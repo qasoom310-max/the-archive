@@ -1,0 +1,51 @@
+name: Delete Wanaan test limo bookings 15408-15410 (manual, one-off)
+
+# Removes the three test bookings created directly in the ERP so the old
+# system's real bookings under those numbers can be imported. Refuses if any
+# of the three is not the expected test booking. Dry run unless "apply".
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Actually delete (takes a backup first)
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: delete-test-limo-bookings
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: Run on erp.wanaan-bh.com
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust Hostinger SSH host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Upload script
+        run: |
+          scp -P ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=accept-new \
+            .github/scripts/delete-test-limo-bookings.php \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:delete-test-limo-bookings.php
+
+      - name: Run
+        env:
+          APPLY: ${{ inputs.apply && '1' || '0' }}
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && DELETE_TEST_BOOKINGS_APPLY=$APPLY php artisan tinker --execute=\"require getenv('HOME').'/delete-test-limo-bookings.php';\"; rc=\$?; rm -f ~/delete-test-limo-bookings.php; exit \$rc"

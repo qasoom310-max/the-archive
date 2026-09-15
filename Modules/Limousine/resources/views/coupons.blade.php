@@ -137,7 +137,7 @@
         </table>
     </div>
 
-    <div class="mt-4">{{ $coupons->links() }}</div>
+    <div class="mt-4">{{ $coupons->links('vendor.pagination.compact') }}</div>
 
     {{-- ── Spend this credit ──
          The customer's money, so they choose what it buys. Both businesses take

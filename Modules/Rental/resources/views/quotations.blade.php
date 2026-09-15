@@ -144,6 +144,6 @@
     </div>
 
     <div class="mt-4">
-        {{ $quotations->links() }}
+        {{ $quotations->links('vendor.pagination.compact') }}
     </div>
 </div>

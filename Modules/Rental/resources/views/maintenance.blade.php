@@ -133,5 +133,5 @@
         </table>
     </div>
 
-    <div class="mt-4">{{ $records->links() }}</div>
+    <div class="mt-4">{{ $records->links('vendor.pagination.compact') }}</div>
 </div>

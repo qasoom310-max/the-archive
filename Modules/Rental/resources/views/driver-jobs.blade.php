@@ -79,6 +79,6 @@
     </div>
 
     @if ($jobs->hasPages())
-        <div class="border-t border-chrome-100 px-5 py-3">{{ $jobs->links() }}</div>
+        <div class="border-t border-chrome-100 px-5 py-3">{{ $jobs->links('vendor.pagination.compact') }}</div>
     @endif
 </div>

@@ -202,7 +202,7 @@
         </table>
     </div>
 
-    <div class="mt-4">{{ $quotations->links() }}</div>
+    <div class="mt-4">{{ $quotations->links('vendor.pagination.compact') }}</div>
 
     {{-- Send the quotation.
          Offered filled in from the customer and editable: a quote is approved

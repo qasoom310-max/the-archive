@@ -515,7 +515,7 @@
         </table>
     </div>
 
-    <div class="mt-4">{{ $legs->links() }}</div>
+    <div class="mt-4">{{ $legs->links('vendor.pagination.compact') }}</div>
 
     {{-- ── Assign car ──
          ONE leg, one picker. Legs run at different times on different days, so

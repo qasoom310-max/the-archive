@@ -206,7 +206,7 @@
         </div>
 
         @if ($advances !== null)
-            <div class="mt-4">{{ $advances->links() }}</div>
+            <div class="mt-4">{{ $advances->links('vendor.pagination.compact') }}</div>
         @endif
     @endif
 

@@ -178,7 +178,7 @@
         </table>
     </div>
 
-    <div class="mt-4">{{ $invoices->links() }}</div>
+    <div class="mt-4">{{ $invoices->links('vendor.pagination.compact') }}</div>
 
     {{-- Receive payment. Goes through the same service the bookings queue
          uses, so both doors write one receipt and one truth. --}}

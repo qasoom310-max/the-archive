@@ -141,5 +141,5 @@
         </table>
     </div>
 
-    <div class="mt-4">{{ $invoices->links() }}</div>
+    <div class="mt-4">{{ $invoices->links('vendor.pagination.compact') }}</div>
 </div>

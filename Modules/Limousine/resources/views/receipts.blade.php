@@ -204,7 +204,7 @@
     @endif
 
     @if ($receipts !== null)
-        <div class="mt-4">{{ $receipts->links() }}</div>
+        <div class="mt-4">{{ $receipts->links('vendor.pagination.compact') }}</div>
     @endif
 
     {{-- The confirmation itself. Cash needs only the vouching; a bank method

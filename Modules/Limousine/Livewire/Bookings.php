@@ -138,6 +138,17 @@ final class Bookings extends Component
     #[Locked]
     public ?int $editingLegId = null;
 
+    /**
+     * BOOKING shown in the quick-preview dialog, or null when it is shut.
+     *
+     * A glance at the whole job — customer, every leg, money — without
+     * leaving the list or committing to the full booking page. Read-only:
+     * opened on Read alone, so anyone who may see the queue may peek at a
+     * row's details.
+     */
+    #[Locked]
+    public ?int $previewingId = null;
+
     /** Trip whose cancel dialog is open, or null when it is shut. */
     #[Locked]
     public ?int $cancellingId = null;
@@ -193,6 +204,25 @@ final class Bookings extends Component
         if (! in_array($this->tab, self::VALID_TABS, true)) {
             $this->tab = self::DEFAULT_TAB;
         }
+    }
+
+    /**
+     * Open the quick-preview dialog for the booking behind a trip row.
+     *
+     * Read-only, so it needs nothing more than the Read the list itself is
+     * already gated on — the office glances at a job's full shape (route,
+     * crew, money) without the weight of the edit dialog or a page change.
+     */
+    public function openPreview(int $bookingId): void
+    {
+        $this->guardAccess(Permission::Read);
+
+        $this->previewingId = $bookingId;
+    }
+
+    public function closePreview(): void
+    {
+        $this->previewingId = null;
     }
 
     /**
@@ -1171,6 +1201,11 @@ final class Bookings extends Component
             )->all(),
             'editing' => $this->editingId !== null
                 ? LimoBooking::query()->with('customer:id,name,type')->find($this->editingId)
+                : null,
+            // Every leg, in order, so the preview shows the whole job at a
+            // glance rather than just the row that opened it.
+            'previewing' => $this->previewingId !== null
+                ? LimoBooking::query()->with(['customer:id,name,type,phone,email', 'legs' => fn ($q) => $q->orderBy('sequence')])->find($this->previewingId)
                 : null,
             // The dispatched crew for the clicked trip — shown read-only in the
             // dialog, since car and driver are assigned per leg from the queue.

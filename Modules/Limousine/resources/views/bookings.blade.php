@@ -256,17 +256,29 @@
                              is what the office does with a booking, so it should be
                              one press from the number they are already looking at. --}}
                         <td class="px-2 py-2 font-medium text-chrome-800">
-                            <button type="button"
-                                    x-data="{ done: false }"
-                                    x-on:click="
-                                        $store.limoTrip.copy(@js($whatsapp[$leg->id] ?? ''));
-                                        done = true; setTimeout(() => done = false, 1500)
-                                    "
-                                    title="{{ __('Copy trip details for WhatsApp') }}"
-                                    class="text-start font-medium text-primary-700 hover:underline">
-                                <span x-show="! done">{{ $row['reference'] ?: '—' }}</span>
-                                <span x-show="done" x-cloak class="text-emerald-600">✓ {{ __('Copied') }}</span>
-                            </button>
+                            <div class="flex items-center gap-1">
+                                <button type="button"
+                                        x-data="{ done: false }"
+                                        x-on:click="
+                                            $store.limoTrip.copy(@js($whatsapp[$leg->id] ?? ''));
+                                            done = true; setTimeout(() => done = false, 1500)
+                                        "
+                                        title="{{ __('Copy trip details for WhatsApp') }}"
+                                        class="text-start font-medium text-primary-700 hover:underline">
+                                    <span x-show="! done">{{ $row['reference'] ?: '—' }}</span>
+                                    <span x-show="done" x-cloak class="text-emerald-600">✓ {{ __('Copied') }}</span>
+                                </button>
+                                {{-- A glance at the whole booking without leaving the
+                                     list or committing to the full page. --}}
+                                <button type="button" wire:click="openPreview({{ $leg->legable_id }})"
+                                        title="{{ __('Preview booking') }}" aria-label="{{ __('Preview booking') }}"
+                                        class="inline-flex size-5 shrink-0 items-center justify-center rounded text-chrome-400 transition hover:bg-chrome-100 hover:text-chrome-700">
+                                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+                                    </svg>
+                                </button>
+                            </div>
                             <span class="block text-[11px] font-normal text-chrome-400">{{ $row['booking_reference'] }}</span>
                         </td>
                         <td class="hidden px-2 py-2 text-chrome-600 md:table-cell">{{ $row['from_date'] ?: '—' }}</td>
@@ -1038,6 +1050,122 @@
                     @else
                         <button type="button" wire:click="closePaymentLink" class="o-btn-primary text-sm">{{ __('Done') }}</button>
                     @endif
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Quick preview — every leg of the job at a glance, read-only. Opened
+         from the reference cell so the office can check a booking's shape
+         (route, crew, money) without leaving the list. --}}
+    @if ($previewing !== null)
+        @php
+            $sb2 = [
+                'queue' => 'bg-amber-100 text-amber-700',
+                'confirmed' => 'bg-sky-100 text-sky-700',
+                'active' => 'bg-indigo-100 text-indigo-700',
+                'completed' => 'bg-emerald-100 text-emerald-700',
+                'cancelled' => 'bg-red-100 text-red-700',
+            ];
+        @endphp
+        <div class="fixed inset-0 z-50 overflow-y-auto bg-chrome-900/40 p-4" wire:key="preview-{{ $previewing->id }}"
+             x-on:keydown.escape.window="$wire.closePreview()">
+            <div class="flex min-h-full items-start justify-center py-8">
+                <div class="w-full max-w-2xl rounded-2xl bg-white shadow-pop" x-on:click.outside="$wire.closePreview()">
+                    <div class="flex items-center justify-between border-b border-chrome-200 px-5 py-3">
+                        <h2 class="text-base font-bold text-chrome-900">
+                            {{ __('Booking preview') }} — {{ $previewing->reference }}
+                        </h2>
+                        <button type="button" wire:click="closePreview"
+                                class="text-lg leading-none text-chrome-400 hover:text-chrome-700" aria-label="{{ __('Close') }}">&times;</button>
+                    </div>
+
+                    <div class="max-h-[75vh] overflow-y-auto px-5 py-4">
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <div>
+                                <p class="text-xs font-medium uppercase tracking-wide text-chrome-400">{{ __('Customer') }}</p>
+                                <p class="font-medium text-chrome-800">{{ $previewing->customer?->name ?? '—' }}</p>
+                                @if ($previewing->customer?->phone)
+                                    <p class="text-xs text-chrome-500" dir="ltr">{{ $previewing->customer->phone }}</p>
+                                @endif
+                                @if ($previewing->pax_name)
+                                    <p class="mt-1 text-xs text-chrome-500">{{ __('Passenger') }}: {{ $previewing->pax_name }}
+                                        @if ($previewing->pax_contact) · {{ $previewing->pax_contact }} @endif
+                                    </p>
+                                @endif
+                            </div>
+                            <div class="sm:text-end">
+                                <p class="text-xs font-medium uppercase tracking-wide text-chrome-400">{{ __('Status') }}</p>
+                                <span class="inline-block rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb2[$previewing->status] ?? 'bg-chrome-200 text-chrome-700' }}">{{ __(ucfirst($previewing->status)) }}</span>
+                                <span class="ms-1 inline-block rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $previewing->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($previewing->payment_status)) }}</span>
+                                @if ($previewing->company_reference)
+                                    <p class="mt-1 text-xs text-chrome-500">{{ __('Company reference') }}: {{ $previewing->company_reference }}</p>
+                                @endif
+                            </div>
+                        </div>
+
+                        <div class="mt-4 overflow-hidden rounded-xl ring-1 ring-chrome-200">
+                            <table class="w-full text-sm">
+                                <thead class="bg-chrome-50 text-[11px] font-semibold uppercase tracking-wide text-chrome-500">
+                                    <tr>
+                                        <th class="px-3 py-2 text-start">{{ __('Trip') }}</th>
+                                        <th class="px-3 py-2 text-start">{{ __('Route') }}</th>
+                                        <th class="px-3 py-2 text-start">{{ __('Date') }}</th>
+                                        <th class="px-3 py-2 text-start">{{ __('Vehicle') }} / {{ __('Driver') }}</th>
+                                        <th class="px-3 py-2 text-start">{{ __('Status') }}</th>
+                                        <th class="px-3 py-2 text-end">{{ __('Amount') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-chrome-100">
+                                    @foreach ($previewing->legs as $pl)
+                                        <tr class="text-chrome-700">
+                                            <td class="px-3 py-2 font-medium">{{ $pl->reference }}</td>
+                                            <td class="px-3 py-2 text-chrome-600">
+                                                @if ($pl->service_type === 'chauffeur')
+                                                    {{ __('Chauffeur') }} — {{ $pl->from_location ?: '—' }}
+                                                @else
+                                                    {{ $pl->from_location ?: '—' }} → {{ $pl->to_location ?: '—' }}
+                                                @endif
+                                            </td>
+                                            <td class="px-3 py-2 text-chrome-600">{{ $pl->start_at?->isoFormat('DD-MMM-YY HH:mm') ?? '—' }}</td>
+                                            <td class="px-3 py-2 text-chrome-600">{{ $pl->vehicle ?: '—' }}@if($pl->driver) · {{ $pl->driver }} @endif</td>
+                                            <td class="px-3 py-2">
+                                                <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb2[$pl->status] ?? 'bg-chrome-200 text-chrome-700' }}">{{ __(ucfirst((string) $pl->status)) }}</span>
+                                            </td>
+                                            <td class="px-3 py-2 text-end font-medium">{{ $money((float) $pl->net_amount) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot class="bg-chrome-50 text-sm">
+                                    <tr class="font-semibold text-chrome-800">
+                                        <td colspan="5" class="px-3 py-2">{{ __('Total') }}</td>
+                                        <td class="px-3 py-2 text-end">{{ $money($previewing->netAmount()) }}</td>
+                                    </tr>
+                                    <tr class="text-emerald-700">
+                                        <td colspan="5" class="px-3 py-2">{{ __('Already received') }}</td>
+                                        <td class="px-3 py-2 text-end">{{ $money((float) $previewing->advance) }}</td>
+                                    </tr>
+                                    @php $previewDue = $previewing->balanceDue(); @endphp
+                                    <tr class="font-semibold {{ $previewDue > 0 ? 'text-amber-700' : 'text-chrome-500' }}">
+                                        <td colspan="5" class="px-3 py-2">{{ __('Still owed') }}</td>
+                                        <td class="px-3 py-2 text-end">{{ $money($previewDue) }}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        @if ($previewing->notes)
+                            <div class="mt-4">
+                                <p class="text-xs font-medium uppercase tracking-wide text-chrome-400">{{ __('Notes') }}</p>
+                                <p class="mt-1 whitespace-pre-line text-sm text-chrome-600">{{ $previewing->notes }}</p>
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 border-t border-chrome-200 px-5 py-3">
+                        <a href="{{ url('/app/limousine/booking/' . $previewing->id) }}" wire:navigate class="o-btn-primary text-sm">{{ __('Open full booking') }}</a>
+                        <button type="button" wire:click="closePreview" class="o-btn-ghost text-sm">{{ __('Close') }}</button>
+                    </div>
                 </div>
             </div>
         </div>

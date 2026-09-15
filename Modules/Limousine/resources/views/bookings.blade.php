@@ -44,26 +44,37 @@
     @endif
 
     {{-- Carries the reference, so it is the line the office forwards to the
-         customer — which means it has to be copyable, not just readable. --}}
+         customer — which means it has to be copyable, not just readable. A
+         "View" button, when the flash carries the booking's id (a create or
+         an edit from this list), opens the same preview straight away —
+         checking what was just booked shouldn't mean hunting the row below. --}}
     @if (session('booking_status'))
         <div class="mb-4 flex items-start justify-between gap-3 rounded-lg bg-primary-50 px-4 py-2.5 text-sm font-medium text-chrome-800 ring-1 ring-primary-200"
              x-data="{ copied: false }">
             <span class="whitespace-pre-line">{{ session('booking_status') }}</span>
-            <button type="button"
-                    x-on:click="
-                        $store.clip.copy(@js((string) session('booking_status')));
-                        copied = true; setTimeout(() => copied = false, 1500)
-                    "
-                    :title="copied ? @js(__('Copied')) : @js(__('Copy this message'))"
-                    :aria-label="copied ? @js(__('Copied')) : @js(__('Copy this message'))"
-                    class="shrink-0 rounded-md p-1 text-chrome-500 transition hover:bg-primary-100 hover:text-chrome-800">
-                <svg x-show="! copied" class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25"/>
-                </svg>
-                <svg x-show="copied" x-cloak class="size-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
-                </svg>
-            </button>
+            <div class="flex shrink-0 items-center gap-1">
+                @if (session('booking_status_id'))
+                    <button type="button" wire:click="openPreview({{ (int) session('booking_status_id') }})"
+                            class="rounded-md px-2 py-1 text-xs font-semibold text-primary-700 transition hover:bg-primary-100">
+                        {{ __('View') }}
+                    </button>
+                @endif
+                <button type="button"
+                        x-on:click="
+                            $store.clip.copy(@js((string) session('booking_status')));
+                            copied = true; setTimeout(() => copied = false, 1500)
+                        "
+                        :title="copied ? @js(__('Copied')) : @js(__('Copy this message'))"
+                        :aria-label="copied ? @js(__('Copied')) : @js(__('Copy this message'))"
+                        class="rounded-md p-1 text-chrome-500 transition hover:bg-primary-100 hover:text-chrome-800">
+                    <svg x-show="! copied" class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25"/>
+                    </svg>
+                    <svg x-show="copied" x-cloak class="size-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+                    </svg>
+                </button>
+            </div>
         </div>
     @endif
 
@@ -256,29 +267,15 @@
                              is what the office does with a booking, so it should be
                              one press from the number they are already looking at. --}}
                         <td class="px-2 py-2 font-medium text-chrome-800">
-                            <div class="flex items-center gap-1">
-                                <button type="button"
-                                        x-data="{ done: false }"
-                                        x-on:click="
-                                            $store.limoTrip.copy(@js($whatsapp[$leg->id] ?? ''));
-                                            done = true; setTimeout(() => done = false, 1500)
-                                        "
-                                        title="{{ __('Copy trip details for WhatsApp') }}"
-                                        class="text-start font-medium text-primary-700 hover:underline">
-                                    <span x-show="! done">{{ $row['reference'] ?: '—' }}</span>
-                                    <span x-show="done" x-cloak class="text-emerald-600">✓ {{ __('Copied') }}</span>
-                                </button>
-                                {{-- A glance at the whole booking without leaving the
-                                     list or committing to the full page. --}}
-                                <button type="button" wire:click="openPreview({{ $leg->legable_id }})"
-                                        title="{{ __('Preview booking') }}" aria-label="{{ __('Preview booking') }}"
-                                        class="inline-flex size-5 shrink-0 items-center justify-center rounded text-chrome-400 transition hover:bg-chrome-100 hover:text-chrome-700">
-                                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/>
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
-                                    </svg>
-                                </button>
-                            </div>
+                            {{-- A glance at the whole booking without leaving the
+                                 list or committing to the full page. The WhatsApp
+                                 copy this used to do lives inside the preview now,
+                                 per trip, so nothing was actually dropped. --}}
+                            <button type="button" wire:click="openPreview({{ $leg->legable_id }})"
+                                    title="{{ __('Preview booking') }}"
+                                    class="text-start font-medium text-primary-700 hover:underline">
+                                {{ $row['reference'] ?: '—' }}
+                            </button>
                             <span class="block text-[11px] font-normal text-chrome-400">{{ $row['booking_reference'] }}</span>
                         </td>
                         <td class="hidden px-2 py-2 text-chrome-600 md:table-cell">{{ $row['from_date'] ?: '—' }}</td>
@@ -1119,7 +1116,19 @@
                                 <tbody class="divide-y divide-chrome-100">
                                     @foreach ($previewing->legs as $pl)
                                         <tr class="text-chrome-700">
-                                            <td class="px-3 py-2 font-medium">{{ $pl->reference }}</td>
+                                            <td class="px-3 py-2 font-medium">
+                                                <button type="button"
+                                                        x-data="{ done: false }"
+                                                        x-on:click="
+                                                            $store.limoTrip.copy(@js($previewWhatsapp[$pl->id] ?? ''));
+                                                            done = true; setTimeout(() => done = false, 1500)
+                                                        "
+                                                        title="{{ __('Copy trip details for WhatsApp') }}"
+                                                        class="hover:underline">
+                                                    <span x-show="! done">{{ $pl->reference }}</span>
+                                                    <span x-show="done" x-cloak class="text-emerald-600">✓ {{ __('Copied') }}</span>
+                                                </button>
+                                            </td>
                                             <td class="px-3 py-2 text-chrome-600">
                                                 @if ($pl->service_type === 'chauffeur')
                                                     {{ __('Chauffeur') }} — {{ $pl->from_location ?: '—' }}

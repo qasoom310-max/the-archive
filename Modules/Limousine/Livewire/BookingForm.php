@@ -326,6 +326,9 @@ final class BookingForm extends Component
         // it has to stay put and be copyable, not fade out of the corner. Same
         // banner the queue's own edit uses, so create and update read alike.
         session()->flash('booking_status', trim($this->savedMessage($wasNew, $refs) . ' ' . $creditNote . ' ' . $receiptNote));
+        // Lets the banner's "View" button open this booking's preview directly
+        // — checking what was just booked shouldn't mean hunting for its row.
+        session()->flash('booking_status_id', $booking->id);
         $this->redirect('/app/limousine/booking', navigate: true);
     }
 

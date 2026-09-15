@@ -623,6 +623,7 @@ final class Bookings extends Component
 
         $this->cancelEdit();
         session()->flash('booking_status', $message);
+        session()->flash('booking_status_id', $booking->id);
     }
 
     /**
@@ -1152,6 +1153,13 @@ final class Bookings extends Component
             ->groupBy('status')
             ->pluck('aggregate', 'status');
 
+        // Computed once so the preview panel and its per-leg WhatsApp copy
+        // button read the same booking — its legs are not necessarily on the
+        // current page/tab, so they can't reuse $legs/$whatsapp above.
+        $previewing = $this->previewingId !== null
+            ? LimoBooking::query()->with(['customer:id,name,type,phone,email', 'legs' => fn ($q) => $q->orderBy('sequence')])->find($this->previewingId)
+            : null;
+
         return view('limousine::bookings', [
             'legs' => $legs,
             // Flattened through the shared builder so the table prints exactly
@@ -1204,9 +1212,20 @@ final class Bookings extends Component
                 : null,
             // Every leg, in order, so the preview shows the whole job at a
             // glance rather than just the row that opened it.
-            'previewing' => $this->previewingId !== null
-                ? LimoBooking::query()->with(['customer:id,name,type,phone,email', 'legs' => fn ($q) => $q->orderBy('sequence')])->find($this->previewingId)
-                : null,
+            'previewing' => $previewing,
+            // The trip as a WhatsApp message for each of the previewed
+            // booking's legs — the copy button the reference used to be
+            // moved here, per trip, once the reference itself started
+            // opening the preview instead.
+            'previewWhatsapp' => $previewing !== null
+                ? collect($previewing->legs)->mapWithKeys(function (LimoLeg $l) use ($rows, $previewing): array {
+                    // Already have the parent in hand — skip the lazy re-query
+                    // whatsappText()'s bookingOf() would otherwise do per leg.
+                    $l->setRelation('legable', $previewing);
+
+                    return [$l->id => $rows->whatsappText($l)];
+                })->all()
+                : [],
             // The dispatched crew for the clicked trip — shown read-only in the
             // dialog, since car and driver are assigned per leg from the queue.
             'editingLeg' => $this->editingLegId !== null

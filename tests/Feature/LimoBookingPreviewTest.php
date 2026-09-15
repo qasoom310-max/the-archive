@@ -9,6 +9,7 @@ use App\Models\Auth\ModelAccess;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
+use Modules\Limousine\Livewire\BookingForm;
 use Modules\Limousine\Livewire\Bookings;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
@@ -94,6 +95,80 @@ final class LimoBookingPreviewTest extends TestCase
         Livewire::test(Bookings::class)
             ->call('openPreview', $booking->id)
             ->assertSet('previewingId', $booking->id);
+    }
+
+    /**
+     * The reference in the queue opens the preview now — it used to copy the
+     * trip to the clipboard on click. That copy action moved INTO the
+     * preview (one per leg), it was not dropped.
+     */
+    public function test_the_reference_in_the_queue_opens_the_preview_instead_of_copying(): void
+    {
+        $booking = $this->booking();
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        $this->assertStringContainsString("wire:click=\"openPreview({$booking->id})\"", $html);
+        $this->assertStringNotContainsString('Copy trip details for WhatsApp', $html);
+    }
+
+    /** Closed, the copy action is nowhere on the page; open, it is — per leg. */
+    public function test_the_preview_offers_a_copy_button_per_leg(): void
+    {
+        $booking = $this->booking();
+
+        Livewire::test(Bookings::class)
+            ->call('openPreview', $booking->id)
+            ->assertSee('Copy trip details for WhatsApp');
+    }
+
+    /**
+     * The yellow banner shown right after booking/editing carries the id of
+     * the booking that was just saved, and its "View" button opens that
+     * booking's preview directly.
+     */
+    public function test_the_success_banner_offers_a_view_button_that_opens_that_booking(): void
+    {
+        $booking = $this->booking();
+        session()->flash('booking_status', 'Booking done successfully. Ref. # 10021');
+        session()->flash('booking_status_id', $booking->id);
+
+        $component = Livewire::test(Bookings::class);
+        $this->assertStringContainsString("wire:click=\"openPreview({$booking->id})\"", $component->html());
+
+        $component->call('openPreview', $booking->id)->assertSet('previewingId', $booking->id);
+    }
+
+    /** No flashed id (a plain status message, or none at all) — no View button. */
+    public function test_no_view_button_without_a_flashed_booking_id(): void
+    {
+        session()->flash('booking_status', 'Trip cancelled.');
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        $this->assertStringNotContainsString('wire:click="openPreview(', $html);
+    }
+
+    /** Creating a booking flashes its id, so the very next page can offer View. */
+    public function test_saving_a_new_booking_flashes_its_id_for_the_banners_view_button(): void
+    {
+        $customer = LimoCustomer::query()->create(['name' => 'Hamad']);
+
+        Livewire::test(BookingForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('requested_by', 'Sara')
+            ->set('payment_method', 'cash')
+            ->set('legs.0.service_type', 'transfer')
+            ->set('legs.0.from_location', 'Airport')
+            ->set('legs.0.to_location', 'City Centre')
+            ->set('legs.0.start_at', '2026-07-01T14:30')
+            ->set('legs.0.rate', 18.5)
+            ->set('legs.0.rate_basis', 'trip')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $booking = LimoBooking::query()->sole();
+        $this->assertSame($booking->id, session('booking_status_id'));
     }
 
     /** Downgrade a global grant to read-only. */

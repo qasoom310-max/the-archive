@@ -64,6 +64,40 @@ final class LimoCustomer extends Model implements DefinesIrModel
     }
 
     /**
+     * This customer's own pickup/drop-off locations, most recently used
+     * first — a customer's trips are usually to the same handful of places
+     * (home, office, the same hotel), so their own history is worth
+     * surfacing ahead of the company-wide saved-locations list.
+     *
+     * @return list<string>
+     */
+    public function recentLocations(int $limit = 12): array
+    {
+        $bookingIds = LimoBooking::query()->where('customer_id', $this->id)->pluck('id');
+
+        if ($bookingIds->isEmpty()) {
+            return [];
+        }
+
+        // Capped at the 100 most recent legs (not the whole history) so a
+        // long-standing customer's one-off addresses from years ago don't
+        // drown out the places they actually repeat.
+        return LimoLeg::query()
+            ->where('legable_type', LimoBooking::class)
+            ->whereIn('legable_id', $bookingIds)
+            ->latest('id')
+            ->limit(100)
+            ->get(['from_location', 'to_location'])
+            ->flatMap(fn (LimoLeg $l): array => [$l->from_location, $l->to_location])
+            ->filter(fn (?string $v): bool => $v !== null && trim($v) !== '')
+            ->map(fn (string $v): string => trim($v))
+            ->unique()
+            ->values()
+            ->take($limit)
+            ->all();
+    }
+
+    /**
      * Where trip notices go: the service address when one is set, otherwise the
      * general one.
      *

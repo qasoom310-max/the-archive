@@ -10,6 +10,7 @@ use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Modules\Limousine\Models\LimoBooking;
+use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Models\LimoLocation;
 use Modules\Limousine\Models\LimoQuotation;
@@ -450,10 +451,33 @@ trait HandlesTripLegs
             'serviceTypes' => LimoLeg::serviceTypeOptions(),
             'rateBasisOptions' => LimoLeg::rateBasisOptions(),
             'carOptions' => $this->carOptions(),
-            'locationNames' => LimoLocation::query()->where('active', true)->orderBy('name')->pluck('name')->all(),
+            'locationNames' => $this->locationSuggestions(),
             'grandTotal' => $this->grandTotal(),
             'currencyOptions' => $this->currencyOptions(),
         ];
+    }
+
+    /**
+     * Every From/To field shares one datalist, listing the selected
+     * customer's own repeat locations first — their trips are usually to
+     * the same handful of places — then the company-wide saved list. Both
+     * host forms declare `public ?int $customer_id`.
+     *
+     * @return list<string>
+     */
+    private function locationSuggestions(): array
+    {
+        /** @var int|null $customerId */
+        $customerId = $this->customer_id ?? null;
+        $customer = $customerId !== null ? LimoCustomer::query()->find($customerId) : null;
+
+        $savedLocations = LimoLocation::query()->where('active', true)->orderBy('name')->pluck('name')->all();
+
+        return collect($customer?->recentLocations() ?? [])
+            ->merge($savedLocations)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**

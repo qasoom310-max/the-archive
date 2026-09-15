@@ -3,7 +3,9 @@
      view vars $serviceTypes, $rateBasisOptions, $vehicleOptions, $locationNames. --}}
 @php $lbl = 'mb-1 block text-sm font-medium text-chrome-700'; @endphp
 
-{{-- One datalist of saved locations, reused by every From/To input. --}}
+{{-- One datalist reused by every From/To input: the selected customer's own
+     repeat locations first (see HandlesTripLegs::locationSuggestions()),
+     then the company-wide saved list. --}}
 <datalist id="limo-locations">
     @foreach ($locationNames as $name)<option value="{{ $name }}"></option>@endforeach
 </datalist>

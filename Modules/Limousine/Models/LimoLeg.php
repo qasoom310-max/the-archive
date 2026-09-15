@@ -34,7 +34,10 @@ use Illuminate\Support\Facades\Storage;
  * @property int $days
  * @property string|null $vehicle
  * @property string|null $vehicle_details
- * @property float $rate
+ * @property float $rate            Always BHD — every money calculation reads this
+ * @property string $currency       What the office typed the rate in; 'BHD' means no conversion happened
+ * @property float|null $quote_rate The rate as typed, in `currency` — equals `rate` when currency is BHD
+ * @property float|null $exchange_rate  BHD value of 1 unit of `currency`; `rate` = quote_rate × exchange_rate
  * @property string $rate_basis
  * @property float $discount
  * @property float $vat
@@ -94,11 +97,14 @@ final class LimoLeg extends Model
     /** First reference handed out. Kept in step with the backfill migration. */
     public const REFERENCE_START = 10000;
 
+    /** No conversion needed — `rate` is typed directly. */
+    public const DEFAULT_CURRENCY = 'BHD';
+
     /** @var list<string> */
     protected $fillable = [
         'legable_type', 'legable_id', 'sequence', 'reference', 'status', 'service_type',
         'car_id', 'driver_id', 'driver', 'from_location', 'from_location_url', 'to_location', 'to_location_url', 'start_at', 'hours', 'days', 'vehicle',
-        'vehicle_details', 'rate', 'rate_basis', 'discount', 'vat', 'line_total', 'net_amount', 'notes',
+        'vehicle_details', 'rate', 'currency', 'quote_rate', 'exchange_rate', 'rate_basis', 'discount', 'vat', 'line_total', 'net_amount', 'notes',
         'signature_path', 'signed_at', 'signed_name', 'signed_ip', 'service_order_sent_at',
         'cancelled_at', 'cancellation_reason', 'refund_outcome', 'refund_amount',
     ];
@@ -123,6 +129,7 @@ final class LimoLeg extends Model
         'service_type' => self::TYPE_TRANSFER,
         'days' => 1,
         'rate' => 0,
+        'currency' => self::DEFAULT_CURRENCY,
         'rate_basis' => self::BASIS_TRIP,
         'discount' => 0,
         'vat' => 0,
@@ -144,6 +151,8 @@ final class LimoLeg extends Model
             'hours' => 'float',
             'days' => 'integer',
             'rate' => 'float',
+            'quote_rate' => 'float',
+            'exchange_rate' => 'float',
             'discount' => 'float',
             'vat' => 'float',
             'line_total' => 'float',
@@ -224,6 +233,21 @@ final class LimoLeg extends Model
     public static function netFor(string $basis, float $rate, ?float $hours, int $days, float $discount, float $vat): float
     {
         return round(max(0.0, self::grossFor($basis, $rate, $hours, $days) - $discount) + $vat, 3);
+    }
+
+    /**
+     * The BHD rate every calculation uses, from what the office actually
+     * typed: a rate in `currency` plus that currency's BHD value. BHD itself
+     * needs no conversion — the exchange rate is meaningless there and is
+     * never asked for — so it passes straight through.
+     */
+    public static function bhdRate(string $currency, float $quoteRate, ?float $exchangeRate): float
+    {
+        if ($currency === self::DEFAULT_CURRENCY) {
+            return round($quoteRate, 3);
+        }
+
+        return round($quoteRate * (float) ($exchangeRate ?? 0), 3);
     }
 
     /**

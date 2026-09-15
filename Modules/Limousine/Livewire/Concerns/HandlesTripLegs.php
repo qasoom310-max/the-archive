@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire\Concerns;
 
+use App\Erp\Money\Currencies;
 use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Models\LimoLocation;
@@ -35,13 +37,96 @@ trait HandlesTripLegs
             'service_type' => LimoLeg::TYPE_TRANSFER,
             'car_id' => '', 'from_location' => '', 'from_location_url' => '', 'to_location' => '', 'to_location_url' => '', 'start_at' => '',
             'hours' => '', 'days' => '1', 'car_details' => '',
-            'rate' => '', 'rate_basis' => LimoLeg::BASIS_TRIP, 'discount' => '', 'vat' => '',
+            'rate' => '', 'currency' => LimoLeg::DEFAULT_CURRENCY, 'quote_rate' => '', 'exchange_rate' => '',
+            'rate_basis' => LimoLeg::BASIS_TRIP, 'discount' => '', 'vat' => '',
         ];
     }
 
     public function addLeg(): void
     {
         $this->legs[] = $this->emptyLeg();
+    }
+
+    /**
+     * Livewire lifecycle hook — fires after any public property is updated.
+     * `rate` is BHD everywhere downstream ({@see LimoLeg::grossFor()},
+     * `grandTotal()`, `persistLegs()`, the live total in the legs partial),
+     * so a leg quoted in another currency keeps that contract by having its
+     * BHD-typed `rate` DERIVED here rather than typed directly.
+     */
+    public function updated(string $name): void
+    {
+        if (! preg_match('/^legs\.(\d+)\.(currency|quote_rate|exchange_rate)$/', $name, $m)) {
+            return;
+        }
+
+        $i = (int) $m[1];
+        if (! isset($this->legs[$i])) {
+            return;
+        }
+
+        if ($m[2] === 'currency') {
+            $this->switchLegCurrency($i);
+
+            return;
+        }
+
+        $this->recomputeLegRate($i);
+    }
+
+    /**
+     * Flip a leg between BHD (typed straight into `rate`) and a foreign
+     * currency (typed as `quote_rate` plus an `exchange_rate` to BHD).
+     *
+     * Seeds the new currency's rate box with whatever BHD figure was already
+     * there rather than dropping it — the office was quoted a number, and
+     * switching currency mid-entry should not throw it away, only ask for
+     * the rate to convert it with.
+     */
+    private function switchLegCurrency(int $i): void
+    {
+        $leg = &$this->legs[$i];
+        $currency = $leg['currency'] ?? LimoLeg::DEFAULT_CURRENCY;
+
+        if ($currency === LimoLeg::DEFAULT_CURRENCY) {
+            $leg['quote_rate'] = '';
+            $leg['exchange_rate'] = '';
+
+            return;
+        }
+
+        $leg['quote_rate'] = $leg['rate'] ?? '';
+        $leg['exchange_rate'] = '';
+        $leg['rate'] = '';
+    }
+
+    /** Re-derive `rate` (BHD) from the typed foreign rate and exchange rate. */
+    private function recomputeLegRate(int $i): void
+    {
+        $leg = &$this->legs[$i];
+        $currency = $leg['currency'] ?? LimoLeg::DEFAULT_CURRENCY;
+
+        if ($currency === LimoLeg::DEFAULT_CURRENCY) {
+            return;
+        }
+
+        $quoteRate = ($leg['quote_rate'] ?? '') !== '' ? (float) $leg['quote_rate'] : null;
+        $exchangeRate = ($leg['exchange_rate'] ?? '') !== '' ? (float) $leg['exchange_rate'] : null;
+
+        $leg['rate'] = $quoteRate !== null && $exchangeRate !== null
+            ? (string) LimoLeg::bhdRate($currency, $quoteRate, $exchangeRate)
+            : '';
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    public function currencyOptions(): array
+    {
+        return collect(Currencies::all())
+            ->map(fn ($c): array => ['value' => $c->code, 'label' => $c->code . ' — ' . $c->name])
+            ->values()
+            ->all();
     }
 
     public function removeLeg(int $index): void
@@ -77,6 +162,9 @@ trait HandlesTripLegs
             'days' => (string) $l->days,
             'car_details' => $l->vehicle_details ?? '',
             'rate' => (string) $l->rate,
+            'currency' => $l->currency ?? LimoLeg::DEFAULT_CURRENCY,
+            'quote_rate' => $l->quote_rate !== null ? (string) $l->quote_rate : '',
+            'exchange_rate' => $l->exchange_rate !== null ? (string) $l->exchange_rate : '',
             'rate_basis' => $l->rate_basis,
             'discount' => (string) $l->discount,
             'vat' => (string) $l->vat,
@@ -109,6 +197,13 @@ trait HandlesTripLegs
             $rules["legs.$i.start_at"] = ['required', 'date'];
             $rules["legs.$i.car_details"] = ['nullable', 'string', 'max:255'];
             $rules["legs.$i.rate"] = ['required', 'numeric', 'min:0'];
+            $rules["legs.$i.currency"] = ['required', 'string', Rule::in(array_keys(Currencies::all()))];
+            // Only asked for once a currency other than BHD is picked — BHD
+            // needs no conversion, so a rate typed straight into `rate` is
+            // already the figure everything downstream reads.
+            $foreign = ($leg['currency'] ?? LimoLeg::DEFAULT_CURRENCY) !== LimoLeg::DEFAULT_CURRENCY;
+            $rules["legs.$i.quote_rate"] = [$foreign ? 'required' : 'nullable', 'numeric', 'min:0'];
+            $rules["legs.$i.exchange_rate"] = [$foreign ? 'required' : 'nullable', 'numeric', 'min:0.000001'];
             $rules["legs.$i.rate_basis"] = ['required', 'in:trip,hour,day'];
             $rules["legs.$i.discount"] = ['nullable', 'numeric', 'min:0'];
             $rules["legs.$i.vat"] = ['nullable', 'numeric', 'min:0'];
@@ -198,7 +293,16 @@ trait HandlesTripLegs
         foreach ($this->legs as $i => $leg) {
             $chauffeur = ($leg['service_type'] ?? '') === LimoLeg::TYPE_CHAUFFEUR;
             $basis = $leg['rate_basis'] ?? LimoLeg::BASIS_TRIP;
-            $rate = (float) ($leg['rate'] === '' ? '0' : $leg['rate']);
+            $currency = $leg['currency'] ?? LimoLeg::DEFAULT_CURRENCY;
+            $quoteRate = ($leg['quote_rate'] ?? '') !== '' ? (float) $leg['quote_rate'] : null;
+            $exchangeRate = ($leg['exchange_rate'] ?? '') !== '' ? (float) $leg['exchange_rate'] : null;
+            // The saved BHD rate is always DERIVED here from currency + quote
+            // rate + exchange rate, never trusted from whatever the browser
+            // last computed client-side — the same reasoning every other
+            // money figure in this method is recomputed server-side for.
+            $rate = $currency === LimoLeg::DEFAULT_CURRENCY
+                ? (float) ($leg['rate'] === '' ? '0' : $leg['rate'])
+                : LimoLeg::bhdRate($currency, $quoteRate ?? 0.0, $exchangeRate);
             $hours = $chauffeur && $leg['hours'] !== '' ? (float) $leg['hours'] : null;
             $days = $chauffeur ? max(1, (int) ($leg['days'] === '' ? '1' : $leg['days'])) : 1;
             $discount = (float) ($leg['discount'] === '' ? '0' : $leg['discount']);
@@ -217,6 +321,9 @@ trait HandlesTripLegs
                 'days' => $days,
                 'vehicle_details' => $this->blankToNull($leg['car_details'] ?? ''),
                 'rate' => $rate,
+                'currency' => $currency,
+                'quote_rate' => $currency === LimoLeg::DEFAULT_CURRENCY ? null : $quoteRate,
+                'exchange_rate' => $currency === LimoLeg::DEFAULT_CURRENCY ? null : $exchangeRate,
                 'rate_basis' => $basis,
                 'discount' => $discount,
                 'vat' => $vat,
@@ -277,6 +384,7 @@ trait HandlesTripLegs
             'carOptions' => $this->carOptions(),
             'locationNames' => LimoLocation::query()->where('active', true)->orderBy('name')->pluck('name')->all(),
             'grandTotal' => $this->grandTotal(),
+            'currencyOptions' => $this->currencyOptions(),
         ];
     }
 

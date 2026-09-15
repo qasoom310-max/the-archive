@@ -109,9 +109,32 @@
                 </div>
 
                 <div>
-                    <label class="{{ $lbl }}">{{ __('Rate (BHD)') }} *</label>
-                    <input type="number" step="0.001" min="0" placeholder="0" wire:model.live="legs.{{ $i }}.rate" class="o-input w-full">
-                    @error('legs.'.$i.'.rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    @php $legCurrency = $leg['currency'] ?? 'BHD'; @endphp
+                    <div class="mb-1 flex items-center justify-between gap-2">
+                        <label class="{{ $lbl }} !mb-0">{{ $legCurrency === 'BHD' ? __('Rate (BHD)') : __('Rate') }} *</label>
+                        {{-- Defaults to BHD — picking anything else asks for the
+                             exchange rate below rather than assuming one. --}}
+                        <select wire:model.live="legs.{{ $i }}.currency" class="rounded-md border-chrome-200 bg-white py-0.5 ps-1.5 pe-6 text-xs text-chrome-600">
+                            @foreach ($currencyOptions as $opt)
+                                <option value="{{ $opt['value'] }}">{{ $opt['value'] }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @if ($legCurrency === 'BHD')
+                        <input type="number" step="0.001" min="0" placeholder="0" wire:model.live="legs.{{ $i }}.rate" class="o-input w-full">
+                        @error('legs.'.$i.'.rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    @else
+                        <input type="number" step="0.001" min="0" placeholder="0" wire:model.live="legs.{{ $i }}.quote_rate" class="o-input w-full">
+                        @error('legs.'.$i.'.quote_rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+
+                        <label class="{{ $lbl }} mt-2 text-xs">{{ __('Exchange rate — 1 :currency in BHD', ['currency' => $legCurrency]) }} *</label>
+                        <input type="number" step="0.000001" min="0" placeholder="0.000000" wire:model.live="legs.{{ $i }}.exchange_rate" class="o-input w-full" dir="ltr">
+                        @error('legs.'.$i.'.exchange_rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+
+                        <p class="mt-1 text-xs text-chrome-500">
+                            {{ __('≈ :amount BHD', ['amount' => number_format((float) (($leg['rate'] ?? '') === '' ? 0 : $leg['rate']), 3)]) }}
+                        </p>
+                    @endif
                 </div>
                 <div>
                     <label class="{{ $lbl }}">{{ __('Rate basis') }} *</label>

@@ -37,7 +37,7 @@ use Illuminate\Support\Facades\Storage;
  * @property float $rate            Always BHD — every money calculation reads this
  * @property string $currency       What the office typed the rate in; 'BHD' means no conversion happened
  * @property float|null $quote_rate The rate as typed, in `currency` — equals `rate` when currency is BHD
- * @property float|null $exchange_rate  BHD value of 1 unit of `currency`; `rate` = quote_rate × exchange_rate
+ * @property float|null $exchange_rate  BHD value of 1 unit of `currency`, looked up live (not typed); `rate` = quote_rate × exchange_rate
  * @property string $rate_basis
  * @property float $discount
  * @property float $vat
@@ -236,10 +236,11 @@ final class LimoLeg extends Model
     }
 
     /**
-     * The BHD rate every calculation uses, from what the office actually
-     * typed: a rate in `currency` plus that currency's BHD value. BHD itself
+     * The BHD rate every calculation uses: the rate the office typed in
+     * `currency`, times that currency's BHD value (looked up live, not
+     * typed — see `HandlesTripLegs::fetchExchangeRateFor()`). BHD itself
      * needs no conversion — the exchange rate is meaningless there and is
-     * never asked for — so it passes straight through.
+     * never looked up — so it passes straight through.
      */
     public static function bhdRate(string $currency, float $quoteRate, ?float $exchangeRate): float
     {

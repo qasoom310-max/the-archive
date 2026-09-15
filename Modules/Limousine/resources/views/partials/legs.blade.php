@@ -127,13 +127,26 @@
                         <input type="number" step="0.001" min="0" placeholder="0" wire:model.live="legs.{{ $i }}.quote_rate" class="o-input w-full">
                         @error('legs.'.$i.'.quote_rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
 
-                        <label class="{{ $lbl }} mt-2 text-xs">{{ __('Exchange rate — 1 :currency in BHD', ['currency' => $legCurrency]) }} *</label>
-                        <input type="number" step="0.000001" min="0" placeholder="0.000000" wire:model.live="legs.{{ $i }}.exchange_rate" class="o-input w-full" dir="ltr">
-                        @error('legs.'.$i.'.exchange_rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-
-                        <p class="mt-1 text-xs text-chrome-500">
-                            {{ __('≈ :amount BHD', ['amount' => number_format((float) (($leg['rate'] ?? '') === '' ? 0 : $leg['rate']), 3)]) }}
-                        </p>
+                        {{-- The exchange rate is looked up live, never typed — this is a
+                             status readout (result / failed-with-retry), not an input.
+                             By the time this renders, a lookup has already run (fired
+                             from `updated()` the moment currency or quote_rate changed),
+                             so a blank result here always means it failed, not "pending". --}}
+                        @if ($errors->has('legs.'.$i.'.exchange_rate'))
+                            <p class="mt-1 text-xs text-red-600">
+                                {{ $errors->first('legs.'.$i.'.exchange_rate') }}
+                                <button type="button" wire:click="retryLegExchangeRate({{ $i }})" class="ms-1 font-semibold underline">{{ __('Retry') }}</button>
+                            </p>
+                        @elseif (($leg['quote_rate'] ?? '') !== '' && ($leg['exchange_rate'] ?? '') !== '' && ($leg['rate'] ?? '') !== '')
+                            <p class="mt-1 text-xs text-chrome-500">
+                                {{ __(':quote :currency ≈ :amount BHD', ['quote' => $leg['quote_rate'], 'currency' => $legCurrency, 'amount' => number_format((float) $leg['rate'], 3)]) }}
+                            </p>
+                        @elseif (($leg['quote_rate'] ?? '') !== '')
+                            <p class="mt-1 text-xs text-red-600">
+                                {{ __("Could not fetch today's exchange rate. Check your connection and try again.") }}
+                                <button type="button" wire:click="retryLegExchangeRate({{ $i }})" class="ms-1 font-semibold underline">{{ __('Retry') }}</button>
+                            </p>
+                        @endif
                     @endif
                 </div>
                 <div>

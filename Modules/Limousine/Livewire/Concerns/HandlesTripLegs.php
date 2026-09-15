@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Limousine\Livewire\Concerns;
 
 use App\Erp\Money\Currencies;
+use App\Erp\Money\ExchangeRateService;
 use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
@@ -52,11 +53,14 @@ trait HandlesTripLegs
      * `rate` is BHD everywhere downstream ({@see LimoLeg::grossFor()},
      * `grandTotal()`, `persistLegs()`, the live total in the legs partial),
      * so a leg quoted in another currency keeps that contract by having its
-     * BHD-typed `rate` DERIVED here rather than typed directly.
+     * BHD-typed `rate` DERIVED here rather than typed directly. The exchange
+     * rate itself is never typed by the office — it's looked up live (see
+     * {@see fetchExchangeRateFor()}) — so only `currency` and `quote_rate`
+     * are bound to an input and can trigger this.
      */
     public function updated(string $name): void
     {
-        if (! preg_match('/^legs\.(\d+)\.(currency|quote_rate|exchange_rate)$/', $name, $m)) {
+        if (! preg_match('/^legs\.(\d+)\.(currency|quote_rate)$/', $name, $m)) {
             return;
         }
 
@@ -76,7 +80,7 @@ trait HandlesTripLegs
 
     /**
      * Flip a leg between BHD (typed straight into `rate`) and a foreign
-     * currency (typed as `quote_rate` plus an `exchange_rate` to BHD).
+     * currency (typed as `quote_rate`, converted at a live-looked-up rate).
      *
      * Seeds the new currency's rate box with whatever BHD figure was already
      * there rather than dropping it — the office was quoted a number, and
@@ -85,23 +89,53 @@ trait HandlesTripLegs
      */
     private function switchLegCurrency(int $i): void
     {
-        $leg = &$this->legs[$i];
-        $currency = $leg['currency'] ?? LimoLeg::DEFAULT_CURRENCY;
+        $currency = $this->legs[$i]['currency'] ?? LimoLeg::DEFAULT_CURRENCY;
 
         if ($currency === LimoLeg::DEFAULT_CURRENCY) {
-            $leg['quote_rate'] = '';
-            $leg['exchange_rate'] = '';
+            $this->legs[$i]['quote_rate'] = '';
+            $this->legs[$i]['exchange_rate'] = '';
 
             return;
         }
 
-        $leg['quote_rate'] = $leg['rate'] ?? '';
-        $leg['exchange_rate'] = '';
-        $leg['rate'] = '';
+        $this->legs[$i]['quote_rate'] = $this->legs[$i]['rate'] ?? '';
+        $this->legs[$i]['exchange_rate'] = '';
+        $this->legs[$i]['rate'] = '';
+        $this->fetchExchangeRateFor($i, $currency);
     }
 
-    /** Re-derive `rate` (BHD) from the typed foreign rate and exchange rate. */
+    /**
+     * Look up today's rate for one leg and re-derive its BHD `rate` from it.
+     * Left blank (not thrown) on failure — {@see legRules()} blocks the save
+     * until a rate is present, and the legs partial offers a Retry button.
+     */
+    private function fetchExchangeRateFor(int $i, string $currency): void
+    {
+        $rate = app(ExchangeRateService::class)->rate($currency, LimoLeg::DEFAULT_CURRENCY);
+        $this->legs[$i]['exchange_rate'] = $rate !== null ? (string) $rate : '';
+        $this->applyLegRate($i);
+    }
+
+    /** Called after typing the foreign amount: use the rate already on hand, or fetch one if we don't have it yet. */
     private function recomputeLegRate(int $i): void
+    {
+        $currency = $this->legs[$i]['currency'] ?? LimoLeg::DEFAULT_CURRENCY;
+
+        if ($currency === LimoLeg::DEFAULT_CURRENCY) {
+            return;
+        }
+
+        if (($this->legs[$i]['exchange_rate'] ?? '') === '' && ($this->legs[$i]['quote_rate'] ?? '') !== '') {
+            $this->fetchExchangeRateFor($i, $currency);
+
+            return;
+        }
+
+        $this->applyLegRate($i);
+    }
+
+    /** Pure computation from whatever currency/quote_rate/exchange_rate are already in state — never fetches. */
+    private function applyLegRate(int $i): void
     {
         $leg = &$this->legs[$i];
         $currency = $leg['currency'] ?? LimoLeg::DEFAULT_CURRENCY;
@@ -116,6 +150,18 @@ trait HandlesTripLegs
         $leg['rate'] = $quoteRate !== null && $exchangeRate !== null
             ? (string) LimoLeg::bhdRate($currency, $quoteRate, $exchangeRate)
             : '';
+    }
+
+    /** Retry button in the legs partial, for when the live lookup failed. */
+    public function retryLegExchangeRate(int $i): void
+    {
+        $currency = $this->legs[$i]['currency'] ?? null;
+
+        if ($currency === null || $currency === LimoLeg::DEFAULT_CURRENCY) {
+            return;
+        }
+
+        $this->fetchExchangeRateFor($i, $currency);
     }
 
     /**
@@ -200,7 +246,10 @@ trait HandlesTripLegs
             $rules["legs.$i.currency"] = ['required', 'string', Rule::in(array_keys(Currencies::all()))];
             // Only asked for once a currency other than BHD is picked — BHD
             // needs no conversion, so a rate typed straight into `rate` is
-            // already the figure everything downstream reads.
+            // already the figure everything downstream reads. `exchange_rate`
+            // is never typed by the office (it's looked up live), so its
+            // `required` here isn't "you forgot a field" — it's "the live
+            // lookup hasn't produced a rate yet" (see messages() below).
             $foreign = ($leg['currency'] ?? LimoLeg::DEFAULT_CURRENCY) !== LimoLeg::DEFAULT_CURRENCY;
             $rules["legs.$i.quote_rate"] = [$foreign ? 'required' : 'nullable', 'numeric', 'min:0'];
             $rules["legs.$i.exchange_rate"] = [$foreign ? 'required' : 'nullable', 'numeric', 'min:0.000001'];
@@ -217,6 +266,25 @@ trait HandlesTripLegs
         }
 
         return $rules;
+    }
+
+    /**
+     * `legs.*.exchange_rate` is never a visible input (see {@see legRules()}),
+     * so Laravel's default "The legs.0.exchange rate field is required."
+     * would point at a field the office never sees. This is shown next to
+     * the Retry button in the legs partial instead.
+     *
+     * @return array<string, string>
+     */
+    protected function messages(): array
+    {
+        $lookupFailed = __('Could not fetch today\'s exchange rate. Check your connection and try again.');
+
+        return [
+            'legs.*.exchange_rate.required' => $lookupFailed,
+            'legs.*.exchange_rate.numeric' => $lookupFailed,
+            'legs.*.exchange_rate.min' => $lookupFailed,
+        ];
     }
 
     /** Grand total = sum of leg nets, recomputed from the live inputs. */

@@ -44,7 +44,7 @@
                     </div>
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
-                    <button type="button" wire:click="closeCustomerModal" class="text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</button>
+                    <button type="button" wire:click="closeCustomerModal" class="text-sm text-chrome-500 hover:text-chrome-700">{{ __('Back') }}</button>
                     <button type="submit" class="o-btn-primary">{{ __('Add customer') }}</button>
                 </div>
             </form>

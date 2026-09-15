@@ -525,7 +525,7 @@ final class BookingForm extends Component
         $this->validateFocusing([
             'newCustomer.name' => ['required', 'string', 'max:255'],
             'newCustomer.phone' => ['required', 'string', 'max:50'],
-            'newCustomer.email' => ['required', 'email', 'max:255'],
+            'newCustomer.email' => ['nullable', 'email', 'max:255'],
             'newCustomer.type' => ['required', 'in:individual,company'],
         ]);
 
@@ -533,7 +533,7 @@ final class BookingForm extends Component
             'name' => trim($this->newCustomer['name']),
             'type' => $this->newCustomer['type'],
             'phone' => trim($this->newCustomer['phone']),
-            'email' => trim($this->newCustomer['email']),
+            'email' => $this->trimOrNull($this->newCustomer['email']),
         ]);
 
         $this->customer_id = $customer->id;

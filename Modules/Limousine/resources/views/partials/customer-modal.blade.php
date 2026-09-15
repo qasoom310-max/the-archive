@@ -1,8 +1,9 @@
 {{-- Inline "New customer" modal for the Limousine booking form. Deliberately
      minimal — name, phone, email and whether the customer is an individual or a
-     company — all required. Writes to the shared transport-customer store. The
-     host component provides $addingCustomer, $newCustomer, saveCustomer() and
-     closeCustomerModal(). --}}
+     company. Email is optional: many walk-in / phone bookings never carry one,
+     and pax/contact details are collected on the booking itself anyway. Writes
+     to the shared transport-customer store. The host component provides
+     $addingCustomer, $newCustomer, saveCustomer() and closeCustomerModal(). --}}
 @if ($addingCustomer)
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4"
         x-data x-on:keydown.escape.window="$wire.closeCustomerModal()"
@@ -37,7 +38,7 @@
                         @error('newCustomer.phone') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Email') }} <span class="text-red-500">*</span></label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Email') }}</label>
                         <input type="email" wire:model="newCustomer.email" class="o-input w-full">
                         @error('newCustomer.email') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>

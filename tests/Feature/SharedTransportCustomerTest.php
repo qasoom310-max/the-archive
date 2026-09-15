@@ -109,17 +109,36 @@ final class SharedTransportCustomerTest extends TestCase
         $this->assertSame('39000003', $mona->phone);
     }
 
-    public function test_the_limousine_new_customer_requires_phone_email_and_type(): void
+    public function test_the_limousine_new_customer_requires_phone_and_type(): void
     {
         Livewire::test(BookingForm::class)
             ->call('openCustomerModal')
             ->set('newCustomer.name', 'NoContact')
             ->set('newCustomer.phone', '')
-            ->set('newCustomer.email', '')
             ->call('saveCustomer')
-            ->assertHasErrors(['newCustomer.phone', 'newCustomer.email']);
+            ->assertHasErrors(['newCustomer.phone']);
 
         $this->assertSame(0, RentalCustomer::query()->where('name', 'NoContact')->count());
+    }
+
+    /**
+     * Email is optional on the limousine desk's inline customer — a walk-in
+     * or phone booking often has none, and it is never the only way to reach
+     * them (phone is still required).
+     */
+    public function test_the_limousine_new_customer_does_not_require_an_email(): void
+    {
+        Livewire::test(BookingForm::class)
+            ->call('openCustomerModal')
+            ->set('newCustomer.name', 'Walk-in Wafa')
+            ->set('newCustomer.phone', '39000004')
+            ->set('newCustomer.email', '')
+            ->call('saveCustomer')
+            ->assertHasNoErrors()
+            ->assertSet('customer_id', fn ($id): bool => $id !== null);
+
+        $customer = RentalCustomer::query()->where('name', 'Walk-in Wafa')->sole();
+        $this->assertNull($customer->email);
     }
 
     public function test_inline_new_customer_requires_a_name(): void

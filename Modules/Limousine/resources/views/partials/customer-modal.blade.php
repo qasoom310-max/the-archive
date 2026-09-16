@@ -43,7 +43,7 @@
                         @error('newCustomer.email') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                 </div>
-                <div class="flex justify-end gap-2 pt-2">
+                <div class="flex justify-between gap-2 pt-2">
                     <button type="button" wire:click="closeCustomerModal" class="text-sm text-chrome-500 hover:text-chrome-700">{{ __('Back') }}</button>
                     <button type="submit" class="o-btn-primary">{{ __('Add customer') }}</button>
                 </div>

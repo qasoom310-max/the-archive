@@ -408,103 +408,135 @@
                                 </button>
                             @endif
                         </td>
-                        {{-- Icon actions. Four text links per row made the column wide
-                             and hard to scan; icons keep it compact. Every one carries a
-                             `title` (hover tooltip) AND an `aria-label`, so the meaning
-                             is available by pointing at it and to a screen reader —
-                             an icon alone would just be a mystery glyph. --}}
+                        {{-- One 3-dot menu per row instead of a row of icons — five
+                             possible actions made the column wide and forced a
+                             sideways scroll just to reach it on a phone. Same
+                             isolated-per-row Alpine scope + @click.outside as the
+                             app-bar dropdowns, and the SAME `fixed`-at-viewport-
+                             coords trick: this table sits in an `overflow-x-auto`
+                             wrapper, which (per the CSS overflow spec) also clips
+                             vertical overflow, so an `absolute` panel opened from a
+                             row near the bottom would be cut off. --}}
                         <td class="sticky end-0 z-10 bg-white px-2 py-2 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)] group-hover:bg-chrome-50">
-                            @php $act = 'inline-flex size-7 items-center justify-center rounded-lg transition'; @endphp
-                            <div class="flex items-center gap-0.5">
-                                {{-- Open the full booking --}}
-                                <a href="{{ url('/app/limousine/booking/' . $leg->legable_id) }}" wire:navigate
-                                   title="{{ __('Open full booking') }}" aria-label="{{ __('Open full booking') }}"
-                                   class="{{ $act }} text-chrome-500 hover:bg-primary-50 hover:text-primary-700">
-                                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+                            @php
+                                $item = 'flex w-full items-center gap-2 px-3 py-1.5 text-start text-xs font-medium text-chrome-700 hover:bg-chrome-50';
+                                $icon = 'size-4 shrink-0 text-chrome-400';
+                            @endphp
+                            <div x-data="{ open: false, coords: {} }" @click.outside="open = false"
+                                 @keydown.escape.window="open = false" class="relative">
+                                <button type="button"
+                                    @click="
+                                        open = ! open;
+                                        if (open) {
+                                            const r = $event.currentTarget.getBoundingClientRect();
+                                            const rtl = document.documentElement.getAttribute('dir') === 'rtl';
+                                            const margin = 8, panelW = 224, maxOff = window.innerWidth - panelW - margin;
+                                            const left = Math.max(margin, Math.min(r.right - panelW, maxOff));
+                                            const right = Math.max(margin, Math.min(window.innerWidth - r.right, maxOff));
+                                            coords = { top: r.bottom + 4, left, right, rtl };
+                                        }
+                                    "
+                                    class="inline-flex size-7 items-center justify-center rounded-lg text-chrome-500 transition hover:bg-chrome-100"
+                                    :aria-expanded="open" aria-haspopup="true"
+                                    title="{{ __('Actions') }}" aria-label="{{ __('Actions') }}">
+                                    <svg class="size-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path d="M10 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"/>
                                     </svg>
-                                </a>
+                                </button>
 
-                                @if ($mayEdit)
-                                    {{-- Booking-level details (passenger, flight, rate…) are
-                                         shared by every leg, so they are edited per booking.
-                                         Gone once this trip is done: a finished trip is a
-                                         record, not a draft. --}}
-                                    <button type="button" wire:click="openEdit({{ $leg->legable_id }}, {{ $leg->id }})"
-                                            title="{{ __('Edit booking details') }}" aria-label="{{ __('Edit booking details') }}"
-                                            class="{{ $act }} text-chrome-500 hover:bg-primary-50 hover:text-primary-700">
-                                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/>
+                                <div x-show="open" x-cloak x-transition.opacity.duration.100ms
+                                     :style="`top:${coords.top}px; ${coords.rtl ? 'right:' + coords.right + 'px' : 'left:' + coords.left + 'px'}`"
+                                     class="fixed z-30 w-56 overflow-hidden rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
+                                    <a href="{{ url('/app/limousine/booking/' . $leg->legable_id) }}" wire:navigate
+                                       @click="open = false" class="{{ $item }}">
+                                        <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
                                         </svg>
-                                    </button>
-                                @endif
+                                        {{ __('Open full booking') }}
+                                    </a>
 
-                                {{-- Service Order PDF — the per-trip sheet. --}}
-                                <a href="{{ url('/app/limousine/service-order/' . $leg->id) }}" target="_blank" rel="noopener"
-                                   title="{{ __('Service order (PDF)') }}" aria-label="{{ __('Service order (PDF)') }}"
-                                   class="{{ $act }} text-chrome-500 hover:bg-primary-50 hover:text-primary-700">
-                                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
-                                    </svg>
-                                </a>
-
-                                {{-- Online payment link (Wanaan website → Tap). Only when the portal is on. --}}
-                                @if ($portalOn)
-                                    <button type="button" wire:click="openPaymentLink({{ $leg->id }})"
-                                            title="{{ __('Create payment link') }}" aria-label="{{ __('Create payment link') }}"
-                                            class="{{ $act }} text-chrome-500 hover:bg-primary-50 hover:text-primary-700">
-                                        <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3M3.75 19.5h16.5A2.25 2.25 0 0 0 22.5 17.25V6.75A2.25 2.25 0 0 0 20.25 4.5H3.75A2.25 2.25 0 0 0 1.5 6.75v10.5A2.25 2.25 0 0 0 3.75 19.5Z"/>
-                                        </svg>
-                                    </button>
-                                @endif
-
-                                @if ($canAssign)
-                                    @php $canSign = $signable[$leg->id] ?? true; @endphp
-                                    @if ($leg->isSigned())
-                                        {{-- Signed: the proof exists, nothing left to send. --}}
-                                        <span class="{{ $act }} text-emerald-600"
-                                              title="{{ __('Signed by') }} {{ $leg->signed_name }} · {{ $leg->signed_at?->isoFormat('DD-MMM-YY HH:mm') }}"
-                                              aria-label="{{ __('Signed') }}">
-                                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                                    @if ($mayEdit)
+                                        {{-- Booking-level details (passenger, flight, rate…) are
+                                             shared by every leg, so they are edited per booking.
+                                             Gone once this trip is done: a finished trip is a
+                                             record, not a draft. --}}
+                                        <button type="button" @click="open = false"
+                                                wire:click="openEdit({{ $leg->legable_id }}, {{ $leg->id }})"
+                                                class="{{ $item }}">
+                                            <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/>
                                             </svg>
-                                        </span>
-                                    @elseif ($leg->service_order_sent_at)
-                                        {{-- Sent: a green tick says so, and the paper plane
-                                             beside it resends a bounced mail or lapsed link. --}}
-                                        <span class="{{ $act }} text-emerald-600"
-                                              title="{{ ($canSign ? __('Sent to sign') : __('Company notified')) }} · {{ $leg->service_order_sent_at->isoFormat('DD-MMM-YY HH:mm') }}"
-                                              aria-label="{{ $canSign ? __('Sent to sign') : __('Company notified') }}">
-                                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
-                                            </svg>
-                                        </span>
-                                        <button type="button" wire:click="sendServiceOrder({{ $leg->id }})"
-                                                wire:confirm="{{ __('Send this again?') }}"
-                                                title="{{ __('Resend') }}" aria-label="{{ __('Resend') }}"
-                                                class="{{ $act }} text-chrome-400 hover:bg-primary-50 hover:text-primary-700">
-                                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356m-.001 0-3.181 3.183a8.25 8.25 0 0 0-13.803 3.7M4.031 9.865v4.992m0 0h4.992m-4.993 0 3.181-3.183a8.25 8.25 0 0 0 13.803-3.7"/>
-                                            </svg>
-                                        </button>
-                                    @else
-                                        {{-- A company books for its guest, so it is told the
-                                             driver arrived rather than asked to sign for a
-                                             trip it was not on. --}}
-                                        <button type="button" wire:click="sendServiceOrder({{ $leg->id }})"
-                                                wire:confirm="{{ $canSign
-                                                    ? __('Email the customer a link to sign this service order?')
-                                                    : __('Email the company that the driver has reached their customer?') }}"
-                                                title="{{ $canSign ? __('Send to sign') : __('Notify company') }}"
-                                                aria-label="{{ $canSign ? __('Send to sign') : __('Notify company') }}"
-                                                class="{{ $act }} text-chrome-500 hover:bg-primary-50 hover:text-primary-700">
-                                            <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"/>
-                                            </svg>
+                                            {{ __('Edit booking details') }}
                                         </button>
                                     @endif
-                                @endif
+
+                                    {{-- Service Order PDF — the per-trip sheet. --}}
+                                    <a href="{{ url('/app/limousine/service-order/' . $leg->id) }}" target="_blank" rel="noopener"
+                                       @click="open = false" class="{{ $item }}">
+                                        <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
+                                        </svg>
+                                        {{ __('Service order (PDF)') }}
+                                    </a>
+
+                                    {{-- Online payment link (Wanaan website → Tap). Only when the portal is on. --}}
+                                    @if ($portalOn)
+                                        <button type="button" @click="open = false" wire:click="openPaymentLink({{ $leg->id }})"
+                                                class="{{ $item }}">
+                                            <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3M3.75 19.5h16.5A2.25 2.25 0 0 0 22.5 17.25V6.75A2.25 2.25 0 0 0 20.25 4.5H3.75A2.25 2.25 0 0 0 1.5 6.75v10.5A2.25 2.25 0 0 0 3.75 19.5Z"/>
+                                            </svg>
+                                            {{ __('Create payment link') }}
+                                        </button>
+                                    @endif
+
+                                    @if ($canAssign)
+                                        @php $canSign = $signable[$leg->id] ?? true; @endphp
+                                        <div class="my-1 border-t border-chrome-100"></div>
+                                        @if ($leg->isSigned())
+                                            {{-- Signed: the proof exists, nothing left to send. --}}
+                                            <div class="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-emerald-600"
+                                                 title="{{ __('Signed by') }} {{ $leg->signed_name }} · {{ $leg->signed_at?->isoFormat('DD-MMM-YY HH:mm') }}">
+                                                <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                                                </svg>
+                                                {{ __('Signed') }}
+                                            </div>
+                                        @elseif ($leg->service_order_sent_at)
+                                            {{-- Sent: a green tick says so, and Resend covers a
+                                                 bounced mail or lapsed link. --}}
+                                            <div class="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-emerald-600"
+                                                 title="{{ $leg->service_order_sent_at->isoFormat('DD-MMM-YY HH:mm') }}">
+                                                <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+                                                </svg>
+                                                {{ $canSign ? __('Sent to sign') : __('Company notified') }}
+                                            </div>
+                                            <button type="button" @click="open = false" wire:click="sendServiceOrder({{ $leg->id }})"
+                                                    wire:confirm="{{ __('Send this again?') }}"
+                                                    class="{{ $item }}">
+                                                <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992V4.356m-.001 0-3.181 3.183a8.25 8.25 0 0 0-13.803 3.7M4.031 9.865v4.992m0 0h4.992m-4.993 0 3.181-3.183a8.25 8.25 0 0 0 13.803-3.7"/>
+                                                </svg>
+                                                {{ __('Resend') }}
+                                            </button>
+                                        @else
+                                            {{-- A company books for its guest, so it is told the
+                                                 driver arrived rather than asked to sign for a
+                                                 trip it was not on. --}}
+                                            <button type="button" @click="open = false" wire:click="sendServiceOrder({{ $leg->id }})"
+                                                    wire:confirm="{{ $canSign
+                                                        ? __('Email the customer a link to sign this service order?')
+                                                        : __('Email the company that the driver has reached their customer?') }}"
+                                                    class="{{ $item }}">
+                                                <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"/>
+                                                </svg>
+                                                {{ $canSign ? __('Send to sign') : __('Notify company') }}
+                                            </button>
+                                        @endif
+                                    @endif
+                                </div>
                             </div>
                         </td>
                     </tr>

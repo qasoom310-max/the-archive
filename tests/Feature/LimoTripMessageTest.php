@@ -129,4 +129,46 @@ final class LimoTripMessageTest extends TestCase
         $this->assertStringContainsString("Pick up: A'Ali H174", $text);
         $this->assertStringNotContainsString('http', $text);
     }
+
+    /**
+     * A company's trips are settled on its account, not by the driver
+     * collecting cash from whoever is riding — so neither "collect from
+     * customer" nor "Paid" belongs in the message for one.
+     */
+    public function test_a_company_customer_gets_no_balance_or_paid_line(): void
+    {
+        $leg = $this->leg(
+            ['customer' => ['type' => LimoCustomer::TYPE_COMPANY], 'advance' => 0],
+        );
+
+        $text = app(LimoQueueRows::class)->whatsappText($leg);
+
+        $this->assertStringNotContainsString('Balance', $text);
+        $this->assertStringNotContainsString('Paid', $text);
+        $this->assertStringNotContainsString('✅', $text);
+    }
+
+    /** Even fully settled, a company still gets no "Paid" line. */
+    public function test_a_settled_company_trip_still_gets_no_paid_line(): void
+    {
+        $leg = $this->leg([
+            'customer' => ['type' => LimoCustomer::TYPE_COMPANY],
+            'advance' => 14, 'payment_status' => LimoBooking::PAYMENT_PAID,
+        ]);
+
+        $text = app(LimoQueueRows::class)->whatsappText($leg);
+
+        $this->assertStringNotContainsString('Balance', $text);
+        $this->assertStringNotContainsString('Paid', $text);
+    }
+
+    /** An individual customer is unaffected — the balance line stays. */
+    public function test_an_individual_customer_still_gets_the_balance_line(): void
+    {
+        $leg = $this->leg(['customer' => ['type' => 'individual'], 'advance' => 0]);
+
+        $text = app(LimoQueueRows::class)->whatsappText($leg);
+
+        $this->assertStringContainsString('Balance 14.000 BD', $text);
+    }
 }

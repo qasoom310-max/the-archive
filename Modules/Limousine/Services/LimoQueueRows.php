@@ -366,14 +366,19 @@ final class LimoQueueRows
         }
 
         // Money the driver has to handle is the line that must not be missed, so
-        // it sits above the route rather than buried at the end.
-        $balance = round($booking?->balanceDue() ?? 0.0, 3);
-        if ($balance > 0.001) {
-            $method = $booking !== null ? trim((string) ($booking->payment_method ?? '')) : '';
-            $collect = __('Balance :amount BD — collect from customer', ['amount' => number_format($balance, 3)]);
-            $lines[] = '*' . ($method !== '' ? $collect . ' ' . __('in') . ' ' . ucfirst($method) : $collect) . '*';
-        } else {
-            $lines[] = '✅ ' . __('Paid');
+        // it sits above the route rather than buried at the end — but only for
+        // an individual: a company's trips are settled on its account, not by
+        // the driver collecting cash from whoever is riding, so neither "collect
+        // from customer" nor "Paid" applies and the line is left out entirely.
+        if ($customer === null || ! $customer->isCompany()) {
+            $balance = round($booking?->balanceDue() ?? 0.0, 3);
+            if ($balance > 0.001) {
+                $method = $booking !== null ? trim((string) ($booking->payment_method ?? '')) : '';
+                $collect = __('Balance :amount BD — collect from customer', ['amount' => number_format($balance, 3)]);
+                $lines[] = '*' . ($method !== '' ? $collect . ' ' . __('in') . ' ' . ucfirst($method) : $collect) . '*';
+            } else {
+                $lines[] = '✅ ' . __('Paid');
+            }
         }
 
         $lines[] = '';

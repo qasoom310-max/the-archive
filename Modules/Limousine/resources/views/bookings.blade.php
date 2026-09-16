@@ -172,11 +172,11 @@
          scroll the table sheds columns as the screen narrows: what identifies
          and actions a job always stays, the rest return as there is room.
            phone  reference · from date · to date · type · customer · pickup ·
-                  drop off · status · actions
+                  drop off · vehicle · status · actions
            sm     + no. · amount
            md     + payment
            lg     (nothing left to add here)
-           xl     + received · balance · vehicle · driver
+           xl     + received · balance · driver
            2xl    everything (added by, comments, booked time)
          Exports and Print carry ALL columns whatever the screen, so nothing is
          lost — it is only hidden from this view. --}}
@@ -192,7 +192,7 @@
             'balance' => 'hidden xl:table-cell',
             'pickup' => '',
             'dropoff' => '',
-            'vehicle' => 'hidden xl:table-cell',
+            'vehicle' => '',
             'driver' => 'hidden xl:table-cell',
             'added_by' => 'hidden 2xl:table-cell',
             'comments' => 'hidden 2xl:table-cell',
@@ -314,7 +314,7 @@
                             title="{{ __('Still owed on booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['balance']) }}</td>
                         <td class="px-2 py-2 text-chrome-600">{{ $row['pickup'] ?: '—' }}</td>
                         <td class="px-2 py-2 text-chrome-600">{{ $row['dropoff'] ?: '—' }}</td>
-                        <td class="hidden px-2 py-2 xl:table-cell">
+                        <td class="px-2 py-2">
                             @if ($row['vehicle'] !== '')
                                 <span class="text-chrome-700">{{ $row['vehicle'] }}</span>
                                 @if ($mayEdit)

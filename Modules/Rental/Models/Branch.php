@@ -23,6 +23,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 final class Branch extends Model implements DefinesIrModel
 {
+    use \App\Models\Concerns\ActiveOrSelected;
+
     protected $table = 'rental_branches';
 
     /** @var list<string> */

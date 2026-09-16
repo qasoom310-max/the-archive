@@ -416,7 +416,10 @@ final class QuotationForm extends Component
     public function render(): View
     {
         return view('limousine::quotation-form', [
-            'customers' => LimoCustomer::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'phone']),
+            // See BookingForm::render() — an already-selected customer must
+            // stay visible even if it was deactivated after this quotation
+            // was raised.
+            'customers' => LimoCustomer::activeOrSelected($this->customer_id, ['id', 'name', 'phone']),
             'isEditing' => $this->id !== null,
             'validUntilLabel' => $this->parseDate($this->valid_until)?->isoFormat('DD-MMM-YYYY') ?? '—',
             ...$this->legViewData(),

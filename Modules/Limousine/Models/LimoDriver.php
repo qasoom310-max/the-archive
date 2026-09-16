@@ -38,6 +38,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class LimoDriver extends Model implements DefinesIrModel
 {
+    use \App\Models\Concerns\ActiveOrSelected;
     use \App\Models\Concerns\GuardsDeletionWhenReferenced;
     use \Modules\Rental\Models\Concerns\DriverDeletionReferences;
     use \Modules\Rental\Models\Concerns\HasDriverLicence;

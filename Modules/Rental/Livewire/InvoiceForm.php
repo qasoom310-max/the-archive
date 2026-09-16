@@ -142,7 +142,10 @@ final class InvoiceForm extends Component
         $balance = $invoice !== null ? $invoice->balance() : $this->previewTotal();
 
         return view('rental::invoice-form', [
-            'customers' => RentalCustomer::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'phone']),
+            // An already-selected customer must stay visible even if it was
+            // deactivated after this invoice was raised (mirrors Limousine's
+            // BookingForm::render()).
+            'customers' => RentalCustomer::activeOrSelected($this->customer_id, ['id', 'name', 'phone']),
             'previewTotal' => $this->previewTotal(),
             'balance' => $balance,
             'receipts' => $receipts,

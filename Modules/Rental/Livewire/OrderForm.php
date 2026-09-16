@@ -1014,11 +1014,13 @@ final class OrderForm extends Component
         }
 
         return view('rental::order-form', [
-            'customers' => RentalCustomer::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'phone']),
+            // Each already-selected customer/driver/branch must stay visible
+            // even if it was deactivated after this order was raised.
+            'customers' => RentalCustomer::activeOrSelected($this->customer_id, ['id', 'name', 'phone']),
             'vehicles' => $vehiclesQuery->orderBy('name')->get($cols),
             'isSuperAdmin' => $isSuperAdmin,
-            'drivers' => Driver::query()->where('active', true)->orderBy('name')->get(['id', 'name']),
-            'branches' => Branch::query()->where('active', true)->orderBy('name')->get(['id', 'name']),
+            'drivers' => Driver::activeOrSelected($this->driver_id, ['id', 'name']),
+            'branches' => Branch::activeOrSelected($this->branch_id, ['id', 'name']),
             'selectedVehicle' => $selectedVehicle,
             'paymentTypes' => RentalOrder::paymentTypeOptions(),
             'fuelLevels' => RentalOrder::fuelLevelOptions(),

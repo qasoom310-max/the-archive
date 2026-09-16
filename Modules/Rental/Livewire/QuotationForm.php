@@ -269,10 +269,13 @@ final class QuotationForm extends Component
         $preview = $this->previewQuote();
 
         return view('rental::quotation-form', [
-            'customers' => RentalCustomer::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'phone']),
-            'vehicles' => Vehicle::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'plate_no', 'color', 'status']),
-            'drivers' => Driver::query()->where('active', true)->orderBy('name')->get(['id', 'name']),
-            'branches' => Branch::query()->where('active', true)->orderBy('name')->get(['id', 'name']),
+            // Each already-selected customer/vehicle/driver/branch must stay
+            // visible even if it was deactivated after this quotation was
+            // raised.
+            'customers' => RentalCustomer::activeOrSelected($this->customer_id, ['id', 'name', 'phone']),
+            'vehicles' => Vehicle::activeOrSelected($this->vehicle_id, ['id', 'name', 'plate_no', 'color', 'status']),
+            'drivers' => Driver::activeOrSelected($this->driver_id, ['id', 'name']),
+            'branches' => Branch::activeOrSelected($this->branch_id, ['id', 'name']),
             'previewDays' => $preview->days,
             'previewUnits' => $preview->billableUnits(),
             'previewSubtotal' => $preview->subtotal,

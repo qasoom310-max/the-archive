@@ -264,7 +264,9 @@ final class MaintenanceForm extends Component
     public function render(): View
     {
         return view('rental::maintenance-form', [
-            'vehicles' => Vehicle::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'plate_no', 'color', 'status']),
+            // The already-selected vehicle must stay visible even if it was
+            // deactivated after this maintenance record was raised.
+            'vehicles' => Vehicle::activeOrSelected($this->vehicle_id, ['id', 'name', 'plate_no', 'color', 'status']),
             'typeOptions' => RentalMaintenance::typeOptions(),
             'priorityOptions' => RentalMaintenance::priorityOptions(),
             'canApprove' => $this->canApprove(),

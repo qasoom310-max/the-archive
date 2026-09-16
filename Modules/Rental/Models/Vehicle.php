@@ -8,6 +8,7 @@ use App\Erp\Contracts\DefinesIrModel;
 use App\Erp\Registry\FieldDefinition;
 use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
+use App\Models\Concerns\ActiveOrSelected;
 use App\Models\Concerns\GuardsDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -49,6 +50,7 @@ use Illuminate\Support\Carbon;
  */
 final class Vehicle extends Model implements DefinesIrModel
 {
+    use ActiveOrSelected;
     use GuardsDeletionWhenReferenced;
 
     /**

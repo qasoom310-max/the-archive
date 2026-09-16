@@ -428,7 +428,10 @@ final class InvoiceForm extends Component
             : null;
 
         return view('limousine::invoice-form', [
-            'customers' => LimoCustomer::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'phone']),
+            // See BookingForm::render() — an already-selected customer must
+            // stay visible even if it was deactivated after this invoice
+            // was raised.
+            'customers' => LimoCustomer::activeOrSelected($this->customer_id, ['id', 'name', 'phone']),
             'quotes' => $this->id === null ? $this->billableQuotes() : collect(),
             'selectedQuote' => $selectedQuote,
             'previewTotal' => $selectedQuote !== null ? (float) $selectedQuote->fare : $this->previewTotal(),

@@ -667,7 +667,10 @@ final class BookingForm extends Component
         $grand = $this->grandTotal();
 
         return view('limousine::booking-form', [
-            'customers' => LimoCustomer::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'phone']),
+            // Active customers, plus whoever is already on this booking even
+            // if since deactivated — otherwise editing an old booking whose
+            // customer was later archived renders the Customer field blank.
+            'customers' => LimoCustomer::activeOrSelected($this->customer_id, ['id', 'name', 'phone']),
             'bookingTypes' => LimoBooking::bookingTypeOptions(),
             'paymentMethods' => LimoBooking::paymentMethodOptions(),
             // Balance is what the customer actually hands over, so the credit

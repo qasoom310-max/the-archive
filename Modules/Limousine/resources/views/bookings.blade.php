@@ -266,16 +266,21 @@
                         {{-- The reference IS the copy button: press it and the whole
                              trip lands on the clipboard, formatted for WhatsApp. That
                              is what the office does with a booking, so it should be
-                             one press from the number they are already looking at. --}}
+                             one press from the number they are already looking at.
+                             (The quick-preview modal that briefly lived behind this
+                             button is still reachable from the "View" link on the
+                             just-saved banner — only the reference's own click
+                             reverted, per the office's request.) --}}
                         <td class="px-2 py-2 font-medium text-chrome-800">
-                            {{-- A glance at the whole booking without leaving the
-                                 list or committing to the full page. The WhatsApp
-                                 copy this used to do lives inside the preview now,
-                                 per trip, so nothing was actually dropped. --}}
-                            <button type="button" wire:click="openPreview({{ $leg->legable_id }})"
-                                    title="{{ __('Preview booking') }}"
+                            <button type="button" x-data="{ done: false }"
+                                    x-on:click="
+                                        $store.limoTrip.copy(@js($whatsapp[$leg->id] ?? ''));
+                                        done = true; setTimeout(() => done = false, 1500)
+                                    "
+                                    title="{{ __('Copy trip details for WhatsApp') }}"
                                     class="text-start font-medium text-primary-700 hover:underline">
-                                {{ $row['reference'] ?: '—' }}
+                                <span x-show="! done">{{ $row['reference'] ?: '—' }}</span>
+                                <span x-show="done" x-cloak class="text-emerald-600">✓ {{ __('Copied') }}</span>
                             </button>
                             <span class="block text-[11px] font-normal text-chrome-400">{{ $row['booking_reference'] }}</span>
                         </td>

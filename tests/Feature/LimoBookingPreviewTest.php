@@ -98,18 +98,22 @@ final class LimoBookingPreviewTest extends TestCase
     }
 
     /**
-     * The reference in the queue opens the preview now — it used to copy the
-     * trip to the clipboard on click. That copy action moved INTO the
-     * preview (one per leg), it was not dropped.
+     * The reference in the queue copies the trip to the clipboard on click —
+     * reverted 2026-09-16 after the office asked for the old behaviour back.
+     * It briefly opened the preview instead; the preview itself is still
+     * reachable from the just-saved banner's "View" link.
      */
-    public function test_the_reference_in_the_queue_opens_the_preview_instead_of_copying(): void
+    public function test_the_reference_in_the_queue_copies_the_trip_instead_of_opening_the_preview(): void
     {
         $booking = $this->booking();
+        $leg = $booking->legs()->firstOrFail();
 
         $html = Livewire::test(Bookings::class)->html();
 
-        $this->assertStringContainsString("wire:click=\"openPreview({$booking->id})\"", $html);
-        $this->assertStringNotContainsString('Copy trip details for WhatsApp', $html);
+        $this->assertStringNotContainsString("wire:click=\"openPreview({$booking->id})\"", $html);
+        $this->assertStringContainsString('store.limoTrip.copy', $html);
+        $this->assertStringContainsString('Copy trip details for WhatsApp', $html);
+        $this->assertStringContainsString($leg->reference, $html);
     }
 
     /** Closed, the copy action is nowhere on the page; open, it is — per leg. */

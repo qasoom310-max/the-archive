@@ -171,10 +171,10 @@
     {{-- 17 data columns can never fit a phone, so rather than force a sideways
          scroll the table sheds columns as the screen narrows: what identifies
          and actions a job always stays, the rest return as there is room.
-           phone  reference · customer · status · actions
+           phone  reference · from date · to date · type · customer · status · actions
            sm     + no. · amount
-           md     + from date · payment
-           lg     + to date · type · pickup · drop off
+           md     + payment
+           lg     + pickup · drop off
            xl     + received · balance · vehicle · driver
            2xl    everything (added by, comments, booked time)
          Exports and Print carry ALL columns whatever the screen, so nothing is
@@ -182,9 +182,9 @@
     @php
         $vis = [
             'reference' => '',
-            'from_date' => 'hidden md:table-cell',
-            'to_date' => 'hidden lg:table-cell',
-            'type' => 'hidden lg:table-cell',
+            'from_date' => '',
+            'to_date' => '',
+            'type' => '',
             'customer' => '',
             'amount' => 'hidden sm:table-cell',
             'received' => 'hidden xl:table-cell',
@@ -278,9 +278,9 @@
                             </button>
                             <span class="block text-[11px] font-normal text-chrome-400">{{ $row['booking_reference'] }}</span>
                         </td>
-                        <td class="hidden px-2 py-2 text-chrome-600 md:table-cell">{{ $row['from_date'] ?: '—' }}</td>
-                        <td class="hidden px-2 py-2 text-chrome-600 lg:table-cell">{{ $row['to_date'] ?: '—' }}</td>
-                        <td class="hidden px-2 py-2 text-chrome-600 lg:table-cell">{{ $row['type'] }}</td>
+                        <td class="px-2 py-2 text-chrome-600">{{ $row['from_date'] ?: '—' }}</td>
+                        <td class="px-2 py-2 text-chrome-600">{{ $row['to_date'] ?: '—' }}</td>
+                        <td class="px-2 py-2 text-chrome-600">{{ $row['type'] }}</td>
                         {{-- The name is the way into their account: what they
                              have asked for, what is billed and what is owed.
                              stopPropagation so it doesn't also open the row. --}}

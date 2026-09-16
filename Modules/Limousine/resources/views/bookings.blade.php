@@ -1171,9 +1171,9 @@
                         @endif
                     </div>
 
-                    <div class="flex items-center justify-end gap-2 border-t border-chrome-200 px-5 py-3">
-                        <a href="{{ url('/app/limousine/booking/' . $previewing->id) }}" wire:navigate class="o-btn-primary text-sm">{{ __('Open full booking') }}</a>
+                    <div class="flex items-center justify-between gap-2 border-t border-chrome-200 px-5 py-3">
                         <button type="button" wire:click="closePreview" class="o-btn-ghost text-sm">{{ __('Close') }}</button>
+                        <a href="{{ url('/app/limousine/booking/' . $previewing->id) }}" wire:navigate class="o-btn-primary text-sm">{{ __('Open full booking') }}</a>
                     </div>
                 </div>
             </div>

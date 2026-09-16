@@ -18,8 +18,8 @@
             </div>
         </div>
 
-        {{-- Ten is enough to glance at; five hundred is for the day somebody is
-             going through a driver properly. Both are one press. --}}
+        {{-- Twenty-five is enough to glance at; three hundred is for the day
+             somebody is going through a driver properly. Both are one press. --}}
         <div class="flex items-center gap-1">
             <span class="text-xs text-chrome-500">{{ __('Show') }}</span>
             @foreach ($perPageOptions as $size)

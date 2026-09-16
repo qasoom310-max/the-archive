@@ -17,8 +17,8 @@ use Modules\Rental\Models\Driver;
 use Tests\TestCase;
 
 /**
- * Long lists: ten at a time, searchable, and as many as five hundred when
- * somebody is going through them properly.
+ * Long lists: twenty-five at a time, searchable, and as many as three hundred
+ * when somebody is going through them properly.
  *
  * A driver on four jobs a day fills a month with a hundred and twenty. The
  * whole lot on one screen is a scroll with no bottom, and a fixed page size is
@@ -69,40 +69,40 @@ final class DriverJobsPagingTest extends TestCase
         return $driver;
     }
 
-    public function test_it_shows_ten_at_a_time_by_default(): void
+    public function test_it_shows_twenty_five_at_a_time_by_default(): void
     {
-        $driver = $this->driverWithJobs(25);
+        $driver = $this->driverWithJobs(60);
 
         $component = Livewire::test(DriverJobs::class, ['driverId' => $driver->id])
-            ->assertSet('perPage', 10)
-            ->assertViewHas('total', 25);
+            ->assertSet('perPage', 25)
+            ->assertViewHas('total', 60);
 
-        $this->assertCount(10, $component->viewData('jobs')->items());
+        $this->assertCount(25, $component->viewData('jobs')->items());
     }
 
     public function test_the_rest_are_on_further_pages(): void
     {
-        $driver = $this->driverWithJobs(25);
+        $driver = $this->driverWithJobs(60);
 
         $component = Livewire::test(DriverJobs::class, ['driverId' => $driver->id]);
 
         // Newest first: page one opens on yesterday's job.
-        $component->assertSee('70001')->assertDontSee('70025');
+        $component->assertSee('70001')->assertDontSee('70060');
 
         $component->call('setPage', 3, 'jobsPage');
-        // 25 jobs at ten a page leaves five on the third.
-        $this->assertCount(5, $component->viewData('jobs')->items());
-        $component->assertSee('70025');
+        // 60 jobs at twenty-five a page leaves ten on the third.
+        $this->assertCount(10, $component->viewData('jobs')->items());
+        $component->assertSee('70060');
     }
 
-    public function test_the_office_can_ask_for_five_hundred(): void
+    public function test_the_office_can_ask_for_three_hundred(): void
     {
         $driver = $this->driverWithJobs(120);
 
         $component = Livewire::test(DriverJobs::class, ['driverId' => $driver->id]);
-        $this->assertCount(10, $component->viewData('jobs')->items());
+        $this->assertCount(25, $component->viewData('jobs')->items());
 
-        $component->call('setPerPage', 500)->assertSet('perPage', 500);
+        $component->call('setPerPage', 300)->assertSet('perPage', 300);
         // The month over, all at once.
         $this->assertCount(120, $component->viewData('jobs')->items());
     }
@@ -110,11 +110,11 @@ final class DriverJobsPagingTest extends TestCase
     /** A page size nobody offered is refused rather than trusted. */
     public function test_an_unoffered_page_size_is_ignored(): void
     {
-        $driver = $this->driverWithJobs(25);
+        $driver = $this->driverWithJobs(60);
 
         Livewire::test(DriverJobs::class, ['driverId' => $driver->id])
             ->call('setPerPage', 100000)
-            ->assertSet('perPage', 10);
+            ->assertSet('perPage', 25);
     }
 
     public function test_the_history_can_be_searched(): void
@@ -142,7 +142,7 @@ final class DriverJobsPagingTest extends TestCase
 
     public function test_searching_returns_to_the_first_page(): void
     {
-        $driver = $this->driverWithJobs(25);
+        $driver = $this->driverWithJobs(60);
 
         Livewire::test(DriverJobs::class, ['driverId' => $driver->id])
             ->call('setPage', 3, 'jobsPage')
@@ -179,26 +179,26 @@ final class DriverJobsPagingTest extends TestCase
         }
     }
 
-    public function test_the_queue_shows_ten_and_offers_five_hundred(): void
+    public function test_the_queue_shows_twenty_five_and_offers_three_hundred(): void
     {
-        $this->queueOf(25);
+        $this->queueOf(60);
 
-        $component = Livewire::test(Bookings::class)->assertSet('perPage', 10);
-        $this->assertCount(10, $component->viewData('legs')->items());
-
-        $component->call('setPerPage', 500)->assertSet('perPage', 500);
+        $component = Livewire::test(Bookings::class)->assertSet('perPage', 25);
         $this->assertCount(25, $component->viewData('legs')->items());
+
+        $component->call('setPerPage', 300)->assertSet('perPage', 300);
+        $this->assertCount(60, $component->viewData('legs')->items());
     }
 
     /** The page size holds across the tabs — it is how the office reads, not a per-tab setting. */
     public function test_the_page_size_survives_a_tab_change(): void
     {
-        $this->queueOf(25);
+        $this->queueOf(60);
 
         Livewire::test(Bookings::class)
-            ->call('setPerPage', 25)
+            ->call('setPerPage', 50)
             ->set('tab', 'queue')
-            ->assertSet('perPage', 25);
+            ->assertSet('perPage', 50);
     }
 
     public function test_the_queue_refuses_a_page_size_nobody_offered(): void
@@ -207,6 +207,6 @@ final class DriverJobsPagingTest extends TestCase
 
         Livewire::test(Bookings::class)
             ->call('setPerPage', 99999)
-            ->assertSet('perPage', 10);
+            ->assertSet('perPage', 25);
     }
 }

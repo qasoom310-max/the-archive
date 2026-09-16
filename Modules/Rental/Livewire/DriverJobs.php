@@ -16,9 +16,10 @@ use Modules\Rental\Services\DriverJobHistory;
  * A driver's job history: searchable, and paged rather than endless.
  *
  * Four jobs a day is a hundred and twenty a month, so the whole list on one
- * screen would be a scroll with no bottom. Ten at a time by default, with the
- * page size in the office's hands — someone auditing a driver wants five
- * hundred at once, and being told they can only have ten is its own annoyance.
+ * screen would be a scroll with no bottom. Twenty-five at a time by default,
+ * with the page size in the office's hands — someone auditing a driver wants
+ * three hundred at once, and being told they can only have twenty-five is its
+ * own annoyance.
  */
 final class DriverJobs extends Component
 {
@@ -33,10 +34,10 @@ final class DriverJobs extends Component
 
     public int $perPage = self::PER_PAGE_DEFAULT;
 
-    public const PER_PAGE_DEFAULT = 10;
+    public const PER_PAGE_DEFAULT = 25;
 
     /** @var list<int> */
-    public const PER_PAGE_OPTIONS = [10, 25, 50, 100, 500];
+    public const PER_PAGE_OPTIONS = [25, 50, 100, 300];
 
     public function mount(int $driverId): void
     {

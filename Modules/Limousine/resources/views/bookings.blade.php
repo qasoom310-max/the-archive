@@ -135,9 +135,9 @@
             <button wire:click="$set('from', ''); $set('to', ''); $set('search', '')" class="pb-2 text-sm text-chrome-500 hover:underline">{{ __('Clear') }}</button>
         @endif
 
-        {{-- Ten to glance at, five hundred for going through the month
-             properly. Rides in the URL with the filters, so a view that was
-             set up stays set up. --}}
+        {{-- Twenty-five to glance at, three hundred for going through the
+             month properly. Rides in the URL with the filters, so a view that
+             was set up stays set up. --}}
         <div class="flex items-center gap-1 pb-1">
             <span class="text-xs text-chrome-500">{{ __('Show') }}</span>
             @foreach ($perPageOptions as $size)

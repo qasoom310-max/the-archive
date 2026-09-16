@@ -90,17 +90,18 @@ final class Bookings extends Component
     /**
      * How many trips on a page.
      *
-     * Ten is enough to glance at, which is what the queue is for most of the
-     * day. Five hundred is for the times somebody is going through the month
-     * properly — and being told they can only have ten is its own annoyance.
+     * Twenty-five is enough to glance at, which is what the queue is for most
+     * of the day. Three hundred is for the times somebody is going through the
+     * month properly — and being told they can only have twenty-five is its
+     * own annoyance.
      */
     #[Url(except: self::PER_PAGE_DEFAULT)]
     public int $perPage = self::PER_PAGE_DEFAULT;
 
-    public const PER_PAGE_DEFAULT = 10;
+    public const PER_PAGE_DEFAULT = 25;
 
     /** @var list<int> */
-    public const PER_PAGE_OPTIONS = [10, 25, 50, 100, 500];
+    public const PER_PAGE_OPTIONS = [25, 50, 100, 300];
 
     protected function accessModelKey(): string
     {

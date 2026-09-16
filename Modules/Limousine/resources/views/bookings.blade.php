@@ -171,10 +171,11 @@
     {{-- 17 data columns can never fit a phone, so rather than force a sideways
          scroll the table sheds columns as the screen narrows: what identifies
          and actions a job always stays, the rest return as there is room.
-           phone  reference · from date · to date · type · customer · status · actions
+           phone  reference · from date · to date · type · customer · pickup ·
+                  drop off · status · actions
            sm     + no. · amount
            md     + payment
-           lg     + pickup · drop off
+           lg     (nothing left to add here)
            xl     + received · balance · vehicle · driver
            2xl    everything (added by, comments, booked time)
          Exports and Print carry ALL columns whatever the screen, so nothing is
@@ -189,8 +190,8 @@
             'amount' => 'hidden sm:table-cell',
             'received' => 'hidden xl:table-cell',
             'balance' => 'hidden xl:table-cell',
-            'pickup' => 'hidden lg:table-cell',
-            'dropoff' => 'hidden lg:table-cell',
+            'pickup' => '',
+            'dropoff' => '',
             'vehicle' => 'hidden xl:table-cell',
             'driver' => 'hidden xl:table-cell',
             'added_by' => 'hidden 2xl:table-cell',
@@ -306,8 +307,8 @@
                             title="{{ __('Received against booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['received']) }}</td>
                         <td class="hidden px-2 py-2 text-end xl:table-cell {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-400' }}"
                             title="{{ __('Still owed on booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['balance']) }}</td>
-                        <td class="hidden px-2 py-2 text-chrome-600 lg:table-cell">{{ $row['pickup'] ?: '—' }}</td>
-                        <td class="hidden px-2 py-2 text-chrome-600 lg:table-cell">{{ $row['dropoff'] ?: '—' }}</td>
+                        <td class="px-2 py-2 text-chrome-600">{{ $row['pickup'] ?: '—' }}</td>
+                        <td class="px-2 py-2 text-chrome-600">{{ $row['dropoff'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 xl:table-cell">
                             @if ($row['vehicle'] !== '')
                                 <span class="text-chrome-700">{{ $row['vehicle'] }}</span>

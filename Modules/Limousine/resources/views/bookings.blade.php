@@ -422,26 +422,20 @@
                              coords trick: this table sits in an `overflow-x-auto`
                              wrapper, which (per the CSS overflow spec) also clips
                              vertical overflow, so an `absolute` panel opened from a
-                             row near the bottom would be cut off. --}}
+                             row near the bottom would be cut off. `rowActionsMenu`
+                             (resources/js/app.js) additionally flips the panel to
+                             open ABOVE the trigger when there is no room below —
+                             without it, a row near the bottom of the screen opened
+                             a panel whose lower actions were cropped off-screen and
+                             unreachable by touch or by mouse. --}}
                         <td class="sticky end-0 z-10 bg-white px-2 py-2 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)] group-hover:bg-chrome-50">
                             @php
                                 $item = 'flex w-full items-center gap-2 px-3 py-1.5 text-start text-xs font-medium text-chrome-700 hover:bg-chrome-50';
                                 $icon = 'size-4 shrink-0 text-chrome-400';
                             @endphp
-                            <div x-data="{ open: false, coords: {} }" @click.outside="open = false"
+                            <div x-data="rowActionsMenu" @click.outside="open = false"
                                  @keydown.escape.window="open = false" class="relative">
-                                <button type="button"
-                                    @click="
-                                        open = ! open;
-                                        if (open) {
-                                            const r = $event.currentTarget.getBoundingClientRect();
-                                            const rtl = document.documentElement.getAttribute('dir') === 'rtl';
-                                            const margin = 8, panelW = 224, maxOff = window.innerWidth - panelW - margin;
-                                            const left = Math.max(margin, Math.min(r.right - panelW, maxOff));
-                                            const right = Math.max(margin, Math.min(window.innerWidth - r.right, maxOff));
-                                            coords = { top: r.bottom + 4, left, right, rtl };
-                                        }
-                                    "
+                                <button type="button" @click="toggle($event.currentTarget)"
                                     class="inline-flex size-7 items-center justify-center rounded-lg text-chrome-500 transition hover:bg-chrome-100"
                                     :aria-expanded="open" aria-haspopup="true"
                                     title="{{ __('Actions') }}" aria-label="{{ __('Actions') }}">
@@ -450,9 +444,9 @@
                                     </svg>
                                 </button>
 
-                                <div x-show="open" x-cloak x-transition.opacity.duration.100ms
-                                     :style="`top:${coords.top}px; ${coords.rtl ? 'right:' + coords.right + 'px' : 'left:' + coords.left + 'px'}`"
-                                     class="fixed z-30 w-56 overflow-hidden rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
+                                <div x-ref="panel" x-show="open" x-cloak x-transition.opacity.duration.100ms
+                                     :style="(coords.top === null ? 'bottom:' + coords.bottom + 'px;' : 'top:' + coords.top + 'px;') + (coords.rtl ? 'right:' + coords.right + 'px' : 'left:' + coords.left + 'px')"
+                                     class="fixed z-30 max-h-[70vh] w-56 overflow-y-auto overflow-x-hidden rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
                                     <a href="{{ url('/app/limousine/booking/' . $leg->legable_id) }}" wire:navigate
                                        @click="open = false" class="{{ $item }}">
                                         <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">

@@ -484,6 +484,46 @@ document.addEventListener('alpine:init', () => {
         },
     });
 
+    /**
+     * A per-row 3-dot actions menu, `fixed` at viewport coords so it escapes
+     * a scrollable table's `overflow-x-auto` clip (see the app-bar dropdown's
+     * own comment for why `fixed` is needed there at all).
+     *
+     * A row near the BOTTOM of the screen — on a phone, or a long list on a
+     * laptop — used to always open the panel downward regardless of whether
+     * it fit, cropping the lower items off-screen where nothing could reach
+     * them by touch or by mouse. `toggle()` measures the panel's real height
+     * (it varies per row: Edit / payment link / sign status are conditional)
+     * on the next tick and flips it to open ABOVE the trigger instead when
+     * there isn't room below; `max-h-[70vh] overflow-y-auto` on the panel
+     * itself is the last-resort fallback for a panel taller than the screen.
+     */
+    window.Alpine.data('rowActionsMenu', () => ({
+        open: false,
+        coords: { top: null, bottom: null, left: 0, right: 0, rtl: false },
+
+        toggle(triggerEl) {
+            this.open = ! this.open;
+            if (! this.open) return;
+
+            const r = triggerEl.getBoundingClientRect();
+            const rtl = document.documentElement.getAttribute('dir') === 'rtl';
+            const margin = 8, panelW = 224;
+            const maxOff = window.innerWidth - panelW - margin;
+            const left = Math.max(margin, Math.min(r.right - panelW, maxOff));
+            const right = Math.max(margin, Math.min(window.innerWidth - r.right, maxOff));
+            this.coords = { top: r.bottom + 4, bottom: null, left, right, rtl };
+
+            this.$nextTick(() => {
+                const panel = this.$refs.panel;
+                if (! panel) return;
+                if (r.bottom + 4 + panel.offsetHeight > window.innerHeight - margin) {
+                    this.coords = { ...this.coords, top: null, bottom: window.innerHeight - r.top + 4 };
+                }
+            });
+        },
+    }));
+
     window.Alpine.data('listColumnPicker', () => ({
         init(el, wire) {
             let dragging = null;

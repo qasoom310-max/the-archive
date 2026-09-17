@@ -320,6 +320,7 @@ jobs:
                php artisan module:install limousine && \
                php artisan module:resync limousine && \
                php artisan module:install woocommerce && \
+               php artisan module:install whatsapp && \
                php artisan workspaces:install-modules && \
                php artisan optimize:clear && \
                { php artisan limo:match-driver-names || true; } && \

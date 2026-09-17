@@ -172,9 +172,9 @@
          scroll the table sheds columns as the screen narrows: what identifies
          and actions a job always stays, the rest return as there is room.
            phone  reference · from date · to date · type · customer · pickup ·
-                  drop off · vehicle · status · actions
+                  drop off · vehicle · payment · actions
            sm     + no. · amount
-           md     + payment
+           md     + status
            lg     (nothing left to add here)
            xl     + received · balance · driver
            2xl    everything (added by, comments, booked time)
@@ -197,8 +197,8 @@
             'added_by' => 'hidden 2xl:table-cell',
             'comments' => 'hidden 2xl:table-cell',
             'booked_time' => 'hidden 2xl:table-cell',
-            'status' => '',
-            'payment' => 'hidden md:table-cell',
+            'status' => 'hidden md:table-cell',
+            'payment' => '',
         ];
     @endphp
     <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
@@ -347,7 +347,7 @@
                         <td class="hidden px-2 py-2 text-chrome-600 2xl:table-cell">{{ $row['added_by'] ?: '—' }}</td>
                         <td class="hidden max-w-[16rem] px-2 py-2 text-chrome-600 2xl:table-cell">{{ $row['comments'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 text-chrome-500 2xl:table-cell">{{ $row['booked_time'] ?: '—' }}</td>
-                        <td class="px-2 py-2">
+                        <td class="hidden px-2 py-2 md:table-cell">
                             @php
                                 // One icon per step, so the row shows what it can DO
                                 // next rather than spelling it out in words. Each keeps
@@ -399,7 +399,7 @@
                                 </span>
                             @endif
                         </td>
-                        <td class="hidden px-2 py-2 md:table-cell">
+                        <td class="px-2 py-2">
                             <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $row['payment'] === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($row['payment'])) }}</span>
                             {{-- Taking money is a booking-level act, so it is offered
                                  from any of its trips and settles all of them. --}}

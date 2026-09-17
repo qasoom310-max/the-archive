@@ -41,6 +41,7 @@ final class ActivityLog extends Model
     public const LABELS = [
         'login' => 'Signed in',
         'logout' => 'Signed out',
+        'logout_idle' => 'Signed out (inactive)',
         'login_failed' => 'Failed sign-in',
         'created' => 'Created',
         'updated' => 'Updated',
@@ -77,6 +78,7 @@ final class ActivityLog extends Model
     public const COLORS = [
         'login' => 'bg-emerald-100 text-emerald-700',
         'logout' => 'bg-chrome-100 text-chrome-600',
+        'logout_idle' => 'bg-chrome-100 text-chrome-600',
         'login_failed' => 'bg-red-100 text-red-700',
         'created' => 'bg-sky-100 text-sky-700',
         'updated' => 'bg-amber-100 text-amber-700',

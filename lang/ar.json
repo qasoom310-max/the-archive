@@ -2907,5 +2907,7 @@
     "≈ :amount BHD": "≈ :amount د.ب",
     "Retry": "إعادة المحاولة",
     ":quote :currency ≈ :amount BHD": ":quote :currency ≈ :amount د.ب",
-    "Could not fetch today's exchange rate. Check your connection and try again.": "تعذّر جلب سعر الصرف اليوم. تحقّق من اتصالك وحاول مرة أخرى."
+    "Could not fetch today's exchange rate. Check your connection and try again.": "تعذّر جلب سعر الصرف اليوم. تحقّق من اتصالك وحاول مرة أخرى.",
+    "You were signed out after 15 minutes of inactivity.": "تم تسجيل خروجك بعد 15 دقيقة من عدم النشاط.",
+    "Signed out (inactive)": "تسجيل الخروج (عدم نشاط)"
 }

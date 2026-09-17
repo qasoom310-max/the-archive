@@ -15,6 +15,9 @@
     <title>{{ $title ?? __('Sign in') }} · {{ __('OpenERP') }}</title>
     <link rel="icon" type="image/svg+xml" href="{{ asset('brand/openerp-mark.svg') }}">
     <style>[x-cloak]{display:none!important}</style>
+    {{-- Forget the idle-sign-out clock (see layouts/app.blade.php) so the next
+         sign-in starts fresh instead of inheriting a stale timestamp. --}}
+    <script>try { window.localStorage.removeItem('erp.lastActivity'); } catch (e) {}</script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>

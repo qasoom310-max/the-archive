@@ -86,6 +86,88 @@
             }
         })();
     </script>
+    {{-- Idle sign-out, LAPTOPS AND DESKTOPS ONLY: 15 minutes with no key press,
+         click, scroll or mouse movement posts to /logout/idle. Phones and
+         tablets (a coarse primary pointer, no hover) are never signed out.
+         - The last-activity time is shared across tabs via localStorage, so
+           working in one tab keeps the others alive.
+         - The check compares timestamps rather than counting down, so a laptop
+           that slept for an hour signs out the moment it wakes.
+         - The guest layout clears the timestamp, so a fresh sign-in never
+           inherits a stale one and bounces straight back out.
+         - Kitchen/shisha display screens are exempt: they are watched, not
+           touched, and must stay up through a whole shift.
+         Head script with a global guard: wire:navigate does not re-run it. --}}
+    <script>
+        (function () {
+            if (window.__erpIdleLogout) { return; }
+            window.__erpIdleLogout = true;
+
+            var desktop = window.matchMedia
+                && window.matchMedia('(pointer: fine)').matches
+                && window.matchMedia('(hover: hover)').matches;
+            if (! desktop) { return; }
+
+            var LIMIT = 15 * 60 * 1000;
+            var KEY = 'erp.lastActivity';
+            var memory = Date.now();
+            var lastWrite = 0;
+            var leaving = false;
+
+            var read = function () {
+                try { var v = parseInt(window.localStorage.getItem(KEY) || '', 10); return isNaN(v) ? memory : Math.max(v, memory); }
+                catch (e) { return memory; }
+            };
+            var touch = function () {
+                memory = Date.now();
+                if (memory - lastWrite < 5000) { return; }
+                lastWrite = memory;
+                try { window.localStorage.setItem(KEY, String(memory)); } catch (e) {}
+            };
+            var exempt = function () {
+                return /^\/app\/pos\/kitchen\//.test(window.location.pathname);
+            };
+            var signOut = function () {
+                if (leaving) { return; }
+                leaving = true;
+                try { window.localStorage.removeItem(KEY); } catch (e) {}
+                var token = document.querySelector('meta[name="csrf-token"]');
+                var form = document.createElement('form');
+                form.method = 'POST';
+                form.action = @js(route('logout.idle'));
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = '_token';
+                input.value = token ? token.getAttribute('content') : '';
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+            };
+            var check = function () {
+                if (exempt()) { touch(); return; }
+                if (Date.now() - read() >= LIMIT) { signOut(); }
+            };
+
+            // A stored time from a session left open (browser closed, laptop
+            // asleep) is honoured on load; with none stored, start the clock now.
+            try { if (! window.localStorage.getItem(KEY)) { window.localStorage.setItem(KEY, String(memory)); } else { memory = 0; } }
+            catch (e) {}
+
+            ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart', 'pointerdown'].forEach(function (name) {
+                window.addEventListener(name, touch, { passive: true, capture: true });
+            });
+            window.addEventListener('scroll', touch, { passive: true, capture: true });
+            document.addEventListener('visibilitychange', function () { if (! document.hidden) { check(); } });
+            window.addEventListener('focus', check);
+            // Another tab signed out: follow it to the sign-in screen rather
+            // than sit on a page whose session is already gone.
+            window.addEventListener('storage', function (e) {
+                if (e.key === KEY && e.newValue === null && ! leaving) { window.location.reload(); }
+            });
+            window.setInterval(check, 30000);
+            check();
+        })();
+    </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>

@@ -48,6 +48,21 @@ Route::post('/logout', function (): RedirectResponse {
     return redirect()->route('login');
 })->middleware('auth')->name('logout');
 
+// Idle sign-out: posted by the layout's inactivity timer after 15 minutes
+// without a key press, click or mouse movement on a laptop/desktop (phones
+// are exempt - see the idle script in layouts/app.blade.php). The request
+// attribute tells the Logout listener to audit it as an idle sign-out rather
+// than a deliberate one.
+Route::post('/logout/idle', function (): RedirectResponse {
+    request()->attributes->set('idle_logout', true);
+    Auth::logout();
+    request()->session()->invalidate();
+    request()->session()->regenerateToken();
+
+    return redirect()->route('login')
+        ->with('status', __('You were signed out after 15 minutes of inactivity.'));
+})->middleware('auth')->name('logout.idle');
+
 // Email-change verification — public + signed (Laravel's `signed` middleware
 // enforces the URL signature). The signed token IS the auth; no login
 // required, so a user who clicks the link from another device / after

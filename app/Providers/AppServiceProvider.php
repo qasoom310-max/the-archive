@@ -66,7 +66,10 @@ final class AppServiceProvider extends ServiceProvider
         });
 
         Event::listen(Logout::class, static function (Logout $event) use ($logger): void {
-            $logger->log('logout', actor: $event->user);
+            // The inactivity timer's sign-out (POST /logout/idle) flags the
+            // request so the audit trail can tell it from a deliberate one.
+            $idle = request()->attributes->get('idle_logout') === true;
+            $logger->log($idle ? 'logout_idle' : 'logout', actor: $event->user);
         });
 
         Event::listen(Failed::class, static function (Failed $event) use ($logger): void {

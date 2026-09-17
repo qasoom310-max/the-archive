@@ -43,4 +43,18 @@ return [
 
     'core_module' => 'base',
 
+    /*
+    |--------------------------------------------------------------------------
+    | Video Storage
+    |--------------------------------------------------------------------------
+    |
+    | Where <x-stream-video-upload> (rental handover / damage / return videos)
+    | sends a video: 'local' = this server (chunked upload onto the public
+    | disk), 'cloudflare' = Cloudflare Stream. Local by the owner's decision
+    | (2026-09-17) until Cloudflare is approved.
+    |
+    */
+
+    'video_storage' => env('ERP_VIDEO_STORAGE', 'local'),
+
 ];

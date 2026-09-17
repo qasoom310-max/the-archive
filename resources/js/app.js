@@ -203,15 +203,19 @@ document.addEventListener('alpine:init', () => {
     }));
 
     /**
-     * Cloudflare Stream video uploader (rental handover / return videos). Wired
-     * via `x-data="streamVideoUpload('handover_video_url', $wire)"`. The big file
-     * goes STRAIGHT to Cloudflare (a one-time upload URL minted by our server),
-     * so it never passes through the ERP server. On success it writes the public
-     * watch URL into the Livewire property named by `target`.
+     * Video uploader (rental handover / return videos). Wired via
+     * `x-data="streamVideoUpload('handover_video_url', $wire, 'local')"`.
+     * `mode` comes from config('erp.video_storage'):
+     *   'local'      - this server, in 2 MB chunks (VideoUploadController), so a
+     *                  long phone video never trips the host's upload limit;
+     *   'cloudflare' - STRAIGHT to Cloudflare (a one-time upload URL minted by
+     *                  our server), never through the ERP server.
+     * On success it writes the video's public URL into the Livewire property
+     * named by `target`.
      *
      * `wire` is closure-captured (see the note above) — never stored on `this`.
      */
-    window.Alpine.data('streamVideoUpload', (target, wire) => ({
+    window.Alpine.data('streamVideoUpload', (target, wire, mode = 'local') => ({
         target,
         uploading: false,
         progress: 0,
@@ -231,6 +235,11 @@ document.addEventListener('alpine:init', () => {
 
             try {
                 const csrf = document.querySelector('meta[name=csrf-token]').content;
+
+                if (mode !== 'cloudflare') {
+                    await wire.set(this.target, await this.sendLocal(file, csrf));
+                    return;
+                }
 
                 // 1) Mint a one-time direct-upload URL from our server.
                 const res = await fetch('/app/stream/upload-url', {
@@ -267,6 +276,51 @@ document.addEventListener('alpine:init', () => {
                 this.uploading = false;
                 event.target.value = '';
             }
+        },
+
+        /** Upload to this server in chunks; resolves with the video's public URL. */
+        async sendLocal(file, csrf) {
+            const CHUNK = 2000000;
+            const total = Math.max(1, Math.ceil(file.size / CHUNK));
+            const uploadId = (window.crypto && window.crypto.randomUUID)
+                ? window.crypto.randomUUID()
+                : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+
+            for (let index = 0; index < total; index++) {
+                const form = new FormData();
+                form.append('upload_id', uploadId);
+                form.append('index', String(index));
+                form.append('total', String(total));
+                form.append('chunk', file.slice(index * CHUNK, (index + 1) * CHUNK), 'chunk');
+
+                // A phone on the move drops the odd request: retry a chunk a
+                // few times before giving up on the whole video.
+                let data = null;
+                for (let attempt = 0; attempt < 4; attempt++) {
+                    try {
+                        const res = await fetch('/app/video/upload-chunk', {
+                            method: 'POST',
+                            headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                            body: form,
+                        });
+                        const body = await res.json().catch(() => ({}));
+                        if (res.ok) { data = body; break; }
+                        // A refusal (not a video, too big) won't change on retry.
+                        if (res.status === 422) throw Object.assign(new Error(body.error || 'Upload failed.'), { final: true });
+                    } catch (e) {
+                        if (e.final) throw e;
+                    }
+                    await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+                }
+                if (data === null) throw new Error('Network error during upload. Please try again.');
+
+                this.progress = Math.round(((index + 1) / total) * 100);
+                if (index === total - 1) {
+                    if (!data.url) throw new Error('Upload failed.');
+                    return data.url;
+                }
+            }
+            throw new Error('Upload failed.');
         },
 
         send(url, file) {

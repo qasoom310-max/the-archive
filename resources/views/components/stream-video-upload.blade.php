@@ -1,9 +1,11 @@
 @props(['target', 'url' => ''])
 
-{{-- Uploads a video straight to Cloudflare Stream (never through this server),
-     then writes its public watch URL into the Livewire property named by
-     `target` (e.g. handover_video_url). Replaces a manual "paste a link" input. --}}
-<div x-data="streamVideoUpload(@js($target), $wire)">
+{{-- Uploads a video, then writes its public URL into the Livewire property
+     named by `target` (e.g. handover_video_url). Replaces a manual "paste a
+     link" input. Where the video goes is config('erp.video_storage'):
+       local      - this server, in 2 MB chunks (VideoUploadController)
+       cloudflare - straight to Cloudflare Stream, never through this server --}}
+<div x-data="streamVideoUpload(@js($target), $wire, @js(config('erp.video_storage') === 'cloudflare' ? 'cloudflare' : 'local'))">
     @if ($url !== '')
         {{-- Uploaded → share link + actions --}}
         <div class="space-y-2" x-show="!uploading">

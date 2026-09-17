@@ -56,6 +56,27 @@ Schedule::call(function (): void {
     }
 })->daily()->name('prune-whatsapp-receipts')->withoutOverlapping();
 
+// Daily: drop the chunks of video uploads that were abandoned part-way (a
+// closed tab, a lost signal). A finished upload removes its own folder, so
+// anything a day old is dead.
+Schedule::call(function (): void {
+    $disk = \Illuminate\Support\Facades\Storage::disk('local');
+    $cutoff = now()->subDay()->getTimestamp();
+
+    foreach ($disk->directories(\App\Http\Controllers\VideoUploadController::CHUNK_DIRECTORY) as $userFolder) {
+        foreach ($disk->directories($userFolder) as $upload) {
+            $files = $disk->files($upload);
+            $newest = 0;
+            foreach ($files as $file) {
+                $newest = max($newest, $disk->lastModified($file));
+            }
+            if ($newest < $cutoff) {
+                $disk->deleteDirectory($upload);
+            }
+        }
+    }
+})->daily()->name('prune-video-chunks')->withoutOverlapping();
+
 // Daily: lapse per-phone customer discounts that have gone 90 days with no
 // qualifying purchase. The rolling window (`pos_customer_discounts.expires_at`)
 // is pushed forward on every paid order that uses the discount; once it lapses

@@ -681,7 +681,7 @@
                     <div>
                         <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Pickup video') }}</label>
                         <x-stream-video-upload target="handover_video_url" :url="$handover_video_url" />
-                        <p class="mt-1 text-xs text-chrome-400">{{ __('Records the car at handover. Uploads to Cloudflare; share the link with the team.') }}</p>
+                        <p class="mt-1 text-xs text-chrome-400">{{ __('Records the car at handover. Share the link with the team.') }}</p>
                         @error('handover_video_url') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div class="flex justify-end gap-2 pt-1">
@@ -760,7 +760,7 @@
                         <div>
                             <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Damage video') }}</label>
                             <x-stream-video-upload target="damage_video_url" :url="$damage_video_url" />
-                            <p class="mt-1 text-xs text-chrome-400">{{ __('Records the damage at return. Uploads to Cloudflare; share the link with the team.') }}</p>
+                            <p class="mt-1 text-xs text-chrome-400">{{ __('Records the damage at return. Share the link with the team.') }}</p>
                             @error('damage_video_url') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
                     @endif
@@ -768,7 +768,7 @@
                     <div class="border-t border-chrome-100 pt-3">
                         <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Return video') }} @unless ($isSuperAdmin)<span class="text-red-500">*</span>@endunless</label>
                         <x-stream-video-upload target="return_video_url" :url="$return_video_url" />
-                        <p class="mt-1 text-xs text-chrome-400">@unless ($isSuperAdmin){{ __('Required. ') }}@endunless{{ __('Record the car on return. Uploads to Cloudflare; share the link with the team.') }}</p>
+                        <p class="mt-1 text-xs text-chrome-400">@unless ($isSuperAdmin){{ __('Required. ') }}@endunless{{ __('Record the car on return. Share the link with the team.') }}</p>
                         @error('return_video_url') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div class="flex justify-end gap-2 pt-1">

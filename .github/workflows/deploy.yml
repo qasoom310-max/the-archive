@@ -227,6 +227,7 @@ jobs:
               --exclude='storage/app/workspaces/' \
               --exclude='storage/app/backups/' \
               --exclude='storage/app/imports/' \
+              --exclude='storage/app/private/video-chunks/' \
               --exclude='storage/logs/' \
               --exclude='storage/framework/cache/data/' \
               --exclude='storage/framework/sessions/' \

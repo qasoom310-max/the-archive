@@ -151,6 +151,10 @@ Route::middleware('auth')->group(function (): void {
         ->middleware('throttle:60,1')->name('stream.upload-url');
     Route::get('/app/stream/{uid}/info', [\App\Http\Controllers\StreamUploadController::class, 'info'])
         ->where('uid', '[A-Za-z0-9]+')->middleware('throttle:120,1')->name('stream.info');
+    // The same uploader, storing on this server instead (config erp.video_storage
+    // = local). Chunked, so the throttle is per chunk: 1,000 a minute is ~2 GB.
+    Route::post('/app/video/upload-chunk', \App\Http\Controllers\VideoUploadController::class)
+        ->middleware('throttle:1000,1')->name('video.upload-chunk');
 
     // Per-app feature toggles (the app's own "Settings" tab). Two-segment and
     // more specific than the /app/{module} home below; no module defines an

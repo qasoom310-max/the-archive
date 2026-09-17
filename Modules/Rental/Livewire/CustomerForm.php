@@ -202,10 +202,23 @@ final class CustomerForm extends Component
 
         app(ActivityLogger::class)->logFor($customer, $wasNew ? 'created' : 'updated');
 
+        session()->flash('toast', __('Customer saved.'));
+
+        // Creating a customer is a one-off task done from the list ("+ New
+        // customer"), so Save closes the page and returns there — same as
+        // every other bespoke "new record" form. Editing an existing one
+        // stays in place: the office often adjusts a few fields in a row
+        // (upload a CR document, fix a phone number) and re-visiting the
+        // list after each save would be its own annoyance.
+        if ($wasNew) {
+            $this->redirect($this->indexUrl, navigate: true);
+
+            return;
+        }
+
         $this->id = $customer->id;
         $this->existingCrDocument = $customer->cr_document;
         $this->crDocumentPath = '';
-        session()->flash('toast', __('Customer saved.'));
     }
 
     private function trimOrNull(string $value): ?string

@@ -118,4 +118,36 @@ final class SharedCustomerPageTest extends TestCase
         $this->assertSame('39000000', $customer->fresh()?->phone);
         $this->assertSame(1, RentalCustomer::query()->count());
     }
+
+    /**
+     * Creating a customer is a one-off task done from the list — Save closes
+     * the page and returns there, rather than leaving the office staring at
+     * the record they just made.
+     */
+    public function test_saving_a_new_customer_from_rent_a_car_returns_to_its_list(): void
+    {
+        Livewire::test(CustomerForm::class)
+            ->set('name', 'New Rental Customer')
+            ->call('save')
+            ->assertRedirect('/app/rental/customer');
+    }
+
+    public function test_saving_a_new_customer_from_limousine_returns_to_its_own_list(): void
+    {
+        Livewire::test(CustomerForm::class, ['modelKey' => 'limousine.customer'])
+            ->set('name', 'New Limo Customer')
+            ->call('save')
+            ->assertRedirect('/app/limousine/customer');
+    }
+
+    /** Editing stays put — a run of small fixes shouldn't re-open the list each time. */
+    public function test_saving_an_existing_customer_does_not_redirect(): void
+    {
+        $customer = $this->customer();
+
+        Livewire::test(CustomerForm::class, ['id' => $customer->id])
+            ->set('phone', '39111111')
+            ->call('save')
+            ->assertNoRedirect();
+    }
 }

@@ -3623,6 +3623,158 @@ notification the create flow already sends. **If another account from before
 confirm it has a tenant row but no Main row, then create the Main row + email
 a new password — there is no remaining code defect to chase.
 
+**Bespoke list pagination shows page numbers on phone (shipped 2026-09-15).**
+13 bespoke Rental/Limousine list views (Limousine: bookings, coupons,
+invoices, petty-cash, quotations, receipts; Rental: driver-jobs, invoices,
+maintenance, orders, quotations, receipts, replacements) called `$x->links()`
+— Laravel's default Tailwind pagination view, which collapses to Previous/Next
+only under `sm`, hiding the active page on a phone. Switched every one to
+`$x->links('vendor.pagination.compact')`, the sliding-window view already used
+by POS Orders/Stock Report/Activity Log/the engine ListView, so numbered pages
+show on a phone too.
+
+**A limousine leg's exchange rate is looked up live, not typed (shipped
+2026-09-15) — reverses an earlier session's "manual entry" decision.** The
+office asked: pick the currency, and let the rate/BHD-equivalent fill itself
+in — "10 SAR = # BHD" — rather than typing both a rate and an exchange rate by
+hand. New `App\Erp\Money\ExchangeRateService` — free, keyless
+`open.er-api.com/v6/latest/{FROM}` lookup, 6-hour cache **on success only**
+(a failed lookup is never cached, so Retry can succeed on the next try),
+constructor-injected `Illuminate\Http\Client\Factory`, **never throws**
+(returns `?float`). `Modules\Limousine\Livewire\Concerns\HandlesTripLegs`:
+`switchLegCurrency()` calls the new `fetchExchangeRateFor(int $i, string
+$currency)`; `applyLegRate(int $i)` is the pure BHD-rate computation;
+`recomputeLegRate()` retries the fetch when the rate is blank; public
+`retryLegExchangeRate(int $i)` backs a "Retry" link in the UI; a `messages()`
+override supplies custom exchange-rate validation text. `legs.blade.php`
+dropped the manual "Exchange rate — 1 :currency in BHD" input entirely,
+showing `:quote :currency ≈ :amount BHD` once resolved, or a red "Could not
+fetch today's exchange rate…" + Retry when the lookup failed. **A historical
+leg never re-fetches on edit** (opening an old leg must not silently reprice
+it against today's rate), and the server-authoritative BHD `rate` derivation
+is unchanged from the original design. Test gotcha worth remembering:
+`Http::fake()` called twice for the same URL pattern does NOT let the second
+call override the first (stub callbacks accumulate, first-registered-match
+wins) — use `Http::fakeSequence($url)->push(...)->push(...)` to model a
+failing-then-succeeding retry across several calls in one test.
+
+**A booking/quotation leg suggests the customer's OWN past locations first
+(shipped 2026-09-15).** `LimoCustomer::recentLocations(int $limit = 12):
+array` — the customer's past `LimoBooking` legs' pickup/drop-off locations,
+deduped, most-recent-first, capped at 12 ("their trips are usually recurring
+to the same handful of places"). `HandlesTripLegs::legViewData()`'s
+`locationNames` datalist merges this list AHEAD of the company-wide saved
+`LimoLocation` list, so a customer's own frequent addresses surface first
+while typing. Shared by both `BookingForm` and `QuotationForm`.
+
+**Modal footers pin the dismiss action to the START, the primary action to
+the end (shipped 2026-09-16).** The Limousine "New customer" modal's Cancel
+button was relabelled **Back** and pinned to the left (footer flex
+`justify-end` → `justify-between`, Back first in DOM order). The booking
+preview modal's footer got the same treatment — Close moved before "Open full
+booking" in the DOM with the same `justify-between` swap. **Rule: a
+two-button modal footer keeps dismiss/back at the logical start and the
+primary action at the end** — flex row order mirrors naturally under
+`dir="rtl"`, so no physical left/right utility classes are needed.
+
+**A deactivated customer/vehicle/driver/branch still shows on ITS OWN record
+(fixed 2026-09-16).** Opening an existing booking/order/quotation/invoice/
+maintenance record whose customer (or vehicle/driver/branch) had since been
+deactivated rendered that field blank ("— Select —") even though the record
+genuinely has it — every picker list queried `active = true` only, silently
+dropping the record's own relation once archived. New shared trait
+`App\Models\Concerns\ActiveOrSelected` (`activeOrSelected(?int $selectedId,
+array $columns = ['*']): Collection`) scopes a NEW selection to active
+records while always keeping whichever one is already assigned — mirrors the
+pre-existing pattern in `HandlesTripLegs::carOptions()`. **Uses `self::query()`,
+not `static::query()`, in the trait body** — every consuming model is `final`,
+so they're always identical at runtime, and `self::` sidesteps a PHPStan/
+Larastan invariant-Collection-template false positive that `static::` tripped
+across all 6 consumers. Wired into `LimoCustomer`, `RentalCustomer`,
+`Vehicle`, `Driver`, `Branch`, `LimoDriver`, and 8 Livewire form call sites
+(Limousine `BookingForm`/`QuotationForm`/`InvoiceForm`; Rental `InvoiceForm`/
+`OrderForm`/`QuotationForm`/`MaintenanceForm`). Deliberately left alone:
+`OrderForm`'s `vehicles` list (its own super-admin/lapsed-papers override
+logic — would need careful restructuring to also handle plain
+`active=false`) and `PettyCash`'s driver filter (a filter dropdown, not an
+edit-existing-record picker). **Rule: any picker list backing an existing
+record's OWN relation field must use `activeOrSelected()`, not a plain
+`where('active', true)` query** — the plain form stays correct only for a
+brand-new record's options.
+
+**Bookings list — every trip fact now reaches the phone (shipped 2026-09-16).**
+The responsive column-hiding table (`$vis` array in `bookings.blade.php`)
+originally kept only Reference/Customer/Status/Actions visible on a phone,
+adding From date/Payment at `md`, To date/Type/Pickup/Drop off at `lg`,
+Received/Balance/Vehicle/Driver at `xl`. Per the office's requests, **From
+date, To date, Type, Pickup, Drop off and Vehicle are now always visible**
+(no breakpoint prefix) — a phone shows the same trip facts a laptop does,
+short of Received/Balance/Driver (still `xl`) and Added by/Comments/Booked
+time (still `2xl`).
+
+**Bookings row Actions collapsed into a 3-dot menu with viewport-aware flip
+(shipped 2026-09-16).** Five separate icon buttons (Open full booking / Edit
+/ Service order PDF / Create payment link / Signed-Sent-Resend) made the
+Actions column wide, forcing a sideways scroll to reach it on a phone. Now
+behind one 3-dot trigger per row. New reusable Alpine component
+**`rowActionsMenu`** (`resources/js/app.js`) — `fixed`-positioned at viewport
+coords captured on open (same reasoning as the app-bar dropdown: the table's
+`overflow-x-auto` wrapper also clips vertical overflow per the CSS overflow
+spec, so an `absolute` panel would get cut off), and additionally **measures
+the panel's real height on `$nextTick` and flips it to open ABOVE the
+trigger** when there is no room below — without this, a row near the bottom
+of the screen (phone OR laptop) cropped its lower actions off-screen,
+unreachable by touch or mouse. `max-h-[70vh] overflow-y-auto` on the panel is
+the last-resort scroll fallback for a panel taller than the screen. **Rule:
+any new per-row popover menu inside a scrollable table should reuse
+`rowActionsMenu`** (or its measure-then-flip technique) rather than the
+app-bar dropdown's simpler always-below positioning, which assumes the
+trigger sits near the top of the viewport.
+
+**Bookings reference click copies the trip again, not a preview (reverted
+2026-09-16).** A brief redesign made the reference number open a
+quick-preview modal (customer, every leg, money, at a glance) instead of the
+original one-press copy-to-clipboard; the office asked for the old behaviour
+back. The reference button now runs the same `$store.limoTrip.copy(...)`
+pattern the preview's own per-leg copy buttons use, reusing the
+already-computed `$whatsapp[$leg->id]` array from `Bookings::render()`. **The
+preview modal itself was NOT removed** — it is still reachable from the
+"View" link on the just-saved flash banner after adding/editing a booking
+(`openPreview()` is still called from there); only the reference cell's own
+click target reverted.
+
+**Copied trip text hides the Balance/Paid line for company customers
+(shipped 2026-09-16).** `LimoQueueRows::whatsappText()` always appended
+either "Balance :amount BD — collect from customer" or "✅ Paid" — but a
+company's trips are settled on its account, not by the driver collecting cash
+from whoever is riding, so both lines were misleading on a corporate
+booking's WhatsApp copy. Now skipped entirely when `$customer->isCompany()`
+(shown for an individual, or when the customer is unknown/null — unchanged).
+The preview modal's per-leg copy shares the same `whatsappText()`, so it
+follows automatically.
+
+**Show-per-page chips changed to 25/50/100/300 (shipped 2026-09-16).** The
+only two screens in the app with a "Show N per page" chip control —
+Limousine `Bookings` (the trip queue) and Rental `DriverJobs` (a driver's job
+history) — both had `PER_PAGE_OPTIONS = [10, 25, 50, 100, 500]` /
+`PER_PAGE_DEFAULT = 10`. Per the office's request, both are now
+`PER_PAGE_OPTIONS = [25, 50, 100, 300]` / `PER_PAGE_DEFAULT = 25`. Distinct
+from the engine `ListView::PER_PAGE_OPTIONS = [20, 50, 100]` (a dropdown, not
+chips) — that one is untouched.
+
+**Saving a NEW customer returns to the list (fixed 2026-09-17).**
+`Modules\Rental\Livewire\CustomerForm` — the ONE shared customer page reached
+from both `/app/rental/customer/new` and `/app/limousine/customer/new` (see
+the "shared customer page" section above) — used to leave the office on the
+same page after creating a customer, silently retitled "Edit customer": it
+just set `$this->id` and flashed a toast. Now `save()` redirects to
+`$this->indexUrl` (`navigate: true`) whenever `$wasNew`, matching every other
+bespoke "new record" form in the app (e.g. `BookingForm::save()` redirects to
+`/app/limousine/booking`). Editing an EXISTING customer is unchanged — stays
+in place, since the office often makes several small fixes in a row (upload a
+CR document, fix a phone number) and re-opening the list after each save
+would be its own annoyance.
+
 ---
 
 ## 6. Known Environment Caveats

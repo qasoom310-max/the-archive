@@ -76,6 +76,18 @@ jobs:
       - name: Build Vite manifest
         run: npm run build
 
+      # The deploy job used to install npm and run this exact build a second
+      # time, on a second machine, from the same commit — so it shipped a
+      # rebuild of what had already been built here. It takes this instead.
+      - name: Keep the built assets for the deploy job
+        uses: actions/upload-artifact@v4
+        with:
+          name: vite-build
+          path: public/build
+          # An empty upload would deploy a site with no CSS, so fail loudly.
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Composer analyse (PHPStan level 6)
         run: composer analyse
 
@@ -117,17 +129,14 @@ jobs:
             --prefer-dist \
             --no-interaction
 
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
+      # Built once, in the test job, from this same commit. Node is not
+      # installed here at all any more: `public/build` is gitignored, so
+      # checkout leaves a hole and this fills it before the rsync.
+      - name: Take the frontend built by the test job
+        uses: actions/download-artifact@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install npm deps
-        run: npm ci
-
-      - name: Build frontend (Vite → public/build/)
-        run: npm run build
+          name: vite-build
+          path: public/build
 
       # Bring the SSH key into the runner's agent. The key itself lives in
       # the SSH_PRIVATE_KEY repo secret; nothing about it ever appears in

@@ -185,6 +185,14 @@ final class Bookings extends Component
     public string $collectNote = '';
 
     /**
+     * The day the money changed hands — not always the day it is typed in.
+     * An office writing up Saturday's cash on Monday would otherwise date
+     * every receipt Monday, and the customer's own record would disagree
+     * with ours. Opens on today, which is the usual answer.
+     */
+    public string $collectDate = '';
+
+    /**
      * The clicked trip's own values — route, time, pricing.
      *
      * Separate from `$edit` because they are a different scope: `$edit` is the
@@ -685,6 +693,7 @@ final class Bookings extends Component
         // typed over when the customer pays part of it.
         $this->collectAmount = (string) $booking->balanceDue();
         $this->collectMethod = (string) ($booking->payment_method ?? 'cash');
+        $this->collectDate = Carbon::today()->toDateString();
         $this->collectNote = '';
     }
 
@@ -692,6 +701,7 @@ final class Bookings extends Component
     {
         $this->collectingId = null;
         $this->collectAmount = '';
+        $this->collectDate = '';
         $this->collectNote = '';
         $this->resetErrorBag();
     }
@@ -724,13 +734,18 @@ final class Bookings extends Component
         $this->validate([
             'collectAmount' => ['required', 'numeric', 'min:0.001', 'max:' . max(0.001, $booking->balanceDue())],
             'collectMethod' => ['required', 'string'],
+            // Money cannot have arrived tomorrow. Back-dating is the whole
+            // point of the field, so only the future is refused.
+            'collectDate' => ['required', 'date', 'before_or_equal:' . Carbon::today()->toDateString()],
             'collectNote' => ['nullable', 'string', 'max:255'],
         ], [
             'collectAmount.max' => __('That is more than the :amount still owed on this booking.', [
                 'amount' => ValueFormat::money($booking->balanceDue()),
             ]),
+            'collectDate.before_or_equal' => __('A payment cannot be dated in the future.'),
         ], [
             'collectAmount' => __('Amount'),
+            'collectDate' => __('Date received'),
         ]);
 
         $taken = round((float) $this->collectAmount, 3);
@@ -743,6 +758,8 @@ final class Bookings extends Component
             $taken,
             $this->collectMethod,
             trim($this->collectNote) !== '' ? trim($this->collectNote) : null,
+            null,
+            Carbon::parse($this->collectDate),
         );
 
         $fresh = $booking->fresh();

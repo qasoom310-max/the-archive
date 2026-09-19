@@ -217,6 +217,63 @@ final class LimoCollectPaymentTest extends TestCase
         $this->assertSame('cheque', $booking->fresh()?->payment_method);
     }
 
+    /**
+     * The receipt is dated the day the money arrived, not the day it was typed.
+     *
+     * An office writing up Saturday's cash on Monday would otherwise date every
+     * receipt Monday, and the customer's own record would disagree with ours.
+     */
+    public function test_a_payment_can_be_dated_the_day_it_was_received(): void
+    {
+        [, $legs] = $this->bookingOfThree();
+        $saturday = now()->subDays(2)->toDateString();
+
+        Livewire::test(Bookings::class)
+            ->call('openCollect', $legs[0]->id)
+            // It opens on today, which is the usual answer.
+            ->assertSet('collectDate', now()->toDateString())
+            ->set('collectAmount', '10')
+            ->set('collectDate', $saturday)
+            ->call('saveCollect')
+            ->assertHasNoErrors();
+
+        $receipt = \Modules\Limousine\Models\LimoReceipt::query()->sole();
+        $this->assertSame($saturday, $receipt->date?->toDateString());
+    }
+
+    /** Left alone, it is today — the same receipt as before the field existed. */
+    public function test_a_payment_typed_today_is_dated_today(): void
+    {
+        [, $legs] = $this->bookingOfThree();
+
+        Livewire::test(Bookings::class)
+            ->call('openCollect', $legs[0]->id)
+            ->set('collectAmount', '10')
+            ->call('saveCollect')
+            ->assertHasNoErrors();
+
+        $this->assertSame(
+            now()->toDateString(),
+            \Modules\Limousine\Models\LimoReceipt::query()->sole()->date?->toDateString(),
+        );
+    }
+
+    /** Money cannot have arrived tomorrow, and nothing is recorded if it is claimed. */
+    public function test_a_payment_cannot_be_dated_in_the_future(): void
+    {
+        [$booking, $legs] = $this->bookingOfThree();
+
+        Livewire::test(Bookings::class)
+            ->call('openCollect', $legs[0]->id)
+            ->set('collectAmount', '10')
+            ->set('collectDate', now()->addDay()->toDateString())
+            ->call('saveCollect')
+            ->assertHasErrors('collectDate');
+
+        $this->assertSame(0, \Modules\Limousine\Models\LimoReceipt::query()->count());
+        $this->assertSame(50.0, round((float) $booking->fresh()?->advance, 3));
+    }
+
     /** The button is only offered while there is something left to take. */
     public function test_a_settled_booking_offers_no_payment_button(): void
     {

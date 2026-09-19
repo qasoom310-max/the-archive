@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Limousine\Services;
 
 use App\Erp\Views\ValueFormat;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Modules\Limousine\Models\LimoBooking;
@@ -36,6 +37,7 @@ final class BookingPayments
         string $method = 'cash',
         ?string $note = null,
         ?string $batchId = null,
+        ?CarbonInterface $on = null,
     ): ?LimoReceipt {
         $amount = round($amount, 3);
 
@@ -43,7 +45,7 @@ final class BookingPayments
             return null;
         }
 
-        return DB::transaction(function () use ($booking, $amount, $method, $note, $batchId): LimoReceipt {
+        return DB::transaction(function () use ($booking, $amount, $method, $note, $batchId, $on): LimoReceipt {
             // Money lands on the advance — the same field a coupon and the
             // booking form use — so "paid" settles through one path.
             $booking->advance = round((float) $booking->advance + $amount, 3);
@@ -51,7 +53,7 @@ final class BookingPayments
             $booking->save();
             $booking->syncPaymentFromAdvance();
 
-            return $this->issueFor($booking->refresh(), $amount, $method, $note, $batchId);
+            return $this->issueFor($booking->refresh(), $amount, $method, $note, $batchId, $on);
         });
     }
 
@@ -108,6 +110,7 @@ final class BookingPayments
         string $method = 'cash',
         ?string $note = null,
         ?string $batchId = null,
+        ?CarbonInterface $on = null,
     ): ?LimoReceipt {
         $amount = round($amount, 3);
 
@@ -125,7 +128,11 @@ final class BookingPayments
             'booking_id' => $booking->id,
             'invoice_id' => $invoice->id,
             'customer_id' => $booking->customer_id,
-            'date' => Carbon::today(),
+            // The day the money actually changed hands, which is not always the
+            // day it is typed in: an office writing up Saturday's cash on Monday
+            // would otherwise date every receipt Monday, and the customer's own
+            // record would disagree with ours. Defaults to today.
+            'date' => $on?->copy()->startOfDay() ?? Carbon::today(),
             'amount' => $amount,
             // What was still owed once this was taken. Stored, because a receipt
             // is a record of a moment rather than a live figure — recomputing it

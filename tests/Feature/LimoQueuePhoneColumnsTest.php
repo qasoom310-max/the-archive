@@ -129,6 +129,22 @@ final class LimoQueuePhoneColumnsTest extends TestCase
     }
 
     /**
+     * The sort arrows are desktop-only. On a phone they cost more room than
+     * they earn beside a heading that already has to wrap, and tapping the
+     * heading sorts whether an arrow is drawn on it or not.
+     */
+    public function test_the_sort_arrows_are_hidden_on_a_phone(): void
+    {
+        $this->trip();
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        $this->assertStringContainsString('class="hidden size-3 shrink-0 transition sm:inline-block', $html);
+        // Still sortable — the heading is the button, not the arrow.
+        $this->assertStringContainsString('sortBy(\'from_date\')', $html);
+    }
+
+    /**
      * The actions column is only as wide as the word "Actions", so a
      * start-aligned button sat in the middle of the row's trailing edge with
      * empty cell beside it. Both the heading and the dots are pinned to the

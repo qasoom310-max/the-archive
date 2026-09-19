@@ -239,7 +239,10 @@
                                 @else
                                     <span>{{ $label }}</span>
                                 @endif
-                                <svg class="size-3 shrink-0 transition {{ $sorted ? 'text-primary-600' : 'text-chrome-300' }} {{ $sorted && $dir === 'asc' ? 'rotate-180' : '' }}"
+                                {{-- Hidden on a phone: at this width the arrows cost more room than they
+                                     earn, and tapping the heading still sorts. The column doing
+                                     the sorting stays darker than the rest, so it is not lost. --}}
+                                <svg class="hidden size-3 shrink-0 transition sm:inline-block {{ $sorted ? 'text-primary-600' : 'text-chrome-300' }} {{ $sorted && $dir === 'asc' ? 'rotate-180' : '' }}"
                                      viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                     <path fill-rule="evenodd" d="M10 15a1 1 0 0 1-.71-.29l-5-5a1 1 0 1 1 1.42-1.42L10 12.59l4.29-4.3a1 1 0 1 1 1.42 1.42l-5 5A1 1 0 0 1 10 15Z" clip-rule="evenodd"/>
                                 </svg>
@@ -1048,6 +1051,13 @@
                                 <input type="number" step="0.001" min="0" wire:model="collectAmount" class="o-input mt-1 w-full">
                                 @error('collectAmount') <p class="{{ $err }}">{{ $message }}</p> @enderror
                                 <p class="mt-1 text-[11px] text-chrome-400">{{ __('Type less than the balance to take a part payment.') }}</p>
+                            </div>
+                            {{-- Under the amount, because the two are one fact:
+                                 how much arrived, and when. --}}
+                            <div>
+                                <label class="{{ $lbl }}">{{ __('Date received') }} *</label>
+                                <x-date-field wire:model="collectDate" class="o-input mt-1 w-full" />
+                                @error('collectDate') <p class="{{ $err }}">{{ $message }}</p> @enderror
                             </div>
                             <div>
                                 <label class="{{ $lbl }}">{{ __('Method') }} *</label>

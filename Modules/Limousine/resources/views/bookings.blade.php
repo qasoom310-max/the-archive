@@ -171,9 +171,9 @@
     {{-- 17 data columns can never fit a phone, so rather than force a sideways
          scroll the table sheds columns as the screen narrows: what identifies
          and actions a job always stays, the rest return as there is room.
-           phone  reference · from date · to date · type · customer · pickup ·
+           phone  reference · date · amount · type · customer · pickup ·
                   drop off · vehicle · payment · actions
-           sm     + no. · amount
+           sm     + no. · to date
            md     + status
            lg     (nothing left to add here)
            xl     + received · balance · driver
@@ -184,10 +184,10 @@
         $vis = [
             'reference' => '',
             'from_date' => '',
-            'to_date' => '',
+            'to_date' => 'hidden sm:table-cell',
             'type' => '',
             'customer' => '',
-            'amount' => 'hidden sm:table-cell',
+            'amount' => '',
             'received' => 'hidden xl:table-cell',
             'balance' => 'hidden xl:table-cell',
             'pickup' => '',
@@ -200,6 +200,15 @@
             'status' => 'hidden md:table-cell',
             'payment' => '',
         ];
+
+        // On screen the price follows the dates, so a phone — which shows
+        // one date and the amount — reads "when, how much" without being
+        // scrolled sideways. Derived from the service's own column list
+        // rather than retyped, so a column added there still appears here;
+        // the exports keep that original order, which the office's own
+        // spreadsheets are built around.
+        $order = array_values(array_filter(array_keys($headings), fn (string $k): bool => $k !== 'amount'));
+        array_splice($order, (int) array_search('to_date', $order, true) + 1, 0, 'amount');
     @endphp
     <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
         <table id="limo-queue" class="w-full table-auto divide-y divide-chrome-100 text-xs">
@@ -209,17 +218,27 @@
                     {{-- Every column sorts, both ways. The arrow is always drawn so
                          a column reads as sortable before anyone clicks it, and
                          only darkens on the one actually doing the sorting. --}}
-                    @foreach ($headings as $key => $label)
+                    @foreach ($order as $key)
                         @php
+                            $label = $headings[$key];
                             $isMoney = in_array($key, ['amount', 'received', 'balance'], true);
                             $sorted = $sort === $key;
+                            // A phone shows one date column, so "From date" there is
+                            // just the date — the pair only needs telling apart once
+                            // "To date" joins it at sm.
+                            $phoneLabel = $key === 'from_date' ? __('Date') : null;
                         @endphp
                         <th class="px-2 py-2 {{ $isMoney ? 'text-end' : 'text-start' }} {{ $vis[$key] ?? '' }}"
                             @if ($sorted) aria-sort="{{ $dir === 'asc' ? 'ascending' : 'descending' }}" @endif>
                             <button type="button" wire:click="sortBy('{{ $key }}')"
                                 class="inline-flex items-center gap-1 transition hover:text-chrome-800 {{ $isMoney ? 'flex-row-reverse' : '' }} {{ $sorted ? 'text-chrome-800' : '' }}"
                                 title="{{ __('Sort by :column', ['column' => $label]) }}">
-                                <span>{{ $label }}</span>
+                                @if ($phoneLabel !== null)
+                                    <span class="sm:hidden">{{ $phoneLabel }}</span>
+                                    <span class="hidden sm:inline">{{ $label }}</span>
+                                @else
+                                    <span>{{ $label }}</span>
+                                @endif
                                 <svg class="size-3 shrink-0 transition {{ $sorted ? 'text-primary-600' : 'text-chrome-300' }} {{ $sorted && $dir === 'asc' ? 'rotate-180' : '' }}"
                                      viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                     <path fill-rule="evenodd" d="M10 15a1 1 0 0 1-.71-.29l-5-5a1 1 0 1 1 1.42-1.42L10 12.59l4.29-4.3a1 1 0 1 1 1.42 1.42l-5 5A1 1 0 0 1 10 15Z" clip-rule="evenodd"/>
@@ -285,7 +304,12 @@
                             <span class="block text-[11px] font-normal text-chrome-400">{{ $row['booking_reference'] }}</span>
                         </td>
                         <td class="px-2 py-2 text-chrome-600">{{ $row['from_date'] ?: '—' }}</td>
-                        <td class="px-2 py-2 text-chrome-600">{{ $row['to_date'] ?: '—' }}</td>
+                        <td class="hidden px-2 py-2 text-chrome-600 sm:table-cell">{{ $row['to_date'] ?: '—' }}</td>
+                        {{-- THIS trip's own price — the one figure the office is
+                             looking for beside the date, so it comes before the
+                             columns a phone has to be scrolled to reach. --}}
+                        <td class="px-2 py-2 text-end font-medium text-chrome-800"
+                            title="{{ __('Price of this trip') }}">{{ $money($row['amount']) }}</td>
                         <td class="px-2 py-2 text-chrome-600">{{ $row['type'] }}</td>
                         {{-- The name is the way into their account: what they
                              have asked for, what is billed and what is owed.
@@ -298,16 +322,11 @@
                                 {{ $row['customer'] ?: '—' }}
                             @endif
                         </td>
-                        {{-- Amount is this leg's; Received and Balance are the
-                             booking's, because the customer settles the whole job. --}}
-                        {{-- Amount is THIS trip's price. Received and Balance are the
-                             whole booking's: the customer settles the job, not a leg
-                             of it, so a booking of three trips shows one balance
-                             repeated down its rows rather than a third on each. The
-                             tooltips say so, because two money columns that repeat
-                             and one that doesn't otherwise reads as double-counting. --}}
-                        <td class="hidden px-2 py-2 text-end font-medium text-chrome-800 sm:table-cell"
-                            title="{{ __('Price of this trip') }}">{{ $money($row['amount']) }}</td>
+                        {{-- Received and Balance are the whole BOOKING's: the customer
+                             settles the job, not a leg of it, so a booking of three trips
+                             shows one balance repeated down its rows rather than a third
+                             on each. The tooltips say so, because two money columns that
+                             repeat beside one that doesn't reads as double-counting. --}}
                         <td class="hidden px-2 py-2 text-end text-emerald-700 xl:table-cell"
                             title="{{ __('Received against booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['received']) }}</td>
                         <td class="hidden px-2 py-2 text-end xl:table-cell {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-400' }}"

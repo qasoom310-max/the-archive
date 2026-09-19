@@ -162,6 +162,44 @@ final class LimoTripMessageTest extends TestCase
         $this->assertStringNotContainsString('Paid', $text);
     }
 
+    /**
+     * The passenger is who the driver actually meets, and on a company booking
+     * is rarely the account the trip is billed to — so the message names them
+     * right under the customer.
+     */
+    public function test_the_message_names_the_passenger_under_the_customer(): void
+    {
+        $leg = $this->leg(['pax_name' => 'Mr Ahmed Salem', 'pax_contact' => '+968 99200984']);
+
+        $text = app(LimoQueueRows::class)->whatsappText($leg);
+
+        $this->assertStringContainsString('PAX: Mr Ahmed Salem - +968 99200984', $text);
+        $this->assertLessThan(
+            mb_strpos($text, 'PAX:'),
+            mb_strpos($text, 'Customer:'),
+            'The passenger belongs after the customer, not before.',
+        );
+    }
+
+    /** Half the passenger's details still prints; neither drops the line. */
+    public function test_a_passenger_with_no_contact_number_still_prints(): void
+    {
+        $text = app(LimoQueueRows::class)->whatsappText(
+            $this->leg(['pax_name' => 'Mr Ahmed Salem', 'pax_contact' => null]),
+        );
+
+        $this->assertStringContainsString('PAX: Mr Ahmed Salem', $text);
+        $this->assertStringNotContainsString('Mr Ahmed Salem - ', $text);
+    }
+
+    public function test_a_booking_with_no_passenger_recorded_sends_no_pax_line(): void
+    {
+        $text = app(LimoQueueRows::class)->whatsappText(
+            $this->leg(['pax_name' => null, 'pax_contact' => null]),
+        );
+
+        $this->assertStringNotContainsString('PAX', $text);
+    }
     /** An individual customer is unaffected — the balance line stays. */
     public function test_an_individual_customer_still_gets_the_balance_line(): void
     {

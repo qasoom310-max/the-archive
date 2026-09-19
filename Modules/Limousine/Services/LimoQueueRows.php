@@ -365,6 +365,18 @@ final class LimoQueueRows
             $lines[] = __('Customer') . ': ' . ($phone !== '' ? $who . ' - ' . $phone : $who);
         }
 
+        // The passenger is who the driver actually meets, and on a company
+        // booking is rarely the account the trip is billed to — so their name
+        // and number sit right under the customer's. Either half alone still
+        // prints; both missing drops the line.
+        $pax = trim((string) ($booking->pax_name ?? ''));
+        $paxContact = trim((string) ($booking->pax_contact ?? ''));
+        if ($pax !== '' || $paxContact !== '') {
+            $lines[] = __('PAX') . ': ' . ($pax !== '' && $paxContact !== ''
+                ? $pax . ' - ' . $paxContact
+                : ($pax !== '' ? $pax : $paxContact));
+        }
+
         // Money the driver has to handle is the line that must not be missed, so
         // it sits above the route rather than buried at the end — but only for
         // an individual: a company's trips are settled on its account, not by

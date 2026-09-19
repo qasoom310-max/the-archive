@@ -137,8 +137,14 @@
 
         {{-- Twenty-five to glance at, three hundred for going through the
              month properly. Rides in the URL with the filters, so a view that
-             was set up stays set up. --}}
-        <div class="flex items-center gap-1 pb-1">
+             was set up stays set up.
+
+             Off the phone: three hundred rows is not something anyone reads
+             on one, and the row of chips was taking space from the filters
+             that are used there. A phone keeps the twenty-five it opens on
+             and pages through them; a size chosen on a laptop still rides in
+             the URL, so a shared link opens the same way on either. --}}
+        <div class="hidden items-center gap-1 pb-1 sm:flex">
             <span class="text-xs text-chrome-700">{{ __('Show') }}</span>
             @foreach ($perPageOptions as $size)
                 <button type="button" wire:click="setPerPage({{ $size }})"

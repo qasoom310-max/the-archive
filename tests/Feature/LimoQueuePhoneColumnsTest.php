@@ -145,6 +145,27 @@ final class LimoQueuePhoneColumnsTest extends TestCase
     }
 
     /**
+     * The page-size chips are desktop-only. Three hundred rows is not
+     * something anyone reads on a phone, and the row of them was taking
+     * space from the filters that are used there. The size itself still
+     * rides in the URL, so a link set up on a laptop opens the same on both.
+     */
+    public function test_the_page_size_chips_are_hidden_on_a_phone(): void
+    {
+        $this->trip();
+
+        $component = Livewire::test(Bookings::class);
+
+        $this->assertStringContainsString(
+            '<div class="hidden items-center gap-1 pb-1 sm:flex">',
+            $component->html(),
+        );
+
+        // Hidden, not removed: a phone opens on 25 and pages through.
+        $component->assertSet('perPage', 25);
+    }
+
+    /**
      * The actions column is only as wide as the word "Actions", so a
      * start-aligned button sat in the middle of the row's trailing edge with
      * empty cell beside it. Both the heading and the dots are pinned to the

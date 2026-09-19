@@ -13,7 +13,8 @@
     @endphp
 
     @if ($isEditing)
-        <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/[0.06]">
+        <div x-data="{ askingCancel: false }"
+            class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/[0.06]">
             <div class="flex items-center gap-3">
                 <span class="text-sm font-semibold text-chrome-800">{{ $reference }}</span>
                 <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $statusBadge }}">{{ __(ucfirst($status)) }}</span>
@@ -36,9 +37,30 @@
                     <button wire:click="markUnpaid" class="o-btn-ghost text-sm">{{ __('Mark unpaid') }}</button>
                 @endif
                 @if (! in_array($status, ['completed', 'cancelled'], true))
-                    <button wire:click="cancelBooking" wire:confirm="{{ __('Cancel this booking?') }}" class="text-sm font-medium text-red-600 hover:underline">{{ __('Cancel') }}</button>
+                    {{-- Asked in the page rather than through `wire:confirm`, which
+                         hands the browser its own dialog: on an action already
+                         called "Cancel", the OS buttons read "Cancel" and "OK" —
+                         one of which looks like it means "don't cancel". The
+                         office asked for a plain Yes / No. Dismiss sits at the
+                         start, the action at the end, like every other dialog. --}}
+                    <button type="button" x-on:click="askingCancel = true" class="text-sm font-medium text-red-600 hover:underline">{{ __('Cancel') }}</button>
                 @endif
             </div>
+
+            @if (! in_array($status, ['completed', 'cancelled'], true))
+                <div x-cloak x-show="askingCancel" class="fixed inset-0 z-50 flex items-center justify-center p-4"
+                    x-on:keydown.escape.window="askingCancel = false">
+                    <div class="absolute inset-0 bg-chrome-900/40" x-on:click="askingCancel = false"></div>
+                    <div class="relative w-full max-w-sm rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5">
+                        <h3 class="text-sm font-semibold text-chrome-800">{{ __('Cancel this booking?') }}</h3>
+                        <div class="mt-5 flex items-center justify-between gap-3">
+                            <button type="button" x-on:click="askingCancel = false" class="o-btn-ghost text-sm">{{ __('No') }}</button>
+                            <button type="button" x-on:click="askingCancel = false; $wire.cancelBooking()" wire:loading.attr="disabled"
+                                class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">{{ __('Yes') }}</button>
+                        </div>
+                    </div>
+                </div>
+            @endif
         </div>
     @endif
 

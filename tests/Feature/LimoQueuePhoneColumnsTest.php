@@ -166,6 +166,31 @@ final class LimoQueuePhoneColumnsTest extends TestCase
     }
 
     /**
+     * A phone reaches a row action only through the menu — the car and driver
+     * buttons in their own columns are off the screen at that width — so the
+     * menu carries Assign there instead of the booking's shared details, which
+     * are a desk job and still reachable from Open full booking on any screen.
+     */
+    public function test_the_menu_offers_assign_on_a_phone_and_edit_on_a_laptop(): void
+    {
+        $this->trip();
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        // Both are in the markup; CSS decides which width shows which.
+        $this->assertStringContainsString('Assign car &amp; driver', $html);
+        $this->assertStringContainsString('Edit booking details', $html);
+
+        // Assign is the phone's; editing waits for a wider screen.
+        $this->assertStringContainsString('flex w-full sm:hidden', $html);
+        $this->assertStringContainsString('hidden w-full sm:flex', $html);
+
+        // Both still do what they did — the menu changed, not the actions.
+        $this->assertStringContainsString('openAssign(', $html);
+        $this->assertStringContainsString('openEdit(', $html);
+    }
+
+    /**
      * The actions column is only as wide as the word "Actions", so a
      * start-aligned button sat in the middle of the row's trailing edge with
      * empty cell beside it. Both the heading and the dots are pinned to the

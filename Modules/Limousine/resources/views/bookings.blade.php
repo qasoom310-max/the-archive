@@ -477,6 +477,14 @@
                             @php
                                 $item = 'flex w-full items-center gap-2 px-3 py-1.5 text-start text-xs font-medium text-chrome-800 hover:bg-chrome-50';
                                 $icon = 'size-4 shrink-0 text-chrome-400';
+                                // On a phone the Vehicle and Driver columns' own buttons are
+                                // off the screen or a sideways scroll away, so dispatching a
+                                // trip has to live in this menu — and that is the job done
+                                // standing up. Editing the booking's shared details is a desk
+                                // job: it keeps its place on wider screens, and "Open full
+                                // booking" reaches the same fields from any screen at all.
+                                $itemPhone = str_replace('flex w-full', 'flex w-full sm:hidden', $item);
+                                $itemDesk = str_replace('flex w-full', 'hidden w-full sm:flex', $item);
                             @endphp
                             <div x-data="rowActionsMenu" @click.outside="open = false"
                                  @keydown.escape.window="open = false" class="relative">
@@ -501,13 +509,24 @@
                                     </a>
 
                                     @if ($mayEdit)
+                                        {{-- Phone only: the car and driver buttons in their own
+                                             columns are out of reach at this width. --}}
+                                        <button type="button" @click="open = false"
+                                                wire:click="openAssign({{ $leg->id }})"
+                                                class="{{ $itemPhone }}">
+                                            <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/>
+                                            </svg>
+                                            {{ __('Assign car & driver') }}
+                                        </button>
+
                                         {{-- Booking-level details (passenger, flight, rate…) are
                                              shared by every leg, so they are edited per booking.
                                              Gone once this trip is done: a finished trip is a
                                              record, not a draft. --}}
                                         <button type="button" @click="open = false"
                                                 wire:click="openEdit({{ $leg->legable_id }}, {{ $leg->id }})"
-                                                class="{{ $item }}">
+                                                class="{{ $itemDesk }}">
                                             <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/>
                                             </svg>

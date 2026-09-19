@@ -298,6 +298,14 @@ final class LimoQueueRows
             'pickup' => (string) ($leg->from_location ?? ''),
             'dropoff' => (string) ($leg->to_location ?? ''),
             'vehicle' => (string) ($leg->vehicle ?? ''),
+            // What was ASKED for — Sedan, SUV, Vito — which is known from the
+            // moment the trip is booked, long before a particular car is free
+            // to run it. The leg's own note wins; `car_type` is where the old
+            // system kept it, so imported bookings still answer. Not a printed
+            // column: exports read by heading, so this never reaches a sheet.
+            'vehicle_type' => trim((string) ($leg->vehicle_details ?? '')) !== ''
+                ? trim((string) $leg->vehicle_details)
+                : trim((string) ($booking->car_type ?? '')),
             // A trip carried over names the old system's login; once that
             // login has been matched, the person is shown in its place.
             'driver' => app(DriverAliases::class)->resolve((string) ($leg->driver ?? ''))['name'],

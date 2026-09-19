@@ -101,16 +101,16 @@
                 default => (int) $counts->get($key, 0),
             }; @endphp
             <button wire:click="$set('tab', '{{ $key }}')"
-                class="-mb-px flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium {{ $tab === $key ? 'border-primary-600 text-primary-700' : 'border-transparent text-chrome-500 hover:text-chrome-800' }}">
+                class="-mb-px flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium {{ $tab === $key ? 'border-primary-600 text-primary-700' : 'border-transparent text-chrome-800 hover:text-chrome-900' }}">
                 {{ $label }}
-                <span class="rounded-full bg-chrome-100 px-1.5 text-[11px] text-chrome-500">{{ $n }}</span>
+                <span class="rounded-full bg-chrome-100 px-1.5 text-[11px] text-chrome-700">{{ $n }}</span>
             </button>
         @endforeach
     </div>
 
     <div class="mb-4 flex flex-wrap items-end gap-3">
         <div class="min-w-[16rem] flex-1">
-            <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Search') }}</label>
+            <label class="mb-1 block text-xs font-medium text-chrome-700">{{ __('Search') }}</label>
             <div class="relative">
                 <span class="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-chrome-400">
                     <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 3.4 9.82l3.14 3.14a.75.75 0 1 0 1.06-1.06l-3.14-3.14A5.5 5.5 0 0 0 9 3.5ZM5 9a4 4 0 1 1 8 0 4 4 0 0 1-8 0Z" clip-rule="evenodd"/></svg>
@@ -123,11 +123,11 @@
             </div>
         </div>
         <div>
-            <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Pick-up from') }}</label>
+            <label class="mb-1 block text-xs font-medium text-chrome-700">{{ __('Pick-up from') }}</label>
             <x-date-field wire:model.live="from" class="o-input text-sm" />
         </div>
         <div>
-            <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Pick-up to') }}</label>
+            <label class="mb-1 block text-xs font-medium text-chrome-700">{{ __('Pick-up to') }}</label>
             <x-date-field wire:model.live="to" class="o-input text-sm" />
         </div>
         @if ($from !== '' || $to !== '' || $search !== '')
@@ -139,7 +139,7 @@
              month properly. Rides in the URL with the filters, so a view that
              was set up stays set up. --}}
         <div class="flex items-center gap-1 pb-1">
-            <span class="text-xs text-chrome-500">{{ __('Show') }}</span>
+            <span class="text-xs text-chrome-700">{{ __('Show') }}</span>
             @foreach ($perPageOptions as $size)
                 <button type="button" wire:click="setPerPage({{ $size }})"
                         class="rounded-lg border px-2.5 py-1 text-xs transition {{ $perPage === $size ? 'border-primary-500 bg-primary-50 font-medium text-primary-700' : 'border-chrome-200 text-chrome-600 hover:bg-chrome-50' }}">
@@ -154,18 +154,18 @@
          the rendered table client-side, so it needs no endpoint. --}}
     <div class="mb-3 flex flex-wrap items-center gap-2" x-data="limoQueueCopy">
         <button type="button" x-on:click="copyTable($el)"
-                class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
+                class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-700 transition hover:bg-chrome-50">
             <span x-show="! copied">{{ __('Copy') }}</span>
             <span x-show="copied" x-cloak class="text-emerald-600">{{ __('Copied') }}</span>
         </button>
         <a href="{{ url('/app/limousine/booking/export/csv') }}?{{ $exportQuery }}"
-           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('CSV') }}</a>
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-700 transition hover:bg-chrome-50">{{ __('CSV') }}</a>
         <a href="{{ url('/app/limousine/booking/export/excel') }}?{{ $exportQuery }}"
-           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Excel') }}</a>
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-700 transition hover:bg-chrome-50">{{ __('Excel') }}</a>
         <a href="{{ url('/app/limousine/booking/export/pdf') }}?{{ $exportQuery }}"
-           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('PDF') }}</a>
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-700 transition hover:bg-chrome-50">{{ __('PDF') }}</a>
         <a href="{{ url('/app/limousine/booking/export/print') }}?{{ $exportQuery }}" target="_blank" rel="noopener"
-           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Print') }}</a>
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-700 transition hover:bg-chrome-50">{{ __('Print') }}</a>
     </div>
 
     {{-- 17 data columns can never fit a phone, so rather than force a sideways
@@ -212,7 +212,7 @@
     @endphp
     <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
         <table id="limo-queue" class="w-full table-auto divide-y divide-chrome-100 text-xs">
-            <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
+            <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-700">
                 <tr>
                     <th class="hidden px-2 py-2 text-start sm:table-cell">{{ __('Sl No.') }}</th>
                     {{-- Every column sorts, both ways. The arrow is always drawn so
@@ -231,7 +231,7 @@
                         <th class="px-2 py-2 {{ $isMoney ? 'text-end' : 'text-start' }} {{ $vis[$key] ?? '' }}"
                             @if ($sorted) aria-sort="{{ $dir === 'asc' ? 'ascending' : 'descending' }}" @endif>
                             <button type="button" wire:click="sortBy('{{ $key }}')"
-                                class="inline-flex items-center gap-1 transition hover:text-chrome-800 {{ $isMoney ? 'flex-row-reverse' : '' }} {{ $sorted ? 'text-chrome-800' : '' }}"
+                                class="inline-flex items-center gap-1 transition hover:text-chrome-800 {{ $isMoney ? 'flex-row-reverse' : '' }} {{ $sorted ? 'text-chrome-900' : '' }}"
                                 title="{{ __('Sort by :column', ['column' => $label]) }}">
                                 @if ($phoneLabel !== null)
                                     <span class="sm:hidden">{{ $phoneLabel }}</span>
@@ -281,7 +281,7 @@
                     {{-- `group` so the pinned Actions cell can mirror the row hover
                          (it needs its own background to sit above the scroll). --}}
                     <tr wire:key="leg-{{ $leg->id }}" class="group hover:bg-chrome-50">
-                        <td class="hidden px-2 py-2 text-chrome-400 sm:table-cell">{{ $legs->firstItem() + $i }}</td>
+                        <td class="hidden px-2 py-2 text-chrome-600 sm:table-cell">{{ $legs->firstItem() + $i }}</td>
                         {{-- The reference IS the copy button: press it and the whole
                              trip lands on the clipboard, formatted for WhatsApp. That
                              is what the office does with a booking, so it should be
@@ -290,7 +290,7 @@
                              button is still reachable from the "View" link on the
                              just-saved banner — only the reference's own click
                              reverted, per the office's request.) --}}
-                        <td class="px-2 py-2 font-medium text-chrome-800">
+                        <td class="px-2 py-2 font-medium text-chrome-900">
                             <button type="button" x-data="{ done: false }"
                                     x-on:click="
                                         $store.limoTrip.copy(@js($whatsapp[$leg->id] ?? ''));
@@ -301,20 +301,20 @@
                                 <span x-show="! done">{{ $row['reference'] ?: '—' }}</span>
                                 <span x-show="done" x-cloak class="text-emerald-600">✓ {{ __('Copied') }}</span>
                             </button>
-                            <span class="block text-[11px] font-normal text-chrome-400">{{ $row['booking_reference'] }}</span>
+                            <span class="block text-[11px] font-normal text-chrome-600">{{ $row['booking_reference'] }}</span>
                         </td>
-                        <td class="px-2 py-2 text-chrome-600">{{ $row['from_date'] ?: '—' }}</td>
-                        <td class="hidden px-2 py-2 text-chrome-600 sm:table-cell">{{ $row['to_date'] ?: '—' }}</td>
+                        <td class="px-2 py-2 text-chrome-900">{{ $row['from_date'] ?: '—' }}</td>
+                        <td class="hidden px-2 py-2 text-chrome-900 sm:table-cell">{{ $row['to_date'] ?: '—' }}</td>
                         {{-- THIS trip's own price — the one figure the office is
                              looking for beside the date, so it comes before the
                              columns a phone has to be scrolled to reach. --}}
-                        <td class="px-2 py-2 text-end font-medium text-chrome-800"
+                        <td class="px-2 py-2 text-end font-medium text-chrome-900"
                             title="{{ __('Price of this trip') }}">{{ $money($row['amount']) }}</td>
-                        <td class="px-2 py-2 text-chrome-600">{{ $row['type'] }}</td>
+                        <td class="px-2 py-2 text-chrome-900">{{ $row['type'] }}</td>
                         {{-- The name is the way into their account: what they
                              have asked for, what is billed and what is owed.
                              stopPropagation so it doesn't also open the row. --}}
-                        <td class="px-2 py-2 text-chrome-700" onclick="event.stopPropagation()">
+                        <td class="px-2 py-2 text-chrome-900" onclick="event.stopPropagation()">
                             @if ($row['customer'] && $row['customer_id'])
                                 <a href="{{ url('/app/limousine/customer/' . $row['customer_id'] . '/summary') }}" wire:navigate
                                    class="font-medium text-primary-700 hover:underline">{{ $row['customer'] }}</a>
@@ -329,43 +329,60 @@
                              repeat beside one that doesn't reads as double-counting. --}}
                         <td class="hidden px-2 py-2 text-end text-emerald-700 xl:table-cell"
                             title="{{ __('Received against booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['received']) }}</td>
-                        <td class="hidden px-2 py-2 text-end xl:table-cell {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-400' }}"
+                        <td class="hidden px-2 py-2 text-end xl:table-cell {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-600' }}"
                             title="{{ __('Still owed on booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['balance']) }}</td>
-                        <td class="px-2 py-2 text-chrome-600">{{ $row['pickup'] ?: '—' }}</td>
-                        <td class="px-2 py-2 text-chrome-600">{{ $row['dropoff'] ?: '—' }}</td>
+                        <td class="px-2 py-2 text-chrome-900">{{ $row['pickup'] ?: '—' }}</td>
+                        <td class="px-2 py-2 text-chrome-900">{{ $row['dropoff'] ?: '—' }}</td>
+                        {{-- A car is assigned late, but the KIND of car is agreed when
+                             the trip is booked — so an unassigned row said nothing at
+                             all about a fact the office already knew. The requested
+                             type now reads above the button, and stays as a quiet
+                             second line once a real car takes over, so dispatch can
+                             see at a glance whether what was sent matches what was
+                             asked for. --}}
                         <td class="px-2 py-2">
+                            @php $type = $row['vehicle_type']; @endphp
                             @if ($row['vehicle'] !== '')
-                                <span class="text-chrome-700">{{ $row['vehicle'] }}</span>
+                                <span class="text-chrome-900">{{ $row['vehicle'] }}</span>
                                 @if ($mayEdit)
                                     <button type="button" wire:click="openAssign({{ $leg->id }})"
                                             class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ __('Change') }}</button>
                                 @endif
-                            @elseif ($mayEdit)
-                                <button type="button" wire:click="openAssign({{ $leg->id }})"
-                                        class="rounded-lg border border-chrome-200 px-2.5 py-1 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
-                                    {{ __('Assign car') }}
-                                </button>
+                                @if ($type !== '')
+                                    <span class="block text-[11px] text-chrome-600"
+                                          title="{{ __('The car type asked for') }}">{{ $type }}</span>
+                                @endif
                             @else
-                                <span class="text-chrome-400">—</span>
+                                @if ($type !== '')
+                                    <span class="block text-chrome-900" title="{{ __('The car type asked for') }}">{{ $type }}</span>
+                                @endif
+                                @if ($mayEdit)
+                                    <button type="button" wire:click="openAssign({{ $leg->id }})"
+                                            class="{{ $type !== '' ? 'mt-1 ' : '' }}rounded-lg border border-chrome-200 px-2.5 py-1 text-xs font-medium text-chrome-700 transition hover:bg-chrome-50">
+                                        {{ __('Assign car') }}
+                                    </button>
+                                @elseif ($type === '')
+                                    <span class="text-chrome-400">—</span>
+                                @endif
                             @endif
                         </td>
                         {{-- Driver is set in the same modal as the car; both are
                              per leg, since each leg is dispatched on its own. --}}
                         <td class="hidden px-2 py-2 xl:table-cell">
                             @if ($row['driver'] !== '')
-                                <span class="text-chrome-700">{{ $row['driver'] }}</span>
+                                <span class="text-chrome-900">{{ $row['driver'] }}</span>
                             @elseif ($mayEdit)
                                 <button type="button" wire:click="openAssign({{ $leg->id }})"
-                                        class="rounded-lg border border-chrome-200 px-2.5 py-1 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
+                                        class="rounded-lg border border-chrome-200 px-2.5 py-1 text-xs font-medium text-chrome-700 transition hover:bg-chrome-50">
                                     {{ __('Assign driver') }}
                                 </button>
                             @else
                                 <span class="text-chrome-400">—</span>
                             @endif
                         </td>
-                        <td class="hidden px-2 py-2 text-chrome-600 2xl:table-cell">{{ $row['added_by'] ?: '—' }}</td>
-                        <td class="hidden max-w-[16rem] px-2 py-2 text-chrome-600 2xl:table-cell">{{ $row['comments'] ?: '—' }}</td>
-                        <td class="hidden px-2 py-2 text-chrome-500 2xl:table-cell">{{ $row['booked_time'] ?: '—' }}</td>
+                        <td class="hidden px-2 py-2 text-chrome-900 2xl:table-cell">{{ $row['added_by'] ?: '—' }}</td>
+                        <td class="hidden max-w-[16rem] px-2 py-2 text-chrome-900 2xl:table-cell">{{ $row['comments'] ?: '—' }}</td>
+                        <td class="hidden px-2 py-2 text-chrome-900 2xl:table-cell">{{ $row['booked_time'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 md:table-cell">
                             @php
                                 // One icon per step, so the row shows what it can DO
@@ -407,7 +424,7 @@
                             @if ($row['status'] === 'cancelled' && $leg->refund_outcome)
                                 {{-- What the customer got back, so a cancelled row
                                      isn't a dead end for the person reading it. --}}
-                                <span class="ms-2 text-[11px] text-chrome-500">
+                                <span class="ms-2 text-[11px] text-chrome-700">
                                     @if ($leg->refund_outcome === 'coupon')
                                         {{ __('Coupon') }} {{ $money((float) $leg->refund_amount) }}
                                     @elseif ($leg->refund_outcome === 'refunded')
@@ -449,13 +466,13 @@
                              unreachable by touch or by mouse. --}}
                         <td class="sticky end-0 z-10 bg-white px-2 py-2 text-end shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)] group-hover:bg-chrome-50">
                             @php
-                                $item = 'flex w-full items-center gap-2 px-3 py-1.5 text-start text-xs font-medium text-chrome-700 hover:bg-chrome-50';
+                                $item = 'flex w-full items-center gap-2 px-3 py-1.5 text-start text-xs font-medium text-chrome-800 hover:bg-chrome-50';
                                 $icon = 'size-4 shrink-0 text-chrome-400';
                             @endphp
                             <div x-data="rowActionsMenu" @click.outside="open = false"
                                  @keydown.escape.window="open = false" class="relative">
                                 <button type="button" @click="toggle($event.currentTarget)"
-                                    class="inline-flex size-7 items-center justify-center rounded-lg text-chrome-500 transition hover:bg-chrome-100"
+                                    class="inline-flex size-7 items-center justify-center rounded-lg text-chrome-700 transition hover:bg-chrome-100"
                                     :aria-expanded="open" aria-haspopup="true"
                                     title="{{ __('Actions') }}" aria-label="{{ __('Actions') }}">
                                     <svg class="size-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -560,7 +577,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="19" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No bookings found.') }}</td></tr>
+                    <tr><td colspan="19" class="px-4 py-10 text-center text-sm text-chrome-600">{{ __('No bookings found.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>

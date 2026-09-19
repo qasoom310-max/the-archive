@@ -66,11 +66,11 @@ final class LimoQueuePhoneColumnsTest extends TestCase
 
         // The price is on screen at every width; the second date waits for one.
         $this->assertStringContainsString(
-            '<td class="px-2 py-2 text-end font-medium text-chrome-800"',
+            '<td class="px-2 py-2 text-end font-medium text-chrome-900"',
             $html,
         );
         $this->assertStringContainsString(
-            '<td class="hidden px-2 py-2 text-chrome-600 sm:table-cell">',
+            '<td class="hidden px-2 py-2 text-chrome-900 sm:table-cell">',
             $html,
         );
     }
@@ -101,6 +101,31 @@ final class LimoQueuePhoneColumnsTest extends TestCase
             mb_strpos($html, 'Transfer</td>'),
             mb_strpos($html, 'Price of this trip'),
         );
+    }
+
+    /**
+     * Grey-on-white at this size is hard to read on a phone held at arm's
+     * length in a car park, so every FACT in the row is near-black. What is
+     * not a fact — the dash standing in for an empty cell, the sort arrows,
+     * the menu's icons — stays light, or the table loses its shape.
+     */
+    public function test_the_rows_facts_read_near_black_and_only_markers_stay_light(): void
+    {
+        $this->trip();
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        foreach (['17-Sep-26', 'Arad', 'Bahrain airport', 'Helen Friberg'] as $fact) {
+            $this->assertStringContainsString($fact, $html);
+        }
+
+        // The cells carrying those facts.
+        $this->assertStringContainsString('<td class="px-2 py-2 text-chrome-900">', $html);
+        $this->assertStringNotContainsString('<td class="px-2 py-2 text-chrome-600">', $html);
+
+        // The sort arrows and the menu's own icons are markers, not facts.
+        $this->assertStringContainsString('text-chrome-300', $html);
+        $this->assertStringContainsString('size-4 shrink-0 text-chrome-400', $html);
     }
 
     /**

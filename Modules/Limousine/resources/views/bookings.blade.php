@@ -249,7 +249,7 @@
                     {{-- Columns are sized to fit the window, but a narrow laptop can still
                          overflow — keep Open/Edit pinned to the trailing edge so they can
                          never end up off-screen. --}}
-                    <th class="sticky end-0 z-20 bg-chrome-50 px-2 py-2 text-start shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)]">{{ __('Actions') }}</th>
+                    <th class="sticky end-0 z-20 bg-chrome-50 px-2 py-2 text-end shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)]">{{ __('Actions') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-chrome-50">
@@ -447,7 +447,7 @@
                              without it, a row near the bottom of the screen opened
                              a panel whose lower actions were cropped off-screen and
                              unreachable by touch or by mouse. --}}
-                        <td class="sticky end-0 z-10 bg-white px-2 py-2 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)] group-hover:bg-chrome-50">
+                        <td class="sticky end-0 z-10 bg-white px-2 py-2 text-end shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)] group-hover:bg-chrome-50">
                             @php
                                 $item = 'flex w-full items-center gap-2 px-3 py-1.5 text-start text-xs font-medium text-chrome-700 hover:bg-chrome-50';
                                 $icon = 'size-4 shrink-0 text-chrome-400';

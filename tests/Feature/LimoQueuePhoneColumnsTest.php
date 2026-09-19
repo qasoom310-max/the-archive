@@ -104,6 +104,28 @@ final class LimoQueuePhoneColumnsTest extends TestCase
     }
 
     /**
+     * The actions column is only as wide as the word "Actions", so a
+     * start-aligned button sat in the middle of the row's trailing edge with
+     * empty cell beside it. Both the heading and the dots are pinned to the
+     * edge — the logical one, so it mirrors under RTL.
+     */
+    public function test_the_actions_column_sits_at_the_trailing_edge(): void
+    {
+        $this->trip();
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        $this->assertStringContainsString(
+            '<th class="sticky end-0 z-20 bg-chrome-50 px-2 py-2 text-end',
+            $html,
+        );
+        $this->assertStringContainsString(
+            '<td class="sticky end-0 z-10 bg-white px-2 py-2 text-end',
+            $html,
+        );
+    }
+
+    /**
      * Only the screen is reordered. Exports read the service's own column
      * list, which the office's spreadsheets are built around.
      */

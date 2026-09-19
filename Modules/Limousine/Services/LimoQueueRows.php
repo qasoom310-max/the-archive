@@ -354,7 +354,10 @@ final class LimoQueueRows
         $lines[] = '*' . __('Ref. #') . ' ' . ($leg->reference ?? '') . '*';
 
         if ($leg->start_at !== null) {
-            $lines[] = $leg->start_at->isoFormat('DD-MMM-YY') . ' · ' . $leg->start_at->isoFormat('hh:mm A');
+            // 24-hour, like the queue's own date columns and the rest of the
+            // office's paperwork — a driver reading 05:30 off a message should
+            // never have to work out which half of the day it means.
+            $lines[] = $leg->start_at->isoFormat('DD-MMM-YY') . ' · ' . $leg->start_at->isoFormat('HH:mm');
         }
 
         $lines[] = __('Type') . ': ' . $this->tripType($leg, $booking);

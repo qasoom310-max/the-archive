@@ -97,7 +97,8 @@ final class LimoTripMessageTest extends TestCase
 
         $this->assertStringContainsString('*Ref. # ' . $leg->reference . '*', $text);
         $this->assertStringContainsString('21-Aug-26', $text);
-        $this->assertStringContainsString('02:20 PM', $text);
+        $this->assertStringContainsString('14:20', $text);
+        $this->assertStringNotContainsString('PM', $text);
         $this->assertStringContainsString('Airport transfer', $text);
         $this->assertStringContainsString('Braxtone Plus W.L.L - +973 39795544', $text);
         // Nothing paid yet, so the driver is told what to bring back.

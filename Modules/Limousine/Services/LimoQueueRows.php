@@ -30,7 +30,7 @@ use Modules\Limousine\Support\DriverAliases;
  *     leg_id: int, booking_id: int, reference: string, booking_reference: string,
  *     from_date: string, to_date: string, type: string, customer: string, customer_id: int,
  *     amount: float, received: float, balance: float, pickup: string, dropoff: string,
- *     vehicle: string, driver: string, added_by: string, comments: string, booked_time: string,
+ *     vehicle: string, vehicle_type: string, driver: string, added_by: string, comments: string, booked_time: string,
  *     status: string, payment: string
  * }
  */
@@ -42,6 +42,13 @@ final class LimoQueueRows
      * finished and still unpaid.
      */
     public const TAB_UNPAID = 'unpaid';
+
+    /**
+     * A whole day, whatever stage its trips reached — what the schedule
+     * cards on the app home open. Not rendered as a tab: it is a way of
+     * looking at a date, not a pile of work to clear.
+     */
+    public const TAB_ALL = 'all';
 
     /**
      * The columns the queue can be ordered by — every column it prints except
@@ -85,6 +92,25 @@ final class LimoQueueRows
 
         if ($tab === self::TAB_UNPAID) {
             $this->onlyUnpaid($query);
+        }
+
+        // A called-off trip is not happening, so it is not part of a day's
+        // work and does not belong in the list a schedule card opens. The
+        // Cancelled tab still holds every one of them.
+        //
+        // A SEARCH is a lookup rather than a plan — the customer page links
+        // here to show one customer's whole history — so a typed term brings
+        // them back, still badged Cancelled. Every other tab asks for one
+        // status by name and is unaffected either way.
+        if ($tab === self::TAB_ALL && trim($search) === '') {
+            // `status` is nullable, and SQL says a NULL is neither equal nor
+            // unequal to anything — so a bare `!= cancelled` would silently
+            // drop every leg that has no status yet along with the cancelled
+            // ones. Ask for both halves.
+            $query->where(function (Builder $q) use ($legs): void {
+                $q->where($legs . '.status', '!=', LimoLeg::STATUS_CANCELLED)
+                    ->orWhereNull($legs . '.status');
+            });
         }
 
         if ($from !== '') {

@@ -87,12 +87,16 @@ final class LimoHome extends Component
         // counts on each of its days rather than only its booking date.
         //
         // Each card links to the queue filtered to that day, so it counts what
-        // that list will SHOW — cancelled trips included. A card whose number
-        // disagrees with the page it opens is the bug the KPI cards above were
-        // already fixed for once.
+        // that list will SHOW. A card whose number disagrees with the page it
+        // opens is the bug the KPI cards above were already fixed for once —
+        // which is why cancelled trips are dropped from BOTH: a trip that was
+        // called off is not work for that day.
         $byDay = fn (string $date): int => LimoLeg::query()
             ->whereMorphedTo('legable', LimoBooking::class)
             ->whereDate('start_at', $date)
+            // Nullable column: a bare `!=` would drop a leg with no status
+            // at all, since SQL compares nothing to NULL successfully.
+            ->where(fn ($q) => $q->where('status', '!=', LimoLeg::STATUS_CANCELLED)->orWhereNull('status'))
             ->count();
 
         $module = IrModule::query()->where('name', 'limousine')->first();

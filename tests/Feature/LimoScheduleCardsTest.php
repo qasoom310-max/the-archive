@@ -96,8 +96,8 @@ final class LimoScheduleCardsTest extends TestCase
 
     /**
      * The rule that matters: press the card and the list has exactly that many
-     * rows. A cancelled trip still shows on the day it was booked for, so it is
-     * counted — the card and the page must not disagree.
+     * rows. A cancelled trip is counted by neither — it is not work for that
+     * day — but the card and the page must never disagree about it.
      */
     public function test_the_number_matches_the_page_it_opens(): void
     {
@@ -106,14 +106,14 @@ final class LimoScheduleCardsTest extends TestCase
 
         $today = now()->toDateString();
 
-        Livewire::test(LimoHome::class)->assertViewHas('todayCount', 2);
+        Livewire::test(LimoHome::class)->assertViewHas('todayCount', 1);
 
         // Pressing the card: it links with tab=all, because the count spans
-        // every status while the queue itself now opens on Queue.
+        // every stage a live trip can be at while the queue opens on Queue.
         $queue = Livewire::withQueryParams(['tab' => 'all', 'from' => $today, 'to' => $today])
             ->test(Bookings::class);
 
-        $this->assertCount(2, $queue->viewData('legs')->items());
+        $this->assertCount(1, $queue->viewData('legs')->items());
     }
 
     /**

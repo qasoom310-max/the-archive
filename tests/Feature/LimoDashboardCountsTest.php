@@ -83,18 +83,20 @@ final class LimoDashboardCountsTest extends TestCase
     }
 
     /**
-     * The day cards count what their own page SHOWS, cancelled trips included.
+     * The day cards count what their own page SHOWS, and neither counts a
+     * cancelled trip.
      *
-     * They used to leave a cancelled trip out, on the grounds that it is not
-     * running — true, but they are links now, and a card whose number disagrees
-     * with the list it opens is the exact complaint the KPI cards above were
-     * fixed for. The label says Bookings, and a called-off booking is still one
-     * that was made for that day.
+     * The rule that holds is the card agreeing with the list it opens; which
+     * side of the argument they agree ON has moved twice. The cards once left
+     * cancelled trips out, then counted them so the number matched the page —
+     * and the office then said the page itself was wrong: a trip called off is
+     * not tomorrow's work, whatever the label says. So both drop it, and the
+     * Cancelled tab is where a called-off trip is looked up.
      */
     public function test_the_day_counts_match_the_day_they_open(): void
     {
         $this->bookingWithLegs(LimoLeg::STATUS_ACTIVE, LimoLeg::STATUS_CANCELLED);
 
-        Livewire::test(LimoHome::class)->assertViewHas('todayCount', 2);
+        Livewire::test(LimoHome::class)->assertViewHas('todayCount', 1);
     }
 }

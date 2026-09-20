@@ -16,6 +16,7 @@ use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use Livewire\WithPagination;
 use Modules\Rental\Models\RentalOrder;
+use Modules\Rental\Services\RentalOrderRows;
 
 /**
  * Rental orders list — one page covering "new / active / closed / all orders
@@ -87,37 +88,7 @@ final class Orders extends Component
 
     public function render(): View
     {
-        $query = RentalOrder::query()
-            ->with(['customer:id,name,country', 'vehicle:id,name,plate_no,color', 'createdBy:id,name'])
-            ->orderByDesc('id');
-
-        if ($this->tab === 'unpaid') {
-            $this->applyOwing($query);
-        } elseif (in_array($this->tab, [
-            RentalOrder::STATE_DRAFT,
-            RentalOrder::STATE_ACTIVE,
-            RentalOrder::STATE_CLOSED,
-            RentalOrder::STATE_CANCELLED,
-        ], true)) {
-            $query->where('state', $this->tab);
-        }
-
-        if ($this->from !== '') {
-            $query->whereDate('start_date', '>=', $this->from);
-        }
-        if ($this->to !== '') {
-            $query->whereDate('start_date', '<=', $this->to);
-        }
-
-        $term = trim($this->search);
-        if ($term !== '') {
-            $like = '%' . $term . '%';
-            $query->where(function ($q) use ($like): void {
-                $q->where('reference', 'like', $like)
-                    ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', $like))
-                    ->orWhereHas('vehicle', fn ($v) => $v->where('name', 'like', $like)->orWhere('plate_no', 'like', $like));
-            });
-        }
+        $query = app(RentalOrderRows::class)->query($this->tab, $this->from, $this->to, $this->search);
 
         $counts = RentalOrder::query()
             ->selectRaw('state, COUNT(*) as aggregate')

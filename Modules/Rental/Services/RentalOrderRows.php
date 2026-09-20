@@ -73,7 +73,11 @@ final class RentalOrderRows
             'car' => (string) ($order->vehicle?->displayName() ?? ''),
             'pickup' => $order->start_date?->isoFormat('DD-MMM-YYYY') ?? '',
             'return' => $order->end_date?->isoFormat('DD-MMM-YYYY') ?? '',
+            'amount' => ValueFormat::money($order->subtotal),
             'total' => ValueFormat::money($order->total),
+            'received' => ValueFormat::money($order->advance_amount),
+            'balance' => ValueFormat::money($order->balance),
+            'deposit' => ValueFormat::money($order->deposit),
             'status' => $order->state === RentalOrder::STATE_DRAFT ? __('Reservation') : __(ucfirst((string) $order->state)),
             'payment' => __(ucfirst((string) $order->payment_status)),
         ];
@@ -86,8 +90,9 @@ final class RentalOrderRows
     {
         return [
             'reference' => __('Reference'), 'customer' => __('Customer'), 'car' => __('Car'),
-            'pickup' => __('Pick-up'), 'return' => __('Return'), 'total' => __('Total'),
-            'status' => __('Status'), 'payment' => __('Payment'),
+            'pickup' => __('Pick-up'), 'return' => __('Return'), 'amount' => __('Amount'),
+            'total' => __('Total'), 'received' => __('Received'), 'balance' => __('Balance'),
+            'deposit' => __('Deposit'), 'status' => __('Status'), 'payment' => __('Payment'),
         ];
     }
 }

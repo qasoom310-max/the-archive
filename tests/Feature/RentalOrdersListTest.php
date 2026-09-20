@@ -51,6 +51,34 @@ final class RentalOrdersListTest extends TestCase
             ->assertSee('White');   // colour
     }
 
+    /**
+     * The list used to show only Total — Amount (the base rental charge),
+     * Received, Balance and Deposit were on the order record all along but
+     * never reached the screen, so anyone glancing at the list (not just one
+     * role) had to open each order to see what it was actually owed.
+     */
+    public function test_the_list_shows_amount_received_balance_and_deposit(): void
+    {
+        $customer = RentalCustomer::query()->create(['name' => 'Money Renter', 'phone' => '39000030']);
+        $vehicle = Vehicle::query()->create(['name' => 'Camry', 'daily_rate' => 20]);
+        RentalOrder::query()->create([
+            'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id,
+            'start_date' => Carbon::parse('2026-06-24'), 'end_date' => Carbon::parse('2026-06-26'),
+            'rate_type' => 'daily', 'rate' => 20, 'subtotal' => 40, 'total' => 40,
+            'advance_amount' => 15, 'balance' => 25, 'deposit' => 50,
+        ]);
+
+        Livewire::test(Orders::class)
+            ->assertSee(__('Amount'))
+            ->assertSee(__('Received'))
+            ->assertSee(__('Balance'))
+            ->assertSee(__('Deposit'))
+            ->assertSeeHtml(\App\Erp\Views\ValueFormat::money(40.0))
+            ->assertSeeHtml(\App\Erp\Views\ValueFormat::money(15.0))
+            ->assertSeeHtml(\App\Erp\Views\ValueFormat::money(25.0))
+            ->assertSeeHtml(\App\Erp\Views\ValueFormat::money(50.0));
+    }
+
     public function test_saving_a_new_order_stamps_and_lists_the_creator(): void
     {
         $maker = User::factory()->create(['name' => 'Sara Customer-Service', 'is_admin' => true]);

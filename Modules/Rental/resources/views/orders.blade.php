@@ -108,7 +108,11 @@
                     <th class="px-4 py-2 text-start">{{ __('Car') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Pick-up') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Return') }}</th>
+                    <th class="px-4 py-2 text-end">{{ __('Amount') }}</th>
                     <th class="px-4 py-2 text-end">{{ __('Total') }}</th>
+                    <th class="px-4 py-2 text-end">{{ __('Received') }}</th>
+                    <th class="px-4 py-2 text-end">{{ __('Balance') }}</th>
+                    <th class="px-4 py-2 text-end">{{ __('Deposit') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Status') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Payment') }}</th>
                 </tr>
@@ -145,12 +149,16 @@
                         </td>
                         <td class="px-4 py-2 text-chrome-600">{{ $order->start_date?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2 text-chrome-600">{{ $order->end_date?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
+                        <td class="px-4 py-2 text-end text-chrome-600">{{ \App\Erp\Views\ValueFormat::money($order->subtotal) }}</td>
                         <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($order->total) }}</td>
+                        <td class="px-4 py-2 text-end text-chrome-600">{{ \App\Erp\Views\ValueFormat::money($order->advance_amount) }}</td>
+                        <td class="px-4 py-2 text-end text-chrome-600">{{ \App\Erp\Views\ValueFormat::money($order->balance) }}</td>
+                        <td class="px-4 py-2 text-end text-chrome-600">{{ \App\Erp\Views\ValueFormat::money($order->deposit) }}</td>
                         <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ $order->state === 'draft' ? __('Reservation') : __(ucfirst($order->state)) }}</span></td>
                         <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $order->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($order->payment_status)) }}</span></td>
                     </tr>
                 @empty
-                    <tr><td colspan="8" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No orders found.') }}</td></tr>
+                    <tr><td colspan="12" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No orders found.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>

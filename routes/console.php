@@ -56,6 +56,22 @@ Schedule::call(function (): void {
     }
 })->daily()->name('prune-whatsapp-receipts')->withoutOverlapping();
 
+// Daily: drop PDFs generated for the in-ERP assistant test chat (booking
+// confirmations, quotations, invoices, service orders offered as a download
+// there — see `Modules\WhatsApp\Assistant\WebReplySink`). These are meant to
+// be downloaded once, right after the turn that produced them; anything
+// older than a day is an abandoned tab.
+Schedule::call(function (): void {
+    $disk = \Illuminate\Support\Facades\Storage::disk('local');
+    $cutoff = now()->subDay()->getTimestamp();
+
+    foreach ($disk->allFiles(\Modules\WhatsApp\Assistant\WebReplySink::DOCUMENT_DIR) as $path) {
+        if ($disk->lastModified($path) < $cutoff) {
+            $disk->delete($path);
+        }
+    }
+})->daily()->name('prune-whatsapp-assistant-chat-files')->withoutOverlapping();
+
 // Daily: drop the chunks of video uploads that were abandoned part-way (a
 // closed tab, a lost signal). A finished upload removes its own folder, so
 // anything a day old is dead.

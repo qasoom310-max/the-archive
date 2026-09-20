@@ -42,7 +42,7 @@ final class StaffAssistant
 
     public function __construct(
         private readonly Brain $brain,
-        private readonly MetaMessenger $messenger,
+        private readonly ReplySink $messenger,
         private readonly AssistantActions $actions,
         private readonly ActivityLogger $activity,
     ) {
@@ -101,6 +101,48 @@ final class StaffAssistant
             $this->say($conversation, Replies::failed($lang));
         } finally {
             Auth::forgetUser();
+        }
+    }
+
+    /**
+     * One turn from the in-ERP test chat. The caller is already the ERP
+     * user — an authenticated web session, not a WhatsApp number — so there
+     * is no phone to resolve and nothing to refuse; the page itself decides
+     * who may open it (see {@see \Modules\WhatsApp\Livewire\AssistantChat}).
+     * Deliberately does NOT touch `Auth::setUser()`/`forgetUser()` — the
+     * caller's session is already this exact user, and forgetting it
+     * mid-request (as {@see handle()} safely does inside a bare webhook
+     * response) would risk the rest of this SAME request rendering as
+     * signed out.
+     *
+     * Everything past this point — proposals, the confirm-before-create
+     * rule, the AI — is the exact same {@see converse()} a WhatsApp message
+     * runs through, only replying through a {@see WebReplySink} instead of
+     * Meta.
+     */
+    public function converseAsWebUser(User $user, string $text): void
+    {
+        $config = AssistantConfiguration::current();
+        $waId = 'web:' . $user->id;
+        $conversation = Conversation::query()->firstOrNew(['wa_id' => $waId]);
+        $lang = Replies::detectLanguage($text, $conversation->exists ? $conversation->language : 'en');
+
+        $conversation->user_id = $user->id;
+        $conversation->language = $lang;
+        $conversation->last_msg_at = Carbon::now();
+        $conversation->save();
+
+        if (! (bool) $config->enabled) {
+            $this->say($conversation, Replies::unavailable($lang));
+
+            return;
+        }
+
+        try {
+            $this->converse($conversation, $user, $config, trim($text));
+        } catch (Throwable $e) {
+            Log::error('WhatsApp assistant (web chat) failed', ['error' => $e->getMessage(), 'conversation' => $conversation->id]);
+            $this->say($conversation, Replies::failed($lang));
         }
     }
 

@@ -60,7 +60,12 @@ final class WhatsAppStaffAssistantTest extends TestCase
         app(ModuleManager::class)->install('limousine');
         app(ModuleManager::class)->install('whatsapp');
         Route::middleware('web')->group(base_path('Modules/WhatsApp/routes/web.php'));
-        (new \Modules\WhatsApp\Providers\WhatsAppServiceProvider($this->app))->boot();
+        $provider = new \Modules\WhatsApp\Providers\WhatsAppServiceProvider($this->app);
+        // `register()` binds `ReplySink` (and `Brain`, immediately overridden
+        // below) — installing a module mid-test does not itself re-run a
+        // provider's register(), only its schema/manifest side.
+        $provider->register();
+        $provider->boot();
 
         Artisan::call('pricing:seed');
 

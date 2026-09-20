@@ -3009,6 +3009,28 @@ ERP user, switch on. In Meta: callback URL shown on that tab, the same verify
 token, subscribe `messages`. **Not built:** voice/image messages (asks for text),
 multi-leg bookings, editing an existing booking by chat, driver assignment.
 
+**In-ERP test chat — try the same bot with no WhatsApp/Meta at all (added
+2026-09-20, same branch).** Meta wasn't set up yet, so the assistant needed a
+way to be tried and reviewed before that. `StaffAssistant` never talked to
+Meta directly — it always went through a small `ReplySink` interface — so a
+second channel is a second implementation of that interface, not a second
+assistant. Nothing about the confirm-before-create rule, the tools, the fares
+or the permissions changes between the two; only how a reply is delivered does.
+
+| Concern | Location |
+|---|---|
+| Channel split | `ReplySink` (new interface: `sendText`/`sendDocument`) — `MetaMessenger implements ReplySink` (unchanged behaviour, real Graph API calls). `WebReplySink` is the second implementation: captures each reply in `$messages` instead of sending it anywhere, and writes a document's raw PDF bytes to **private** storage under an unguessable path (`whatsapp-assistant-chat/{conversationId}/{random40}.pdf` — keyed by the numeric conversation id, never the `wa_id` string, which carries a colon that isn't a legal path segment on every OS this runs on). Both share the identical "write an outbound transcript row" logic via the new `RecordsOutboundMessages` trait, so the transcript can't drift between channels |
+| Orchestrator | `StaffAssistant::converseAsWebUser(User $user, string $text)` — the web-channel twin of `handle()`. No phone to resolve and nothing to refuse (the page itself decides who may open it), no Meta message id to dedupe (there's no webhook redelivery to guard against in a synchronous request), and deliberately does **not** touch `Auth::setUser()`/`forgetUser()` — the caller is already that exact authenticated session, and forgetting the user mid-request would risk the rest of THAT SAME request rendering as signed out. Past that setup it calls the identical private `converse()` every WhatsApp message runs through. Conversation is keyed `web:{user id}` (fits the existing `wa_id` string column; no migration) |
+| Page | `Modules\WhatsApp\Livewire\AssistantChat` at `/app/settings/whatsapp-assistant/chat` (admin, OR a phone number in `whatsapp_assistant_staff` mapped to the viewer's own account — same population that could use the real bot). Builds `StaffAssistant` itself with `app()->make(StaffAssistant::class, ['messenger' => new WebReplySink()])` rather than resolving it through the container (the container's own `ReplySink` binding is `MetaMessenger`, the correct default for the real webhook). Renders the conversation straight from `Conversation::history`; a document turn surfaces as a "Download" button that streams the stored PDF back (`response()->streamDownload()`, scoped to the viewer's own conversation folder) |
+| Housekeeping | `deploy.yml` rsync excludes `storage/app/private/whatsapp-assistant-chat/` (else `--delete` wipes it every push — the standing rule, see `[[rsync-delete-wipes-user-uploads]]`). Daily `prune-whatsapp-assistant-chat-files` (`routes/console.php`) drops anything older than a day — these are meant to be downloaded once, right after the turn that produced them |
+| Discoverability | A "Try it here (no phone needed)" link on the Settings → WhatsApp assistant tab |
+| Tests | `tests/Feature/WhatsAppAssistantChatTest.php` — page gate (admin in, mapped staff in, unrelated account 403), a plain question gets a reply rendered as a bubble with no Meta HTTP call made, a confirmed booking goes through the same YES/NO flow and actually creates the booking, a confirmed document proposal can be downloaded and the bytes match what the PDF service rendered, disabled config shows the same "not available" wording the WhatsApp channel shows |
+
+**Not this feature's job:** `NotifyStaffOfPayment` (a payment link getting
+paid) still always sends over real WhatsApp — a payment link raised from this
+test chat waits on a real payment, so there was nothing to route back to the
+chat, and this was never meant to replace WhatsApp for that notification.
+
 **Ad calendar — when to advertise, from what actually sold (shipped 2026-09-07):**
 
 Admin-only page at **`/calendar`** (dashboard "Reports & Team" tile), one per

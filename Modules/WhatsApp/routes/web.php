@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use Modules\WhatsApp\Http\Controllers\AssistantChatDownloadController;
 use Modules\WhatsApp\Http\Controllers\AssistantWebhookController;
 use Modules\WhatsApp\Http\Controllers\WhatsAppWebhookController;
+use Modules\WhatsApp\Livewire\AssistantChat;
 use Modules\WhatsApp\Livewire\AssistantSettings;
 use Modules\WhatsApp\Livewire\WhatsAppSettings;
 
@@ -31,4 +33,10 @@ Route::middleware('auth')->group(function (): void {
         ->name('whatsapp.settings');
     Route::get('/app/settings/whatsapp-assistant', AssistantSettings::class)
         ->name('whatsapp.assistant.settings');
+    // Not admin-only — the component itself allows an admin OR a mapped
+    // staff number, so the page-load gate has to match the component's own.
+    Route::get('/app/settings/whatsapp-assistant/chat', AssistantChat::class)
+        ->name('whatsapp.assistant.chat');
+    Route::get('/app/settings/whatsapp-assistant/chat/download', AssistantChatDownloadController::class)
+        ->name('whatsapp.assistant.chat.download');
 });

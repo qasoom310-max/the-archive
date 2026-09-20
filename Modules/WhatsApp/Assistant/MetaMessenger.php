@@ -6,7 +6,6 @@ namespace Modules\WhatsApp\Assistant;
 
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\Log;
-use Modules\WhatsApp\Models\ConversationMessage;
 use Modules\WhatsApp\Models\WhatsAppConfiguration;
 use Throwable;
 
@@ -19,8 +18,10 @@ use Throwable;
  * minute on this host, which is far too slow for a chat. Never throws: a
  * failed send is logged and reported as false.
  */
-final class MetaMessenger
+final class MetaMessenger implements ReplySink
 {
+    use RecordsOutboundMessages;
+
     private const TIMEOUT_SECONDS = 15;
 
     public function __construct(private readonly HttpFactory $http)
@@ -121,17 +122,4 @@ final class MetaMessenger
         return sprintf('https://graph.facebook.com/%s/%s', $version, (string) $config->phone_number_id);
     }
 
-    private function record(?int $conversationId, string $type, string $body): void
-    {
-        try {
-            ConversationMessage::query()->create([
-                'conversation_id' => $conversationId,
-                'direction' => ConversationMessage::OUT,
-                'type' => $type,
-                'body' => $body,
-            ]);
-        } catch (Throwable) {
-            // The transcript is a record, not a dependency.
-        }
-    }
 }

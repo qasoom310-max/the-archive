@@ -228,6 +228,7 @@ jobs:
               --exclude='storage/app/backups/' \
               --exclude='storage/app/imports/' \
               --exclude='storage/app/private/video-chunks/' \
+              --exclude='storage/app/private/whatsapp-assistant-chat/' \
               --exclude='storage/logs/' \
               --exclude='storage/framework/cache/data/' \
               --exclude='storage/framework/sessions/' \

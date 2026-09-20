@@ -4,10 +4,15 @@
             <h1 class="text-xl font-bold text-chrome-900">Settings</h1>
             <p class="text-sm text-chrome-500">WhatsApp staff assistant — quote, book and send documents by chatting.</p>
         </div>
-        <button wire:click="save" class="o-btn-primary">
-            <span wire:loading.remove wire:target="save">Save</span>
-            <span wire:loading wire:target="save">Saving…</span>
-        </button>
+        <div class="flex items-center gap-3">
+            <a href="{{ url('/app/settings/whatsapp-assistant/chat') }}" wire:navigate class="text-sm font-medium text-primary-700 hover:underline">
+                Try it here (no phone needed)
+            </a>
+            <button wire:click="save" class="o-btn-primary">
+                <span wire:loading.remove wire:target="save">Save</span>
+                <span wire:loading wire:target="save">Saving…</span>
+            </button>
+        </div>
     </div>
 
     @include('partials.settings-nav', ['active' => 'whatsapp_assistant'])

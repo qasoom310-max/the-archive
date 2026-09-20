@@ -29,7 +29,7 @@ final class LimoReceiptRows
             $query->whereNotNull('confirmed_at');
         }
 
-        if (in_array($method, ['cash', 'card', 'benefit', 'transfer'], true)) {
+        if (in_array($method, array_column(LimoReceipt::methodOptions(), 'value'), true)) {
             $query->where('method', $method);
         }
 

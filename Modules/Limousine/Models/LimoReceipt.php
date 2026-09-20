@@ -178,6 +178,11 @@ final class LimoReceipt extends Model implements DefinesIrModel
             ['value' => 'card', 'label' => 'Card'],
             ['value' => 'benefit', 'label' => 'Benefit'],
             ['value' => 'transfer', 'label' => 'Bank transfer'],
+            // The value the payment-portal callback already stamps on a
+            // receipt it settles ({@see \Modules\Limousine\Http\Controllers\
+            // PaymentCallbackController}) — offered here too so one raised by
+            // hand for an out-of-portal Tap payment matches the same figure.
+            ['value' => 'online', 'label' => 'Online (Tap)'],
         ];
     }
 

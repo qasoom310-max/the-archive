@@ -66,6 +66,7 @@
             <option value="card">{{ __('Card') }}</option>
             <option value="benefit">{{ __('Benefit') }}</option>
             <option value="transfer">{{ __('Transfer') }}</option>
+            <option value="online">{{ __('Online (Tap)') }}</option>
         </select>
         <div>
             <label class="mb-1 block text-xs font-medium text-chrome-700">{{ __('Receipt date from') }}</label>

@@ -17,6 +17,7 @@ use Livewire\Component;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoQuotation;
+use Modules\Limousine\Models\LimoReceipt;
 use Modules\Limousine\Services\BookingPayments;
 
 /**
@@ -359,7 +360,7 @@ final class InvoiceForm extends Component
 
         $this->validateFocusing([
             'collectAmount' => ['required', 'numeric', 'min:0.001'],
-            'collectMethod' => ['required', 'in:cash,card,benefit,transfer'],
+            'collectMethod' => ['required', 'in:' . implode(',', array_column(LimoReceipt::methodOptions(), 'value'))],
             'collectNote' => ['nullable', 'string', 'max:255'],
         ]);
 

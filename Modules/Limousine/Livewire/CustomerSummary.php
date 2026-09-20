@@ -19,6 +19,7 @@ use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Models\LimoQuotation;
+use Modules\Limousine\Models\LimoReceipt;
 use Modules\Limousine\Services\AccountPayment;
 
 /**
@@ -223,7 +224,7 @@ final class CustomerSummary extends Component
 
         $this->validate([
             'payAmount' => ['required', 'numeric', 'min:0.001'],
-            'payMethod' => ['required', 'in:cash,card,benefit,transfer'],
+            'payMethod' => ['required', 'in:' . implode(',', array_column(LimoReceipt::methodOptions(), 'value'))],
             'payNote' => ['nullable', 'string', 'max:255'],
         ]);
 

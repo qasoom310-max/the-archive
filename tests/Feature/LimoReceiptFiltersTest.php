@@ -85,6 +85,25 @@ final class LimoReceiptFiltersTest extends TestCase
             ->assertSee('Ahmed');
     }
 
+    public function test_the_method_filter_offers_and_narrows_by_online_tap(): void
+    {
+        $cash = $this->receipt('2026-06-01', 'Ahmed');
+        $online = $this->receipt('2026-06-02', 'Ahmed');
+        $online->method = 'online';
+        $online->save();
+        $cash->method = 'cash';
+        $cash->save();
+
+        Livewire::test(Receipts::class)
+            ->set('tab', 'all')
+            ->assertSee(__('Online (Tap)'))
+            ->set('method', 'online')
+            ->assertViewHas(
+                'receipts',
+                fn ($receipts): bool => $receipts->total() === 1 && $receipts->first()->id === $online->id,
+            );
+    }
+
     public function test_the_clear_button_appears_once_a_new_filter_is_set_and_resetting_shows_everyone_again(): void
     {
         $this->receipt('2026-06-01', 'Ahmed');

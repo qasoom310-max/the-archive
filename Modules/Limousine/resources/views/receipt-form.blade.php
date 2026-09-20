@@ -35,6 +35,7 @@
                     <option value="card">{{ __('Card') }}</option>
                     <option value="benefit">{{ __('Benefit') }}</option>
                     <option value="transfer">{{ __('Bank transfer') }}</option>
+                    <option value="online">{{ __('Online (Tap)') }}</option>
                 </select>
             </div>
 

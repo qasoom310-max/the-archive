@@ -110,6 +110,27 @@ final class LimoManualReceiptTest extends TestCase
         $this->assertSame(1, LimoReceipt::query()->count());
     }
 
+    /**
+     * The payment-portal callback already stamps a settled receipt with
+     * method "online" ({@see \Modules\Limousine\Http\Controllers\
+     * PaymentCallbackController}) — this offers the same value on the
+     * hand-written form too, for a Tap payment taken outside the portal.
+     */
+    public function test_a_receipt_can_be_recorded_as_online_tap(): void
+    {
+        $this->asOwner();
+        $invoice = $this->invoice();
+
+        Livewire::test(ReceiptForm::class)
+            ->set('invoice_id', $invoice->id)
+            ->set('amount', 45)
+            ->set('method', 'online')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame('online', LimoReceipt::query()->sole()->method);
+    }
+
     public function test_an_accountant_can_also_write_one_by_hand(): void
     {
         $this->asAccountant();

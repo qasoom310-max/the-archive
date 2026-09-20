@@ -124,7 +124,7 @@ final class ReceiptForm extends Component
             'invoice_id' => ['required', 'integer'],
             'date' => ['required', 'date'],
             'amount' => ['required', 'numeric', 'min:0.001'],
-            'method' => ['required', 'in:cash,card,benefit,transfer'],
+            'method' => ['required', 'in:' . implode(',', array_column(LimoReceipt::methodOptions(), 'value'))],
             'notes' => ['nullable', 'string'],
         ];
     }

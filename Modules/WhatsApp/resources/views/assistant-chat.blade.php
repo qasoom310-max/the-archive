@@ -19,7 +19,7 @@
         @forelse ($history as $turn)
             <div class="flex {{ $turn['role'] === 'user' ? 'justify-end' : 'justify-start' }}">
                 <div
-                    class="max-w-[80%] rounded-2xl px-4 py-2 text-sm {{ $turn['role'] === 'user' ? 'bg-primary-400 text-chrome-900' : 'bg-chrome-100 text-chrome-800' }}"
+                    class="max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2 text-sm {{ $turn['role'] === 'user' ? 'bg-primary-400 text-chrome-900' : 'bg-chrome-100 text-chrome-800' }}"
                     dir="auto"
                 >{{ $turn['text'] }}</div>
             </div>

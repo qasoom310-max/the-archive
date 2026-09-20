@@ -16,7 +16,10 @@ use Modules\Limousine\Models\LimoReceipt;
 use Tests\TestCase;
 
 /**
- * Writing a receipt by hand is the owner's job alone.
+ * Writing a receipt by hand is reserved to whoever may vouch that money
+ * actually arrived: the owner, and the Accountant — the same pairing
+ * {@see \App\Models\User::canConfirmPayments()} already uses for confirming
+ * one. A regular admin, who is neither, may not.
  *
  * Money taken on a booking issues its own receipt, so a hand-made one is a
  * correction rather than the normal way in — and two receipts for the same
@@ -43,6 +46,18 @@ final class LimoManualReceiptTest extends TestCase
         return $owner;
     }
 
+    private function asAccountant(): User
+    {
+        // A real Accountant is provisioned with Read/Write/Create on the apps
+        // they need, same as any other staff role — the flag alone is not
+        // what gets them past the base ACL gate every screen still has.
+        $this->grantEveryone('limousine.receipt');
+        $accountant = User::factory()->create(['is_admin' => false, 'is_accountant' => true]);
+        $this->actingAs($accountant);
+
+        return $accountant;
+    }
+
     private function asAdmin(): User
     {
         $admin = User::factory()->create(['is_admin' => true]);
@@ -60,9 +75,12 @@ final class LimoManualReceiptTest extends TestCase
         ]);
     }
 
-    public function test_only_the_owner_is_offered_the_new_receipt_button(): void
+    public function test_the_owner_and_accountant_are_offered_the_new_receipt_button(): void
     {
         $this->asOwner();
+        Livewire::test(Receipts::class)->assertSee(__('New receipt'));
+
+        $this->asAccountant();
         Livewire::test(Receipts::class)->assertSee(__('New receipt'));
 
         $this->asAdmin();
@@ -80,6 +98,21 @@ final class LimoManualReceiptTest extends TestCase
     public function test_the_owner_can_still_write_one_by_hand(): void
     {
         $this->asOwner();
+        $invoice = $this->invoice();
+
+        Livewire::test(ReceiptForm::class)
+            ->set('invoice_id', $invoice->id)
+            ->set('amount', 45)
+            ->set('method', 'cash')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame(1, LimoReceipt::query()->count());
+    }
+
+    public function test_an_accountant_can_also_write_one_by_hand(): void
+    {
+        $this->asAccountant();
         $invoice = $this->invoice();
 
         Livewire::test(ReceiptForm::class)
@@ -111,7 +144,7 @@ final class LimoManualReceiptTest extends TestCase
         $this->assertSame(0, LimoReceipt::query()->count());
     }
 
-    public function test_opening_an_existing_receipt_is_the_owners_alone_too(): void
+    public function test_opening_an_existing_receipt_follows_the_same_rule_as_creating_one(): void
     {
         $invoice = $this->invoice();
         $receipt = LimoReceipt::query()->create([
@@ -134,5 +167,15 @@ final class LimoManualReceiptTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertEqualsWithDelta(25.0, (float) $receipt->fresh()?->amount, 0.001);
+
+        // So can the Accountant.
+        $this->asAccountant();
+        Livewire::test(ReceiptForm::class, ['id' => $receipt->id])
+            ->assertOk()
+            ->set('amount', 30)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertEqualsWithDelta(30.0, (float) $receipt->fresh()?->amount, 0.001);
     }
 }

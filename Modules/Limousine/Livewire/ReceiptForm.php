@@ -50,16 +50,19 @@ final class ReceiptForm extends Component
     public string $reference = '';
 
     /**
-     * This screen is the owner's alone, coming and going.
+     * This screen is reserved to whoever may vouch that money arrived: the
+     * owner, and the Accountant.
      *
      * Money taken on a booking issues its own receipt, so touching one by hand
      * — writing it or repairing it — is a correction rather than the normal way
      * in, and two receipts for the same payment is a hard mistake to spot after
-     * the fact.
+     * the fact. Same pairing as {@see \App\Models\User::canConfirmPayments()} —
+     * confirming a receipt and writing one by hand are both "vouching for
+     * money", so they stay behind the same gate.
      */
     private function guardManualCreate(): void
     {
-        abort_unless(Auth::user()?->isSuperAdmin() ?? false, 403);
+        abort_unless(Auth::user()?->canConfirmPayments() ?? false, 403);
     }
 
     public function mount(int|string|null $id = null): void

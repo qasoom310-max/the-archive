@@ -8,9 +8,10 @@
                 <button type="button" onclick="document.getElementById('import-receipts').classList.toggle('hidden')" class="o-btn-ghost">{{ __('Import') }}</button>
             @endif
             {{-- Receipts write themselves when money is taken on a booking, so a
-                 hand-made one is a correction, not the normal way in. Kept for the
-                 owner only: two receipts for the same payment is a hard mistake to
-                 spot afterwards. ReceiptForm enforces the same rule server-side. --}}
+                 hand-made one is a correction, not the normal way in. Kept for
+                 whoever may vouch that money arrived — the owner and the
+                 Accountant: two receipts for the same payment is a hard mistake
+                 to spot afterwards. ReceiptForm enforces the same rule server-side. --}}
             @if ($canCreateManually)
                 <a href="{{ url('/app/limousine/receipt/new') }}" wire:navigate class="o-btn-primary">
                     <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
@@ -56,7 +57,7 @@
         @endforeach
     </div>
 
-    <div class="mb-4 flex flex-wrap items-center gap-3">
+    <div class="mb-4 flex flex-wrap items-end gap-3">
         <input type="text" wire:model.live.debounce.300ms="search" placeholder="{{ __('Find receipt (reference or customer)…') }}"
             class="o-input w-full max-w-md text-sm">
         <select wire:model.live="method" class="o-input text-sm">
@@ -66,11 +67,31 @@
             <option value="benefit">{{ __('Benefit') }}</option>
             <option value="transfer">{{ __('Transfer') }}</option>
         </select>
+        <div>
+            <label class="mb-1 block text-xs font-medium text-chrome-700">{{ __('Receipt date from') }}</label>
+            <x-date-field wire:model.live="from" class="o-input text-sm" />
+        </div>
+        <div>
+            <label class="mb-1 block text-xs font-medium text-chrome-700">{{ __('Receipt date to') }}</label>
+            <x-date-field wire:model.live="to" class="o-input text-sm" />
+        </div>
+        <select wire:model.live="preparedBy" class="o-input text-sm">
+            <option value="">{{ __('Everyone') }}</option>
+            @foreach ($preparedByOptions as $name)
+                <option value="{{ $name }}">{{ $name }}</option>
+            @endforeach
+        </select>
+        @if ($from !== '' || $to !== '' || $preparedBy !== '' || $method !== '' || $search !== '')
+            {{-- One button clears the whole filter, search included. --}}
+            <button wire:click="$set('from', ''); $set('to', ''); $set('preparedBy', ''); $set('method', ''); $set('search', '')"
+                    class="pb-2 text-sm text-chrome-500 hover:underline">{{ __('Clear') }}</button>
+        @endif
     </div>
 
     @php
         $exportQuery = http_build_query([
             'tab' => $tab, 'method' => $method, 'q' => $search,
+            'from' => $from, 'to' => $to, 'prepared_by' => $preparedBy,
             'title' => __('Receipts'),
         ]);
     @endphp
@@ -148,6 +169,7 @@
                     <th class="px-4 py-2 text-start">{{ __('Method') }}</th>
                     <th class="px-4 py-2 text-end">{{ __('Amount') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Confirmed') }}</th>
+                    <th class="px-4 py-2 text-start">{{ __('Created by') }}</th>
                     <th class="px-4 py-2 text-end">{{ __('Actions') }}</th>
                 </tr>
             </thead>
@@ -180,6 +202,7 @@
                                 <span class="rounded bg-amber-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-amber-700">{{ __('Unconfirmed') }}</span>
                             @endif
                         </td>
+                        <td class="px-4 py-2 text-chrome-600">{{ $receipt->prepared_by ?? '—' }}</td>
                         {{-- The customer's copy. stopPropagation so fetching it
                              doesn't also open the row's edit form. --}}
                         <td class="whitespace-nowrap px-4 py-2 text-end" onclick="event.stopPropagation()">
@@ -195,7 +218,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="8" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No receipts found.') }}</td></tr>
+                    <tr><td colspan="9" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No receipts found.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>

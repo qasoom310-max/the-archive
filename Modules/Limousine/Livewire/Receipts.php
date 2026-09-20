@@ -21,6 +21,7 @@ use Modules\Limousine\Mail\ReceiptMail;
 use Illuminate\Support\Carbon;
 use Modules\Limousine\Models\LimoReceipt;
 use Modules\Limousine\Services\LimoReceiptPdf;
+use Modules\Limousine\Services\LimoReceiptRows;
 
 #[Layout('components.layouts.app')]
 #[Title('Receipts')]
@@ -39,6 +40,17 @@ final class Receipts extends Component
     /** cash · card · benefit · transfer, or empty for every method. */
     #[Url(except: '')]
     public string $method = '';
+
+    /** The receipt's OWN date — when the money changed hands, not today. */
+    #[Url(except: '')]
+    public string $from = '';
+
+    #[Url(except: '')]
+    public string $to = '';
+
+    /** A name from {@see LimoReceiptRows::preparers()}, or empty for everyone. */
+    #[Url(except: '')]
+    public string $preparedBy = '';
 
     protected function accessModelKey(): string
     {
@@ -247,6 +259,21 @@ final class Receipts extends Component
         $this->resetPage();
     }
 
+    public function updatedFrom(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedTo(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPreparedBy(): void
+    {
+        $this->resetPage();
+    }
+
     public function updatedSearch(): void
     {
         $this->resetPage();
@@ -254,29 +281,17 @@ final class Receipts extends Component
 
     public function render(): View
     {
-        $query = LimoReceipt::query()
-            ->with(['customer:id,name', 'invoice:id,reference'])
-            ->orderByDesc('id');
-
-        if ($this->tab === 'to_confirm') {
-            $query->whereNull('confirmed_at');
-        } elseif ($this->tab === 'confirmed') {
-            $query->whereNotNull('confirmed_at');
-        }
-
-        if (in_array($this->method, ['cash', 'card', 'benefit', 'transfer'], true)) {
-            $query->where('method', $this->method);
-        }
-
-        $term = trim($this->search);
-        if ($term !== '') {
-            $query->where(function ($q) use ($term): void {
-                $q->where('reference', 'like', "%{$term}%")
-                    ->orWhereHas('customer', function ($c) use ($term): void {
-                        $c->where('name', 'like', "%{$term}%");
-                    });
-            });
-        }
+        // The same source the exports read, via LimoReceiptRows — otherwise a
+        // filter added here (or there) quietly stops matching what the office
+        // sees on screen.
+        $query = app(LimoReceiptRows::class)->query(
+            $this->tab,
+            $this->method,
+            $this->search,
+            $this->from,
+            $this->to,
+            $this->preparedBy,
+        );
 
         // The accountant's desk groups a bulk payment into ONE row: nobody
         // should close a lump sum forty receipts at a time. Grouped in PHP over
@@ -297,11 +312,13 @@ final class Receipts extends Component
                 && LimoReceipt::query()->where('batch_id', $this->confirmingBatch)
                     ->get()->every(fn (LimoReceipt $r): bool => $r->isCash()),
             // Money taken on a booking issues its own receipt, so a hand-made
-            // one is a correction reserved for the owner. Same rule server-side
-            // in ReceiptForm — hiding the button alone would only be cosmetic.
-            'canCreateManually' => Auth::user()?->isSuperAdmin() ?? false,
+            // one is a correction reserved for whoever may vouch that money
+            // arrived — the owner and the Accountant. Same rule server-side in
+            // ReceiptForm — hiding the button alone would only be cosmetic.
+            'canCreateManually' => $this->mayConfirm(),
             'collectedTotal' => (float) LimoReceipt::query()->sum('amount'),
             'canManage' => ($u = Auth::user()) instanceof User && $u->canApproveMaintenance(),
+            'preparedByOptions' => app(LimoReceiptRows::class)->preparers(),
         ]);
     }
 }

@@ -14,8 +14,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Downloads of the receipts list: CSV, Excel, PDF and a printable view — all
- * four from the SAME filtered rows as {@see LimoReceiptRows} (tab, method and
- * search all ride along).
+ * four from the SAME filtered rows as {@see LimoReceiptRows} (tab, method,
+ * search, date range and who created it all ride along).
  */
 final class LimoReceiptExportController
 {
@@ -60,6 +60,9 @@ final class LimoReceiptExportController
             (string) $request->query('tab', ''),
             (string) $request->query('method', ''),
             (string) $request->query('q', ''),
+            (string) $request->query('from', ''),
+            (string) $request->query('to', ''),
+            (string) $request->query('prepared_by', ''),
         );
     }
 }

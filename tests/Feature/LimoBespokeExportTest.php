@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Modules\Limousine\Http\Controllers\LimoInvoiceExportController;
 use Modules\Limousine\Http\Controllers\LimoPettyAdvanceExportController;
 use Modules\Limousine\Http\Controllers\LimoQuotationExportController;
@@ -179,6 +180,43 @@ final class LimoBespokeExportTest extends TestCase
         $body = $this->streamed(app(LimoReceiptExportController::class)->csv(Request::create('/x', 'GET', ['method' => 'transfer'])));
         $this->assertStringContainsString('150.00', $body);
         $this->assertStringNotContainsString('100.00', $body);
+    }
+
+    public function test_receipt_export_honours_the_date_range_filter(): void
+    {
+        $customer = $this->customer();
+        $earlier = $this->trip($customer, 100, '2026-06-01');
+        $later = $this->trip($customer, 150, '2026-06-20');
+        app(BookingPayments::class)->receive($earlier, 100, 'cash', on: Carbon::parse('2026-06-01'));
+        app(BookingPayments::class)->receive($later, 150, 'cash', on: Carbon::parse('2026-06-20'));
+
+        $body = $this->streamed(app(LimoReceiptExportController::class)->csv(Request::create('/x', 'GET', [
+            'from' => '2026-06-15', 'to' => '2026-06-25',
+        ])));
+
+        $this->assertStringContainsString('150.00', $body);
+        $this->assertStringNotContainsString('100.00', $body);
+    }
+
+    public function test_receipt_export_honours_the_created_by_filter(): void
+    {
+        $customer = $this->customer();
+
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'name' => 'Ahmed']));
+        $ahmedTrip = $this->trip($customer, 80, '2026-06-05');
+        app(BookingPayments::class)->receive($ahmedTrip, 80, 'cash');
+
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'name' => 'Mona']));
+        $monaTrip = $this->trip($customer, 60, '2026-06-06');
+        app(BookingPayments::class)->receive($monaTrip, 60, 'cash');
+
+        $body = $this->streamed(app(LimoReceiptExportController::class)->csv(Request::create('/x', 'GET', [
+            'prepared_by' => 'Mona',
+        ])));
+
+        $this->assertStringContainsString('60.00', $body);
+        $this->assertStringNotContainsString('80.00', $body);
+        $this->assertStringContainsString('Mona', $body);
     }
 
     // --- Quotation -----------------------------------------------------

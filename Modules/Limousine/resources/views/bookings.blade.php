@@ -181,11 +181,14 @@
                   drop off · vehicle · payment · actions
            sm     + no. · to date
            md     + status
-           lg     (nothing left to add here)
-           xl     + received · balance · driver
-           2xl    everything (added by, comments, booked time)
-         Exports and Print carry ALL columns whatever the screen, so nothing is
-         lost — it is only hidden from this view. --}}
+           lg     everything (received, balance, driver, added by,
+                  comments, booked time)
+         `lg` (1024px), not the far wider `xl`/`2xl` this used to wait for —
+         a normal work laptop clears 1024px with room to spare, and a
+         Supervisor doing dispatch work needs the money/driver columns as
+         much as an admin does; those aren't gated by role anywhere, only by
+         how wide the screen was. Exports and Print carry ALL columns
+         whatever the screen, so nothing is lost — it is only hidden here. --}}
     @php
         $vis = [
             'reference' => '',
@@ -194,15 +197,15 @@
             'type' => '',
             'customer' => '',
             'amount' => '',
-            'received' => 'hidden xl:table-cell',
-            'balance' => 'hidden xl:table-cell',
+            'received' => 'hidden lg:table-cell',
+            'balance' => 'hidden lg:table-cell',
             'pickup' => '',
             'dropoff' => '',
             'vehicle' => '',
-            'driver' => 'hidden xl:table-cell',
-            'added_by' => 'hidden 2xl:table-cell',
-            'comments' => 'hidden 2xl:table-cell',
-            'booked_time' => 'hidden 2xl:table-cell',
+            'driver' => 'hidden lg:table-cell',
+            'added_by' => 'hidden lg:table-cell',
+            'comments' => 'hidden lg:table-cell',
+            'booked_time' => 'hidden lg:table-cell',
             'status' => 'hidden md:table-cell',
             'payment' => '',
         ];
@@ -336,9 +339,9 @@
                              shows one balance repeated down its rows rather than a third
                              on each. The tooltips say so, because two money columns that
                              repeat beside one that doesn't reads as double-counting. --}}
-                        <td class="hidden px-2 py-2 text-end text-emerald-700 xl:table-cell"
+                        <td class="hidden px-2 py-2 text-end text-emerald-700 lg:table-cell"
                             title="{{ __('Received against booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['received']) }}</td>
-                        <td class="hidden px-2 py-2 text-end xl:table-cell {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-600' }}"
+                        <td class="hidden px-2 py-2 text-end lg:table-cell {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-600' }}"
                             title="{{ __('Still owed on booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['balance']) }}</td>
                         <td class="px-2 py-2 text-chrome-900">{{ $row['pickup'] ?: '—' }}</td>
                         <td class="px-2 py-2 text-chrome-900">{{ $row['dropoff'] ?: '—' }}</td>
@@ -377,7 +380,7 @@
                         </td>
                         {{-- Driver is set in the same modal as the car; both are
                              per leg, since each leg is dispatched on its own. --}}
-                        <td class="hidden px-2 py-2 xl:table-cell">
+                        <td class="hidden px-2 py-2 lg:table-cell">
                             @if ($row['driver'] !== '')
                                 <span class="text-chrome-900">{{ $row['driver'] }}</span>
                             @elseif ($mayEdit)
@@ -389,9 +392,9 @@
                                 <span class="text-chrome-400">—</span>
                             @endif
                         </td>
-                        <td class="hidden px-2 py-2 text-chrome-900 2xl:table-cell">{{ $row['added_by'] ?: '—' }}</td>
-                        <td class="hidden max-w-[16rem] px-2 py-2 text-chrome-900 2xl:table-cell">{{ $row['comments'] ?: '—' }}</td>
-                        <td class="hidden px-2 py-2 text-chrome-900 2xl:table-cell">{{ $row['booked_time'] ?: '—' }}</td>
+                        <td class="hidden px-2 py-2 text-chrome-900 lg:table-cell">{{ $row['added_by'] ?: '—' }}</td>
+                        <td class="hidden max-w-[16rem] px-2 py-2 text-chrome-900 lg:table-cell">{{ $row['comments'] ?: '—' }}</td>
+                        <td class="hidden px-2 py-2 text-chrome-900 lg:table-cell">{{ $row['booked_time'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 md:table-cell">
                             @php
                                 // One icon per step, so the row shows what it can DO

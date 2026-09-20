@@ -223,4 +223,44 @@ final class LimoQueuePhoneColumnsTest extends TestCase
             array_slice(array_keys(app(LimoQueueRows::class)->headings()), 0, 6),
         );
     }
+
+    /**
+     * Received / Balance / Driver / Added by / Comments / Booked time used to
+     * wait for `xl` (1280px) or even `2xl` (1536px) — far wider than a normal
+     * work laptop's browser window clears, so they were effectively hidden
+     * from almost anyone not on an ultra-wide monitor. `lg` (1024px) is the
+     * one width tier every one of these secondary columns now shares.
+     */
+    public function test_the_secondary_columns_show_from_a_normal_laptop_width(): void
+    {
+        $this->trip();
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        $this->assertStringContainsString('lg:table-cell', $html);
+        $this->assertStringNotContainsString('xl:table-cell', $html);
+        $this->assertStringNotContainsString('2xl:table-cell', $html);
+    }
+
+    /**
+     * Which columns show has never been a permission — it is pure CSS keyed
+     * to screen width, identical for every account. A Supervisor (Write,
+     * never an admin) sees exactly the same set of `lg:table-cell` markers as
+     * an admin; a narrower screen was the actual cause of a supervisor
+     * reporting "missing" columns, not their role.
+     */
+    public function test_a_supervisor_sees_the_same_columns_as_an_admin(): void
+    {
+        $this->trip();
+        $adminHtml = Livewire::test(Bookings::class)->html();
+
+        $this->grantEveryone('limousine.booking');
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+        $supervisorHtml = Livewire::test(Bookings::class)->html();
+
+        $this->assertSame(
+            substr_count($adminHtml, 'lg:table-cell'),
+            substr_count($supervisorHtml, 'lg:table-cell'),
+        );
+    }
 }

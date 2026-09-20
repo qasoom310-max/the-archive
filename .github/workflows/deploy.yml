@@ -237,6 +237,7 @@ jobs:
               --exclude='storage/app/backups/' \
               --exclude='storage/app/imports/' \
               --exclude='storage/app/private/video-chunks/' \
+              --exclude='storage/app/private/whatsapp-assistant-chat/' \
               --exclude='storage/logs/' \
               --exclude='storage/framework/cache/data/' \
               --exclude='storage/framework/sessions/' \
@@ -329,6 +330,7 @@ jobs:
                php artisan module:install limousine && \
                php artisan module:resync limousine && \
                php artisan module:install woocommerce && \
+               php artisan module:install whatsapp && \
                php artisan workspaces:install-modules && \
                php artisan optimize:clear && \
                { php artisan limo:match-driver-names || true; } && \

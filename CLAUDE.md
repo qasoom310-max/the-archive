@@ -2978,6 +2978,59 @@ constant `WANAAN_SO_VERSION` (currently 1.0.6). Structure:
 **Live since 2026-09-03 on Tap live keys.** The plugin is edited by re-uploading a freshly
 built ZIP in WP admin (there's no CI for `wp-plugin/`).
 
+**WhatsApp staff assistant — quote, book, documents, payment links by chat (built 2026-09-17, branch `feature/whatsapp-staff-assistant`, PR for review — NOT merged):**
+
+An INTERNAL bot: an authorised Wanaan employee messages it on WhatsApp in
+Arabic or English and it does ERP work as their ERP user. Built from Qassim's
+brief (`WANAAN-WHATSAPP-STAFF-ASSISTANT-BRIEF-v2.md`). No n8n; everything is in
+the ERP, inside the **WhatsApp module** (`Modules/WhatsApp/Assistant/`).
+
+| Concern | Location |
+|---|---|
+| Webhook | `AssistantWebhookController` — `GET/POST /integrations/whatsapp/{workspace}/webhook` (public, CSRF-exempt `integrations/whatsapp/*`, POST `throttle:240,1`). **Workspace in the path** because the Meta secrets are per database; an unknown/deleted id 404s (never falls through to Main — same rule as the pricing API). Verifies `hub.verify_token` / `X-Hub-Signature-256` against **that database's** `whatsapp_configuration` (the existing WhatsApp tab — the brief's `wa_*` rows were NOT duplicated). POST answers 200 at once and does the work in **`defer()`** (after the response, same PHP worker) — Meta retries slow webhooks, and the queue only drains once a minute |
+| Orchestrator | `StaffAssistant::handle()` — order IS the security model: (1) dedupe on Meta message id (`whatsapp_messages.wa_message_id` unique); (2) kill-switch off → silence; (3) unknown/paused number → ONE "not authorised" reply then silence (`whatsapp_conversations.state = unauthorized`); (4) a pending proposal + an explicit YES (regex, EN+AR) → execute; NO → cancel; anything else → the proposal is dropped (staff is revising); (5) otherwise → the AI. **Confirm-before-create is enforced by code, not the prompt.** Proposals expire after `Conversation::DRAFT_TTL_MINUTES` (30) |
+| AI | `Brain` interface → `ClaudeBrain` (official `anthropic-ai/sdk` ^0.49, new composer dep). Beta messages API, default model `claude-opus-5`, `output_config.effort = low` (routing, not deep reasoning), 25 s timeout, 1 retry, server-side refusal fallbacks (`fallbacks: 'default'`, beta `server-side-fallback-2026-07-01`). Across turns only TEXT history is kept (`Conversation::history`, last 20); within a turn the SDK's content blocks are replayed unchanged. Max 6 tool rounds. System prompt + tool schemas in `AssistantTools` |
+| Tools | Read: `get_services`, `get_fare`, `find_booking`. **Propose only** (write nothing): `propose_booking`, `propose_quotation`, `propose_document` (invoice / service_order), `propose_payment_link`. A successful proposal ends the turn with a **code-generated** confirmation (`Replies`) — the AI never paraphrases an amount the staff member confirms |
+| Fares | **New core `App\Erp\Pricing\FareCalculator` + `FareResult`** — prices a trip from `pricing_*` (rate × round-trip `return_factor` + extra hours × per-car rate − live offer % when the car is on the offer and the TRAVEL date is in its window). Missing rate/option/return factor/extra-hour rate = `found=false`, never a number. This is the agreed "Phase 2" fare source; the booking/quotation FORMS don't use it yet |
+| Actions | `AssistantActions::execute()` (only after YES) — **re-reads the fare** (never the proposal's amount). Booking: find-or-create `LimoCustomer` by phone (last-8-digit match), `payment_method = online`, advance 0, `prepared_by` = the ERP user, one leg in the **queue with no driver/car** (dispatch assigns; the car TYPE goes in `vehicle_details`), offer shown as leg `discount`, then `recalcTotal` + `syncPaymentFromAdvance` + `syncInvoice` (same as `BookingForm`). Quotation: `LimoQuotation` + leg → `QuotationPdf`. Documents: `LimoInvoicePdf` / `ServiceOrderPdf`. Payment link: `LimoPaymentLink` → existing `ServiceOrderPortalClient::push()` (deleted if the push fails), amount capped at the balance NOW. All PDFs go to Meta's media store then as a WhatsApp document (never a public URL) |
+| Permissions | Runs as the mapped user (`Auth::setUser` for the turn). Checked in BOTH propose and execute via `AccessControl`: booking = `limousine.booking` Create; quotation = `limousine.quotation` Create; invoice = `limousine.invoice` Read; service order = `limousine.booking` Read; payment link = `limousine.booking` Write (same as the bookings screen) |
+| Paid notice | New `Modules\Limousine\Events\LimoPaymentLinkPaid`, fired by `PaymentCallbackController::settle()` **after commit, only for the delivery that settled it** (listener failure is caught). `NotifyStaffOfPayment` (listened to by string name in `WhatsAppServiceProvider::boot`) tells the conversation that raised the link — "Paid ✅" or part-paid + balance — once (`whatsapp_assistant_payment_links.notified_at`) |
+| Replies | `MetaMessenger` — synchronous Graph API text + document (media upload), 15 s timeout, never throws, every outbound logged to `whatsapp_messages`. Wording in `Replies` = the brief's appendix (EN/AR); language detected per message (`\p{Arabic}`) |
+| Audit | `ActivityLogger` under the acting user: `quoted` (new action code), `created` (booking/quotation), `invoiced`, `updated` (service order / payment link), settings changes |
+| Schema | WhatsApp module migration `2026_09_17_300001`: `whatsapp_assistant_configuration` (AI key encrypted, model, enabled), `whatsapp_assistant_staff` (phone digits unique → user_id), `whatsapp_conversations`, `whatsapp_messages`, `whatsapp_assistant_payment_links`. Deploy's WhatsApp migrate step + `workspaces:migrate` apply it |
+| Settings | `AssistantSettings` at `/app/settings/whatsapp-assistant` (admin-only), a **"WhatsApp assistant"** pill (only where WhatsApp AND Limousine are installed): master switch, Claude API key (write-only), model, authorised numbers → ERP user, and the per-database callback URL to paste into Meta. English by design (integration tab) |
+| Deploy | `deploy.yml` gained `module:install whatsapp` on Main (the webhook route only registers while installed there) |
+| Tests | `tests/Feature/WhatsAppStaffAssistantTest.php` (18 — Meta verify, unknown database 404, bad signature, duplicate id once, unknown number once, kill-switch, AR in/AR out, fare from tables + missing not guessed, quote tool result, nothing booked before YES + booking shape, NO cancels, stale proposal, fare re-read at YES, no-permission can't book, quotation PDF, invoice PDF, payment link + paid notice once, settings admin-only). The AI is a scripted `Brain`; Meta/portal via `Http::fake` |
+
+**To go live (Qassim/Mohammed, not code):** in workspace 7 → Settings →
+WhatsApp: Phone number ID, WABA ID, permanent access token, app secret, verify
+token. Settings → WhatsApp assistant: Claude API key, add `97338467744` → Qassim's
+ERP user, switch on. In Meta: callback URL shown on that tab, the same verify
+token, subscribe `messages`. **Not built:** voice/image messages (asks for text),
+multi-leg bookings, editing an existing booking by chat, driver assignment.
+
+**In-ERP test chat — try the same bot with no WhatsApp/Meta at all (added
+2026-09-20, same branch).** Meta wasn't set up yet, so the assistant needed a
+way to be tried and reviewed before that. `StaffAssistant` never talked to
+Meta directly — it always went through a small `ReplySink` interface — so a
+second channel is a second implementation of that interface, not a second
+assistant. Nothing about the confirm-before-create rule, the tools, the fares
+or the permissions changes between the two; only how a reply is delivered does.
+
+| Concern | Location |
+|---|---|
+| Channel split | `ReplySink` (new interface: `sendText`/`sendDocument`) — `MetaMessenger implements ReplySink` (unchanged behaviour, real Graph API calls). `WebReplySink` is the second implementation: captures each reply in `$messages` instead of sending it anywhere, and writes a document's raw PDF bytes to **private** storage under an unguessable path (`whatsapp-assistant-chat/{conversationId}/{random40}.pdf` — keyed by the numeric conversation id, never the `wa_id` string, which carries a colon that isn't a legal path segment on every OS this runs on). Both share the identical "write an outbound transcript row" logic via the new `RecordsOutboundMessages` trait, so the transcript can't drift between channels |
+| Orchestrator | `StaffAssistant::converseAsWebUser(User $user, string $text)` — the web-channel twin of `handle()`. No phone to resolve and nothing to refuse (the page itself decides who may open it), no Meta message id to dedupe (there's no webhook redelivery to guard against in a synchronous request), and deliberately does **not** touch `Auth::setUser()`/`forgetUser()` — the caller is already that exact authenticated session, and forgetting the user mid-request would risk the rest of THAT SAME request rendering as signed out. Past that setup it calls the identical private `converse()` every WhatsApp message runs through. Conversation is keyed `web:{user id}` (fits the existing `wa_id` string column; no migration) |
+| Page | `Modules\WhatsApp\Livewire\AssistantChat` at `/app/settings/whatsapp-assistant/chat` (admin, OR a phone number in `whatsapp_assistant_staff` mapped to the viewer's own account — same population that could use the real bot). Builds `StaffAssistant` itself with `app()->make(StaffAssistant::class, ['messenger' => new WebReplySink()])` rather than resolving it through the container (the container's own `ReplySink` binding is `MetaMessenger`, the correct default for the real webhook). Renders the conversation straight from `Conversation::history`; a document turn surfaces as a "Download" button that streams the stored PDF back (`response()->streamDownload()`, scoped to the viewer's own conversation folder) |
+| Housekeeping | `deploy.yml` rsync excludes `storage/app/private/whatsapp-assistant-chat/` (else `--delete` wipes it every push — the standing rule, see `[[rsync-delete-wipes-user-uploads]]`). Daily `prune-whatsapp-assistant-chat-files` (`routes/console.php`) drops anything older than a day — these are meant to be downloaded once, right after the turn that produced them |
+| Discoverability | A "Try it here (no phone needed)" link on the Settings → WhatsApp assistant tab |
+| Tests | `tests/Feature/WhatsAppAssistantChatTest.php` — page gate (admin in, mapped staff in, unrelated account 403), a plain question gets a reply rendered as a bubble with no Meta HTTP call made, a confirmed booking goes through the same YES/NO flow and actually creates the booking, a confirmed document proposal can be downloaded and the bytes match what the PDF service rendered, disabled config shows the same "not available" wording the WhatsApp channel shows |
+
+**Not this feature's job:** `NotifyStaffOfPayment` (a payment link getting
+paid) still always sends over real WhatsApp — a payment link raised from this
+test chat waits on a real payment, so there was nothing to route back to the
+chat, and this was never meant to replace WhatsApp for that notification.
+
 **Ad calendar — when to advertise, from what actually sold (shipped 2026-09-07):**
 
 Admin-only page at **`/calendar`** (dashboard "Reports & Team" tile), one per

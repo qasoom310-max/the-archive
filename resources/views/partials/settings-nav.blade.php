@@ -16,6 +16,12 @@
     // hiding the pill avoids a misleading entry point for cashiers.
     if ($isAdmin && $installedModule('whatsapp')) {
         $sections[] = ['key' => 'whatsapp', 'label' => 'WhatsApp', 'url' => url('/app/settings/whatsapp')];
+
+        // The staff assistant quotes + books limousine trips, so it only makes
+        // sense where Limousine runs too.
+        if ($installedModule('limousine')) {
+            $sections[] = ['key' => 'whatsapp_assistant', 'label' => 'WhatsApp assistant', 'url' => url('/app/settings/whatsapp-assistant')];
+        }
     }
 
     if ($isAdmin && $installedModule('woocommerce')) {

@@ -10,6 +10,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Modules\Limousine\Events\LimoPaymentLinkPaid;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoPaymentLink;
 use Modules\Limousine\Models\LimoPortalConfiguration;
@@ -77,11 +78,14 @@ final class PaymentCallbackController
      */
     private function settle(LimoPaymentLink $link, array $data): void
     {
-        DB::transaction(function () use ($link, $data): void {
+        $settled = false;
+
+        DB::transaction(function () use ($link, $data, &$settled): void {
             $fresh = LimoPaymentLink::query()->whereKey($link->id)->lockForUpdate()->first();
             if ($fresh === null || $fresh->isPaid()) {
                 return; // already settled — idempotent
             }
+            $settled = true;
 
             $booking = LimoBooking::query()->find($fresh->booking_id);
             if ($booking !== null) {
@@ -112,5 +116,15 @@ final class PaymentCallbackController
                 ]);
             }
         });
+
+        // After the commit, and only for the delivery that actually settled it.
+        // A listener failing must never turn a recorded payment into a 500.
+        if ($settled) {
+            try {
+                event(new LimoPaymentLinkPaid($link->id));
+            } catch (\Throwable $e) {
+                Log::warning('Payment-link paid listener failed', ['payment_link' => $link->id, 'error' => $e->getMessage()]);
+            }
+        }
     }
 }

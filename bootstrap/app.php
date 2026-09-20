@@ -16,6 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // the module is installed) but must skip CSRF verification.
         $middleware->validateCsrfTokens(except: [
             'whatsapp/webhook',
+            // The staff assistant's Meta webhook (one per database). Signed
+            // with X-Hub-Signature-256, not a session.
+            'integrations/whatsapp/*',
             // The WordPress service-order portal posts the Tap payment result
             // here server-to-server; it is authenticated by HMAC, not CSRF.
             'limousine/payment-callback',

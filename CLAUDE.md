@@ -2978,7 +2978,7 @@ constant `WANAAN_SO_VERSION` (currently 1.0.6). Structure:
 **Live since 2026-09-03 on Tap live keys.** The plugin is edited by re-uploading a freshly
 built ZIP in WP admin (there's no CI for `wp-plugin/`).
 
-**WhatsApp staff assistant — quote, book, documents, payment links by chat (built 2026-09-17, branch `feature/whatsapp-staff-assistant`, PR for review — NOT merged):**
+**WhatsApp staff assistant — quote, book, documents, payment links by chat (built 2026-09-17, merged + deployed 2026-09-20):**
 
 An INTERNAL bot: an authorised Wanaan employee messages it on WhatsApp in
 Arabic or English and it does ERP work as their ERP user. Built from Qassim's
@@ -3030,6 +3030,30 @@ or the permissions changes between the two; only how a reply is delivered does.
 paid) still always sends over real WhatsApp — a payment link raised from this
 test chat waits on a real payment, so there was nothing to route back to the
 chat, and this was never meant to replace WhatsApp for that notification.
+
+**Four more capabilities, each scoped to a real ERP permission — never a
+claim in the chat (added 2026-09-20):** live testing of the bot surfaced a
+request for it to "obey" things it was correctly refusing (a custom price, a
+sales total) — refused because the assistant is deliberately unable to trust
+what a message CLAIMS about who is asking; it only ever trusts the real,
+authenticated account behind whichever phone (or `web:` session) is talking.
+Rather than weaken that, each ask became its OWN tool, gated on the actual
+permission it needs:
+
+| Capability | Gate | Notes |
+|---|---|---|
+| **Admin price override** — `override_amount` on `propose_booking`/`propose_quotation` | `User::isAdmin()`, re-checked at BOTH propose and confirm | Never a free-text price the model invents: the AI may only pass one through when the staff member explicitly names a specific figure, and the system checks the REAL account, not the claim. `AssistantActions::withOverride()` builds a flat-price `FareResult` (discount zeroed — a hand-set figure is not "table price minus a %"); `applyOverride()` re-derives it at execute time so a demotion between propose and confirm can't slip through. Every use is logged (`logOverrideIfAny()`, action `updated`, description names both the charged and table price) — this is the auditable trail asked for, not a silent switch |
+| **Edit an existing booking** — `propose_edit_booking` | `limousine.booking` Write | Pickup date/time, pickup/drop-off place, requested car (free text into `vehicle_details`) — deliberately NOT price, driver or vehicle assignment, which stay dispatch's job (mirrors the existing rule that a bot-made booking always leaves `driver_id`/`car_id` null). Refuses a cancelled/completed booking. `AssistantActions::editBooking()` logs the PRE-edit values (`updated`, JSON snapshot) so a change can be read back later |
+| **Sales & revenue summary** — `get_sales_summary` (today/yesterday/this_week/this_month/custom) | `User::isSuperAdmin()` | Revenue is locked to the owner everywhere else in this ERP (the dashboard cards, the Rental/Limousine money bands) — a chat channel is not an exception. Reuses the existing `App\Erp\Targets\RevenueTargets::{earned,outstanding,windowBounds}` (the same figures the money-band UI shows), so a chat answer can never disagree with the dashboard. A regular admin (not super) is refused exactly like the ERP screens refuse them |
+| **Customer lookup** — `find_customer` (name or phone) | `limousine.booking` Read | Profile, recent bookings, balance owed across ALL their bookings — the thing `find_booking` couldn't do (one booking by reference only). No revenue exposure, just what a staff member already sees opening the Customers screen |
+| Tests | `tests/Feature/WhatsAppStaffAssistantTest.php` (+8 — admin override books at the override price and logs it, a non-admin with real booking permission is still refused the override, editing a booking changes place/time without re-pricing it, a cancelled booking can't be edited, the owner gets real figures, a regular admin is refused, a customer is found with their booking count, lookup is permission-gated) |
+
+**Deliberately NOT built, and said so to the owner:** a generic "do anything a
+super admin can do" capability. The bot's reach grows one named, permission-
+checked, logged tool at a time — never a backdoor with no boundary, however
+trusted the person asking is, because the bot is reachable by a phone (or a
+browser tab) and a stolen device must never be worth more than the one
+specific thing it was authorised for.
 
 **Ad calendar — when to advertise, from what actually sold (shipped 2026-09-07):**
 

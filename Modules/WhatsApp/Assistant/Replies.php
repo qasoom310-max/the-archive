@@ -197,4 +197,31 @@ final class Replies
     {
         return $lang === 'ar' ? 'أرسل رسالة نصية من فضلك.' : 'Please send a text message.';
     }
+
+    /**
+     * @param array<string, string> $v  booking, pickup_at, from, to, car — blank = unchanged, left out of the line
+     */
+    public static function confirmEditBooking(string $lang, array $v): string
+    {
+        $line = implode(' · ', array_filter(
+            [$v['pickup_at'] ?? '', $v['from'] ?? '', $v['to'] ?? '', $v['car'] ?? ''],
+            static fn (string $s): bool => $s !== '',
+        ));
+
+        return $lang === 'ar'
+            ? "تعديل الحجز {$v['booking']}:\n{$line}\nاكتب \"نعم\" للحفظ، أو أخبرني بأي تعديل آخر."
+            : "Edit booking {$v['booking']}:\n{$line}\nReply YES to save, or tell me what else to change.";
+    }
+
+    public static function bookingEdited(string $lang, string $booking): string
+    {
+        return $lang === 'ar' ? "تم تحديث الحجز {$booking} ✅" : "Booking {$booking} updated ✅";
+    }
+
+    public static function bookingNotEditable(string $lang): string
+    {
+        return $lang === 'ar'
+            ? 'لا يمكن تعديل هذا الحجز (ملغى أو مكتمل).'
+            : "This booking can't be edited (cancelled or completed).";
+    }
 }

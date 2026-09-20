@@ -10,8 +10,10 @@ use App\Erp\Pricing\FareCalculator;
 use App\Erp\Pricing\FareResult;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
+use App\Erp\Targets\RevenueTargets;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Modules\Limousine\Models\LimoBooking;
@@ -49,10 +51,13 @@ final class AssistantActions
 
     public const PAYMENT_LINK = 'payment_link';
 
+    public const EDIT_BOOKING = 'edit_booking';
+
     public function __construct(
         private readonly FareCalculator $fares,
         private readonly AccessControl $access,
         private readonly ActivityLogger $activity,
+        private readonly RevenueTargets $targets,
     ) {
     }
 
@@ -115,12 +120,130 @@ final class AssistantActions
         ];
     }
 
+    /**
+     * Collected revenue for a period. OWNER-ONLY — revenue is locked to super
+     * admins everywhere else in this ERP (the dashboard cards, the Rental/
+     * Limousine money bands), and a chat channel is not an exception to that.
+     * Checked against the REAL authenticated account, never a claim in the
+     * message.
+     *
+     * @param array<string, mixed> $input
+     * @return array<string, mixed>
+     */
+    public function salesSummary(array $input, User $user): array
+    {
+        if (! $user->isSuperAdmin()) {
+            return [
+                'found' => false,
+                'error' => 'forbidden',
+                'instruction' => 'Only the owner may see revenue figures. Say so plainly and do not share any number, even an estimate.',
+            ];
+        }
+
+        $now = CarbonImmutable::now('Asia/Bahrain');
+        $period = is_scalar($input['period'] ?? null) ? (string) $input['period'] : 'today';
+
+        [$from, $to, $label] = match ($period) {
+            'yesterday' => [$now->subDay()->startOfDay(), $now->subDay()->endOfDay(), 'Yesterday'],
+            'this_week' => [$now->startOfWeek(), $now->endOfWeek(), 'This week'],
+            'this_month' => [$now->startOfMonth(), $now->endOfMonth(), 'This month'],
+            'custom' => [
+                $this->parseDate($input['from'] ?? null) ?? $now->startOfDay(),
+                $this->parseDate($input['to'] ?? null) ?? $now->endOfDay(),
+                'Custom range',
+            ],
+            default => [$now->startOfDay(), $now->endOfDay(), 'Today'],
+        };
+
+        $paidBookings = LimoBooking::query()
+            ->where('payment_status', 'paid')
+            ->whereBetween('pickup_at', RevenueTargets::windowBounds($from, $to))
+            ->count();
+
+        return [
+            'found' => true,
+            'period' => $label,
+            'from' => $from->format('Y-m-d'),
+            'to' => $to->format('Y-m-d'),
+            'collected' => $this->money($this->targets->earned('limousine', $from, $to)),
+            'still_owed_in_period' => $this->money($this->targets->outstanding('limousine', $from, $to)),
+            'paid_bookings' => $paidBookings,
+        ];
+    }
+
+    /**
+     * A customer's profile, recent bookings and balance owed — by name or
+     * phone. Read-only; the same Read permission `propose_document`'s
+     * service-order path already requires.
+     *
+     * @return array<string, mixed>
+     */
+    public function findCustomer(string $query, User $user): array
+    {
+        if (! $this->access->allows($user, 'limousine.booking', Permission::Read)) {
+            return ['found' => false, 'error' => 'forbidden', 'instruction' => "Your ERP permissions don't allow that. Tell them so; do not retry."];
+        }
+
+        $query = trim($query);
+        if ($query === '') {
+            return ['found' => false];
+        }
+
+        $digits = preg_replace('/\D+/', '', $query) ?? '';
+        $customers = LimoCustomer::query()
+            ->when(
+                strlen($digits) >= 4,
+                fn ($q) => $q->where('phone', 'like', '%' . $digits . '%'),
+                fn ($q) => $q->where('name', 'like', '%' . $query . '%'),
+            )
+            ->limit(5)
+            ->get();
+
+        if ($customers->isEmpty()) {
+            return ['found' => false];
+        }
+
+        return [
+            'found' => true,
+            'matches' => $customers->map(function (LimoCustomer $customer): array {
+                $bookings = LimoBooking::query()->where('customer_id', $customer->id)->orderByDesc('pickup_at')->get();
+                $balance = 0.0;
+                foreach ($bookings as $booking) {
+                    $balance += $booking->balanceDue();
+                }
+
+                return [
+                    'name' => (string) $customer->name,
+                    'phone' => (string) $customer->phone,
+                    'type' => (string) $customer->type,
+                    'total_bookings' => $bookings->count(),
+                    'balance_due' => $this->money(round($balance, 3)),
+                    'recent_bookings' => $bookings->take(5)->map(fn (LimoBooking $b): array => [
+                        'reference' => (string) $b->reference,
+                        'pickup_at' => $b->pickup_at?->format('Y-m-d H:i'),
+                        'amount' => $this->money($b->netAmount()),
+                        'status' => $b->status,
+                    ])->values()->all(),
+                ];
+            })->values()->all(),
+        ];
+    }
+
     /* ── Proposals (write nothing) ────────────────────────────────────── */
 
     /**
      * @return array{ok: bool, action?: array<string, mixed>, error?: string, fare?: FareResult}
      */
-    public function proposeTrip(string $type, TripRequest $trip, User $user): array
+    /**
+     * $overrideAmount is a specific price INSTEAD of the table fare — never
+     * trusted from the model's say-so alone. It only ever takes effect for a
+     * genuine admin, checked here AND again at {@see execute()}; anyone else
+     * asking for one is refused outright, whatever the message claims about
+     * who they are.
+     *
+     * @return array{ok: bool, action?: array<string, mixed>, error?: string, fare?: FareResult, tableTotal?: float}
+     */
+    public function proposeTrip(string $type, TripRequest $trip, User $user, ?float $overrideAmount = null): array
     {
         $modelKey = $type === self::QUOTATION ? 'limousine.quotation' : 'limousine.booking';
         if (! $this->access->allows($user, $modelKey, Permission::Create)) {
@@ -137,10 +260,77 @@ final class AssistantActions
             return ['ok' => false, 'error' => 'no_fare'];
         }
 
+        $tableTotal = $fare->total;
+        $action = ['type' => $type, 'trip' => $trip->toArray()];
+
+        if ($overrideAmount !== null) {
+            if (! $user->isAdmin()) {
+                return ['ok' => false, 'error' => 'override_forbidden'];
+            }
+
+            $fare = $this->withOverride($fare, $overrideAmount);
+            $action['override_amount'] = $fare->total;
+        }
+
+        $action['amount'] = $fare->total;
+
+        return ['ok' => true, 'fare' => $fare, 'tableTotal' => $tableTotal, 'action' => $action];
+    }
+
+    /**
+     * @param array<string, mixed> $changes  pickup_at?, from?, to?, car? — untrusted tool input
+     * @return array{ok: bool, action?: array<string, mixed>, error?: string, booking?: LimoBooking, summary?: array<string, string>}
+     */
+    public function proposeEditBooking(string $reference, array $changes, User $user): array
+    {
+        if (! $this->access->allows($user, 'limousine.booking', Permission::Write)) {
+            return ['ok' => false, 'error' => 'forbidden'];
+        }
+
+        $booking = $this->resolveBooking($reference);
+        if ($booking === null) {
+            return ['ok' => false, 'error' => 'booking_not_found'];
+        }
+
+        if (in_array($booking->status, [LimoBooking::STATUS_CANCELLED, LimoBooking::STATUS_COMPLETED], true)) {
+            return ['ok' => false, 'error' => 'not_editable'];
+        }
+
+        $pickupAt = null;
+        $rawPickup = is_scalar($changes['pickup_at'] ?? null) ? trim((string) $changes['pickup_at']) : '';
+        if ($rawPickup !== '') {
+            try {
+                $pickupAt = CarbonImmutable::parse($rawPickup, 'Asia/Bahrain');
+            } catch (Throwable) {
+                return ['ok' => false, 'error' => 'bad_date'];
+            }
+        }
+
+        $from = is_scalar($changes['from'] ?? null) ? trim((string) $changes['from']) : '';
+        $to = is_scalar($changes['to'] ?? null) ? trim((string) $changes['to']) : '';
+        $car = is_scalar($changes['car'] ?? null) ? trim((string) $changes['car']) : '';
+
+        if ($pickupAt === null && $from === '' && $to === '' && $car === '') {
+            return ['ok' => false, 'error' => 'nothing_to_change'];
+        }
+
         return [
             'ok' => true,
-            'fare' => $fare,
-            'action' => ['type' => $type, 'trip' => $trip->toArray(), 'amount' => $fare->total],
+            'booking' => $booking,
+            'action' => [
+                'type' => self::EDIT_BOOKING,
+                'booking_id' => $booking->id,
+                'pickup_at' => $pickupAt?->format('Y-m-d\TH:i'),
+                'from' => $from,
+                'to' => $to,
+                'car' => $car,
+            ],
+            'summary' => [
+                'pickup_at' => $pickupAt !== null ? $this->when($pickupAt) : '',
+                'from' => $from,
+                'to' => $to,
+                'car' => $car,
+            ],
         ];
     }
 
@@ -209,6 +399,7 @@ final class AssistantActions
             self::QUOTATION => $this->createQuotation($action, $user, $lang),
             self::DOCUMENT => $this->sendDocument($action, $user, $lang),
             self::PAYMENT_LINK => $this->createPaymentLink($action, $user, $conversation),
+            self::EDIT_BOOKING => $this->editBooking($action, $user, $lang),
             default => new ActionOutcome(Replies::failed($lang)),
         };
     }
@@ -227,6 +418,13 @@ final class AssistantActions
         if (! $fare->found || $trip->problems() !== []) {
             return new ActionOutcome(Replies::noFare($lang));
         }
+
+        $tableTotal = $fare->total;
+        $overridden = $this->applyOverride($action, $fare, $user);
+        if ($overridden === false) {
+            return new ActionOutcome(Replies::forbidden($lang));
+        }
+        $fare = $overridden;
 
         $booking = DB::transaction(function () use ($trip, $fare, $user): LimoBooking {
             $customer = $this->customerFor($trip);
@@ -255,6 +453,7 @@ final class AssistantActions
 
         $leg = $booking->legs()->orderBy('sequence')->first();
         $this->activity->logFor($booking, 'created', 'Booked via the WhatsApp assistant', $user);
+        $this->logOverrideIfAny($booking, $fare->total, $tableTotal, $user);
 
         return new ActionOutcome(Replies::booked($lang, [
             'booking_no' => (string) $booking->reference . ($leg?->reference !== null ? ' · #' . $leg->reference : ''),
@@ -283,6 +482,13 @@ final class AssistantActions
             return new ActionOutcome(Replies::noFare($lang));
         }
 
+        $tableTotal = $fare->total;
+        $overridden = $this->applyOverride($action, $fare, $user);
+        if ($overridden === false) {
+            return new ActionOutcome(Replies::forbidden($lang));
+        }
+        $fare = $overridden;
+
         $quote = DB::transaction(function () use ($trip, $fare, $user): LimoQuotation {
             $customer = $this->customerFor($trip);
 
@@ -306,6 +512,7 @@ final class AssistantActions
         });
 
         $this->activity->logFor($quote, 'created', 'Quotation prepared via the WhatsApp assistant', $user);
+        $this->logOverrideIfAny($quote, $fare->total, $tableTotal, $user);
 
         $pdfs = app(QuotationPdf::class);
 
@@ -453,6 +660,148 @@ final class AssistantActions
     public function when(?CarbonImmutable $at): string
     {
         return $at?->format('D j M Y, g:i A') ?? '—';
+    }
+
+    /**
+     * The proposed fare, with a flat admin price standing in for the total —
+     * the discount % no longer applies once a specific figure has been set by
+     * hand, so it is zeroed rather than left describing a total it did not
+     * produce.
+     */
+    private function withOverride(FareResult $fare, float $overrideAmount): FareResult
+    {
+        $overrideAmount = round(max(0.0, $overrideAmount), 3);
+
+        return new FareResult(
+            found: true,
+            reason: null,
+            serviceId: $fare->serviceId,
+            serviceEn: $fare->serviceEn,
+            serviceAr: $fare->serviceAr,
+            carId: $fare->carId,
+            carEn: $fare->carEn,
+            carAr: $fare->carAr,
+            optionCode: $fare->optionCode,
+            optionEn: $fare->optionEn,
+            optionAr: $fare->optionAr,
+            hours: $fare->hours,
+            roundTrip: $fare->roundTrip,
+            extraHours: $fare->extraHours,
+            base: $overrideAmount,
+            extraHoursAmount: 0.0,
+            discountPercent: 0.0,
+            discount: 0.0,
+            total: $overrideAmount,
+        );
+    }
+
+    /**
+     * Re-applies an action's stored override at EXECUTE time — never trusting
+     * that the propose-time admin check still holds (an account could have
+     * been demoted in between). Returns `false` when it no longer may.
+     *
+     * @param array<string, mixed> $action
+     */
+    private function applyOverride(array $action, FareResult $fare, User $user): FareResult|false
+    {
+        if (! isset($action['override_amount']) || ! is_numeric($action['override_amount'])) {
+            return $fare;
+        }
+
+        if (! $user->isAdmin()) {
+            return false;
+        }
+
+        return $this->withOverride($fare, (float) $action['override_amount']);
+    }
+
+    private function logOverrideIfAny(Model $subject, float $charged, float $tableTotal, User $user): void
+    {
+        if (abs($charged - $tableTotal) < 0.0005) {
+            return;
+        }
+
+        $this->activity->logFor(
+            $subject,
+            'updated',
+            'Admin price override via the WhatsApp assistant: ' . $this->money($charged) . ' (table price ' . $this->money($tableTotal) . ')',
+            $user,
+        );
+    }
+
+    private function parseDate(mixed $value): ?CarbonImmutable
+    {
+        if (! is_scalar($value) || trim((string) $value) === '') {
+            return null;
+        }
+
+        try {
+            return CarbonImmutable::parse(trim((string) $value), 'Asia/Bahrain')->startOfDay();
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $action
+     */
+    private function editBooking(array $action, User $user, string $lang): ActionOutcome
+    {
+        if (! $this->access->allows($user, 'limousine.booking', Permission::Write)) {
+            return new ActionOutcome(Replies::forbidden($lang));
+        }
+
+        $booking = LimoBooking::query()->find((int) ($action['booking_id'] ?? 0));
+        $leg = $booking?->legs()->orderBy('sequence')->first();
+        if ($booking === null || ! $leg instanceof LimoLeg) {
+            return new ActionOutcome(Replies::bookingNotFound($lang));
+        }
+
+        if (in_array($booking->status, [LimoBooking::STATUS_CANCELLED, LimoBooking::STATUS_COMPLETED], true)) {
+            return new ActionOutcome(Replies::bookingNotEditable($lang));
+        }
+
+        $before = [
+            'pickup_at' => $leg->start_at?->toIso8601String(),
+            'from' => $leg->from_location,
+            'to' => $leg->to_location,
+            'car' => $leg->vehicle_details,
+        ];
+
+        $pickupRaw = is_scalar($action['pickup_at'] ?? null) ? trim((string) $action['pickup_at']) : '';
+        if ($pickupRaw !== '') {
+            try {
+                $leg->start_at = Carbon::instance(CarbonImmutable::parse($pickupRaw, 'Asia/Bahrain')->toDateTime());
+            } catch (Throwable) {
+                // The proposal already validated this; an unparsable value here is unreachable.
+            }
+        }
+
+        $from = is_scalar($action['from'] ?? null) ? trim((string) $action['from']) : '';
+        if ($from !== '') {
+            $leg->from_location = $from;
+        }
+
+        $to = is_scalar($action['to'] ?? null) ? trim((string) $action['to']) : '';
+        if ($to !== '') {
+            $leg->to_location = $to;
+        }
+
+        $car = is_scalar($action['car'] ?? null) ? trim((string) $action['car']) : '';
+        if ($car !== '') {
+            $leg->vehicle_details = $car;
+        }
+
+        $leg->save();
+
+        $this->activity->logFor(
+            $booking,
+            'updated',
+            'Edited via the WhatsApp assistant — was: ' . json_encode($before, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            $user,
+        );
+
+        return new ActionOutcome(Replies::bookingEdited($lang, (string) $booking->reference));
     }
 
     private function addLeg(LimoBooking|LimoQuotation $parent, TripRequest $trip, FareResult $fare, ?string $status): void

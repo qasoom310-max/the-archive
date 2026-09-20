@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 use Modules\Limousine\Events\LimoPaymentLinkPaid;
 use Modules\Limousine\Models\LimoBooking;
+use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Models\LimoPaymentLink;
 use Modules\Limousine\Models\LimoPortalConfiguration;
@@ -311,6 +312,151 @@ final class WhatsAppStaffAssistantTest extends TestCase
         app(NotifyStaffOfPayment::class)->handle(new LimoPaymentLinkPaid($link->id)); // redelivery
 
         $this->assertSame(1, $this->sentTexts()->filter(fn (string $t): bool => str_contains($t, 'Paid ✅'))->count());
+    }
+
+    /* ── Admin price override ─────────────────────────────────────────── */
+
+    public function test_an_admin_can_override_the_fare_and_it_is_logged(): void
+    {
+        $input = $this->tripInput();
+        $input['override_amount'] = 35;
+        $this->brain->queue(new BrainReply('tool_use', '', [['id' => 'b1', 'name' => 'propose_booking', 'input' => $input]], [['type' => 'tool_use']]));
+
+        $this->deliver(self::STAFF, 'wamid.ov1', 'book it for 35 BD, Ahmed Ali 33112233');
+        $this->assertTrue($this->sentTexts()->contains(fn (string $t): bool => str_contains($t, 'admin override')));
+
+        $this->deliver(self::STAFF, 'wamid.ov2', 'yes');
+
+        $booking = LimoBooking::query()->firstOrFail();
+        $this->assertSame(35.0, (float) $booking->fare);
+        $this->assertTrue(
+            ActivityLog::query()->where('description', 'like', '%Admin price override%')->where('user_id', $this->owner->id)->exists(),
+        );
+    }
+
+    public function test_a_non_admin_cannot_override_the_fare_even_with_booking_permission(): void
+    {
+        $this->grantEveryone('limousine.booking');
+        $clerk = User::factory()->create(['is_admin' => false]);
+        AssistantStaff::query()->create(['phone' => '97300000009', 'user_id' => $clerk->id, 'active' => true]);
+
+        $input = $this->tripInput();
+        $input['override_amount'] = 35;
+        $this->brain->queue(new BrainReply('tool_use', '', [['id' => 'b1', 'name' => 'propose_booking', 'input' => $input]], [['type' => 'tool_use']]));
+        $this->brain->queue(new BrainReply('end_turn', 'Only an admin can set a custom price.', [], []));
+
+        $this->deliver('97300000009', 'wamid.ov3', 'book it for 35 BD, Ahmed Ali 33112233');
+        $this->deliver('97300000009', 'wamid.ov4', 'yes');
+
+        $this->assertSame(0, LimoBooking::query()->count());
+        $this->assertNull(Conversation::query()->where('wa_id', '97300000009')->firstOrFail()->pendingAction());
+    }
+
+    /* ── Editing an existing booking ──────────────────────────────────── */
+
+    public function test_editing_an_existing_booking_changes_it_after_yes(): void
+    {
+        $booking = $this->bookThroughTheBot();
+
+        $this->brain->queue(new BrainReply('tool_use', '', [['id' => 'e1', 'name' => 'propose_edit_booking', 'input' => [
+            'reference' => (string) $booking->reference,
+            'pickup_at' => now('Asia/Bahrain')->addDays(2)->setTime(14, 0)->format('Y-m-d\TH:i'),
+            'to' => 'Manama Souq',
+        ]]], [['type' => 'tool_use']]));
+
+        $this->deliver(self::STAFF, 'wamid.e1', 'change the drop off to Manama Souq and move it two days later at 2pm');
+        $this->assertTrue($this->sentTexts()->contains(fn (string $t): bool => str_contains($t, 'Edit booking')));
+        $this->assertSame('Seef', $booking->refresh()->legs()->orderBy('sequence')->first()?->to_location);
+
+        $this->deliver(self::STAFF, 'wamid.e2', 'yes');
+
+        $this->assertSame('Manama Souq', $booking->refresh()->legs()->orderBy('sequence')->first()?->to_location);
+        $this->assertTrue($this->sentTexts()->contains(fn (string $t): bool => str_contains($t, 'updated ✅')));
+        $this->assertSame(15.0, (float) $booking->fare); // an edit never re-prices the trip
+    }
+
+    public function test_a_cancelled_booking_cannot_be_edited(): void
+    {
+        $booking = $this->bookThroughTheBot();
+        $booking->forceFill(['status' => LimoBooking::STATUS_CANCELLED])->save();
+
+        $this->brain->queue(new BrainReply('tool_use', '', [['id' => 'e1', 'name' => 'propose_edit_booking', 'input' => ['reference' => (string) $booking->reference, 'to' => 'Somewhere else']]], [['type' => 'tool_use']]));
+        $this->brain->queue(new BrainReply('end_turn', "That booking can't be edited any more.", [], []));
+
+        $this->deliver(self::STAFF, 'wamid.e3', 'change the drop off');
+
+        $this->assertNull(Conversation::query()->where('wa_id', self::STAFF)->firstOrFail()->pendingAction());
+    }
+
+    /* ── Sales summary (owner-only) ───────────────────────────────────── */
+
+    public function test_the_owner_sees_a_sales_summary(): void
+    {
+        $customer = LimoCustomer::query()->create(['name' => 'Sara', 'phone' => '33009911', 'type' => 'individual', 'active' => true]);
+        LimoBooking::query()->create([
+            'reference' => 'BK/09001', 'customer_id' => $customer->id, 'pickup_at' => now(),
+            'status' => LimoBooking::STATUS_COMPLETED, 'payment_status' => LimoBooking::PAYMENT_PAID, 'fare' => 50,
+        ]);
+
+        $this->brain->queue(new BrainReply('tool_use', '', [['id' => 's1', 'name' => 'get_sales_summary', 'input' => ['period' => 'today']]], [['type' => 'tool_use']]));
+        $this->brain->queue(new BrainReply('end_turn', 'We took 50 BD today.', [], []));
+
+        $this->deliver(self::STAFF, 'wamid.s1', 'how much did we sell today');
+
+        $toolResult = json_decode($this->brain->lastMessages[count($this->brain->lastMessages) - 1]['content'][0]['content'], true);
+        $this->assertTrue($toolResult['found']);
+        $this->assertStringContainsString('50', $toolResult['collected']);
+    }
+
+    public function test_a_regular_admin_cannot_see_the_sales_summary(): void
+    {
+        $manager = User::factory()->create(['is_admin' => true, 'is_super_admin' => false]);
+        AssistantStaff::query()->create(['phone' => '97300000008', 'user_id' => $manager->id, 'active' => true]);
+
+        $this->brain->queue(new BrainReply('tool_use', '', [['id' => 's1', 'name' => 'get_sales_summary', 'input' => ['period' => 'today']]], [['type' => 'tool_use']]));
+        $this->brain->queue(new BrainReply('end_turn', 'Only the owner can see that.', [], []));
+
+        $this->deliver('97300000008', 'wamid.s2', 'sales today?');
+
+        $toolResult = json_decode($this->brain->lastMessages[count($this->brain->lastMessages) - 1]['content'][0]['content'], true);
+        $this->assertFalse($toolResult['found']);
+        $this->assertSame('forbidden', $toolResult['error']);
+    }
+
+    /* ── Customer lookup ───────────────────────────────────────────────── */
+
+    public function test_a_customer_is_found_by_phone_with_their_bookings_and_balance(): void
+    {
+        $customer = LimoCustomer::query()->create(['name' => 'Fatima Al Ansari', 'phone' => '33445566', 'type' => 'individual', 'active' => true]);
+        LimoBooking::query()->create([
+            'reference' => 'BK/09010', 'customer_id' => $customer->id, 'pickup_at' => now(),
+            'status' => LimoBooking::STATUS_COMPLETED, 'payment_status' => LimoBooking::PAYMENT_PAID, 'fare' => 20, 'advance' => 20,
+        ]);
+
+        $this->brain->queue(new BrainReply('tool_use', '', [['id' => 'c1', 'name' => 'find_customer', 'input' => ['query' => '33445566']]], [['type' => 'tool_use']]));
+        $this->brain->queue(new BrainReply('end_turn', 'Found her.', [], []));
+
+        $this->deliver(self::STAFF, 'wamid.c1', 'look up 33445566');
+
+        $toolResult = json_decode($this->brain->lastMessages[count($this->brain->lastMessages) - 1]['content'][0]['content'], true);
+        $this->assertTrue($toolResult['found']);
+        $this->assertSame('Fatima Al Ansari', $toolResult['matches'][0]['name']);
+        $this->assertSame(1, $toolResult['matches'][0]['total_bookings']);
+    }
+
+    public function test_customer_lookup_is_permission_gated(): void
+    {
+        $clerk = User::factory()->create(['is_admin' => false]);
+        AssistantStaff::query()->create(['phone' => '97300000007', 'user_id' => $clerk->id, 'active' => true]);
+
+        $this->brain->queue(new BrainReply('tool_use', '', [['id' => 'c1', 'name' => 'find_customer', 'input' => ['query' => 'Fatima']]], [['type' => 'tool_use']]));
+        $this->brain->queue(new BrainReply('end_turn', "You don't have access to that.", [], []));
+
+        $this->deliver('97300000007', 'wamid.c2', 'find Fatima');
+
+        $toolResult = json_decode($this->brain->lastMessages[count($this->brain->lastMessages) - 1]['content'][0]['content'], true);
+        $this->assertFalse($toolResult['found']);
+        $this->assertSame('forbidden', $toolResult['error']);
     }
 
     /* ── Settings ─────────────────────────────────────────────────────── */

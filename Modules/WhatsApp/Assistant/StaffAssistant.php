@@ -300,11 +300,18 @@ final class StaffAssistant
             case 'find_booking':
                 return [$this->actions->findBooking($str('reference')), null];
 
+            case 'get_sales_summary':
+                return [$this->actions->salesSummary($input, $user), null];
+
+            case 'find_customer':
+                return [$this->actions->findCustomer($str('query'), $user), null];
+
             case 'propose_booking':
             case 'propose_quotation':
                 $type = $name === 'propose_booking' ? AssistantActions::BOOKING : AssistantActions::QUOTATION;
                 $trip = TripRequest::fromInput($input);
-                $proposal = $this->actions->proposeTrip($type, $trip, $user);
+                $overrideAmount = is_numeric($input['override_amount'] ?? null) ? (float) $input['override_amount'] : null;
+                $proposal = $this->actions->proposeTrip($type, $trip, $user, $overrideAmount);
                 if (! $proposal['ok'] || ! isset($proposal['action'], $proposal['fare'])) {
                     return [$this->proposalError($proposal['error'] ?? 'failed'), null];
                 }
@@ -312,6 +319,12 @@ final class StaffAssistant
                 $conversation->propose($proposal['action']);
                 $conversation->save();
                 $fare = $proposal['fare'];
+                $overridden = isset($proposal['action']['override_amount']);
+                $tableTotal = (float) ($proposal['tableTotal'] ?? $fare->total);
+                $amount = $this->actions->money($fare->total) . ($fare->discount > 0 ? ' (−' . rtrim(rtrim(number_format($fare->discountPercent, 2), '0'), '.') . '%)' : '');
+                $amount .= $overridden
+                    ? ($lang === 'ar' ? ' · تجاوز إداري (سعر الجدول: ' . $this->actions->money($tableTotal) . ')' : ' · admin override (table price: ' . $this->actions->money($tableTotal) . ')')
+                    : '';
                 $fields = [
                     'car' => $lang === 'ar' ? $fare->carAr : $fare->carEn,
                     'service' => $lang === 'ar' ? $fare->serviceAr : $fare->serviceEn,
@@ -320,12 +333,23 @@ final class StaffAssistant
                     'from' => $trip->from,
                     'to' => $trip->to !== '' ? $trip->to : '—',
                     'datetime' => $this->actions->when($trip->pickupAt),
-                    'amount' => $this->actions->money($fare->total) . ($fare->discount > 0 ? ' (−' . rtrim(rtrim(number_format($fare->discountPercent, 2), '0'), '.') . '%)' : ''),
+                    'amount' => $amount,
                     'customer_name' => $trip->customerName,
                     'customer_phone' => $trip->customerPhone,
                 ];
 
                 return [['queued' => true], $type === AssistantActions::BOOKING ? Replies::confirmBooking($lang, $fields) : Replies::confirmQuotation($lang, $fields)];
+
+            case 'propose_edit_booking':
+                $changes = ['pickup_at' => $str('pickup_at'), 'from' => $str('from'), 'to' => $str('to'), 'car' => $str('car')];
+                $proposal = $this->actions->proposeEditBooking($str('reference'), $changes, $user);
+                if (! $proposal['ok'] || ! isset($proposal['action'], $proposal['booking'], $proposal['summary'])) {
+                    return [$this->proposalError($proposal['error'] ?? 'failed'), null];
+                }
+                $conversation->propose($proposal['action']);
+                $conversation->save();
+
+                return [['queued' => true], Replies::confirmEditBooking($lang, $proposal['summary'] + ['booking' => (string) $proposal['booking']->reference])];
 
             case 'propose_document':
                 $proposal = $this->actions->proposeDocument($str('reference'), $str('document'), $user);
@@ -369,6 +393,10 @@ final class StaffAssistant
             $error === 'booking_not_found' => 'No booking matches that number. Ask for the booking or trip number.',
             $error === 'nothing_owed' => 'Nothing is owed on that booking, so no payment link is needed. Say so.',
             $error === 'portal_off' => 'The payment portal is switched off for this database. Say so.',
+            $error === 'override_forbidden' => 'Only an admin may set a custom price. Quote and use the table fare instead, and tell the staff member a custom price needs an admin — do not re-try the override.',
+            $error === 'not_editable' => "This booking is cancelled or completed and can't be edited. Say so.",
+            $error === 'nothing_to_change' => 'No actual change was given (date, place or car). Ask what to change.',
+            $error === 'bad_date' => "That date/time couldn't be understood. Ask for it again, e.g. \"Friday 6pm\".",
             str_starts_with($error, 'missing:') => 'Details are missing: ' . substr($error, 8) . '. Ask the staff member for them in one short message.',
             default => 'That could not be prepared. Tell the staff member briefly.',
         };

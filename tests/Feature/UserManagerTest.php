@@ -534,9 +534,12 @@ final class UserManagerTest extends TestCase
         $this->assertTrue($user->isAccountant());
         $this->assertTrue($user->canConfirmPayments());
         $this->assertFalse($user->isAdmin());
-        // View-level access to the apps they were granted; no editing.
+        // Supervisor-level access to the apps they were granted (add/edit,
+        // never delete), plus the payment-confirmation power above.
         $this->assertTrue(app(AccessControl::class)->allows($user, 'pos.order', Permission::Read));
-        $this->assertFalse(app(AccessControl::class)->allows($user, 'pos.order', Permission::Write));
+        $this->assertTrue(app(AccessControl::class)->allows($user, 'pos.order', Permission::Write));
+        $this->assertTrue(app(AccessControl::class)->allows($user, 'pos.order', Permission::Create));
+        $this->assertFalse(app(AccessControl::class)->allows($user, 'pos.order', Permission::Unlink));
     }
 
     public function test_a_regular_admin_cannot_assign_the_owner_only_roles(): void

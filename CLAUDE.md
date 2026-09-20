@@ -2041,9 +2041,19 @@ there's one place a role is set and one set of guards).
 |---|---|---|
 | Staff (`staff`) | — | Read |
 | Supervisor (`supervisor`) | — | Read + **Write + Create** (never Delete) |
-| Accountant (`accountant`) | `is_accountant` | Read (+ `canConfirmPayments()`) |
+| Accountant (`accountant`) | `is_accountant` | Read + **Write + Create** (never Delete) + `canConfirmPayments()` |
 | Administrator (`admin`) | `is_admin` | n/a — bypasses the ACL |
 | Super admin (`super`) | `is_admin` + `is_super_admin` | n/a — bypasses the ACL |
+
+**Accountant broadened to Supervisor-level Write+Create (2026-09-20).** It
+used to be strictly Read-only plus the payment-confirmation power — but that
+left no role for someone who both manages ordinary records (e.g. adding
+drivers) AND confirms payments/writes receipts by hand, which is exactly what
+a real accountant on staff needed. `StaffRole::permissions()` now returns the
+same shape for `Accountant` as `Supervisor`. **`StaffRole::of()` still checks
+`is_accountant` before ever consulting the ACL's write rules** (see
+`rolesFor()`'s bulk badge resolution below), so an Accountant is never
+mis-labelled as a Supervisor now that their granted rules look identical.
 
 - **Supervisor is NOT a column** — it's the *shape* of the ACL rules the user's
   per-user group carries (a Supervisor's rules have `perm_write`). So

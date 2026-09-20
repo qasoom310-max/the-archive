@@ -26,7 +26,7 @@ enum StaffRole: string
     /** Staff + may add and edit records (but never delete). */
     case Supervisor = 'supervisor';
 
-    /** Read-only on the granted apps, PLUS may confirm payments were received. */
+    /** Supervisor + may confirm payments were received (and write a receipt by hand). */
     case Accountant = 'accountant';
 
     /** Full access to everything in this database (bypasses the ACL). */
@@ -105,7 +105,7 @@ enum StaffRole: string
     public function permissions(): array
     {
         return match ($this) {
-            self::Supervisor => ['read' => true, 'write' => true, 'create' => true, 'unlink' => false],
+            self::Supervisor, self::Accountant => ['read' => true, 'write' => true, 'create' => true, 'unlink' => false],
             default => ['read' => true, 'write' => false, 'create' => false, 'unlink' => false],
         };
     }
@@ -128,7 +128,7 @@ enum StaffRole: string
         return match ($this) {
             self::Staff => 'Can view records in the chosen apps.',
             self::Supervisor => 'Can view, add and edit records in the chosen apps (but not delete them).',
-            self::Accountant => 'Can view the chosen apps, and confirm that payments were received.',
+            self::Accountant => 'Can view, add and edit records in the chosen apps (but not delete them), and confirm that payments were received.',
             self::Admin => 'Full access (including delete) to every app and setting in this database — or just the apps you tick below.',
             self::SuperAdmin => 'Everything an administrator can do, plus the owner-only controls.',
         };

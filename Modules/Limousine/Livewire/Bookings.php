@@ -84,8 +84,8 @@ final class Bookings extends Component
     #[Url(except: 'from_date')]
     public string $sort = 'from_date';
 
-    #[Url(except: 'desc')]
-    public string $dir = 'desc';
+    #[Url(except: 'asc')]
+    public string $dir = 'asc';
 
     /**
      * How many trips on a page.

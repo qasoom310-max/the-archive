@@ -352,6 +352,24 @@ final class WhatsAppStaffAssistantTest extends TestCase
         $this->assertNull(Conversation::query()->where('wa_id', '97300000009')->firstOrFail()->pendingAction());
     }
 
+    /* ── Company reference on a booking ───────────────────────────────── */
+
+    public function test_a_company_reference_is_saved_on_the_booking_and_shown_in_both_replies(): void
+    {
+        $input = $this->tripInput();
+        $input['company_reference'] = 'PO-4471';
+        $this->brain->queue(new BrainReply('tool_use', '', [['id' => 'b1', 'name' => 'propose_booking', 'input' => $input]], [['type' => 'tool_use']]));
+
+        $this->deliver(self::STAFF, 'wamid.cr1', 'book it, their PO is PO-4471');
+        $this->assertTrue($this->sentTexts()->contains(fn (string $t): bool => str_contains($t, 'Company ref: PO-4471')));
+
+        $this->deliver(self::STAFF, 'wamid.cr2', 'yes');
+
+        $booking = LimoBooking::query()->firstOrFail();
+        $this->assertSame('PO-4471', $booking->company_reference);
+        $this->assertTrue($this->sentTexts()->contains(fn (string $t): bool => str_contains($t, 'Company ref: PO-4471')));
+    }
+
     /* ── Editing an existing booking ──────────────────────────────────── */
 
     public function test_editing_an_existing_booking_changes_it_after_yes(): void

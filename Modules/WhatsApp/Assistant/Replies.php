@@ -60,13 +60,28 @@ final class Replies
     }
 
     /**
-     * @param array<string, string> $v  car, service, option, direction, from, to, datetime, amount, customer_name, customer_phone
+     * @param array<string, string> $v  car, service, option, direction, from, to, datetime, amount, customer_name, customer_phone, company_reference
      */
     public static function confirmBooking(string $lang, array $v): string
     {
+        $companyLine = self::companyReferenceLine($lang, $v);
+
         return $lang === 'ar'
-            ? "تأكيد الحجز:\n{$v['car']} · {$v['service']} ({$v['option']}){$v['direction']}\n{$v['from']} ← {$v['to']} · {$v['datetime']}\n{$v['customer_name']} · {$v['customer_phone']}\nالسعر: {$v['amount']} · الدفع: أونلاين (Tap)\nاكتب \"نعم\" للحجز، أو أخبرني بأي تعديل."
-            : "Confirm booking:\n{$v['car']} · {$v['service']} ({$v['option']}){$v['direction']}\n{$v['from']} → {$v['to']} · {$v['datetime']}\n{$v['customer_name']} · {$v['customer_phone']}\nFare: {$v['amount']} · Payment: Online (Tap)\nReply YES to book, or tell me what to change.";
+            ? "تأكيد الحجز:\n{$v['car']} · {$v['service']} ({$v['option']}){$v['direction']}\n{$v['from']} ← {$v['to']} · {$v['datetime']}\n{$v['customer_name']} · {$v['customer_phone']}\n{$companyLine}السعر: {$v['amount']} · الدفع: أونلاين (Tap)\nاكتب \"نعم\" للحجز، أو أخبرني بأي تعديل."
+            : "Confirm booking:\n{$v['car']} · {$v['service']} ({$v['option']}){$v['direction']}\n{$v['from']} → {$v['to']} · {$v['datetime']}\n{$v['customer_name']} · {$v['customer_phone']}\n{$companyLine}Fare: {$v['amount']} · Payment: Online (Tap)\nReply YES to book, or tell me what to change.";
+    }
+
+    /**
+     * @param array<string, string> $v
+     */
+    private static function companyReferenceLine(string $lang, array $v): string
+    {
+        $reference = $v['company_reference'] ?? '';
+        if ($reference === '') {
+            return '';
+        }
+
+        return $lang === 'ar' ? "الرقم المرجعي للشركة: {$reference}\n" : "Company ref: {$reference}\n";
     }
 
     /**
@@ -99,13 +114,15 @@ final class Replies
     }
 
     /**
-     * @param array<string, string> $v  booking_no, customer_name, customer_phone, car, from, to, datetime, amount
+     * @param array<string, string> $v  booking_no, customer_name, customer_phone, car, from, to, datetime, amount, company_reference
      */
     public static function booked(string $lang, array $v): string
     {
+        $companyLine = self::companyReferenceLine($lang, $v);
+
         return $lang === 'ar'
-            ? "تم الحجز ✅\nرقم الحجز: {$v['booking_no']}\n{$v['customer_name']} · {$v['customer_phone']}\n{$v['car']} · {$v['from']} ← {$v['to']} · {$v['datetime']}\nالمبلغ: {$v['amount']} · الدفع: أونلاين (Tap)\nالسائق: يحدده قسم التشغيل\nتبي عرض السعر PDF، الفاتورة، أو رابط الدفع؟"
-            : "Booked ✅\nBooking: {$v['booking_no']}\n{$v['customer_name']} · {$v['customer_phone']}\n{$v['car']} · {$v['from']} → {$v['to']} · {$v['datetime']}\nAmount: {$v['amount']} · Payment: Online (Tap)\nDriver: to be assigned by dispatch\nWant the quotation PDF, the invoice, or the payment link?";
+            ? "تم الحجز ✅\nرقم الحجز: {$v['booking_no']}\n{$v['customer_name']} · {$v['customer_phone']}\n{$v['car']} · {$v['from']} ← {$v['to']} · {$v['datetime']}\n{$companyLine}المبلغ: {$v['amount']} · الدفع: أونلاين (Tap)\nالسائق: يحدده قسم التشغيل\nتبي عرض السعر PDF، الفاتورة، أو رابط الدفع؟"
+            : "Booked ✅\nBooking: {$v['booking_no']}\n{$v['customer_name']} · {$v['customer_phone']}\n{$v['car']} · {$v['from']} → {$v['to']} · {$v['datetime']}\n{$companyLine}Amount: {$v['amount']} · Payment: Online (Tap)\nDriver: to be assigned by dispatch\nWant the quotation PDF, the invoice, or the payment link?";
     }
 
     /**

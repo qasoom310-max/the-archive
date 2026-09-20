@@ -434,6 +434,7 @@ final class AssistantActions
             $booking->pax_name = $trip->customerName;
             $booking->pax_contact = $trip->customerPhone;
             $booking->requested_by = $trip->customerName;
+            $booking->company_reference = $trip->companyReference !== '' ? $trip->companyReference : null;
             $booking->prepared_by = (string) $user->name;
             $booking->payment_method = 'online';
             $booking->advance = 0;
@@ -464,6 +465,7 @@ final class AssistantActions
             'to' => $trip->to !== '' ? $trip->to : '—',
             'datetime' => $this->when($trip->pickupAt),
             'amount' => $this->money($fare->total),
+            'company_reference' => $trip->companyReference,
         ]));
     }
 

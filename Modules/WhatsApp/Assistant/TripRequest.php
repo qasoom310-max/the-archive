@@ -29,6 +29,7 @@ final class TripRequest
         public readonly string $customerName,
         public readonly string $customerPhone,
         public readonly string $notes,
+        public readonly string $companyReference,
     ) {
     }
 
@@ -59,6 +60,7 @@ final class TripRequest
             customerName: self::str($input, 'customer_name'),
             customerPhone: self::str($input, 'customer_phone'),
             notes: self::str($input, 'notes'),
+            companyReference: self::str($input, 'company_reference'),
         );
     }
 
@@ -87,6 +89,7 @@ final class TripRequest
             'customer_name' => $this->customerName,
             'customer_phone' => $this->customerPhone,
             'notes' => $this->notes,
+            'company_reference' => $this->companyReference,
         ];
     }
 

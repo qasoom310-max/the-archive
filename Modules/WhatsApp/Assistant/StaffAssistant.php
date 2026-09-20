@@ -336,6 +336,7 @@ final class StaffAssistant
                     'amount' => $amount,
                     'customer_name' => $trip->customerName,
                     'customer_phone' => $trip->customerPhone,
+                    'company_reference' => $trip->companyReference,
                 ];
 
                 return [['queued' => true], $type === AssistantActions::BOOKING ? Replies::confirmBooking($lang, $fields) : Replies::confirmQuotation($lang, $fields)];

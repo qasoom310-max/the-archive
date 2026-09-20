@@ -175,9 +175,12 @@
             </thead>
             <tbody class="divide-y divide-chrome-50">
                 @forelse ($receipts as $receipt)
-                    {{-- Not clickable. A receipt is a record of money already
-                         taken, so there is nothing to open it FOR — the two
-                         things anyone needs are Download and Send. --}}
+                    {{-- The row itself is not clickable — a receipt is a record
+                         of money already taken, so there is nothing to open it
+                         FOR by default. Only the owner/Accountant get an Edit
+                         action (see the Actions cell below), for the rare
+                         correction: a payment logged under the wrong method,
+                         or against the wrong date. --}}
                     <tr wire:key="lrcptrow-{{ $receipt->id }}" class="hover:bg-chrome-50">
                         <td class="px-4 py-2 font-medium text-chrome-800">{{ $receipt->reference }}</td>
                         <td class="px-4 py-2 text-chrome-700">{{ $receipt->customer?->name ?? '—' }}</td>
@@ -206,8 +209,19 @@
                         {{-- The customer's copy. stopPropagation so fetching it
                              doesn't also open the row's edit form. --}}
                         <td class="whitespace-nowrap px-4 py-2 text-end" onclick="event.stopPropagation()">
+                            {{-- Correcting a wrong method/date/amount after the
+                                 fact — e.g. a payment logged as Cash that was
+                                 actually BenefitPay. Same gate as ReceiptForm
+                                 itself (owner + Accountant); everyone else still
+                                 has nowhere to click, by design. --}}
+                            @if ($canCreateManually)
+                                <a href="{{ url('/app/limousine/receipt/' . $receipt->id) }}" wire:navigate
+                                   class="inline-flex items-center gap-1 rounded-lg border border-chrome-200 px-2.5 py-1 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
+                                    {{ __('Edit') }}
+                                </a>
+                            @endif
                             <a href="{{ url('/app/limousine/receipt/' . $receipt->id . '/download') }}"
-                               class="inline-flex items-center gap-1 rounded-lg border border-chrome-200 px-2.5 py-1 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
+                               class="ms-1 inline-flex items-center gap-1 rounded-lg border border-chrome-200 px-2.5 py-1 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
                                 <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a.75.75 0 0 1 .75.75v6.44l1.72-1.72a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 1.06-1.06l1.72 1.72V3.75A.75.75 0 0 1 10 3ZM3.75 14a.75.75 0 0 1 .75.75v.75h11v-.75a.75.75 0 0 1 1.5 0v1.5a.75.75 0 0 1-.75.75h-12.5a.75.75 0 0 1-.75-.75v-1.5A.75.75 0 0 1 3.75 14Z"/></svg>
                                 {{ __('Download') }}
                             </a>

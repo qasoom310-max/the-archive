@@ -178,4 +178,38 @@ final class LimoManualReceiptTest extends TestCase
 
         $this->assertEqualsWithDelta(30.0, (float) $receipt->fresh()?->amount, 0.001);
     }
+
+    /**
+     * The list itself never linked to the repair screen at all — an owner or
+     * Accountant who spotted a receipt logged under the wrong method (cash
+     * instead of the BenefitPay it actually arrived as) had no way to reach
+     * ReceiptForm's edit path without typing the URL by hand. An Edit action
+     * on each row, gated the same as the screen it opens, closes that gap.
+     */
+    public function test_the_list_offers_an_edit_link_that_actually_corrects_the_method(): void
+    {
+        $invoice = $this->invoice();
+        $receipt = LimoReceipt::query()->create([
+            'invoice_id' => $invoice->id, 'customer_id' => $invoice->customer_id,
+            'date' => now(), 'amount' => 20, 'method' => 'cash',
+        ]);
+
+        $this->asOwner();
+        Livewire::test(Receipts::class)
+            ->set('tab', 'all')
+            ->assertSee(__('Edit'))
+            ->assertSeeHtml('/app/limousine/receipt/' . $receipt->id);
+
+        Livewire::test(ReceiptForm::class, ['id' => $receipt->id])
+            ->set('method', 'benefit')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame('benefit', $receipt->fresh()?->method);
+
+        // A regular admin still gets no Edit link — the list mirrors exactly
+        // who ReceiptForm itself would let in.
+        $this->asAdmin();
+        Livewire::test(Receipts::class)->set('tab', 'all')->assertDontSee(__('Edit'));
+    }
 }

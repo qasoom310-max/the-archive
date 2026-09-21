@@ -3444,14 +3444,54 @@ excluded, a duplicate leg on one booking, different-passenger and
 different-driver groups are excluded from the count, a same-driver group is
 still counted, writes nothing at all).
 
-**Next step, pending a second live run of the refined command:** re-run
-`limo:find-duplicate-trips` against Wanaan to see the corrected, much smaller
-"accidental-looking" count, then decide whether the ~6,000 trips currently
-numbered 20000+ are genuine volume (in which case renumbering them to force a
-clean "1 = old / 2 = new" split means rewriting reference numbers that may
-already be on customer paperwork) or a real duplicate-import artifact (in
-which case the fix is deleting the extras, not renumbering anything) — take
-an in-app backup (Activity Log → Backups) before either.
+**Second live run (2026-09-21):** 836 rows out of 16,185 trips (~5%) came
+back as accidental-looking after the group-booking refinement — a real
+problem, but even removing all 836 still leaves ~15,349 genuine trips, which
+alone crosses past 20000 with `REFERENCE_START`=10000. So the duplicate
+problem and the reference-number-split question are separate — fixing one
+does not resolve the other.
+
+**The 836 is a heuristic shortlist, not a confirmed defect list — this
+matters more than the count.** Reading `LegacyBookingImporter`'s own TWIN
+guard closely (its doc comment on the `$twin` query in `importRow()`) shows it
+deliberately never compares two already-imported legacy bookings against
+each other, because "two old-system bookings carry two numbers and are two
+trips (two cars at one time)". Whoever built the importer already decided
+the old system's own booking-number granularity should be trusted as real,
+separate trips by default. So the "accidental-looking" bucket can include
+pairs the import was explicitly designed to treat as genuine — there is no
+way to algorithmically resolve "double-entry mistake" vs. "two real cars
+dispatched under the same driver placeholder" from the data alone; it needs
+a human who knows what that meant operationally.
+
+**`limo:review-duplicate-trips [--workspace=]`
+(`Modules\Limousine\Console\ReviewDuplicateTrips`, workflow
+`review-duplicate-trips.yml`, defaults to workspace 7/Wanaan) is the safe
+next step, built 2026-09-21, instead of an automated cleanup.** It reuses the
+identical grouping/classification logic (extracted into
+`Modules\Limousine\Support\DuplicateTripGroups` — the single source of truth
+both `FindDuplicateTrips` and this command call, so the two can never
+disagree on what counts as a duplicate) and, for the accidental-looking
+groups only, checks whether either row already has an **invoice or receipt**
+recorded against it (`LimoInvoice.booking_id` / `LimoReceipt.booking_id`).
+Splits into: **no money on either side** (the strongest candidates — printed
+in full) vs. **money already recorded on at least one side** (printed as a
+compact "do not delete without checking with accounts" list — a group with
+money attached is almost certainly two real, separately-billed trips).
+Entirely read-only; still decides nothing and deletes nothing. Tests:
+`tests/Feature/LimoReviewDuplicateTripsTest.php` (6 — clean database, a
+money-free group is the strongest candidate, a group with an invoice is
+flagged not treated as clean, same for a receipt, a legitimate multi-vehicle
+group never appears in the review at all, writes nothing).
+
+**Next step, still pending an explicit decision:** run
+`limo:review-duplicate-trips` against Wanaan and read the "no money
+recorded" shortlist with someone who knows what a same-time/same-fare
+"admin, no passenger" pair meant in the old system — only rows a human
+confirms are genuine mistakes should ever be deleted, and even then take an
+in-app backup (Activity Log → Backups → "Back up now") first. Separately,
+whether/how to renumber for a "1 = old / 2 = new" split still needs its own
+decision regardless of the duplicate cleanup, per the math above.
 
 **Limousine earnings — drivers, routes and demand (shipped 2026-09-10):**
 

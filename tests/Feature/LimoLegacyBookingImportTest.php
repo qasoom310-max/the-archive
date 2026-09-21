@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Erp\Modules\ModuleManager;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Support\Carbon;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoInvoice;
@@ -76,6 +77,37 @@ final class LimoLegacyBookingImportTest extends TestCase
 
         // Invoices and receipts come over from their own exports.
         $this->assertSame(0, LimoInvoice::query()->count());
+    }
+
+    /**
+     * created_at is deliberately backdated to the booking's original date, so
+     * it can never answer "when did this row land in OUR database" — imported_at
+     * is the column that does, and it must reflect the real import moment, not
+     * the historical one.
+     */
+    public function test_the_import_stamps_when_the_row_actually_landed_here_separately_from_the_historical_date(): void
+    {
+        Carbon::setTestNow('2026-09-21 09:00:00');
+
+        app(LegacyBookingImporter::class)->import($this->csv(self::ACTIVE_HEADER, $this->activeRow()), LimoBooking::STATUS_ACTIVE);
+
+        $booking = LimoBooking::query()->findOrFail(15452);
+        $this->assertSame('2026-09-13 11:37', $booking->created_at?->format('Y-m-d H:i'));
+        $this->assertSame('2026-09-21 09:00', $booking->imported_at?->format('Y-m-d H:i'));
+
+        Carbon::setTestNow();
+    }
+
+    /** A booking made through the ordinary ERP flow was never imported, so it carries no imported_at at all. */
+    public function test_a_booking_entered_live_in_the_erp_has_no_imported_at(): void
+    {
+        $customer = LimoCustomer::query()->create(['name' => 'Walk-in', 'active' => true]);
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pickup_at' => now(), 'fare' => 20, 'amount' => 20,
+            'status' => LimoBooking::STATUS_QUEUE, 'payment_status' => LimoBooking::PAYMENT_UNPAID,
+        ]);
+
+        $this->assertNull($booking->imported_at);
     }
 
     public function test_a_number_already_on_file_is_skipped_and_a_different_booking_is_reported_as_a_clash(): void

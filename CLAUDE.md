@@ -3484,14 +3484,72 @@ money-free group is the strongest candidate, a group with an invoice is
 flagged not treated as clean, same for a receipt, a legitimate multi-vehicle
 group never appears in the review at all, writes nothing).
 
+**Third live run (2026-09-21):** the review shortlist came back as 252
+accidental-looking groups (347 rows) across bookings alone — smaller than
+836 because this review only checks EXACT+NEAR booking pairs, not the
+duplicate-leg-on-one-booking check, which doesn't map onto "does either side
+have money" the same way. Of those: **123 groups (188 rows) have no invoice
+or receipt on either side** — the real shortlist. **129 groups (159 rows)
+already have money recorded**, and in all but 3 of those groups, MONEY IS
+RECORDED ON EVERY ROW IN THE GROUP, not just one side — read as strong
+evidence these are genuinely separate, separately-billed trips (an
+accidental duplicate wouldn't normally get separately invoiced and
+receipted on both copies), matching exactly what `LegacyBookingImporter`'s
+own design assumed. That bucket is effectively closed.
+
+**The owner then asked to delete every trip numbered "1x,xxx" (the low end
+of the 10000–26214 trip-reference range) and re-import fresh, on the theory
+that old data starts with 1 and new data starts with 2.** Investigated and
+explained rather than executed, because the plan as stated cannot work:
+
+1. **Trips numbered 20000+ are NOT "new" ERP bookings** — nothing has ever
+   created a trip organically through this ERP; the entire 10000–26214 range
+   came from the SAME legacy CSV import, and a trip's number is purely a
+   function of which row the import processed first (leg reference =
+   `LimoLeg::REFERENCE_START` − 1 + the leg's own auto-increment id — see the
+   "Old driver names" section above for the same "leg ids are pure import
+   order, not preserved from the old system" fact used differently there).
+2. **The math doesn't allow a clean split regardless of cleanup.** Only
+   10,000 numbers exist for anything starting with "1" (10000–19999). Even
+   after removing every genuine duplicate, ~15,300+ real trips remain —
+   already past that budget. Deleting and reimporting the same historical
+   range would not free up room; freshly reimported rows get NEW
+   auto-increment ids continuing from wherever the counter sits (past
+   26214), not restarting at 10000. A real "old vs. new" split needs wider
+   number ranges (e.g. a 6-digit `1xxxxx` / `2xxxxx` scheme), which is a
+   renumbering, not a delete-and-reimport.
+
+**`limo_bookings.imported_at` (shipped 2026-09-21), added before any
+renumbering, at the owner's request** — "add the time when the booking or
+ref no. is added so we can later know which ref no. is old and which is
+new." `limo_bookings.created_at` is deliberately backdated by
+`LegacyBookingImporter` to the booking's ORIGINAL historical date, so it can
+never answer "when did this row actually land in this database." New
+nullable `imported_at` column (migration `2026_09_21_950036`) is the missing
+signal: `LegacyBookingImporter` stamps it with the real wall-clock import
+moment right next to where it backdates `created_at`; every other creation
+path (`BookingForm`, the regular "Import" button's `BookingImporter`, which
+never touches `created_at` at all) leaves it null. **Null therefore means
+"created live in this ERP"; a value means "brought over from the old
+system"** — reliable regardless of what reference number a trip ends up
+with, and independent of the eventual renumbering decision. Not added to
+`$fillable` (system-managed, never user-settable). **`limo_legs.created_at`
+needed no equivalent column** — nothing anywhere backdates a leg's
+timestamp, so it already faithfully records each leg's real insertion time;
+this was verified by reading every leg-creation path, not assumed. Tests:
+`LimoLegacyBookingImportTest::{test_the_import_stamps_when_the_row_actually_landed_here_separately_from_the_historical_date,
+test_a_booking_entered_live_in_the_erp_has_no_imported_at}`.
+
 **Next step, still pending an explicit decision:** run
 `limo:review-duplicate-trips` against Wanaan and read the "no money
 recorded" shortlist with someone who knows what a same-time/same-fare
 "admin, no passenger" pair meant in the old system — only rows a human
 confirms are genuine mistakes should ever be deleted, and even then take an
 in-app backup (Activity Log → Backups → "Back up now") first. Separately,
-whether/how to renumber for a "1 = old / 2 = new" split still needs its own
-decision regardless of the duplicate cleanup, per the math above.
+if a real old-vs-new number split is still wanted, it needs a genuine
+renumbering (wider ranges) — not a delete-and-reimport — and can now use
+`imported_at` to know precisely which existing rows are "old" without
+guessing from reference numbers.
 
 **Limousine earnings — drivers, routes and demand (shipped 2026-09-10):**
 

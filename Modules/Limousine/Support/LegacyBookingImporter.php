@@ -206,6 +206,11 @@ final class LegacyBookingImporter
             'notes' => $this->notes($number, $row, $driver),
         ]);
         $booking->created_at = $booked;
+        // created_at is backdated to the historical booking date above, so
+        // this is the only place that remembers the real moment the row
+        // landed in this database — the signal that tells an old imported
+        // trip apart from one entered live, regardless of reference number.
+        $booking->imported_at = now();
         $booking->save();
 
         $hours = $chauffeur && $toAt !== null && $toAt->greaterThan($pickupAt)

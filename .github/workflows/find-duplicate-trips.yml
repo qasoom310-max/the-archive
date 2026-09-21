@@ -1,0 +1,48 @@
+name: Find duplicate limousine trips (manual)
+
+# Read-only. Reports bookings/trips that look like they were imported more
+# than once (same customer, time and fare, or an identical leg twice on one
+# booking). Writes nothing — safe to run as many times as needed. Check the
+# run's log for the report.
+on:
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: 'Workspace id ("" for every database)'
+        required: false
+        default: '7'
+
+concurrency:
+  group: find-duplicate-trips
+  cancel-in-progress: false
+
+jobs:
+  report:
+    name: Report on erp.wanaan-bh.com
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust Hostinger SSH host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run limo:find-duplicate-trips
+        env:
+          WS: ${{ inputs.workspace }}
+        run: |
+          set -euo pipefail
+          case "$WS" in (*[!0-9]*) echo "workspace must be a number or blank"; exit 1;; esac
+          OPT=""
+          if [ -n "$WS" ]; then OPT="--workspace=$WS"; fi
+
+          ssh -p ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && php artisan limo:find-duplicate-trips $OPT"

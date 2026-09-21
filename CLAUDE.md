@@ -3541,6 +3541,55 @@ Decisions to keep:
 The shared money-band partial takes an optional **`fleetLabel`**, because
 "Fleet earnings" is the wrong name for a desk with no fleet.
 
+**Saved logins — the credential store (shipped 2026-09-21):**
+
+Admin page at **`/passwords`**, surfaced as an owner dashboard tile. The logins
+a business runs on (hosting, payment gateway, social accounts, government
+portals) kept in one place instead of scattered across Google Docs.
+
+| Concern | Location |
+|---|---|
+| Schema | Core migration `2026_09_21_100001_create_vault_entries_table` — `name`, `url`, `username`, `password` (encrypted TEXT), `note` (encrypted TEXT), `owner_only`, `created_by`/`updated_by` name snapshots. **Core**, so every database gets its own and one business can never see another's |
+| Model | `App\Models\VaultEntry` — `encrypted` casts, `scopeVisibleTo(bool $isOwner)`, `linkUrl()` |
+| Page | `App\Livewire\Pages\Vault` + `livewire.pages.vault` |
+| Tests | `tests/Feature/VaultTest.php` (18) |
+
+Four rules, each easy to lose in a refactor and each pinned by a test:
+
+- **A password is never in the page the browser first receives.** The list
+  renders dots; the plaintext is fetched one entry at a time by a deliberate
+  click. Opening the EDIT form is likewise not a reveal — the password box
+  starts blank, and blank on save keeps the stored value, so a note edit cannot
+  wipe a credential.
+- **Every reveal is written to the activity log** (`vault_revealed`, coloured
+  red so it stands out). If a credential ever leaks, "who looked at it" has an
+  answer.
+- **Visibility is a QUERY scope, not a view filter.** An owner-only entry never
+  reaches a regular admin's browser at all — not even as a row to count. Every
+  action (`reveal`/`edit`/`delete`/`save`) re-fetches through the scope, so a
+  crafted id cannot reach one either.
+- **`owner_only` defaults TRUE.** A new entry is private until somebody widens
+  it deliberately, and only a super admin can change who sees an entry.
+
+**The note is encrypted as well as the password** — deliberately. Notes are
+where recovery codes and security-question answers end up, and those are worth
+as much as the password they protect. Search therefore covers only `name`,
+`username` and `url`: searching a note would leak whether a phrase is in one.
+
+**Honest limit, stated on the page itself:** the key is APP_KEY on the same
+server, so this defeats a stolen database file but not someone with both the
+database and the application files. It is not a zero-knowledge password manager
+and the page says so rather than implying otherwise.
+
+**Gotcha — `__('Passwords')` returns an ARRAY.** Laravel resolves a dotless key
+with no JSON entry as a language-FILE group, and the framework ships
+`lang/en/passwords.php` (the reset-link messages). On a case-insensitive
+filesystem (macOS) `Passwords` matches it, the whole array comes back, and the
+view dies in `htmlspecialchars()`. It would have behaved differently on the
+Linux host. The page is called **"Saved logins"** — which is a better name
+anyway, since "Passwords" reads like the user's own account password. **Never
+use a bare `__()` key that collides with a file in `lang/<locale>/`.**
+
 **Pricing API — the ERP as the only place a fare exists (shipped 2026-09-09):**
 
 Wanaan published fares in four contradicting places (WooCommerce products, page

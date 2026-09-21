@@ -47,6 +47,10 @@ final class ActivityLog extends Model
         'created' => 'Created',
         'updated' => 'Updated',
         'deleted' => 'Deleted',
+        'vault_revealed' => 'Revealed a password',
+        'vault_created' => 'Saved a login',
+        'vault_updated' => 'Updated a login',
+        'vault_deleted' => 'Deleted a login',
         'user_created' => 'Created user',
         'user_updated' => 'Updated user',
         'user_deleted' => 'Deleted user',
@@ -85,6 +89,12 @@ final class ActivityLog extends Model
         'created' => 'bg-sky-100 text-sky-700',
         'updated' => 'bg-amber-100 text-amber-700',
         'deleted' => 'bg-red-100 text-red-700',
+        // A reveal stands out on purpose: it is the row somebody scans
+        // the log for after a credential turns up where it should not.
+        'vault_revealed' => 'bg-red-100 text-red-700',
+        'vault_created' => 'bg-sky-100 text-sky-700',
+        'vault_updated' => 'bg-amber-100 text-amber-700',
+        'vault_deleted' => 'bg-red-100 text-red-700',
         'user_created' => 'bg-indigo-100 text-indigo-700',
         'user_updated' => 'bg-amber-100 text-amber-700',
         'user_deleted' => 'bg-red-100 text-red-700',

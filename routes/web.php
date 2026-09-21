@@ -133,6 +133,10 @@ Route::middleware('auth')->group(function (): void {
     // windows ahead, and when the ads must be live. Component gates on admin.
     Route::get('/calendar', \App\Livewire\Pages\AdCalendar::class)->name('calendar');
 
+    // Saved logins for this database. Admin-gated in the component, with
+    // owner-only entries excluded by the query for everyone else.
+    Route::get('/passwords', \App\Livewire\Pages\Vault::class)->name('vault');
+
     // Admin-only published fares — the single source the website reads over
     // the pricing API. Component gates on admin.
     Route::get('/fares', \App\Livewire\Pages\PricingManager::class)->name('pricing');

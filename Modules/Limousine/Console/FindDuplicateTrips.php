@@ -142,7 +142,7 @@ final class FindDuplicateTrips extends Command
             foreach ($legTwins as $row) {
                 $extra++;
                 $this->line(sprintf(
-                    '    BK/%s — trips %s and %s are identical (%s → %s at %s, %s BHD)',
+                    '    %s — trips %s and %s are identical (%s → %s at %s, %s BHD)',
                     $row['booking_ref'],
                     $row['ref_a'],
                     $row['ref_b'],
@@ -334,7 +334,10 @@ final class FindDuplicateTrips extends Command
                 if (isset($seen[$key])) {
                     $booking = LimoBooking::query()->find($bookingId);
                     $out[] = [
-                        'booking_ref' => (string) ($booking->reference ?? $bookingId),
+                        // $booking->reference already carries the "BK/" prefix
+                        // (HasReference) — the fallback adds it explicitly so
+                        // printGroup() below never needs to know which case it is.
+                        'booking_ref' => (string) ($booking->reference ?? ('BK/' . $bookingId)),
                         'ref_a' => (string) ($seen[$key]->reference ?? $seen[$key]->id),
                         'ref_b' => (string) ($leg->reference ?? $leg->id),
                         'from' => (string) $leg->from_location,

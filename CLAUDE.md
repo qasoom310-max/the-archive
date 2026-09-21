@@ -3404,33 +3404,54 @@ Not done, and deliberate: the export's **"Added By"** column is still not in
 and the screen cannot show "this name also entered N bookings" as a hint that a
 login is office staff. Worth adding if that export is ever re-run.
 
-**Duplicate-trip finder — read-only, built 2026-09-21, not yet run against
-live data.** The owner asked to make new bookings' trip numbers start with a
-different leading digit than old ones, then — on being shown that the old
-imported range already straddles both "1" and "2" (16,074 imported trips
-numbered sequentially from `LimoLeg::REFERENCE_START`=10000 naturally run past
-20000) — suspected that range is inflated by an actual duplicate-import
-mistake, not genuine trip volume. `php artisan limo:find-duplicate-trips
-[--workspace=]` (`Modules\Limousine\Console\FindDuplicateTrips`, registered in
+**Duplicate-trip finder — read-only, built 2026-09-21.** The owner asked to
+make new bookings' trip numbers start with a different leading digit than old
+ones, then — on being shown that the old imported range already straddles
+both "1" and "2" (16,074 imported trips numbered sequentially from
+`LimoLeg::REFERENCE_START`=10000 naturally run past 20000) — suspected that
+range is inflated by an actual duplicate-import mistake, not genuine trip
+volume. `php artisan limo:find-duplicate-trips [--workspace=]`
+(`Modules\Limousine\Console\FindDuplicateTrips`, registered in
 `LimousineServiceProvider::boot()`) checks that suspicion against real data
-**without changing anything**: it reruns
-`LegacyBookingImporter`'s own TWIN heuristic (same customer, pickup time,
-fare) across everything already on file rather than just at import time (so
-it also catches a pair that came in through two different tools/runs that
-never cross-checked each other), plus a same-booking duplicate-leg check.
-Iterates every workspace the same way `MatchDriverNames` does (`Schema::hasTable`
-guard, per-workspace try/catch). Workflow `find-duplicate-trips.yml`
-(`workflow_dispatch`, defaults to workspace 7 / Wanaan) runs it over SSH.
-Test: `tests/Feature/LimoFindDuplicateTripsTest.php` (7 — exact/near/no
+**without changing anything**: it reruns `LegacyBookingImporter`'s own TWIN
+heuristic (same customer, pickup time, fare) across everything already on
+file rather than just at import time (so it also catches a pair that came in
+through two different tools/runs that never cross-checked each other), plus a
+same-booking duplicate-leg check. Iterates every workspace the same way
+`MatchDriverNames` does (`Schema::hasTable` guard, per-workspace try/catch).
+Workflow `find-duplicate-trips.yml` (`workflow_dispatch`, defaults to
+workspace 7 / Wanaan) runs it over SSH.
+
+**First live run + a false-positive fix, same day.** Against Wanaan: 15,502
+bookings, 16,185 trips (highest reference 26,214); the raw fingerprint (same
+customer + timestamp + fare) matched 586 "exact duplicate" groups. Reading
+the actual rows showed most of those are **not** accidental duplicates — a
+wedding or company outing books MANY real cars under one customer account,
+all at the identical scheduled pickup time and the same fixed per-car fare
+(one "Jain Wedding" cluster alone was 40+ bookings on one day) — the
+fingerprint genuinely can't tell that apart from the same booking entered
+twice, because it doesn't look at who was actually being driven. So each
+group is now further classified: **"accidental-looking"** (every row shares
+the same, or blank, passenger name AND the same, or blank, driver parsed out
+of the free-text `notes` the legacy importer stuffed in — nothing tells the
+rows apart) vs. **"probably a legitimate multi-vehicle booking"** (a
+different passenger or a different driver on at least one row) — only the
+first bucket counts toward the headline "accidental extras" total; both are
+still printed in full so nothing is hidden. Tests:
+`tests/Feature/LimoFindDuplicateTripsTest.php` (10 — exact/near/no
 duplicates, a deliberate "Booking #…" cross-reference note is correctly
-excluded, a duplicate leg on one booking, writes nothing at all). **Next
-step, pending what this reports on the live Wanaan database:** decide whether
-the ~6,000 trips currently numbered 20000+ are genuine volume (in which case
-renumbering them to force a clean "1 = old / 2 = new" split means rewriting
-reference numbers that may already be on customer paperwork) or an actual
-duplicate-import artifact (in which case the fix is deleting the extras, not
-renumbering anything) — take an in-app backup (Activity Log → Backups) before
-either.
+excluded, a duplicate leg on one booking, different-passenger and
+different-driver groups are excluded from the count, a same-driver group is
+still counted, writes nothing at all).
+
+**Next step, pending a second live run of the refined command:** re-run
+`limo:find-duplicate-trips` against Wanaan to see the corrected, much smaller
+"accidental-looking" count, then decide whether the ~6,000 trips currently
+numbered 20000+ are genuine volume (in which case renumbering them to force a
+clean "1 = old / 2 = new" split means rewriting reference numbers that may
+already be on customer paperwork) or a real duplicate-import artifact (in
+which case the fix is deleting the extras, not renumbering anything) — take
+an in-app backup (Activity Log → Backups) before either.
 
 **Limousine earnings — drivers, routes and demand (shipped 2026-09-10):**
 

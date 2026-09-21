@@ -139,6 +139,53 @@ final class LimoFindDuplicateTripsTest extends TestCase
             ->assertSuccessful();
     }
 
+    /**
+     * A wedding or company outing books many real cars under one customer
+     * account, all at the same scheduled time and the same per-car fare —
+     * exactly what the customer+time+fare fingerprint matches on. A
+     * different passenger on each row proves these are separate trips, not
+     * one entered twice, so it must not inflate the "accidental extras" total.
+     */
+    public function test_bookings_with_different_passengers_are_not_counted_as_accidental_duplicates(): void
+    {
+        $this->trip('Jain Wedding', Carbon::parse('2026-06-01 10:00:00'), 32.0, paxName: 'Priyanka Guru Prasad');
+        $this->trip('Jain Wedding', Carbon::parse('2026-06-01 10:00:00'), 32.0, paxName: 'Prathviraj Shastry');
+
+        $this->artisan('limo:find-duplicate-trips')
+            ->expectsOutputToContain('look like legitimate multi-vehicle bookings')
+            ->expectsOutputToContain('Probably NOT duplicates')
+            ->expectsOutputToContain('Total: 0 row(s) look like accidental extras')
+            ->assertSuccessful();
+    }
+
+    /**
+     * Same shape, but the tell is the driver instead of the passenger name —
+     * two different cars sent out for the same job, not the same car logged
+     * twice.
+     */
+    public function test_bookings_with_different_drivers_are_not_counted_as_accidental_duplicates(): void
+    {
+        $this->trip('Zuber Issa', Carbon::parse('2026-06-01 10:00:00'), 70.0, notes: 'Booking #6253 | Status: Closed | Driver: adnan');
+        $this->trip('Zuber Issa', Carbon::parse('2026-06-01 10:00:00'), 70.0, notes: 'Booking #6254 | Status: Closed | Driver: syatin');
+
+        $this->artisan('limo:find-duplicate-trips')
+            ->expectsOutputToContain('look like legitimate multi-vehicle bookings')
+            ->expectsOutputToContain('Total: 0 row(s) look like accidental extras')
+            ->assertSuccessful();
+    }
+
+    /** The same driver on every row (or none at all) is not a distinguishing tell, so it still counts as accidental. */
+    public function test_bookings_with_the_same_driver_are_still_counted_as_accidental_duplicates(): void
+    {
+        $this->trip('Layla', Carbon::parse('2026-06-01 10:00:00'), 45.0, notes: 'Booking #100 | Status: Closed | Driver: admin');
+        $this->trip('Layla', Carbon::parse('2026-06-01 10:00:00'), 45.0, notes: 'Booking #101 | Status: Closed | Driver: admin');
+
+        $this->artisan('limo:find-duplicate-trips')
+            ->expectsOutputToContain('Accidental-looking')
+            ->expectsOutputToContain('Total: 1 row(s) look like accidental extras')
+            ->assertSuccessful();
+    }
+
     public function test_two_identical_legs_on_the_same_booking_are_reported(): void
     {
         $trip = $this->trip('Fahad', Carbon::parse('2026-06-01 10:00:00'), 45.0);

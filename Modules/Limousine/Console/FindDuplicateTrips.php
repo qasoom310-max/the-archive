@@ -34,6 +34,19 @@ use Throwable;
  *  3. **Duplicate legs on the same booking** — two legs on one booking that
  *     share the same route, time and rate. A single trip should not have two
  *     identical legs.
+ *
+ * The customer+time+fare fingerprint alone cannot tell an accidental
+ * duplicate apart from a legitimate MULTI-VEHICLE group booking — a wedding
+ * or a company outing often books many real cars under one customer account,
+ * all at the same scheduled time and the same per-car fare. Found on the
+ * live Wanaan data (2026-09-21): dozens of "exact duplicate" groups were
+ * really one event with a different passenger and a different driver on
+ * every row. So each group (1) and (2) finds is further split into
+ * "accidental-looking" (every row shares the same, or blank, passenger name
+ * AND driver) vs. "probably a legitimate multi-vehicle booking" (a different
+ * passenger or driver on at least one row) — only the first bucket counts
+ * toward the headline total; both are still printed in full so nothing is
+ * hidden.
  */
 final class FindDuplicateTrips extends Command
 {
@@ -113,21 +126,13 @@ final class FindDuplicateTrips extends Command
         if ($exact === []) {
             $this->line('  No exact duplicate bookings (same customer, timestamp and fare).');
         } else {
-            $this->warn(sprintf('  %d group(s) of EXACT duplicate bookings:', count($exact)));
-            foreach ($exact as $group) {
-                $extra += count($group) - 1;
-                $this->printGroup($group);
-            }
+            $extra += $this->reportBookingGroups('EXACT duplicate', $exact);
         }
 
         if ($near === []) {
             $this->line('  No near-duplicate bookings (same customer/fare, pickup within ' . self::NEAR_MINUTES . ' minutes).');
         } else {
-            $this->warn(sprintf('  %d group(s) of NEAR-duplicate bookings:', count($near)));
-            foreach ($near as $group) {
-                $extra += count($group) - 1;
-                $this->printGroup($group);
-            }
+            $extra += $this->reportBookingGroups('NEAR-duplicate', $near);
         }
 
         if ($legTwins === []) {
@@ -155,6 +160,60 @@ final class FindDuplicateTrips extends Command
             $bookingCount,
             $legCount,
         ));
+    }
+
+    /**
+     * A group only counts toward the headline "accidental extras" total when
+     * nothing in it tells the rows apart — a different passenger or driver
+     * on each row usually means a legitimate multi-vehicle group booking
+     * (several cars sent out under one customer account for one job), not
+     * the same trip entered twice. Both buckets are still printed, in full,
+     * so nothing is hidden — only the COUNT that gets treated as a real
+     * duplicate is narrowed.
+     *
+     * @param  list<list<array{id: int, reference: ?string, pax_name: ?string, notes: ?string, pickup_at: ?string, fare: float}>>  $groups
+     */
+    private function reportBookingGroups(string $kindLabel, array $groups): int
+    {
+        $genuine = [];
+        $groupish = [];
+
+        foreach ($groups as $group) {
+            if ($this->looksGenuinelyDuplicated($group)) {
+                $genuine[] = $group;
+            } else {
+                $groupish[] = $group;
+            }
+        }
+
+        $this->warn(sprintf(
+            '  %d group(s) of %s bookings - %d look accidental, %d look like legitimate multi-vehicle bookings (different passenger or driver):',
+            count($groups),
+            $kindLabel,
+            count($genuine),
+            count($groupish),
+        ));
+
+        if ($genuine !== []) {
+            $this->line('  Accidental-looking (same or blank passenger/driver on every row):');
+            foreach ($genuine as $group) {
+                $this->printGroup($group);
+            }
+        }
+
+        if ($groupish !== []) {
+            $this->line('  Probably NOT duplicates - a different passenger or driver on each row (a multi-vehicle group booking):');
+            foreach ($groupish as $group) {
+                $this->printGroup($group);
+            }
+        }
+
+        $extra = 0;
+        foreach ($genuine as $group) {
+            $extra += count($group) - 1;
+        }
+
+        return $extra;
     }
 
     /**
@@ -300,6 +359,48 @@ final class FindDuplicateTrips extends Command
         return ((string) $b->customer_id) . '|'
             . ((string) ($b->pickup_at?->toDateTimeString() ?? '')) . '|'
             . number_format((float) $b->fare, 3);
+    }
+
+    /** Extracts "Driver: NAME" from the free-text notes the legacy importer stuffed in, or null when absent. */
+    private function driverFromNotes(?string $notes): ?string
+    {
+        if ($notes === null || $notes === '' || preg_match('/driver:\s*([^|]+)/i', $notes, $m) !== 1) {
+            return null;
+        }
+
+        $driver = trim($m[1]);
+
+        return $driver === '' ? null : $driver;
+    }
+
+    /**
+     * A group is only "genuinely" duplicated when nothing in it tells the
+     * rows apart. A booking taken for a group event (a wedding, a company
+     * outing) often has one customer, one shared pickup time and one fixed
+     * per-car fare across MANY real bookings — exactly what the fingerprint
+     * above matches on — but a different passenger or a different driver on
+     * each row proves they are separate trips, not one entered twice.
+     *
+     * @param  list<array{id: int, reference: ?string, pax_name: ?string, notes: ?string, pickup_at: ?string, fare: float}>  $group
+     */
+    private function looksGenuinelyDuplicated(array $group): bool
+    {
+        $paxNames = [];
+        $drivers = [];
+
+        foreach ($group as $row) {
+            $pax = strtolower(trim((string) $row['pax_name']));
+            if ($pax !== '') {
+                $paxNames[$pax] = true;
+            }
+
+            $driver = $this->driverFromNotes($row['notes']);
+            if ($driver !== null) {
+                $drivers[strtolower($driver)] = true;
+            }
+        }
+
+        return count($paxNames) <= 1 && count($drivers) <= 1;
     }
 
     /** @return array{id: int, reference: ?string, pax_name: ?string, notes: ?string, pickup_at: ?string, fare: float} */

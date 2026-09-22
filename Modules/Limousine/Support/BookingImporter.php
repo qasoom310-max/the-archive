@@ -85,10 +85,36 @@ final class BookingImporter
             return ['imported' => 0, 'skipped' => 0];
         }
 
+        // Our own "Live entry data" backup carries the whole stored booking
+        // in its last column; when it's there, restore from that instead of
+        // rebuilding a thinner booking out of the printed columns.
+        $recordCol = null;
+        foreach ($header as $i => $name) {
+            if (strcasecmp(trim((string) $name), BookingSnapshot::HEADING) === 0) {
+                $recordCol = $i;
+            }
+        }
+        $snapshots = app(BookingSnapshot::class);
+        /** @var array<string, bool> $restoredNow booking reference → restored by this run */
+        $restoredNow = [];
+
         $imported = 0;
         $skipped = 0;
 
         while (($row = fgetcsv($handle)) !== false) {
+            $snapshot = $recordCol !== null ? $snapshots->decode((string) ($row[$recordCol] ?? '')) : null;
+            if ($snapshot !== null) {
+                // One row per trip, each carrying its whole booking: the first
+                // row restores it, the rest of that booking's rows count along.
+                $key = (string) ($snapshot['booking']['reference'] ?? '').'#'.(string) ($snapshot['booking']['id'] ?? '');
+                if (! array_key_exists($key, $restoredNow)) {
+                    $restoredNow[$key] = $snapshots->restore($snapshot);
+                }
+                $restoredNow[$key] ? $imported++ : $skipped++;
+
+                continue;
+            }
+
             $customerName = trim((string) ($row[$cols['customer']] ?? ''));
             $amountRaw = trim((string) ($row[$cols['amount']] ?? ''));
 

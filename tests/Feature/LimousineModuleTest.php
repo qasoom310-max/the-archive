@@ -713,6 +713,63 @@ final class LimousineModuleTest extends TestCase
         $this->assertStringNotContainsString('Old System Co', $body);
     }
 
+    /**
+     * The live backup has to survive a delete-and-reimport: every detail the
+     * printed columns don't carry (trip + receipt numbers, comments, who
+     * entered it, when, a round trip's second leg, the linked car) comes back.
+     */
+    public function test_a_live_backup_restores_every_booking_detail_after_a_delete(): void
+    {
+        $this->install();
+        $booking = $this->queueRow();
+        $booking->legs()->create([
+            'sequence' => 1, 'service_type' => LimoLeg::TYPE_TRANSFER,
+            'from_location' => 'Bahrain', 'to_location' => 'Bahrain Airport',
+            'start_at' => '2026-09-01 18:00:00', 'rate' => 20, 'rate_basis' => 'trip',
+            'net_amount' => 20, 'status' => LimoLeg::STATUS_COMPLETED,
+        ]);
+        $booking->syncInvoice();
+        app(\Modules\Limousine\Services\BookingPayments::class)->receive($booking->fresh(), 40, 'cash');
+        $booking = $booking->fresh();
+
+        $before = [
+            'booking' => $booking->getAttributes(),
+            'legs' => $booking->legs()->orderBy('sequence')->get()->map->getAttributes()->all(),
+            'receipts' => LimoReceipt::query()->where('booking_id', $booking->id)->get()->map->getAttributes()->all(),
+            'invoice' => LimoInvoice::query()->where('booking_id', $booking->id)->first()?->getAttributes(),
+        ];
+        $this->assertNotEmpty($before['receipts']);
+
+        $controller = app(\Modules\Limousine\Http\Controllers\LimoQueueExportController::class);
+        ob_start();
+        $controller->csv(Request::create('/x', 'GET', ['live' => '1']))->sendContent();
+        $csv = (string) ob_get_clean();
+        $this->assertStringContainsString(\Modules\Limousine\Support\BookingSnapshot::HEADING, $csv);
+
+        // "Delete everything".
+        LimoReceipt::query()->delete();
+        LimoInvoice::query()->delete();
+        LimoLeg::query()->delete();
+        LimoBooking::query()->delete();
+
+        $path = tempnam(sys_get_temp_dir(), 'limo');
+        file_put_contents((string) $path, $csv);
+        $result = app(\Modules\Limousine\Support\BookingImporter::class)->import((string) $path);
+        $this->assertSame(['imported' => 2, 'skipped' => 0], $result);
+
+        $restored = LimoBooking::query()->sole();
+        $this->assertSame($before['booking'], $restored->getAttributes());
+        $this->assertSame($before['legs'], $restored->legs()->orderBy('sequence')->get()->map->getAttributes()->all());
+        $this->assertSame($before['receipts'], LimoReceipt::query()->where('booking_id', $restored->id)->get()->map->getAttributes()->all());
+        $this->assertSame($before['invoice'], LimoInvoice::query()->where('booking_id', $restored->id)->first()?->getAttributes());
+
+        // Importing the same backup again changes nothing.
+        $again = app(\Modules\Limousine\Support\BookingImporter::class)->import((string) $path);
+        $this->assertSame(['imported' => 0, 'skipped' => 2], $again);
+        $this->assertSame(1, LimoBooking::query()->count());
+        @unlink((string) $path);
+    }
+
     public function test_each_leg_gets_its_own_running_reference(): void
     {
         $this->install();

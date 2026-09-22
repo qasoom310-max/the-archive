@@ -11,7 +11,9 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Services\LimoQueueRows;
+use Modules\Limousine\Support\BookingSnapshot;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -29,7 +31,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 final class LimoQueueExportController
 {
-    public function __construct(private readonly LimoQueueRows $rows) {}
+    public function __construct(
+        private readonly LimoQueueRows $rows,
+        private readonly BookingSnapshot $snapshot,
+    ) {}
 
     public function csv(Request $request): StreamedResponse
     {
@@ -125,7 +130,7 @@ final class LimoQueueExportController
         // "hide cancelled" rule — a backup must not quietly drop cancelled
         // trips that were genuinely entered live.
         if ($request->boolean('live')) {
-            return [$this->rows->all('', '', '', '', '', 'desc', true), $this->rows->headings()];
+            return $this->withFullRecord($this->rows->all('', '', '', '', '', 'desc', true), $this->rows->headings());
         }
 
         $tab = (string) $request->query('tab', 'all');
@@ -139,6 +144,50 @@ final class LimoQueueExportController
         $dir = (string) $request->query('dir', 'desc');
 
         return [$this->rows->all($tab, $from, $to, $search, $sort, $dir), $this->rows->headings()];
+    }
+
+    /**
+     * The backup must survive a delete-and-reimport, and the printed columns
+     * don't carry enough for that. So a live export also gets the details a
+     * person would look for (booking number, customer phone and email,
+     * company reference, passenger) and, last, the whole stored booking — legs,
+     * invoices and receipts included — which the Import button reads back.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @param  array<string, string>  $headings
+     * @return array{0: list<array<string, mixed>>, 1: array<string, string>}
+     */
+    private function withFullRecord(array $rows, array $headings): array
+    {
+        $headings += [
+            'booking_reference' => __('Booking reference'),
+            'customer_phone' => __('Customer phone'),
+            'customer_email' => __('Customer email'),
+            'company_reference' => __('Company reference'),
+            'passenger' => __('Passenger'),
+            // Machine data, read back by the importer under this exact name,
+            // so it stays English in every language.
+            'record' => BookingSnapshot::HEADING,
+        ];
+
+        /** @var array<int, array<string, string>> $cache booking id → extra cells */
+        $cache = [];
+        foreach ($rows as $i => $row) {
+            $id = (int) ($row['booking_id'] ?? 0);
+            if (! isset($cache[$id])) {
+                $booking = LimoBooking::query()->with('customer')->find($id);
+                $cache[$id] = $booking === null ? [] : [
+                    'customer_phone' => (string) ($booking->customer->phone ?? ''),
+                    'customer_email' => (string) ($booking->customer->email ?? ''),
+                    'company_reference' => (string) ($booking->company_reference ?? ''),
+                    'passenger' => (string) ($booking->pax_name ?? ''),
+                    'record' => $this->snapshot->encode($booking),
+                ];
+            }
+            $rows[$i] = $row + $cache[$id];
+        }
+
+        return [$rows, $headings];
     }
 
     /**

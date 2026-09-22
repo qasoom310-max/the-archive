@@ -1513,6 +1513,29 @@ That date holds for all of them: the legacy importers backdate `created_at` to
 the old system's dates, and the bulk migration ran on 3–5 Sep. Test:
 `LimousineModuleTest::test_live_entry_data_excludes_unmarked_bookings_from_before_the_cutover`.
 
+**The bookings backup is now lossless (shipped 2026-09-22).** The printed
+columns alone lost trip/receipt numbers, comments, "Added by", booked time, a
+round trip's legs belonging together, and the car/driver links on a reimport.
+The live CSV/Excel now appends Booking reference / Customer phone / Customer
+email / Company reference / Passenger, plus a last column **"Record data (do not
+edit)"** (English by design — the importer finds it by that exact name) holding
+`Modules\Limousine\Support\BookingSnapshot::capture()`: the RAW stored rows
+(`getAttributes()`, never `toArray()`, which would shift times to UTC) of the
+booking, every leg, its customer, its invoices (its own + any a receipt was paid
+against) and its receipts. `BookingImporter` detects that column and calls
+`BookingSnapshot::restore()` instead of its summary path: one DB transaction per
+booking, **original ids kept when free** (so expenses / payment links / coupon
+use pointing at the booking stay attached; a taken id gets a new one and is
+remapped), only today's columns inserted, `saveQuietly()` so no hook renumbers
+or re-prices, customer = same record → same phone ending → same name → recreated,
+an invoice/receipt whose reference already exists is reused/skipped, and a booking
+whose reference is on file is skipped (re-importing is a no-op). NOT carried:
+receipts with no booking, and the coupon/payment-link/expense rows themselves (only
+their link survives, by id). Excel re-saving a CSV can mangle the record cell —
+import the downloaded file as-is. Test:
+`LimousineModuleTest::test_a_live_backup_restores_every_booking_detail_after_a_delete`
+(every stored column identical after delete + import, second import skips).
+
 **This is a backup step only — the actual delete-and-reimport plan is still
 undecided** and requires, before any execution: which date field the cutoff applies
 to, what happens to invoices/receipts linked to a deleted booking, and explicit

@@ -2948,5 +2948,8 @@
     "Shared with admins": "مشترك مع المدراء",
     "The logins this business runs on. Stored encrypted, and every reveal is recorded.": "الحسابات التي يعمل بها هذا النشاط. مخزّنة مشفّرة، وكل عملية إظهار تُسجَّل.",
     "Untick to let this database's admins reveal it — useful for a social account, wrong for a bank.": "ألغِ التحديد للسماح لمدراء قاعدة البيانات هذه بإظهارها — مناسب لحساب تواصل اجتماعي، وغير مناسب لحساب بنكي.",
-    "WooCommerce, hosting, Instagram…": "ووكومرس، الاستضافة، إنستغرام…"
+    "WooCommerce, hosting, Instagram…": "ووكومرس، الاستضافة، إنستغرام…",
+    "Booking reference": "رقم الحجز",
+    "Customer phone": "هاتف العميل",
+    "Customer email": "البريد الإلكتروني للعميل"
 }

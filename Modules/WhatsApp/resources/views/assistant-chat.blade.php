@@ -40,7 +40,6 @@
     <form wire:submit="send" class="flex items-end gap-2">
         <textarea
             wire:model="text"
-            x-on:keydown.enter="if (! $event.shiftKey) { $event.preventDefault(); $wire.send(); }"
             rows="2"
             class="o-input flex-1 resize-none"
             placeholder="Type a message…"

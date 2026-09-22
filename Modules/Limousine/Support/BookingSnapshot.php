@@ -142,7 +142,15 @@ final class BookingSnapshot
             $invoices = is_array($data['invoices'] ?? null) ? $data['invoices'] : [];
             foreach ($invoices as $invoice) {
                 $oldId = (int) ($invoice['id'] ?? 0);
-                $existing = LimoInvoice::query()->where('reference', (string) ($invoice['reference'] ?? ''))->value('id');
+                // Reuse an invoice already on file under this number only when
+                // it is the same customer's bill (e.g. a combined invoice two
+                // bookings share). The old system reused numbers the ERP had
+                // issued, so a matching number alone can be a different bill,
+                // and this booking's receipts must never land on it.
+                $existing = LimoInvoice::query()
+                    ->where('reference', (string) ($invoice['reference'] ?? ''))
+                    ->where('customer_id', $customerId)
+                    ->value('id');
                 if ($existing !== null) {
                     $invoiceMap[$oldId] = (int) $existing;
 

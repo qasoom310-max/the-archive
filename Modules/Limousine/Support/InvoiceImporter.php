@@ -79,7 +79,19 @@ final class InvoiceImporter
             $total = round((float) str_replace(',', '', $totalRaw), 3);
             $issueDate = isset($cols['issue_date']) ? $this->parseDate((string) ($row[$cols['issue_date']] ?? '')) : null;
 
-            if ($this->alreadyImported($customerName, $total, $issueDate)) {
+            // Our own export carries the invoice's real number ("INV/01385").
+            // Keep it, and treat a number already on file as already here —
+            // restoring the bookings backup brings its invoices back first.
+            $reference = isset($cols['reference']) ? trim((string) ($row[$cols['reference']] ?? '')) : '';
+            $reference = preg_match('/^INV\/\d+$/i', $reference) === 1 ? strtoupper($reference) : '';
+
+            if ($reference !== '' && LimoInvoice::query()->where('reference', $reference)->exists()) {
+                $skipped++;
+
+                continue;
+            }
+
+            if ($reference === '' && $this->alreadyImported($customerName, $total, $issueDate)) {
                 $skipped++;
 
                 continue;
@@ -91,6 +103,7 @@ final class InvoiceImporter
             $statusRaw = isset($cols['status']) ? (string) ($row[$cols['status']] ?? '') : '';
 
             LimoInvoice::query()->create([
+                'reference' => $reference !== '' ? $reference : null,
                 'customer_id' => $customer->id,
                 'issue_date' => $issueDate,
                 'due_date' => $issueDate,

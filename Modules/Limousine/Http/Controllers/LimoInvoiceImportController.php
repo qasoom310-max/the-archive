@@ -9,6 +9,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Modules\Limousine\Support\InvoiceImporter;
+use Modules\Limousine\Support\LegacyInvoiceImporter;
+use RuntimeException;
 
 /**
  * Uploads an invoices CSV (an export from a previous system, the same shape
@@ -27,11 +29,56 @@ final class LimoInvoiceImportController
         /** @var \Illuminate\Http\UploadedFile $file */
         $file = $validated['file'];
 
+        // The old limousine system's own invoices list (Invoice # / Booking
+        // Ref / Amount (BHD) …) has its own importer, which keeps the old
+        // invoice numbers and links each to its booking. Recognise it by its
+        // headings so both files go through the one button.
+        if ($this->isOldSystemRegister($file->getRealPath())) {
+            try {
+                $result = app(LegacyInvoiceImporter::class)->import($file->getRealPath());
+            } catch (RuntimeException $e) {
+                return redirect('/app/limousine/invoice')->with('toast', $e->getMessage());
+            }
+
+            $clashes = array_values(array_filter($result['lines'], static fn (string $l): bool => str_starts_with($l, 'CLASH')));
+            $toast = __(':imported invoices imported, :skipped already on file skipped.', [
+                'imported' => $result['imported'], 'skipped' => $result['skipped'],
+            ]);
+            if ($clashes !== []) {
+                $numbers = array_map(static fn (string $l): string => (string) preg_replace('/^CLASH\s+(INV\/\d+).*$/', '$1', $l), $clashes);
+                $toast .= ' '.__('Not imported — the number is already used by a different invoice: :numbers', [
+                    'numbers' => implode(', ', $numbers),
+                ]);
+            }
+
+            return redirect('/app/limousine/invoice')->with('toast', $toast);
+        }
+
         $result = $importer->import($file->getRealPath());
 
         return redirect('/app/limousine/invoice')->with('toast', __(
             ':imported invoices imported, :skipped already on file skipped.',
             ['imported' => $result['imported'], 'skipped' => $result['skipped']],
         ));
+    }
+
+    private function isOldSystemRegister(string $path): bool
+    {
+        $handle = @fopen($path, 'r');
+        if ($handle === false) {
+            return false;
+        }
+        $header = fgetcsv($handle);
+        fclose($handle);
+        if ($header === false) {
+            return false;
+        }
+
+        $names = array_map(
+            static fn ($h): string => strtolower(trim((string) preg_replace('/^\x{FEFF}/u', '', (string) $h))),
+            $header,
+        );
+
+        return in_array('invoice #', $names, true) && in_array('booking ref', $names, true);
     }
 }

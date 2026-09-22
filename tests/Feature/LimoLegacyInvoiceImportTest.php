@@ -142,6 +142,52 @@ final class LimoLegacyInvoiceImportTest extends TestCase
         $this->assertSame(1, LimoInvoice::query()->count());
     }
 
+    /**
+     * The old system kept numbering after the ERP had issued the same number
+     * to a different bill. The ERP's bill must stay untouched, and the clash
+     * must be named, not silently counted as "already on file".
+     */
+    public function test_a_number_used_by_a_different_erp_invoice_is_a_named_clash(): void
+    {
+        $erp = new LimoInvoice;
+        $erp->forceFill([
+            'id' => 1334, 'reference' => 'INV/01334',
+            'customer_id' => LimoCustomer::query()->create(['name' => 'Qassim Makhlooq'])->id,
+            'subtotal' => 11, 'total' => 11, 'status' => LimoInvoice::STATUS_UNPAID,
+        ])->save();
+
+        $result = app(LegacyInvoiceImporter::class)->import($this->csv($this->row('1334', '19-Sep-2026', 'Eslam Zein', '15478', '74.000')));
+
+        $this->assertSame(0, $result['imported']);
+        $this->assertStringStartsWith('CLASH', $result['lines'][0]);
+        $this->assertEqualsWithDelta(11.0, (float) LimoInvoice::query()->findOrFail(1334)->total, 0.001);
+    }
+
+    /** One Import button takes both the old invoices register and the ERP's own export. */
+    public function test_the_import_button_takes_the_old_register_and_the_erp_export(): void
+    {
+        $controller = new \Modules\Limousine\Http\Controllers\LimoInvoiceImportController();
+        $upload = fn (string $path): \Illuminate\Http\Request => \Illuminate\Http\Request::create('/x', 'POST', [], [], [
+            'file' => new \Illuminate\Http\UploadedFile($path, 'i.csv', 'text/csv', null, true),
+        ]);
+
+        $controller($upload($this->csv($this->row('1331', '08-Sep-2026', 'City connect general trade', '15431', '72.000'))), app(\Modules\Limousine\Support\InvoiceImporter::class));
+        $this->assertSame('INV/01331', LimoInvoice::query()->findOrFail(1331)->reference);
+
+        $erpPath = tempnam(sys_get_temp_dir(), 'erpi').'.csv';
+        file_put_contents($erpPath, "Reference,Customer,Issued,Total,Paid,Balance,Status\n"
+            ."INV/01385,\"Travel Gate\",21-Sep-2026,\"15.00 BD\",\"0.00 BD\",\"15.00 BD\",Unpaid\n"
+            ."INV/01341,\"Mansour Mohamed\",15-Sep-2026,\"40.00 BD\",\"10.00 BD\",\"30.00 BD\",Partial\n");
+        $controller($upload($erpPath), app(\Modules\Limousine\Support\InvoiceImporter::class));
+        $controller($upload($erpPath), app(\Modules\Limousine\Support\InvoiceImporter::class));
+
+        $kept = LimoInvoice::query()->where('reference', 'INV/01341')->sole();
+        $this->assertSame(LimoInvoice::STATUS_PARTIAL, $kept->status);
+        $this->assertEqualsWithDelta(10.0, (float) $kept->amount_paid, 0.001);
+        $this->assertSame(1, LimoInvoice::query()->where('reference', 'INV/01385')->count());
+        $this->assertSame(3, LimoInvoice::query()->count());
+    }
+
     public function test_amounts_with_thousand_separators_and_no_bookings_parse_correctly(): void
     {
         app(LegacyInvoiceImporter::class)->import($this->csv(

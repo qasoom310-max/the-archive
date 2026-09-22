@@ -7,6 +7,7 @@ namespace Modules\Limousine\Services;
 use App\Erp\Views\ValueFormat;
 use Illuminate\Database\Eloquent\Builder;
 use Modules\Limousine\Models\LimoQuotation;
+use Modules\Limousine\Support\LiveEntry;
 
 /**
  * The one definition of a quotations-list row, read by both the screen and
@@ -34,7 +35,8 @@ final class LimoQuotationRows
         // ("QT/00042", 8 chars vs the legacy 7). Anything longer than the
         // legacy shape was raised through the register, i.e. live.
         if ($onlyLive) {
-            $query->whereRaw('LENGTH(reference) > 7');
+            $query->whereRaw('LENGTH(reference) > 7')
+                ->where('created_at', '>=', LiveEntry::since());
         }
 
         return $query;

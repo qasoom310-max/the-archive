@@ -7,6 +7,7 @@ namespace Modules\Limousine\Services;
 use App\Erp\Views\ValueFormat;
 use Illuminate\Database\Eloquent\Builder;
 use Modules\Limousine\Models\LimoInvoice;
+use Modules\Limousine\Support\LiveEntry;
 
 /**
  * The one definition of an invoices-list row, read by both the screen and its
@@ -60,7 +61,7 @@ final class LimoInvoiceRows
                     ->where(function (Builder $q2): void {
                         $q2->whereNull('notes')->orWhere('notes', 'not like', 'Invoice #%');
                     });
-            });
+            })->where('created_at', '>=', LiveEntry::since());
         }
 
         return $query;

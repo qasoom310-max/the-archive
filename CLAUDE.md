@@ -1504,6 +1504,15 @@ at all. Button label translated (`lang/ar.json`: "Live entry data" → "بيان
 (+3, one per remaining model) — all assert a legacy-imported row is excluded and a
 live one is included.
 
+**Fixed 2026-09-22 — the markers alone let the old data through.** `imported_at`
+was added *after* the historical import ran, so every imported booking had it
+NULL and read as "live" (the owner's export was full of `Booking #…` / admin /
+completed-paid rows). All four filters now also require **`created_at >= 15 Sep
+2026`** (company timezone), via `Modules\Limousine\Support\LiveEntry::since()`.
+That date holds for all of them: the legacy importers backdate `created_at` to
+the old system's dates, and the bulk migration ran on 3–5 Sep. Test:
+`LimousineModuleTest::test_live_entry_data_excludes_unmarked_bookings_from_before_the_cutover`.
+
 **This is a backup step only — the actual delete-and-reimport plan is still
 undecided** and requires, before any execution: which date field the cutoff applies
 to, what happens to invoices/receipts linked to a deleted booking, and explicit

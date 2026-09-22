@@ -7,6 +7,7 @@ namespace Modules\Limousine\Services;
 use App\Erp\Views\ValueFormat;
 use Illuminate\Database\Eloquent\Builder;
 use Modules\Limousine\Models\LimoReceipt;
+use Modules\Limousine\Support\LiveEntry;
 
 /**
  * The one definition of a receipts-list row, read by both the screen and its
@@ -61,7 +62,8 @@ final class LimoReceiptRows
         // one reliable marker: anything else came from the register or the
         // ongoing Import button, i.e. was entered live.
         if ($onlyLive) {
-            $query->where('reference', 'not like', 'L-RCPT%');
+            $query->where('reference', 'not like', 'L-RCPT%')
+                ->where('created_at', '>=', LiveEntry::since());
         }
 
         return $query;

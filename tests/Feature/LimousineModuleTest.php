@@ -676,6 +676,26 @@ final class LimousineModuleTest extends TestCase
         $this->assertSame('Sarah Almutairi', $live[0]['customer']);
     }
 
+    /**
+     * The first historical import ran before `imported_at` existed, so its
+     * rows carry no marker at all. Only the date tells them apart: a booking
+     * created before 15 Sep is not live entry data.
+     */
+    public function test_live_entry_data_excludes_unmarked_bookings_from_before_the_cutover(): void
+    {
+        $this->install();
+        $this->queueRow(); // live — Sarah Almutairi, created today
+        $old = $this->legacyImportedBooking();
+        $old->imported_at = null;
+        $old->created_at = \Illuminate\Support\Carbon::parse('2026-09-14 23:00:00');
+        $old->save();
+
+        $live = app(\Modules\Limousine\Services\LimoQueueRows::class)->all('', '', '', '', '', 'desc', true);
+
+        $this->assertCount(1, $live);
+        $this->assertSame('Sarah Almutairi', $live[0]['customer']);
+    }
+
     public function test_the_live_entry_data_button_downloads_only_live_bookings(): void
     {
         $this->install();

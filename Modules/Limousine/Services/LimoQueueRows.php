@@ -12,6 +12,7 @@ use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Support\DriverAliases;
+use Modules\Limousine\Support\LiveEntry;
 
 /**
  * The one definition of a queue row.
@@ -150,7 +151,8 @@ final class LimoQueueRows
         // Import button), not brought over in the one-time historical migration.
         if ($onlyLive) {
             $query->whereHasMorph('legable', LimoBooking::class, function (Builder $q): void {
-                $q->whereNull('imported_at');
+                $q->whereNull('imported_at')
+                    ->where('created_at', '>=', LiveEntry::since());
             });
         }
 

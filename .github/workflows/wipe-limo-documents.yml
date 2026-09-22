@@ -1,0 +1,58 @@
+name: Wipe Limousine documents (manual)
+
+# Runs `php artisan limo:wipe-documents` on the live server: deletes EVERY
+# Limousine booking (all statuses), trip, quotation, invoice and receipt in
+# ONE database, plus the payment links and coupon-credit use pointing at them.
+# Customers, drivers, locations, petty cash and the fleet are untouched.
+#
+# Manual only (workflow_dispatch). It never runs on push. Leave "confirm"
+# empty for a dry run that only counts; type DELETE to actually delete — the
+# command takes a restorable database snapshot first.
+on:
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: 'Workspace id to wipe (7 = Wanaan Car Rental W.L.L)'
+        required: true
+        default: '7'
+      confirm:
+        description: 'Type DELETE to actually delete. Leave empty for a dry run.'
+        required: false
+        default: ''
+
+concurrency:
+  group: wipe-limo-documents
+  cancel-in-progress: false
+
+jobs:
+  wipe:
+    name: Wipe on erp.wanaan-bh.com
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust Hostinger SSH host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run limo:wipe-documents
+        env:
+          WS: ${{ inputs.workspace }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+
+          case "$WS" in (*[!0-9]*|'') echo "workspace must be a number"; exit 1;; esac
+          FORCE=''
+          if [ "$CONFIRM" = "DELETE" ]; then FORCE='--force'; fi
+
+          ssh -p ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && php artisan limo:wipe-documents --workspace=$WS $FORCE"

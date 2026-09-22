@@ -361,9 +361,17 @@
                 @php
                     $cumulative[] = $segment;
                     $isLast = $loop->last;
+                    $words = str_replace(['-', '_'], ' ', $segment);
+                    // __() on a bare segment resolves to a language FILE group
+                    // when one exists by that name and hands back the whole
+                    // ARRAY - lang/en/passwords.php ships with the framework,
+                    // so a route at /passwords used to 500 the entire page.
+                    // A segment that translates to anything but a string is
+                    // shown as itself.
+                    $translated = __($words);
                     $label = $isLast && $terminalLabel !== null
                         ? $terminalLabel
-                        : __(str_replace(['-', '_'], ' ', $segment));
+                        : (is_string($translated) ? $translated : $words);
                 @endphp
                 <span class="text-chrome-300">/</span>
                 @if ($isLast)
@@ -380,9 +388,13 @@
                     $cumulative[] = $segment;
                     $isLast = $loop->last;
                     $isAppPrefix = $loop->first && $segment === 'app';
+                    $words = str_replace(['-', '_'], ' ', $segment);
+                    // See above: a segment whose name matches a language file
+                    // translates to an array, not a string.
+                    $translated = __($words);
                     $label = $isLast && $terminalLabel !== null
                         ? $terminalLabel
-                        : __(str_replace(['-', '_'], ' ', $segment));
+                        : (is_string($translated) ? $translated : $words);
                 @endphp
                 <span class="text-chrome-300">/</span>
                 @if ($isLast || $isAppPrefix)

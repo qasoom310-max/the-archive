@@ -1471,6 +1471,45 @@ reconciliation sums **payment amounts**; change given is computed (`change_due`)
 not posted as a drawer cash-out, so tendering over total slightly overstates expected
 cash — use exact tender or treat `change_due` as informational.
 
+**Limousine "Live entry data" export — a safety backup before the legacy-import cutover
+(shipped 2026-09-22).** The owner plans to delete the Limousine app's pre-15-Sep-2026
+history and re-import the old system's data fresh. Before any deletion, each of the
+4 bespoke Limousine list screens (Bookings, Receipts, Quotations, Invoices) gained a
+**"Live entry data"** button next to Print that exports (CSV) only the rows genuinely
+entered LIVE through this ERP — never the ones the one-time historical bulk import
+brought over — so a full backup of "what actually happened in the ERP" exists
+independent of the eventual delete/reimport. **This ships no deletion logic at all** —
+it is purely additive, read-only, and exists so the eventual cutover has something to
+diff against.
+
+| Screen | "Live" marker used | Why |
+|---|---|---|
+| Bookings | `limo_bookings.imported_at IS NULL` | Exact — the column exists specifically for this (added same week); only `LegacyBookingImporter` ever sets it |
+| Receipts | `reference NOT LIKE 'L-RCPT%'` | `LegacyReceiptImporter` keeps the old system's `L-RCPT12968`-style number verbatim, bypassing `HasReference`'s auto-format |
+| Quotations | `LENGTH(reference) > 7` | `LegacyQuotationImporter` always writes exactly `QT/0555` (4-digit, 7 chars); the live/auto format zero-pads to 5 digits (8 chars) |
+| Invoices | `booking.imported_at IS NULL` AND (`notes IS NULL` OR `notes NOT LIKE 'Invoice #%'`) | **Best-effort, not exact** — `LegacyInvoiceImporter` never sets its own reference marker, so this combines "linked to a legacy booking" with the importer's fixed `notes` shape. **Known gap:** an old CSV row whose booking reference AND every fallback were blank produces `booking_id=null` AND `notes=null` on import — indistinguishable from a genuine live standalone invoice by these two predicates. Spot-check before trusting this screen's export as complete |
+
+Implementation: each of the 4 `*Rows` services (`LimoQueueRows`/`LimoReceiptRows`/
+`LimoQuotationRows`/`LimoInvoiceRows`) gained a trailing `bool $onlyLive = false`
+param on `query()`/`all()` applying the matching filter above; each `*ExportController`
+branches on `?live=1` in its CSV route, calling `all()` with `onlyLive: true` and an
+**empty tab** (bookings) / **ignoring every other filter** (receipts/quotations/invoices)
+so the export is a full, unfiltered backup regardless of whatever tab/date/search the
+screen happened to be showing. **Bookings deliberately passes tab `''`, not
+`TAB_ALL`** — `LimoQueueRows::query()`'s `TAB_ALL` branch silently drops cancelled
+legs when the search box is empty, which would make "Live entry data" (a backup) miss
+cancelled trips; an empty string matches neither branch, so no status filtering runs
+at all. Button label translated (`lang/ar.json`: "Live entry data" → "بيانات الإدخال
+المباشر"). Tests: `LimousineModuleTest` (+2, bookings) + `LimoBespokeExportTest`
+(+3, one per remaining model) — all assert a legacy-imported row is excluded and a
+live one is included.
+
+**This is a backup step only — the actual delete-and-reimport plan is still
+undecided** and requires, before any execution: which date field the cutoff applies
+to, what happens to invoices/receipts linked to a deleted booking, and explicit
+confirmation a backup was taken. Do not execute any deletion/renumbering of
+Limousine data without the owner's unambiguous go-ahead on those specifics.
+
 ---
 
 ## 5. Build Phases (roadmap & state tracker)

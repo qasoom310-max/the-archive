@@ -157,6 +157,36 @@ final class LimoBespokeExportTest extends TestCase
         $this->assertStringContainsString('limousine-invoices-', (string) $response->headers->get('Content-Disposition'));
     }
 
+    /**
+     * "Live entry data" is a backup of everything the historical import never
+     * touched — see LimoInvoiceRows. A single-booking legacy invoice is
+     * spotted by its booking's own imported_at; a combined/unlinked one by
+     * the importer's fixed "Invoice #… | Bookings: …" notes shape.
+     */
+    public function test_live_entry_data_excludes_invoices_from_the_historical_import(): void
+    {
+        $customer = $this->customer();
+        $this->trip($customer, 400, '2026-06-10'); // live, via syncInvoice()
+
+        $legacyBooking = LimoBooking::query()->create(['customer_id' => $customer->id, 'fare' => 90]);
+        $legacyBooking->imported_at = now();
+        $legacyBooking->save();
+        \Modules\Limousine\Models\LimoInvoice::query()->create([
+            'customer_id' => $customer->id, 'booking_id' => $legacyBooking->id,
+            'issue_date' => '2026-05-01', 'total' => 90, 'subtotal' => 90,
+        ]);
+
+        \Modules\Limousine\Models\LimoInvoice::query()->create([
+            'customer_id' => $customer->id, 'total' => 250, 'subtotal' => 250,
+            'issue_date' => '2026-05-02', 'notes' => 'Invoice #1327 | Bookings: 15119, 15124',
+        ]);
+
+        $body = $this->streamed(app(LimoInvoiceExportController::class)->csv(Request::create('/x', 'GET', ['live' => '1'])));
+        $this->assertStringContainsString('400.00', $body);
+        $this->assertStringNotContainsString('90.00', $body);
+        $this->assertStringNotContainsString('250.00', $body);
+    }
+
     // --- Receipt -----------------------------------------------------
 
     public function test_receipt_export_carries_the_confirmed_column(): void
@@ -219,6 +249,26 @@ final class LimoBespokeExportTest extends TestCase
         $this->assertStringContainsString('Mona', $body);
     }
 
+    /**
+     * "Live entry data" excludes a receipt whose reference is the old
+     * system's own number kept verbatim ("L-RCPT…") — see LimoReceiptRows.
+     */
+    public function test_live_entry_data_excludes_receipts_from_the_historical_import(): void
+    {
+        $customer = $this->customer();
+        $live = $this->trip($customer, 100, '2026-06-01');
+        app(BookingPayments::class)->receive($live, 100, 'cash');
+
+        \Modules\Limousine\Models\LimoReceipt::query()->create([
+            'reference' => 'L-RCPT12968', 'customer_id' => $customer->id,
+            'amount' => 250, 'method' => 'cash', 'date' => '2026-05-01',
+        ]);
+
+        $body = $this->streamed(app(LimoReceiptExportController::class)->csv(Request::create('/x', 'GET', ['live' => '1'])));
+        $this->assertStringContainsString('100.00', $body);
+        $this->assertStringNotContainsString('250.00', $body);
+    }
+
     // --- Quotation -----------------------------------------------------
 
     public function test_quotation_export_only_the_active_tab(): void
@@ -248,6 +298,24 @@ final class LimoBespokeExportTest extends TestCase
         // Nothing ticked - or junk in the parameter - means the whole tab, as before.
         $body = $this->streamed(app(LimoQuotationExportController::class)->csv(Request::create('/x', 'GET', ['ids' => 'x,,'])));
         $this->assertStringContainsString('55.00', $body);
+    }
+
+    /**
+     * "Live entry data" excludes a quotation whose reference is the old
+     * system's own 4-digit "QT/0555" shape — see LimoQuotationRows. The
+     * app's own auto-reference always zero-pads to 5 digits.
+     */
+    public function test_live_entry_data_excludes_quotations_from_the_historical_import(): void
+    {
+        $customer = $this->customer();
+        LimoQuotation::query()->create(['customer_id' => $customer->id, 'fare' => 30, 'status' => LimoQuotation::STATUS_SENT]);
+        LimoQuotation::query()->create([
+            'reference' => 'QT/0555', 'customer_id' => $customer->id, 'fare' => 77, 'status' => LimoQuotation::STATUS_SENT,
+        ]);
+
+        $body = $this->streamed(app(LimoQuotationExportController::class)->csv(Request::create('/x', 'GET', ['live' => '1'])));
+        $this->assertStringContainsString('30.00', $body);
+        $this->assertStringNotContainsString('77.00', $body);
     }
 
     public function test_quotation_pdf_with_one_ticked_row_downloads_that_quotation_document(): void

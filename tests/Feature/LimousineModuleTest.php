@@ -643,6 +643,56 @@ final class LimousineModuleTest extends TestCase
         $controller->csv($request);
     }
 
+    /** A booking brought over by the historical import, for the "live entry data" tests. */
+    private function legacyImportedBooking(): LimoBooking
+    {
+        $customer = LimoCustomer::query()->create(['name' => 'Old System Co']);
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pax_name' => 'Legacy Pax',
+            'fare' => 30, 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+        $booking->imported_at = now();
+        $booking->save();
+        $booking->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'Manama',
+            'to_location' => 'Seef', 'start_at' => now(), 'days' => 1,
+            'rate' => 30, 'rate_basis' => 'trip', 'status' => LimoLeg::STATUS_QUEUE,
+        ]);
+
+        return $booking;
+    }
+
+    public function test_live_entry_data_excludes_bookings_brought_over_by_the_historical_import(): void
+    {
+        $this->install();
+        $this->queueRow(); // live — Sarah Almutairi
+        $this->legacyImportedBooking();
+
+        $rows = app(\Modules\Limousine\Services\LimoQueueRows::class);
+
+        $this->assertCount(2, $rows->all('', '', '', '', '', 'desc', false));
+        $live = $rows->all('', '', '', '', '', 'desc', true);
+        $this->assertCount(1, $live);
+        $this->assertSame('Sarah Almutairi', $live[0]['customer']);
+    }
+
+    public function test_the_live_entry_data_button_downloads_only_live_bookings(): void
+    {
+        $this->install();
+        $this->queueRow(); // live — Sarah Almutairi
+        $this->legacyImportedBooking();
+
+        $controller = app(\Modules\Limousine\Http\Controllers\LimoQueueExportController::class);
+        $request = Request::create('/x', 'GET', ['live' => '1']);
+
+        ob_start();
+        $controller->csv($request)->sendContent();
+        $body = (string) ob_get_clean();
+
+        $this->assertStringContainsString('Sarah Almutairi', $body);
+        $this->assertStringNotContainsString('Old System Co', $body);
+    }
+
     public function test_each_leg_gets_its_own_running_reference(): void
     {
         $this->install();

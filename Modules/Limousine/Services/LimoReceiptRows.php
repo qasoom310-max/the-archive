@@ -19,7 +19,7 @@ final class LimoReceiptRows
     /**
      * @return Builder<LimoReceipt>
      */
-    public function query(string $tab = '', string $method = '', string $search = '', string $from = '', string $to = '', string $preparedBy = ''): Builder
+    public function query(string $tab = '', string $method = '', string $search = '', string $from = '', string $to = '', string $preparedBy = '', bool $onlyLive = false): Builder
     {
         $query = LimoReceipt::query()->with(['customer:id,name', 'invoice:id,reference'])->orderByDesc('id');
 
@@ -55,15 +55,24 @@ final class LimoReceiptRows
             });
         }
 
+        // The historical CSV import keeps the old system's own receipt number
+        // VERBATIM ("L-RCPT12968"), never the app's own auto-generated
+        // "RCP/00042" shape — see LegacyReceiptImporter. That prefix is the
+        // one reliable marker: anything else came from the register or the
+        // ongoing Import button, i.e. was entered live.
+        if ($onlyLive) {
+            $query->where('reference', 'not like', 'L-RCPT%');
+        }
+
         return $query;
     }
 
     /**
      * @return list<array<string, string>>
      */
-    public function all(string $tab, string $method, string $search, string $from = '', string $to = '', string $preparedBy = ''): array
+    public function all(string $tab, string $method, string $search, string $from = '', string $to = '', string $preparedBy = '', bool $onlyLive = false): array
     {
-        return $this->query($tab, $method, $search, $from, $to, $preparedBy)->get()->map(fn (LimoReceipt $r): array => $this->row($r))->all();
+        return $this->query($tab, $method, $search, $from, $to, $preparedBy, $onlyLive)->get()->map(fn (LimoReceipt $r): array => $this->row($r))->all();
     }
 
     /**

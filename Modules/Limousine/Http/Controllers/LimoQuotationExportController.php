@@ -38,14 +38,14 @@ final class LimoQuotationExportController
     {
         $this->authorizeExport('limousine.quotation');
 
-        return $this->renderer->csv($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request)), $this->exportFilename('limousine-quotations'));
+        return $this->renderer->csv($this->rows->headings(), $this->rowsFor($request), $this->exportFilename('limousine-quotations'));
     }
 
     public function excel(Request $request): StreamedResponse
     {
         $this->authorizeExport('limousine.quotation');
 
-        return $this->renderer->excel($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request)), $this->exportFilename('limousine-quotations'));
+        return $this->renderer->excel($this->rows->headings(), $this->rowsFor($request), $this->exportFilename('limousine-quotations'));
     }
 
     public function pdf(Request $request): Response
@@ -53,11 +53,11 @@ final class LimoQuotationExportController
         $this->authorizeExport('limousine.quotation');
 
         $ids = $this->ids($request);
-        if ($ids !== []) {
+        if ($ids !== [] && ! $request->boolean('live')) {
             return $this->quotationDocuments($ids);
         }
 
-        return $this->renderer->pdf($this->rows->headings(), $this->rows->all($this->tab($request), $ids), __('Quotations'), $this->exportFilename('limousine-quotations'));
+        return $this->renderer->pdf($this->rows->headings(), $this->rowsFor($request), __('Quotations'), $this->exportFilename('limousine-quotations'));
     }
 
     /**
@@ -98,7 +98,23 @@ final class LimoQuotationExportController
     {
         $this->authorizeExport('limousine.quotation');
 
-        return $this->renderer->print($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request)), __('Quotations'));
+        return $this->renderer->print($this->rows->headings(), $this->rowsFor($request), __('Quotations'));
+    }
+
+    /**
+     * "Live entry data" is a backup of everything the historical import never
+     * touched, not a filter on top of the current tab or ticked rows — so it
+     * ignores both and asks for the complete live set.
+     *
+     * @return list<array<string, string>>
+     */
+    private function rowsFor(Request $request): array
+    {
+        if ($request->boolean('live')) {
+            return $this->rows->all('all', [], true);
+        }
+
+        return $this->rows->all($this->tab($request), $this->ids($request));
     }
 
     private function tab(Request $request): string

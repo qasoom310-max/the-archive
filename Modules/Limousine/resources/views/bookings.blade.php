@@ -172,6 +172,10 @@
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-700 transition hover:bg-chrome-50">{{ __('PDF') }}</a>
         <a href="{{ url('/app/limousine/booking/export/print') }}?{{ $exportQuery }}" target="_blank" rel="noopener"
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-700 transition hover:bg-chrome-50">{{ __('Print') }}</a>
+        {{-- A backup of everything NOT from the historical import — ignores
+             the current tab/date/search on purpose, see LimoQueueExportController. --}}
+        <a href="{{ url('/app/limousine/booking/export/csv') }}?live=1"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-700 transition hover:bg-chrome-50">{{ __('Live entry data') }}</a>
     </div>
 
     {{-- 17 data columns can never fit a phone, so rather than force a sideways

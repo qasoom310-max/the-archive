@@ -71,6 +71,10 @@
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('PDF') }}</a>
         <a href="{{ url('/app/limousine/quotation/export/print') }}?{{ $exportQuery }}" target="_blank" rel="noopener"
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Print') }}</a>
+        {{-- A backup of everything NOT from the historical import — ignores
+             the current tab/ticked rows on purpose, see LimoQuotationExportController. --}}
+        <a href="{{ url('/app/limousine/quotation/export/csv') }}?live=1"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Live entry data') }}</a>
         @if (count($selected) > 0)
             <span class="ms-1 inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700 ring-1 ring-primary-200">
                 {{ __(':count selected', ['count' => count($selected)]) }}

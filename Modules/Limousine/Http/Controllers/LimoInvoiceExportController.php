@@ -54,7 +54,7 @@ final class LimoInvoiceExportController
         $this->authorizeExport('limousine.invoice');
 
         $ids = $this->ids($request);
-        if ($ids !== []) {
+        if ($ids !== [] && ! $request->boolean('live')) {
             return $this->invoiceDocuments($ids);
         }
 
@@ -103,10 +103,18 @@ final class LimoInvoiceExportController
     }
 
     /**
+     * "Live entry data" is a backup of everything the historical import never
+     * touched, not a filter on top of the current tab/date/ticked rows — so it
+     * ignores all of those and asks for the complete live set.
+     *
      * @return list<array<string, string>>
      */
     private function rowsFor(Request $request): array
     {
+        if ($request->boolean('live')) {
+            return $this->rows->all('all', '', '', '', [], true);
+        }
+
         return $this->rows->all(
             (string) $request->query('tab', 'all'),
             (string) $request->query('from', ''),

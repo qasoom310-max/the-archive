@@ -56,6 +56,13 @@ final class LimoReceiptExportController
      */
     private function rowsFor(Request $request): array
     {
+        // "Live entry data" is a backup of everything the historical import
+        // never touched, not a filter on top of the current tab/method/date —
+        // so it ignores all of those and asks for the complete live set.
+        if ($request->boolean('live')) {
+            return $this->rows->all('', '', '', '', '', '', true);
+        }
+
         return $this->rows->all(
             (string) $request->query('tab', ''),
             (string) $request->query('method', ''),

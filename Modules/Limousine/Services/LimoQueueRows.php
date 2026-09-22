@@ -67,7 +67,7 @@ final class LimoQueueRows
      *
      * @return Builder<LimoLeg>
      */
-    public function query(string $tab = 'all', string $from = '', string $to = '', string $search = '', string $sort = '', string $dir = 'desc'): Builder
+    public function query(string $tab = 'all', string $from = '', string $to = '', string $search = '', string $sort = '', string $dir = 'desc', bool $onlyLive = false): Builder
     {
         $query = LimoLeg::query()
             ->whereMorphedTo('legable', LimoBooking::class)
@@ -141,6 +141,16 @@ final class LimoQueueRows
                             ->orWhere('flight_number', 'like', $like)
                             ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', $like));
                     });
+            });
+        }
+
+        // The historical CSV import backdates `imported_at` to the real moment
+        // it ran; nothing else touches that column. "Live" therefore means the
+        // parent booking was entered through the ERP itself (or the ongoing
+        // Import button), not brought over in the one-time historical migration.
+        if ($onlyLive) {
+            $query->whereHasMorph('legable', LimoBooking::class, function (Builder $q): void {
+                $q->whereNull('imported_at');
             });
         }
 
@@ -496,12 +506,12 @@ final class LimoQueueRows
      *
      * @return list<QueueRow>
      */
-    public function all(string $tab, string $from, string $to, string $search = '', string $sort = '', string $dir = 'desc'): array
+    public function all(string $tab, string $from, string $to, string $search = '', string $sort = '', string $dir = 'desc', bool $onlyLive = false): array
     {
         $rows = [];
         // `chunk` needs a total order to page through safely, which every sort
         // has: applySort always trails sequence and id.
-        $this->query($tab, $from, $to, $search, $sort, $dir)->chunk(200, function ($legs) use (&$rows): void {
+        $this->query($tab, $from, $to, $search, $sort, $dir, $onlyLive)->chunk(200, function ($legs) use (&$rows): void {
             foreach ($legs as $leg) {
                 $rows[] = $this->row($leg);
             }

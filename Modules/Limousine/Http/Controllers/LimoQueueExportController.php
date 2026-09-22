@@ -117,6 +117,17 @@ final class LimoQueueExportController
      */
     private function data(Request $request): array
     {
+        // "Live entry data" is a backup of everything the historical import
+        // never touched, not a filter on top of whatever tab/date/search is
+        // currently on screen — so it deliberately ignores all of those and
+        // asks for the complete live set. A tab of '' matches none of the
+        // status tabs AND isn't TAB_ALL, so it skips even TAB_ALL's own
+        // "hide cancelled" rule — a backup must not quietly drop cancelled
+        // trips that were genuinely entered live.
+        if ($request->boolean('live')) {
+            return [$this->rows->all('', '', '', '', '', 'desc', true), $this->rows->headings()];
+        }
+
         $tab = (string) $request->query('tab', 'all');
         $from = (string) $request->query('from', '');
         $to = (string) $request->query('to', '');

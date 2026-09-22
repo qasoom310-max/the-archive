@@ -17,7 +17,7 @@ final class LimoQuotationRows
     /**
      * @return Builder<LimoQuotation>
      */
-    public function query(string $tab = 'all'): Builder
+    public function query(string $tab = 'all', bool $onlyLive = false): Builder
     {
         $query = LimoQuotation::query()->with('customer:id,name')->orderByDesc('id');
 
@@ -28,6 +28,15 @@ final class LimoQuotationRows
             $query->where('status', $tab);
         }
 
+        // The historical CSV import keeps the old system's own quote number
+        // verbatim in a 4-digit "QT/0555" shape (see LegacyQuotationImporter);
+        // the app's own auto-reference always zero-pads to 5 digits
+        // ("QT/00042", 8 chars vs the legacy 7). Anything longer than the
+        // legacy shape was raised through the register, i.e. live.
+        if ($onlyLive) {
+            $query->whereRaw('LENGTH(reference) > 7');
+        }
+
         return $query;
     }
 
@@ -35,9 +44,9 @@ final class LimoQuotationRows
      * @param  list<int>  $ids  When given, only these rows (the ticked ones).
      * @return list<array<string, string>>
      */
-    public function all(string $tab, array $ids = []): array
+    public function all(string $tab, array $ids = [], bool $onlyLive = false): array
     {
-        $query = $this->query($tab);
+        $query = $this->query($tab, $onlyLive);
         if ($ids !== []) {
             $query->whereKey($ids);
         }

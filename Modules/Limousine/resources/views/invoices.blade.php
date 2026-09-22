@@ -101,6 +101,10 @@
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('PDF') }}</a>
         <a href="{{ url('/app/limousine/invoice/export/print') }}?{{ $exportQuery }}" target="_blank" rel="noopener"
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Print') }}</a>
+        {{-- A backup of everything NOT from the historical import — ignores
+             the current tab/date/ticked rows on purpose, see LimoInvoiceExportController. --}}
+        <a href="{{ url('/app/limousine/invoice/export/csv') }}?live=1"
+           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Live entry data') }}</a>
         @if ($selectedCount === 0)
             <span class="ms-1 text-xs text-chrome-400">{{ __('Tick rows to export only those.') }}</span>
         @endif

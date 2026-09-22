@@ -75,7 +75,19 @@ final class QuotationImporter
             $fare = round((float) str_replace(',', '', $fareRaw), 3);
             $validUntil = isset($cols['valid_until']) ? $this->parseDate((string) ($row[$cols['valid_until']] ?? '')) : null;
 
-            if ($this->alreadyImported($customerName, $fare, $validUntil)) {
+            // Our own export carries the quote's real number ("QT/01124"). Keep
+            // it, so a restored quote reads the same as the one the customer
+            // was sent — and a number already on file means it's already here.
+            $reference = isset($cols['reference']) ? trim((string) ($row[$cols['reference']] ?? '')) : '';
+            $reference = preg_match('/^QT\/\d+$/i', $reference) === 1 ? strtoupper($reference) : '';
+
+            if ($reference !== '' && LimoQuotation::query()->where('reference', $reference)->exists()) {
+                $skipped++;
+
+                continue;
+            }
+
+            if ($reference === '' && $this->alreadyImported($customerName, $fare, $validUntil)) {
                 $skipped++;
 
                 continue;
@@ -84,6 +96,7 @@ final class QuotationImporter
             $customer = $this->resolveCustomer($customerName);
 
             LimoQuotation::query()->create([
+                'reference' => $reference !== '' ? $reference : null,
                 'customer_id' => $customer->id,
                 'fare' => $fare,
                 'valid_until' => $validUntil,

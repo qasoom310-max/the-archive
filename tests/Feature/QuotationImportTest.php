@@ -82,6 +82,51 @@ final class QuotationImportTest extends TestCase
         $this->assertSame(1, LimoQuotation::query()->count());
     }
 
+    /**
+     * One Import button takes both files the office has: the old system's
+     * quotations register and this ERP's own quotations export — each keeps
+     * its real quote number.
+     */
+    public function test_the_import_button_takes_the_old_register_and_the_erp_export(): void
+    {
+        app(ModuleManager::class)->install('limousine');
+        $controller = new LimoQuotationImportController();
+        $upload = fn (string $csv): Request => Request::create('/x', 'POST', [], [], [
+            'file' => new UploadedFile($csv, 'q.csv', 'text/csv', null, true),
+        ]);
+
+        $old = $this->csv(
+            '"Sl No.","#","Date","Customer","Requested Person","Added By","Actions"',
+            "\"1\",\"0563\",\"22-09-2026\",\"Ali Hassan\",\"Braxtone\",\"hassan\",\"   \"\n"
+            ."\"62\",\"0501\",\"03-12-2025\",\"Asry\",\"Wanaan\",\"ali\",\"   \"\n"
+            ."\"63\",\"0501\",\"03-12-2025\",\"Al Salam Bank\",\"Al Salam Bank\",\"qassim\",\"   \"\n",
+        );
+        $controller($upload($old), app(LimoQuotationImporter::class));
+
+        $legacy = LimoQuotation::query()->where('reference', 'QT/0563')->sole();
+        $this->assertSame('Braxtone', $legacy->requested_by);
+        $this->assertSame('hassan', $legacy->prepared_by);
+        $this->assertSame('2026-09-22', $legacy->quote_date?->toDateString());
+        $this->assertSame(2, LimoQuotation::query()->where('reference', 'QT/0501')->count());
+
+        $erp = $this->csv(
+            'Reference,Customer,"Valid until",Fare,Status',
+            "QT/01124,\"Qasim fuad salman\",27-Sep-2026,\"37.50 BD\",Draft\n"
+            ."QT/01122,Nextcorp,23-Sep-2026,\"31.00 BD\",Sent\n",
+        );
+        $controller($upload($erp), app(LimoQuotationImporter::class));
+
+        $kept = LimoQuotation::query()->where('reference', 'QT/01124')->sole();
+        $this->assertEqualsWithDelta(37.5, (float) $kept->fare, 0.001);
+        $this->assertSame(LimoQuotation::STATUS_DRAFT, $kept->status);
+        $this->assertSame(LimoQuotation::STATUS_SENT, LimoQuotation::query()->where('reference', 'QT/01122')->sole()->status);
+
+        // Uploading either file again adds nothing.
+        $controller($upload($old), app(LimoQuotationImporter::class));
+        $controller($upload($erp), app(LimoQuotationImporter::class));
+        $this->assertSame(5, LimoQuotation::query()->count());
+    }
+
     public function test_limousine_quotation_import_is_manager_gated(): void
     {
         app(ModuleManager::class)->install('limousine');

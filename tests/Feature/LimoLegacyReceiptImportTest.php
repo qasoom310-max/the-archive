@@ -106,7 +106,7 @@ final class LimoLegacyReceiptImportTest extends TestCase
         $this->assertSame($booking->id, $receipt->booking_id);
         $this->assertNull($receipt->invoice_id);
         $this->assertNull($receipt->balance_after);
-        $this->assertSame('card', $receipt->method);
+        $this->assertSame('online', $receipt->method);
     }
 
     public function test_a_booking_not_on_file_still_imports_standalone_and_resolves_the_customer_by_name(): void
@@ -134,7 +134,7 @@ final class LimoLegacyReceiptImportTest extends TestCase
             'Cash' => ['Cash', 'cash', null],
             'BenefitPay' => ['BenefitPay', 'benefit', null],
             'Credit Card' => ['Credit Card', 'card', null],
-            'Online' => ['Online', 'card', null],
+            'Online' => ['Online', 'online', null],
             'Cheque' => ['Cheque', 'transfer', 'Cheque'],
             'Advance' => ['Advance', 'cash', 'Advance'],
             'Unknown' => ['Wire', 'cash', 'Wire'],
@@ -173,6 +173,57 @@ final class LimoLegacyReceiptImportTest extends TestCase
         $this->assertStringStartsWith('EXISTS', $again['lines'][0]);
         $this->assertStringStartsWith('EXISTS', $again['lines'][1]);
         $this->assertSame(1, LimoReceipt::query()->where('reference', 'L-RCPT12943')->count());
+    }
+
+    /** The old system reused numbers: same L-RCPT, different payment, both are real money. */
+    public function test_a_reused_receipt_number_for_a_different_payment_is_still_imported(): void
+    {
+        $result = app(LegacyReceiptImporter::class)->import($this->csv(
+            $this->row('L-RCPT12666', '07-Aug-2026', '15170', 'Rony Tabbal', '45.000', 'Cash')
+            .$this->row('L-RCPT12666', '07-Aug-2026', '13871', 'WELLGATE SERVICES LP', '20.000', 'Online'),
+        ));
+
+        $this->assertSame(2, $result['imported']);
+        $this->assertStringContainsString('number reused', $result['lines'][1]);
+        $this->assertSame(2, LimoReceipt::query()->where('reference', 'L-RCPT12666')->count());
+    }
+
+    /** One Import button takes both the old receipts register and the ERP's own export. */
+    public function test_the_import_button_takes_the_old_register_and_the_erp_export(): void
+    {
+        $controller = new \Modules\Limousine\Http\Controllers\LimoReceiptImportController();
+        $upload = fn (string $path): \Illuminate\Http\Request => \Illuminate\Http\Request::create('/x', 'POST', [], [], [
+            'file' => new \Illuminate\Http\UploadedFile($path, 'r.csv', 'text/csv', null, true),
+        ]);
+
+        $controller($upload($this->csv($this->row('L-RCPT12978', '20-Sep-2026', '14904', 'Braxtone Plus W.L.L', '8.000', 'BenefitPay'))), app(\Modules\Limousine\Support\ReceiptImporter::class));
+        $this->assertSame('benefit', LimoReceipt::query()->where('reference', 'L-RCPT12978')->sole()->method);
+
+        $invoice = new LimoInvoice;
+        $invoice->forceFill([
+            'id' => 1369, 'reference' => 'INV/01369',
+            'customer_id' => LimoCustomer::query()->create(['name' => 'Jackline Ngotya'])->id,
+            'subtotal' => 12, 'total' => 12, 'status' => LimoInvoice::STATUS_UNPAID,
+        ])->save();
+
+        $erpPath = tempnam(sys_get_temp_dir(), 'erpr').'.csv';
+        file_put_contents($erpPath, "Reference,Customer,Invoice,Date,Method,Amount,Confirmed,\"Created by\"\n"
+            ."RCP/12862,\"Jackline Ngotya\",INV/01369,20-Sep-2026,Benefit,\"12.00 BD\",Unconfirmed,\"Hasan Makhlooq\"\n"
+            ."RCP/12857,\"Fouad Aldossary\",,18-Sep-2026,Credit_card,\"50.00 BD\",Confirmed,\n");
+        $controller($upload($erpPath), app(\Modules\Limousine\Support\ReceiptImporter::class));
+        $controller($upload($erpPath), app(\Modules\Limousine\Support\ReceiptImporter::class));
+
+        $kept = LimoReceipt::query()->where('reference', 'RCP/12862')->sole();
+        $this->assertSame(12862, $kept->id);
+        $this->assertFalse($kept->isConfirmed());
+        $this->assertSame('Hasan Makhlooq', $kept->prepared_by);
+        $this->assertSame(1369, $kept->invoice_id);
+        $this->assertSame(LimoInvoice::STATUS_PAID, $invoice->refresh()->status);
+
+        $card = LimoReceipt::query()->where('reference', 'RCP/12857')->sole();
+        $this->assertTrue($card->isConfirmed());
+        $this->assertSame('card', $card->method);
+        $this->assertSame(3, LimoReceipt::query()->count());
     }
 
     public function test_rows_missing_a_receipt_number_customer_or_amount_are_skipped(): void

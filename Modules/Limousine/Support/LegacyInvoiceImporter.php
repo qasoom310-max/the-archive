@@ -112,13 +112,14 @@ final class LegacyInvoiceImporter
         if ($existing !== null) {
             $result['skipped']++;
 
-            // The number is on file but it's a DIFFERENT bill — the old system
-            // kept numbering after the ERP had issued the same number. Never
-            // overwrite it; say so, so the clash can be decided by a person.
+            // One number, one invoice: when the old system reused a number the
+            // ERP had already issued, the ERP's bill is the one kept. The old
+            // one is skipped like any other number already on file, but the
+            // report still names what was kept.
             $sameTotal = abs((float) $existing->total - $amount) < 0.001;
             $sameCustomer = strcasecmp(trim((string) ($existing->customer->name ?? '')), $customerName) === 0;
             if (! $sameTotal || ! $sameCustomer) {
-                return "CLASH   {$label} — number already used by ".($existing->reference ?? 'another invoice')
+                return "EXISTS  {$label} — number kept for ".($existing->reference ?? 'the invoice on file')
                     .' ('.($existing->customer->name ?? '?').', '.number_format((float) $existing->total, 3).')';
             }
 

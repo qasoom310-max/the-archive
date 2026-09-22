@@ -104,13 +104,22 @@ final class LegacyReceiptImporter
             return "SKIP    {$label} — missing receipt number, customer or amount";
         }
 
-        if (LimoReceipt::query()->where('reference', $reference)->exists()) {
+        $booking = $bookingNumber > 0 ? LimoBooking::query()->with('customer:id,name')->find($bookingNumber) : null;
+
+        // The old system reused receipt numbers: the same L-RCPT number can be
+        // two different payments (other trip, other amount). Only the same
+        // number for the same money on the same day and trip is a repeat —
+        // the register itself lists a few receipts twice.
+        $sameNumber = LimoReceipt::query()->where('reference', $reference)->get();
+        $repeat = $sameNumber->first(fn (LimoReceipt $r): bool => abs((float) $r->amount - $amount) < 0.001
+            && $r->date?->toDateString() === $date?->toDateString()
+            && $r->booking_id === $booking?->id);
+        if ($repeat !== null) {
             $result['skipped']++;
 
             return "EXISTS  {$label} — {$reference} is already on file";
         }
-
-        $booking = $bookingNumber > 0 ? LimoBooking::query()->with('customer:id,name')->find($bookingNumber) : null;
+        $reused = $sameNumber->isNotEmpty();
         $invoice = $booking !== null ? LimoInvoice::query()->where('booking_id', $booking->id)->first() : null;
 
         $customer = null;
@@ -149,6 +158,9 @@ final class LegacyReceiptImporter
         $result['imported']++;
 
         $note = $bookingNumber > 0 && $booking === null ? ' — booking #'.$bookingNumber.' not on file, standalone receipt' : " — {$how}";
+        if ($reused) {
+            $note .= ' (number reused by the old system for another payment)';
+        }
 
         return "NEW     {$label}{$note}";
     }
@@ -244,7 +256,7 @@ final class LegacyReceiptImporter
             '', 'cash' => ['cash', null],
             'benefitpay', 'benefit' => ['benefit', null],
             'credit card', 'card' => ['card', null],
-            'online' => ['card', null],
+            'online' => ['online', null],
             'cheque', 'check' => ['transfer', 'Pay type: Cheque'],
             'advance' => ['cash', 'Pay type: Advance'],
             default => ['cash', "Pay type: {$value}"],

@@ -35,6 +35,8 @@ final class ReceiptImporter
         'date' => 'date',
         'method' => 'method',
         'amount' => 'amount',
+        'confirmed' => 'confirmed',
+        'created by' => 'created_by',
     ];
 
     /**
@@ -84,7 +86,17 @@ final class ReceiptImporter
             $amount = round((float) str_replace(',', '', $amountRaw), 3);
             $date = isset($cols['date']) ? $this->parseDate((string) ($row[$cols['date']] ?? '')) : null;
 
-            if ($this->alreadyImported($customerName, $amount, $date)) {
+            // This ERP's own export carries the real receipt number (RCP/12862):
+            // keep it, and recognise a re-run by it. A file without one falls
+            // back to the customer + amount + date match.
+            $referenceRaw = isset($cols['reference']) ? strtoupper(trim((string) ($row[$cols['reference']] ?? ''))) : '';
+            $number = preg_match('/^RCP\/(\d+)$/', $referenceRaw, $m) === 1 ? (int) $m[1] : 0;
+            $reference = $number > 0 ? $referenceRaw : '';
+
+            $exists = $reference !== ''
+                ? LimoReceipt::query()->where('reference', $reference)->exists()
+                : $this->alreadyImported($customerName, $amount, $date);
+            if ($exists) {
                 $skipped++;
 
                 continue;
@@ -94,7 +106,15 @@ final class ReceiptImporter
             $invoiceRef = isset($cols['invoice']) ? trim((string) ($row[$cols['invoice']] ?? '')) : '';
             $invoice = $invoiceRef !== '' ? LimoInvoice::query()->where('reference', $invoiceRef)->first() : null;
 
-            LimoReceipt::query()->create([
+            // The ERP export says whether the accountant had confirmed it; an
+            // unconfirmed one goes back to the queue rather than being passed.
+            $confirmedRaw = isset($cols['confirmed']) ? strtolower(trim((string) ($row[$cols['confirmed']] ?? ''))) : '';
+            $confirmed = $confirmedRaw !== 'unconfirmed';
+            $createdBy = isset($cols['created_by']) ? trim((string) ($row[$cols['created_by']] ?? '')) : '';
+
+            $receipt = new LimoReceipt;
+            $receipt->fill([
+                'reference' => $reference !== '' ? $reference : null,
                 'invoice_id' => $invoice?->id,
                 'customer_id' => $customer->id,
                 'date' => $date,
@@ -102,10 +122,17 @@ final class ReceiptImporter
                 'balance_after' => $invoice !== null ? round(max(0.0, $invoice->total - $invoice->amount_paid - $amount), 3) : null,
                 'method' => $this->method(isset($cols['method']) ? (string) ($row[$cols['method']] ?? '') : ''),
                 'auto' => false,
-                'notes' => __('Imported from previous system.'),
-                'confirmed_at' => Carbon::now(),
-                'confirmed_by' => __('Import (previous system)'),
+                'notes' => $reference !== '' ? null : __('Imported from previous system.'),
+                'confirmed_at' => $confirmed ? Carbon::now() : null,
+                'confirmed_by' => $confirmed ? __('Import (previous system)') : null,
+                'prepared_by' => $createdBy !== '' ? $createdBy : null,
             ]);
+            // Keep the number and the row id in step, as the app itself does,
+            // so a later receipt can never be issued the same RCP number.
+            if ($number > 0 && ! LimoReceipt::query()->whereKey($number)->exists()) {
+                $receipt->id = $number;
+            }
+            $receipt->save();
 
             $imported++;
         }
@@ -140,8 +167,9 @@ final class ReceiptImporter
     private function method(string $value): string
     {
         return match (strtolower(trim($value))) {
-            'card' => 'card',
-            'benefit' => 'benefit',
+            'card', 'credit card', 'credit_card' => 'card',
+            'benefit', 'benefitpay' => 'benefit',
+            'online', 'online (tap)' => 'online',
             'transfer', 'bank transfer' => 'transfer',
             default => 'cash',
         };

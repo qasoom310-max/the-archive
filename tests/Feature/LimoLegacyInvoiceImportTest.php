@@ -144,10 +144,9 @@ final class LimoLegacyInvoiceImportTest extends TestCase
 
     /**
      * The old system kept numbering after the ERP had issued the same number
-     * to a different bill. The ERP's bill must stay untouched, and the clash
-     * must be named, not silently counted as "already on file".
+     * to a different bill. Only one is kept: the ERP's, untouched.
      */
-    public function test_a_number_used_by_a_different_erp_invoice_is_a_named_clash(): void
+    public function test_a_number_already_issued_by_the_erp_keeps_the_erp_invoice(): void
     {
         $erp = new LimoInvoice;
         $erp->forceFill([
@@ -159,7 +158,10 @@ final class LimoLegacyInvoiceImportTest extends TestCase
         $result = app(LegacyInvoiceImporter::class)->import($this->csv($this->row('1334', '19-Sep-2026', 'Eslam Zein', '15478', '74.000')));
 
         $this->assertSame(0, $result['imported']);
-        $this->assertStringStartsWith('CLASH', $result['lines'][0]);
+        $this->assertSame(1, $result['skipped']);
+        $this->assertStringStartsWith('EXISTS', $result['lines'][0]);
+        $this->assertStringContainsString('kept for INV/01334', $result['lines'][0]);
+        $this->assertSame(1, LimoInvoice::query()->count());
         $this->assertEqualsWithDelta(11.0, (float) LimoInvoice::query()->findOrFail(1334)->total, 0.001);
     }
 

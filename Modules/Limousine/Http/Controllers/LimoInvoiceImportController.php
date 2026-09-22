@@ -40,18 +40,9 @@ final class LimoInvoiceImportController
                 return redirect('/app/limousine/invoice')->with('toast', $e->getMessage());
             }
 
-            $clashes = array_values(array_filter($result['lines'], static fn (string $l): bool => str_starts_with($l, 'CLASH')));
-            $toast = __(':imported invoices imported, :skipped already on file skipped.', [
+            return redirect('/app/limousine/invoice')->with('toast', __(':imported invoices imported, :skipped already on file skipped.', [
                 'imported' => $result['imported'], 'skipped' => $result['skipped'],
-            ]);
-            if ($clashes !== []) {
-                $numbers = array_map(static fn (string $l): string => (string) preg_replace('/^CLASH\s+(INV\/\d+).*$/', '$1', $l), $clashes);
-                $toast .= ' '.__('Not imported — the number is already used by a different invoice: :numbers', [
-                    'numbers' => implode(', ', $numbers),
-                ]);
-            }
-
-            return redirect('/app/limousine/invoice')->with('toast', $toast);
+            ]));
         }
 
         $result = $importer->import($file->getRealPath());

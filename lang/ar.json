@@ -2951,6 +2951,5 @@
     "WooCommerce, hosting, Instagram…": "ووكومرس، الاستضافة، إنستغرام…",
     "Booking reference": "رقم الحجز",
     "Customer phone": "هاتف العميل",
-    "Customer email": "البريد الإلكتروني للعميل",
-    "Not imported — the number is already used by a different invoice: :numbers": "لم يتم الاستيراد — الرقم مستخدم بالفعل لفاتورة أخرى: :numbers"
+    "Customer email": "البريد الإلكتروني للعميل"
 }

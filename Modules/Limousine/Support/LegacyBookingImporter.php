@@ -32,10 +32,14 @@ final class LegacyBookingImporter
 {
     /** Which list a file came from decides the status its trips land in. */
     public const KIND_STATUS = [
-        'active' => LimoBooking::STATUS_ACTIVE,
         'queue' => LimoBooking::STATUS_QUEUE,
-        'cancelled' => LimoBooking::STATUS_CANCELLED,
+        'confirmed' => LimoBooking::STATUS_CONFIRMED,
+        'active' => LimoBooking::STATUS_ACTIVE,
         'closed' => LimoBooking::STATUS_COMPLETED,
+        // The unpaid list is trips that already ran and still owe money: the
+        // trip is completed, and the payment status follows from Received.
+        'unpaid' => LimoBooking::STATUS_COMPLETED,
+        'cancelled' => LimoBooking::STATUS_CANCELLED,
     ];
 
     /** Two phone numbers are one when they share an ending at least this long. */

@@ -34,9 +34,23 @@
             <form method="POST" action="{{ url('/app/limousine/booking/import') }}" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">
                 @csrf
                 <input type="file" name="file" accept=".csv,text/csv,text/plain" required class="text-sm">
+                <label class="text-xs text-chrome-600">
+                    <span class="mb-1 block">{{ __('Old system list (old-system files only)') }}</span>
+                    <select name="list" class="o-input text-sm">
+                        <option value="">—</option>
+                        <option value="queue" @selected(old('list') === 'queue')>{{ __('Queue') }}</option>
+                        <option value="confirmed" @selected(old('list') === 'confirmed')>{{ __('Confirmed') }}</option>
+                        <option value="active" @selected(old('list') === 'active')>{{ __('Active') }}</option>
+                        <option value="closed" @selected(old('list') === 'closed')>{{ __('Completed') }}</option>
+                        <option value="unpaid" @selected(old('list') === 'unpaid')>{{ __('Unpaid') }}</option>
+                        <option value="cancelled" @selected(old('list') === 'cancelled')>{{ __('Cancelled') }}</option>
+                    </select>
+                </label>
                 <button type="submit" class="o-btn-primary text-sm">{{ __('Import') }}</button>
             </form>
+            <p class="mt-2 text-xs text-chrome-500">{{ __('A file from the old system keeps its booking numbers and lands in the list you choose. An export from this ERP keeps its trip numbers and the status on each row.') }}</p>
             @error('file')<p class="mt-2 text-xs font-medium text-red-600">{{ $message }}</p>@enderror
+            @error('list')<p class="mt-2 text-xs font-medium text-red-600">{{ $message }}</p>@enderror
             @if (session('toast'))
                 <p class="mt-2 text-xs font-medium text-emerald-600">{{ session('toast') }}</p>
             @endif

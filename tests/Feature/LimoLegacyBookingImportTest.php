@@ -215,4 +215,63 @@ final class LimoLegacyBookingImportTest extends TestCase
         $this->assertSame(LimoLeg::TYPE_CHAUFFEUR, $leg->service_type);
         $this->assertEqualsWithDelta(3.0, (float) $leg->hours, 0.001);
     }
+
+    private function upload(string $path, ?string $list = null): \Illuminate\Http\RedirectResponse
+    {
+        $request = \Illuminate\Http\Request::create('/x', 'POST', $list !== null ? ['list' => $list] : [], [], [
+            'file' => new \Illuminate\Http\UploadedFile($path, 'b.csv', 'text/csv', null, true),
+        ]);
+        $this->app->instance('request', $request);
+
+        return (new \Modules\Limousine\Http\Controllers\LimoBookingImportController())($request, app(\Modules\Limousine\Support\BookingImporter::class));
+    }
+
+    /** The Import button takes an old-system list and puts it in the list the uploader picked. */
+    public function test_the_import_button_takes_an_old_system_list_into_the_chosen_status(): void
+    {
+        $unpaid = $this->upload($this->csv(self::ACTIVE_HEADER, $this->activeRow('15460', 'Someone')), 'unpaid');
+        $this->assertSame(LimoBooking::STATUS_COMPLETED, LimoBooking::query()->findOrFail(15460)->status);
+        $this->assertStringContainsString('1 trips imported', (string) $unpaid->getSession()?->get('toast'));
+
+        $this->upload($this->csv(self::ACTIVE_HEADER, $this->activeRow('15461', 'Someone else')), 'confirmed');
+        $this->assertSame(LimoBooking::STATUS_CONFIRMED, LimoBooking::query()->findOrFail(15461)->status);
+    }
+
+    public function test_an_old_system_list_without_a_chosen_list_is_refused_and_saves_nothing(): void
+    {
+        $response = $this->upload($this->csv(self::ACTIVE_HEADER, $this->activeRow()));
+
+        $this->assertTrue($response->getSession()?->get('errors')?->has('list'));
+        $this->assertSame(0, LimoBooking::query()->count());
+    }
+
+    /** This ERP's own export keeps the trip number and each row's status, and builds no invoice. */
+    public function test_the_import_button_takes_the_erp_export_keeping_trip_numbers(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'erpb').'.csv';
+        file_put_contents($path, "\xEF\xBB\xBF".'Reference,"From date","To date",Type,Customer,Amount,Received,Balance,Pickup,"Drop off",Vehicle,Driver,"Added by",Comments,"Booked time",Status,Payment'."\n"
+            .'26215,"21-Sep-26 14:30","21-Sep-26 14:30","Airport transfer","Travel Gate",15,15,0,"BIA","Ritz",Sedan,Habib,"Hasan Makhlooq","Flight GF 12","20-Sep-26 09:05",confirmed,paid'."\n"
+            .'26216,"22-Sep-26 08:00","22-Sep-26 16:00","Hourly / disposal","Mansour Mohamed",80,0,80,"Hotel",,SUV,,,,"21-Sep-26 10:00",cancelled,unpaid'."\n");
+
+        $this->upload($path);
+        $this->upload($path);
+
+        $this->assertSame(2, LimoLeg::query()->count());
+        $this->assertSame(0, LimoInvoice::query()->count());
+
+        $leg = LimoLeg::query()->where('reference', '26215')->sole();
+        $this->assertSame(26215 - LimoLeg::REFERENCE_START + 1, $leg->id);
+        $booking = LimoBooking::query()->findOrFail($leg->legable_id);
+        $this->assertSame(LimoBooking::STATUS_CONFIRMED, $booking->status);
+        $this->assertSame(LimoBooking::PAYMENT_PAID, $booking->payment_status);
+        $this->assertSame('airport', $booking->booking_type);
+        $this->assertSame('Hasan Makhlooq', $booking->prepared_by);
+        $this->assertSame('Flight GF 12', $booking->notes);
+        $this->assertSame('2026-09-20 09:05', $booking->created_at?->format('Y-m-d H:i'));
+        $this->assertNull($booking->imported_at);
+
+        $chauffeur = LimoLeg::query()->where('reference', '26216')->sole();
+        $this->assertSame(LimoLeg::TYPE_CHAUFFEUR, $chauffeur->service_type);
+        $this->assertSame(LimoBooking::STATUS_CANCELLED, LimoBooking::query()->findOrFail($chauffeur->legable_id)->status);
+    }
 }

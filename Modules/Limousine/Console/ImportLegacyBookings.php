@@ -22,7 +22,7 @@ final class ImportLegacyBookings extends Command
     protected $signature = 'limo:import-legacy-bookings
         {path : CSV exported from the old system}
         {--workspace= : Workspace id to import into (required)}
-        {--kind= : active|queue|cancelled|closed — which old list the file came from}
+        {--kind= : queue|confirmed|active|closed|unpaid|cancelled — which old list the file came from}
         {--pretend : Report what would happen, save nothing}';
 
     protected $description = 'Import the old system\'s limousine bookings that are not in the ERP yet, keeping their booking numbers.';

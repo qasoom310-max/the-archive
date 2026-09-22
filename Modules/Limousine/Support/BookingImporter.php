@@ -50,6 +50,9 @@ final class BookingImporter
         'pax name' => 'pax_name', 'passenger' => 'pax_name',
         'status' => 'status',
         'payment' => 'payment',
+        'added by' => 'added_by',
+        'comments' => 'comments',
+        'booked time' => 'booked',
     ];
 
     /**
@@ -123,13 +126,27 @@ final class BookingImporter
             }
 
             $fare = round((float) str_replace(',', '', $amountRaw), 3);
-            $pickupAt = $this->parseDate((string) ($row[$cols['from_date']] ?? ''));
+            $pickupAt = isset($cols['from_date']) ? $this->parseDate((string) ($row[$cols['from_date']] ?? '')) : null;
 
-            // Dedup: the same customer, the same pickup minute, the same fare
-            // is almost certainly the same trip re-appearing in a second export
-            // — no reference column survives from most old systems to key on.
-            if ($pickupAt !== null && $this->alreadyImported($customerName, $pickupAt, $fare)) {
+            // This ERP's own queue export carries the trip number (26215):
+            // keep it, and recognise a re-run by it. A file without one falls
+            // back to the same customer + pickup minute + fare match — no
+            // reference column survives from most old systems to key on.
+            $referenceRaw = isset($cols['reference']) ? trim((string) ($row[$cols['reference']] ?? '')) : '';
+            $tripNumber = preg_match('/^\d{5,}$/', $referenceRaw) === 1 ? (int) $referenceRaw : 0;
+
+            $exists = $tripNumber > 0
+                ? LimoLeg::query()->where('reference', (string) $tripNumber)->exists()
+                : $pickupAt !== null && $this->alreadyImported($customerName, $pickupAt, $fare);
+            if ($exists) {
                 $skipped++;
+
+                continue;
+            }
+
+            if ($tripNumber > 0) {
+                $this->importErpTrip($row, $cols, $tripNumber, $customerName, $fare, $pickupAt);
+                $imported++;
 
                 continue;
             }
@@ -180,6 +197,95 @@ final class BookingImporter
         fclose($handle);
 
         return ['imported' => $imported, 'skipped' => $skipped];
+    }
+
+    /**
+     * A row of this ERP's own queue export: the trip keeps its number (the
+     * leg id kept in step with it, as the app itself numbers trips, so a
+     * later trip can never be issued the same one), its status, payment,
+     * who added it and when it was booked.
+     *
+     * No invoice or receipt is built here: this ERP's invoices and receipts
+     * come over from their own exports, under their own numbers — an invoice
+     * minted here would take a number one of those still has to claim.
+     *
+     * @param  list<string|null>  $row
+     * @param  array<string, int>  $cols
+     */
+    private function importErpTrip(array $row, array $cols, int $tripNumber, string $customerName, float $fare, ?Carbon $pickupAt): void
+    {
+        $cell = fn (string $key): ?string => isset($cols[$key]) ? $this->orNull((string) ($row[$cols[$key]] ?? '')) : null;
+
+        $received = min(round((float) str_replace(',', '', $cell('received') ?? '0'), 3), $fare);
+        $status = $this->tripStatus($cell('status') ?? '');
+        $payment = strtolower($cell('payment') ?? '');
+        $type = $this->bookingType($cell('type') ?? '');
+        $toAt = $this->parseDate($cell('to_date') ?? '');
+        $booked = $this->parseDate($cell('booked') ?? '');
+
+        $booking = new LimoBooking;
+        $booking->fill([
+            'customer_id' => $this->resolveCustomer($customerName)->id,
+            'booking_type' => $type,
+            'pax_name' => $cell('pax_name'),
+            'company_reference' => $cell('company_reference'),
+            'pickup_at' => $pickupAt,
+            'booking_to' => $toAt !== null && $pickupAt !== null && $toAt->greaterThan($pickupAt) ? $toAt : null,
+            'car_type' => $cell('vehicle'),
+            'fare' => $fare,
+            'amount' => $fare,
+            'advance' => $received,
+            'prepared_by' => $cell('added_by'),
+            'status' => $status,
+            'payment_status' => match ($payment) {
+                LimoBooking::PAYMENT_PAID, LimoBooking::PAYMENT_UNPAID => $payment,
+                default => $received >= $fare && $fare > 0 ? LimoBooking::PAYMENT_PAID : LimoBooking::PAYMENT_UNPAID,
+            },
+            'notes' => $cell('comments'),
+        ]);
+        if ($booked !== null) {
+            $booking->created_at = $booked;
+        }
+        $booking->save();
+
+        $leg = new LimoLeg;
+        $leg->fill([
+            'sequence' => 1,
+            'service_type' => in_array($type, ['hourly', 'full_day', 'multi_day'], true) ? LimoLeg::TYPE_CHAUFFEUR : $this->serviceType($cell('type') ?? ''),
+            'from_location' => $cell('pickup'),
+            'to_location' => $cell('dropoff'),
+            'start_at' => $pickupAt,
+            'days' => 1,
+            'vehicle' => $cell('vehicle'),
+            'driver' => $cell('driver'),
+            'rate' => $fare,
+            'rate_basis' => LimoLeg::BASIS_TRIP,
+            'net_amount' => $fare,
+            'status' => $status,
+        ]);
+        $leg->reference = (string) $tripNumber;
+        $legId = $tripNumber - LimoLeg::REFERENCE_START + 1;
+        if ($legId > 0 && ! LimoLeg::query()->whereKey($legId)->exists()) {
+            $leg->id = $legId;
+        }
+        $booking->legs()->save($leg);
+    }
+
+    /** The Type column prints the booking type's label (or its value). */
+    private function bookingType(string $value): ?string
+    {
+        $value = strtolower(trim($value));
+        if ($value === '') {
+            return null;
+        }
+
+        foreach (LimoBooking::bookingTypeOptions() as $option) {
+            if ($value === $option['value'] || $value === strtolower($option['label']) || $value === strtolower((string) __($option['label']))) {
+                return $option['value'];
+            }
+        }
+
+        return str_contains($value, 'chauffeur') ? 'hourly' : 'point_to_point';
     }
 
     /**

@@ -2951,5 +2951,8 @@
     "WooCommerce, hosting, Instagram…": "ووكومرس، الاستضافة، إنستغرام…",
     "Booking reference": "رقم الحجز",
     "Customer phone": "هاتف العميل",
-    "Customer email": "البريد الإلكتروني للعميل"
+    "Customer email": "البريد الإلكتروني للعميل",
+    "Old system list (old-system files only)": "قائمة النظام القديم (لملفات النظام القديم فقط)",
+    "This file is from the old system: choose which list it came from, then import it again.": "هذا الملف من النظام القديم: اختر القائمة التي جاء منها، ثم استورده مرة أخرى.",
+    "A file from the old system keeps its booking numbers and lands in the list you choose. An export from this ERP keeps its trip numbers and the status on each row.": "ملف النظام القديم يحتفظ بأرقام الحجوزات ويُضاف إلى القائمة التي تختارها. وملف التصدير من هذا النظام يحتفظ بأرقام الرحلات وبحالة كل صف."
 }

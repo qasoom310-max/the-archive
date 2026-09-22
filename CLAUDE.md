@@ -3639,6 +3639,25 @@ server, so this defeats a stolen database file but not someone with both the
 database and the application files. It is not a zero-knowledge password manager
 and the page says so rather than implying otherwise.
 
+**It shipped broken once, and the fix is worth keeping in mind.** The page was
+first mounted at `/passwords` and 500d on the live site while every component
+test passed. The breadcrumb in `components/layouts/app.blade.php` translates
+each URL SEGMENT, so it called `__('passwords')`, which resolved to the
+framework's own `lang/en/passwords.php` and returned an ARRAY for the layout to
+print. Two changes:
+
+- The route moved to **`/logins`**.
+- **The breadcrumb now falls back to the raw segment when `__()` hands back
+  anything but a string.** That was a landmine for any future route whose
+  segment happened to name a language file (`auth`, `validation`, `pagination`).
+
+**The test lesson is the bigger one: `Livewire::test()` never renders the
+LAYOUT.** A page can pass twenty component tests and still 500 on a real
+request. Every full-page Livewire component wants at least one real
+`$this->get($url)->assertOk()` as a permitted user. Pinned by
+`VaultTest::{test_a_real_page_load_renders,
+test_a_url_segment_named_after_a_language_file_does_not_crash_the_page}`.
+
 **Gotcha — `__('Passwords')` returns an ARRAY.** Laravel resolves a dotless key
 with no JSON entry as a language-FILE group, and the framework ships
 `lang/en/passwords.php` (the reset-link messages). On a case-insensitive

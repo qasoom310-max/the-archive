@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\VaultEntry;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -190,7 +191,7 @@ final class VaultTest extends TestCase
     {
         $this->actingAs(User::factory()->create(['is_admin' => false]));
 
-        $this->get('/passwords')->assertForbidden();
+        $this->get('/logins')->assertForbidden();
         Livewire::test(Vault::class)->assertForbidden();
     }
 
@@ -282,5 +283,32 @@ final class VaultTest extends TestCase
             ->assertSee('Hosting')
             ->set('search', 'sup3rsecret')
             ->assertDontSee('Hosting');
+    }
+
+    // ── The whole page, not just the component ───────────────────────────────
+
+    public function test_a_real_page_load_renders(): void
+    {
+        // The component tests all passed while the live page 500d, because
+        // Livewire::test() never draws the LAYOUT - and the layout was where
+        // the breadcrumb blew up. A real GET is the only thing that catches it.
+        $this->entry('Hosting', 'sup3rsecret');
+        $this->actingAs($this->owner());
+
+        $this->get('/logins')->assertOk()->assertSee('Hosting');
+    }
+
+    public function test_a_url_segment_named_after_a_language_file_does_not_crash_the_page(): void
+    {
+        // __() on a bare segment resolves to a language FILE group when one
+        // exists by that name and returns the whole ARRAY, which the layout
+        // then tries to print. lang/en/passwords.php ships with the framework,
+        // so a route at /passwords took every page it drew a breadcrumb for
+        // down with it. Any future segment named after a lang file would too.
+        Route::middleware('web')->get('/passwords', fn (): string => 'reached');
+
+        $this->actingAs($this->owner());
+
+        $this->get('/passwords')->assertOk()->assertSee('reached');
     }
 }

@@ -153,6 +153,17 @@ final class WooCommerceService
             return ['ok' => false, 'skipped' => true, 'error' => null];
         }
 
+        // Deactivated, or held back from the website while it waits for its
+        // photo. Checked here as well as at the call sites because a push can
+        // be queued and run later, by which time the answer may have changed —
+        // and a held-back product that IS on the store is taken down rather
+        // than left there.
+        if (! $product->publishesOnline()) {
+            return $link->woo_id !== null
+                ? $this->pushNow($posProductId, 'unpublish')
+                : ['ok' => false, 'skipped' => true, 'error' => null];
+        }
+
         $payload = $this->buildPayload($product, $config);
 
         // A create whose reply never arrived (slow store, timeout) still made

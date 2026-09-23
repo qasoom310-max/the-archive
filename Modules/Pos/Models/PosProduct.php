@@ -62,7 +62,7 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
     /** @var list<string> */
     protected $fillable = [
         'name', 'price', 'cost_price', 'tax_rate', 'barcode',
-        'pos_category_id', 'image_path', 'gallery_images', 'active', 'stock_on_hand', 'unit', 'reorder_point', 'supplier_id',
+        'pos_category_id', 'image_path', 'gallery_images', 'active', 'publish_online', 'stock_on_hand', 'unit', 'reorder_point', 'supplier_id',
         'bottle_size_ml', 'store_stock',
     ];
 
@@ -97,6 +97,7 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
      */
     protected $attributes = [
         'active' => true,
+        'publish_online' => true,
         'unit' => 'qty',
     ];
 
@@ -110,6 +111,7 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
             'cost_price' => 'float',
             'tax_rate' => 'float',
             'active' => 'boolean',
+            'publish_online' => 'boolean',
             'stock_on_hand' => 'float',
             'store_stock' => 'float',
             'bottle_size_ml' => 'float',
@@ -165,6 +167,20 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
     public function effectiveReorderPoint(float $globalThreshold): float
     {
         return $this->reorder_point !== null ? (float) $this->reorder_point : $globalThreshold;
+    }
+
+    /**
+     * May this product be shown in the online store?
+     *
+     * A product that is not `active` is not sold anywhere, and one whose
+     * `publish_online` is off is sold at the register but deliberately held
+     * back from the website (no photo or description yet). The column is read
+     * defensively so a database that has not run the migration yet behaves as
+     * it always did.
+     */
+    public function publishesOnline(): bool
+    {
+        return (bool) $this->active && (bool) ($this->getAttribute('publish_online') ?? true);
     }
 
     /**
@@ -530,6 +546,7 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
                 new FieldDefinition('pos_category_id', 'Category', 'many2one', relation: 'pos.category', sequence: 55),
                 new FieldDefinition('supplier_id', 'Preferred vendor', 'many2one', relation: 'contacts.partner', sequence: 57),
                 new FieldDefinition('active', 'Active', 'boolean', sequence: 60),
+                new FieldDefinition('publish_online', 'Show in the online store', 'boolean', sequence: 62),
                 // Photo. Registry type `binary` → ViewResolver auto-defaults widget=`image`;
                 // the form arch below makes it explicit. Column stays a nullable string path.
                 new FieldDefinition('image_path', 'Photo', 'binary', sequence: 65),
@@ -564,6 +581,10 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
                         // discontinued product from the catalogue without
                         // opening the form.
                         ['field' => 'active', 'label' => 'Active', 'format' => 'toggle'],
+                        // Same inline switch for the online store, so a product
+                        // still waiting for its photo is held back (or let
+                        // through once it has one) without opening the form.
+                        ['field' => 'publish_online', 'label' => 'Online store', 'format' => 'toggle'],
                     ],
                     'default_sort' => [['field' => 'name', 'dir' => 'asc']],
                     'per_page' => 20,
@@ -662,6 +683,12 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
                             ],
                         ],
                         ['field' => 'active', 'label' => 'Active', 'widget' => 'checkbox'],
+                        [
+                            'field' => 'publish_online',
+                            'label' => 'Show in the online store',
+                            'widget' => 'checkbox',
+                            'help' => 'Untick to keep this product off the website — it still sells at the register. Use it while a product is waiting for its photo or description.',
+                        ],
                         // Photo upload — engine FormView renders an avatar preview +
                         // file input, validates `image|max:2048`, and on save stores
                         // under `storage/app/public/pos_products/...` writing the

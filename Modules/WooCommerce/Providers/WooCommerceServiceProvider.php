@@ -31,7 +31,7 @@ final class WooCommerceServiceProvider extends ServiceProvider
 {
     /** Product fields whose change is worth a re-push (skip irrelevant saves). */
     private const SYNCED_FIELDS = [
-        'name', 'price', 'barcode', 'stock_on_hand', 'image_path', 'gallery_images', 'pos_category_id', 'active',
+        'name', 'price', 'barcode', 'stock_on_hand', 'image_path', 'gallery_images', 'pos_category_id', 'active', 'publish_online',
     ];
 
     public function register(): void
@@ -53,7 +53,11 @@ final class WooCommerceServiceProvider extends ServiceProvider
 
             $service = $this->app->make(WooCommerceService::class);
 
-            if ($product->active) {
+            // Held back from the website (no photo yet) reaches the store the
+            // same way a deactivated product does: whatever is listed there is
+            // taken down, so turning the switch off pulls it, not just stops
+            // future pushes.
+            if ($product->publishesOnline()) {
                 $service->syncProduct($product);
             } else {
                 $service->unpublishProduct($product);
@@ -81,7 +85,7 @@ final class WooCommerceServiceProvider extends ServiceProvider
 
                 foreach ($event->order->lines as $line) {
                     $product = PosProduct::query()->find($line->pos_product_id);
-                    if ($product !== null && $product->active) {
+                    if ($product !== null && $product->publishesOnline()) {
                         $service->syncProduct($product);
                     }
                 }

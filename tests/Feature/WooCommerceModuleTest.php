@@ -377,4 +377,52 @@ final class WooCommerceModuleTest extends TestCase
         Http::assertNotSent(fn ($request): bool => $request->method() === 'POST'
             && str_ends_with($request->url(), '/wp-json/wc/v3/products'));
     }
+
+    /**
+     * A product can be real in the shop and not ready for the website — no
+     * photo, no description yet. `active` cannot say that (it would take the
+     * product off the register too), so the product carries its own switch.
+     */
+    public function test_a_product_held_back_from_the_website_is_never_listed(): void
+    {
+        $this->install();
+        $this->configure();
+        $product = $this->product(['publish_online' => false]);
+
+        Http::fake(['*' => Http::response(['id' => 1], 201)]);
+
+        $result = app(WooCommerceService::class)->pushNow((int) $product->id);
+
+        $this->assertTrue($result['skipped']);
+        Http::assertNothingSent();
+    }
+
+    /** Turning it off takes down what is already on the store, not just future pushes. */
+    public function test_holding_back_a_listed_product_takes_it_down(): void
+    {
+        $this->install();
+        $this->configure();
+        $product = $this->product();
+
+        WooCommerceProductLink::query()->create(['pos_product_id' => $product->id, 'woo_id' => 900]);
+        $product->update(['publish_online' => false]);
+
+        Http::fake(['*/wp-json/wc/v3/products/900' => Http::response(['id' => 900], 200)]);
+
+        app(WooCommerceService::class)->pushNow((int) $product->id);
+
+        Http::assertSent(fn ($request): bool => $request->method() === 'PUT'
+            && str_contains($request->url(), '/products/900')
+            && $request['status'] === 'draft');
+    }
+
+    public function test_a_new_product_is_shown_online_unless_it_is_held_back(): void
+    {
+        $this->install();
+
+        $this->assertTrue((new PosProduct())->publishesOnline());
+        $this->assertTrue($this->product(['barcode' => 'A-1'])->publishesOnline());
+        $this->assertFalse($this->product(['barcode' => 'A-2', 'publish_online' => false])->publishesOnline());
+        $this->assertFalse($this->product(['barcode' => 'A-3', 'active' => false])->publishesOnline());
+    }
 }

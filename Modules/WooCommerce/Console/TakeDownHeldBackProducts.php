@@ -57,16 +57,31 @@ final class TakeDownHeldBackProducts extends Command
 
             foreach ($links as $link) {
                 $product = PosProduct::query()->find($link->pos_product_id);
-                if ($product === null || $product->publishesOnline()) {
+
+                if ($product !== null && $product->publishesOnline()) {
                     continue;
                 }
 
-                $this->line(sprintf('%s: %s — %s', $label, (string) $product->name, $product->missingForOnlineStore() === []
-                    ? 'held back'
-                    : 'missing '.implode(', ', $product->missingForOnlineStore())));
+                // A product deleted in the ERP is the plainest case of all —
+                // it is not sold here any more, so it must not still be on the
+                // website. The delete hook pushes a takedown, but only the once:
+                // if the store was down or was connected after the delete, the
+                // listing stays up and nothing else would ever remove it. The
+                // link row survives the delete precisely so this can find it.
+                $reason = match (true) {
+                    $product === null => 'deleted in the ERP',
+                    $product->missingForOnlineStore() !== [] => 'missing '.implode(', ', $product->missingForOnlineStore()),
+                    default => 'held back',
+                };
+
+                $name = $product !== null ? (string) $product->name : '#'.$link->pos_product_id;
+
+                $this->line(sprintf('%s: %s — %s', $label, $name, $reason));
 
                 if (! $pretend) {
-                    $service->pushNow((int) $product->id, 'unpublish');
+                    // Unpublishing needs only the link's remote id, never the
+                    // product, so a deleted one comes down the same way.
+                    $service->pushNow((int) $link->pos_product_id, 'unpublish');
                 }
 
                 $taken++;

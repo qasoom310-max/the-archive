@@ -506,6 +506,34 @@ final class WooCommerceModuleTest extends TestCase
             ->where('pos_product_id', $heldBack->id)->value('last_status'));
     }
 
+    public function test_the_takedown_command_removes_a_listing_whose_product_was_deleted(): void
+    {
+        $this->install();
+        $this->configure();
+
+        $gone = $this->product(['barcode' => 'C-3']);
+        $goneId = (int) $gone->id;
+
+        WooCommerceProductLink::query()->create(['pos_product_id' => $goneId, 'woo_id' => 902]);
+
+        // Deleted straight out of the table, so the model's own delete hook
+        // never fires — the same hole a store outage or a late connection
+        // leaves: a listing nobody in the ERP can see any more.
+        PosProduct::query()->whereKey($goneId)->delete();
+
+        Http::fake(['*' => Http::response(['id' => 902], 200)]);
+
+        Artisan::registerCommand(new TakeDownHeldBackProducts());
+        $this->artisan('woocommerce:take-down-held-back')->assertExitCode(0);
+
+        Http::assertSent(fn ($request): bool => $request->method() === 'PUT'
+            && str_contains($request->url(), '/products/902')
+            && $request['status'] === 'draft');
+
+        $this->assertSame('unpublished', WooCommerceProductLink::query()
+            ->where('pos_product_id', $goneId)->value('last_status'));
+    }
+
     /**
      * A store that is unreachable, slow, or behind a broken certificate throws
      * out of the HTTP client. That used to escape the push and show the admin

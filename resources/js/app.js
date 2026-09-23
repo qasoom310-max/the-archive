@@ -653,6 +653,9 @@ document.addEventListener('alpine:init', () => {
         active: 0,
         observer: null,
         model,
+        // Set once the person operates the field: from then on the control
+        // says what is chosen, including when they choose nothing.
+        touched: false,
 
         init() {
             this.sync();
@@ -698,14 +701,21 @@ document.addEventListener('alpine:init', () => {
                 .filter((option) => option.value !== '')
                 .map((option) => ({ value: option.value, label: option.textContent.trim() }));
 
-            // The state is the truth when we know which property this is
-            // bound to; the control catches up with it (it is what Livewire
-            // reads back), and anything unbound falls back to the control.
+            // The CONTROL is the truth, and this never writes to it. It is what
+            // Livewire reads, and this runs on `change` — from a listener added
+            // before the one wire:model puts on the control, because Alpine
+            // initialises this wrapper before the select inside it. Writing here
+            // wiped a fresh choice back to the old value before Livewire could
+            // read it, so picking a customer on a NEW booking did nothing at all.
+            //
+            // The component's own state is consulted for one case only: the
+            // control still blank and nobody having touched it, which is the
+            // moment before Livewire has filled it in (it sets `value`, which
+            // mutates no attribute, so nothing else would tell us).
             let value = native.value;
-            if (this.model && this.$wire) {
+            if (value === '' && ! this.touched && this.model && this.$wire) {
                 const state = this.$wire.get(this.model);
                 value = state === null || state === undefined ? '' : String(state);
-                if (native.value !== value) native.value = value;
             }
 
             const chosen = Array.from(native.options).find((option) => option.value === value);
@@ -747,6 +757,10 @@ document.addEventListener('alpine:init', () => {
         /** Write the choice to the real control, and let Livewire hear it. */
         pick(value) {
             const native = this.$refs.native;
+
+            // Before the value is written, because the `change` below re-enters
+            // sync() and it must not reach past the control to the old state.
+            this.touched = true;
             native.value = value;
 
             // Livewire is bound to the control, so it listens for the events a

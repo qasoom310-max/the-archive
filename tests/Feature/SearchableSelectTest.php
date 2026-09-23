@@ -156,4 +156,39 @@ final class SearchableSelectTest extends TestCase
 
         $this->assertStringNotContainsString(' selected', Livewire::test(BookingForm::class)->html());
     }
+
+    /**
+     * The picker re-reads the control on `change`, from a listener Alpine adds
+     * before the one wire:model puts on the select (the wrapper initialises
+     * first). So a write to the control inside sync() lands BEFORE Livewire has
+     * read the event — which is how a freshly picked customer was wiped back to
+     * the old value and a new booking's picker did nothing at all.
+     *
+     * There is no JS test runner here, so this pins the rule where it can be
+     * checked: the control is what the person and Livewire both write; sync()
+     * only ever reads it.
+     */
+    public function test_the_picker_never_writes_back_to_the_control_while_reading_it(): void
+    {
+        $js = (string) file_get_contents(base_path('resources/js/app.js'));
+
+        // Anchored to this component: another one on the page has a sync() too.
+        $component = strpos($js, "Alpine.data('searchableSelect'");
+        $this->assertNotFalse($component, 'The picker component has been renamed — re-point this guard.');
+
+        $start = strpos($js, 'sync() {', $component);
+        $this->assertNotFalse($start, 'searchableSelect.sync() has been renamed — re-point this guard.');
+
+        // As far as the next method on the component.
+        $end = strpos($js, 'get matches()', $start);
+        $this->assertNotFalse($end);
+
+        $body = substr($js, $start, $end - $start);
+
+        $this->assertDoesNotMatchRegularExpression(
+            '/native\.value\s*=[^=]/',
+            $body,
+            'sync() assigns to the control. That overwrites a choice before Livewire reads it.'
+        );
+    }
 }

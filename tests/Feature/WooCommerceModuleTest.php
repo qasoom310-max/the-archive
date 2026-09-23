@@ -53,6 +53,12 @@ final class WooCommerceModuleTest extends TestCase
         ]);
     }
 
+    /**
+     * A product the store would accept: named, categorised, priced and
+     * photographed. Anything less is held back from the website by design
+     * (see PosProduct::readyForOnlineStore()), so a fixture for testing the
+     * push has to be a finished listing.
+     */
     private function product(array $attributes = []): PosProduct
     {
         return PosProduct::query()->create(array_merge([
@@ -62,6 +68,8 @@ final class WooCommerceModuleTest extends TestCase
             'active' => true,
             'stock_on_hand' => 7,
             'barcode' => 'OUD-001',
+            'pos_category_id' => PosCategory::query()->create(['name' => 'Perfume '.uniqid()])->id,
+            'image_path' => 'pos_products/oud.webp',
         ], $attributes));
     }
 
@@ -153,6 +161,8 @@ final class WooCommerceModuleTest extends TestCase
         $product = $this->product();
 
         Http::fake([
+            // The category term lookup is its own call; the product call is what this test is about.
+            "*/wp-json/wc/v3/products/categories*" => Http::response([["id" => 42, "name" => "Perfume"]], 200),
             '*/wp-json/wc/v3/products' => Http::response(['id' => 555], 201),
             '*/wp-json/wc/v3/products/555' => Http::response(['id' => 555], 200),
         ]);
@@ -165,8 +175,9 @@ final class WooCommerceModuleTest extends TestCase
         $this->assertSame('synced', $link->last_status);
 
         Http::assertSent(function ($request): bool {
+            // …the product call, not the category lookup that shares the path.
             return $request->method() === 'POST'
-                && str_contains($request->url(), '/wp-json/wc/v3/products')
+                && str_ends_with(strtok($request->url(), '?'), '/wp-json/wc/v3/products')
                 && $request['sku'] === 'OUD-001'
                 && $request['status'] === 'publish'
                 && $request['stock_quantity'] === 7;
@@ -188,7 +199,11 @@ final class WooCommerceModuleTest extends TestCase
             'gallery_images' => ['pos_products/extra1.webp', 'pos_products/extra2.webp'],
         ]);
 
-        Http::fake(['*/wp-json/wc/v3/products' => Http::response(['id' => 777], 201)]);
+        Http::fake([
+            // The category term lookup is its own call; the product call is what this test is about.
+            "*/wp-json/wc/v3/products/categories*" => Http::response([["id" => 42, "name" => "Perfume"]], 200),
+            '*/wp-json/wc/v3/products' => Http::response(['id' => 777], 201),
+        ]);
 
         (new SyncProductToWooCommerce((int) $product->id))->handle(app(WooCommerceService::class));
 
@@ -317,7 +332,11 @@ final class WooCommerceModuleTest extends TestCase
 
         // With a product + a healthy store → synced immediately (no queue).
         $product = $this->product();
-        Http::fake(['*/wp-json/wc/v3/products' => Http::response(['id' => 321], 201)]);
+        Http::fake([
+            // The category term lookup is its own call; the product call is what this test is about.
+            "*/wp-json/wc/v3/products/categories*" => Http::response([["id" => 42, "name" => "Perfume"]], 200),
+            '*/wp-json/wc/v3/products' => Http::response(['id' => 321], 201),
+        ]);
 
         $ok = Livewire::test(WooCommerceSettings::class)->call('syncAllNow');
         $this->assertStringContainsString('synced', (string) $ok->get('syncMessage'));
@@ -363,6 +382,8 @@ final class WooCommerceModuleTest extends TestCase
         $product = $this->product();
 
         Http::fake([
+            // The category term lookup is its own call; the product call is what this test is about.
+            "*/wp-json/wc/v3/products/categories*" => Http::response([["id" => 42, "name" => "Perfume"]], 200),
             // The SKU lookup finds the listing the lost reply belonged to.
             '*/wp-json/wc/v3/products?sku=OUD-001' => Http::response([['id' => 888, 'sku' => 'OUD-001']], 200),
             '*/wp-json/wc/v3/products/888' => Http::response(['id' => 888], 200),
@@ -420,9 +441,32 @@ final class WooCommerceModuleTest extends TestCase
     {
         $this->install();
 
-        $this->assertTrue((new PosProduct())->publishesOnline());
         $this->assertTrue($this->product(['barcode' => 'A-1'])->publishesOnline());
         $this->assertFalse($this->product(['barcode' => 'A-2', 'publish_online' => false])->publishesOnline());
         $this->assertFalse($this->product(['barcode' => 'A-3', 'active' => false])->publishesOnline());
+    }
+
+    /**
+     * The switch cannot claim more than the product has. A listing needs a
+     * name, a category, a price and a photo; ticking it on anything less
+     * turns it straight back off at save time, so nobody has to remember
+     * which products were still waiting for their photo.
+     */
+    public function test_an_unfinished_product_switches_itself_off(): void
+    {
+        $this->install();
+
+        $noPhoto = $this->product(['barcode' => 'B-1', 'image_path' => null, 'publish_online' => true]);
+        $noCategory = $this->product(['barcode' => 'B-2', 'pos_category_id' => null, 'publish_online' => true]);
+        $noPrice = $this->product(['barcode' => 'B-3', 'price' => 0, 'publish_online' => true]);
+
+        $this->assertFalse((bool) $noPhoto->refresh()->publish_online);
+        $this->assertFalse((bool) $noCategory->refresh()->publish_online);
+        $this->assertFalse((bool) $noPrice->refresh()->publish_online);
+        $this->assertSame(['photo'], $noPhoto->missingForOnlineStore());
+
+        // …and it comes back on by hand once the photo is there.
+        $noPhoto->update(['image_path' => 'pos_products/oud.webp', 'publish_online' => true]);
+        $this->assertTrue((bool) $noPhoto->refresh()->publish_online);
     }
 }

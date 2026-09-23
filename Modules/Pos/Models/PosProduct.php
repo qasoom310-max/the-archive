@@ -172,15 +172,64 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
     /**
      * May this product be shown in the online store?
      *
-     * A product that is not `active` is not sold anywhere, and one whose
-     * `publish_online` is off is sold at the register but deliberately held
-     * back from the website (no photo or description yet). The column is read
-     * defensively so a database that has not run the migration yet behaves as
-     * it always did.
+     * Three things have to hold: it is `active` (otherwise it is not sold
+     * anywhere), the shop has not held it back by hand, and the listing is
+     * complete enough for a customer to see. The column is read defensively
+     * so a database that has not run the migration yet behaves as it always
+     * did.
      */
     public function publishesOnline(): bool
     {
-        return (bool) $this->active && (bool) ($this->getAttribute('publish_online') ?? true);
+        return (bool) $this->active
+            && (bool) ($this->getAttribute('publish_online') ?? true)
+            && $this->readyForOnlineStore();
+    }
+
+    /**
+     * What a listing needs before a customer should see it: a name, the
+     * category it belongs in, a price, and a photo. A product missing any of
+     * them reads as unfinished on the website however good it is in the shop.
+     *
+     * @return list<string>
+     */
+    public function missingForOnlineStore(): array
+    {
+        $missing = [];
+
+        if (trim((string) $this->name) === '') {
+            $missing[] = 'name';
+        }
+        if ($this->pos_category_id === null) {
+            $missing[] = 'category';
+        }
+        if ((float) $this->price <= 0.0) {
+            $missing[] = 'price';
+        }
+        if (trim((string) $this->image_path) === '') {
+            $missing[] = 'photo';
+        }
+
+        return $missing;
+    }
+
+    public function readyForOnlineStore(): bool
+    {
+        return $this->missingForOnlineStore() === [];
+    }
+
+    /**
+     * The switch can never claim more than the product has: ticking it on a
+     * product that is still missing its photo (or its category, price or
+     * name) turns it straight back off, rather than letting a half-finished
+     * listing reach the website the next time anything is saved.
+     */
+    protected static function booted(): void
+    {
+        static::saving(static function (self $product): void {
+            if ($product->getAttribute('publish_online') && ! $product->readyForOnlineStore()) {
+                $product->setAttribute('publish_online', false);
+            }
+        });
     }
 
     /**
@@ -687,7 +736,7 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
                             'field' => 'publish_online',
                             'label' => 'Show in the online store',
                             'widget' => 'checkbox',
-                            'help' => 'Untick to keep this product off the website — it still sells at the register. Use it while a product is waiting for its photo or description.',
+                            'help' => 'Untick to keep this product off the website — it still sells at the register. It also stays off on its own until the product has a name, a category, a price and a photo.',
                         ],
                         // Photo upload — engine FormView renders an avatar preview +
                         // file input, validates `image|max:2048`, and on save stores

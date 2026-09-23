@@ -7,6 +7,8 @@ namespace Tests\Feature;
 use App\Erp\Modules\ModuleManager;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -14,6 +16,7 @@ use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosProduct;
+use Modules\WooCommerce\Console\TakeDownHeldBackProducts;
 use Modules\WooCommerce\Jobs\SyncProductToWooCommerce;
 use Modules\WooCommerce\Livewire\WooCommerceSettings;
 use Modules\WooCommerce\Models\WooCommerceConfiguration;
@@ -468,5 +471,75 @@ final class WooCommerceModuleTest extends TestCase
         // …and it comes back on by hand once the photo is there.
         $noPhoto->update(['image_path' => 'pos_products/oud.webp', 'publish_online' => true]);
         $this->assertTrue((bool) $noPhoto->refresh()->publish_online);
+    }
+
+    /**
+     * Switching the flag off through the app pushes the takedown itself, but a
+     * product held back any other way — a data migration, an import, an edit
+     * made before the store was connected — would leave a listing up that
+     * nobody would think to go and remove. The deploy runs this.
+     */
+    public function test_the_takedown_command_removes_listings_the_erp_no_longer_publishes(): void
+    {
+        $this->install();
+        $this->configure();
+
+        $heldBack = $this->product(['barcode' => 'C-1', 'image_path' => null]);
+        $listed = $this->product(['barcode' => 'C-2']);
+
+        WooCommerceProductLink::query()->create(['pos_product_id' => $heldBack->id, 'woo_id' => 900]);
+        WooCommerceProductLink::query()->create(['pos_product_id' => $listed->id, 'woo_id' => 901]);
+
+        Http::fake(['*' => Http::response(['id' => 900], 200)]);
+
+        Artisan::registerCommand(new TakeDownHeldBackProducts());
+        $this->artisan('woocommerce:take-down-held-back')->assertExitCode(0);
+
+        Http::assertSent(fn ($request): bool => $request->method() === 'PUT'
+            && str_contains($request->url(), '/products/900')
+            && $request['status'] === 'draft');
+
+        // The finished listing is left exactly as it is.
+        Http::assertNotSent(fn ($request): bool => str_contains($request->url(), '/products/901'));
+
+        $this->assertSame('unpublished', WooCommerceProductLink::query()
+            ->where('pos_product_id', $heldBack->id)->value('last_status'));
+    }
+
+    /**
+     * A store that is unreachable, slow, or behind a broken certificate throws
+     * out of the HTTP client. That used to escape the push and show the admin
+     * a 500 page part-way through a sync; it is a failed push like any other.
+     */
+    public function test_a_store_that_cannot_be_reached_is_a_failed_push_not_an_error_page(): void
+    {
+        $this->install();
+        $this->configure();
+        $product = $this->product();
+
+        Http::fake(fn () => throw new ConnectionException('Could not resolve host: shop.example.com'));
+
+        $result = app(WooCommerceService::class)->pushNow((int) $product->id);
+
+        $this->assertFalse($result['ok']);
+        $this->assertFalse($result['skipped']);
+        $this->assertStringContainsString('Could not resolve host', (string) $result['error']);
+        $this->assertSame('failed', WooCommerceProductLink::query()
+            ->where('pos_product_id', $product->id)->value('last_status'));
+    }
+
+    /** …and the button says so, instead of the admin meeting a 500 page. */
+    public function test_the_sync_button_reports_a_store_that_cannot_be_reached(): void
+    {
+        $this->install();
+        $this->configure();
+        $this->product();
+
+        Http::fake(fn () => throw new ConnectionException('Could not resolve host: shop.example.com'));
+
+        $component = Livewire::test(WooCommerceSettings::class)->call('syncAllNow');
+
+        $this->assertTrue($component->get('syncError'));
+        $this->assertStringContainsString('failed', (string) $component->get('syncMessage'));
     }
 }

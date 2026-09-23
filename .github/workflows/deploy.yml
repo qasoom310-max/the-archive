@@ -334,6 +334,7 @@ jobs:
                php artisan workspaces:install-modules && \
                php artisan optimize:clear && \
                { php artisan limo:match-driver-names || true; } && \
+               { php artisan woocommerce:take-down-held-back || true; } && \
                php artisan config:cache && \
                php artisan route:cache && \
                php artisan view:cache && \

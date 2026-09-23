@@ -8,6 +8,7 @@ use App\Erp\Tenancy\WorkspaceManager;
 use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -129,6 +130,37 @@ final class WooCommerceService
      * @return array{ok: bool, skipped: bool, error: ?string}
      */
     public function pushNow(int $posProductId, string $action = 'sync'): array
+    {
+        $link = null;
+
+        try {
+            return $this->attemptPush($posProductId, $action, $link);
+        } catch (\Throwable $e) {
+            // The store being unreachable, slow or behind a broken certificate
+            // throws out of the HTTP client — which used to escape this method
+            // (its docblock said otherwise) and show the admin a 500 page
+            // half-way through a sync. It is a failed push like any other.
+            $error = Str::limit($e->getMessage(), 300);
+
+            if ($link !== null) {
+                $link->last_status = 'failed';
+                $link->last_error = $error;
+                $link->save();
+            }
+
+            Log::warning('WooCommerce push failed', ['product' => $posProductId, 'action' => $action, 'error' => $error]);
+
+            return ['ok' => false, 'skipped' => false, 'error' => $error];
+        }
+    }
+
+    /**
+     * The push itself. Separated so {@see pushNow()} can turn anything thrown
+     * on the way into a result the caller can report.
+     *
+     * @return array{ok: bool, skipped: bool, error: ?string}
+     */
+    private function attemptPush(int $posProductId, string $action, ?WooCommerceProductLink &$link): array
     {
         $config = WooCommerceConfiguration::current();
         if (! $config->isConfigured()) {

@@ -7,6 +7,7 @@ namespace Modules\WooCommerce\Livewire;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -121,7 +122,20 @@ final class WooCommerceSettings extends Component
             return;
         }
 
-        $result = app(WooCommerceService::class)->syncAllActiveNow();
+        // Whatever the store does — refuse, hang up, answer in a shape nobody
+        // expected — the admin should be told, not shown a 500 page with no
+        // way of knowing how far the sync got.
+        try {
+            $result = app(WooCommerceService::class)->syncAllActiveNow();
+        } catch (\Throwable $e) {
+            report($e);
+
+            $this->syncError = true;
+            $this->syncMessage = __('The sync stopped: :error', ['error' => Str::limit($e->getMessage(), 200)]);
+
+            return;
+        }
+
         $this->syncError = $result['failed'] > 0;
 
         if ($result['synced'] === 0 && $result['failed'] === 0) {

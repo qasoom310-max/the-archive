@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Modules\Pos\Events\PosOrderPaid;
 use Modules\Pos\Models\PosProduct;
+use Modules\WooCommerce\Console\TakeDownHeldBackProducts;
 use Modules\WooCommerce\Models\WooCommerceConfiguration;
 use Modules\WooCommerce\Services\WooCommerceService;
 
@@ -41,6 +42,10 @@ final class WooCommerceServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        if ($this->app->runningInConsole()) {
+            $this->commands([TakeDownHeldBackProducts::class]);
+        }
+
         PosProduct::saved(function (PosProduct $product): void {
             if (! $this->storeReady()) {
                 return;

@@ -63,6 +63,7 @@ final class LimoLegCurrencyTest extends TestCase
             ->set('legs.0.currency', 'SAR')
             ->assertSet('legs.0.exchange_rate', '0.376182')
             ->set('legs.0.quote_rate', '100')
+            ->set('legs.0.car_details', 'Sedan')
             ->assertSet('legs.0.rate', (string) round(100 * 0.376182, 3));
 
         Http::assertSentCount(1); // the second field change reuses the already-fetched rate
@@ -75,6 +76,7 @@ final class LimoLegCurrencyTest extends TestCase
         Livewire::test(BookingForm::class)
             ->set('legs.0.currency', 'SAR')
             ->set('legs.0.quote_rate', '100')
+            ->set('legs.0.car_details', 'Sedan')
             ->set('legs.0.currency', 'BHD')
             ->assertSet('legs.0.quote_rate', '')
             ->assertSet('legs.0.exchange_rate', '')
@@ -97,6 +99,7 @@ final class LimoLegCurrencyTest extends TestCase
             ->set('legs.0.start_at', '2026-07-01T14:30')
             ->set('legs.0.currency', 'SAR')
             ->set('legs.0.quote_rate', '100')
+            ->set('legs.0.car_details', 'Sedan')
             ->set('legs.0.rate_basis', 'trip')
             ->call('save')
             ->assertHasNoErrors();
@@ -127,6 +130,7 @@ final class LimoLegCurrencyTest extends TestCase
             ->set('legs.0.to_location', 'City Centre')
             ->set('legs.0.start_at', '2026-07-01T14:30')
             ->set('legs.0.rate', '18.5')
+            ->set('legs.0.car_details', 'Sedan')
             ->set('legs.0.rate_basis', 'trip')
             ->call('save')
             ->assertHasNoErrors();
@@ -162,6 +166,7 @@ final class LimoLegCurrencyTest extends TestCase
             ->set('legs.0.start_at', '2026-07-01T14:30')
             ->set('legs.0.currency', 'SAR')
             ->set('legs.0.quote_rate', '100')
+            ->set('legs.0.car_details', 'Sedan')
             ->assertSet('legs.0.exchange_rate', '')
             ->assertSet('legs.0.rate', '')
             ->set('legs.0.rate_basis', 'trip')
@@ -219,6 +224,7 @@ final class LimoLegCurrencyTest extends TestCase
             ->set('legs.0.start_at', '2026-07-05T09:00')
             ->set('legs.0.currency', 'SAR')
             ->set('legs.0.quote_rate', '100')
+            ->set('legs.0.car_details', 'Sedan')
             ->set('legs.0.rate_basis', 'trip')
             ->call('save')
             ->assertHasNoErrors();

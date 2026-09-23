@@ -66,6 +66,7 @@ final class ScrollsToFirstErrorTest extends TestCase
             ->set('legs.0.to_location', 'Hotel')
             ->set('legs.0.start_at', '2026-09-01T10:00')
             ->set('legs.0.rate', '25')
+            ->set('legs.0.car_details', 'Sedan')
             ->set('legs.0.rate_basis', 'trip')
             ->call('save')
             ->assertHasNoErrors()

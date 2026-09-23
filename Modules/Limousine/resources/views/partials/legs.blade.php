@@ -106,8 +106,10 @@
                     </div>
                 @endif
                 <div>
-                    <label class="{{ $lbl }}">{{ __('Car details') }}</label>
-                    <input type="text" wire:model="legs.{{ $i }}.car_details" class="o-input w-full" placeholder="{{ __('Any note about the car') }}">
+                    <label class="{{ $lbl }}">{{ __('Car details') }}{{ ($carDetailsRequired ?? false) ? ' *' : '' }}</label>
+                    <input type="text" wire:model="legs.{{ $i }}.car_details" class="o-input w-full"
+                           placeholder="{{ ($carDetailsRequired ?? false) ? __('Which car was asked for') : __('Any note about the car') }}">
+                    @error('legs.'.$i.'.car_details') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
 
                 <div>

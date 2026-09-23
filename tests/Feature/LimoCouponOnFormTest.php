@@ -60,7 +60,8 @@ final class LimoCouponOnFormTest extends TestCase
             ->set('legs.0.from_location', 'Hotel')
             ->set('legs.0.to_location', 'Bahrain Airport')
             ->set('legs.0.start_at', now()->addDay()->format('Y-m-d\TH:i'))
-            ->set('legs.0.rate', '45');
+            ->set('legs.0.rate', '45')
+            ->set('legs.0.car_details', 'Sedan');
     }
 
     /** The reported problem: Apply refused on a booking that did not exist yet. */
@@ -115,6 +116,7 @@ final class LimoCouponOnFormTest extends TestCase
             ->set('legs.1.to_location', 'Hotel')
             ->set('legs.1.start_at', now()->addDays(2)->format('Y-m-d\TH:i'))
             ->set('legs.1.rate', '30')
+            ->set('legs.1.car_details', 'Sedan')
             // 75 owed now, and the coupon covers all of it — no second Apply.
             ->assertViewHas('couponCredit', 75.0)
             ->assertViewHas('balance', 0.0);
@@ -216,6 +218,7 @@ final class LimoCouponOnFormTest extends TestCase
             ->set('legs.0.to_location', 'Airport')
             ->set('legs.0.start_at', now()->addDay()->format('Y-m-d\TH:i'))
             ->set('legs.0.rate', '45')
+            ->set('legs.0.car_details', 'Sedan')
             ->assertViewHas('couponCredit', 45.0)
             ->assertViewHas('balance', 0.0);
     }
@@ -245,6 +248,7 @@ final class LimoCouponOnFormTest extends TestCase
             'status' => LimoLeg::STATUS_QUEUE,
             'start_at' => now()->addDay(),
             'from_location' => 'Hotel',
+            'vehicle_details' => 'Sedan',
             'to_location' => 'Airport',
             'rate' => 45, 'net_amount' => 45,
         ]);

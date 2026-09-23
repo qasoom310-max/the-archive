@@ -56,6 +56,7 @@ final class LimoInvoiceChainTest extends TestCase
             ->set('legs.0.to_location', 'Hotel')
             ->set('legs.0.start_at', '2026-09-05T09:00')
             ->set('legs.0.rate', $rate)
+            ->set('legs.0.car_details', 'Sedan')
             ->set('legs.0.rate_basis', 'trip')
             ->call('save')
             ->assertHasNoErrors();
@@ -79,6 +80,7 @@ final class LimoInvoiceChainTest extends TestCase
         // The job is re-priced before any money changes hands.
         Livewire::test(BookingForm::class, ['id' => $booking->id])
             ->set('legs.0.rate', 60)
+            ->set('legs.0.car_details', 'Sedan')
             ->call('save')
             ->assertHasNoErrors();
 
@@ -100,6 +102,7 @@ final class LimoInvoiceChainTest extends TestCase
         // a receipt against.
         Livewire::test(BookingForm::class, ['id' => $booking->id])
             ->set('legs.0.rate', 90)
+            ->set('legs.0.car_details', 'Sedan')
             ->call('save')
             ->assertHasNoErrors();
 

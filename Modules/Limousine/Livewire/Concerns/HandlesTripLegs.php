@@ -207,7 +207,11 @@ trait HandlesTripLegs
             'start_at' => $l->start_at?->format('Y-m-d\TH:i') ?? '',
             'hours' => $l->hours !== null ? (string) $l->hours : '',
             'days' => (string) $l->days,
-            'car_details' => $l->vehicle_details ?? '',
+            // A trip brought over from the old system recorded the car it was
+            // booked for in `vehicle`, not `vehicle_details` — so fall back to
+            // it, or editing an imported booking would ask for a car detail
+            // the record has had all along.
+            'car_details' => trim((string) ($l->vehicle_details ?? '')) !== '' ? (string) $l->vehicle_details : (string) ($l->vehicle ?? ''),
             'rate' => (string) $l->rate,
             'currency' => $l->currency ?? LimoLeg::DEFAULT_CURRENCY,
             'quote_rate' => $l->quote_rate !== null ? (string) $l->quote_rate : '',
@@ -242,7 +246,11 @@ trait HandlesTripLegs
             $rules["legs.$i.from_location_url"] = ['nullable', 'url', 'max:500'];
             $rules["legs.$i.to_location_url"] = ['nullable', 'url', 'max:500'];
             $rules["legs.$i.start_at"] = ['required', 'date'];
-            $rules["legs.$i.car_details"] = ['nullable', 'string', 'max:255'];
+            // The car itself is picked at dispatch, so on a booking this line
+            // is what says which car was asked for — the office needs it on
+            // every trip. A quotation prices a service, not a named car, so
+            // it stays optional there (see carDetailsRequired()).
+            $rules["legs.$i.car_details"] = [$this->carDetailsRequired() ? 'required' : 'nullable', 'string', 'max:255'];
             $rules["legs.$i.rate"] = ['required', 'numeric', 'min:0'];
             $rules["legs.$i.currency"] = ['required', 'string', Rule::in(array_keys(Currencies::all()))];
             // Only asked for once a currency other than BHD is picked — BHD
@@ -282,6 +290,7 @@ trait HandlesTripLegs
         $lookupFailed = __('Could not fetch today\'s exchange rate. Check your connection and try again.');
 
         return [
+            'legs.*.car_details.required' => __('Say which car was asked for.'),
             'legs.*.exchange_rate.required' => $lookupFailed,
             'legs.*.exchange_rate.numeric' => $lookupFailed,
             'legs.*.exchange_rate.min' => $lookupFailed,
@@ -440,6 +449,12 @@ trait HandlesTripLegs
         return $value === '' ? null : $value;
     }
 
+    /** Whether each leg must say which car was asked for. */
+    protected function carDetailsRequired(): bool
+    {
+        return false;
+    }
+
     /**
      * Shared view data for the legs editor.
      *
@@ -448,6 +463,7 @@ trait HandlesTripLegs
     protected function legViewData(): array
     {
         return [
+            'carDetailsRequired' => $this->carDetailsRequired(),
             'serviceTypes' => LimoLeg::serviceTypeOptions(),
             'rateBasisOptions' => LimoLeg::rateBasisOptions(),
             'carOptions' => $this->carOptions(),

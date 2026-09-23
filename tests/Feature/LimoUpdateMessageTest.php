@@ -139,6 +139,7 @@ final class LimoUpdateMessageTest extends TestCase
             ->set('legs.0.to_location', 'Dammam Airport')
             ->set('legs.0.start_at', now()->addDay()->format('Y-m-d\TH:i'))
             ->set('legs.0.rate', '45')
+            ->set('legs.0.car_details', 'Sedan')
             ->call('save')
             ->assertHasNoErrors()
             ->assertRedirect('/app/limousine/booking');

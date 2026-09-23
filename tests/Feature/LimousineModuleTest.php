@@ -163,6 +163,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.start_at', '2026-07-05T09:00')
             ->set('legs.0.car_id', $carA->id)
             ->set('legs.0.rate', 45)
+            ->set('legs.0.car_details', 'Sedan')
             ->set('legs.0.rate_basis', 'trip')
             // Leg 2 — chauffeur 8h/day × 4 days at 10/hr = 320.
             ->call('addLeg')
@@ -173,6 +174,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.1.days', 4)
             ->set('legs.1.car_id', $carB->id)
             ->set('legs.1.rate', 10)
+            ->set('legs.1.car_details', 'Sedan')
             ->set('legs.1.rate_basis', 'hour')
             ->call('save')
             ->assertHasNoErrors();
@@ -246,9 +248,73 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.start_at', '2026-07-05T09:00')
             ->set('legs.0.car_id', $this->availableCar()->id)
             ->set('legs.0.rate', 10)
+            ->set('legs.0.car_details', 'Sedan')
             // hours left blank
             ->call('save')
             ->assertHasErrors(['legs.0.hours']);
+    }
+
+    /**
+     * The car itself is picked at dispatch, so on a booking the car details
+     * line is what says which car the customer asked for — the queue has
+     * nothing to send out without it. A quotation prices a service, not a
+     * named car, so it stays optional there.
+     */
+    public function test_a_booking_must_say_which_car_was_asked_for(): void
+    {
+        $this->install();
+        $customer = LimoCustomer::query()->create(['name' => 'Z']);
+
+        $booking = fn (): \Livewire\Features\SupportTesting\Testable => Livewire::test(BookingForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('pax_name', 'Guest')
+            ->set('requested_by', 'Office')
+            ->set('legs.0.service_type', 'transfer')
+            ->set('legs.0.from_location', 'Airport')
+            ->set('legs.0.to_location', 'Manama')
+            ->set('legs.0.start_at', '2026-07-05T09:00')
+            ->set('legs.0.rate', 20)
+            ->set('legs.0.rate_basis', 'trip');
+
+        $booking()->call('save')->assertHasErrors(['legs.0.car_details']);
+        $booking()->set('legs.0.car_details', 'Black GMC')->call('save')->assertHasNoErrors();
+
+        $this->assertSame('Black GMC', LimoLeg::query()->latest('id')->sole()->vehicle_details);
+
+        Livewire::test(QuotationForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('requested_by', 'Office')
+            ->set('legs.0.service_type', 'transfer')
+            ->set('legs.0.from_location', 'Airport')
+            ->set('legs.0.to_location', 'Manama')
+            ->set('legs.0.start_at', '2026-07-05T09:00')
+            ->set('legs.0.rate', 20)
+            ->set('legs.0.rate_basis', 'trip')
+            ->call('save')
+            ->assertHasNoErrors();
+    }
+
+    /** An imported trip recorded its car in `vehicle`, so editing it asks for nothing new. */
+    public function test_an_imported_bookings_car_is_read_from_the_leg_it_was_stored_on(): void
+    {
+        $this->install();
+        $booking = LimoBooking::query()->create([
+            'customer_id' => LimoCustomer::query()->create(['name' => 'Old'])->id,
+            'pickup_at' => '2026-07-05 09:00:00',
+            'pax_name' => 'Guest', 'requested_by' => 'Office', 'prepared_by' => 'Office',
+        ]);
+        LimoLeg::query()->create([
+            'legable_type' => LimoBooking::class, 'legable_id' => $booking->id,
+            'sequence' => 1, 'status' => LimoLeg::STATUS_QUEUE,
+            'start_at' => '2026-07-05 09:00:00',
+            'from_location' => 'Airport', 'to_location' => 'Manama',
+            'vehicle' => 'Sedan', 'rate' => 20, 'net_amount' => 20,
+        ]);
+
+        Livewire::test(BookingForm::class, ['id' => $booking->id])
+            ->assertSet('legs.0.car_details', 'Sedan')
+            ->call('save')
+            ->assertHasNoErrors();
     }
 
     public function test_removing_a_leg_keeps_at_least_one(): void
@@ -284,6 +350,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.start_at', '2026-07-01T14:30')
             ->set('legs.0.car_id', $car->id)
             ->set('legs.0.rate', 18.5)
+            ->set('legs.0.car_details', 'Sedan')
             ->set('legs.0.rate_basis', 'trip')
             ->call('save')
             ->assertHasNoErrors();
@@ -320,6 +387,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.to_location', 'City Centre')
             ->set('legs.0.start_at', '2026-07-01T14:30')
             ->set('legs.0.rate', 18.5)
+            ->set('legs.0.car_details', 'Sedan')
             ->set('legs.0.rate_basis', 'trip')
             ->call('save')
             ->assertHasNoErrors();
@@ -360,6 +428,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.to_location', 'City')
             ->set('legs.0.start_at', '2026-08-27T17:00')
             ->set('legs.0.rate', 25)
+            ->set('legs.0.car_details', 'Sedan')
             ->set('legs.0.rate_basis', 'trip')
             ->call('save')
             ->assertHasNoErrors();
@@ -388,6 +457,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.to_location', 'Home')
             ->set('legs.0.start_at', '2026-08-27T17:00')
             ->set('legs.0.rate', 13)
+            ->set('legs.0.car_details', 'Sedan')
             ->set('legs.0.rate_basis', 'trip')
             ->call('addLeg')
             ->set('legs.1.service_type', 'transfer')
@@ -395,6 +465,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.1.to_location', 'Bahrain Airport')
             ->set('legs.1.start_at', '2026-08-27T18:00')
             ->set('legs.1.rate', 12)
+            ->set('legs.1.car_details', 'Sedan')
             ->set('legs.1.rate_basis', 'trip')
             ->call('save')
             ->assertHasNoErrors();
@@ -819,6 +890,7 @@ final class LimousineModuleTest extends TestCase
         // would issue a new reference and reset the leg's progress.
         Livewire::test(BookingForm::class, ['id' => $booking->id])
             ->set('legs.0.rate', 25)
+            ->set('legs.0.car_details', 'Sedan')
             ->call('save')
             ->assertHasNoErrors();
 
@@ -1301,6 +1373,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.start_at', '2026-07-01T14:30')
             ->set('legs.0.car_id', $car->id)
             ->set('legs.0.rate', 18.5)
+            ->set('legs.0.car_details', 'Sedan')
             ->set('legs.0.rate_basis', 'trip')
             ->call('save')
             ->assertHasNoErrors();

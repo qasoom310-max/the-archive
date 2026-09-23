@@ -45,6 +45,7 @@ final class LimoChauffeurTest extends TestCase
             ->set('legs.0.hours', '8')
             ->set('legs.0.days', '3')
             ->set('legs.0.rate', '20')
+            ->set('legs.0.car_details', 'Sedan')
             ->set('legs.0.rate_basis', LimoLeg::BASIS_HOUR)
             ->call('save')
             ->assertHasNoErrors();

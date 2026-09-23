@@ -225,6 +225,16 @@ final class BookingForm extends Component
     }
 
     /**
+     * A booking says which car the customer asked for: the car itself is
+     * assigned later at dispatch, so without this line the queue has nothing
+     * to send out. A quotation prices a service, so it stays optional there.
+     */
+    protected function carDetailsRequired(): bool
+    {
+        return true;
+    }
+
+    /**
      * @return array<string, list<string>>
      */
     protected function rules(): array

@@ -281,6 +281,8 @@
     "Car and driver belong to the trip, not the booking — assign them from the queue (Assign car / Assign driver).": "السيارة والسائق يخصّان الرحلة وليس الحجز — عيّنهما من قائمة الرحلات (تعيين سيارة / تعيين سائق).",
     "Car assigned.": "تم تعيين السيارة.",
     "Car details": "تفاصيل السيارة",
+    "Which car was asked for": "السيارة المطلوبة",
+    "Say which car was asked for.": "اذكر السيارة المطلوبة.",
     "Car handed over.": "تم تسليم السيارة.",
     "Car hire agreement terms": "شروط عقد تأجير السيارة",
     "Car maintenance": "صيانة السيارات",

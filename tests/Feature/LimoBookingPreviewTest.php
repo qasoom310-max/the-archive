@@ -167,6 +167,7 @@ final class LimoBookingPreviewTest extends TestCase
             ->set('legs.0.to_location', 'City Centre')
             ->set('legs.0.start_at', '2026-07-01T14:30')
             ->set('legs.0.rate', 18.5)
+            ->set('legs.0.car_details', 'Sedan')
             ->set('legs.0.rate_basis', 'trip')
             ->call('save')
             ->assertHasNoErrors();

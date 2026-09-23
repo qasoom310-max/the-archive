@@ -645,16 +645,32 @@ document.addEventListener('alpine:init', () => {
      * The options are read FROM the select rather than passed in a second time,
      * so a Livewire re-render that changes them needs no other channel to say so.
      */
-    window.Alpine.data('searchableSelect', () => ({
+    window.Alpine.data('searchableSelect', (model = '') => ({
         open: false,
         query: '',
         label: '',
         options: [],
         active: 0,
         observer: null,
+        model,
 
         init() {
             this.sync();
+
+            // Livewire fills a wire:model control from the component's own
+            // state AFTER Alpine has initialised, and it does it by setting
+            // `value` — which mutates no attribute, so the observer below
+            // never hears it. Without this, a saved record's customer read as
+            // "— Select —" until someone opened the list (which re-syncs).
+            if (this.model) {
+                this.$nextTick(() => this.sync());
+                try {
+                    this.$wire?.$watch(this.model, () => this.sync());
+                } catch (e) {
+                    // An older Livewire without $watch: the re-read above and
+                    // the observer still cover the ordinary cases.
+                }
+            }
 
             // Livewire re-renders patch the option list and the chosen value
             // straight into the DOM without firing `change`, so watch the
@@ -682,7 +698,17 @@ document.addEventListener('alpine:init', () => {
                 .filter((option) => option.value !== '')
                 .map((option) => ({ value: option.value, label: option.textContent.trim() }));
 
-            const chosen = native.selectedOptions[0];
+            // The state is the truth when we know which property this is
+            // bound to; the control catches up with it (it is what Livewire
+            // reads back), and anything unbound falls back to the control.
+            let value = native.value;
+            if (this.model && this.$wire) {
+                const state = this.$wire.get(this.model);
+                value = state === null || state === undefined ? '' : String(state);
+                if (native.value !== value) native.value = value;
+            }
+
+            const chosen = Array.from(native.options).find((option) => option.value === value);
             this.label = chosen && chosen.value !== '' ? chosen.textContent.trim() : '';
         },
 

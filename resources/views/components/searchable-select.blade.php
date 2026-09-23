@@ -35,9 +35,28 @@
     // button would look locked and open anyway.
     $locked = (bool) $attributes->get('disabled', false);
     $bound = $attributes->except(['class', 'disabled']);
+
+    // Which property this field is bound to ("customer_id", "legs.0.car_id").
+    // The button reads the chosen name out of the component's own state, not
+    // just off the control — Livewire fills a control AFTER Alpine has looked
+    // at it. See `searchableSelect` in resources/js/app.js.
+    $model = (string) ($attributes->wire('model')->value() ?: '');
+
+    // …and mark the chosen option here, so the name is right in the HTML the
+    // browser first paints rather than a moment later.
+    $selected = null;
+    if ($model !== '') {
+        try {
+            $component = \Livewire\Livewire::current();
+            $selected = $component !== null ? data_get($component->all(), $model) : null;
+        } catch (\Throwable) {
+            $selected = null; // Not inside a Livewire component: the JS covers it.
+        }
+    }
+    $selected = $selected === null ? '' : (string) $selected;
 @endphp
 
-<div x-data="searchableSelect" class="relative"
+<div x-data="searchableSelect(@js($model))" class="relative"
      x-on:keydown.escape.prevent.stop="close()"
      x-on:click.outside="close()">
 
@@ -48,7 +67,7 @@
             class="sr-only" tabindex="-1" aria-hidden="true">
         <option value="">{{ $placeholder }}</option>
         @foreach ($options as $option)
-            <option value="{{ $option['value'] }}">{{ $option['label'] }}</option>
+            <option value="{{ $option['value'] }}"{{ $selected !== '' && (string) $option['value'] === $selected ? ' selected' : '' }}>{{ $option['label'] }}</option>
         @endforeach
     </select>
 

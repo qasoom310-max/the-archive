@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\Blade;
 use Livewire\Livewire;
 use Modules\Limousine\Livewire\BookingForm;
+use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
 use Tests\TestCase;
 
@@ -123,5 +124,36 @@ final class SearchableSelectTest extends TestCase
 
         // updatedCustomerId() ran off the binding the picker writes to.
         $component->assertSet('pax_contact', '+973 1234');
+    }
+
+    /**
+     * Opening a saved record shows the chosen name straight away. The HTML
+     * itself has to say which option is on: Livewire only fills the control
+     * once the page is running, and the button reads the name before that —
+     * so a saved booking's customer read as "— Select —" until someone
+     * opened the list, which re-read it.
+     */
+    public function test_a_saved_records_choice_is_marked_in_the_html(): void
+    {
+        $chosen = LimoCustomer::query()->create(['name' => 'Braxtone Plus W.L.L']);
+        $other = LimoCustomer::query()->create(['name' => 'Someone Else']);
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => $chosen->id,
+            'pickup_at' => '2026-07-05 09:00:00',
+            'pax_name' => 'Sara', 'requested_by' => 'Office', 'prepared_by' => 'Office',
+        ]);
+
+        $html = Livewire::test(BookingForm::class, ['id' => $booking->id])->html();
+
+        $this->assertStringContainsString('value="'.$chosen->id.'" selected', $html);
+        $this->assertStringNotContainsString('value="'.$other->id.'" selected', $html);
+    }
+
+    public function test_a_new_record_marks_nothing(): void
+    {
+        LimoCustomer::query()->create(['name' => 'Braxtone Plus W.L.L']);
+
+        $this->assertStringNotContainsString(' selected', Livewire::test(BookingForm::class)->html());
     }
 }

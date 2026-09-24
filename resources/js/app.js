@@ -402,10 +402,26 @@ document.addEventListener('alpine:init', () => {
      * writes back to it, so binding, validation and storage are unchanged — and
      * the calendar button still opens the browser's own picker.
      */
-    window.Alpine.data('dateField', (type) => ({
+    window.Alpine.data('dateField', (type, calendar = false, weekdayNames = [], monthNames = []) => ({
         type,
         display: '',
         observer: null,
+
+        // Opt-in month grid. A phone hands a date field to the OS, and the
+        // OS wheel never says which weekday a number is — so a dispatcher
+        // choosing "the 24th" could not see it was the Thursday they meant.
+        calendar,
+        weekdayNames,
+        monthNames,
+        calendarOpen: false,
+        viewYear: 0,
+        viewMonth: 0,
+        time: '',
+        touch: false,
+        // Kept in step by sync(), not read off the input each time: a DOM
+        // property is not reactive, so the highlighted day and the line
+        // naming the weekday would both go stale the moment one was picked.
+        chosen: '',
 
         init() {
             const native = this.$refs.native;
@@ -425,6 +441,15 @@ document.addEventListener('alpine:init', () => {
                     get: () => desc.get.call(native),
                     set: (value) => { desc.set.call(native, value); this.sync(); },
                 });
+            }
+
+            // A tap must open the grid rather than the phone's keyboard, so the
+            // text box goes readonly on a touch screen — and only there, since
+            // typing the date is how the desk enters most of them.
+            try {
+                this.touch = this.calendar && window.matchMedia('(pointer: coarse)').matches;
+            } catch (e) {
+                this.touch = false;
             }
 
             this.sync();
@@ -449,11 +474,13 @@ document.addEventListener('alpine:init', () => {
         /** ISO in the input → day/month/year on screen. */
         sync() {
             const raw = (this.$refs.native.value || '').trim();
-            if (raw === '') { this.display = ''; return; }
+            if (raw === '') { this.display = ''; this.chosen = ''; return; }
 
             const parts = raw.split('T');
             const ymd = parts[0].split('-');
-            if (ymd.length !== 3) { this.display = ''; return; }
+            if (ymd.length !== 3) { this.display = ''; this.chosen = ''; return; }
+
+            this.chosen = parts[0];
 
             const stamp = ymd[2] + '/' + ymd[1] + '/' + ymd[0];
             this.display = this.withTime && parts[1]
@@ -506,6 +533,134 @@ document.addEventListener('alpine:init', () => {
         pick() {
             const native = this.$refs.native;
             try { native.showPicker(); } catch (e) { native.focus(); }
+        },
+
+        // ---- the opt-in month grid ------------------------------------
+
+        get monthLabel() {
+            return (this.monthNames[this.viewMonth] || '') + ' ' + this.viewYear;
+        },
+
+        /** "Thursday 24 September 2026" — the weekday said in words. */
+        get chosenSummary() {
+            const iso = this.chosen;
+            if (iso === '') return '';
+
+            const parts = iso.split('-').map(Number);
+            const date = new Date(parts[0], parts[1] - 1, parts[2]);
+            if (Number.isNaN(date.getTime())) return '';
+
+            // The long weekday name is the short one the server sent unless a
+            // longer one is available; either way it comes from the server's
+            // locale, never the phone's.
+            const weekday = this.weekdayNames[date.getDay()] || '';
+
+            return weekday + ' ' + parts[2] + ' ' + (this.monthNames[parts[1] - 1] || '') + ' ' + parts[0];
+        },
+
+        toggleCalendar() {
+            this.calendarOpen ? this.closeCalendar() : this.openCalendar();
+        },
+
+        /**
+         * Opens on the month ALREADY chosen — the "scroll to the right date"
+         * part. Nothing chosen yet lands on this month, where today is ringed.
+         */
+        openCalendar() {
+            const iso = this.chosen;
+            const today = new Date();
+
+            if (iso !== '') {
+                const parts = iso.split('-').map(Number);
+                this.viewYear = parts[0];
+                this.viewMonth = parts[1] - 1;
+            } else {
+                this.viewYear = today.getFullYear();
+                this.viewMonth = today.getMonth();
+            }
+
+            this.time = (this.$refs.native.value || '').split('T')[1]?.slice(0, 5) || '';
+            this.calendarOpen = true;
+        },
+
+        closeCalendar() {
+            this.calendarOpen = false;
+        },
+
+        shiftMonth(step) {
+            const moved = new Date(this.viewYear, this.viewMonth + step, 1);
+            this.viewYear = moved.getFullYear();
+            this.viewMonth = moved.getMonth();
+        },
+
+        /**
+         * The visible month as 7-column rows: leading blanks so the 1st sits
+         * under its own weekday, then every day of the month.
+         *
+         * @returns {Array<number|null>}
+         */
+        monthGrid() {
+            const first = new Date(this.viewYear, this.viewMonth, 1).getDay();
+            const days = new Date(this.viewYear, this.viewMonth + 1, 0).getDate();
+            const cells = [];
+
+            for (let i = 0; i < first; i++) cells.push(null);
+            for (let day = 1; day <= days; day++) cells.push(day);
+
+            return cells;
+        },
+
+        iso(day) {
+            const pad = (n) => String(n).padStart(2, '0');
+
+            return this.viewYear + '-' + pad(this.viewMonth + 1) + '-' + pad(day);
+        },
+
+        isChosen(day) {
+            return day !== null && this.iso(day) === this.chosen;
+        },
+
+        isToday(day) {
+            if (day === null) return false;
+            const now = new Date();
+
+            return this.viewYear === now.getFullYear()
+                && this.viewMonth === now.getMonth()
+                && day === now.getDate();
+        },
+
+        choose(day) {
+            if (day === null) return;
+
+            if (!this.withTime) {
+                this.write(this.iso(day));
+                this.closeCalendar();
+
+                return;
+            }
+
+            // A booking taken now is usually for soon, so an unset time starts
+            // at this moment rather than at midnight — which would be a real
+            // time nobody chose, on a desk that genuinely books 00:30 airport runs.
+            if (this.time === '') {
+                const now = new Date();
+                this.time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+            }
+
+            // Left OPEN: the time still has to be set, and a panel that shut on
+            // the date would have to be reopened to do it. It closes on Escape,
+            // on the calendar button, or on a click anywhere else.
+            this.write(this.iso(day) + 'T' + this.time);
+        },
+
+        /** The time changed on its own; keep the day that is already chosen. */
+        applyTime() {
+            if (this.time === '') return;
+
+            const iso = this.chosen;
+            if (iso === '') return;
+
+            this.write(iso + 'T' + this.time);
         },
     }));
 

@@ -61,7 +61,7 @@
                 @if ($isChauffeur)
                     <div>
                         <label class="{{ $lbl }}">{{ __('Start date & time') }} *</label>
-                        <x-date-field type="datetime-local" wire:model.live="legs.{{ $i }}.start_at" class="o-input w-full" />
+                        <x-date-field type="datetime-local" :calendar="$calendar ?? false" wire:model.live="legs.{{ $i }}.start_at" class="o-input w-full" />
                         @error('legs.'.$i.'.start_at') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
@@ -85,7 +85,7 @@
                     </div>
                     <div>
                         <label class="{{ $lbl }}">{{ __('Date & time') }} *</label>
-                        <x-date-field type="datetime-local" wire:model.live="legs.{{ $i }}.start_at" class="o-input w-full" />
+                        <x-date-field type="datetime-local" :calendar="$calendar ?? false" wire:model.live="legs.{{ $i }}.start_at" class="o-input w-full" />
                         @error('legs.'.$i.'.start_at') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                 @endif

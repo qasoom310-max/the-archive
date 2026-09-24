@@ -375,7 +375,10 @@
    the desktop type-box + calendar button are hidden. Desktop (fine pointer)
    keeps the custom day/month/year overlay untouched. */
 @media (pointer: coarse) {
-  .date-field .date-field-native {
+  /* …except where the field draws its own month grid (the `calendar` prop on
+     <x-date-field>). There the OS picker is exactly what we are replacing, so
+     the native input stays a hidden carrier for the binding on a phone too. */
+  .date-field:not(.date-field-calendar) .date-field-native {
     position: static;
     height: auto;
     width: 100%;
@@ -388,8 +391,8 @@
     color: inherit;
     font-size: 16px;
   }
-  .date-field .date-field-text,
-  .date-field .date-field-cal {
+  .date-field:not(.date-field-calendar) .date-field-text,
+  .date-field:not(.date-field-calendar) .date-field-cal {
     display: none;
   }
 }

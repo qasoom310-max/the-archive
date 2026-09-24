@@ -116,6 +116,33 @@ final class LimoBookingPreviewTest extends TestCase
         $this->assertStringContainsString($leg->reference, $html);
     }
 
+    /**
+     * Six columns do not fit a phone. The wrapper used to be `overflow-hidden`
+     * (for the rounded corners), which CUT the vehicle, the status and every
+     * amount off with no way to reach them — the preview was unusable on the
+     * phone the drivers' desk actually runs it on.
+     */
+    public function test_the_preview_table_scrolls_sideways_on_a_phone(): void
+    {
+        $booking = $this->booking();
+
+        $html = Livewire::test(Bookings::class)->call('openPreview', $booking->id)->html();
+
+        $table = strstr($html, '<th class="whitespace-nowrap px-3 py-2 text-start">', true);
+        $this->assertIsString($table, 'The preview trip table has been rewritten — re-point this guard.');
+
+        // The wrapper immediately around it lets the overflow be reached.
+        $at = strrpos($table, '<div ');
+        $this->assertNotFalse($at);
+        $wrapper = substr($table, $at);
+        $this->assertStringContainsString('overflow-x-auto', $wrapper);
+        $this->assertStringNotContainsString('overflow-hidden', $wrapper);
+
+        // …and the columns keep a readable width instead of each one wrapping
+        // into a stack of single words to fit the screen.
+        $this->assertStringContainsString('min-w-[38rem]', $html);
+    }
+
     /** Closed, the copy action is nowhere on the page; open, it is — per leg. */
     public function test_the_preview_offers_a_copy_button_per_leg(): void
     {

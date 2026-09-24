@@ -1225,16 +1225,23 @@
                             </div>
                         </div>
 
-                        <div class="mt-4 overflow-hidden rounded-xl ring-1 ring-chrome-200">
-                            <table class="w-full text-sm">
+                        {{-- Six columns do not fit a phone. `overflow-hidden` (which
+                             was here for the rounded corners) simply CUT the last of
+                             them off with no way to reach them — the vehicle, the
+                             status and every amount were unreachable on a phone. It
+                             scrolls sideways now, like the bookings table itself, and
+                             the min-width keeps the columns legible rather than
+                             letting each one wrap into a stack of single words. --}}
+                        <div class="mt-4 overflow-x-auto rounded-xl ring-1 ring-chrome-200">
+                            <table class="w-full min-w-[38rem] text-sm">
                                 <thead class="bg-chrome-50 text-[11px] font-semibold uppercase tracking-wide text-chrome-500">
                                     <tr>
-                                        <th class="px-3 py-2 text-start">{{ __('Trip') }}</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-start">{{ __('Trip') }}</th>
                                         <th class="px-3 py-2 text-start">{{ __('Route') }}</th>
-                                        <th class="px-3 py-2 text-start">{{ __('Date') }}</th>
-                                        <th class="px-3 py-2 text-start">{{ __('Vehicle') }} / {{ __('Driver') }}</th>
-                                        <th class="px-3 py-2 text-start">{{ __('Status') }}</th>
-                                        <th class="px-3 py-2 text-end">{{ __('Amount') }}</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-start">{{ __('Date') }}</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-start">{{ __('Vehicle') }} / {{ __('Driver') }}</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-start">{{ __('Status') }}</th>
+                                        <th class="whitespace-nowrap px-3 py-2 text-end">{{ __('Amount') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-chrome-100">
@@ -1260,28 +1267,28 @@
                                                     {{ $pl->from_location ?: '—' }} → {{ $pl->to_location ?: '—' }}
                                                 @endif
                                             </td>
-                                            <td class="px-3 py-2 text-chrome-600">{{ $pl->start_at?->isoFormat('DD-MMM-YY HH:mm') ?? '—' }}</td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-chrome-600">{{ $pl->start_at?->isoFormat('DD-MMM-YY HH:mm') ?? '—' }}</td>
                                             <td class="px-3 py-2 text-chrome-600">{{ $pl->vehicle ?: '—' }}@if($pl->driver) · {{ $pl->driver }} @endif</td>
-                                            <td class="px-3 py-2">
+                                            <td class="whitespace-nowrap px-3 py-2">
                                                 <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb2[$pl->status] ?? 'bg-chrome-200 text-chrome-700' }}">{{ __(ucfirst((string) $pl->status)) }}</span>
                                             </td>
-                                            <td class="px-3 py-2 text-end font-medium">{{ $money((float) $pl->net_amount) }}</td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-end font-medium">{{ $money((float) $pl->net_amount) }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
                                 <tfoot class="bg-chrome-50 text-sm">
                                     <tr class="font-semibold text-chrome-800">
                                         <td colspan="5" class="px-3 py-2">{{ __('Total') }}</td>
-                                        <td class="px-3 py-2 text-end">{{ $money($previewing->netAmount()) }}</td>
+                                        <td class="whitespace-nowrap px-3 py-2 text-end">{{ $money($previewing->netAmount()) }}</td>
                                     </tr>
                                     <tr class="text-emerald-700">
                                         <td colspan="5" class="px-3 py-2">{{ __('Already received') }}</td>
-                                        <td class="px-3 py-2 text-end">{{ $money((float) $previewing->advance) }}</td>
+                                        <td class="whitespace-nowrap px-3 py-2 text-end">{{ $money((float) $previewing->advance) }}</td>
                                     </tr>
                                     @php $previewDue = $previewing->balanceDue(); @endphp
                                     <tr class="font-semibold {{ $previewDue > 0 ? 'text-amber-700' : 'text-chrome-500' }}">
                                         <td colspan="5" class="px-3 py-2">{{ __('Still owed') }}</td>
-                                        <td class="px-3 py-2 text-end">{{ $money($previewDue) }}</td>
+                                        <td class="whitespace-nowrap px-3 py-2 text-end">{{ $money($previewDue) }}</td>
                                     </tr>
                                 </tfoot>
                             </table>

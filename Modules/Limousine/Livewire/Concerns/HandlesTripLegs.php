@@ -266,11 +266,23 @@ trait HandlesTripLegs
             $rules["legs.$i.discount"] = ['nullable', 'numeric', 'min:0'];
             $rules["legs.$i.vat"] = ['nullable', 'numeric', 'min:0'];
 
-            if (($leg['service_type'] ?? '') === LimoLeg::TYPE_CHAUFFEUR) {
+            $chauffeur = ($leg['service_type'] ?? '') === LimoLeg::TYPE_CHAUFFEUR;
+            $basis = $leg['rate_basis'] ?? LimoLeg::BASIS_TRIP;
+
+            if ($chauffeur) {
                 $rules["legs.$i.hours"] = ['required', 'numeric', 'min:0.5'];
                 $rules["legs.$i.days"] = ['required', 'integer', 'min:1'];
             } else {
                 $rules["legs.$i.to_location"] = ['required', 'string', 'max:255'];
+
+                // Asked for only where the price actually depends on it, so a
+                // per-hour trip cannot be saved with no hours and a total of
+                // nothing — the failure it used to make silently.
+                if ($basis === LimoLeg::BASIS_HOUR) {
+                    $rules["legs.$i.hours"] = ['required', 'numeric', 'min:0.5'];
+                } elseif ($basis === LimoLeg::BASIS_DAY) {
+                    $rules["legs.$i.days"] = ['required', 'integer', 'min:1'];
+                }
             }
         }
 
@@ -381,8 +393,15 @@ trait HandlesTripLegs
             $rate = $currency === LimoLeg::DEFAULT_CURRENCY
                 ? (float) ($leg['rate'] === '' ? '0' : $leg['rate'])
                 : LimoLeg::bhdRate($currency, $quoteRate ?? 0.0, $exchangeRate);
-            $hours = $chauffeur && $leg['hours'] !== '' ? (float) $leg['hours'] : null;
-            $days = $chauffeur ? max(1, (int) ($leg['days'] === '' ? '1' : $leg['days'])) : 1;
+            // A quantity counts wherever the PRICE depends on it — a chauffeur
+            // leg always, any other leg when its rate is per hour or per day.
+            // Reading these off the service type alone left an hourly transfer
+            // multiplying by nothing, so it saved at 0.00 however big the rate.
+            $wantsHours = $chauffeur || $basis === LimoLeg::BASIS_HOUR;
+            $wantsDays = $chauffeur || $basis === LimoLeg::BASIS_DAY;
+
+            $hours = $wantsHours && ($leg['hours'] ?? '') !== '' ? (float) $leg['hours'] : null;
+            $days = $wantsDays ? max(1, (int) (($leg['days'] ?? '') === '' ? '1' : $leg['days'])) : 1;
             $discount = (float) ($leg['discount'] === '' ? '0' : $leg['discount']);
             $vat = (float) ($leg['vat'] === '' ? '0' : $leg['vat']);
             $carId = ($leg['car_id'] ?? '') !== '' ? (int) $leg['car_id'] : null;

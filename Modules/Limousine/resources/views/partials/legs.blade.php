@@ -19,8 +19,13 @@
             $rate = (float) (($leg['rate'] ?? '') === '' ? 0 : $leg['rate']);
             $hours = (float) (($leg['hours'] ?? '') === '' ? 0 : $leg['hours']);
             $days = max(1, (int) (($leg['days'] ?? '') === '' ? 1 : $leg['days']));
-            $gross = match ($basis) { 'hour' => $rate * $hours * $days, 'day' => $rate * $days, default => $rate };
-            $net = max(0, $gross - (float) (($leg['discount'] ?? '') === '' ? 0 : $leg['discount'])) + (float) (($leg['vat'] ?? '') === '' ? 0 : $leg['vat']);
+            // The model's own arithmetic, not a copy of it: this figure is read
+            // off the screen and agreed with a customer, so it must be the one
+            // that gets saved rather than a second formula that can drift.
+            $discount = (float) (($leg['discount'] ?? '') === '' ? 0 : $leg['discount']);
+            $vat = (float) (($leg['vat'] ?? '') === '' ? 0 : $leg['vat']);
+            $gross = \Modules\Limousine\Models\LimoLeg::grossFor($basis, $rate, $hours, $days);
+            $net = \Modules\Limousine\Models\LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat);
         @endphp
         <div wire:key="leg-{{ $i }}" class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -159,6 +164,27 @@
                         @foreach ($rateBasisOptions as $opt)<option value="{{ $opt['value'] }}">{{ __($opt['label']) }}</option>@endforeach
                     </select>
                 </div>
+                {{-- A rate per hour is nothing without the hours, and a rate per
+                     day nothing without the days. A chauffeur leg asks for both
+                     further up; any other leg had nowhere to put them, so the
+                     multiplier stayed empty and a 12 BD/hour trip totalled 0.00
+                     with nothing on screen to say why. --}}
+                @unless ($isChauffeur)
+                    @if ($basis === 'hour')
+                        <div>
+                            <label class="{{ $lbl }}">{{ __('Hours') }} *</label>
+                            <input type="number" step="0.5" min="0.5" wire:model.live="legs.{{ $i }}.hours"
+                                   class="o-input w-full" placeholder="{{ __('e.g. 3') }}">
+                            @error('legs.'.$i.'.hours') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    @elseif ($basis === 'day')
+                        <div>
+                            <label class="{{ $lbl }}">{{ __('Number of days') }} *</label>
+                            <input type="number" min="1" wire:model.live="legs.{{ $i }}.days" class="o-input w-full">
+                            @error('legs.'.$i.'.days') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    @endif
+                @endunless
                 <div>
                     <label class="{{ $lbl }}">{{ __('Discount (BHD)') }}</label>
                     <input type="number" step="0.001" min="0" placeholder="0" wire:model.live="legs.{{ $i }}.discount" class="o-input w-full">

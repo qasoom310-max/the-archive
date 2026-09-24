@@ -499,7 +499,15 @@ document.addEventListener('alpine:init', () => {
 
             // Day first, and forgiving about the separator: 31/08/2026,
             // 31-08-2026 and 31.8.26 are the same date to a person.
-            const match = typed.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2}|\d{4})(?:[ ,]+(\d{1,2}):(\d{2}))?/);
+            //
+            // FOUR digits are tried before two, and the order is the whole
+            // point: alternation takes the first branch that matches, so
+            // `\d{2}` first ate the "20" of "2026" and left the "26" unread.
+            // Everything after the year is optional, so the match still
+            // succeeded — and every four-digit year a person typed was saved
+            // as 20xx, with the time silently dropped. "2026" became 2020, and
+            // correcting it by hand appeared to do nothing at all.
+            const match = typed.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{4}|\d{2})(?:[ ,]+(\d{1,2}):(\d{2}))?/);
             if (!match) { this.sync(); return; }
 
             const day = Number(match[1]);

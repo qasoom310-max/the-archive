@@ -587,6 +587,16 @@ document.addEventListener('alpine:init', () => {
             this.calendarOpen = false;
         },
 
+        /**
+         * Done: the same close, but it hands focus back to the field. Closing
+         * by clicking elsewhere must NOT do that — there the person has already
+         * chosen where they are going next.
+         */
+        confirmCalendar() {
+            this.closeCalendar();
+            this.$refs.text?.focus();
+        },
+
         shiftMonth(step) {
             const moved = new Date(this.viewYear, this.viewMonth + step, 1);
             this.viewYear = moved.getFullYear();

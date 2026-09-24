@@ -86,20 +86,29 @@ final class LimoQueuePhoneColumnsTest extends TestCase
         $this->assertStringContainsString('<span class="hidden sm:inline">From date</span>', $html);
     }
 
-    public function test_the_price_column_comes_before_the_type_on_screen(): void
+    /**
+     * What the job IS comes before what it costs. The screen used to pull the
+     * price up beside the dates; the desk asked for it back after the type and
+     * the customer, which is where the service's own column list has it — so
+     * the screen and the exports now read in one order rather than two.
+     */
+    public function test_the_type_and_customer_come_before_the_price_on_screen(): void
     {
         $this->trip();
 
         $html = Livewire::test(Bookings::class)->html();
 
+        $type = mb_strpos($html, 'Sort by Type');
+        $customer = mb_strpos($html, 'Sort by Customer');
+        $amount = mb_strpos($html, 'Sort by Amount');
+
+        $this->assertLessThan($customer, $type);
+        $this->assertLessThan($amount, $customer, 'The price is still ahead of the customer.');
+
+        // …and the cells follow their headings, not just the headings.
         $this->assertLessThan(
-            mb_strpos($html, 'Sort by Type'),
-            mb_strpos($html, 'Sort by Amount'),
-            'The price belongs with the dates, not past the customer.',
-        );
-        $this->assertLessThan(
-            mb_strpos($html, 'Transfer</td>'),
             mb_strpos($html, 'Price of this trip'),
+            mb_strpos($html, 'Transfer</td>'),
         );
     }
 

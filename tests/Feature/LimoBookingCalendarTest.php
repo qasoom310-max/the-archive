@@ -87,6 +87,23 @@ final class LimoBookingCalendarTest extends TestCase
     }
 
     /**
+     * Tapping outside closed the panel from the start, but nothing on screen
+     * said so — on a phone that reads as being stuck in it. There is a plain
+     * way out now, and the older ways still work.
+     */
+    public function test_the_grid_has_a_done_button_to_close_it(): void
+    {
+        $html = Livewire::test(BookingForm::class)->html();
+
+        $this->assertStringContainsString('confirmCalendar()', $html);
+        $this->assertStringContainsString('>Done</button>', $html);
+
+        // Kept, not replaced: a click elsewhere and Escape still close it.
+        $this->assertStringContainsString('x-on:click.outside="closeCalendar()"', $html);
+        $this->assertStringContainsString('closeCalendar()', $html);
+    }
+
+    /**
      * Scoped to the booking, which is what was asked for. The quotation shares
      * the very same legs partial, so this is the line that keeps them apart.
      */

@@ -142,9 +142,15 @@
                 </div>
             @endif
 
-            {{-- The whole point in one line: the weekday a date falls on, said
-                 in words rather than left to be counted off the grid. --}}
-            <p class="mt-3 text-xs text-chrome-500" x-text="chosenSummary"></p>
+            {{-- The weekday a date falls on, said in words rather than left to
+                 be counted off the grid — and a plain way out. Tapping outside
+                 still closes the panel, but nothing on screen SAID so, which on
+                 a phone reads as being stuck in it. --}}
+            <div class="mt-3 flex items-center justify-between gap-2">
+                <p class="text-xs text-chrome-500" x-text="chosenSummary"></p>
+                <button type="button" x-on:click="confirmCalendar()"
+                        class="o-btn-primary shrink-0 px-3 py-1 text-xs">{{ __('Done') }}</button>
+            </div>
         </div>
     @endif
 </div>

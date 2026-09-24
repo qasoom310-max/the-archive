@@ -195,7 +195,7 @@
     {{-- 17 data columns can never fit a phone, so rather than force a sideways
          scroll the table sheds columns as the screen narrows: what identifies
          and actions a job always stays, the rest return as there is room.
-           phone  reference · date · amount · type · customer · pickup ·
+           phone  reference · date · type · customer · amount · pickup ·
                   drop off · vehicle · added by · payment · actions
            sm     + no. · to date
            md     + status
@@ -232,14 +232,12 @@
             'payment' => '',
         ];
 
-        // On screen the price follows the dates, so a phone — which shows
-        // one date and the amount — reads "when, how much" without being
-        // scrolled sideways. Derived from the service's own column list
-        // rather than retyped, so a column added there still appears here;
-        // the exports keep that original order, which the office's own
-        // spreadsheets are built around.
-        $order = array_values(array_filter(array_keys($headings), fn (string $k): bool => $k !== 'amount'));
-        array_splice($order, (int) array_search('to_date', $order, true) + 1, 0, 'amount');
+        // The service's own column order, which puts the type and the customer
+        // ahead of the price — what the job IS before what it costs. The screen
+        // used to pull the price up beside the dates; the desk asked for it
+        // back. Taken from the service rather than retyped, so a column added
+        // there appears here too and the exports cannot disagree with the screen.
+        $order = array_keys($headings);
     @endphp
     <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
         <table id="limo-queue" class="w-full table-auto divide-y divide-chrome-100 text-xs">
@@ -339,11 +337,6 @@
                         </td>
                         <td class="px-2 py-2 text-chrome-900">{{ $row['from_date'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 text-chrome-900 sm:table-cell">{{ $row['to_date'] ?: '—' }}</td>
-                        {{-- THIS trip's own price — the one figure the office is
-                             looking for beside the date, so it comes before the
-                             columns a phone has to be scrolled to reach. --}}
-                        <td class="px-2 py-2 text-end font-medium text-chrome-900"
-                            title="{{ __('Price of this trip') }}">{{ $money($row['amount']) }}</td>
                         <td class="px-2 py-2 text-chrome-900">{{ $row['type'] }}</td>
                         {{-- The name is the way into their account: what they
                              have asked for, what is billed and what is owed.
@@ -356,6 +349,12 @@
                                 {{ $row['customer'] ?: '—' }}
                             @endif
                         </td>
+                        {{-- THIS trip's own price. It sits after what the job is
+                             and who it is for, which is the order the service's
+                             own column list uses — so the screen and the exports
+                             read the same way round. --}}
+                        <td class="px-2 py-2 text-end font-medium text-chrome-900"
+                            title="{{ __('Price of this trip') }}">{{ $money($row['amount']) }}</td>
                         {{-- Received and Balance are the whole BOOKING's: the customer
                              settles the job, not a leg of it, so a booking of three trips
                              shows one balance repeated down its rows rather than a third

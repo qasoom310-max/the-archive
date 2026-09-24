@@ -243,6 +243,90 @@ final class LimoQueuePhoneColumnsTest extends TestCase
     }
 
     /**
+     * Who took the booking is asked for across the desk all day, and it was
+     * waiting for a laptop. It reads on a phone now, heading and value both.
+     */
+    public function test_added_by_reads_on_a_phone(): void
+    {
+        $this->trip();
+        LimoBooking::query()->firstOrFail()->forceFill(['prepared_by' => 'qassim'])->saveQuietly();
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        $heading = $this->cellAround($html, 'Sort by Added by');
+        $this->assertStringNotContainsString('hidden', $heading, 'The Added by heading is still hidden on a phone.');
+
+        // The value sits in the same column and has its own class, so being
+        // told about the heading alone would not mean it is readable.
+        $this->assertMatchesRegularExpression(
+            '/<td class="px-2 py-2 text-chrome-900">\s*qassim\s*<\/td>/',
+            $html,
+            'The Added by value is still hidden on a phone.',
+        );
+    }
+
+    /**
+     * The heading's width class comes from the $vis map and each body cell
+     * carries its own — two halves of one column, written in two places. If
+     * they disagree the table misaligns at that width: every cell after the
+     * odd one out sits under the wrong heading, which reads as wrong data
+     * rather than as a layout fault.
+     */
+    public function test_every_columns_heading_and_cells_appear_at_the_same_width(): void
+    {
+        $this->trip();
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        $head = $this->widthTiers($html, '<th');
+        $body = $this->widthTiers($html, '<td');
+
+        $this->assertNotSame([], $head);
+        $this->assertSame($head, $body, 'A heading and its cells appear at different screen widths.');
+    }
+
+    /** The class attribute of the element containing the given marker. */
+    private function cellAround(string $html, string $marker): string
+    {
+        $at = strpos($html, $marker);
+        $this->assertNotFalse($at, "Not found in the page: {$marker}");
+
+        $open = strrpos(substr($html, 0, $at), '<th');
+        $this->assertNotFalse($open);
+
+        return substr($html, (int) $open, $at - (int) $open);
+    }
+
+    /**
+     * The width tier of every cell of one table row, in order: 'sm', 'md',
+     * 'lg' or '' for one that is always on.
+     *
+     * @return list<string>
+     */
+    private function widthTiers(string $html, string $tag): array
+    {
+        $table = (string) strstr($html, '<table id="limo-queue"');
+        $row = $tag === '<th'
+            ? (string) strstr($table, '<tr>')
+            : (string) strstr($table, '<tbody');
+
+        $end = strpos($row, '</tr>');
+        $row = $end === false ? $row : substr($row, 0, $end);
+
+        preg_match_all('/<(?:th|td)\s+class="([^"]*)"/', $row, $matches);
+
+        return array_map(static function (string $class): string {
+            foreach (['sm', 'md', 'lg'] as $tier) {
+                if (str_contains($class, $tier.':table-cell')) {
+                    return $tier;
+                }
+            }
+
+            return '';
+        }, $matches[1]);
+    }
+
+    /**
      * Which columns show has never been a permission — it is pure CSS keyed
      * to screen width, identical for every account. A Supervisor (Write,
      * never an admin) sees exactly the same set of `lg:table-cell` markers as

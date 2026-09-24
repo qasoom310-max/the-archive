@@ -196,11 +196,15 @@
          scroll the table sheds columns as the screen narrows: what identifies
          and actions a job always stays, the rest return as there is room.
            phone  reference · date · amount · type · customer · pickup ·
-                  drop off · vehicle · payment · actions
+                  drop off · vehicle · added by · payment · actions
            sm     + no. · to date
            md     + status
-           lg     everything (received, balance, driver, added by,
-                  comments, booked time)
+           lg     everything (received, balance, driver, comments,
+                  booked time)
+
+         Note the HEADER's width class comes from $vis below while each body
+         <td> carries its own. They are two halves of one column and have to
+         agree, or the table misaligns at that width — pinned by a test.
          `lg` (1024px), not the far wider `xl`/`2xl` this used to wait for —
          a normal work laptop clears 1024px with room to spare, and a
          Supervisor doing dispatch work needs the money/driver columns as
@@ -221,7 +225,7 @@
             'dropoff' => '',
             'vehicle' => '',
             'driver' => 'hidden lg:table-cell',
-            'added_by' => 'hidden lg:table-cell',
+            'added_by' => '',
             'comments' => 'hidden lg:table-cell',
             'booked_time' => 'hidden lg:table-cell',
             'status' => 'hidden md:table-cell',
@@ -410,7 +414,7 @@
                                 <span class="text-chrome-400">—</span>
                             @endif
                         </td>
-                        <td class="hidden px-2 py-2 text-chrome-900 lg:table-cell">{{ $row['added_by'] ?: '—' }}</td>
+                        <td class="px-2 py-2 text-chrome-900">{{ $row['added_by'] ?: '—' }}</td>
                         <td class="hidden max-w-[16rem] px-2 py-2 text-chrome-900 lg:table-cell">{{ $row['comments'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 text-chrome-900 lg:table-cell">{{ $row['booked_time'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 md:table-cell">

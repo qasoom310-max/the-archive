@@ -329,8 +329,15 @@
                                 label: @js($selectedVehicle ? $selectedVehicle->displayName() . ' · ' . ($selectedVehicle->is_outside ? __('Outside') : __('Ours')) : ''),
                                 pick(id, label) { this.label = label; this.open = false; this.q = ''; $wire.set('vehicle_id', id); },
                             }" @click.outside="open = false">
+                            {{-- `border px-3 py-2` on purpose: o-input sets the
+                                 border COLOUR, the rounding and the background,
+                                 but the WIDTH and the padding come from
+                                 @tailwindcss/forms, which styles real controls
+                                 — an input, a select — and not a button. Without
+                                 them this drew no box at all and the car read as
+                                 a stray line of text among bordered fields. --}}
                             <button type="button" @click="open = ! open; if (open) $nextTick(() => $refs.q.focus())"
-                                class="o-input flex w-full items-center justify-between text-start">
+                                class="o-input flex w-full items-center justify-between border px-3 py-2 text-start">
                                 <span x-text="label || '{{ __('— Select —') }}'" :class="label ? '' : 'text-chrome-400'"></span>
                                 <svg class="size-4 text-chrome-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"/></svg>
                             </button>
@@ -438,14 +445,25 @@
                 </header>
 
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    {{-- Worked out HERE, never as an @if inside the tag below.
+                         Blade's component compiler cannot read a tag whose
+                         attributes hold a directive: it gives up and prints the
+                         tag as literal text, the browser makes nothing of an
+                         unknown element, and the field silently disappears —
+                         which is exactly what these two did. A bound attribute
+                         that is null is simply left off. --}}
+                    @php
+                        $earliestStart = $canBackdate ? null : now()->toDateString();
+                        $earliestReturn = $start_date ?: null;
+                    @endphp
                     <div>
                         <label class="{{ $lbl }}">{{ __('Pick-up date') }} <span class="text-red-500">*</span></label>
-                        <x-date-field wire:model.live="start_date" class="o-input w-full" @unless ($canBackdate) min="{{ now()->toDateString() }}" @endunless />
+                        <x-date-field wire:model.live="start_date" class="o-input w-full" :min="$earliestStart" />
                         @error('start_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label class="{{ $lbl }}">{{ __('Return date') }} <span class="text-red-500">*</span></label>
-                        <x-date-field wire:model.live="end_date" class="o-input w-full" @if ($start_date) min="{{ $start_date }}" @endif />
+                        <x-date-field wire:model.live="end_date" class="o-input w-full" :min="$earliestReturn" />
                         @error('end_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                     <div>

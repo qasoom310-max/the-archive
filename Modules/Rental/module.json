@@ -9,8 +9,12 @@
     "icon": "rental",
     "application": true,
     "auto_install": false,
-    "depends": ["base"],
-    "providers": ["Modules\\Rental\\Providers\\RentalServiceProvider"],
+    "depends": [
+        "base"
+    ],
+    "providers": [
+        "Modules\\Rental\\Providers\\RentalServiceProvider"
+    ],
     "models": [
         "Modules\\Rental\\Models\\Branch",
         "Modules\\Rental\\Models\\RentalCustomer",
@@ -21,7 +25,8 @@
         "Modules\\Rental\\Models\\RentalInvoice",
         "Modules\\Rental\\Models\\RentalReceipt",
         "Modules\\Rental\\Models\\RentalReplacement",
-        "Modules\\Rental\\Models\\RentalMaintenance"
+        "Modules\\Rental\\Models\\RentalMaintenance",
+        "Modules\\Rental\\Models\\RentalWebBooking"
     ],
     "sequence": 11
 }

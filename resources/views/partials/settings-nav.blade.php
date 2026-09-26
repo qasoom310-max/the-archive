@@ -32,6 +32,12 @@
         $sections[] = ['key' => 'limo_portal', 'label' => 'Service Portal', 'url' => url('/app/settings/limo-portal')];
     }
 
+    // How the website sends car-rental bookings in. Its own secret, separate
+    // from the limousine portal's — see RentalPortalConfiguration.
+    if ($isAdmin && $installedModule('rental')) {
+        $sections[] = ['key' => 'web_bookings', 'label' => 'Web Bookings', 'url' => url('/app/settings/web-bookings')];
+    }
+
     // Cloudflare Stream is a core integration (no module) — admin-only tab.
     if ($isAdmin) {
         $sections[] = ['key' => 'stream', 'label' => 'Cloudflare Stream', 'url' => url('/app/settings/stream')];

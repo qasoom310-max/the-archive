@@ -57,7 +57,7 @@
                     <svg class="size-4" viewBox="0 0 20 20" fill="currentColor">{!! $ic['plus'] !!}</svg>{{ __('New order') }}
                 </a>
                 <div class="flex flex-wrap gap-2 lg:justify-end">
-                    @foreach ([['Orders', '/app/rental/order'], ['Quotations', '/app/rental/quotation'], ['Invoices', '/app/rental/invoice'], ['Receipts', '/app/rental/receipt'], ['Replacements', '/app/rental/replacement'], ['Maintenance', '/app/rental/maintenance'], ['Sales', '/app/rental/sales'], ['Reports', '/app/rental/reports']] as [$lbl, $href])
+                    @foreach ([['Orders', '/app/rental/order'], ['Quotations', '/app/rental/quotation'], ['Invoices', '/app/rental/invoice'], ['Receipts', '/app/rental/receipt'], ['Replacements', '/app/rental/replacement'], ['Maintenance', '/app/rental/maintenance'], ['Web bookings', '/app/rental/web_booking'], ['Sales', '/app/rental/sales'], ['Reports', '/app/rental/reports']] as [$lbl, $href])
                         <a href="{{ url($href) }}" wire:navigate class="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90 ring-1 ring-white/10 transition hover:bg-white/20">{{ __($lbl) }}</a>
                     @endforeach
                 </div>

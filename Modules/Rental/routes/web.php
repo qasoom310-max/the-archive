@@ -27,7 +27,10 @@ use Modules\Rental\Http\Controllers\RentalFleetExportController;
 use Modules\Rental\Http\Controllers\RentalSalesExportController;
 use Modules\Rental\Http\Controllers\RentalSalesImportController;
 use Modules\Rental\Http\Controllers\RentalVehicleImportController;
+use Modules\Rental\Http\Controllers\WebBookingController;
 use Modules\Rental\Livewire\BranchForm;
+use Modules\Rental\Livewire\WebBookings;
+use Modules\Rental\Livewire\WebBookingSettings;
 use Modules\Rental\Livewire\Branches;
 use Modules\Rental\Livewire\CustomerForm;
 use Modules\Rental\Livewire\Customers;
@@ -51,6 +54,16 @@ use Modules\Rental\Livewire\FleetEarnings;
 use Modules\Rental\Livewire\Sales;
 use Modules\Rental\Livewire\VehicleForm;
 use Modules\Rental\Livewire\Vehicles;
+
+/**
+ * The website posts a booking here the moment a customer places one. Public,
+ * outside `auth`, and CSRF-excepted in bootstrap/app.php — its only credential
+ * is the HMAC signature the controller verifies. Throttled because it faces the
+ * open internet and a signature is checked, not guessed at, per request.
+ */
+Route::post('/rental/web-booking', WebBookingController::class)
+    ->middleware('throttle:120,1')
+    ->name('rental.web_booking.receive');
 
 Route::middleware('auth')->group(function (): void {
     // App landing — the operations dashboard (fleet availability KPIs).
@@ -161,6 +174,15 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/rental/vehicle', Vehicles::class)->name('rental.vehicle.index');
     Route::get('/app/rental/vehicle/new', VehicleForm::class)->name('rental.vehicle.create');
     Route::get('/app/rental/vehicle/{id}', VehicleForm::class)->whereNumber('id')->name('rental.vehicle.edit');
+
+    // Bookings taken on the website. The slug matches the model key's resource
+    // (rental.web_booking), which is what ModuleMenu turns into this URL for
+    // the app dropdown — see App\Erp\Navigation\ModuleMenu::resourceSlug().
+    Route::get('/app/rental/web_booking', WebBookings::class)->name('rental.web_booking.index');
+
+    // Two segments, so the /app/{module} wildcard cannot shadow it — the same
+    // shape as the limousine portal's own settings route.
+    Route::get('/app/settings/web-bookings', WebBookingSettings::class)->name('rental.web_booking.settings');
 
     Route::post('/app/rental/driver/import', RentalDriverImportController::class)->name('rental.driver.import');
     Route::get('/app/rental/driver', Drivers::class)->name('rental.driver.index');

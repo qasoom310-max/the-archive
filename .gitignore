@@ -23,3 +23,9 @@ yarn-error.log
 /.zed
 
 .claude/scheduled_tasks.lock
+
+# The old WordPress plugin, kept locally as a reference while its replacement
+# was written. It carries the live credentials it used to authenticate with
+# (hardcoded in the file), so it must never enter git history — history is
+# forever and those credentials would be readable by anyone with the repo.
+/woocom-integ-wanaan.zip

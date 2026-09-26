@@ -25,6 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
             // The website reads published fares server-to-server, signed with
             // the path-bound HMAC. No session, so no CSRF token to send.
             'api/v1/*',
+            // The website posts a car-rental booking here the moment one is
+            // placed. Server-to-server and HMAC-signed, like the callback above.
+            'rental/web-booking',
         ]);
 
         // Trust the upstream proxy that terminates TLS in front of PHP

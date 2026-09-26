@@ -54,8 +54,12 @@ final class CustomerImporter
      * another system commonly carries one form where we hold the other — but
      * matching on too few digits would merge strangers, so seven is the floor
      * (the same rule the POS customer-discount lookup uses).
+     *
+     * Public because the website-booking converter matches customers the same
+     * way, and two different floors would mean the same person is one customer
+     * when imported and two when they book online.
      */
-    private const PHONE_SUFFIX_MIN = 7;
+    public const PHONE_SUFFIX_MIN = 7;
 
     /** Row fields (importer key => column) a matched existing customer may have filled in when blank. */
     private const ENRICHABLE = [

@@ -61,7 +61,7 @@ final class RentalModuleTest extends TestCase
         }
 
         $this->assertEqualsCanonicalizing(
-            ['rental.branch', 'rental.customer', 'rental.vehicle', 'rental.driver', 'rental.order', 'rental.quotation', 'rental.invoice', 'rental.receipt', 'rental.replacement', 'rental.maintenance'],
+            ['rental.branch', 'rental.customer', 'rental.vehicle', 'rental.driver', 'rental.order', 'rental.quotation', 'rental.invoice', 'rental.receipt', 'rental.replacement', 'rental.maintenance', 'rental.web_booking'],
             IrModel::query()->where('module', 'rental')->pluck('model')->all(),
         );
         foreach (['rental_orders', 'rental_quotations', 'rental_invoices', 'rental_receipts', 'rental_replacements', 'rental_maintenance'] as $table) {

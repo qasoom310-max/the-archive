@@ -7,6 +7,7 @@ namespace Modules\Rental\Providers;
 use App\Erp\Notifications\NotificationCenter;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\ServiceProvider;
+use Modules\Rental\Console\FixOrderFiguresCommand;
 use Modules\Rental\Console\ImportCarsCommand;
 use Modules\Rental\Console\ImportCustomersCommand;
 use Modules\Rental\Support\RentalNotifications;
@@ -33,7 +34,7 @@ final class RentalServiceProvider extends ServiceProvider
         );
 
         if ($this->app->runningInConsole()) {
-            $this->commands([ImportCustomersCommand::class, ImportCarsCommand::class]);
+            $this->commands([ImportCustomersCommand::class, ImportCarsCommand::class, FixOrderFiguresCommand::class]);
         }
     }
 }

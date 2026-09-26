@@ -1,0 +1,77 @@
+name: Fix rental order figures from the old system (manual)
+
+# Runs `php artisan rental:fix-order-figures` on the live server. Copies the
+# previous system's Amount / VAT / Total / Receipt / Balance / Deposit onto
+# the rental order with the same RA#, for orders the historical import
+# brought over at 0.00 (which therefore read PAID).
+#
+# The CSV must already be on the server — this input is a path, not a file —
+# at storage/app/imports/<file> by default (upload via SFTP / hPanel File
+# Manager; that path is excluded from the deploy rsync). Export it from the
+# old system's orders list with its CSV button.
+#
+# Always run with pretend=true first and read the job log before running for
+# real. Manual only (workflow_dispatch); never runs on push.
+on:
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: 'Workspace id to correct (7 = Wanaan)'
+        required: true
+        default: '7'
+      csv_path:
+        description: 'Path to the CSV on the server (relative to the deploy path)'
+        required: true
+        default: 'storage/app/imports/rental-orders.csv'
+      pretend:
+        description: 'Dry run — report only, save nothing'
+        type: boolean
+        required: true
+        default: true
+      sync_active:
+        description: 'Also make the active orders match the file (only when the CSV is the old ACTIVE orders list)'
+        type: boolean
+        required: true
+        default: false
+
+concurrency:
+  group: fix-rental-order-figures
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    name: Fix on erp.wanaan-bh.com
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust Hostinger SSH host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run rental:fix-order-figures
+        env:
+          FIX_WORKSPACE: ${{ inputs.workspace }}
+          FIX_CSV_PATH: ${{ inputs.csv_path }}
+          FIX_PRETEND: ${{ inputs.pretend }}
+          FIX_SYNC: ${{ inputs.sync_active }}
+        run: |
+          set -euo pipefail
+
+          FLAGS=""
+          if [ "$FIX_PRETEND" = "true" ]; then FLAGS="$FLAGS --pretend"; fi
+          if [ "$FIX_SYNC" = "true" ]; then FLAGS="$FLAGS --sync-active"; fi
+
+          ssh -p ${{ secrets.SSH_PORT }} \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && php artisan rental:fix-order-figures \
+               $(printf '%q' "$FIX_CSV_PATH") \
+               --workspace=$(printf '%q' "$FIX_WORKSPACE") \
+               $FLAGS"

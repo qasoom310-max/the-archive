@@ -36,11 +36,17 @@ final class RentalFleetExportController
             $year = (int) Carbon::now()->year;
         }
 
-        $report = (new FleetPerformance($year))->report();
+        $month = $request->integer('month');
+        $month = $month >= 1 && $month <= 12 ? $month : 0;
+
+        // The download is the same period the screen was showing.
+        $report = (new FleetPerformance($year, $month))->report();
         $headings = $this->headings($report['hasLimo']);
         $rows = $this->rows($report);
-        $title = __('Fleet earnings :year', ['year' => $year]);
-        $file = "fleet-earnings-{$year}";
+        $title = $month > 0
+            ? __('Fleet earnings :year', ['year' => Carbon::create($year, $month, 1)->isoFormat('MMMM YYYY')])
+            : __('Fleet earnings :year', ['year' => $year]);
+        $file = $month > 0 ? sprintf('fleet-earnings-%d-%02d', $year, $month) : "fleet-earnings-{$year}";
 
         return match ($request->string('format')->toString()) {
             'excel' => $this->renderer->excel($headings, $rows, $file),
@@ -77,7 +83,7 @@ final class RentalFleetExportController
             'perDay' => __('Per day owned'),
             'maintenance' => __('Service and repairs'),
             'net' => __('After maintenance'),
-            'target' => __('Yearly target'),
+            'target' => __('Target'),
             'pace' => __('Pace'),
             'idle' => __('Idle days cost'),
             'verdict' => __('Verdict'),
@@ -129,7 +135,7 @@ final class RentalFleetExportController
             $line['perDay'] = $row['availableDays'] > 0 ? $this->number($row['perAvailableDay']) : '';
             $line['maintenance'] = $this->number($row['maintenance']);
             $line['net'] = $this->number($row['net']);
-            $line['target'] = $this->number($row['yearlyTarget']);
+            $line['target'] = $this->number($row['target']);
             $line['pace'] = $row['pace'] === null ? '' : $row['pace'].'%';
             $line['idle'] = $this->number($row['idleCost']);
             $line['verdict'] = $labels[$row['verdict']] ?? '';

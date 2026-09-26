@@ -39,6 +39,10 @@ final class FleetEarnings extends Component
     #[Url]
     public int $year = 0;
 
+    /** 1-12 reads one month; 0 reads the whole year. */
+    #[Url]
+    public int $month = 0;
+
     /** Which car's scorecard is open. Server-set from a click, never a binding. */
     #[Locked]
     public ?int $openCar = null;
@@ -80,15 +84,31 @@ final class FleetEarnings extends Component
         }
     }
 
+    /** Read one month (1-12), or the whole year (0). */
+    public function setMonth(int $month): void
+    {
+        $this->guardOwner();
+
+        if ($month >= 0 && $month <= 12) {
+            $this->month = $month;
+            $this->openCar = null;
+        }
+    }
+
     public function render(): View
     {
-        $report = (new FleetPerformance($this->year))->report();
+        // A value off the URL is never trusted as-is.
+        $month = $this->month >= 0 && $this->month <= 12 ? $this->month : 0;
+        $report = (new FleetPerformance($this->year, $month))->report();
 
         return view('rental::fleet-earnings', [
             'report' => $report,
             'rows' => $report['rows'],
             'summary' => $report['summary'],
             'years' => range((int) Carbon::now()->year, (int) Carbon::now()->year - 4),
+            'period' => $month > 0
+                ? Carbon::create($this->year, $month, 1)->isoFormat('MMMM YYYY')
+                : (string) $this->year,
         ]);
     }
 

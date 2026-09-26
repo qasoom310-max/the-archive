@@ -41,21 +41,30 @@ final class FleetPerformance
     /** A car this far below the fleet's own utilisation is underused. */
     private const UNDERUSED_AT = 0.75;
 
-    public function __construct(private readonly int $year) {}
+    /**
+     * @param  int  $month  1-12 reads one month; 0 reads the whole year. In a
+     *                      month every figure - days, earnings, costs, idle
+     *                      cost - is that month's, and a car is judged against
+     *                      its MONTHLY target rather than its yearly one.
+     */
+    public function __construct(private readonly int $year, private readonly int $month = 0) {}
 
     /**
      * @return array{
      *     rows: list<array<string, mixed>>,
      *     summary: array<string, mixed>,
      *     year: int,
+     *     month: int,
      *     months: int,
      *     hasLimo: bool
      * }
      */
     public function report(): array
     {
-        $start = CarbonImmutable::create($this->year, 1, 1)->startOfDay();
-        $end = $start->endOfYear();
+        $yearStart = CarbonImmutable::create($this->year, 1, 1)->startOfDay();
+        $month = $this->month >= 1 && $this->month <= 12 ? $this->month : 0;
+        $start = $month > 0 ? $yearStart->setMonth($month)->startOfMonth() : $yearStart;
+        $end = $month > 0 ? $start->endOfMonth() : $yearStart->endOfYear();
         $today = CarbonImmutable::now();
 
         // A part-finished year is measured against the days that have actually
@@ -69,7 +78,9 @@ final class FleetPerformance
             ->orderBy('name')
             ->get(['id', 'name', 'plate_no', 'color', 'monthly_target', 'yearly_target', 'daily_rate', 'active']);
 
-        $earnings = $this->earnings($start, $end);
+        // The matrix always shows all twelve months, so earnings are read for
+        // the whole year; the rest is read for the chosen period only.
+        $earnings = $this->earnings($yearStart, $yearStart->endOfYear());
         $rented = $this->rentedDays($start, $end);
         $maintenance = $this->maintenance($start, $end);
         $limo = $this->limousine($start, $end);
@@ -85,7 +96,7 @@ final class FleetPerformance
                 continue;
             }
 
-            $rows[] = $this->row($vehicle, $id, $earnings, $rented, $maintenance, $limo, $availableDays, $start, $through);
+            $rows[] = $this->row($vehicle, $id, $earnings, $rented, $maintenance, $limo, $availableDays, $start, $end, $through, $month);
         }
 
         // Money billed against no car at all. The old report carried it as
@@ -93,13 +104,14 @@ final class FleetPerformance
         // dashboard, so it stays - with no target and no utilisation, because
         // there is no car to have either.
         if (isset($earnings[0])) {
-            $rows[] = $this->othersRow($earnings[0]);
+            $rows[] = $this->othersRow($earnings[0], $month);
         }
 
         return [
             'rows' => $this->verdicts($rows),
             'summary' => $this->summary($rows, $availableDays),
             'year' => $this->year,
+            'month' => $month,
             'months' => $availableDays > 0 ? (int) $start->diffInMonths($through) + 1 : 0,
             // The limousine column only appears once a car has actually earned
             // through it. Historic bookings carry no car, so on an imported
@@ -124,9 +136,13 @@ final class FleetPerformance
         array $limo,
         int $availableDays,
         CarbonImmutable $start,
+        CarbonImmutable $end,
         CarbonImmutable $through,
+        int $month,
     ): array {
-        $earned = $earnings[$id]['total'] ?? 0.0;
+        $earned = $month > 0
+            ? (float) ($earnings[$id]['months'][$month] ?? 0.0)
+            : ($earnings[$id]['total'] ?? 0.0);
         $limoEarned = $limo[$id] ?? 0.0;
         $total = round($earned + $limoEarned, 3);
 
@@ -135,6 +151,9 @@ final class FleetPerformance
         // Twelve monthly targets is a fallback, not a plan - the page says so
         // rather than passing it off as a figure somebody chose.
         $yearlyTarget = $typedYearly > 0.0 ? $typedYearly : round($monthlyTarget * 12, 3);
+        // A month is judged against the car's monthly target, a year against
+        // its yearly one - never a year's target squeezed into one month.
+        $target = $month > 0 ? $monthlyTarget : $yearlyTarget;
 
         // A retired car was not available all year, and we do not record when
         // it left, so it is reported on earnings only.
@@ -162,6 +181,7 @@ final class FleetPerformance
             'monthlyTarget' => $monthlyTarget,
             'yearlyTarget' => $yearlyTarget,
             'yearlyDerived' => $typedYearly <= 0.0 && $monthlyTarget > 0.0,
+            'target' => $target,
             'rentedDays' => $rentedDays,
             'availableDays' => $available,
             'idleDays' => $idleDays,
@@ -170,8 +190,8 @@ final class FleetPerformance
             'perRentedDay' => $perRentedDay,
             'maintenance' => $maintenanceCost,
             'net' => round($total - $maintenanceCost, 3),
-            'attainment' => $yearlyTarget > 0.0 ? (int) round($total / $yearlyTarget * 100) : null,
-            'pace' => $this->pace($total, $yearlyTarget, $start, $through),
+            'attainment' => $target > 0.0 ? (int) round($total / $target * 100) : null,
+            'pace' => $this->pace($total, $target, $start, $end, $through),
             'idleCost' => round($idleDays * $perRentedDay, 3),
             'verdict' => 'notarget',
         ];
@@ -181,8 +201,10 @@ final class FleetPerformance
      * @param  array{total: float, months: array<int, float>}  $unassigned
      * @return array<string, mixed>
      */
-    private function othersRow(array $unassigned): array
+    private function othersRow(array $unassigned, int $month): array
     {
+        $earned = $month > 0 ? (float) ($unassigned['months'][$month] ?? 0.0) : $unassigned['total'];
+
         return [
             'id' => null,
             'plate' => '',
@@ -190,12 +212,13 @@ final class FleetPerformance
             'color' => '',
             'retired' => false,
             'months' => $unassigned['months'],
-            'earned' => $unassigned['total'],
+            'earned' => $earned,
             'limo' => 0.0,
-            'total' => $unassigned['total'],
+            'total' => $earned,
             'monthlyTarget' => 0.0,
             'yearlyTarget' => 0.0,
             'yearlyDerived' => false,
+            'target' => 0.0,
             'rentedDays' => 0,
             'availableDays' => 0,
             'idleDays' => 0,
@@ -203,7 +226,7 @@ final class FleetPerformance
             'perAvailableDay' => 0.0,
             'perRentedDay' => 0.0,
             'maintenance' => 0.0,
-            'net' => $unassigned['total'],
+            'net' => $earned,
             'attainment' => null,
             'pace' => null,
             'idleCost' => 0.0,
@@ -229,7 +252,7 @@ final class FleetPerformance
             $rows[$i]['verdict'] = match (true) {
                 // Costs more to keep than it brings in. Nothing else matters.
                 $row['net'] < 0.0 => 'losing',
-                $row['yearlyTarget'] <= 0.0 => 'notarget',
+                $row['target'] <= 0.0 => 'notarget',
                 $row['pace'] !== null && $row['pace'] >= 100 => 'carrying',
                 $row['utilisation'] !== null && $fleetUtilisation > 0.0
                     && $row['utilisation'] < $fleetUtilisation * self::UNDERUSED_AT => 'underused',
@@ -269,7 +292,7 @@ final class FleetPerformance
             'total' => $total,
             'maintenance' => round(array_sum(array_column($rows, 'maintenance')), 3),
             'net' => round(array_sum(array_column($rows, 'net')), 3),
-            'yearlyTarget' => round(array_sum(array_column($cars, 'yearlyTarget')), 3),
+            'target' => round(array_sum(array_column($cars, 'target')), 3),
             'rentedDays' => $rentedDays,
             'availableDays' => $fleetDays,
             'idleDays' => $idleDays,
@@ -284,18 +307,19 @@ final class FleetPerformance
     }
 
     /**
-     * Attainment against the share of the year that has actually elapsed, so a
-     * car on schedule reads 100 in March exactly as it does in December.
+     * Attainment against the share of the period that has actually elapsed, so
+     * a car on schedule reads 100 halfway through a month (or a year) exactly
+     * as it does at the end of it. A period not yet started has no pace.
      */
-    private function pace(float $earned, float $target, CarbonImmutable $start, CarbonImmutable $through): ?int
+    private function pace(float $earned, float $target, CarbonImmutable $start, CarbonImmutable $end, CarbonImmutable $through): ?int
     {
-        if ($target <= 0.0) {
+        if ($target <= 0.0 || $through->lt($start)) {
             return null;
         }
 
-        $daysInYear = (int) $start->diffInDays($start->endOfYear()) + 1;
+        $periodDays = (int) $start->diffInDays($end) + 1;
         $elapsed = (int) $start->diffInDays($through) + 1;
-        $expected = $target * ($elapsed / max(1, $daysInYear));
+        $expected = $target * ($elapsed / max(1, $periodDays));
 
         return $expected <= 0.0 ? null : (int) round($earned / $expected * 100);
     }

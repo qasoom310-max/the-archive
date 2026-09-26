@@ -33,6 +33,10 @@ final class Quotations extends Component
     #[Url]
     public string $tab = 'all';
 
+    /** Reference or customer name. */
+    #[Url(except: '')]
+    public string $search = '';
+
     protected function accessModelKey(): string
     {
         return 'rental.quotation';
@@ -49,6 +53,13 @@ final class Quotations extends Component
         $this->clearSelection();
     }
 
+    // A tick made against one search is not a tick against the next.
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+        $this->clearSelection();
+    }
+
     /**
      * The ids on the page being looked at, for the header checkbox. Same
      * query and order as the list, so "select all on this page" means what
@@ -58,7 +69,7 @@ final class Quotations extends Component
      */
     protected function currentPageIds(): array
     {
-        return app(RentalQuotationRows::class)->query($this->tab)
+        return app(RentalQuotationRows::class)->query($this->tab, $this->search)
             ->forPage($this->getPage(), 20)
             ->pluck('id')
             ->map(static fn ($id): int => (int) $id)
@@ -70,6 +81,7 @@ final class Quotations extends Component
         $query = RentalQuotation::query()
             ->with(['customer:id,name', 'vehicle:id,name,plate_no,color'])
             ->orderByDesc('id');
+        app(RentalQuotationRows::class)->applySearch($query, $this->search);
 
         if (in_array($this->tab, [
             RentalQuotation::STATUS_DRAFT,

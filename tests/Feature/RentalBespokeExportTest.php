@@ -312,6 +312,23 @@ final class RentalBespokeExportTest extends TestCase
         $this->assertStringNotContainsString('250.00', $body);
     }
 
+    public function test_the_quotation_search_finds_a_customer_name_or_a_reference(): void
+    {
+        $vehicle = $this->vehicle();
+        $other = RentalCustomer::query()->create(["name" => "Batelco", "phone" => "39000002"]);
+        RentalQuotation::query()->create(["reference" => "QT00777", "customer_id" => $this->customer()->id, "vehicle_id" => $vehicle->id, "total" => 100]);
+        RentalQuotation::query()->create(["reference" => "QT00888", "customer_id" => $other->id, "vehicle_id" => $vehicle->id, "total" => 250]);
+
+        \Livewire\Livewire::test(\Modules\Rental\Livewire\Quotations::class)
+            ->set("search", "qassim")
+            ->assertSee("QT00777")->assertDontSee("QT00888")
+            ->set("search", "00888")
+            ->assertSee("QT00888")->assertDontSee("QT00777");
+
+        $body = $this->streamed(app(RentalQuotationExportController::class)->csv(Request::create("/x", "GET", ["q" => "batelco"])));
+        $this->assertStringContainsString("QT00888", $body);
+        $this->assertStringNotContainsString("QT00777", $body);
+    }
     public function test_the_header_box_ticks_the_page_and_the_download_links_carry_the_ids(): void
     {
         $vehicle = $this->vehicle();

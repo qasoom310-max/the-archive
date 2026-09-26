@@ -356,6 +356,22 @@ final class LimoBespokeExportTest extends TestCase
         $this->assertStringContainsString('limousine-quotations-', (string) $response->headers->get('Content-Disposition'));
     }
 
+    public function test_the_quotation_search_finds_a_customer_name_or_a_reference(): void
+    {
+        $a = LimoQuotation::query()->create(["reference" => "QT/00777", "customer_id" => $this->customer("Gulf Air")->id, "fare" => 30, "status" => LimoQuotation::STATUS_SENT]);
+        $b = LimoQuotation::query()->create(["reference" => "QT/00888", "customer_id" => $this->customer("Batelco")->id, "fare" => 90, "status" => LimoQuotation::STATUS_SENT]);
+
+        \Livewire\Livewire::test(\Modules\Limousine\Livewire\Quotations::class)
+            ->set("search", "gulf")
+            ->assertSee("QT/00777")->assertDontSee("QT/00888")
+            ->set("search", "00888")
+            ->assertSee("QT/00888")->assertDontSee("QT/00777");
+
+        $rows = app(\Modules\Limousine\Services\LimoQuotationRows::class)->all("all", [], false, "batelco");
+        $this->assertCount(1, $rows);
+        $this->assertSame("QT/00888", $rows[0]["reference"]);
+
+    }
     public function test_the_header_box_ticks_the_page_and_the_download_links_carry_the_ids(): void
     {
         $customer = $this->customer();

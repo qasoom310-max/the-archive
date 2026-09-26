@@ -18,9 +18,10 @@ final class LimoQuotationRows
     /**
      * @return Builder<LimoQuotation>
      */
-    public function query(string $tab = 'all', bool $onlyLive = false): Builder
+    public function query(string $tab = 'all', bool $onlyLive = false, string $search = ''): Builder
     {
         $query = LimoQuotation::query()->with('customer:id,name')->orderByDesc('id');
+        $this->applySearch($query, $search);
 
         if (in_array($tab, [
             LimoQuotation::STATUS_DRAFT, LimoQuotation::STATUS_SENT, LimoQuotation::STATUS_ACCEPTED,
@@ -43,12 +44,32 @@ final class LimoQuotationRows
     }
 
     /**
+     * Narrow a quotation query to a reference or customer name.
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     */
+    public function applySearch(Builder $query, string $search): void
+    {
+        $term = trim($search);
+        if ($term === '') {
+            return;
+        }
+
+        $query->where(function (Builder $q) use ($term): void {
+            $q->where('reference', 'like', "%{$term}%")
+                ->orWhereHas('customer', fn (Builder $c) => $c->where('name', 'like', "%{$term}%"));
+        });
+    }
+
+    /**
      * @param  list<int>  $ids  When given, only these rows (the ticked ones).
      * @return list<array<string, string>>
      */
-    public function all(string $tab, array $ids = [], bool $onlyLive = false): array
+    public function all(string $tab, array $ids = [], bool $onlyLive = false, string $search = ''): array
     {
-        $query = $this->query($tab, $onlyLive);
+        $query = $this->query($tab, $onlyLive, $search);
         if ($ids !== []) {
             $query->whereKey($ids);
         }

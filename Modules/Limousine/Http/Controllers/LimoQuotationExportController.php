@@ -114,7 +114,12 @@ final class LimoQuotationExportController
             return $this->rows->all('all', [], true);
         }
 
-        return $this->rows->all($this->tab($request), $this->ids($request));
+        return $this->rows->all($this->tab($request), $this->ids($request), false, $this->search($request));
+    }
+
+    private function search(Request $request): string
+    {
+        return (string) $request->query('q', '');
     }
 
     private function tab(Request $request): string

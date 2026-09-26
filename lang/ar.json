@@ -3010,5 +3010,6 @@
     "Switch the coupon rule on?": "تفعيل قاعدة القسائم؟",
     "the payment of :amount is kept": "يُحتفظ بالمبلغ المدفوع :amount",
     "Cancelled within :hours hours of the trip. The coupon rule is switched off, so no coupon is issued.": "أُلغيت خلال :hours ساعة من الرحلة. قاعدة القسائم معطّلة، لذا لن تُصدر قسيمة.",
-    "Trip cancelled. No refund — the payment is kept.": "أُلغيت الرحلة. لا استرداد — يُحتفظ بالمبلغ المدفوع."
+    "Trip cancelled. No refund — the payment is kept.": "أُلغيت الرحلة. لا استرداد — يُحتفظ بالمبلغ المدفوع.",
+    "Search by reference or customer name…": "ابحث برقم المرجع أو اسم العميل…"
 }

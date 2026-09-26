@@ -38,14 +38,14 @@ final class RentalQuotationExportController
     {
         $this->authorizeExport('rental.quotation');
 
-        return $this->renderer->csv($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request)), $this->exportFilename('rental-quotations'));
+        return $this->renderer->csv($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request), $this->search($request)), $this->exportFilename('rental-quotations'));
     }
 
     public function excel(Request $request): StreamedResponse
     {
         $this->authorizeExport('rental.quotation');
 
-        return $this->renderer->excel($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request)), $this->exportFilename('rental-quotations'));
+        return $this->renderer->excel($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request), $this->search($request)), $this->exportFilename('rental-quotations'));
     }
 
     public function pdf(Request $request): Response
@@ -57,7 +57,7 @@ final class RentalQuotationExportController
             return $this->quotationDocuments($ids);
         }
 
-        return $this->renderer->pdf($this->rows->headings(), $this->rows->all($this->tab($request), $ids), __('Quotations'), $this->exportFilename('rental-quotations'));
+        return $this->renderer->pdf($this->rows->headings(), $this->rows->all($this->tab($request), $ids, $this->search($request)), __('Quotations'), $this->exportFilename('rental-quotations'));
     }
 
     /**
@@ -98,7 +98,12 @@ final class RentalQuotationExportController
     {
         $this->authorizeExport('rental.quotation');
 
-        return $this->renderer->print($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request)), __('Quotations'));
+        return $this->renderer->print($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request), $this->search($request)), __('Quotations'));
+    }
+
+    private function search(Request $request): string
+    {
+        return (string) $request->query('q', '');
     }
 
     private function tab(Request $request): string

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Limousine\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Modules\Limousine\Console\CarUsageReport;
 use Modules\Limousine\Console\FindDuplicateTrips;
 use Modules\Limousine\Console\ImportLegacyBookings;
 use Modules\Limousine\Console\ImportLegacyInvoices;
@@ -33,7 +34,7 @@ final class LimousineServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if ($this->app->runningInConsole()) {
-            $this->commands([MatchDriverNames::class, ImportLegacyBookings::class, ImportLegacyReceipts::class, ImportLegacyInvoices::class, ImportLegacyQuotations::class, FindDuplicateTrips::class, ReviewDuplicateTrips::class, WipeDocuments::class]);
+            $this->commands([MatchDriverNames::class, ImportLegacyBookings::class, ImportLegacyReceipts::class, ImportLegacyInvoices::class, ImportLegacyQuotations::class, FindDuplicateTrips::class, ReviewDuplicateTrips::class, CarUsageReport::class, WipeDocuments::class]);
         }
     }
 }

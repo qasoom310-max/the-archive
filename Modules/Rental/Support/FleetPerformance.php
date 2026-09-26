@@ -433,16 +433,23 @@ final class FleetPerformance
      */
     private function limousine(CarbonImmutable $start, CarbonImmutable $end): array
     {
-        if (! Schema::hasTable('limo_legs')) {
+        if (! Schema::hasTable('limo_legs') || ! Schema::hasTable('limo_bookings')) {
             return [];
         }
 
-        return DB::table('limo_legs')
-            ->whereNotNull('car_id')
-            ->whereNotNull('start_at')
-            ->whereBetween('start_at', [$start->toDateString(), $end->endOfDay()->toDateTimeString()])
-            ->selectRaw('car_id, COALESCE(SUM(net_amount), 0) as earned')
-            ->groupBy('car_id')
+        // Legs are shared with quotations, so only a booking's legs count, and
+        // a cancelled booking or a cancelled leg earned nothing - the same
+        // rule the limousine earnings page uses.
+        return DB::table('limo_legs as l')
+            ->join('limo_bookings as b', 'b.id', '=', 'l.legable_id')
+            ->where('l.legable_type', 'Modules\\Limousine\\Models\\LimoBooking')
+            ->where('b.status', '!=', 'cancelled')
+            ->where(static fn ($q) => $q->whereNull('l.status')->orWhere('l.status', '!=', 'cancelled'))
+            ->whereNotNull('l.car_id')
+            ->whereNotNull('l.start_at')
+            ->whereBetween('l.start_at', [$start->toDateString(), $end->endOfDay()->toDateTimeString()])
+            ->selectRaw('l.car_id as car_id, COALESCE(SUM(l.net_amount), 0) as earned')
+            ->groupBy('l.car_id')
             ->pluck('earned', 'car_id')
             ->map(static fn (mixed $v): float => round((float) $v, 3))
             ->filter(static fn (float $v): bool => $v > 0.0)

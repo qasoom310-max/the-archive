@@ -358,6 +358,33 @@ final class FleetEarningsTest extends TestCase
         $this->assertEqualsWithDelta(750.0, $row['total'], 0.001);
     }
 
+    public function test_quotation_legs_and_cancelled_trips_are_not_counted_as_a_cars_earnings(): void
+    {
+        // Legs are shared with quotations, so a quote nobody accepted, or a
+        // trip that was called off, must not be credited to the car.
+        $car = $this->car('Sunny', '111111');
+        $customer = LimoCustomer::query()->create(['name' => 'Dadabhai', 'type' => 'company']);
+
+        $live = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pickup_at' => '2026-03-20 10:00:00',
+            'fare' => 100, 'amount' => 100, 'status' => LimoBooking::STATUS_COMPLETED,
+        ]);
+        $cancelled = LimoBooking::query()->create([
+            'customer_id' => $customer->id, 'pickup_at' => '2026-03-21 10:00:00',
+            'fare' => 300, 'amount' => 300, 'status' => LimoBooking::STATUS_CANCELLED,
+        ]);
+
+        foreach ([[LimoBooking::class, $live->id, 100], [LimoBooking::class, $cancelled->id, 300], ['Modules\\Limousine\\Models\\LimoQuotation', 999, 700]] as $i => [$type, $id, $amount]) {
+            LimoLeg::query()->create([
+                'legable_type' => $type, 'legable_id' => $id, 'sequence' => $i + 1,
+                'car_id' => $car->id, 'start_at' => '2026-03-20 10:00:00', 'net_amount' => $amount,
+            ]);
+        }
+
+        (new FleetPerformance(2026))->report();
+        $this->assertEqualsWithDelta(100.0, $this->rowFor('111111')['limo'], 0.001);
+    }
+
     public function test_the_limousine_column_is_hidden_when_no_car_ever_earned_through_it(): void
     {
         // Imported legs carry no car, so this would be a column of zeroes.

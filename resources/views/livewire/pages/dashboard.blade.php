@@ -190,8 +190,8 @@
         </div>
     @endif
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <section class="lg:col-span-2">
+    <div>
+        <section>
             @if (auth()->user()?->isAdmin())
                 {{-- Admin-only: manage per-phone customer discounts. An admin
                      assigns an open discount % to a phone number; when the
@@ -214,24 +214,6 @@
                     </div>
                 </div>
             @endif
-        </section>
-
-        <section>
-            <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
-                <div class="mb-3 flex items-center justify-between">
-                    <h2 class="text-sm font-semibold text-chrome-800">{{ __('Chatter') }}</h2>
-                    @if ($ticket)
-                        <span class="o-chip bg-chrome-100 text-chrome-500">{{ $ticket->subject }}</span>
-                    @endif
-                </div>
-                @if ($ticket)
-                    <livewire:chatter :record="$ticket" :key="'chatter-'.$ticket->id" />
-                @else
-                    <p class="py-8 text-center text-sm text-chrome-400">
-                        {{ __('No demo record.') }} <code class="rounded bg-chrome-100 px-1">php artisan db:seed</code>.
-                    </p>
-                @endif
-            </div>
         </section>
     </div>
 </div>

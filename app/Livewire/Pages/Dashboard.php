@@ -7,7 +7,6 @@ namespace App\Livewire\Pages;
 use App\Erp\Business\Feature;
 use App\Erp\Business\Features;
 use App\Erp\Enums\ModuleState;
-use App\Models\Demo\DemoTicket;
 use App\Models\Ir\IrModel;
 use App\Models\Ir\IrModule;
 use App\Models\User;
@@ -97,7 +96,6 @@ final class Dashboard extends Component
         )->values();
 
         return view('livewire.pages.dashboard', [
-            'ticket' => DemoTicket::query()->first(),
             'apps' => $apps,
             'featuredApps' => $featuredApps,
             'otherApps' => $otherApps,

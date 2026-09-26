@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Erp\Modules\ModuleManager;
+use App\Erp\Targets\RevenueTargets;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 use Modules\Rental\Livewire\OrderForm;
-use Modules\Rental\Livewire\RentalHome;
 use Modules\Rental\Livewire\Sales;
 use Modules\Rental\Models\RentalCustomer;
 use Modules\Rental\Models\RentalOrder;
@@ -61,8 +61,11 @@ final class RentalOutsideRevenueTest extends TestCase
             ->assertSee('70')
             ->assertDontSee('>100<'); // gross total not shown as the figure
 
-        // Dashboard revenue is net too.
-        Livewire::test(RentalHome::class)->assertViewHas('revenue', 70.0);
+        // The dashboard's work-done figure is net too - it is what the targets
+        // measure, so the vendor's 30 must never count as ours.
+        $month = app(RevenueTargets::class)->progress('rental')['month'];
+        $this->assertEqualsWithDelta(70.0, $month['earned'], 0.001);
+        $this->assertEqualsWithDelta(30.0, $month['vendors'], 0.001);
     }
 
     public function test_owned_cars_keep_full_revenue(): void
@@ -77,6 +80,6 @@ final class RentalOutsideRevenueTest extends TestCase
         ]);
 
         $this->assertSame(100.0, $owned->fresh()?->revenueThisMonth()); // no cost → full amount
-        Livewire::test(RentalHome::class)->assertViewHas('revenue', 100.0);
+        $this->assertEqualsWithDelta(100.0, app(RevenueTargets::class)->progress('rental')['month']['earned'], 0.001);
     }
 }

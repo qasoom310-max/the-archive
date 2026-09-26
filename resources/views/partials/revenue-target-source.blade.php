@@ -1,26 +1,28 @@
 {{--
-    Where this target came from.
+    Where this target came from - or why there is none.
 
-    A number on a dashboard that nobody remembers setting stops being believed,
-    and an owner cannot argue with a figure whose working is hidden. Rent A Car
-    can answer the question properly, because every car already carries its own
-    monthly target: the fleet total is those added up, not a number retyped here
-    that would then drift from the cars it came from.
+    The earlier version said "Added up from 21 cars' own monthly targets" when
+    one car had a target and twenty did not, then printed "target met" against
+    that 150 BD. A fleet target now exists only when EVERY car carries one;
+    until then the box says how many do, which is the thing to fix.
 
-    Expects: $source ('typed' | 'fleet' | 'fleet_estimate' | null), $fleet.
+    Expects: $source ('typed' | 'fleet' | null), $fleet (month box only).
 --}}
-@if ($source !== null)
-    <div class="mt-2 flex items-start gap-1.5 text-[11px] leading-snug text-chrome-400">
+@php
+    $gap = $source === null && $fleet !== null && $fleet['cars'] < $fleet['fleet'];
+@endphp
+@if ($source !== null || $gap)
+    <div class="mt-2 flex items-start gap-1.5 text-[11px] leading-snug {{ $gap ? 'text-amber-700' : 'text-chrome-400' }}">
         <svg class="mt-px size-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10A8 8 0 1 1 2 10a8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a1 1 0 0 0 0 2v3a1 1 0 0 0 1 1h1a1 1 0 1 0 0-2v-3a1 1 0 0 0-1-1H9Z" clip-rule="evenodd"/></svg>
         <span>
             @if ($source === 'typed')
                 {{ __('Set by you.') }}
-            @elseif ($source === 'fleet' && $fleet !== null)
-                {{ __('Added up from :count cars\' own monthly targets.', ['count' => $fleet['cars']]) }}
-            @elseif ($fleet !== null)
-                {{-- Twelve equal months is not how this trade runs, so this is
-                     offered as a starting point, never as a real yearly plan. --}}
-                {{ __('Estimated as 12 × the fleet\'s monthly target. Set your own for a real year.', ['count' => $fleet['cars']]) }}
+            @elseif ($source === 'fleet')
+                {{ __('Added up from all :count cars\' monthly targets.', ['count' => $fleet['fleet'] ?? 0]) }}
+            @elseif ($fleet['cars'] === 0)
+                {{ __('None of your :count cars has a monthly target yet. Set them on each car page, or type a target here.', ['count' => $fleet['fleet']]) }}
+            @else
+                {{ __('Only :cars of your :fleet cars have a monthly target, so the fleet has none yet. Set the rest on each car page, or type a target here.', ['cars' => $fleet['cars'], 'fleet' => $fleet['fleet']]) }}
             @endif
         </span>
     </div>

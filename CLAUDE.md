@@ -3186,16 +3186,15 @@ Decisions to keep:
 - **Monthly and yearly are stored independently, NOT yearly = monthly × 12.**
   Trade is seasonal — Eid and the F1 weekend are not a twelfth of the year each
   — so a derived annual figure would be wrong in both directions.
-- **Each app counts revenue its own way, mirroring the card beside it.** Rental
-  is `SUM(total - outside_cost)` on paid orders (**net of outside vendors** —
-  markup, not gross); Limousine is `SUM(fare)` on paid bookings. A target
-  measured against a different number from the card next to it would be worse
-  than no target at all.
+- **Each app counts revenue its own way.** Rental is `total - outside_cost`
+  (**net of outside vendors** — markup, not gross); Limousine is the `fare`.
+  ~~on paid orders~~ — **superseded 2026-09-26, see "The money band counted the
+  wrong thing" below: it is now all WORK DONE, paid or not.**
 - **"Not set" is a real state, distinct from a target of zero.** A blank box
   clears the target and the box shows "Set a target" rather than 0% attained.
-- **Attainment counts COLLECTED money only**, so each box also carries what is
-  **still owed** in its own window (and the revenue card carries the all-time
-  total). A month at 60% with a big unpaid pile is a collection problem; the
+- ~~**Attainment counts COLLECTED money only**~~ — **superseded 2026-09-26:
+  attainment is measured against WORK DONE, with paid and still-owed shown
+  beside it.** Each box carries what is **still owed** in its own window. A month at 60% with a big unpaid pile is a collection problem; the
   same 60% with nothing owed is a sales one. The two apps owe differently — a
   rental order has a settled `balance` column, a booking owes `fare - advance`
   floored per row — and both rules live in `outstanding()`.
@@ -3215,6 +3214,57 @@ must be bounded with a **date lower bound and a datetime upper bound**
 ends the same way silently drops a whole day at one end or the other, which is
 exactly how a target starts under-reporting without anyone noticing. Pinned by
 `test_a_sale_on_the_first_day_of_the_month_counts_toward_it`.
+
+**The money band counted the wrong thing — fixed 2026-09-26.** The owner
+looked at live Rent A Car figures and said they felt wrong: September collected
+**0.00**, 2026 earned **3,459** against **160,502** all time, a monthly target of
+**150 BD "added up from 21 cars"**, and a yearly box celebrating **"192% target
+met, ahead of pace 261%"**. All four were real defects, all mine:
+
+1. **"Collected" counted only hires PAID IN FULL, dated by start.** A 500 BD hire
+   with a 300 BD deposit counted as zero collected AND zero earned. Every figure
+   now starts from **work done** — `RevenueTargets::work(app, ?from, ?to)`
+   returns `earned` / `paid` / `unpaid` / `vendors` / `jobs`:
+   - Rental: `state IN (active, closed)` (a draft is a reservation that has not
+     run; cancelled never will), earned = `total − outside_cost`.
+   - Limousine: `status != cancelled`, earned = `fare`.
+   - **The target is measured against work done; paid and still-owed sit beside
+     it** (the owner's choice). The schedule and the dashboard use the same
+     definition, so they still reconcile.
+2. **Rental money reaches an order by two roads that never meet.** Counter
+   money lands on `advance_amount`; money paid against an invoice lands on the
+   invoice, and `RentalInvoice::recomputePaid()` only flips the order to `paid`
+   once the invoice is paid **in full** — via a raw `update()` that never
+   touches the order's `balance`. So neither `balance` nor the flag is enough
+   alone. Paid = `total` if flagged paid, else
+   `min(total, advance_amount + Σ receipts on invoices where invoice.order_id = order.id)`.
+   **No double count on history:** the importer put every dinar received on the
+   order's advance and left imported invoices' `order_id` NULL. The receipts are
+   summed in ONE grouped join query, never a `whereIn` of ids (a year of orders
+   is more ids than SQLite binds). **The source defect — an invoice payment not
+   updating its order — is still there; this reads around it.**
+   Limousine is fine: every payment through the booking lands on `advance`, and
+   an invoice-settled booking is flagged paid.
+3. **The fleet count lied.** `fleet()` reported `COUNT(*)` of all active cars as
+   the number contributing. It now returns `cars` (with a target) AND `fleet`
+   (all), and **a fleet target only exists when every car carries one** — one car
+   in 21 is shown as a gap to fill ("Only 1 of your 21 cars have a monthly
+   target…"), never used.
+4. **No yearly target is derived any more.** 12 × monthly is gone — it was the
+   1,800 BD the page was celebrating. A year nobody typed has no target.
+
+Also: the green card now shows **cash collected all time** (part-payments
+included) with **"Owed from earlier months"** under it — this month's owed lives
+in the month box, where the team chases it. Tests: `RevenueTargetsTest` (part-paid
+deposit counts, invoice receipts count for the order, invoice-settled order owes
+nothing, older debt kept apart, reservations/cancelled excluded, target measured
+against work done) + `TopCustomersTest` (fleet target needs every car, the box
+says how many still need one, no yearly invented).
+
+**Known gaps, left deliberately:** `TopCustomers` still ranks by fully-paid jobs
+only (same class of bug, not in this fix's scope — a part-paying regular is
+missing from the call sheet); and a Limousine part-payment recorded against an
+INVOICE rather than through the booking never reaches `advance`.
 
 **The money band shows its working, and names who to call (shipped 2026-09-10):**
 

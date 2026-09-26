@@ -81,7 +81,6 @@ final class LimoHome extends Component
             ->where('payment_status', LimoBooking::PAYMENT_UNPAID)
             ->whereNotIn('status', [LimoBooking::STATUS_CANCELLED])
             ->count();
-        $revenue = (float) LimoBooking::query()->where('payment_status', LimoBooking::PAYMENT_PAID)->sum('fare');
 
         // Bookings on that day — legs are dated individually, so a two-day job
         // counts on each of its days rather than only its booking date.
@@ -129,7 +128,6 @@ final class LimoHome extends Component
             'active' => $active,
             'completed' => $completed,
             'unpaid' => $unpaid,
-            'revenue' => $revenue,
             'yesterdayCount' => $byDay($yesterday),
             'todayCount' => $byDay($today),
             'tomorrowCount' => $byDay($tomorrow),

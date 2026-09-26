@@ -6,7 +6,7 @@
     the income away to anyone who can divide. Gating the revenue card while
     leaving the targets on screen would gate nothing.
 
-    Expects: $tile (shared card classes), $revenue (float), $targets (the array
+    Expects: $tile (shared card classes), $targets (the array
     from RevenueTargets::progress()), $gradient (the revenue card's fill),
     $unpaidHref (where chasing a balance starts), and $editingTargets /
     $targetMonthly / $targetYearly from EditsRevenueTargets.
@@ -71,17 +71,20 @@
             </span>
             <span class="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/90">{{ __('Collected') }}</span>
         </div>
-        <div class="mt-3 text-2xl font-bold tracking-tight text-white">{{ \App\Erp\Views\ValueFormat::money($revenue) }}</div>
-        <div class="text-sm font-medium text-white/70">{{ __('Revenue') }}</div>
-        {{-- What is still owed, all time: it says how much of the business's
-             earnings are sitting with customers rather than in the bank. --}}
+        {{-- Cash actually received, part-payments included. It used to count
+             only hires paid in full, which is why busy months read as zero. --}}
+        <div class="mt-3 text-2xl font-bold tracking-tight text-white">{{ \App\Erp\Views\ValueFormat::money($targets['collected']) }}</div>
+        <div class="text-sm font-medium text-white/70">{{ __('Collected, all time') }}</div>
+        {{-- Debt from EARLIER months only. This month's owed sits in the month
+             box, where the team chases it; mixing the two hid the current
+             month under years of old balances. --}}
         <a href="{{ $unpaidHref }}" wire:navigate
             class="mt-auto flex items-center justify-between rounded-lg bg-black/15 px-3 py-2 transition hover:bg-black/25">
             <span class="flex items-center gap-1.5 text-xs font-medium text-white/80">
                 <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10A8 8 0 1 1 2 10a8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a1 1 0 0 0 0 2v3a1 1 0 0 0 1 1h1a1 1 0 1 0 0-2v-3a1 1 0 0 0-1-1H9Z" clip-rule="evenodd"/></svg>
-                {{ __('Unpaid') }}
+                {{ __('Owed from earlier months') }}
             </span>
-            <span class="text-sm font-bold text-white">{{ \App\Erp\Views\ValueFormat::money($targets['outstanding']) }}</span>
+            <span class="text-sm font-bold text-white">{{ \App\Erp\Views\ValueFormat::money($targets['owedBefore']) }}</span>
         </a>
     </div>
 
@@ -106,15 +109,16 @@
             </div>
 
             @if ($data['target'] === null)
-                <div class="text-sm font-medium text-chrome-500">{{ $box['title'] }}</div>
-                @include('partials.revenue-targets-unpaid', ['unpaid' => $data['unpaid'], 'href' => $unpaidHref])
+                <div class="text-sm font-medium text-chrome-500">{{ __('Work done') }} · {{ $box['title'] }}</div>
+                @include('partials.revenue-targets-unpaid', ['data' => $data, 'href' => $unpaidHref])
+                @include('partials.revenue-target-source', ['source' => $data['source'], 'fleet' => $box['key'] === 'month' ? ($targets['fleet'] ?? null) : null])
                 <button type="button" wire:click="openTargets"
                     class="mt-3 flex items-center justify-center rounded-lg bg-chrome-100 px-3 py-2 text-xs font-semibold text-chrome-600 transition hover:bg-chrome-200">
                     {{ __('Set a target') }}
                 </button>
             @else
                 <div class="text-sm font-medium text-chrome-500">
-                    {{ $box['title'] }} · {{ \App\Erp\Views\ValueFormat::money($data['target']) }}
+                    {{ __('Work done') }} · {{ $box['title'] }} {{ \App\Erp\Views\ValueFormat::money($data['target']) }}
                 </div>
                 <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-chrome-100">
                     <div class="h-full rounded-full {{ $box['bar'] }}" style="width: {{ $width }}%"></div>
@@ -127,8 +131,8 @@
                         <span class="font-semibold text-emerald-600">{{ __('Target met') }}</span>
                     @endif
                 </div>
-                @include('partials.revenue-targets-unpaid', ['unpaid' => $data['unpaid'], 'href' => $unpaidHref])
-                @include('partials.revenue-target-source', ['source' => $data['source'], 'fleet' => $targets['fleet'] ?? null])
+                @include('partials.revenue-targets-unpaid', ['data' => $data, 'href' => $unpaidHref])
+                @include('partials.revenue-target-source', ['source' => $data['source'], 'fleet' => $box['key'] === 'month' ? ($targets['fleet'] ?? null) : null])
                 @if ($box['key'] === 'year' && $targets['pace'] !== null)
                     {{-- Attainment against the part of the year already gone, so a
                          year that is on schedule reads 100 in March as in December. --}}

@@ -3415,6 +3415,18 @@ and highlights the chosen one. Same day: the scorecard's "What it cost" printed
 the NET figure (earned − maintenance) as its big number; it now shows the cost,
 with "Left after costs" as its own line. Tests: `FleetEarningsTest` (+7).
 
+**Limousine money on a car counts only real, dispatched trips (fixed 2026-09-26).**
+`FleetPerformance::limousine()` summed every `limo_legs` row with a `car_id`,
+including **quotation** legs and **cancelled** trips. It now joins `limo_bookings`
+and applies the same rule as `LimoPerformance` (booking legs only, booking and leg
+not cancelled). A car only earns limousine money when a trip has the car
+**assigned from the queue** (`Bookings::saveAssign`). Imported trips and trips
+never dispatched carry only free text in `vehicle` and reach no car. The read-only
+`php artisan limo:car-usage [--workspace=] [--plate=] [--year=]`
+(`Modules\Limousine\Console\CarUsageReport`, workflow `car-usage.yml`) prints
+per month how much limousine money sits on trips with and without a car, the
+vehicle text on the unassigned ones, and one car's own orders and trips.
+
 **The limousine revenue breakdown was regrouped the same day.** It grouped by
 `limo_bookings.car_type`, which no import ever filled, so a whole year of
 takings rendered as one row reading "No car type recorded · 100%". `car_id` on

@@ -741,11 +741,20 @@
                                     {{ __('Cancelled more than :hours hours before the trip.', ['hours' => 48]) }}
                                     @if ($hrs !== null) ({{ __(':hours hours to go', ['hours' => number_format((float) $hrs, 1)]) }}) @endif
                                 </p>
-                                <label class="mt-2 flex items-center gap-2 text-xs font-medium">
-                                    <input type="checkbox" wire:model="cancelAsCoupon"
-                                           class="size-4 rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
-                                    {{ __('Give it as a coupon instead of refunding the money') }}
-                                </label>
+                                @if ($cancelPreview['coupons'])
+                                    <label class="mt-2 flex items-center gap-2 text-xs font-medium">
+                                        <input type="checkbox" wire:model="cancelAsCoupon"
+                                               class="size-4 rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
+                                        {{ __('Give it as a coupon instead of refunding the money') }}
+                                    </label>
+                                @endif
+                            </div>
+                        @elseif (! $cancelPreview['coupons'])
+                            <div class="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
+                                <p class="font-semibold">{{ __('No refund') }} — {{ __('the payment of :amount is kept', ['amount' => $amt]) }}</p>
+                                <p class="mt-0.5 text-xs">
+                                    {{ __('Cancelled within :hours hours of the trip. The coupon rule is switched off, so no coupon is issued.', ['hours' => 48]) }}
+                                </p>
                             </div>
                         @else
                             <div class="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire;
 
+use App\Erp\Activity\ActivityLogger;
 use App\Erp\Customers\TopCustomers;
 use App\Erp\Navigation\ModuleMenu;
 use App\Erp\Security\Permission;
@@ -12,6 +13,7 @@ use App\Erp\Targets\RevenueTargets;
 use App\Livewire\Concerns\EditsRevenueTargets;
 use App\Livewire\Concerns\GuardsModelAccess;
 use App\Models\Ir\IrModule;
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
@@ -20,6 +22,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoLeg;
+use Modules\Limousine\Services\TripCancellation;
 
 /**
  * Limousine dashboard: the bookings queue, today's and tomorrow's trips,
@@ -45,6 +48,33 @@ final class LimoHome extends Component
     public function mount(): void
     {
         $this->guardAccess(Permission::Read);
+    }
+
+    /**
+     * Switch the cancellation coupon rule on or off for this database. The
+     * owner and the Supervisor accountant only — the same people trusted to
+     * confirm money was received. Re-checked here, not just hidden in the view.
+     */
+    public function toggleCouponRule(): void
+    {
+        abort_unless($this->viewerManagesCouponRule(), 403);
+
+        $rule = app(TripCancellation::class);
+        $on = ! $rule->couponRuleOn();
+        $rule->setCouponRule($on);
+
+        app(ActivityLogger::class)->log(
+            'settings_updated',
+            __('Coupon rule'),
+            $on ? __('Switched on') : __('Switched off'),
+        );
+    }
+
+    private function viewerManagesCouponRule(): bool
+    {
+        $user = Auth::user();
+
+        return $user instanceof User && $user->canConfirmPayments();
     }
 
     public function render(): View
@@ -121,6 +151,8 @@ final class LimoHome extends Component
 
         return view('limousine::home', [
             'isSuperAdmin' => $isSuperAdmin,
+            'canManageCouponRule' => $this->viewerManagesCouponRule(),
+            'couponRuleOn' => app(TripCancellation::class)->couponRuleOn(),
             'targets' => $targets,
             'schedules' => $schedules,
             'topCustomers' => $topCustomers,

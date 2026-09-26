@@ -224,4 +224,59 @@ final class LimoCancellationTest extends TestCase
         $this->assertFalse($result['ok']);
         $this->assertSame(CouponRedeemer::ERROR_NOT_FOUND, $result['error']);
     }
+
+    public function test_with_the_coupon_rule_off_a_late_cancellation_keeps_the_payment(): void
+    {
+        app(TripCancellation::class)->setCouponRule(false);
+        $leg = $this->trip(25, '10 hours', paid: true);
+
+        $result = app(TripCancellation::class)->cancel($leg);
+
+        $this->assertSame(TripCancellation::OUTCOME_FORFEITED, $result['outcome']);
+        $this->assertNull($result['coupon']);
+        $this->assertSame(0, LimoCoupon::query()->count());
+        // The kept payment stays earned on the booking.
+        $fresh = $leg->fresh();
+        $this->assertNotNull($fresh);
+        $this->assertTrue($fresh->isBillable());
+        $booking = $fresh->legable;
+        $this->assertInstanceOf(LimoBooking::class, $booking);
+        $this->assertSame(25.0, (float) $booking->fare);
+    }
+
+    public function test_with_the_coupon_rule_off_a_due_refund_is_always_money(): void
+    {
+        app(TripCancellation::class)->setCouponRule(false);
+        $leg = $this->trip(25, '5 days', paid: true);
+
+        $result = app(TripCancellation::class)->cancel($leg, null, refundAsCoupon: true);
+
+        $this->assertSame(TripCancellation::OUTCOME_REFUNDED, $result['outcome']);
+        $this->assertSame(0, LimoCoupon::query()->count());
+    }
+
+    public function test_only_the_owner_and_the_supervisor_accountant_can_switch_the_rule(): void
+    {
+        $this->grantEveryone('limousine.booking');
+        $rule = app(TripCancellation::class);
+        $this->assertTrue($rule->couponRuleOn());
+
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        \Livewire\Livewire::test(\Modules\Limousine\Livewire\LimoHome::class)
+            ->assertDontSee(__('Coupon rule'))
+            ->call('toggleCouponRule')
+            ->assertForbidden();
+        $this->assertTrue($rule->couponRuleOn());
+
+        $this->actingAs(User::factory()->create(['is_accountant' => true]));
+        \Livewire\Livewire::test(\Modules\Limousine\Livewire\LimoHome::class)
+            ->assertSee(__('Coupon rule'))
+            ->call('toggleCouponRule');
+        $this->assertFalse($rule->couponRuleOn());
+
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+        \Livewire\Livewire::test(\Modules\Limousine\Livewire\LimoHome::class)
+            ->call('toggleCouponRule');
+        $this->assertTrue($rule->couponRuleOn());
+    }
 }

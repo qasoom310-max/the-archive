@@ -153,7 +153,7 @@ final class LimoBooking extends Model implements DefinesIrModel, TakesCouponCred
                     // A leg with no status yet is still to run, and SQL will not
                     // match NULL against '!=' on its own.
                     ->orWhereNull('status')
-                    ->orWhere('refund_outcome', LimoLeg::REFUND_COUPON);
+                    ->orWhereIn('refund_outcome', LimoLeg::BILLABLE_OUTCOMES);
             })
             ->sum('net_amount'), 3);
 

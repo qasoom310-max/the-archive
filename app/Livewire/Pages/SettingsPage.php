@@ -349,6 +349,12 @@ final class SettingsPage extends Component
             return false;
         }
 
+        // The limousine coupon rule is switched on the Limousine dashboard by
+        // the owner / Supervisor accountant, never as a raw row here.
+        if ($key === 'limousine.coupon_rule') {
+            return false;
+        }
+
         // Theme + accent are edited by the dedicated "Appearance" widget at the
         // top of the General tab, so they must not ALSO render as raw text rows.
         if (in_array($key, self::WIDGET_KEYS, true)) {

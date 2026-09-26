@@ -116,7 +116,7 @@ enum StaffRole: string
         return match ($this) {
             self::Staff => 'Staff (view only)',
             self::Supervisor => 'Supervisor',
-            self::Accountant => 'Accountant',
+            self::Accountant => 'Supervisor accountant',
             self::Admin => 'Administrator',
             self::SuperAdmin => 'Super admin',
         };
@@ -128,7 +128,7 @@ enum StaffRole: string
         return match ($this) {
             self::Staff => 'Can view records in the chosen apps.',
             self::Supervisor => 'Can view, add and edit records in the chosen apps (but not delete them).',
-            self::Accountant => 'Can view, add and edit records in the chosen apps (but not delete them), and confirm that payments were received.',
+            self::Accountant => 'Everything a supervisor can do, plus confirming that payments were received.',
             self::Admin => 'Full access (including delete) to every app and setting in this database — or just the apps you tick below.',
             self::SuperAdmin => 'Everything an administrator can do, plus the owner-only controls.',
         };

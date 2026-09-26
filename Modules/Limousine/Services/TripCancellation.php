@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Services;
 
+use App\Erp\Settings\SettingManager;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -41,11 +42,35 @@ final class TripCancellation
 
     public const OUTCOME_COUPON = LimoLeg::REFUND_COUPON;
 
+    public const OUTCOME_FORFEITED = LimoLeg::REFUND_FORFEITED;
+
+    /**
+     * Per-database switch for the coupon rule, flipped from the Limousine
+     * dashboard by the owner or a Supervisor accountant. Off = no coupon is
+     * ever issued: a refund due is paid back as money, and a late cancellation
+     * keeps the payment. Absent = on (the rule as it has always been).
+     */
+    public const COUPON_RULE_SETTING = 'limousine.coupon_rule';
+
+    public function __construct(private readonly SettingManager $settings)
+    {
+    }
+
+    public function couponRuleOn(): bool
+    {
+        return (bool) $this->settings->get(self::COUPON_RULE_SETTING, true);
+    }
+
+    public function setCouponRule(bool $on): void
+    {
+        $this->settings->set(self::COUPON_RULE_SETTING, $on);
+    }
+
     /**
      * What cancelling this trip right now would mean — used to tell the user
      * before they commit, and again to decide what actually happens.
      *
-     * @return array{paid: bool, amount: float, within_window: bool, hours_to_start: ?float, refund_due: bool}
+     * @return array{paid: bool, amount: float, within_window: bool, hours_to_start: ?float, refund_due: bool, coupons: bool}
      */
     public function preview(LimoLeg $leg): array
     {
@@ -75,6 +100,7 @@ final class TripCancellation
             'within_window' => $withinWindow,
             'hours_to_start' => $hours,
             'refund_due' => $paid && ! $withinWindow,
+            'coupons' => $this->couponRuleOn(),
         ];
     }
 
@@ -100,10 +126,15 @@ final class TripCancellation
             if ($preview['paid']) {
                 $amount = $preview['amount'];
 
-                if ($preview['refund_due'] && ! $refundAsCoupon) {
+                if ($preview['refund_due'] && (! $refundAsCoupon || ! $preview['coupons'])) {
                     // Money goes back the way it came; the transfer itself
                     // happens in the bank, this records that it is owed.
                     $outcome = self::OUTCOME_REFUNDED;
+                } elseif (! $preview['coupons']) {
+                    // Too late for a refund and the coupon rule is off: the
+                    // payment is kept, nothing is handed back.
+                    $outcome = self::OUTCOME_FORFEITED;
+                    $amount = 0.0;
                 } else {
                     // Either inside the window (no refund, so credit instead) or
                     // a full refund the office chose to give as credit.

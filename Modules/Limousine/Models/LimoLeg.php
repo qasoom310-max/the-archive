@@ -51,7 +51,7 @@ use Illuminate\Support\Facades\Storage;
  * @property Carbon|null $service_order_sent_at
  * @property Carbon|null $cancelled_at
  * @property string|null $cancellation_reason
- * @property string|null $refund_outcome   none|refunded|coupon — what the customer got back
+ * @property string|null $refund_outcome   none|refunded|coupon|forfeited — what the customer got back
  * @property float $refund_amount
  */
 final class LimoLeg extends Model
@@ -93,6 +93,20 @@ final class LimoLeg extends Model
     public const REFUND_REFUNDED = 'refunded';
 
     public const REFUND_COUPON = 'coupon';
+
+    /**
+     * Cancelled too late for a refund while the coupon rule was switched off:
+     * the payment is kept and nothing is handed back.
+     */
+    public const REFUND_FORFEITED = 'forfeited';
+
+    /**
+     * Outcomes whose money stays earned on the booking, so the trip stays on
+     * the bill even though it was cancelled.
+     *
+     * @var list<string>
+     */
+    public const BILLABLE_OUTCOMES = [self::REFUND_COUPON, self::REFUND_FORFEITED];
 
     /** First reference handed out. Kept in step with the backfill migration. */
     public const REFERENCE_START = 10000;
@@ -176,7 +190,7 @@ final class LimoLeg extends Model
     public function isBillable(): bool
     {
         return $this->status !== self::STATUS_CANCELLED
-            || $this->refund_outcome === self::REFUND_COUPON;
+            || in_array($this->refund_outcome, self::BILLABLE_OUTCOMES, true);
     }
 
     /** Whether the customer has signed this leg's Service Order. */

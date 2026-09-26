@@ -91,6 +91,32 @@
         @endforeach
     </div>
 
+    {{-- The cancellation coupon rule: the owner and the Supervisor accountant only. --}}
+    @if ($canManageCouponRule)
+        <div class="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-xl bg-white px-5 py-4 shadow-sm ring-1 ring-chrome-200">
+            <div class="min-w-0">
+                <p class="text-sm font-semibold text-chrome-900">{{ __('Coupon rule') }}
+                    <span class="ms-2 rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $couponRuleOn ? 'bg-emerald-50 text-emerald-700' : 'bg-chrome-100 text-chrome-600' }}">
+                        {{ $couponRuleOn ? __('On') : __('Off') }}
+                    </span>
+                </p>
+                <p class="mt-0.5 text-xs text-chrome-500">
+                    @if ($couponRuleOn)
+                        {{ __('A paid trip cancelled within 48 hours gets a coupon for what was paid, valid one year.') }}
+                    @else
+                        {{ __('No coupons are issued. A paid trip cancelled within 48 hours keeps its payment; earlier cancellations are refunded.') }}
+                    @endif
+                </p>
+            </div>
+            <button type="button" wire:click="toggleCouponRule"
+                    wire:confirm="{{ $couponRuleOn ? __('Switch the coupon rule off?') : __('Switch the coupon rule on?') }}"
+                    role="switch" aria-checked="{{ $couponRuleOn ? 'true' : 'false' }}" aria-label="{{ __('Coupon rule') }}"
+                    class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition {{ $couponRuleOn ? 'bg-emerald-500' : 'bg-chrome-300' }}">
+                <span class="inline-block size-5 rounded-full bg-white shadow transition {{ $couponRuleOn ? 'translate-x-5 rtl:-translate-x-5' : 'translate-x-0.5 rtl:-translate-x-0.5' }}"></span>
+            </button>
+        </div>
+    @endif
+
     {{-- Revenue and the targets measured against it: the owner's alone. --}}
     @if ($isSuperAdmin)
         @include('partials.revenue-targets', [

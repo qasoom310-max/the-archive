@@ -1083,6 +1083,7 @@ final class Bookings extends Component
             TripCancellation::OUTCOME_REFUNDED => __('Trip cancelled. Full refund of :amount BD is due.', [
                 'amount' => number_format($result['amount'], 3),
             ]),
+            TripCancellation::OUTCOME_FORFEITED => __('Trip cancelled. No refund — the payment is kept.'),
             default => __('Trip cancelled.'),
         });
     }

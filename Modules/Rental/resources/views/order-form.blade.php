@@ -328,7 +328,11 @@
                                 q: '',
                                 label: @js($selectedVehicle ? $selectedVehicle->displayName() . ' · ' . ($selectedVehicle->is_outside ? __('Outside') : __('Ours')) : ''),
                                 pick(id, label) { this.label = label; this.open = false; this.q = ''; $wire.set('vehicle_id', id); },
-                            }" @click.outside="open = false">
+                            }" @click.outside="open = false"
+                            {{-- Lifted above the sections below while open: on a phone the
+                                 list runs past this card, and the next card's heading was
+                                 painting over its last rows. --}}
+                            :class="open && 'z-40'">
                             {{-- `border px-3 py-2` on purpose: o-input sets the
                                  border COLOUR, the rounding and the background,
                                  but the WIDTH and the padding come from
@@ -336,14 +340,16 @@
                                  — an input, a select — and not a button. Without
                                  them this drew no box at all and the car read as
                                  a stray line of text among bordered fields. --}}
-                            <button type="button" @click="open = ! open; if (open) $nextTick(() => $refs.q.focus())"
-                                class="o-input flex w-full items-center justify-between border px-3 py-2 text-start">
-                                <span x-text="label || '{{ __('— Select —') }}'" :class="label ? '' : 'text-chrome-400'"></span>
-                                <svg class="size-4 text-chrome-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"/></svg>
+                            {{-- On a phone, opening scrolls the field to the top so the
+                                 list sits above the keyboard that the search box brings up. --}}
+                            <button type="button" @click="open = ! open; if (open) $nextTick(() => { if (window.innerWidth < 768) $el.scrollIntoView({ block: 'start', behavior: 'smooth' }); $refs.q.focus({ preventScroll: true }) })"
+                                class="o-input flex w-full items-center justify-between gap-2 border px-3 py-2 text-start max-md:text-base">
+                                <span class="min-w-0 break-words" x-text="label || '{{ __('— Select —') }}'" :class="label ? '' : 'text-chrome-400'"></span>
+                                <svg class="size-4 shrink-0 text-chrome-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"/></svg>
                             </button>
-                            <div x-show="open" x-cloak class="absolute z-30 mt-1 w-full overflow-hidden rounded-lg border border-chrome-200 bg-white shadow-pop">
+                            <div x-show="open" x-cloak class="absolute z-50 mt-1 w-full overflow-hidden rounded-lg border border-chrome-200 bg-white shadow-pop">
                                 <input type="text" x-ref="q" x-model="q" @click.stop placeholder="{{ __('Search car or plate…') }}" class="o-input m-2 w-[calc(100%-1rem)] text-sm">
-                                <ul class="max-h-72 overflow-y-auto">
+                                <ul class="max-h-[45vh] overflow-y-auto overscroll-contain sm:max-h-72">
                                     @foreach ($vehicles as $v)
                                         <li data-label="{{ strtolower($v->displayName() . ' ' . ($v->plate_no ?? '')) }}"
                                             x-show="q === '' || $el.dataset.label.includes(q.toLowerCase().trim())"

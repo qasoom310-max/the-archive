@@ -195,11 +195,12 @@
     {{-- 17 data columns can never fit a phone, so rather than force a sideways
          scroll the table sheds columns as the screen narrows: what identifies
          and actions a job always stays, the rest return as there is room.
-           phone  reference · date · type · customer · amount · pickup ·
+           phone  reference · date · type · customer · amount · received ·
+                  balance · pickup ·
                   drop off · vehicle · added by · payment · actions
            sm     + no. · to date
            md     + status
-           lg     everything (received, balance, driver, comments,
+           lg     everything else (driver, comments,
                   booked time)
 
          Note the HEADER's width class comes from $vis below while each body
@@ -219,8 +220,8 @@
             'type' => '',
             'customer' => '',
             'amount' => '',
-            'received' => 'hidden lg:table-cell',
-            'balance' => 'hidden lg:table-cell',
+            'received' => '',
+            'balance' => '',
             'pickup' => '',
             'dropoff' => '',
             'vehicle' => '',
@@ -360,9 +361,9 @@
                              shows one balance repeated down its rows rather than a third
                              on each. The tooltips say so, because two money columns that
                              repeat beside one that doesn't reads as double-counting. --}}
-                        <td class="hidden px-2 py-2 text-end text-emerald-700 lg:table-cell"
+                        <td class="px-2 py-2 text-end text-emerald-700"
                             title="{{ __('Received against booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['received']) }}</td>
-                        <td class="hidden px-2 py-2 text-end lg:table-cell {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-600' }}"
+                        <td class="px-2 py-2 text-end {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-600' }}"
                             title="{{ __('Still owed on booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['balance']) }}</td>
                         <td class="px-2 py-2 text-chrome-900">{{ $row['pickup'] ?: '—' }}</td>
                         <td class="px-2 py-2 text-chrome-900">{{ $row['dropoff'] ?: '—' }}</td>

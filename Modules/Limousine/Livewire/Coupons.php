@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire;
 
+use App\Erp\Activity\ActivityLogger;
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Models\User;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -15,6 +18,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use Modules\Limousine\Models\LimoCoupon;
 use Modules\Limousine\Services\CouponSender;
+use Modules\Limousine\Services\TripCancellation;
 use Throwable;
 
 /**
@@ -66,6 +70,33 @@ final class Coupons extends Component
     public function mount(): void
     {
         $this->guardAccess(Permission::Read);
+    }
+
+    /**
+     * Switch the cancellation coupon rule on or off for this database. The
+     * owner and the Supervisor accountant only — the same people trusted to
+     * confirm money was received. Re-checked here, not just hidden in the view.
+     */
+    public function toggleCouponRule(): void
+    {
+        abort_unless($this->viewerManagesCouponRule(), 403);
+
+        $rule = app(TripCancellation::class);
+        $on = ! $rule->couponRuleOn();
+        $rule->setCouponRule($on);
+
+        app(ActivityLogger::class)->log(
+            'settings_updated',
+            __('Coupon rule'),
+            $on ? __('Switched on') : __('Switched off'),
+        );
+    }
+
+    private function viewerManagesCouponRule(): bool
+    {
+        $user = Auth::user();
+
+        return $user instanceof User && $user->canConfirmPayments();
     }
 
     /**
@@ -225,6 +256,8 @@ final class Coupons extends Component
         return view('limousine::coupons', [
             'coupons' => $coupons,
             'canWrite' => $this->mayAccess(Permission::Write),
+            'canManageCouponRule' => $this->viewerManagesCouponRule(),
+            'couponRuleOn' => app(TripCancellation::class)->couponRuleOn(),
             'using' => $this->usingId !== null
                 ? LimoCoupon::query()->with('redemptions')->find($this->usingId)
                 : null,

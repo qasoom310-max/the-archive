@@ -59,79 +59,6 @@
         </div>
     </div>
 
-    {{-- ───────── Booking KPIs ───────── --}}
-    <div class="mb-3 flex items-center gap-2">
-        <h2 class="text-xs font-bold uppercase tracking-wider text-chrome-500">{{ __('Bookings') }}</h2>
-        <span class="h-px flex-1 bg-chrome-200"></span>
-    </div>
-    <div class="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        @php
-            $cards = [
-                ['label' => __('Bookings Queue'), 'value' => $queue, 'href' => url('/app/limousine/booking?tab=queue'), 'icon' => 'queue', 'tint' => 'bg-amber-50 text-amber-600 ring-amber-100'],
-                // Confirmed sits between Queue and Active and had no card, so a
-                // trip that had been confirmed was counted on none of them: agreed
-                // with the customer, and invisible everywhere but the queue's own tab.
-                ['label' => __('Confirmed Trips'), 'value' => $confirmed, 'href' => url('/app/limousine/booking?tab=confirmed'), 'icon' => 'calendar', 'tint' => 'bg-sky-50 text-sky-600 ring-sky-100'],
-                ['label' => __('Active Bookings'), 'value' => $active, 'href' => url('/app/limousine/booking?tab=active'), 'icon' => 'bolt', 'tint' => 'bg-indigo-50 text-indigo-600 ring-indigo-100'],
-                ['label' => __('Completed Trips'), 'value' => $completed, 'href' => url('/app/limousine/booking?tab=completed'), 'icon' => 'check', 'tint' => 'bg-emerald-50 text-emerald-600 ring-emerald-100'],
-                ['label' => __('Unpaid Bookings'), 'value' => $unpaid, 'href' => url('/app/limousine/booking?tab=unpaid'), 'icon' => 'alert', 'tint' => 'bg-red-50 text-red-600 ring-red-100'],
-            ];
-        @endphp
-        @foreach ($cards as $card)
-            <a href="{{ $card['href'] }}" wire:navigate class="{{ $tile }} hover:ring-indigo-300">
-                <div class="flex items-center justify-between">
-                    <span class="flex size-9 items-center justify-center rounded-xl ring-1 {{ $card['tint'] }}">
-                        <svg class="size-5" viewBox="0 0 20 20" fill="currentColor">{!! $ic[$card['icon']] !!}</svg>
-                    </span>
-                    <svg class="size-4 text-chrome-300 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/></svg>
-                </div>
-                <div class="mt-3 text-3xl font-bold tracking-tight text-chrome-900">{{ $card['value'] }}</div>
-                <div class="text-sm font-medium text-chrome-500">{{ $card['label'] }}</div>
-            </a>
-        @endforeach
-    </div>
-
-    {{-- The cancellation coupon rule: the owner and the Supervisor accountant only. --}}
-    @if ($canManageCouponRule)
-        <div class="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-xl bg-white px-5 py-4 shadow-sm ring-1 ring-chrome-200">
-            <div class="min-w-0">
-                <p class="text-sm font-semibold text-chrome-900">{{ __('Coupon rule') }}
-                    <span class="ms-2 rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $couponRuleOn ? 'bg-emerald-50 text-emerald-700' : 'bg-chrome-100 text-chrome-600' }}">
-                        {{ $couponRuleOn ? __('On') : __('Off') }}
-                    </span>
-                </p>
-                <p class="mt-0.5 text-xs text-chrome-500">
-                    @if ($couponRuleOn)
-                        {{ __('A paid trip cancelled within 48 hours gets a coupon for what was paid, valid one year.') }}
-                    @else
-                        {{ __('No coupons are issued. A paid trip cancelled within 48 hours keeps its payment; earlier cancellations are refunded.') }}
-                    @endif
-                </p>
-            </div>
-            <button type="button" wire:click="toggleCouponRule"
-                    wire:confirm="{{ $couponRuleOn ? __('Switch the coupon rule off?') : __('Switch the coupon rule on?') }}"
-                    role="switch" aria-checked="{{ $couponRuleOn ? 'true' : 'false' }}" aria-label="{{ __('Coupon rule') }}"
-                    class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition {{ $couponRuleOn ? 'bg-emerald-500' : 'bg-chrome-300' }}">
-                <span class="inline-block size-5 rounded-full bg-white shadow transition {{ $couponRuleOn ? 'translate-x-5 rtl:-translate-x-5' : 'translate-x-0.5 rtl:-translate-x-0.5' }}"></span>
-            </button>
-        </div>
-    @endif
-
-    {{-- Revenue and the targets measured against it: the owner's alone. --}}
-    @if ($isSuperAdmin)
-        @include('partials.revenue-targets', [
-            'tile' => $tile,
-            'revenue' => $revenue,
-            'targets' => $targets,
-            'schedules' => $schedules,
-            'gradient' => 'bg-gradient-to-br from-indigo-600 to-violet-700',
-            'unpaidHref' => url('/app/limousine/booking?tab=unpaid'),
-            'fleetHref' => url('/app/limousine/earnings'),
-            'fleetLabel' => __('Limousine earnings'),
-        ])
-        @include('partials.top-customers', ['customers' => $topCustomers, 'tile' => $tile])
-    @endif
-
     {{-- ───────── Schedule strip ───────── --}}
     <div class="mb-3 flex items-center gap-2">
         <h2 class="text-xs font-bold uppercase tracking-wider text-chrome-500">{{ __('Schedule') }}</h2>
@@ -165,6 +92,53 @@
             </a>
         @endforeach
     </div>
+
+    {{-- ───────── Booking KPIs ───────── --}}
+    <div class="mb-3 flex items-center gap-2">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-chrome-500">{{ __('Bookings') }}</h2>
+        <span class="h-px flex-1 bg-chrome-200"></span>
+    </div>
+    <div class="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        @php
+            $cards = [
+                ['label' => __('Bookings Queue'), 'value' => $queue, 'href' => url('/app/limousine/booking?tab=queue'), 'icon' => 'queue', 'tint' => 'bg-amber-50 text-amber-600 ring-amber-100'],
+                // Confirmed sits between Queue and Active and had no card, so a
+                // trip that had been confirmed was counted on none of them: agreed
+                // with the customer, and invisible everywhere but the queue's own tab.
+                ['label' => __('Confirmed Trips'), 'value' => $confirmed, 'href' => url('/app/limousine/booking?tab=confirmed'), 'icon' => 'calendar', 'tint' => 'bg-sky-50 text-sky-600 ring-sky-100'],
+                ['label' => __('Active Bookings'), 'value' => $active, 'href' => url('/app/limousine/booking?tab=active'), 'icon' => 'bolt', 'tint' => 'bg-indigo-50 text-indigo-600 ring-indigo-100'],
+                ['label' => __('Completed Trips'), 'value' => $completed, 'href' => url('/app/limousine/booking?tab=completed'), 'icon' => 'check', 'tint' => 'bg-emerald-50 text-emerald-600 ring-emerald-100'],
+                ['label' => __('Unpaid Bookings'), 'value' => $unpaid, 'href' => url('/app/limousine/booking?tab=unpaid'), 'icon' => 'alert', 'tint' => 'bg-red-50 text-red-600 ring-red-100'],
+            ];
+        @endphp
+        @foreach ($cards as $card)
+            <a href="{{ $card['href'] }}" wire:navigate class="{{ $tile }} hover:ring-indigo-300">
+                <div class="flex items-center justify-between">
+                    <span class="flex size-9 items-center justify-center rounded-xl ring-1 {{ $card['tint'] }}">
+                        <svg class="size-5" viewBox="0 0 20 20" fill="currentColor">{!! $ic[$card['icon']] !!}</svg>
+                    </span>
+                    <svg class="size-4 text-chrome-300 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/></svg>
+                </div>
+                <div class="mt-3 text-3xl font-bold tracking-tight text-chrome-900">{{ $card['value'] }}</div>
+                <div class="text-sm font-medium text-chrome-500">{{ $card['label'] }}</div>
+            </a>
+        @endforeach
+    </div>
+
+    {{-- Revenue and the targets measured against it: the owner's alone. --}}
+    @if ($isSuperAdmin)
+        @include('partials.revenue-targets', [
+            'tile' => $tile,
+            'revenue' => $revenue,
+            'targets' => $targets,
+            'schedules' => $schedules,
+            'gradient' => 'bg-gradient-to-br from-indigo-600 to-violet-700',
+            'unpaidHref' => url('/app/limousine/booking?tab=unpaid'),
+            'fleetHref' => url('/app/limousine/earnings'),
+            'fleetLabel' => __('Limousine earnings'),
+        ])
+        @include('partials.top-customers', ['customers' => $topCustomers, 'tile' => $tile])
+    @endif
 
     {{-- ───────── Manage ───────── --}}
     @if (! empty($tiles))

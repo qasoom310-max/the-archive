@@ -262,20 +262,20 @@ final class LimoCancellationTest extends TestCase
         $this->assertTrue($rule->couponRuleOn());
 
         $this->actingAs(User::factory()->create(['is_admin' => true]));
-        \Livewire\Livewire::test(\Modules\Limousine\Livewire\LimoHome::class)
+        \Livewire\Livewire::test(\Modules\Limousine\Livewire\Coupons::class)
             ->assertDontSee(__('Coupon rule'))
             ->call('toggleCouponRule')
             ->assertForbidden();
         $this->assertTrue($rule->couponRuleOn());
 
         $this->actingAs(User::factory()->create(['is_accountant' => true]));
-        \Livewire\Livewire::test(\Modules\Limousine\Livewire\LimoHome::class)
+        \Livewire\Livewire::test(\Modules\Limousine\Livewire\Coupons::class)
             ->assertSee(__('Coupon rule'))
             ->call('toggleCouponRule');
         $this->assertFalse($rule->couponRuleOn());
 
         $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
-        \Livewire\Livewire::test(\Modules\Limousine\Livewire\LimoHome::class)
+        \Livewire\Livewire::test(\Modules\Limousine\Livewire\Coupons::class)
             ->call('toggleCouponRule');
         $this->assertTrue($rule->couponRuleOn());
     }

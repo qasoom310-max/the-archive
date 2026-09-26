@@ -426,22 +426,6 @@ final class LimoQueueRows
                 : ($pax !== '' ? $pax : $paxContact));
         }
 
-        // Money the driver has to handle is the line that must not be missed, so
-        // it sits above the route rather than buried at the end — but only for
-        // an individual: a company's trips are settled on its account, not by
-        // the driver collecting cash from whoever is riding, so neither "collect
-        // from customer" nor "Paid" applies and the line is left out entirely.
-        if ($customer === null || ! $customer->isCompany()) {
-            $balance = round($booking?->balanceDue() ?? 0.0, 3);
-            if ($balance > 0.001) {
-                $method = $booking !== null ? trim((string) ($booking->payment_method ?? '')) : '';
-                $collect = __('Balance :amount BD — collect from customer', ['amount' => number_format($balance, 3)]);
-                $lines[] = '*' . ($method !== '' ? $collect . ' ' . __('in') . ' ' . ucfirst($method) : $collect) . '*';
-            } else {
-                $lines[] = '✅ ' . __('Paid');
-            }
-        }
-
         $lines[] = '';
         $lines[] = __('Pick up') . ': ' . ($leg->from_location ?? '');
         if (($leg->from_location_url ?? '') !== '') {
@@ -459,6 +443,25 @@ final class LimoQueueRows
         if ($car !== '') {
             $lines[] = '';
             $lines[] = __('Car') . ': *' . $car . '*';
+        }
+
+        // Money the driver has to handle goes LAST, where the office asked for
+        // it — it is the note they finish the message on, and up among the
+        // customer's details it read as part of who the trip is for. Left out
+        // entirely for a company: those trips are settled on the account, not
+        // by the driver collecting cash from whoever is riding, so neither
+        // "collect from customer" nor "Paid" means anything.
+        if ($customer === null || ! $customer->isCompany()) {
+            $balance = round($booking?->balanceDue() ?? 0.0, 3);
+            $lines[] = '';
+
+            if ($balance > 0.001) {
+                $method = $booking !== null ? trim((string) ($booking->payment_method ?? '')) : '';
+                $collect = __('Balance :amount BD — collect from customer', ['amount' => number_format($balance, 3)]);
+                $lines[] = '*' . ($method !== '' ? $collect . ' ' . __('in') . ' ' . ucfirst($method) : $collect) . '*';
+            } else {
+                $lines[] = '✅ ' . __('Paid');
+            }
         }
 
         return implode("\n", $lines);

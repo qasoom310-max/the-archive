@@ -2964,5 +2964,9 @@
     "Previous month": "الشهر السابق",
     "Next month": "الشهر التالي",
     "Hours": "الساعات",
-    "e.g. 3": "مثال: 3"
+    "e.g. 3": "مثال: 3",
+    "This page cannot be opened directly": "لا يمكن فتح هذه الصفحة مباشرة",
+    "It is the address a form sends to, not a page to visit — reached here by a refresh, the back button or a saved link. Nothing has been lost.": "هذا هو العنوان الذي يُرسل إليه النموذج، وليس صفحة تُفتح — تم الوصول إليه عبر التحديث أو زر الرجوع أو رابط محفوظ. لم يُفقد أي شيء.",
+    "Go to the dashboard": "الذهاب إلى لوحة التحكم",
+    "Go back": "رجوع"
 }

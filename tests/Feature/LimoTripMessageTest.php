@@ -121,6 +121,36 @@ final class LimoTripMessageTest extends TestCase
         $this->assertStringNotContainsString('Balance', $text);
     }
 
+    /**
+     * The money line finishes the message, where the office asked for it. Up
+     * among the customer's details it read as part of who the trip is for.
+     */
+    public function test_the_money_line_is_the_last_thing_in_the_message(): void
+    {
+        $paid = app(LimoQueueRows::class)->whatsappText(
+            $this->leg(['advance' => 14, 'payment_status' => LimoBooking::PAYMENT_PAID]),
+        );
+
+        $this->assertStringEndsWith('Paid', trim($paid));
+        $this->assertLessThan(
+            strpos($paid, 'Paid'),
+            strpos($paid, 'Drop off'),
+            'Paid still comes before the route.',
+        );
+
+        // …and a balance to collect finishes it the same way.
+        $owing = app(LimoQueueRows::class)->whatsappText(
+            $this->leg(['payment_method' => 'cash', 'advance' => 0]),
+        );
+
+        $this->assertStringEndsWith('*', trim($owing));
+        $this->assertLessThan(
+            strpos($owing, 'Balance'),
+            strpos($owing, 'Drop off'),
+            'The balance still comes before the route.',
+        );
+    }
+
     public function test_a_missing_map_link_is_left_out_rather_than_sent_blank(): void
     {
         $leg = $this->leg([], ['from_location_url' => null, 'to_location_url' => null]);

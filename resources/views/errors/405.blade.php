@@ -35,6 +35,14 @@
                 {{ __('Go back') }}
             </button>
         </div>
+
+        {{-- The method and the address, on the page itself. Reported from a
+             phone, this error is a screenshot of a bare domain and nothing to
+             go on; the one fact that identifies it should not have to be
+             fished out of the address bar. English by design — it is a URL and
+             an HTTP verb, quoted back to whoever is reading the screenshot. --}}
+        <p class="mt-5 select-all break-all border-t border-chrome-100 pt-3 text-start font-mono text-[11px] text-chrome-400"
+           dir="ltr">{{ request()->method() }} {{ \Illuminate\Support\Str::limit(request()->path(), 120) }}</p>
     </div>
 </body>
 </html>

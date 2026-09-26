@@ -58,8 +58,11 @@ final class RevenueSchedule
             return $this->empty(__('Car'));
         }
 
+        // The same work the box above counts - live or closed hires, paid or
+        // not - so the rows keep adding up to it. Counting only paid-in-full
+        // hires here was the bug that emptied the whole band.
         $rows = DB::table('rental_orders')
-            ->where('payment_status', 'paid')
+            ->whereIn('state', ['active', 'closed'])
             ->whereBetween('start_date', RevenueTargets::windowBounds($from, $to))
             // Net of what outside vendors are paid, exactly as the box above.
             ->selectRaw('vehicle_id, COALESCE(SUM(total - outside_cost), 0) as amount, COUNT(*) as jobs')
@@ -117,7 +120,7 @@ final class RevenueSchedule
         }
 
         $bookings = DB::table('limo_bookings')
-            ->where('payment_status', 'paid')
+            ->where('status', '!=', 'cancelled')
             ->whereBetween('pickup_at', RevenueTargets::windowBounds($from, $to))
             ->get(['id', 'fare']);
 

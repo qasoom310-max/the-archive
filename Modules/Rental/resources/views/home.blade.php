@@ -249,7 +249,6 @@
     @if ($isSuperAdmin)
         @include('partials.revenue-targets', [
             'tile' => $tile,
-            'revenue' => $revenue,
             'targets' => $targets,
             'schedules' => $schedules,
             'gradient' => 'bg-gradient-to-br from-emerald-600 to-emerald-700',

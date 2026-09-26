@@ -98,11 +98,6 @@ final class RentalHome extends Component
             ->where('state', RentalOrder::STATE_ACTIVE)
             ->whereDate('end_date', '<=', now())
             ->count();
-        // Revenue is net of what we pay outside vendors (markup, not gross).
-        $revenue = (float) RentalOrder::query()
-            ->where('payment_status', RentalOrder::PAYMENT_PAID)
-            ->selectRaw('COALESCE(SUM(total - outside_cost), 0) as net')
-            ->value('net');
 
         // Cars whose registration / insurance is missing, expired, or expiring
         // within the reminder window — surfaced as a "renew soon" box.
@@ -208,7 +203,6 @@ final class RentalHome extends Component
             'unpaidOrders' => $unpaidOrders,
             'unpaidOutstanding' => $unpaidOutstanding,
             'returnsDue' => $returnsDue,
-            'revenue' => $revenue,
             'tiles' => $tiles,
         ]);
     }

@@ -188,9 +188,11 @@ final class TopCustomersTest extends TestCase
         $this->assertEqualsWithDelta(500.0, $progress['month']['target'], 0.001);
         $this->assertSame('fleet', $progress['month']['source']);
         $this->assertSame(2, $progress['fleet']['cars']);
-        // A year derived from a monthly figure is only ever an estimate.
-        $this->assertEqualsWithDelta(6000.0, $progress['year']['target'], 0.001);
-        $this->assertSame('fleet_estimate', $progress['year']['source']);
+        $this->assertSame(2, $progress['fleet']['fleet']);
+        // No yearly target is invented from the monthly one: twelve equal
+        // months is not how this trade runs.
+        $this->assertNull($progress['year']['target']);
+        $this->assertNull($progress['year']['source']);
     }
 
     public function test_what_the_owner_typed_beats_what_the_cars_add_up_to(): void
@@ -202,8 +204,35 @@ final class TopCustomersTest extends TestCase
 
         $this->assertEqualsWithDelta(900.0, $progress['month']['target'], 0.001);
         $this->assertSame('typed', $progress['month']['source']);
-        // The yearly was left blank, so it still falls back to the fleet.
-        $this->assertSame('fleet_estimate', $progress['year']['source']);
+        // The yearly was left blank, and blank stays blank.
+        $this->assertNull($progress['year']['target']);
+    }
+
+    public function test_a_fleet_target_needs_every_car_to_carry_one(): void
+    {
+        // The owner's screen said "Added up from 21 cars' own monthly targets"
+        // when one car had a target, then called the resulting 150 BD a month
+        // met. A partial sum is not a fleet target.
+        $this->car('Sunny', '111111', 150.0);
+        $this->car('Yaris', '222222', 0.0);
+
+        $progress = app(RevenueTargets::class)->progress('rental', $this->today);
+
+        $this->assertNull($progress['month']['target']);
+        $this->assertNull($progress['month']['source']);
+        $this->assertSame(1, $progress['fleet']['cars']);
+        $this->assertSame(2, $progress['fleet']['fleet']);
+    }
+
+    public function test_the_box_says_how_many_cars_still_need_a_target(): void
+    {
+        $this->car('Sunny', '111111', 150.0);
+        $this->car('Yaris', '222222', 0.0);
+        $this->actingAs($this->owner());
+
+        Livewire::test(RentalHome::class)
+            ->assertSee('Only 1 of your 2 cars have a monthly target')
+            ->assertDontSee('Added up from');
     }
 
     public function test_a_rented_in_or_retired_car_carries_no_fleet_target(): void

@@ -3023,5 +3023,8 @@
     "Left after costs": "المتبقي بعد التكاليف",
     "Month so far": "الشهر حتى الآن",
     "No monthly target set for this car.": "لا يوجد هدف شهري لهذه السيارة.",
-    "Showing :period": "عرض :period"
+    "Showing :period": "عرض :period",
+    "Bookings for :date": "حجوزات :date",
+    "Previous day": "اليوم السابق",
+    "Next day": "اليوم التالي"
 }

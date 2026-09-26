@@ -10,7 +10,7 @@
 @endphp
 
 <div class="mx-auto w-full p-4 sm:p-6">
-    <x-page-header :title="__('Bookings')" :subtitle="__('Trip bookings.')" icon="calendar" accent="indigo">
+    <x-page-header :title="$dayHeader['title'] ?? __('Bookings')" :subtitle="__('Trip bookings.')" icon="calendar" accent="indigo">
         <x-slot:actions>
             @if ($canManage)
                 <button type="button" onclick="document.getElementById('import-bookings').classList.toggle('hidden')" class="o-btn-ghost">{{ __('Import') }}</button>
@@ -21,6 +21,27 @@
             </a>
         </x-slot:actions>
     </x-page-header>
+
+    {{-- A single day (the dashboard's Yesterday / Today / Tomorrow cards open
+         the list this way): step to the day before or after without going back
+         to the dashboard. Flex order mirrors under RTL, so "back" stays at the
+         reading start. --}}
+    @if ($dayHeader)
+        <div class="-mt-2 mb-4 flex items-center justify-between gap-2" data-day-nav>
+            <button type="button" wire:click="shiftDay(-1)"
+                    class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-indigo-700 ring-1 ring-indigo-100 transition hover:bg-indigo-50"
+                    aria-label="{{ __('Previous day') }}">
+                <svg class="size-5 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clip-rule="evenodd"/></svg>
+                {{ $dayHeader['previous'] }}
+            </button>
+            <button type="button" wire:click="shiftDay(1)"
+                    class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-indigo-700 ring-1 ring-indigo-100 transition hover:bg-indigo-50"
+                    aria-label="{{ __('Next day') }}">
+                {{ $dayHeader['next'] }}
+                <svg class="size-5 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clip-rule="evenodd"/></svg>
+            </button>
+        </div>
+    @endif
 
     {{-- Import trips from a CSV (managers). Direct POST — Hostinger-safe. The
          expected columns are the same shape the queue's own export prints, so

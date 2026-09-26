@@ -374,4 +374,41 @@ final class LimoQueuePhoneColumnsTest extends TestCase
         $this->assertStringContainsString("data-phone-money=\"balance\"", $html);
         $this->assertStringContainsString("<td class=\"hidden px-2 py-2 text-end text-emerald-700 lg:table-cell\"", $html);
     }
+
+    /**
+     * The dashboard Yesterday / Today / Tomorrow cards open the list on one
+     * day: the title names the day and arrows step to the day either side.
+     */
+    public function test_a_single_day_is_titled_and_can_step_to_the_next_or_previous_day(): void
+    {
+        \Illuminate\Support\Carbon::setTestNow("2026-09-26 10:00:00");
+        $today = "2026-09-26";
+
+        $page = Livewire::test(Bookings::class)->set("from", $today)->set("to", $today);
+        $page->assertSee(__("Today\x27s Bookings"))
+            ->assertSee("data-day-nav", false)
+            ->assertSee(__("Yesterday"))
+            ->assertSee(__("Tomorrow"));
+
+        $page->call("shiftDay", 1)
+            ->assertSet("from", "2026-09-27")
+            ->assertSet("to", "2026-09-27")
+            ->assertSee(__("Tomorrow\x27s Bookings"))
+            ->assertSee("28 Sep 2026");
+
+        $page->call("shiftDay", -1)->call("shiftDay", -1)
+            ->assertSet("from", "2026-09-25")
+            ->assertSee(__("Yesterday\x27s Bookings"));
+
+        $page->call("shiftDay", -1)
+            ->assertSee(__("Bookings for :date", ["date" => "24 Sep 2026"]));
+
+        // A range (or no dates at all) keeps the plain title and no arrows.
+        Livewire::test(Bookings::class)
+            ->assertDontSee("data-day-nav", false)
+            ->set("from", "2026-09-20")->set("to", "2026-09-26")
+            ->assertDontSee("data-day-nav", false);
+
+        \Illuminate\Support\Carbon::setTestNow();
+    }
 }

@@ -1121,6 +1121,76 @@ final class Bookings extends Component
     }
 
     /**
+     * The one day the list is showing, when From and To are the same date —
+     * which is how the dashboard's Yesterday / Today / Tomorrow cards open it.
+     */
+    private function singleDay(): ?Carbon
+    {
+        if ($this->from === '' || $this->from !== $this->to) {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m-d', $this->from)?->startOfDay();
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /** Step a single-day list one day back (-1) or forward (+1). */
+    public function shiftDay(int $days): void
+    {
+        $day = $this->singleDay();
+        if ($day === null) {
+            return;
+        }
+
+        $this->from = $this->to = $day->addDays($days > 0 ? 1 : -1)->toDateString();
+        $this->resetPage();
+    }
+
+    /** "Today", "Tomorrow", "Yesterday", or the date itself for any other day. */
+    private function dayName(Carbon $day): string
+    {
+        $today = Carbon::today();
+
+        return match (true) {
+            $day->isSameDay($today) => __('Today'),
+            $day->isSameDay($today->copy()->addDay()) => __('Tomorrow'),
+            $day->isSameDay($today->copy()->subDay()) => __('Yesterday'),
+            default => $day->isoFormat('D MMM YYYY'),
+        };
+    }
+
+    /**
+     * The page title for a single day, and the names of the days either side
+     * for the arrows. Null when the list covers a range (or everything).
+     *
+     * @return array{title: string, previous: string, next: string}|null
+     */
+    private function dayHeader(): ?array
+    {
+        $day = $this->singleDay();
+        if ($day === null) {
+            return null;
+        }
+
+        $today = Carbon::today();
+        $title = match (true) {
+            $day->isSameDay($today) => __("Today's Bookings"),
+            $day->isSameDay($today->copy()->addDay()) => __("Tomorrow's Bookings"),
+            $day->isSameDay($today->copy()->subDay()) => __("Yesterday's Bookings"),
+            default => __('Bookings for :date', ['date' => $day->isoFormat('D MMM YYYY')]),
+        };
+
+        return [
+            'title' => $title,
+            'previous' => $this->dayName($day->copy()->subDay()),
+            'next' => $this->dayName($day->copy()->addDay()),
+        ];
+    }
+
+    /**
      * Sort by a column, or turn it around if it is already the one sorting.
      *
      * First click on a column gives the end of it people actually want: newest
@@ -1180,6 +1250,7 @@ final class Bookings extends Component
             : null;
 
         return view('limousine::bookings', [
+            'dayHeader' => $this->dayHeader(),
             'legs' => $legs,
             // Flattened through the shared builder so the table prints exactly
             // what the exports do, keyed by leg id.

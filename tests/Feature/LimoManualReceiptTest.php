@@ -233,4 +233,23 @@ final class LimoManualReceiptTest extends TestCase
         $this->asAdmin();
         Livewire::test(Receipts::class)->set('tab', 'all')->assertDontSee(__('Edit'));
     }
+
+    public function test_the_invoice_field_is_searchable(): void
+    {
+        $this->asOwner();
+        $invoice = $this->invoice();
+
+        $form = Livewire::test(ReceiptForm::class);
+        $form->assertSee("role=\"combobox\"", false)
+            ->assertSee(__("Search invoice number or customer…"))
+            ->assertSee((string) $invoice->reference)
+            ->assertSee("Helen Friberg");
+        $form->set("invoice_id", $invoice->id)
+            ->set("amount", 45)
+            ->set("method", "cash")
+            ->call("save")
+            ->assertHasNoErrors();
+
+        $this->assertSame(1, LimoReceipt::query()->count());
+    }
 }

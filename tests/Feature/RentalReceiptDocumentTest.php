@@ -159,4 +159,15 @@ final class RentalReceiptDocumentTest extends TestCase
             (string) $response->headers->get('Content-Disposition'),
         );
     }
+
+    public function test_the_receipt_forms_invoice_field_is_searchable(): void
+    {
+        [, , $invoice] = $this->orderAndInvoice();
+
+        \Livewire\Livewire::test(\Modules\Rental\Livewire\ReceiptForm::class)
+            ->assertSee("role=\"combobox\"", false)
+            ->assertSee(__("Search invoice number or customer…"))
+            ->assertSee((string) $invoice->reference)
+            ->assertSee("Abdulehah Difallah Al Otaibi");
+    }
 }

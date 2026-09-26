@@ -7,12 +7,14 @@
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div class="sm:col-span-2">
                 <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Invoice') }} *</label>
-                <select wire:model.live="invoice_id" class="o-input w-full">
-                    <option value="">{{ __('— Select —') }}</option>
-                    @foreach ($invoices as $inv)
-                        <option value="{{ $inv->id }}">{{ $inv->reference }} · {{ $inv->customer?->name ?? __('—') }} · {{ \App\Erp\Views\ValueFormat::money($inv->balance()) }} {{ __('due') }}</option>
-                    @endforeach
-                </select>
+                {{-- Searchable: the list grows by the day, so type part of the
+                     invoice number or the customer's name to narrow it. --}}
+                <x-searchable-select wire:model.live="invoice_id" class="o-input w-full"
+                    :search-placeholder="__('Search invoice number or customer…')"
+                    :options="$invoices->map(fn ($inv) => [
+                        'value' => $inv->id,
+                        'label' => $inv->reference . ' · ' . ($inv->customer?->name ?? __('—')) . ' · ' . \App\Erp\Views\ValueFormat::money($inv->balance()) . ' ' . __('due'),
+                    ])->all()" />
                 @error('invoice_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
 

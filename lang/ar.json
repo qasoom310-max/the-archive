@@ -3018,5 +3018,6 @@
     "Only :cars of your :fleet cars have a monthly target, so the fleet has none yet. Set the rest on each car page, or type a target here.": "فقط :cars من أصل :fleet سيارة لديها هدف شهري، لذا لا يوجد هدف للأسطول بعد. حدد الباقي من صفحة كل سيارة، أو اكتب هدفًا هنا.",
     "Owed from earlier months": "مستحقات الأشهر السابقة",
     "Work done": "العمل المنجز",
-    "Work done is after :amount paid to outside vendors.": "العمل المنجز بعد خصم :amount المدفوعة للموردين الخارجيين."
+    "Work done is after :amount paid to outside vendors.": "العمل المنجز بعد خصم :amount المدفوعة للموردين الخارجيين.",
+    "Search invoice number or customer…": "ابحث برقم الفاتورة أو اسم العميل…"
 }

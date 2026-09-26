@@ -356,4 +356,22 @@ final class LimoQueuePhoneColumnsTest extends TestCase
             substr_count($supervisorHtml, 'lg:table-cell'),
         );
     }
+
+    /**
+     * Received and Balance must be on screen on every phone. As columns they
+     * sat behind the pinned Actions column and a sideways scroll that iOS and
+     * Android show no scrollbar for, so below laptop width they ride under the
+     * reference — the one column that is always visible.
+     */
+    public function test_received_and_balance_show_under_the_reference_below_laptop_width(): void
+    {
+        $this->trip();
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        $this->assertMatchesRegularExpression("/class=\"[^\"]*lg:hidden\" data-phone-money=\"summary\"/", $html);
+        $this->assertStringContainsString("data-phone-money=\"received\"", $html);
+        $this->assertStringContainsString("data-phone-money=\"balance\"", $html);
+        $this->assertStringContainsString("<td class=\"hidden px-2 py-2 text-end text-emerald-700 lg:table-cell\"", $html);
+    }
 }

@@ -195,10 +195,12 @@
     {{-- 17 data columns can never fit a phone, so rather than force a sideways
          scroll the table sheds columns as the screen narrows: what identifies
          and actions a job always stays, the rest return as there is room.
-           phone  reference · date · type · customer · amount · received ·
-                  balance · pickup ·
-                  drop off · vehicle · added by · payment · actions
+           phone  reference (with amount, received and balance under it) ·
+                  date · type · customer · amount · pickup · drop off ·
+                  vehicle · added by · payment · actions
            sm     + no. · to date
+           lg     + received and balance as their own columns (narrower
+                  screens show them under the reference — see that cell)
            md     + status
            lg     everything else (driver, comments,
                   booked time)
@@ -220,8 +222,8 @@
             'type' => '',
             'customer' => '',
             'amount' => '',
-            'received' => '',
-            'balance' => '',
+            'received' => 'hidden lg:table-cell',
+            'balance' => 'hidden lg:table-cell',
             'pickup' => '',
             'dropoff' => '',
             'vehicle' => '',
@@ -335,6 +337,16 @@
                                 <span x-show="done" x-cloak class="text-emerald-600">✓ {{ __('Copied') }}</span>
                             </button>
                             <span class="block text-[11px] font-normal text-chrome-600">{{ $row['booking_reference'] }}</span>
+                            {{-- On a phone the money rides under the reference, the one
+                                 column that is always on screen. Further right, the price,
+                                 Received and Balance sat under the pinned Actions column
+                                 and behind a sideways scroll phones give no scrollbar for,
+                                 so on every iPhone and Android nobody could see them. --}}
+                            <span class="mt-1 block space-y-px whitespace-nowrap text-[11px] font-normal lg:hidden" data-phone-money="summary">
+                                <span class="block text-chrome-900">{{ __('Amount') }} {{ $money($row['amount']) }}</span>
+                                <span class="block text-emerald-700" data-phone-money="received">{{ __('Received') }} {{ $money($row['received']) }}</span>
+                                <span class="block {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-600' }}" data-phone-money="balance">{{ __('Balance') }} {{ $money($row['balance']) }}</span>
+                            </span>
                         </td>
                         <td class="px-2 py-2 text-chrome-900">{{ $row['from_date'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 text-chrome-900 sm:table-cell">{{ $row['to_date'] ?: '—' }}</td>
@@ -361,9 +373,9 @@
                              shows one balance repeated down its rows rather than a third
                              on each. The tooltips say so, because two money columns that
                              repeat beside one that doesn't reads as double-counting. --}}
-                        <td class="px-2 py-2 text-end text-emerald-700"
+                        <td class="hidden px-2 py-2 text-end text-emerald-700 lg:table-cell"
                             title="{{ __('Received against booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['received']) }}</td>
-                        <td class="px-2 py-2 text-end {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-600' }}"
+                        <td class="hidden px-2 py-2 text-end lg:table-cell {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-600' }}"
                             title="{{ __('Still owed on booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['balance']) }}</td>
                         <td class="px-2 py-2 text-chrome-900">{{ $row['pickup'] ?: '—' }}</td>
                         <td class="px-2 py-2 text-chrome-900">{{ $row['dropoff'] ?: '—' }}</td>

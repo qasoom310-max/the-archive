@@ -36,6 +36,22 @@
         </div>
     </div>
 
+    {{-- Read the whole year, or one month. In a month every figure below is that
+         month's, and each car is judged against its MONTHLY target. --}}
+    <div class="mb-6 flex flex-wrap items-center gap-1">
+        <button type="button" wire:click="setMonth(0)"
+            class="rounded-lg px-3 py-1.5 text-xs font-semibold transition {{ $month === 0 ? 'bg-chrome-900 text-white' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
+            {{ __('Whole year') }}
+        </button>
+        @foreach ($months as $i => $m)
+            <button type="button" wire:click="setMonth({{ $i }})"
+                class="rounded-lg px-3 py-1.5 text-xs font-semibold transition {{ $month === $i ? 'bg-chrome-900 text-white' : 'bg-chrome-100 text-chrome-600 hover:bg-chrome-200' }}">
+                {{ $m }}
+            </button>
+        @endforeach
+        <span class="ms-2 text-xs font-medium text-chrome-400">{{ __('Showing :period', ['period' => $period]) }}</span>
+    </div>
+
     {{-- The headline. Not "what did we bill" but "what did standing still cost". --}}
     <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 p-5 shadow-sm">
@@ -52,8 +68,8 @@
             <div class="text-[11px] font-bold uppercase tracking-wide text-chrome-400">{{ __('Earned') }}</div>
             <div class="mt-2 text-2xl font-bold tracking-tight text-chrome-900">{{ $money($summary['total']) }}</div>
             <div class="mt-1 text-xs font-medium text-chrome-500">
-                @if ($summary['yearlyTarget'] > 0)
-                    {{ __('of :target target', ['target' => $money($summary['yearlyTarget'])]) }}
+                @if ($summary['target'] > 0)
+                    {{ __('of :target target', ['target' => $money($summary['target'])]) }}
                 @else
                     {{ __('No car targets set yet') }}
                 @endif
@@ -111,7 +127,7 @@
         @foreach ([['csv', __('CSV')], ['excel', __('Excel')], ['pdf', __('PDF')], ['print', __('Print')]] as [$fmt, $label])
             {{-- url(), not route(): a module's routes only exist while it is
                  installed, so a named-route lookup in a view is fragile here. --}}
-            <a href="{{ url('/app/rental/fleet/export?year='.$year.'&format='.$fmt) }}"
+            <a href="{{ url('/app/rental/fleet/export?year='.$year.'&month='.$month.'&format='.$fmt) }}"
                 class="rounded-lg bg-chrome-100 px-3 py-1.5 text-xs font-semibold text-chrome-600 transition hover:bg-chrome-200">{{ $label }}</a>
         @endforeach
     </div>
@@ -122,10 +138,10 @@
                 <tr class="border-b border-chrome-200 text-[11px] font-bold uppercase tracking-wider text-chrome-400">
                     <th class="px-3 py-2.5 text-start">{{ __('Reg#') }}</th>
                     <th class="px-3 py-2.5 text-start">{{ __('Vehicle') }}</th>
-                    @foreach ($months as $m)
-                        <th class="px-2 py-2.5 text-end">{{ $m }}</th>
+                    @foreach ($months as $i => $m)
+                        <th class="px-2 py-2.5 text-end {{ $month === $i ? 'bg-primary-100 text-chrome-800' : '' }}">{{ $m }}</th>
                     @endforeach
-                    <th class="px-3 py-2.5 text-end">{{ __('Total') }}</th>
+                    <th class="px-3 py-2.5 text-end">{{ $month > 0 ? $months[$month] : __('Total') }}</th>
                     <th class="px-3 py-2.5 text-end">{{ __('Used') }}</th>
                     <th class="px-3 py-2.5 text-end">{{ __('Per day') }}</th>
                     <th class="px-3 py-2.5 text-end">{{ __('Pace') }}</th>
@@ -146,7 +162,7 @@
                         </td>
                         @foreach ($months as $i => $m)
                             @php $val = $row['months'][$i] ?? 0.0; @endphp
-                            <td class="px-2 py-2.5 text-end {{ $val > 0 ? 'text-emerald-700' : 'text-chrome-300' }}">
+                            <td class="px-2 py-2.5 text-end {{ $val > 0 ? 'text-emerald-700' : 'text-chrome-300' }} {{ $month === $i ? 'bg-primary-50 font-bold' : '' }}">
                                 {{ $val > 0 ? number_format($val, 0) : '0' }}
                             </td>
                         @endforeach

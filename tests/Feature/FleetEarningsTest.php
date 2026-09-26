@@ -458,4 +458,107 @@ final class FleetEarningsTest extends TestCase
         // Still adds up to the box above it.
         $this->assertEqualsWithDelta(400.0, $schedule['total'], 0.001);
     }
+
+    // ── One month at a time ─────────────────────────────────────────────────
+
+    public function test_a_month_reads_only_that_months_work(): void
+    {
+        // March: 10 days on hire, 500 earned. May: 5 days, 300.
+        $car = $this->car('Sunny', '111111', 600.0);
+        $this->hire($car, '2026-03-01', '2026-03-10', 500);
+        $this->hire($car, '2026-05-01', '2026-05-05', 300);
+
+        $row = collect((new FleetPerformance(2026, 3))->report()['rows'])->firstWhere('plate', '111111');
+
+        $this->assertEqualsWithDelta(500.0, $row['total'], 0.001);
+        $this->assertSame(10, $row['rentedDays']);
+        // March has 31 days and is over by 30 June.
+        $this->assertSame(31, $row['availableDays']);
+        $this->assertSame(21, $row['idleDays']);
+        // The matrix still shows every month.
+        $this->assertEqualsWithDelta(300.0, $row['months'][5], 0.001);
+    }
+
+    public function test_a_month_is_judged_against_the_monthly_target(): void
+    {
+        // Never a year's target squeezed into one month: 500 against a 1,000
+        // monthly target is 50%, whatever the yearly target says.
+        $car = $this->car('Sunny', '111111', 1000.0, 36000.0);
+        $this->hire($car, '2026-03-01', '2026-03-10', 500);
+
+        $row = collect((new FleetPerformance(2026, 3))->report()['rows'])->firstWhere('plate', '111111');
+
+        $this->assertEqualsWithDelta(1000.0, $row['target'], 0.001);
+        $this->assertSame(50, $row['attainment']);
+        // March is fully over, so pace equals attainment.
+        $this->assertSame(50, $row['pace']);
+    }
+
+    public function test_the_current_month_is_paced_on_the_days_gone(): void
+    {
+        // 30 June: the month is all but done. 15 June: half. Test on the 15th.
+        CarbonImmutable::setTestNow(CarbonImmutable::create(2026, 6, 15, 12, 0, 0));
+        $car = $this->car('Sunny', '111111', 3000.0);
+        $this->hire($car, '2026-06-01', '2026-06-05', 1500);
+
+        $row = collect((new FleetPerformance(2026, 6))->report()['rows'])->firstWhere('plate', '111111');
+
+        // Half the monthly target banked with half the month gone: on pace.
+        $this->assertSame(15, $row['availableDays']);
+        $this->assertSame(100, $row['pace']);
+    }
+
+    public function test_a_month_still_to_come_has_nothing_to_judge(): void
+    {
+        $this->car('Sunny', '111111', 1000.0);
+
+        $row = collect((new FleetPerformance(2026, 11))->report()['rows'])->firstWhere('plate', '111111');
+
+        $this->assertSame(0, $row['availableDays']);
+        $this->assertNull($row['pace']);
+        $this->assertNull($row['utilisation']);
+    }
+
+    public function test_the_owner_switches_to_a_month_on_the_page(): void
+    {
+        $car = $this->car('Sunny', '111111', 600.0);
+        $this->hire($car, '2026-03-01', '2026-03-10', 500);
+        $this->actingAs($this->owner());
+
+        Livewire::test(FleetEarnings::class)
+            ->call('setMonth', 3)
+            ->assertSet('month', 3)
+            ->assertSee('Showing March 2026')
+            ->call('setMonth', 13)
+            ->assertSet('month', 3)
+            ->call('setMonth', 0)
+            ->assertSee('Showing 2026');
+    }
+
+    public function test_the_cost_card_shows_the_cost_not_what_is_left(): void
+    {
+        // It used to print the figure left AFTER costs under "What it cost".
+        $car = $this->car('Sunny', '111111');
+        $this->hire($car, '2026-03-01', '2026-03-10', 1000);
+        RentalMaintenance::query()->create([
+            'vehicle_id' => $car->id, 'date' => '2026-03-15', 'type' => 'service', 'cost' => 125, 'status' => 'done',
+        ]);
+        $this->actingAs($this->owner());
+
+        Livewire::test(FleetEarnings::class)
+            ->call('toggleCar', $car->id)
+            ->assertSeeInOrder(['What it cost', '125.00', 'Left after costs', '875.00']);
+    }
+
+    public function test_the_download_follows_the_chosen_month(): void
+    {
+        $car = $this->car('Sunny', '111111');
+        $this->hire($car, '2026-03-01', '2026-03-10', 500);
+        $this->hire($car, '2026-05-01', '2026-05-05', 300);
+        $this->actingAs($this->owner());
+
+        $csv = $this->get('/app/rental/fleet/export?format=csv&year=2026&month=3');
+        $csv->assertOk();
+        $this->assertStringContainsString('fleet-earnings-2026-03', (string) $csv->headers->get('content-disposition'));
+    }
 }

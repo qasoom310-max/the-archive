@@ -3403,6 +3403,18 @@ Decisions to keep:
   reported separately. The column hides itself when no leg carries a car, which
   is the case on imported data.
 
+**Read by month (added 2026-09-26).** `FleetPerformance(int $year, int $month = 0)`
+— 1-12 reads one month, 0 the whole year; `FleetEarnings::$month` (`#[Url]`,
+`setMonth()` owner-gated, bounded 0-12) and the export's `?month=` follow it. In a
+month every figure — rented/available/idle days, maintenance, limousine, idle
+cost — is that month's, and a car is judged against its **monthly** target
+(`row['target']`), never a year's target squeezed into one month. Pace is against
+the elapsed share of the PERIOD, and a period not yet started has none. The
+matrix keeps all twelve month columns (earnings are always read for the year)
+and highlights the chosen one. Same day: the scorecard's "What it cost" printed
+the NET figure (earned − maintenance) as its big number; it now shows the cost,
+with "Left after costs" as its own line. Tests: `FleetEarningsTest` (+7).
+
 **The limousine revenue breakdown was regrouped the same day.** It grouped by
 `limo_bookings.car_type`, which no import ever filled, so a whole year of
 takings rendered as one row reading "No car type recorded · 100%". `car_id` on

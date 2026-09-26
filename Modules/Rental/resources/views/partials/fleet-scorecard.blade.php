@@ -43,9 +43,13 @@
 
     <div class="rounded-xl bg-white p-4 ring-1 ring-chrome-900/[0.06]">
         <div class="text-[11px] font-bold uppercase tracking-wide text-chrome-400">{{ __('What it cost') }}</div>
-        <div class="mt-2 text-xl font-bold {{ $row['net'] < 0 ? 'text-red-600' : 'text-chrome-900' }}">{{ $money($row['net']) }}</div>
+        <div class="mt-2 text-xl font-bold text-chrome-900">{{ $money($row['maintenance']) }}</div>
         <dl class="mt-3 space-y-1 text-xs">
             <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Service and repairs') }}</dt><dd class="font-semibold text-chrome-800">{{ $money($row['maintenance']) }}</dd></div>
+            <div class="flex justify-between">
+                <dt class="text-chrome-500">{{ __('Left after costs') }}</dt>
+                <dd class="font-semibold {{ $row['net'] < 0 ? 'text-red-600' : 'text-emerald-700' }}">{{ $money($row['net']) }}</dd>
+            </div>
             <div class="flex justify-between">
                 <dt class="text-chrome-500">{{ __('Idle days cost') }}</dt>
                 <dd class="font-semibold text-amber-700">{{ $money($row['idleCost']) }}</dd>
@@ -58,7 +62,7 @@
 
     <div class="rounded-xl bg-white p-4 ring-1 ring-chrome-900/[0.06]">
         <div class="text-[11px] font-bold uppercase tracking-wide text-chrome-400">{{ __('Against its target') }}</div>
-        @if ($row['yearlyTarget'] > 0)
+        @if ($row['target'] > 0)
             <div class="mt-2 text-xl font-bold {{ $pace !== null && $pace >= 100 ? 'text-emerald-600' : 'text-amber-600' }}">
                 {{ $pace === null ? '—' : $pace.'%' }}
                 <span class="text-xs font-medium text-chrome-400">{{ __('of pace') }}</span>
@@ -66,16 +70,18 @@
             <dl class="mt-3 space-y-1 text-xs">
                 <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Monthly') }}</dt><dd class="font-semibold text-chrome-800">{{ $money($row['monthlyTarget']) }}</dd></div>
                 <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Yearly') }}</dt><dd class="font-semibold text-chrome-800">{{ $money($row['yearlyTarget']) }}</dd></div>
-                <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Year so far') }}</dt><dd class="font-semibold text-chrome-800">{{ $row['attainment'] === null ? '—' : $row['attainment'].'%' }}</dd></div>
+                <div class="flex justify-between"><dt class="text-chrome-500">{{ $report['month'] > 0 ? __('Month so far') : __('Year so far') }}</dt><dd class="font-semibold text-chrome-800">{{ $row['attainment'] === null ? '—' : $row['attainment'].'%' }}</dd></div>
             </dl>
-            @if ($row['yearlyDerived'])
+            @if ($row['yearlyDerived'] && $report['month'] === 0)
                 {{-- Say so rather than passing 12 x monthly off as a plan. --}}
                 <p class="mt-2 text-[11px] leading-snug text-chrome-400">
                     {{ __('No yearly target set, so this is 12 × the monthly one. Set a real one on the car page.') }}
                 </p>
             @endif
         @else
-            <p class="mt-2 text-sm text-chrome-400">{{ __('No target set for this car.') }}</p>
+            <p class="mt-2 text-sm text-chrome-400">
+                {{ $report['month'] > 0 ? __('No monthly target set for this car.') : __('No target set for this car.') }}
+            </p>
         @endif
         @if ($row['id'] !== null)
             <a href="{{ url('/app/rental/vehicle/'.$row['id']) }}" wire:navigate

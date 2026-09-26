@@ -3019,5 +3019,9 @@
     "Owed from earlier months": "مستحقات الأشهر السابقة",
     "Work done": "العمل المنجز",
     "Work done is after :amount paid to outside vendors.": "العمل المنجز بعد خصم :amount المدفوعة للموردين الخارجيين.",
-    "Search invoice number or customer…": "ابحث برقم الفاتورة أو اسم العميل…"
+    "Search invoice number or customer…": "ابحث برقم الفاتورة أو اسم العميل…",
+    "Left after costs": "المتبقي بعد التكاليف",
+    "Month so far": "الشهر حتى الآن",
+    "No monthly target set for this car.": "لا يوجد هدف شهري لهذه السيارة.",
+    "Showing :period": "عرض :period"
 }

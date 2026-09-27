@@ -412,6 +412,17 @@ final class LimoQueuePhoneColumnsTest extends TestCase
         \Illuminate\Support\Carbon::setTestNow();
     }
 
+    /** The serial number shows at every width, phone included. */
+    public function test_the_serial_number_shows_on_a_phone(): void
+    {
+        $this->trip();
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        $this->assertStringContainsString('<th class="px-2 py-2 text-start">Sl No.</th>', $html);
+        $this->assertMatchesRegularExpression('/<td class="px-2 py-2 text-chrome-600" data-sl-no>1<\/td>/', $html);
+    }
+
     /** The number to ring sits under the name: the customer's own for a person. */
     public function test_a_persons_phone_shows_under_their_name(): void
     {

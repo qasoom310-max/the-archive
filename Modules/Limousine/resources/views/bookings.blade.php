@@ -263,7 +263,7 @@
         <table id="limo-queue" class="w-full table-auto divide-y divide-chrome-100 text-xs">
             <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-700">
                 <tr>
-                    <th class="hidden px-2 py-2 text-start sm:table-cell">{{ __('Sl No.') }}</th>
+                    <th class="px-2 py-2 text-start">{{ __('Sl No.') }}</th>
                     {{-- Every column sorts, both ways. The arrow is always drawn so
                          a column reads as sortable before anyone clicks it, and
                          only darkens on the one actually doing the sorting. --}}
@@ -333,7 +333,7 @@
                     {{-- `group` so the pinned Actions cell can mirror the row hover
                          (it needs its own background to sit above the scroll). --}}
                     <tr wire:key="leg-{{ $leg->id }}" class="group hover:bg-chrome-50">
-                        <td class="hidden px-2 py-2 text-chrome-600 sm:table-cell">{{ $legs->firstItem() + $i }}</td>
+                        <td class="px-2 py-2 text-chrome-600" data-sl-no>{{ $legs->firstItem() + $i }}</td>
                         {{-- The reference IS the copy button: press it and the whole
                              trip lands on the clipboard, formatted for WhatsApp. That
                              is what the office does with a booking, so it should be

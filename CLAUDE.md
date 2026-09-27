@@ -1536,6 +1536,12 @@ import the downloaded file as-is. Test:
 `LimousineModuleTest::test_a_live_backup_restores_every_booking_detail_after_a_delete`
 (every stored column identical after delete + import, second import skips).
 
+**The four "Live entry data" BUTTONS were removed from the screens on
+2026-09-27 at the owner's request.** The export itself still works — each
+controller still honours `?live=1` (and the tests still cover it), it just has
+no button. Re-add the `<a href="…/export/csv?live=1">` link beside Print on a
+screen if it is needed again.
+
 **This is a backup step only — the actual delete-and-reimport plan is still
 undecided** and requires, before any execution: which date field the cutoff applies
 to, what happens to invoices/receipts linked to a deleted booking, and explicit

@@ -29,7 +29,7 @@ use Modules\Limousine\Support\LiveEntry;
  *
  * @phpstan-type QueueRow array{
  *     leg_id: int, booking_id: int, reference: string, booking_reference: string,
- *     from_date: string, to_date: string, type: string, customer: string, customer_id: int,
+ *     from_date: string, to_date: string, type: string, customer: string, customer_id: int, contact_phone: string,
  *     amount: float, received: float, balance: float, pickup: string, dropoff: string,
  *     vehicle: string, vehicle_type: string, driver: string, added_by: string, comments: string, booked_time: string,
  *     status: string, payment: string
@@ -308,6 +308,20 @@ final class LimoQueueRows
     }
 
     /**
+     * Phone for the row: the passenger's for a company customer, the
+     * customer's own otherwise.
+     */
+    private function contactPhone(?LimoBooking $booking): string
+    {
+        $customer = $booking?->customer;
+        if ($customer !== null && $customer->isCompany()) {
+            return trim((string) ($booking->pax_contact ?? ''));
+        }
+
+        return trim((string) ($customer->phone ?? ''));
+    }
+
+    /**
      * Flatten a leg into the columns every format prints.
      *
      * @return QueueRow
@@ -329,6 +343,10 @@ final class LimoQueueRows
             // customer's account page. Exports read by heading, so an extra
             // key here never reaches a spreadsheet.
             'customer_id' => (int) ($booking->customer_id ?? 0),
+            // The number to ring, shown under the name (not a printed column).
+            // A company is not who gets in the car, so for one it is the
+            // passenger's number; for a person it is their own.
+            'contact_phone' => $this->contactPhone($booking),
             // The leg's own price; the money below is the whole booking's.
             'amount' => round((float) $leg->net_amount, 3),
             'received' => round((float) ($booking->advance ?? 0), 3),

@@ -411,4 +411,35 @@ final class LimoQueuePhoneColumnsTest extends TestCase
 
         \Illuminate\Support\Carbon::setTestNow();
     }
+
+    /** The number to ring sits under the name: the customer's own for a person. */
+    public function test_a_persons_phone_shows_under_their_name(): void
+    {
+        $this->trip();
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        $this->assertStringContainsString('href="tel:33112233"', $html);
+        $this->assertLessThan(
+            mb_strpos($html, 'data-contact-phone'),
+            mb_strpos($html, 'Helen Friberg'),
+        );
+    }
+
+    /** A company is not who rides, so under its name is the passenger's number. */
+    public function test_a_companys_row_shows_the_passengers_phone(): void
+    {
+        $this->trip();
+        $company = LimoCustomer::query()->create([
+            'name' => 'Travel Gate', 'type' => LimoCustomer::TYPE_COMPANY, 'phone' => '17000000',
+        ]);
+        LimoBooking::query()->firstOrFail()->forceFill([
+            'customer_id' => $company->id, 'pax_contact' => '+973 3999 1111',
+        ])->saveQuietly();
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        $this->assertStringContainsString('href="tel:+97339991111"', $html);
+        $this->assertStringNotContainsString('tel:17000000', $html);
+    }
 }

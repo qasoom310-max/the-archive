@@ -382,6 +382,13 @@
                             @else
                                 {{ $row['customer'] ?: '—' }}
                             @endif
+                            {{-- The number to ring: the passenger's for a company,
+                                 the customer's own otherwise. --}}
+                            @if ($row['contact_phone'] !== '')
+                                <a href="tel:{{ preg_replace('/[^0-9+]/', '', $row['contact_phone']) }}"
+                                   class="mt-0.5 block whitespace-nowrap text-[11px] text-chrome-600 hover:underline"
+                                   data-contact-phone><span dir="ltr">{{ $row['contact_phone'] }}</span></a>
+                            @endif
                         </td>
                         {{-- THIS trip's own price. It sits after what the job is
                              and who it is for, which is the order the service's

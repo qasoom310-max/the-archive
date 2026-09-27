@@ -350,8 +350,8 @@ final class LimoQueueRows
             'added_by' => (string) ($booking->prepared_by ?? ''),
             'comments' => (string) ($booking->notes ?? ''),
             'booked_time' => $booking?->created_at?->isoFormat('DD-MMM-YY HH:mm') ?? '',
-            'status' => (string) ($leg->status ?? ''),
             'payment' => (string) ($booking->payment_status ?? ''),
+            'status' => (string) ($leg->status ?? ''),
         ];
     }
 
@@ -549,8 +549,8 @@ final class LimoQueueRows
             'added_by' => __('Added by'),
             'comments' => __('Comments'),
             'booked_time' => __('Booked time'),
-            'status' => __('Status'),
             'payment' => __('Payment'),
+            'status' => __('Status'),
         ];
     }
 }

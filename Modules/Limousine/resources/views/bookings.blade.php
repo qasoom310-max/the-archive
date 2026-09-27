@@ -450,6 +450,21 @@
                         <td class="px-2 py-2 text-chrome-900">{{ $row['added_by'] ?: '—' }}</td>
                         <td class="hidden max-w-[16rem] px-2 py-2 text-chrome-900 lg:table-cell">{{ $row['comments'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 text-chrome-900 lg:table-cell">{{ $row['booked_time'] ?: '—' }}</td>
+                        <td class="px-2 py-2">
+                            <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $row['payment'] === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($row['payment'])) }}</span>
+                            {{-- Taking money is a booking-level act, so it is offered
+                                 from any of its trips and settles all of them. --}}
+                            @if ($canAssign && $row['payment'] !== 'paid' && $row['balance'] > 0)
+                                <button type="button" wire:click="openCollect({{ $leg->id }})"
+                                        title="{{ __('Receive payment for this booking') }}"
+                                        aria-label="{{ __('Receive payment for this booking') }}"
+                                        class="ms-1 inline-flex size-6 items-center justify-center rounded-lg text-emerald-600 transition hover:bg-emerald-50">
+                                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                                    </svg>
+                                </button>
+                            @endif
+                        </td>
                         <td class="hidden px-2 py-2 md:table-cell">
                             @php
                                 // One icon per step, so the row shows what it can DO
@@ -500,21 +515,6 @@
                                         {{ __('No refund') }}
                                     @endif
                                 </span>
-                            @endif
-                        </td>
-                        <td class="px-2 py-2">
-                            <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $row['payment'] === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($row['payment'])) }}</span>
-                            {{-- Taking money is a booking-level act, so it is offered
-                                 from any of its trips and settles all of them. --}}
-                            @if ($canAssign && $row['payment'] !== 'paid' && $row['balance'] > 0)
-                                <button type="button" wire:click="openCollect({{ $leg->id }})"
-                                        title="{{ __('Receive payment for this booking') }}"
-                                        aria-label="{{ __('Receive payment for this booking') }}"
-                                        class="ms-1 inline-flex size-6 items-center justify-center rounded-lg text-emerald-600 transition hover:bg-emerald-50">
-                                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-                                    </svg>
-                                </button>
                             @endif
                         </td>
                         {{-- One 3-dot menu per row instead of a row of icons — five

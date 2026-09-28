@@ -47,6 +47,8 @@ final class ScrollsToFirstErrorTest extends TestCase
         Livewire::test(BookingForm::class)
             ->set('customer_id', 1)
             ->set('pax_name', 'Qassim Makhlooq')
+            // It starts with the signed-in user's name; a cleared one still fails.
+            ->set('requested_by', '')
             ->call('save')
             ->assertHasErrors('requested_by')
             ->assertDispatched('scroll-to-error', field: 'requested_by');

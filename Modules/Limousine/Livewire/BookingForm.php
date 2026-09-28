@@ -142,6 +142,10 @@ final class BookingForm extends Component
         }
 
         $this->prepared_by = $this->currentUserName();
+        // Most bookings are requested by whoever is entering them, so the
+        // field starts with their name. It stays editable for the times it
+        // was someone else.
+        $this->requested_by = $this->prepared_by;
         $this->seedCoupon();
         $this->seedLegs();
     }

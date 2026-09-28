@@ -1435,6 +1435,41 @@ final class LimousineModuleTest extends TestCase
      * fields read as the passenger's. They stay empty for the real guest,
      * while the confirmation email still goes to the company.
      */
+    /**
+     * A new booking's "Requested by" starts with the signed-in user's name,
+     * for every kind of account — and an existing booking keeps its own.
+     */
+    public function test_requested_by_starts_with_the_signed_in_users_name(): void
+    {
+        $this->install();
+
+        foreach ([
+            ['name' => 'Hassan', 'is_admin' => true],
+            ['name' => 'Hashim', 'is_admin' => false],
+            ['name' => 'Owner', 'is_admin' => true, 'is_super_admin' => true],
+        ] as $attributes) {
+            $user = User::factory()->create($attributes);
+            if (! $user->isAdmin()) {
+                $this->grantEveryone('limousine.booking');
+            }
+            $this->actingAs($user);
+
+            Livewire::test(BookingForm::class)
+                ->assertSet('requested_by', $attributes['name'])
+                ->assertSet('prepared_by', $attributes['name'])
+                // Still editable when someone else asked for it.
+                ->set('requested_by', 'Front desk')
+                ->assertSet('requested_by', 'Front desk');
+        }
+
+        $booking = LimoBooking::query()->create([
+            'customer_id' => LimoCustomer::query()->create(['name' => 'A'])->id,
+            'pax_name' => 'A', 'requested_by' => 'Sara', 'prepared_by' => 'Sara',
+        ]);
+        Livewire::test(BookingForm::class, ['id' => $booking->id])
+            ->assertSet('requested_by', 'Sara');
+    }
+
     public function test_picking_a_company_leaves_the_passenger_fields_for_the_real_guest(): void
     {
         $this->install();
@@ -1481,6 +1516,8 @@ final class LimousineModuleTest extends TestCase
             // Picking the customer auto-fills the PAX name, so clear it again to
             // prove the field is still required when nothing stands in it.
             ->set('pax_name', '')
+            // Requested by starts with the signed-in user's name; clear it too.
+            ->set('requested_by', '')
             // pax_name / requested_by blank; leg incomplete. Two fields are NOT
             // expected here: prepared_by is stamped from the signed-in user, and
             // car_id is only required when the trip is dispatched (see start()).

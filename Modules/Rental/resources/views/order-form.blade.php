@@ -363,7 +363,7 @@
                         </div>
                         @error('vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         @if ($selectedVehicle && $selectedVehicle->needsRenewal())
-                            <p class="mt-1 text-xs font-medium text-red-600">{{ __('This car’s registration/insurance has lapsed — renew it before renting (super-admin override only).') }}</p>
+                            <p class="mt-1 text-xs font-medium text-red-600">{{ __('This car’s registration/insurance has lapsed or is not recorded — check its papers before renting.') }}</p>
                         @elseif ($selectedVehicle && $selectedVehicle->expiringSoon())
                             <p class="mt-1 text-xs text-amber-600">{{ __('Papers expire on :date.', ['date' => $selectedVehicle->nextDocExpiry()?->format('Y-m-d')]) }}</p>
                         @endif

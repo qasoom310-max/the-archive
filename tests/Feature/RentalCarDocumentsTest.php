@@ -66,15 +66,32 @@ final class RentalCarDocumentsTest extends TestCase
         $this->assertSame([$valid->id], $ids);
     }
 
-    public function test_order_form_hides_cars_with_lapsed_papers_from_a_regular_admin(): void
+    /**
+     * Anyone who may raise orders — a supervisor, not only the owner — sees
+     * every active car, a lapsed one flagged "papers expired". Hiding them
+     * left supervisors with an empty picker on a fleet with no paper dates.
+     */
+    public function test_a_supervisor_sees_every_car_with_lapsed_ones_flagged(): void
     {
-        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => false]));
+        $this->grantEveryone('rental.order');
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
         $this->car('BookableCarZ', 60, 60);
         $this->car('ExpiredCarZ', -1, 60);
+        $this->car('NoPapersCarZ', null, null);
 
         Livewire::test(OrderForm::class)
             ->assertSee('BookableCarZ')
-            ->assertDontSee('ExpiredCarZ');
+            ->assertSee('ExpiredCarZ')
+            ->assertSee('NoPapersCarZ')
+            ->assertSee('papers expired');
+    }
+
+    public function test_a_regular_admin_sees_cars_with_lapsed_papers(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => false]));
+        $this->car('ExpiredCarZ', -1, 60);
+
+        Livewire::test(OrderForm::class)->assertSee('ExpiredCarZ');
     }
 
     public function test_a_super_admin_may_still_pick_a_car_with_lapsed_papers(): void

@@ -991,13 +991,19 @@ final class OrderForm extends Component
             : null;
 
         // A car with lapsed registration / insurance is held out of the picker
-        // until it's renewed — except for a super-admin (urgent override). The
+        // until it's renewed — except for anyone who may raise or edit orders
+        // (supervisor and up), who sees every active car with a "papers
+        // expired" warning. Hiding them left supervisors with an empty picker
+        // on a fleet whose paper dates were never filled in. The
         // currently-selected car is always kept so editing never drops it.
         $user = Auth::user();
         $isSuperAdmin = $user instanceof User && $user->isSuperAdmin();
+        $seesAllCars = $isSuperAdmin
+            || $this->mayAccess(Permission::Write)
+            || $this->mayAccess(Permission::Create);
         $cols = ['id', 'name', 'plate_no', 'color', 'status', 'is_outside', 'registration_expiry', 'insurance_expiry'];
         $vehiclesQuery = Vehicle::query()->where('active', true);
-        if (! $isSuperAdmin) {
+        if (! $seesAllCars) {
             $current = $this->vehicle_id;
             $today = Carbon::today();
             $vehiclesQuery->where(function (Builder $q) use ($current, $today): void {

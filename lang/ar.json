@@ -1997,6 +1997,7 @@
     "This car is :status — free it first (do a replacement so it’s back at the branch) before starting maintenance.": "هذه السيارة :status — حرّرها أولاً (نفّذ استبدالاً لإعادتها إلى الفرع) قبل بدء الصيانة.",
     "This car is already booked (:ref) for overlapping dates.": "هذه السيارة محجوزة بالفعل (:ref) في تواريخ متداخلة.",
     "This car’s registration/insurance has lapsed — renew it before renting (super-admin override only).": "انتهت استمارة/تأمين هذه السيارة — جدّدها قبل التأجير (تجاوز للمدير الأعلى فقط).",
+    "This car’s registration/insurance has lapsed or is not recorded — check its papers before renting.": "استمارة/تأمين هذه السيارة منتهية أو غير مسجّلة — تحقّق من أوراقها قبل التأجير.",
     "This customer has no email — add one to send the agreement.": "لا يوجد بريد لهذا العميل — أضف بريدًا لإرسال العقد.",
     "This invoice has no quotation to build a trip from.": "لا يوجد عرض سعر لبناء رحلة منه لهذه الفاتورة.",
     "This is an outside (rented-in) car — keep it out of the owned-fleet count.": "هذه سيارة خارجية (مستأجَرة) — استبعدها من عدد أسطولنا.",

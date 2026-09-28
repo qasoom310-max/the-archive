@@ -100,6 +100,15 @@
                 <input type="text" wire:model="company_reference" class="o-input w-full">
             </div>
             <div>
+                <label class="{{ $lbl }}">{{ __('PAX name') }} *</label>
+                <input type="text" wire:model="pax_name" class="o-input w-full">
+                @error('pax_name') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="{{ $lbl }}">{{ __('PAX contact') }}</label>
+                <input type="text" wire:model="pax_contact" class="o-input w-full">
+            </div>
+            <div>
                 <label class="{{ $lbl }}">{{ __('Flight number') }}</label>
                 <input type="text" wire:model="flight_number" class="o-input w-full">
             </div>
@@ -112,17 +121,6 @@
                 <label class="{{ $lbl }}">{{ __('Requested by') }} *</label>
                 <input type="text" wire:model="requested_by" class="o-input w-full">
                 @error('requested_by') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-            </div>
-            {{-- The passenger follows who asked for the trip: for a company
-                 booking the requester is filled in first, then who rides. --}}
-            <div>
-                <label class="{{ $lbl }}">{{ __('PAX name') }} *</label>
-                <input type="text" wire:model="pax_name" class="o-input w-full">
-                @error('pax_name') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-            </div>
-            <div>
-                <label class="{{ $lbl }}">{{ __('PAX contact') }}</label>
-                <input type="text" wire:model="pax_contact" class="o-input w-full">
             </div>
             <div>
                 <label class="{{ $lbl }}">{{ __('Prepared by') }}</label>

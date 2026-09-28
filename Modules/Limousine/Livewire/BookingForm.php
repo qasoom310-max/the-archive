@@ -195,7 +195,8 @@ final class BookingForm extends Component
     }
 
     /**
-     * Picking a customer fills the passenger block from their record.
+     * Picking a customer fills the passenger block from their record — for a
+     * person. A company's passenger is a guest, so its PAX fields stay empty.
      *
      * The three fields here are the ones that genuinely belong to the customer
      * — who travels, the number the driver rings, and where the confirmation
@@ -219,8 +220,16 @@ final class BookingForm extends Component
             return;
         }
 
-        $this->pax_name = (string) ($customer->name ?? '');
-        $this->pax_contact = (string) ($customer->phone ?? '');
+        // A company is not who rides: its own name and office number in the
+        // PAX fields read as the passenger's and reached the driver instead of
+        // the real guest. For a company they are left empty to be filled in.
+        if ($customer->isCompany()) {
+            $this->pax_name = '';
+            $this->pax_contact = '';
+        } else {
+            $this->pax_name = (string) ($customer->name ?? '');
+            $this->pax_contact = (string) ($customer->phone ?? '');
+        }
         $this->email = (string) ($customer->email ?? '');
     }
 

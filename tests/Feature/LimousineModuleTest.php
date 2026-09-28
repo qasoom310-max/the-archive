@@ -1430,6 +1430,30 @@ final class LimousineModuleTest extends TestCase
             ->assertSet('email', 'travel@batelco.test');
     }
 
+    /**
+     * A company is not who rides: its name and office number in the PAX
+     * fields read as the passenger's. They stay empty for the real guest,
+     * while the confirmation email still goes to the company.
+     */
+    public function test_picking_a_company_leaves_the_passenger_fields_for_the_real_guest(): void
+    {
+        $this->install();
+        $person = LimoCustomer::query()->create(['name' => 'Ali Hasan', 'phone' => '36000111']);
+        $company = LimoCustomer::query()->create([
+            'name' => 'Turbo Engineering', 'type' => LimoCustomer::TYPE_COMPANY,
+            'phone' => '+971569702000', 'email' => 'ops@turbo.test',
+        ]);
+
+        Livewire::test(BookingForm::class)
+            ->set('customer_id', $person->id)
+            ->assertSet('pax_name', 'Ali Hasan')
+            // Switching to a company clears the person's details too.
+            ->set('customer_id', $company->id)
+            ->assertSet('pax_name', '')
+            ->assertSet('pax_contact', '')
+            ->assertSet('email', 'ops@turbo.test');
+    }
+
     public function test_a_customer_created_inline_also_fills_the_passenger_block(): void
     {
         $this->install();

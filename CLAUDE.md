@@ -3113,6 +3113,21 @@ or the permissions changes between the two; only how a reply is delivered does.
 | Discoverability | A "Try it here (no phone needed)" link on the Settings → WhatsApp assistant tab |
 | Tests | `tests/Feature/WhatsAppAssistantChatTest.php` — page gate (admin in, mapped staff in, unrelated account 403), a plain question gets a reply rendered as a bubble with no Meta HTTP call made, a confirmed booking goes through the same YES/NO flow and actually creates the booking, a confirmed document proposal can be downloaded and the bytes match what the PDF service rendered, disabled config shows the same "not available" wording the WhatsApp channel shows |
 
+**Long-term memory (added 2026-09-29).** The chat only replays its recent turns
+(`Conversation::HISTORY_LIMIT`, raised 20 → 60), so anything meant to outlast
+that is a **saved note**: `whatsapp_assistant_memories` (WhatsApp module
+migration `2026_09_29_300002`, model `AssistantMemory`, `user_id` + `text`).
+Two tools, `save_memory` / `forget_memory`, both **scoped to the acting ERP
+user** (one person can never read or delete another's notes, whatever id the
+model passes). Every turn, `AssistantMemory::promptBlock()` is appended to the
+system prompt as `[id] text` lines, explicitly as data under the rules: **a
+price in a note is never a fare**, and charging one still goes through the
+admin-only `override_amount` check. Capped at `MAX_PER_USER` (50) notes of
+`MAX_LENGTH` (1500) chars so every message stays small. Per user, so the same
+notes follow a person between WhatsApp and the test chat, which lists them in a
+"Saved notes" panel with a Forget button (`AssistantChat::forgetMemory`).
+Tests: `WhatsAppStaffAssistantTest` (+4) and `WhatsAppAssistantChatTest` (+1).
+
 **Not this feature's job:** `NotifyStaffOfPayment` (a payment link getting
 paid) still always sends over real WhatsApp — a payment link raised from this
 test chat waits on a real payment, so there was nothing to route back to the

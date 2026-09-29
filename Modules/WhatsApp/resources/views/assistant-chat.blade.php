@@ -15,6 +15,28 @@
         </div>
     @endunless
 
+    {{-- Long-term memory: what the assistant keeps past the recent chat. It
+         saves a note when asked to remember something; deleting one here is
+         the same as telling it to forget. --}}
+    <details class="mb-4 rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5" data-assistant-memory>
+        <summary class="cursor-pointer select-none px-4 py-2 text-sm font-medium text-chrome-800">
+            Saved notes ({{ $memories->count() }})
+            <span class="font-normal text-chrome-500">— what the assistant remembers for you. Say "remember …" to add one.</span>
+        </summary>
+        <div class="max-h-48 space-y-2 overflow-y-auto border-t border-chrome-100 px-4 py-3">
+            @forelse ($memories as $memory)
+                <div class="flex items-start gap-2" wire:key="memory-{{ $memory->id }}">
+                    <p class="flex-1 whitespace-pre-wrap text-sm text-chrome-800" dir="auto">{{ $memory->text }}</p>
+                    <button type="button" wire:click="forgetMemory({{ $memory->id }})"
+                            wire:confirm="Forget this note?"
+                            class="shrink-0 text-xs font-medium text-red-600 hover:underline">Forget</button>
+                </div>
+            @empty
+                <p class="text-sm text-chrome-500">Nothing saved yet.</p>
+            @endforelse
+        </div>
+    </details>
+
     <div class="mb-4 flex-1 space-y-3 overflow-y-auto rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
         @forelse ($history as $turn)
             <div class="flex {{ $turn['role'] === 'user' ? 'justify-end' : 'justify-start' }}">

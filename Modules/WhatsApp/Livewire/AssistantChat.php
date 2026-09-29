@@ -13,6 +13,7 @@ use Livewire\Component;
 use Modules\WhatsApp\Assistant\StaffAssistant;
 use Modules\WhatsApp\Assistant\WebReplySink;
 use Modules\WhatsApp\Models\AssistantConfiguration;
+use Modules\WhatsApp\Models\AssistantMemory;
 use Modules\WhatsApp\Models\AssistantStaff;
 use Modules\WhatsApp\Models\Conversation;
 
@@ -67,6 +68,14 @@ final class AssistantChat extends Component
         }
     }
 
+    /** Delete one of the viewer's own saved notes. */
+    public function forgetMemory(int $id): void
+    {
+        $user = $this->authorizeSelf();
+
+        AssistantMemory::query()->where('user_id', $user->id)->whereKey($id)->delete();
+    }
+
     public function render(): View
     {
         $user = $this->authorizeSelf();
@@ -75,6 +84,9 @@ final class AssistantChat extends Component
 
         return view('whatsapp::assistant-chat', [
             'history' => $history ?? [],
+            // What the assistant remembers for this person, beyond the recent
+            // chat — the same notes it reads on WhatsApp.
+            'memories' => AssistantMemory::forUser((int) $user->id),
             'ready' => AssistantConfiguration::current()->isReady(),
             // Rides in the query string like `BackupDownloadController`'s —
             // the actual download is a plain controller (a Livewire action

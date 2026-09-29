@@ -27,6 +27,7 @@ use Modules\WhatsApp\Assistant\Brain\BrainReply;
 use Modules\WhatsApp\Assistant\NotifyStaffOfPayment;
 use Modules\WhatsApp\Livewire\AssistantSettings;
 use Modules\WhatsApp\Models\AssistantConfiguration;
+use Modules\WhatsApp\Models\AssistantMemory;
 use Modules\WhatsApp\Models\AssistantStaff;
 use Modules\WhatsApp\Models\Conversation;
 use Modules\WhatsApp\Models\ConversationMessage;
@@ -462,6 +463,79 @@ final class WhatsAppStaffAssistantTest extends TestCase
         $this->assertSame(1, $toolResult['matches'][0]['total_bookings']);
     }
 
+    /* ── Long-term memory ─────────────────────────────────────────────── */
+
+    public function test_a_saved_note_is_read_back_on_a_later_message(): void
+    {
+        $this->brain->queue(new BrainReply('tool_use', '', [['id' => 'm1', 'name' => 'save_memory', 'input' => [
+            'text' => 'KSA corporate prices: Dammam Sedan 32, SUV 40; Riyadh Sedan 120.',
+        ]]], [['type' => 'tool_use']]));
+        $this->brain->queue(new BrainReply('end_turn', 'Saved.', [], []));
+
+        $this->deliver(self::STAFF, 'wamid.m1', 'remember the KSA corporate prices: Dammam Sedan 32, SUV 40; Riyadh Sedan 120');
+
+        $memory = AssistantMemory::query()->sole();
+        $this->assertSame($this->owner->id, $memory->user_id);
+
+        // A later message — long after it has left the recent chat — still
+        // carries the note to the AI.
+        $this->brain->queue(new BrainReply('end_turn', 'Dammam Sedan is 32.', [], []));
+        $this->deliver(self::STAFF, 'wamid.m2', 'what was the corporate Dammam sedan price?');
+
+        $this->assertStringContainsString('[' . $memory->id . '] KSA corporate prices: Dammam Sedan 32', $this->brain->lastSystem);
+        // …and still as data under the rules, never as a fare.
+        $this->assertStringContainsString('a price in a note is NOT a fare', $this->brain->lastSystem);
+    }
+
+    public function test_notes_belong_to_one_person_and_cannot_be_forgotten_by_another(): void
+    {
+        $clerk = User::factory()->create(['is_admin' => false]);
+        AssistantStaff::query()->create(['phone' => '97300000009', 'user_id' => $clerk->id, 'active' => true]);
+        $ownerNote = AssistantMemory::query()->create(['user_id' => $this->owner->id, 'text' => 'Owner only note']);
+
+        // The clerk's AI tries to forget the owner's note by its id.
+        $this->brain->queue(new BrainReply('tool_use', '', [['id' => 'f1', 'name' => 'forget_memory', 'input' => ['id' => $ownerNote->id]]], [['type' => 'tool_use']]));
+        $this->brain->queue(new BrainReply('end_turn', 'No such note.', [], []));
+        $this->deliver('97300000009', 'wamid.f1', 'forget note ' . $ownerNote->id);
+
+        $this->assertTrue(AssistantMemory::query()->whereKey($ownerNote->id)->exists());
+        // The clerk's conversation never saw the owner's note either.
+        $this->assertStringNotContainsString('Owner only note', $this->brain->lastSystem);
+
+        // The owner can forget their own.
+        $this->brain->queue(new BrainReply('tool_use', '', [['id' => 'f2', 'name' => 'forget_memory', 'input' => ['id' => $ownerNote->id]]], [['type' => 'tool_use']]));
+        $this->brain->queue(new BrainReply('end_turn', 'Forgotten.', [], []));
+        $this->deliver(self::STAFF, 'wamid.f2', 'forget that note');
+
+        $this->assertFalse(AssistantMemory::query()->whereKey($ownerNote->id)->exists());
+    }
+
+    public function test_memory_is_capped_so_every_message_stays_small(): void
+    {
+        foreach (range(1, AssistantMemory::MAX_PER_USER) as $i) {
+            AssistantMemory::query()->create(['user_id' => $this->owner->id, 'text' => 'note ' . $i]);
+        }
+
+        $this->brain->queue(new BrainReply('tool_use', '', [['id' => 'm1', 'name' => 'save_memory', 'input' => ['text' => 'one too many']]], [['type' => 'tool_use']]));
+        $this->brain->queue(new BrainReply('end_turn', 'Memory is full.', [], []));
+        $this->deliver(self::STAFF, 'wamid.cap', 'remember one more thing');
+
+        $this->assertSame(AssistantMemory::MAX_PER_USER, AssistantMemory::query()->count());
+        $toolResult = json_decode($this->brain->lastMessages[count($this->brain->lastMessages) - 1]['content'][0]['content'], true);
+        $this->assertSame('full', $toolResult['error']);
+    }
+
+    public function test_the_recent_chat_keeps_sixty_turns(): void
+    {
+        $conversation = new Conversation(['wa_id' => 'x', 'language' => 'en']);
+        foreach (range(1, 70) as $i) {
+            $conversation->remember($i % 2 === 1 ? 'user' : 'assistant', 'turn ' . $i);
+        }
+
+        $this->assertCount(60, $conversation->history ?? []);
+        $this->assertSame('turn 11', ($conversation->history ?? [])[0]['text']);
+    }
+
     public function test_customer_lookup_is_permission_gated(): void
     {
         $clerk = User::factory()->create(['is_admin' => false]);
@@ -566,6 +640,8 @@ final class ScriptedBrain implements Brain
     /** @var list<array<string, mixed>> */
     public array $lastMessages = [];
 
+    public string $lastSystem = '';
+
     /** @var list<BrainReply> */
     private array $script = [];
 
@@ -578,6 +654,7 @@ final class ScriptedBrain implements Brain
     {
         $this->calls++;
         $this->lastMessages = $messages;
+        $this->lastSystem = $system;
 
         return array_shift($this->script) ?? new BrainReply('end_turn', 'OK', [], []);
     }

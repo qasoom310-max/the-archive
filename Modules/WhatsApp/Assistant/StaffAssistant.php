@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Modules\WhatsApp\Assistant\Brain\Brain;
 use Modules\WhatsApp\Models\AssistantConfiguration;
+use Modules\WhatsApp\Models\AssistantMemory;
 use Modules\WhatsApp\Models\AssistantStaff;
 use Modules\WhatsApp\Models\Conversation;
 use Modules\WhatsApp\Models\ConversationMessage;
@@ -228,6 +229,7 @@ final class StaffAssistant
         $system = AssistantTools::systemPrompt(
             (string) $user->name,
             CarbonImmutable::now('Asia/Bahrain')->format('l j F Y, H:i'),
+            AssistantMemory::promptBlock((int) $user->id),
         );
         $tools = AssistantTools::definitions();
 
@@ -306,6 +308,17 @@ final class StaffAssistant
             case 'find_customer':
                 return [$this->actions->findCustomer($str('query'), $user), null];
 
+            case 'save_memory':
+                return [$this->saveMemory($user, $str('text')), null];
+
+            case 'forget_memory':
+                $id = is_numeric($input['id'] ?? null) ? (int) $input['id'] : 0;
+                // Scoped to this person: one staff member can never delete
+                // another's notes, whatever id the model passes.
+                $deleted = AssistantMemory::query()->where('user_id', $user->id)->whereKey($id)->delete();
+
+                return [$deleted > 0 ? ['forgotten' => true, 'id' => $id] : ['ok' => false, 'error' => 'not_found', 'instruction' => 'No saved note has that id. Check the ids in your notes.'], null];
+
             case 'propose_booking':
             case 'propose_quotation':
                 $type = $name === 'propose_booking' ? AssistantActions::BOOKING : AssistantActions::QUOTATION;
@@ -381,6 +394,29 @@ final class StaffAssistant
         }
 
         return [['error' => 'unknown_tool'], null];
+    }
+
+    /**
+     * Keep a note in this staff member's long-term memory.
+     *
+     * @return array<string, mixed>
+     */
+    private function saveMemory(User $user, string $text): array
+    {
+        if ($text === '') {
+            return ['ok' => false, 'error' => 'empty', 'instruction' => 'The note was empty. Save the actual content.'];
+        }
+
+        if (AssistantMemory::query()->where('user_id', $user->id)->count() >= AssistantMemory::MAX_PER_USER) {
+            return ['ok' => false, 'error' => 'full', 'instruction' => 'Memory is full (' . AssistantMemory::MAX_PER_USER . ' notes). Ask the staff member which old note to forget, or forget one that is out of date, then save again.'];
+        }
+
+        $memory = AssistantMemory::query()->create([
+            'user_id' => $user->id,
+            'text' => mb_substr($text, 0, AssistantMemory::MAX_LENGTH),
+        ]);
+
+        return ['saved' => true, 'id' => $memory->id, 'truncated' => mb_strlen($text) > AssistantMemory::MAX_LENGTH];
     }
 
     /**

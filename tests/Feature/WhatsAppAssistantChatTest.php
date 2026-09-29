@@ -18,6 +18,7 @@ use Modules\WhatsApp\Assistant\Brain\Brain;
 use Modules\WhatsApp\Assistant\Brain\BrainReply;
 use Modules\WhatsApp\Livewire\AssistantChat;
 use Modules\WhatsApp\Models\AssistantConfiguration;
+use Modules\WhatsApp\Models\AssistantMemory;
 use Modules\WhatsApp\Models\AssistantStaff;
 use Modules\WhatsApp\Models\Conversation;
 use Tests\TestCase;
@@ -73,6 +74,27 @@ final class WhatsAppAssistantChatTest extends TestCase
         $this->actingAs($this->owner);
 
         Livewire::test(AssistantChat::class)->assertOk();
+    }
+
+    /** The chat page lists what the assistant remembers, and forgets on request — the viewer's own notes only. */
+    public function test_saved_notes_are_listed_and_can_be_forgotten(): void
+    {
+        $this->actingAs($this->owner);
+        $mine = AssistantMemory::query()->create(['user_id' => $this->owner->id, 'text' => 'Corporate Riyadh Sedan 120']);
+        $other = User::factory()->create();
+        $theirs = AssistantMemory::query()->create(['user_id' => $other->id, 'text' => 'Someone else note']);
+
+        Livewire::test(AssistantChat::class)
+            ->assertSee('Saved notes (1)')
+            ->assertSee('Corporate Riyadh Sedan 120')
+            ->assertDontSee('Someone else note')
+            // Another person's note cannot be deleted from here.
+            ->call('forgetMemory', $theirs->id)
+            ->call('forgetMemory', $mine->id)
+            ->assertSee('Nothing saved yet.');
+
+        $this->assertFalse(AssistantMemory::query()->whereKey($mine->id)->exists());
+        $this->assertTrue(AssistantMemory::query()->whereKey($theirs->id)->exists());
     }
 
     /**

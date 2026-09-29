@@ -27,8 +27,11 @@ final class Conversation extends Model
 {
     public const STATE_AWAITING_CONFIRMATION = 'awaiting_confirmation';
 
-    /** Turns kept for context; older ones fall away. */
-    public const HISTORY_LIMIT = 20;
+    /**
+     * Turns kept for context; older ones fall away. Anything meant to outlast
+     * this window goes into the staff member's saved notes (AssistantMemory).
+     */
+    public const HISTORY_LIMIT = 60;
 
     /** A proposal nobody answers within this long is forgotten. */
     public const DRAFT_TTL_MINUTES = 30;

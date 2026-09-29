@@ -31,7 +31,7 @@ use Livewire\Component;
  * blocks the save if it doesn't answer.
  */
 #[Layout('components.layouts.app')]
-#[Title('Fares')]
+#[Title('Website fares')]
 final class PricingManager extends Component
 {
     use ScrollsToFirstError;

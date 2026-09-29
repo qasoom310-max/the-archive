@@ -1,5 +1,5 @@
 <div class="mx-auto max-w-7xl p-4 sm:p-6">
-    <x-page-header :title="__('Fares')" :subtitle="__('The prices the website publishes. Edited here, nowhere else.')" icon="wallet" accent="emerald">
+    <x-page-header :title="__('Website fares')" :subtitle="__('The prices the website publishes. Edited here, nowhere else.')" icon="wallet" accent="emerald">
         <x-slot:actions>
             <span class="inline-flex items-center gap-1.5 rounded-lg bg-chrome-100 px-3 py-1.5 text-xs font-medium text-chrome-600">
                 {{ __('Version') }} <span class="font-bold text-chrome-800">{{ $version }}</span>

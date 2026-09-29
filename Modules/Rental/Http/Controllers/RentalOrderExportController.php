@@ -61,6 +61,22 @@ final class RentalOrderExportController
             (string) $request->query('from', ''),
             (string) $request->query('to', ''),
             (string) $request->query('q', ''),
+            $this->ids($request),
         );
+    }
+
+    /**
+     * The ticked rows, as `?ids=3,7,12`; empty (or junk) = the whole list.
+     *
+     * @return list<int>
+     */
+    private function ids(Request $request): array
+    {
+        $raw = $request->query('ids');
+        if (! is_string($raw) || trim($raw) === '') {
+            return [];
+        }
+
+        return array_values(array_unique(array_map('intval', array_filter(explode(',', $raw), 'is_numeric'))));
     }
 }

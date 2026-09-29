@@ -55,11 +55,17 @@ final class RentalOrderRows
     }
 
     /**
+     * @param  list<int>  $ids  the ticked rows; empty = everything the filters match
      * @return list<array<string, string>>
      */
-    public function all(string $tab, string $from, string $to, string $search): array
+    public function all(string $tab, string $from, string $to, string $search, array $ids = []): array
     {
-        return $this->query($tab, $from, $to, $search)->get()->map(fn (RentalOrder $o): array => $this->row($o))->all();
+        $query = $this->query($tab, $from, $to, $search);
+        if ($ids !== []) {
+            $query->whereKey($ids);
+        }
+
+        return $query->get()->map(fn (RentalOrder $o): array => $this->row($o))->all();
     }
 
     /**

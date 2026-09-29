@@ -80,9 +80,16 @@
     @php
         $exportQuery = http_build_query([
             'tab' => $tab, 'from' => $from, 'to' => $to, 'q' => $search,
+            'ids' => $this->selectedIdsParam(),
             'title' => __('Orders'),
         ]);
     @endphp
+    @if ($bulkMessage !== '')
+        <div class="mb-3 flex items-start justify-between gap-3 rounded-xl bg-emerald-50 px-4 py-2 text-sm text-emerald-800 ring-1 ring-emerald-200">
+            <span>{{ $bulkMessage }}</span>
+            <button type="button" wire:click="$set('bulkMessage', '')" class="text-emerald-700 hover:underline">{{ __('Close') }}</button>
+        </div>
+    @endif
     <div class="mb-3 flex flex-wrap items-center gap-2" x-data="listExportCopy">
         <button type="button" x-on:click="copyTable('rental-orders-table')"
                 class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
@@ -97,12 +104,35 @@
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('PDF') }}</a>
         <a href="{{ url('/app/rental/order/export/print') }}?{{ $exportQuery }}" target="_blank" rel="noopener"
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Print') }}</a>
+        @if (count($selected) > 0)
+            <span class="ms-1 inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700 ring-1 ring-primary-200">
+                {{ __(':count selected', ['count' => count($selected)]) }}
+                <button type="button" wire:click="clearSelection" class="font-semibold hover:underline">{{ __('Clear selection') }}</button>
+            </span>
+            @if ($canCancel)
+                <button type="button" wire:click="cancelSelected"
+                        wire:confirm="{{ __('Cancel the ticked orders? Their cars become available again.') }}"
+                        class="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-50">{{ __('Cancel selected') }}</button>
+            @endif
+            @if ($canDelete)
+                <button type="button" wire:click="deleteSelected"
+                        wire:confirm="{{ __('Delete the ticked orders for good? Orders with an invoice or money received are kept.') }}"
+                        class="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50">{{ __('Delete selected') }}</button>
+            @endif
+        @else
+            <span class="ms-1 text-xs text-chrome-400">{{ __('Tick rows to export or act on only those.') }}</span>
+        @endif
     </div>
 
     <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
         <table class="w-full min-w-[760px] divide-y divide-chrome-100 text-sm" id="rental-orders-table">
             <thead class="bg-chrome-50 text-start text-xs font-semibold uppercase tracking-wide text-chrome-500">
                 <tr>
+                    <th class="w-10 px-4 py-2" data-copy-skip>
+                        <input type="checkbox" wire:model.live="selectPage"
+                               class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500"
+                               aria-label="{{ __('Select all on this page') }}">
+                    </th>
                     <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Customer') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Car') }}</th>
@@ -127,8 +157,15 @@
                             'cancelled' => 'bg-red-100 text-red-700',
                         ][$order->state] ?? 'bg-chrome-200 text-chrome-700';
                     @endphp
-                    <tr wire:key="order-{{ $order->id }}" class="cursor-pointer hover:bg-chrome-50"
+                    <tr wire:key="order-{{ $order->id }}" class="cursor-pointer hover:bg-chrome-50" data-row-selected="{{ $this->isSelected($order->id) ? 1 : 0 }}"
                         onclick="window.location='{{ url('/app/rental/order/' . $order->id) }}'">
+                        {{-- The whole row opens the order, so the tick must not
+                             also navigate away from the list. --}}
+                        <td class="px-4 py-2" data-copy-skip onclick="event.stopPropagation()">
+                            <input type="checkbox" wire:model.live="selected" value="{{ $order->id }}"
+                                   class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500"
+                                   aria-label="{{ $order->reference }}">
+                        </td>
                         <td class="px-4 py-2">
                             <div class="font-medium text-chrome-800">{{ $order->reference }}</div>
                             @if ($order->createdBy)
@@ -158,7 +195,7 @@
                         <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $order->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($order->payment_status)) }}</span></td>
                     </tr>
                 @empty
-                    <tr><td colspan="12" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No orders found.') }}</td></tr>
+                    <tr><td colspan="13"class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No orders found.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>

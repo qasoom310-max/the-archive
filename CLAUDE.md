@@ -2615,6 +2615,20 @@ opens the record), so its checkbox cell carries `event.stopPropagation()`,
 same as every other list with this treatment. Test: `RentalBespokeExportTest`
 (+4 — same shape as Maintenance's).
 
+**Rental orders got the same, plus bulk Cancel / Delete (shipped 2026-09-29)** —
+`/app/rental/order` gained the `SelectsListRows` treatment (selection cleared on
+tab/from/to/search change; `RentalOrderRows::all(..., $ids)` +
+`RentalOrderExportController::ids()`). When rows are ticked two bulk buttons
+appear: **Cancel selected** (`rental.order` Write — `cancelOrder()` per open
+order, frees the car, closed/cancelled ones skipped) and **Delete selected**
+(`rental.order` **Unlink** — deletes for good, but **never an order with an
+invoice or any `advance_amount` received**; those are skipped and named, cancel
+them instead). Delete cancels first (frees the car), unlinks any
+`rental_web_bookings.rental_order_id`, and logs one `deleted` "Rental orders"
+activity entry with the references. The result shows in an inline
+`$bulkMessage` banner (a session flash would only show after a reload). Test:
+`RentalOrderBulkActionsTest` (6).
+
 **Rental quotation gets a real document, matching the invoice (shipped
 2026-09-12):** `/app/rental/quotation` used to have no per-document PDF at
 all — its list's "PDF"/"Print" buttons only ever rendered the generic tabular

@@ -3056,5 +3056,14 @@
     "SWIFT code": "رمز السويفت",
     "Printed on invoices. Leave blank to use the company name.": "يُطبع على الفواتير. اتركه فارغاً لاستخدام اسم الشركة.",
     "Printed on invoices for bank transfers.": "يُطبع على الفواتير للتحويلات البنكية.",
-    "Printed on invoices for bank transfers from abroad.": "يُطبع على الفواتير للتحويلات البنكية من الخارج."
+    "Printed on invoices for bank transfers from abroad.": "يُطبع على الفواتير للتحويلات البنكية من الخارج.",
+    "Cancel selected": "إلغاء المحدد",
+    "Delete selected": "حذف المحدد",
+    "Tick rows to export or act on only those.": "حدّد صفوفاً لتصديرها أو تنفيذ إجراء عليها فقط.",
+    "Cancel the ticked orders? Their cars become available again.": "إلغاء الطلبات المحددة؟ ستصبح سياراتها متاحة مرة أخرى.",
+    "Delete the ticked orders for good? Orders with an invoice or money received are kept.": "حذف الطلبات المحددة نهائياً؟ الطلبات التي لها فاتورة أو مبالغ مستلمة ستبقى.",
+    ":count orders cancelled.": "تم إلغاء :count طلبات.",
+    ":count orders deleted.": "تم حذف :count طلبات.",
+    "Nothing to cancel — the ticked orders are already closed or cancelled.": "لا يوجد ما يُلغى — الطلبات المحددة مغلقة أو ملغاة بالفعل.",
+    "Not deleted because money is recorded on them (cancel them instead): :refs": "لم تُحذف لوجود مبالغ مسجلة عليها (ألغها بدلاً من ذلك): :refs"
 }

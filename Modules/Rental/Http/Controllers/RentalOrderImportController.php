@@ -33,9 +33,14 @@ final class RentalOrderImportController
 
         $result = $importer->import($file->getRealPath());
 
-        return redirect('/app/rental/order')->with('toast', __(
+        $message = __(
             ':imported orders imported, :skipped already on file skipped.',
             ['imported' => $result['imported'], 'skipped' => $result['skipped']],
-        ));
+        );
+        if ($result['failed'] > 0) {
+            $message .= ' ' . __(':count rows could not be read and were skipped.', ['count' => $result['failed']]);
+        }
+
+        return redirect('/app/rental/order')->with('toast', $message);
     }
 }

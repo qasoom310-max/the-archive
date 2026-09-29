@@ -2629,6 +2629,19 @@ activity entry with the references. The result shows in an inline
 `$bulkMessage` banner (a session flash would only show after a reload). Test:
 `RentalOrderBulkActionsTest` (6).
 
+**Orders import reads the old system's Active Orders export (fixed 2026-09-29).**
+Uploading that CSV on `/app/rental/order` 500ed: `OrderImporter` read
+`$row[$cols['pickup']]` unguarded and the file has no Pick-up column. The
+importer now also understands `RA#` (kept as the reference, and the dedupe key —
+an RA# already on file is SKIPPED, never rewritten; `rental:fix-order-figures`
+is the deliberate figure refresh), `Customer` = "Name , CPR , phone" (matched by
+CPR, then phone ending, then name), `Vehicle` = "plate - model" (matched by
+plate), `Hire Period` = "31-Aug-26 12:42 to 17-Sep-26" (explicit `d-M-y` formats
++ `hired_time`), Amount/VAT/Total/Receipt/Balance/Deposit ("Extra" not written —
+outside the old total). No Status column → active when still owing or not yet
+due back, else closed. Every row is try/caught (logged, counted as `failed`) so
+one bad row never fails the upload. Tests: `RentalOrderImportTest` (+3).
+
 **Rental quotation gets a real document, matching the invoice (shipped
 2026-09-12):** `/app/rental/quotation` used to have no per-document PDF at
 all — its list's "PDF"/"Print" buttons only ever rendered the generic tabular

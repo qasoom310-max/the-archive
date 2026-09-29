@@ -3065,5 +3065,6 @@
     ":count orders cancelled.": "تم إلغاء :count طلبات.",
     ":count orders deleted.": "تم حذف :count طلبات.",
     "Nothing to cancel — the ticked orders are already closed or cancelled.": "لا يوجد ما يُلغى — الطلبات المحددة مغلقة أو ملغاة بالفعل.",
-    "Not deleted because money is recorded on them (cancel them instead): :refs": "لم تُحذف لوجود مبالغ مسجلة عليها (ألغها بدلاً من ذلك): :refs"
+    "Not deleted because money is recorded on them (cancel them instead): :refs": "لم تُحذف لوجود مبالغ مسجلة عليها (ألغها بدلاً من ذلك): :refs",
+    ":count rows could not be read and were skipped.": "تعذّرت قراءة :count صفوف وتم تخطيها."
 }

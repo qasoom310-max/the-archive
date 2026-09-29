@@ -46,8 +46,8 @@ final class LimoQueueRows
 
     /**
      * A whole day, whatever stage its trips reached — what the schedule
-     * cards on the app home open. Not rendered as a tab: it is a way of
-     * looking at a date, not a pile of work to clear.
+     * cards on the app home open, and the "All" tab on the bookings list.
+     * Cancelled trips are left out unless searching; they have their own tab.
      */
     public const TAB_ALL = 'all';
 

@@ -114,11 +114,12 @@
     @endif
 
     @php
-        // No "All" tab: the queue is a place of work, not an archive. Every tab
-        // here is something someone has to do, and a catch-all mixing cancelled
-        // and completed trips into the live ones was only ever a longer list to
-        // scroll past. Search and the date range still reach anything.
+        // "All" is every trip that is happening or happened — the same view the
+        // schedule cards open. Called-off trips stay in their own Cancelled tab
+        // (a search still brings them back), so All is never padded with work
+        // that is not going ahead.
         $tabs = [
+            'all' => __('All'),
             'queue' => __('Queue'),
             'confirmed' => __('Confirmed'),
             'active' => __('Active'),
@@ -133,6 +134,8 @@
         @foreach ($tabs as $key => $label)
             @php $n = match ($key) {
                 'unpaid' => $unpaidCount,
+                // What the All tab lists: every status but cancelled.
+                'all' => (int) $counts->except('cancelled')->sum(),
                 default => (int) $counts->get($key, 0),
             }; @endphp
             <button wire:click="$set('tab', '{{ $key }}')"

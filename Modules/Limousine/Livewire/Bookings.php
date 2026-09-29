@@ -54,11 +54,10 @@ final class Bookings extends Component
     private const DEFAULT_TAB = 'queue';
 
     /**
-     * Accepted in the URL. `all` is deliberately here but NOT rendered as a
-     * tab: the schedule cards on the app home open a whole day across every
-     * status, and their promise is that the number on the card equals the rows
-     * on the page. Dropping the value as well as the button would have quietly
-     * broken that. So it is reachable by link, just not somewhere to click.
+     * Accepted in the URL. `all` is also the first tab: every trip that is
+     * happening or happened (cancelled ones keep their own tab). The schedule
+     * cards on the app home open it for one day, and their promise is that
+     * the number on the card equals the rows on the page.
      *
      * @var list<string>
      */

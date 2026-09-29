@@ -152,4 +152,6 @@
         <p class="doc-note"><b>{{ __('Notes') }}:</b> {{ $notes }}</p>
     @endif
 
+    <x-bank-details />
+
 </div>

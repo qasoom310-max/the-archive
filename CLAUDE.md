@@ -2856,6 +2856,18 @@ from one of those call sites.
 | Repeats per page | `position: fixed; bottom: -50px` — that is how DomPDF repeats a band on every page. Each host reserves **60px** in its `@page` bottom margin. **Measured, not guessed** (a two-page probe rendered with DomPDF and read back through the PDF's own coordinates): band occupies y 7.5–38pt on **both** pages, lowest body text at y 62 — 24pt of clearance |
 | Empty databases | The band prints only when this database has **at least one contact detail** (a phone, address, email or website). A company **name alone is deliberately not enough** — every document already prints the name in its header, and an unconfigured database still answers the `"OpenERP"` default, which would put a stranger's name on the foot of a real customer's invoice (Hashtag Limo's live database does exactly that). So an unconfigured business gets **no grey bar at all** |
 
+**Bank details on invoices (shipped 2026-09-29).** The limousine invoice (single,
+batch, combined) and the rental invoice (single, batch) print a "how to pay"
+block under the totals — cheque payee + bank name / account no. / IBAN / SWIFT —
+via the shared anonymous component `<x-bank-details />`, reading five General
+settings: `company.bank_payee` (blank = company name), `company.bank_name`,
+`company.bank_account`, `company.bank_iban`, `company.bank_swift`. Nothing prints
+until one bank detail is filled. Core migration `2026_09_29_100002` adds the rows
+everywhere and pre-fills Wanaan's (recognised by company name containing
+"wanaan" or VAT 220015215500002) from its printed invoice: Al Salam Bank,
+765765150000, BH47ALSA00765765150000, ALSABHBM — never overwriting a typed
+value. Test: `BankDetailsTest`.
+
 **Never hardcode an address or a number in these views.** `Modules/Rental` and
 `Modules/Limousine` are shared by every business on the system, so anything
 baked in prints on Hashtag Limo's paperwork too. That had already happened:

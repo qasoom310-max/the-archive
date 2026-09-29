@@ -108,6 +108,8 @@
     </tr>
 </table>
 
+<x-bank-details />
+
 <x-document-footer />
 
 </body>

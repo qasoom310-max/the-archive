@@ -3044,5 +3044,17 @@
     "Showing :period": "عرض :period",
     "Bookings for :date": "حجوزات :date",
     "Previous day": "اليوم السابق",
-    "Next day": "اليوم التالي"
+    "Next day": "اليوم التالي",
+    "Bank name": "اسم البنك",
+    "Account no.": "رقم الحساب",
+    "IBAN": "رقم الآيبان",
+    "SWIFT": "رمز السويفت",
+    "Please make all cheques payable to": "يرجى تحرير جميع الشيكات باسم",
+    "Bank transfer payment to": "الدفع بالتحويل البنكي إلى",
+    "Cheques payable to": "الشيكات باسم",
+    "Bank account number": "رقم الحساب البنكي",
+    "SWIFT code": "رمز السويفت",
+    "Printed on invoices. Leave blank to use the company name.": "يُطبع على الفواتير. اتركه فارغاً لاستخدام اسم الشركة.",
+    "Printed on invoices for bank transfers.": "يُطبع على الفواتير للتحويلات البنكية.",
+    "Printed on invoices for bank transfers from abroad.": "يُطبع على الفواتير للتحويلات البنكية من الخارج."
 }

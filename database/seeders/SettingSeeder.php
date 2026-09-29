@@ -62,6 +62,14 @@ final class SettingSeeder extends Seeder
             ['key' => 'company.website', 'label' => 'Website', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 25, 'description' => 'Printed in the footer of every document.'],
             ['key' => 'company.vat_number', 'label' => 'VAT number', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 26, 'description' => 'Printed in the footer of every document, so a customer can reclaim the tax.'],
             ['key' => 'company.cr_number', 'label' => 'CR number', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 27, 'description' => 'Commercial registration number, printed in the footer of every document.'],
+            // How to pay, printed under the totals of every invoice (the shared
+            // <x-bank-details /> component). See the 2026_09_29 bank-details
+            // migration, which backfills these into every workspace.
+            ['key' => 'company.bank_payee', 'label' => 'Cheques payable to', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 28, 'description' => 'Printed on invoices. Leave blank to use the company name.'],
+            ['key' => 'company.bank_name', 'label' => 'Bank name', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 29, 'description' => 'Printed on invoices for bank transfers.'],
+            ['key' => 'company.bank_account', 'label' => 'Bank account number', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 30, 'description' => 'Printed on invoices for bank transfers.'],
+            ['key' => 'company.bank_iban', 'label' => 'IBAN', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 31, 'description' => 'Printed on invoices for bank transfers.'],
+            ['key' => 'company.bank_swift', 'label' => 'SWIFT code', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 32, 'description' => 'Printed on invoices for bank transfers from abroad.'],
             ['key' => 'company.timezone', 'label' => 'Timezone', 'type' => 'string', 'group' => 'General', 'default' => 'UTC', 'sort' => 30, 'description' => null],
             ['key' => 'company.language', 'label' => 'Language', 'type' => 'string', 'group' => 'General', 'default' => 'en', 'sort' => 40, 'description' => 'Default language for the system.'],
             // Terms & conditions printed on the rental Car Hire Agreement PDF

@@ -3706,6 +3706,24 @@ this was verified by reading every leg-creation path, not assumed. Tests:
 `LimoLegacyBookingImportTest::{test_the_import_stamps_when_the_row_actually_landed_here_separately_from_the_historical_date,
 test_a_booking_entered_live_in_the_erp_has_no_imported_at}`.
 
+**New trips follow the old sequence (changed 2026-09-29, the owner's choice).**
+Trips entered in the ERP came out as 41,7xx: the trip number was
+`REFERENCE_START - 1 + row id`, and the reimport (which forces leg ids to
+`tripNumber - 9999`) plus quotation legs ran the id counter to ~31,7xx while
+the real trip numbers stopped around 26,2xx. `LimoLeg::nextReference()` now
+gives **one more than the highest numeric trip number on file** (longest-then-
+highest, so numeric order; never below `REFERENCE_START`; skips taken numbers;
+the `created` hook retries on a unique-index clash). A fresh database still
+starts at 10000. Migration `2026_09_29_950037` renumbered the stray trips — any
+numeric reference **≥ 30000 not from the historical import** (`imported_at`
+null, or a quotation leg) — to follow straight after the highest number below
+30000, in creation order, updating `limo_coupons.leg_reference`; backup first,
+every old → new pair in the server log and the activity log. Known trade-off
+the owner accepted over a 6-digit `2xxxxx` scheme: the numbers only start with
+2 until 29999, and an imported trip numbered 30000+ would push new ones past it.
+Numbers already printed or sent on WhatsApp before the change still show the
+old 4xxxx value. Test: `LimoTripNumberSequenceTest`.
+
 **Next step, still pending an explicit decision:** run
 `limo:review-duplicate-trips` against Wanaan and read the "no money
 recorded" shortlist with someone who knows what a same-time/same-fare

@@ -6,6 +6,7 @@ namespace Modules\Limousine\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 
@@ -125,17 +126,60 @@ final class LimoLeg extends Model
 
     protected static function booted(): void
     {
-        // Derive the running number from the row's own id rather than
-        // `max(reference) + 1`: the id is already unique and monotonic, so two
-        // legs created at the same moment cannot collide, and a deleted leg
-        // leaves a gap instead of handing its number to someone else. The
-        // offset keeps it clear of the backfilled range — see the migration.
+        // The next trip number follows on from the highest one on file. It used
+        // to be derived from the row id (REFERENCE_START - 1 + id), but imports
+        // and re-imports ran the id counter far ahead of the trip numbers, so
+        // new trips came out as 41,7xx while the real sequence was at 26,2xx.
+        // The unique index still guards the number: two trips saved at the same
+        // moment that pick the same one simply take the next.
         static::created(static function (self $leg): void {
-            if ($leg->reference === null || $leg->reference === '') {
-                $leg->reference = (string) (self::REFERENCE_START - 1 + (int) $leg->getKey());
-                $leg->saveQuietly();
+            if ($leg->reference !== null && $leg->reference !== '') {
+                return;
+            }
+
+            for ($attempt = 0; $attempt < 5; $attempt++) {
+                $leg->reference = self::nextReference();
+                try {
+                    $leg->saveQuietly();
+
+                    return;
+                } catch (QueryException $e) {
+                    if ($attempt === 4) {
+                        throw $e;
+                    }
+                }
             }
         });
+    }
+
+    /**
+     * One more than the highest trip number on file (numerically — "100000"
+     * outranks "99999"), never below REFERENCE_START, skipping any number
+     * already taken.
+     */
+    public static function nextReference(): string
+    {
+        // Longest first, then highest: for digit strings that is numeric order.
+        // A handful are read so a stray non-numeric reference can't hide the
+        // real top number.
+        $top = self::query()
+            ->whereNotNull('reference')
+            ->where('reference', '!=', '')
+            ->orderByRaw('LENGTH(reference) DESC')
+            ->orderByDesc('reference')
+            ->limit(50)
+            ->pluck('reference')
+            ->first(static fn (mixed $ref): bool => is_string($ref) && ctype_digit($ref));
+
+        $next = is_string($top)
+            ? max(self::REFERENCE_START, (int) $top + 1)
+            : self::REFERENCE_START;
+
+        while (self::query()->where('reference', (string) $next)->exists()) {
+            $next++;
+        }
+
+        return (string) $next;
     }
 
     /** @var array<string, mixed> */

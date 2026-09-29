@@ -71,6 +71,50 @@ final class LimoTripNumberSequenceTest extends TestCase
         $this->assertSame('26216', $this->leg($this->booking())->reference);
     }
 
+    /**
+     * What Wanaan actually looks like: the re-import filled every five-digit
+     * number up to ~41,7xx with old trips, so "after the old ones" had no
+     * room and pushed the live trips higher. Live trips move to 200001+.
+     */
+    public function test_live_trips_are_numbered_from_200001_when_old_trips_fill_the_five_digit_range(): void
+    {
+        $this->leg($this->booking(true), '26214');
+        $oldTop = $this->leg($this->booking(true), '41747');
+        // Where the previous fix left the live ones: pushed above the old top.
+        $liveA = $this->leg($this->booking(), '41786');
+        $liveB = $this->leg($this->booking(), '41800');
+        $quoteLeg = $this->leg(LimoQuotation::query()->create(['customer_id' => LimoCustomer::query()->create(['name' => 'Q'])->id]), '41801');
+        LimoCoupon::query()->create(['code' => 'CPN-LIVE', 'leg_reference' => '41800', 'amount' => 5]);
+
+        $migration = require base_path('Modules/Limousine/database/migrations/2026_09_30_950038_number_live_trips_from_200001.php');
+        $migration->up();
+
+        $this->assertSame('41747', $oldTop->refresh()->reference);
+        $this->assertSame('200001', $liveA->refresh()->reference);
+        $this->assertSame('200002', $liveB->refresh()->reference);
+        // Quotation trips are left as they are.
+        $this->assertSame('41801', $quoteLeg->refresh()->reference);
+        $this->assertSame('200002', LimoCoupon::query()->where('code', 'CPN-LIVE')->value('leg_reference'));
+
+        // New trips carry on from there — six digits starting with 2.
+        $this->assertSame('200003', $this->leg($this->booking())->reference);
+
+        // Running again changes nothing.
+        $migration->up();
+        $this->assertSame('200001', $liveA->refresh()->reference);
+    }
+
+    public function test_a_database_without_the_legacy_import_keeps_its_own_numbers(): void
+    {
+        $leg = $this->leg($this->booking(), '10005');
+
+        $migration = require base_path('Modules/Limousine/database/migrations/2026_09_30_950038_number_live_trips_from_200001.php');
+        $migration->up();
+
+        $this->assertSame('10005', $leg->refresh()->reference);
+        $this->assertSame('10006', $this->leg($this->booking())->reference);
+    }
+
     public function test_a_fresh_database_still_starts_at_ten_thousand(): void
     {
         $this->assertSame((string) LimoLeg::REFERENCE_START, $this->leg($this->booking())->reference);

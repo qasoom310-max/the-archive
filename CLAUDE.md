@@ -3724,6 +3724,20 @@ the owner accepted over a 6-digit `2xxxxx` scheme: the numbers only start with
 Numbers already printed or sent on WhatsApp before the change still show the
 old 4xxxx value. Test: `LimoTripNumberSequenceTest`.
 
+**…superseded the next day: live trips are numbered from 200001.** The belief
+that old trips stopped at 26,2xx was wrong — the re-import had filled the
+five-digit range up to ~41,7xx, so `950037` found no room and pushed the 52 live
+trips ABOVE the old top (every one moved by exactly +52: 41748 → 41800). There is
+no free five-digit number starting with 2. Migration `2026_09_30_950038` moves
+every BOOKING trip entered live (booking `imported_at` null AND booking
+`created_at` ≥ `LiveEntry::since()`) to **200001, 200002…** in creation order
+(coupons follow; backup first; old → new in the logs). Only in a database that
+went through the legacy import (any booking with `imported_at`); others keep
+their own sequence. Quotation trips are left alone. `nextReference()` needed no
+change — six digits outrank five, so new trips carry on from 2000xx. **Lesson:
+never assert what live data looks like from a stale number; a renumbering needs
+the real range checked first.**
+
 **Next step, still pending an explicit decision:** run
 `limo:review-duplicate-trips` against Wanaan and read the "no money
 recorded" shortlist with someone who knows what a same-time/same-fare

@@ -142,10 +142,6 @@ final class BookingForm extends Component
         }
 
         $this->prepared_by = $this->currentUserName();
-        // Most bookings are requested by whoever is entering them, so the
-        // field starts with their name. It stays editable for the times it
-        // was someone else.
-        $this->requested_by = $this->prepared_by;
         $this->seedCoupon();
         $this->seedLegs();
     }
@@ -201,6 +197,7 @@ final class BookingForm extends Component
     /**
      * Picking a customer fills the passenger block from their record — for a
      * person. A company's passenger is a guest, so its PAX fields stay empty.
+     * "Requested by" takes the customer's name either way.
      *
      * The three fields here are the ones that genuinely belong to the customer
      * — who travels, the number the driver rings, and where the confirmation
@@ -210,8 +207,8 @@ final class BookingForm extends Component
      *
      * Switching customer overwrites what's there rather than filling only the
      * blanks, so the sheet always agrees with the customer that is selected.
-     * Nothing else auto-fills: the company reference is a per-job PO number,
-     * and requested/prepared-by are the staff signing the sheet off.
+     * The company reference does not auto-fill (a per-job PO number), and
+     * prepared-by is our own staff member, stamped from the account.
      */
     public function updatedCustomerId(): void
     {
@@ -235,6 +232,9 @@ final class BookingForm extends Component
             $this->pax_contact = (string) ($customer->phone ?? '');
         }
         $this->email = (string) ($customer->email ?? '');
+        // The customer is who asked for the trip — the company for a company,
+        // the person themself otherwise. Prepared by is our own staff member.
+        $this->requested_by = (string) ($customer->name ?? '');
     }
 
     /**

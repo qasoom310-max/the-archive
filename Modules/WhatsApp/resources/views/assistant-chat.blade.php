@@ -38,8 +38,15 @@
     </div>
 
     <form wire:submit="send" class="flex items-end gap-2">
+        {{-- Enter sends on a desktop (Shift+Enter for a new line). On a phone
+             Enter stays a new line and the Send button sends — a touch keyboard
+             has no Shift to reach for. Desktop = a mouse that can hover, the
+             same test the idle sign-out uses. --}}
         <textarea
             wire:model="text"
+            x-data
+            x-on:keydown.enter="if (! $event.shiftKey && ! $event.isComposing && window.matchMedia('(pointer: fine) and (hover: hover)').matches) { $event.preventDefault(); $el.form.requestSubmit(); }"
+            data-enter-sends-on-desktop
             rows="2"
             class="o-input flex-1 resize-none"
             placeholder="Type a message…"

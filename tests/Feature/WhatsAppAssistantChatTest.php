@@ -75,6 +75,23 @@ final class WhatsAppAssistantChatTest extends TestCase
         Livewire::test(AssistantChat::class)->assertOk();
     }
 
+    /**
+     * Enter sends on a desktop only; a phone keeps Enter as a new line, and
+     * Shift+Enter is a new line everywhere.
+     */
+    public function test_enter_sends_on_a_desktop_but_not_on_a_phone(): void
+    {
+        $this->actingAs($this->owner);
+
+        $html = Livewire::test(AssistantChat::class)->html();
+
+        $this->assertStringContainsString('data-enter-sends-on-desktop', $html);
+        $this->assertStringContainsString('x-on:keydown.enter=', $html);
+        $this->assertStringContainsString("(pointer: fine) and (hover: hover)", $html);
+        $this->assertStringContainsString('! $event.shiftKey', $html);
+        $this->assertStringContainsString('requestSubmit()', $html);
+    }
+
     public function test_a_mapped_staff_member_can_open_the_chat(): void
     {
         $clerk = User::factory()->create(['is_admin' => false]);

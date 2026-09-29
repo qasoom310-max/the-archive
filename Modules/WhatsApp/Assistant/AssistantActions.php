@@ -11,6 +11,8 @@ use App\Erp\Pricing\FareResult;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use App\Erp\Targets\RevenueTargets;
+use App\Models\Pricing\PricingCar;
+use App\Models\Pricing\PricingCorporateRate;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
@@ -79,6 +81,16 @@ final class AssistantActions
             }
         }
 
+        $companyName = is_scalar($input['company'] ?? null) ? trim((string) $input['company']) : '';
+        $company = null;
+        if ($companyName !== '') {
+            $resolved = $this->resolveCompany($companyName);
+            if (! $resolved['ok']) {
+                return $this->companyError($resolved);
+            }
+            $company = $resolved['company'];
+        }
+
         $result = $this->fares->quote(
             serviceId: is_scalar($input['service'] ?? null) ? (string) $input['service'] : '',
             carId: is_scalar($input['car'] ?? null) ? (string) $input['car'] : '',
@@ -86,11 +98,120 @@ final class AssistantActions
             roundTrip: (bool) ($input['round_trip'] ?? false),
             extraHours: max(0.0, is_numeric($input['extra_hours'] ?? null) ? (float) $input['extra_hours'] : 0.0),
             travelDate: $travel,
+            companyId: $company?->id,
         );
 
-        return $result->found
-            ? ['found' => true, 'amount_text' => $this->money($result->total)] + $result->toArray()
-            : ['found' => false, 'reason' => $result->reason, 'instruction' => 'There is no set fare. Tell the staff member exactly that; never estimate a price.'];
+        if (! $result->found) {
+            return ['found' => false, 'reason' => $result->reason, 'instruction' => 'There is no set fare. Tell the staff member exactly that; never estimate a price.'];
+        }
+
+        $out = ['found' => true, 'amount_text' => $this->money($result->total)] + $result->toArray();
+        if ($company !== null) {
+            $out['company'] = (string) $company->name;
+            $out['price_note'] = match ($result->source) {
+                FareResult::SOURCE_CORPORATE => 'This is ' . $company->name . "'s own agreed corporate rate.",
+                FareResult::SOURCE_CORPORATE_STANDARD => 'This is the standard corporate rate (' . $company->name . ' has no deal of its own for this trip).',
+                default => $company->name . ' has no corporate rate for this trip, so this is the normal website fare.',
+            };
+        }
+
+        return $out;
+    }
+
+    /**
+     * Every corporate rate that applies to one company — its own deal and the
+     * standard corporate rate — for "what are Turbo's rates?".
+     *
+     * @return array<string, mixed>
+     */
+    public function corporateRates(string $companyName, User $user): array
+    {
+        if (! $this->access->allows($user, 'limousine.booking', Permission::Read)) {
+            return ['ok' => false, 'error' => 'forbidden', 'instruction' => "The staff member's ERP permissions do not allow this. Tell them so."];
+        }
+
+        $company = null;
+        if (trim($companyName) !== '') {
+            $resolved = $this->resolveCompany($companyName);
+            if (! $resolved['ok']) {
+                return $this->companyError($resolved);
+            }
+            $company = $resolved['company'];
+        }
+
+        $rows = PricingCorporateRate::query()
+            ->with('option.service')
+            ->where(fn ($q) => $q->whereNull('customer_id')->when($company !== null, fn ($q2) => $q2->orWhere('customer_id', $company?->id)))
+            ->get();
+
+        $cars = PricingCar::query()->pluck('name_en', 'id');
+        $list = [];
+        foreach ($rows as $row) {
+            // A company's own row replaces the standard one for the same cell.
+            if ($row->customer_id === null && $company !== null
+                && $rows->contains(fn (PricingCorporateRate $r): bool => $r->customer_id === $company->id && $r->option_id === $row->option_id && $r->car_id === $row->car_id)) {
+                continue;
+            }
+            $list[] = [
+                'service' => (string) ($row->option->service_id ?? ''),
+                'service_en' => (string) ($row->option->service->name_en ?? ''),
+                'option' => (string) ($row->option->code ?? ''),
+                'option_en' => (string) ($row->option->label_en ?? ''),
+                'car' => $row->car_id,
+                'car_en' => (string) ($cars[$row->car_id] ?? $row->car_id),
+                'amount' => $row->amount,
+                'amount_text' => $this->money($row->amount),
+                'source' => $row->customer_id === null ? FareResult::SOURCE_CORPORATE_STANDARD : FareResult::SOURCE_CORPORATE,
+            ];
+        }
+
+        return [
+            'company' => $company?->name,
+            'rates' => $list,
+            'note' => $list === []
+                ? 'No corporate rates are set' . ($company !== null ? ' for ' . $company->name : '') . '. Trips are priced at the website fare. Rates are set on the Corporate rates page in the ERP.'
+                : 'Round trips and extra hours follow the website rules for the service. A trip not listed is priced at the website fare.',
+        ];
+    }
+
+    /**
+     * A company customer by name: exact (any case) first, else the one whose
+     * name contains the words given. Several matches is a question to ask,
+     * never a guess.
+     *
+     * @return array{ok: bool, company?: LimoCustomer, error?: string, matches?: list<string>}
+     */
+    public function resolveCompany(string $name): array
+    {
+        $name = trim($name);
+        $companies = LimoCustomer::query()->where('type', LimoCustomer::TYPE_COMPANY);
+
+        $exact = (clone $companies)->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])->get();
+        if ($exact->count() === 1) {
+            return ['ok' => true, 'company' => $exact->first()];
+        }
+
+        $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $name) . '%';
+        $found = (clone $companies)->where('name', 'like', $like)->orderBy('name')->limit(6)->get();
+
+        if ($found->count() === 1) {
+            return ['ok' => true, 'company' => $found->first()];
+        }
+
+        return $found->isEmpty()
+            ? ['ok' => false, 'error' => 'company_not_found']
+            : ['ok' => false, 'error' => 'company_ambiguous', 'matches' => $found->pluck('name')->map(fn ($n): string => (string) $n)->all()];
+    }
+
+    /**
+     * @param array{ok: bool, error?: string, matches?: list<string>} $resolved
+     * @return array<string, mixed>
+     */
+    private function companyError(array $resolved): array
+    {
+        return ($resolved['error'] ?? '') === 'company_ambiguous'
+            ? ['ok' => false, 'error' => 'company_ambiguous', 'matches' => $resolved['matches'] ?? [], 'instruction' => 'Several companies match. Ask the staff member which one they mean, listing these names.']
+            : ['ok' => false, 'error' => 'company_not_found', 'instruction' => 'No company customer has that name. Ask the staff member for the exact company name; do not price it as a private customer without asking.'];
     }
 
     /**
@@ -241,7 +362,7 @@ final class AssistantActions
      * asking for one is refused outright, whatever the message claims about
      * who they are.
      *
-     * @return array{ok: bool, action?: array<string, mixed>, error?: string, fare?: FareResult, tableTotal?: float}
+     * @return array{ok: bool, action?: array<string, mixed>, error?: string, matches?: list<string>, fare?: FareResult, tableTotal?: float, company?: string}
      */
     public function proposeTrip(string $type, TripRequest $trip, User $user, ?float $overrideAmount = null): array
     {
@@ -253,6 +374,18 @@ final class AssistantActions
         $missing = $trip->problems();
         if ($missing !== []) {
             return ['ok' => false, 'error' => 'missing:' . implode(',', $missing)];
+        }
+
+        $companyName = '';
+        if ($trip->company !== '') {
+            $resolved = $this->resolveCompany($trip->company);
+            if (! $resolved['ok'] || ! isset($resolved['company'])) {
+                return ['ok' => false, 'error' => (string) ($resolved['error'] ?? 'company_not_found'), 'matches' => $resolved['matches'] ?? []];
+            }
+            // Stored as the name on file, so the YES step finds exactly the
+            // same company rather than re-matching what the model typed.
+            $companyName = (string) $resolved['company']->name;
+            $trip = TripRequest::fromArray(['company' => $companyName] + $trip->toArray());
         }
 
         $fare = $this->priceTrip($trip);
@@ -274,7 +407,7 @@ final class AssistantActions
 
         $action['amount'] = $fare->total;
 
-        return ['ok' => true, 'fare' => $fare, 'tableTotal' => $tableTotal, 'action' => $action];
+        return ['ok' => true, 'fare' => $fare, 'tableTotal' => $tableTotal, 'action' => $action, 'company' => $companyName];
     }
 
     /**
@@ -427,13 +560,16 @@ final class AssistantActions
         $fare = $overridden;
 
         $booking = DB::transaction(function () use ($trip, $fare, $user): LimoBooking {
-            $customer = $this->customerFor($trip);
+            // A company trip is billed to the company; the person named is the
+            // passenger who rides. Otherwise the person IS the customer.
+            $company = $this->companyFor($trip);
+            $customer = $company ?? $this->customerFor($trip);
 
             $booking = new LimoBooking();
             $booking->customer_id = $customer->id;
             $booking->pax_name = $trip->customerName;
             $booking->pax_contact = $trip->customerPhone;
-            $booking->requested_by = $trip->customerName;
+            $booking->requested_by = $company !== null ? (string) $company->name : $trip->customerName;
             $booking->company_reference = $trip->companyReference !== '' ? $trip->companyReference : null;
             $booking->prepared_by = (string) $user->name;
             $booking->payment_method = 'online';
@@ -466,6 +602,8 @@ final class AssistantActions
             'datetime' => $this->when($trip->pickupAt),
             'amount' => $this->money($fare->total),
             'company_reference' => $trip->companyReference,
+            'company' => $trip->company,
+            'corporate' => $fare->isCorporate() ? 'yes' : '',
         ]));
     }
 
@@ -492,12 +630,13 @@ final class AssistantActions
         $fare = $overridden;
 
         $quote = DB::transaction(function () use ($trip, $fare, $user): LimoQuotation {
-            $customer = $this->customerFor($trip);
+            $company = $this->companyFor($trip);
+            $customer = $company ?? $this->customerFor($trip);
 
             $quote = new LimoQuotation();
             $quote->quote_date = Carbon::now();
             $quote->customer_id = $customer->id;
-            $quote->requested_by = $trip->customerName;
+            $quote->requested_by = $company !== null ? (string) $company->name : $trip->customerName;
             $quote->prepared_by = (string) $user->name;
             $quote->contact_number = $trip->customerPhone;
             $quote->valid_until = Carbon::now()->addWeek();
@@ -615,6 +754,11 @@ final class AssistantActions
 
     public function priceTrip(TripRequest $trip): FareResult
     {
+        $company = $this->companyFor($trip);
+        if ($trip->company !== '' && $company === null) {
+            return FareResult::missing('company_not_found');
+        }
+
         return $this->fares->quote(
             serviceId: $trip->service,
             carId: $trip->car,
@@ -622,7 +766,20 @@ final class AssistantActions
             roundTrip: $trip->roundTrip,
             extraHours: $trip->extraHours,
             travelDate: $trip->pickupAt,
+            companyId: $company?->id,
         );
+    }
+
+    /** The company a trip is billed to, when one was named and is on file. */
+    private function companyFor(TripRequest $trip): ?LimoCustomer
+    {
+        if ($trip->company === '') {
+            return null;
+        }
+
+        $resolved = $this->resolveCompany($trip->company);
+
+        return $resolved['ok'] ? ($resolved['company'] ?? null) : null;
     }
 
     public function resolveBooking(string $reference): ?LimoBooking

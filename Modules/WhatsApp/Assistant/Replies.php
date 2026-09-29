@@ -64,11 +64,31 @@ final class Replies
      */
     public static function confirmBooking(string $lang, array $v): string
     {
-        $companyLine = self::companyReferenceLine($lang, $v);
+        $companyLine = self::companyAccountLine($lang, $v) . self::companyReferenceLine($lang, $v);
 
         return $lang === 'ar'
             ? "تأكيد الحجز:\n{$v['car']} · {$v['service']} ({$v['option']}){$v['direction']}\n{$v['from']} ← {$v['to']} · {$v['datetime']}\n{$v['customer_name']} · {$v['customer_phone']}\n{$companyLine}السعر: {$v['amount']} · الدفع: أونلاين (Tap)\nاكتب \"نعم\" للحجز، أو أخبرني بأي تعديل."
             : "Confirm booking:\n{$v['car']} · {$v['service']} ({$v['option']}){$v['direction']}\n{$v['from']} → {$v['to']} · {$v['datetime']}\n{$v['customer_name']} · {$v['customer_phone']}\n{$companyLine}Fare: {$v['amount']} · Payment: Online (Tap)\nReply YES to book, or tell me what to change.";
+    }
+
+    /**
+     * The corporate account a trip is billed to, and whether the price is its
+     * agreed corporate rate. Empty for a private customer.
+     *
+     * @param array<string, string> $v
+     */
+    private static function companyAccountLine(string $lang, array $v): string
+    {
+        $company = $v['company'] ?? '';
+        if ($company === '') {
+            return '';
+        }
+
+        $corporate = ($v['corporate'] ?? '') !== '';
+
+        return $lang === 'ar'
+            ? "الشركة: {$company}" . ($corporate ? ' · سعر الشركات' : ' · سعر الموقع') . "\n"
+            : "Company: {$company}" . ($corporate ? ' · corporate rate' : ' · website fare') . "\n";
     }
 
     /**
@@ -89,9 +109,11 @@ final class Replies
      */
     public static function confirmQuotation(string $lang, array $v): string
     {
+        $companyLine = self::companyAccountLine($lang, $v);
+
         return $lang === 'ar'
-            ? "إصدار عرض سعر PDF:\n{$v['car']} · {$v['service']} ({$v['option']}){$v['direction']}\n{$v['from']} ← {$v['to']} · {$v['datetime']}\n{$v['customer_name']} · {$v['customer_phone']}\nالسعر: {$v['amount']}\nاكتب \"نعم\" للإصدار، أو أخبرني بأي تعديل."
-            : "Prepare quotation PDF:\n{$v['car']} · {$v['service']} ({$v['option']}){$v['direction']}\n{$v['from']} → {$v['to']} · {$v['datetime']}\n{$v['customer_name']} · {$v['customer_phone']}\nFare: {$v['amount']}\nReply YES to prepare it, or tell me what to change.";
+            ? "إصدار عرض سعر PDF:\n{$v['car']} · {$v['service']} ({$v['option']}){$v['direction']}\n{$v['from']} ← {$v['to']} · {$v['datetime']}\n{$v['customer_name']} · {$v['customer_phone']}\n{$companyLine}السعر: {$v['amount']}\nاكتب \"نعم\" للإصدار، أو أخبرني بأي تعديل."
+            : "Prepare quotation PDF:\n{$v['car']} · {$v['service']} ({$v['option']}){$v['direction']}\n{$v['from']} → {$v['to']} · {$v['datetime']}\n{$v['customer_name']} · {$v['customer_phone']}\n{$companyLine}Fare: {$v['amount']}\nReply YES to prepare it, or tell me what to change.";
     }
 
     public static function confirmDocument(string $lang, string $kind, string $booking): string
@@ -118,7 +140,7 @@ final class Replies
      */
     public static function booked(string $lang, array $v): string
     {
-        $companyLine = self::companyReferenceLine($lang, $v);
+        $companyLine = self::companyAccountLine($lang, $v) . self::companyReferenceLine($lang, $v);
 
         return $lang === 'ar'
             ? "تم الحجز ✅\nرقم الحجز: {$v['booking_no']}\n{$v['customer_name']} · {$v['customer_phone']}\n{$v['car']} · {$v['from']} ← {$v['to']} · {$v['datetime']}\n{$companyLine}المبلغ: {$v['amount']} · الدفع: أونلاين (Tap)\nالسائق: يحدده قسم التشغيل\nتبي عرض السعر PDF، الفاتورة، أو رابط الدفع؟"

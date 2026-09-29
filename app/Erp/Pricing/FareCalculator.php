@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Erp\Pricing;
 
 use App\Models\Pricing\PricingCar;
+use App\Models\Pricing\PricingCorporateRate;
 use App\Models\Pricing\PricingOffer;
 use App\Models\Pricing\PricingOption;
 use App\Models\Pricing\PricingService;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Prices one trip from the `pricing_*` tables — the same fares the website's
@@ -23,6 +25,10 @@ use Carbon\CarbonImmutable;
  *    per-car extra-hour rate (no rate = no fare for the extra hours);
  *  - a live offer takes its percent off when the car is on the offer and the
  *    TRAVEL date falls inside the offer's window.
+ *
+ * Given a company, its agreed corporate rate wins (its own, else the standard
+ * corporate rate — see {@see PricingCorporateRate}), with no offer on top; a
+ * cell with no corporate rate is the website fare as above.
  */
 final class FareCalculator
 {
@@ -66,6 +72,7 @@ final class FareCalculator
         float $extraHours = 0.0,
         ?CarbonImmutable $travelDate = null,
         ?CarbonImmutable $now = null,
+        ?int $companyId = null,
     ): FareResult {
         $service = PricingService::query()->where('active', true)->with(['vehicles', 'offer.cars'])->find($serviceId);
         if (! $service instanceof PricingService) {
@@ -77,22 +84,40 @@ final class FareCalculator
             return FareResult::missing('car_not_offered');
         }
 
+        // An option switched off on the website can still carry a company's
+        // agreed rate (a route only corporate customers are offered), so for a
+        // company the option is looked up whether or not it is shown.
         $option = PricingOption::query()
             ->where('service_id', $service->id)
             ->where('code', $optionCode)
-            ->where('active', true)
+            ->when($companyId === null, fn ($q) => $q->where('active', true))
             ->with('rates')
             ->first();
         if (! $option instanceof PricingOption) {
             return FareResult::missing('unknown_option');
         }
 
-        $rate = $option->rates->firstWhere('car_id', $car->id);
-        if ($rate === null || (float) $rate->amount <= 0) {
-            return FareResult::missing('no_fare');
+        $corporate = $companyId !== null && Schema::hasTable('pricing_corporate_rates')
+            ? PricingCorporateRate::lookup($companyId, $option->id, $car->id)
+            : null;
+
+        if ($corporate !== null) {
+            $base = $corporate['amount'];
+            $source = $corporate['source'];
+        } else {
+            if (! $option->active) {
+                return FareResult::missing('unknown_option');
+            }
+
+            $rate = $option->rates->firstWhere('car_id', $car->id);
+            if ($rate === null || (float) $rate->amount <= 0) {
+                return FareResult::missing('no_fare');
+            }
+
+            $base = (float) $rate->amount;
+            $source = FareResult::SOURCE_WEBSITE;
         }
 
-        $base = (float) $rate->amount;
         $amount = $base;
 
         if ($roundTrip) {
@@ -112,7 +137,11 @@ final class FareCalculator
             $amount += $extraAmount;
         }
 
-        $percent = $this->offerPercent($service, $car->id, $travelDate, $now ?? CarbonImmutable::now());
+        // An agreed corporate price is the deal itself: a website offer does
+        // not come off it as well.
+        $percent = $source === FareResult::SOURCE_WEBSITE
+            ? $this->offerPercent($service, $car->id, $travelDate, $now ?? CarbonImmutable::now())
+            : 0.0;
         $discount = $percent > 0 ? round($amount * $percent / 100, 3) : 0.0;
 
         return new FareResult(
@@ -135,6 +164,7 @@ final class FareCalculator
             discountPercent: $percent,
             discount: $discount,
             total: round($amount - $discount, 3),
+            source: $source,
         );
     }
 

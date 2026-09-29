@@ -141,6 +141,10 @@ Route::middleware('auth')->group(function (): void {
     // the pricing API. Component gates on admin.
     Route::get('/fares', \App\Livewire\Pages\PricingManager::class)->name('pricing');
 
+    // Admin-only prices agreed with companies. Never published to the
+    // website; read by the staff assistant. Component gates on admin.
+    Route::get('/corporate-rates', \App\Livewire\Pages\CorporateRates::class)->name('corporate-rates');
+
     // Admin-only database-backup download (the list + restore UI lives in the
     // Activity Log page). Before the /app/{module} wildcard so it isn't shadowed.
     Route::get('/app/backups/download', \App\Http\Controllers\BackupDownloadController::class)->name('backups.download');

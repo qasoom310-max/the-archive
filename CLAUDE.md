@@ -3917,6 +3917,33 @@ grid, and is **never sent to the website**.
 
 **Gotcha for tests:** Laravel's `getJson()` sends `[]` as the body even on a GET, so a signature computed over an empty body will not match. Use `->get()` and read the JSON off the response.
 
+**Corporate rates (shipped 2026-09-29):** prices agreed with companies that
+have a deal, kept APART from the website fares and **never published** —
+`PricingPayload` reads only `pricing_rates`, and saving corporate rates bumps no
+version and pings nothing (pinned by `CorporateRatesTest::test_corporate_rates_never_reach_the_website`).
+Core table `pricing_corporate_rates` (migration `2026_09_29_100001`): same grain
+as `pricing_rates` (option × car) plus a nullable `customer_id` — **null = the
+standard corporate rate every company gets**, a company's own row overrides it.
+Model `PricingCorporateRate::lookup()`. `FareCalculator::quote(..., companyId:)`
+resolves **company's own → standard corporate → website fare**; a corporate
+price takes **no website offer** on top, and an option hidden from the website
+can still carry a corporate rate (it is looked up regardless of `active` when a
+company is given, but the public/no-deal path still refuses it).
+`FareResult::$source` = `website | corporate | corporate_standard`.
+Admin page `/corporate-rates` (`App\Livewire\Pages\CorporateRates`, dashboard
+tile "Corporate rates"): pick "All companies — standard" or one company
+(searchable), same options × cars grid per service; blank = no row, the grey
+placeholder shows what applies instead. **Limousine customers live in the shared
+`rental_customers` table** — use `(new LimoCustomer())->getTable()`, never
+`limo_customers`. The WhatsApp assistant uses it: `company` on
+`get_fare`/`propose_booking`/`propose_quotation` (resolved by
+`AssistantActions::resolveCompany()` — exact name, else one unique partial
+match; none or several → it must ask, never book as a private customer), the
+company becomes the booking's **customer and requested-by**, the person named
+becomes the **passenger** (pax name/contact), and the resolved company name is
+stored in the proposal so the YES step prices the same company. New read tool
+`get_corporate_rates`. Tests: `CorporateRatesTest` (7) + `WhatsAppStaffAssistantTest` (+4).
+
 **Offer car scoping (shipped 2026-09-10):** an offer used to discount every car in a
 service at once; not every car should get the same discount (e.g. 25% off Sedan and
 SUV on Airport Transfer but not Luxury). `pricing_offer_cars` pivot (migration

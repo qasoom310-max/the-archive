@@ -30,6 +30,8 @@ final class TripRequest
         public readonly string $customerPhone,
         public readonly string $notes,
         public readonly string $companyReference,
+        /** The company (corporate account) the trip is billed to; empty for a private customer. */
+        public readonly string $company = '',
     ) {
     }
 
@@ -61,6 +63,7 @@ final class TripRequest
             customerPhone: self::str($input, 'customer_phone'),
             notes: self::str($input, 'notes'),
             companyReference: self::str($input, 'company_reference'),
+            company: self::str($input, 'company'),
         );
     }
 
@@ -90,6 +93,7 @@ final class TripRequest
             'customer_phone' => $this->customerPhone,
             'notes' => $this->notes,
             'company_reference' => $this->companyReference,
+            'company' => $this->company,
         ];
     }
 

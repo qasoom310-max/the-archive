@@ -463,6 +463,81 @@ final class WhatsAppStaffAssistantTest extends TestCase
         $this->assertSame(1, $toolResult['matches'][0]['total_bookings']);
     }
 
+    /* ── Corporate rates ─────────────────────────────────────────────── */
+
+    private function turboDeal(float $amount = 10.0): LimoCustomer
+    {
+        $turbo = LimoCustomer::query()->create(['name' => 'Turbo Engineering', 'type' => LimoCustomer::TYPE_COMPANY, 'phone' => '17000000']);
+        $option = \App\Models\Pricing\PricingOption::query()->where('service_id', 'airport')->where('code', 'zone_main')->firstOrFail();
+        \App\Models\Pricing\PricingCorporateRate::query()->create([
+            'customer_id' => $turbo->id, 'option_id' => $option->id, 'car_id' => 'sedan', 'amount' => $amount,
+        ]);
+
+        return $turbo;
+    }
+
+    public function test_the_fare_for_a_company_is_its_corporate_rate(): void
+    {
+        $this->turboDeal();
+
+        $this->brain->queue(new BrainReply('tool_use', '', [['id' => 't1', 'name' => 'get_fare', 'input' => ['service' => 'airport', 'car' => 'sedan', 'option' => 'zone_main', 'company' => 'turbo']]], [['type' => 'tool_use']]));
+        $this->brain->queue(new BrainReply('end_turn', 'Turbo: 10 BHD.', [], []));
+        $this->deliver(self::STAFF, 'wamid.cf', 'what does turbo pay for a sedan airport pickup');
+
+        $result = json_decode($this->brain->lastMessages[count($this->brain->lastMessages) - 1]['content'][0]['content'], true);
+        $this->assertSame(10, $result['total']);
+        $this->assertSame('corporate', $result['source']);
+        $this->assertSame('Turbo Engineering', $result['company']);
+    }
+
+    public function test_a_company_booking_is_billed_to_the_company_at_its_rate_with_the_passenger_named(): void
+    {
+        $turbo = $this->turboDeal(10.0);
+
+        $input = ['company' => 'Turbo Engineering', 'customer_name' => 'Masab Munawar', 'customer_phone' => '39990000'] + $this->tripInput();
+        $this->brain->queue(new BrainReply('tool_use', '', [['id' => 'b1', 'name' => 'propose_booking', 'input' => $input]], [['type' => 'tool_use']]));
+        $this->deliver(self::STAFF, 'wamid.cb1', 'book turbo sedan airport tomorrow 9am, passenger Masab 39990000');
+
+        $this->assertTrue($this->sentTexts()->contains(fn (string $t): bool => str_contains($t, 'Company: Turbo Engineering · corporate rate')));
+
+        $this->deliver(self::STAFF, 'wamid.cb2', 'YES');
+
+        $booking = LimoBooking::query()->firstOrFail();
+        $this->assertSame($turbo->id, $booking->customer_id);
+        $this->assertSame('Masab Munawar', $booking->pax_name);
+        $this->assertSame('39990000', $booking->pax_contact);
+        $this->assertSame('Turbo Engineering', $booking->requested_by);
+        $this->assertSame(10.0, (float) $booking->fare);
+        // No private customer was invented from the passenger's phone.
+        $this->assertSame(1, LimoCustomer::query()->count());
+    }
+
+    public function test_an_unknown_company_is_asked_about_not_booked_as_a_private_customer(): void
+    {
+        $input = ['company' => 'Nobody Holdings'] + $this->tripInput();
+        $this->brain->queue(new BrainReply('tool_use', '', [['id' => 'b1', 'name' => 'propose_booking', 'input' => $input]], [['type' => 'tool_use']]));
+        $this->brain->queue(new BrainReply('end_turn', 'Which company?', [], []));
+        $this->deliver(self::STAFF, 'wamid.cu', 'book for Nobody Holdings');
+
+        $result = json_decode($this->brain->lastMessages[count($this->brain->lastMessages) - 1]['content'][0]['content'], true);
+        $this->assertSame('company_not_found', $result['error']);
+        $this->assertNull(Conversation::query()->firstOrFail()->pendingAction());
+    }
+
+    public function test_the_corporate_rates_of_a_company_can_be_listed(): void
+    {
+        $this->turboDeal(10.0);
+
+        $this->brain->queue(new BrainReply('tool_use', '', [['id' => 'r1', 'name' => 'get_corporate_rates', 'input' => ['company' => 'Turbo']]], [['type' => 'tool_use']]));
+        $this->brain->queue(new BrainReply('end_turn', 'Turbo pays 10 for a sedan.', [], []));
+        $this->deliver(self::STAFF, 'wamid.cr', 'what are turbo rates');
+
+        $result = json_decode($this->brain->lastMessages[count($this->brain->lastMessages) - 1]['content'][0]['content'], true);
+        $this->assertSame('Turbo Engineering', $result['company']);
+        $this->assertSame(10, $result['rates'][0]['amount']);
+        $this->assertSame('sedan', $result['rates'][0]['car']);
+    }
+
     /* ── Long-term memory ─────────────────────────────────────────────── */
 
     public function test_a_saved_note_is_read_back_on_a_later_message(): void

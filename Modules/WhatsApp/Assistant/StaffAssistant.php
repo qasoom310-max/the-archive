@@ -305,6 +305,9 @@ final class StaffAssistant
             case 'get_sales_summary':
                 return [$this->actions->salesSummary($input, $user), null];
 
+            case 'get_corporate_rates':
+                return [$this->actions->corporateRates($str('company'), $user), null];
+
             case 'find_customer':
                 return [$this->actions->findCustomer($str('query'), $user), null];
 
@@ -326,7 +329,7 @@ final class StaffAssistant
                 $overrideAmount = is_numeric($input['override_amount'] ?? null) ? (float) $input['override_amount'] : null;
                 $proposal = $this->actions->proposeTrip($type, $trip, $user, $overrideAmount);
                 if (! $proposal['ok'] || ! isset($proposal['action'], $proposal['fare'])) {
-                    return [$this->proposalError($proposal['error'] ?? 'failed'), null];
+                    return [$this->proposalError($proposal['error'] ?? 'failed') + ['matches' => $proposal['matches'] ?? []], null];
                 }
 
                 $conversation->propose($proposal['action']);
@@ -350,6 +353,8 @@ final class StaffAssistant
                     'customer_name' => $trip->customerName,
                     'customer_phone' => $trip->customerPhone,
                     'company_reference' => $trip->companyReference,
+                    'company' => (string) ($proposal['company'] ?? ''),
+                    'corporate' => $fare->isCorporate() ? 'yes' : '',
                 ];
 
                 return [['queued' => true], $type === AssistantActions::BOOKING ? Replies::confirmBooking($lang, $fields) : Replies::confirmQuotation($lang, $fields)];
@@ -426,6 +431,8 @@ final class StaffAssistant
     {
         $instruction = match (true) {
             $error === 'forbidden' => "The staff member's ERP permissions do not allow this. Tell them so; do not retry.",
+            $error === 'company_not_found' => 'No company customer has that name. Ask the staff member for the exact company name; never book it as a private customer without asking.',
+            $error === 'company_ambiguous' => 'Several companies match that name. Ask the staff member which one they mean.',
             $error === 'no_fare' => 'There is no set fare for this trip. Tell the staff member exactly that; never estimate.',
             $error === 'booking_not_found' => 'No booking matches that number. Ask for the booking or trip number.',
             $error === 'nothing_owed' => 'Nothing is owed on that booking, so no payment link is needed. Say so.',

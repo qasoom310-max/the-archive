@@ -31,7 +31,20 @@ final class FareResult
         public readonly float $discountPercent = 0.0,
         public readonly float $discount = 0.0,
         public readonly float $total = 0.0,
+        /** Where the price came from: `website`, `corporate` (this company's own deal) or `corporate_standard`. */
+        public readonly string $source = self::SOURCE_WEBSITE,
     ) {
+    }
+
+    public const SOURCE_WEBSITE = 'website';
+
+    public const SOURCE_CORPORATE = 'corporate';
+
+    public const SOURCE_CORPORATE_STANDARD = 'corporate_standard';
+
+    public function isCorporate(): bool
+    {
+        return $this->source !== self::SOURCE_WEBSITE;
     }
 
     public static function missing(string $reason): self
@@ -64,6 +77,7 @@ final class FareResult
             'discount_percent' => $this->discountPercent,
             'discount' => $this->discount,
             'total' => $this->total,
+            'source' => $this->source,
         ];
     }
 }

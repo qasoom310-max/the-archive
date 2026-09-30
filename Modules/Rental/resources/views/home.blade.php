@@ -34,19 +34,22 @@
                 {{-- Live mini-stats --}}
                 <div class="mt-5 grid max-w-md grid-cols-3 gap-3">
                     @php
+                        // Each box opens the list its number counts — the same
+                        // links as the cards below, so the two always agree.
                         $glance = [
-                            ['label' => __('Active'), 'value' => $activeOrders, 'dot' => 'bg-sky-400'],
-                            ['label' => __('Returns due'), 'value' => $returnsDue, 'dot' => 'bg-amber-400'],
-                            ['label' => __('Available'), 'value' => $available, 'dot' => 'bg-emerald-400'],
+                            ['label' => __('Active'), 'value' => $activeOrders, 'dot' => 'bg-sky-400', 'href' => url('/app/rental/order') . '?tab=active'],
+                            ['label' => __('Returns due'), 'value' => $returnsDue, 'dot' => 'bg-amber-400', 'href' => url('/app/rental/order') . '?tab=due'],
+                            ['label' => __('Available'), 'value' => $available, 'dot' => 'bg-emerald-400', 'href' => url('/app/rental/vehicle') . '?search=available'],
                         ];
                     @endphp
                     @foreach ($glance as $g)
-                        <div class="rounded-2xl bg-white/[0.06] px-3 py-2.5 ring-1 ring-white/10 backdrop-blur">
+                        <a href="{{ $g['href'] }}" wire:navigate data-glance-link
+                           class="block rounded-2xl bg-white/[0.06] px-3 py-2.5 ring-1 ring-white/10 backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/[0.12] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-300">
                             <div class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-white/50">
                                 <span class="size-1.5 rounded-full {{ $g['dot'] }}"></span>{{ $g['label'] }}
                             </div>
                             <div class="mt-1 text-2xl font-bold text-white">{{ $g['value'] }}</div>
-                        </div>
+                        </a>
                     @endforeach
                 </div>
             </div>
@@ -215,7 +218,7 @@
             $orderCards = [
                 ['label' => __('Active Orders'), 'value' => $activeOrders, 'href' => url('/app/rental/order?tab=active'), 'icon' => 'doc', 'tint' => 'bg-sky-50 text-sky-600 ring-sky-100'],
                 ['label' => __('Reservations'), 'value' => $draftOrders, 'href' => url('/app/rental/order?tab=draft'), 'icon' => 'clock', 'tint' => 'bg-chrome-100 text-chrome-600 ring-chrome-200'],
-                ['label' => __('Returns Due'), 'value' => $returnsDue, 'href' => url('/app/rental/order?tab=active'), 'icon' => 'calendar', 'tint' => 'bg-amber-50 text-amber-600 ring-amber-100'],
+                ['label' => __('Returns Due'), 'value' => $returnsDue, 'href' => url('/app/rental/order?tab=due'), 'icon' => 'calendar', 'tint' => 'bg-amber-50 text-amber-600 ring-amber-100'],
             ];
         @endphp
         @foreach ($orderCards as $card)

@@ -210,6 +210,7 @@ final class Orders extends Component
             'orders' => $query->paginate(20),
             'counts' => $counts,
             'unpaidCount' => $unpaidCount,
+            'dueCount' => RentalOrder::query()->where('state', RentalOrder::STATE_ACTIVE)->whereDate('end_date', '<=', now())->count(),
             'totalCount' => (int) $counts->sum(),
             'canManage' => $user instanceof User && $user->canApproveMaintenance(),
             'canCancel' => $this->mayAccess(Permission::Write),

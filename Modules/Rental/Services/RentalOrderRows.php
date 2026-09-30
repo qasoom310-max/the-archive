@@ -28,6 +28,11 @@ final class RentalOrderRows
         if ($tab === 'unpaid') {
             $query->whereIn('payment_status', [RentalOrder::PAYMENT_UNPAID, RentalOrder::PAYMENT_PARTIAL])
                 ->whereIn('state', [RentalOrder::STATE_ACTIVE, RentalOrder::STATE_CLOSED]);
+        } elseif ($tab === 'due') {
+            // Out on hire and due back today or already overdue — the same
+            // rule as the dashboard's "Returns due" count.
+            $query->where('state', RentalOrder::STATE_ACTIVE)
+                ->whereDate('end_date', '<=', now());
         } elseif (in_array($tab, [
             RentalOrder::STATE_DRAFT, RentalOrder::STATE_ACTIVE, RentalOrder::STATE_CLOSED, RentalOrder::STATE_CANCELLED,
         ], true)) {

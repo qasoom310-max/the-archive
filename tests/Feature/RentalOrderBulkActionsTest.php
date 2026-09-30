@@ -53,6 +53,25 @@ final class RentalOrderBulkActionsTest extends TestCase
         return (string) ob_get_clean();
     }
 
+    public function test_the_returns_due_tab_lists_what_the_dashboard_counts(): void
+    {
+        $overdue = $this->order('Alpha');
+        $overdue->forceFill(['end_date' => now()->subDay()->toDateString()])->saveQuietly();
+        $later = $this->order('Bravo');
+        $later->forceFill(['end_date' => now()->addDays(5)->toDateString()])->saveQuietly();
+
+        Livewire::test(Orders::class)
+            ->set('tab', 'due')
+            ->assertSee('Alpha')
+            ->assertDontSee('Bravo');
+
+        Livewire::test(\Modules\Rental\Livewire\RentalHome::class)
+            ->assertViewHas('returnsDue', 1)
+            ->assertSeeHtml('href="' . url('/app/rental/order') . '?tab=due" wire:navigate data-glance-link')
+            ->assertSeeHtml('href="' . url('/app/rental/order') . '?tab=active" wire:navigate data-glance-link')
+            ->assertSeeHtml('href="' . url('/app/rental/vehicle') . '?search=available" wire:navigate data-glance-link');
+    }
+
     public function test_the_csv_narrows_to_the_ticked_rows(): void
     {
         $this->order('Alpha');

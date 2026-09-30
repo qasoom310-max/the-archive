@@ -38,6 +38,7 @@
             'all' => __('All'),
             'draft' => __('Reservation'),
             'active' => __('Active'),
+            'due' => __('Returns due'),
             'closed' => __('Closed'),
             'unpaid' => __('Unpaid'),
             'cancelled' => __('Cancelled'),
@@ -45,11 +46,11 @@
     @endphp
     <div class="mb-4 flex flex-wrap items-center gap-1 border-b border-chrome-200">
         @foreach ($tabs as $key => $label)
-            @php $n = match ($key) { 'all' => $totalCount, 'unpaid' => $unpaidCount, default => (int) $counts->get($key, 0) }; @endphp
+            @php $n = match ($key) { 'all' => $totalCount, 'unpaid' => $unpaidCount, 'due' => $dueCount, default => (int) $counts->get($key, 0) }; @endphp
             <button wire:click="$set('tab', '{{ $key }}')"
                 class="-mb-px flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium {{ $tab === $key ? 'border-primary-600 text-primary-700' : 'border-transparent text-chrome-500 hover:text-chrome-800' }}">
                 {{ $label }}
-                <span class="rounded-full {{ $key === 'unpaid' && $n > 0 ? 'bg-red-100 text-red-600' : 'bg-chrome-100 text-chrome-500' }} px-1.5 text-[11px]">{{ $n }}</span>
+                <span class="rounded-full {{ in_array($key, ['unpaid', 'due'], true) && $n > 0 ? 'bg-red-100 text-red-600' : 'bg-chrome-100 text-chrome-500' }} px-1.5 text-[11px]">{{ $n }}</span>
             </button>
         @endforeach
     </div>

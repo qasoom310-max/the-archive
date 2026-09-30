@@ -154,6 +154,18 @@
                                     <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a.75.75 0 0 1 .75.75v6.44l1.72-1.72a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 1.06-1.06l1.72 1.72V3.75A.75.75 0 0 1 10 3ZM3.75 14a.75.75 0 0 1 .75.75v.75h11v-.75a.75.75 0 0 1 1.5 0v1.5a.75.75 0 0 1-.75.75h-12.5a.75.75 0 0 1-.75-.75v-1.5A.75.75 0 0 1 3.75 14Z"/></svg>
                                 </a>
 
+                                {{-- The same sheet with the Subtotal/Total box left
+                                     off. Its own button rather than a setting: which
+                                     copy goes out is decided per customer, at the
+                                     moment of sending, not once for the whole desk. --}}
+                                <a href="{{ url('/app/limousine/quotation/' . $quote->id . '/download') }}?without_total=1"
+                                   title="{{ __('Download without the total') }}" aria-label="{{ __('Download without the total') }}"
+                                   class="{{ $act }} text-amber-600 hover:bg-amber-50">
+                                    <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243"/>
+                                    </svg>
+                                </a>
+
                                 @if ($canWrite)
                                     <button type="button" wire:click="openSend({{ $quote->id }})"
                                             title="{{ $quote->sent_at ? __('Send the quotation again') : __('Email the quotation to the customer') }}"
@@ -248,6 +260,13 @@
                 </p>
 
                 <div class="mt-5 flex justify-end gap-2">
+                    {{-- Ticked per send, because whether a customer sees a total
+                         depends on the customer, not on the desk's preference. --}}
+                    <label class="me-auto flex cursor-pointer items-center gap-2 text-sm text-chrome-600">
+                        <input type="checkbox" wire:model="sendWithoutTotal"
+                               class="size-4 rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
+                        {{ __('Send without the total') }}
+                    </label>
                     <button type="button" wire:click="closeSend" class="o-btn-ghost text-sm">{{ __('Cancel') }}</button>
                     <button type="button" wire:click="sendQuotation" wire:loading.attr="disabled" class="o-btn-primary text-sm">
                         {{ $sending->sent_at ? __('Send again') : __('Send') }}

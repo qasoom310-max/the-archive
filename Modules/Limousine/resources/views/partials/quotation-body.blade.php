@@ -3,7 +3,13 @@
      of these on its own page) and the batch download
      (`quotations-batch-pdf.blade.php`, several of these back to back, one
      per ticked row). Expects the same view-data keys
-     `QuotationPdf::viewData()` always returns. --}}
+     `QuotationPdf::viewData()` always returns.
+
+     `$withoutTotal` leaves the Subtotal/Discount/VAT/Total box off. The trips
+     and their rates stay — what goes is the figure at the bottom that reads as
+     a commitment to the whole list. Defaulted here rather than required, so an
+     older caller that predates the flag still renders. --}}
+@php $withoutTotal = $withoutTotal ?? false; @endphp
 <div class="topbar">&nbsp;</div>
 
 <div class="sheet">
@@ -110,6 +116,7 @@
         <div class="requested-by">{{ __('Requested by') }}: <b>{{ $requestedBy }}</b></div>
     @endif
 
+    @unless ($withoutTotal)
     <table style="width:100%; margin-top:4px">
         <tr>
             <td></td>
@@ -135,11 +142,18 @@
             </td>
         </tr>
     </table>
+    @endunless
 
     @if ($notes !== '')
         <p class="doc-note"><b>{{ __('Notes') }}:</b> {{ $notes }}</p>
     @endif
 
-    <p class="doc-note">{{ __('Prices are in Bahraini Dinar. This quotation is valid until the date shown above.') }}</p>
+    <p class="doc-note">
+        @if ($withoutTotal)
+            {{ __('Rates are per the table above, in Bahraini Dinar. This quotation is valid until the date shown above.') }}
+        @else
+            {{ __('Prices are in Bahraini Dinar. This quotation is valid until the date shown above.') }}
+        @endif
+    </p>
 
 </div>

@@ -24,13 +24,19 @@ use Modules\Limousine\Models\LimoQuotation;
  * on the old system's printed quotation: Service / Vehicle Type / From / To /
  * Days-Trips / Unit / Rate per Unit / Amount, and a Subtotal/Discount/VAT/Total
  * box built from each leg's own figures rather than just the header fare.
+ *
+ * Every entry point also takes `$withoutTotal`, which leaves the Subtotal /
+ * Discount / VAT / Total box off the sheet. The trips and their rates stay:
+ * what goes is the figure at the bottom that reads as a commitment to the
+ * whole list. A customer being quoted several journeys is often choosing
+ * between them, and a total tells them they are buying all of it.
  */
 final class QuotationPdf
 {
     /**
      * @return array<string, mixed>
      */
-    public function viewData(LimoQuotation $quote): array
+    public function viewData(LimoQuotation $quote, bool $withoutTotal = false): array
     {
         $quote->loadMissing(['customer', 'legs']);
         $legs = $quote->legs;
@@ -62,6 +68,9 @@ final class QuotationPdf
             'companyEmail' => (string) Setting::get('company.email', ''),
             'logoPath' => $this->logoPath(),
             'logoScale' => $this->logoScale(),
+            // Still computed above and simply not printed: the same sheet either
+            // way, so the two versions can never disagree about the trips.
+            'withoutTotal' => $withoutTotal,
         ];
     }
 
@@ -98,9 +107,9 @@ final class QuotationPdf
         ];
     }
 
-    public function render(LimoQuotation $quote): string
+    public function render(LimoQuotation $quote, bool $withoutTotal = false): string
     {
-        return Pdf::loadView('limousine::quotation-pdf', $this->viewData($quote))
+        return Pdf::loadView('limousine::quotation-pdf', $this->viewData($quote, $withoutTotal))
             ->setPaper('a4')
             ->output();
     }
@@ -112,18 +121,23 @@ final class QuotationPdf
      *
      * @param Collection<int, LimoQuotation> $quotes
      */
-    public function renderMany(Collection $quotes): string
+    public function renderMany(Collection $quotes, bool $withoutTotal = false): string
     {
         return Pdf::loadView('limousine::quotations-batch-pdf', [
-            'quotations' => $quotes->map(fn (LimoQuotation $quote): array => $this->viewData($quote))->all(),
+            'quotations' => $quotes->map(fn (LimoQuotation $quote): array => $this->viewData($quote, $withoutTotal))->all(),
         ])
             ->setPaper('a4')
             ->output();
     }
 
-    public function filename(LimoQuotation $quote): string
+    public function filename(LimoQuotation $quote, bool $withoutTotal = false): string
     {
-        return 'quotation-' . str_replace(['/', '\\', ' '], '-', (string) $quote->reference) . '.pdf';
+        // Named apart, because the two copies of one quotation sitting in a
+        // downloads folder have to be tellable without opening them.
+        return 'quotation-'
+            . str_replace(['/', '\\', ' '], '-', (string) $quote->reference)
+            . ($withoutTotal ? '-no-total' : '')
+            . '.pdf';
     }
 
     /** Filename for a batch download of several ticked quotations. */

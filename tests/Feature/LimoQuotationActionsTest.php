@@ -321,7 +321,11 @@ final class LimoQuotationActionsTest extends TestCase
     {
         $quote = $this->quote();
 
-        $response = (new \Modules\Limousine\Http\Controllers\LimoQuotationController())($quote->id, app(QuotationPdf::class));
+        $response = (new \Modules\Limousine\Http\Controllers\LimoQuotationController())(
+            \Illuminate\Http\Request::create('/'),
+            $quote->id,
+            app(QuotationPdf::class),
+        );
 
         $this->assertSame(200, $response->getStatusCode());
         $this->assertStringStartsWith('%PDF', (string) $response->getContent());

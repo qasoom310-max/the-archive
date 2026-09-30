@@ -58,6 +58,14 @@ final class Quotations extends Component
      */
     public string $sendEmail = '';
 
+    /**
+     * Send the copy with no Subtotal/Total box.
+     *
+     * Deliberately NOT remembered between sends: a quote that went out without
+     * a total to one customer must not silently do the same for the next.
+     */
+    public bool $sendWithoutTotal = false;
+
     public function mount(): void
     {
         $this->guardAccess(Permission::Read);
@@ -105,12 +113,14 @@ final class Quotations extends Component
         $this->resetErrorBag();
         $this->sendingId = (int) $quote->id;
         $this->sendEmail = trim((string) ($quote->sent_to ?: $quote->customer?->serviceEmail() ?? ''));
+        $this->sendWithoutTotal = false;
     }
 
     public function closeSend(): void
     {
         $this->sendingId = null;
         $this->sendEmail = '';
+        $this->sendWithoutTotal = false;
         $this->resetErrorBag();
     }
 
@@ -145,8 +155,9 @@ final class Quotations extends Component
                 quote: $quote,
                 companyName: (string) Setting::get('company.name', config('app.name')),
                 total: round((float) $quote->fare, 3),
-                pdf: $pdf->render($quote),
-                filename: $pdf->filename($quote),
+                pdf: $pdf->render($quote, $this->sendWithoutTotal),
+                filename: $pdf->filename($quote, $this->sendWithoutTotal),
+                withoutTotal: $this->sendWithoutTotal,
             ));
         } catch (Throwable $e) {
             // Mail leans on something outside the app, so a failure is reported

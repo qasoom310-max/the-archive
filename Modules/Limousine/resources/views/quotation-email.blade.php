@@ -6,7 +6,11 @@
 {{ __('Thank you for your enquiry. Our quotation is attached, and summarised below.') }}
 
 <x-mail::panel>
+@if ($withoutTotal ?? false)
+**{{ __('The rates for each journey are in the attached quotation.') }}**
+@else
 **{{ __('Total') }}: {{ \App\Erp\Views\ValueFormat::money($total) }}**
+@endif
 @if ($quote->valid_until)
 
 {{ __('Valid until') }} {{ $quote->valid_until->isoFormat('DD-MMM-YYYY') }}

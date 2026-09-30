@@ -18,6 +18,9 @@ use Modules\Limousine\Models\LimoQuotation;
  * An attachment rather than a link: a quote is something the customer forwards
  * to whoever approves it, prints, or comes back to next week. A page that
  * expires would be the wrong shape for that.
+ *
+ * `$withoutTotal` has to reach the BODY as well as the attachment: a PDF with
+ * no total, under an e-mail that summarises one, hands the figure over anyway.
  */
 final class QuotationMail extends Mailable
 {
@@ -31,6 +34,7 @@ final class QuotationMail extends Mailable
         /** Raw PDF bytes, attached as the quotation. */
         public string $pdf,
         public string $filename,
+        public bool $withoutTotal = false,
     ) {}
 
     public function envelope(): Envelope
@@ -52,6 +56,7 @@ final class QuotationMail extends Mailable
                 'quote' => $this->quote,
                 'companyName' => $this->companyName,
                 'total' => $this->total,
+                'withoutTotal' => $this->withoutTotal,
             ],
         );
     }

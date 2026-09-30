@@ -3066,5 +3066,9 @@
     ":count orders deleted.": "تم حذف :count طلبات.",
     "Nothing to cancel — the ticked orders are already closed or cancelled.": "لا يوجد ما يُلغى — الطلبات المحددة مغلقة أو ملغاة بالفعل.",
     "Not deleted because money is recorded on them (cancel them instead): :refs": "لم تُحذف لوجود مبالغ مسجلة عليها (ألغها بدلاً من ذلك): :refs",
-    ":count rows could not be read and were skipped.": "تعذّرت قراءة :count صفوف وتم تخطيها."
+    ":count rows could not be read and were skipped.": "تعذّرت قراءة :count صفوف وتم تخطيها.",
+    "Download without the total": "تنزيل بدون الإجمالي",
+    "Send without the total": "إرسال بدون الإجمالي",
+    "Rates are per the table above, in Bahraini Dinar. This quotation is valid until the date shown above.": "الأسعار حسب الجدول أعلاه بالدينار البحريني. هذا العرض ساري حتى التاريخ الموضّح أعلاه.",
+    "The rates for each journey are in the attached quotation.": "أسعار كل رحلة موضّحة في عرض السعر المرفق."
 }

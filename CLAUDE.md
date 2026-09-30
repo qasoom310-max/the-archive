@@ -2532,6 +2532,28 @@ Consequences to keep in mind:
   the mail carries email/password/forgot-link/login action; editing never
   changes the hash and sends no second mail). 11 `lang/ar.json` keys.
 
+**A quotation the customer gets WITHOUT a total (shipped 2026-09-30):**
+
+The owner asked for it off the quotations list: a quote for several journeys
+priced one by one is often a choice, not a shopping list, and a Total at the
+bottom tells the customer they are buying all of it. So the same sheet can go
+out with the Subtotal/Discount/VAT/Total box left off. **The trips and their
+per-leg Rate/Amount columns stay** — what goes is only the figure that reads as
+a commitment to the whole list.
+
+| Concern | Location |
+|---|---|
+| Flag | `QuotationPdf::viewData($quote, bool $withoutTotal = false)` → `$withoutTotal` in the view data; `render()`, `renderMany()` and `filename()` all take it |
+| Sheet | `partials/quotation-body.blade.php` wraps the summary table in `@unless ($withoutTotal)` and swaps the closing note for a "Rates are per the table above" line. **Defaulted in the partial** (`$withoutTotal = $withoutTotal ?? false`) so the batch PDF and any older caller still render |
+| Download | `LimoQuotationController` reads `?without_total=1`. Its signature gained `Request $request` FIRST — `LimoQuotationActionsTest` invokes the controller directly (module routes only mount on the boot after install), so that call had to be updated too |
+| Filename | `quotation-QT-01695-no-total.pdf` vs `quotation-QT-01695.pdf`. Named apart because both copies of one quote in a downloads folder have to be tellable without opening them |
+| Send | `Quotations::$sendWithoutTotal` (tick box in the Send dialog), cleared in BOTH `openSend()` and `closeSend()` — a quote that went out total-free to one customer must not silently do the same for the next |
+| Mail | `QuotationMail::$withoutTotal` reaches the BODY as well as the attachment. A total-free PDF under an e-mail that summarises the total hands the figure over anyway, so `quotation-email.blade.php` prints "The rates for each journey are in the attached quotation." instead |
+| Tests | `tests/Feature/LimoQuotationWithoutTotalTest.php` (11) — including one that RENDERS both sheets, so a blade that forgot the flag cannot pass |
+
+The total is still computed either way and simply not printed, so the two
+copies can never disagree about the trips behind them.
+
 **Quotation lists: row checkboxes narrow the downloads (shipped 2026-09-07):**
 
 Both bespoke quotation lists (Limousine `/app/limousine/quotation`, Rental

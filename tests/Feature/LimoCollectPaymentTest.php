@@ -105,6 +105,39 @@ final class LimoCollectPaymentTest extends TestCase
         }
     }
 
+    /**
+     * BK/15624: a converted fare left 159.998 owed, shown as "160.00", and
+     * typing 160 was refused as more than the 160.00 still owed.
+     */
+    public function test_the_balance_as_shown_on_screen_settles_the_booking(): void
+    {
+        [$booking, $legs] = $this->bookingOfThree();
+        $booking->forceFill(['fare' => 159.998, 'amount' => 159.998, 'advance' => 0])->saveQuietly();
+
+        Livewire::test(Bookings::class)
+            ->call('openCollect', $legs[0]->id)
+            ->set('collectAmount', '160')
+            ->call('saveCollect')
+            ->assertHasNoErrors();
+
+        $fresh = $booking->fresh();
+        $this->assertSame(0.0, $fresh?->balanceDue());
+        $this->assertEqualsWithDelta(159.998, (float) $fresh?->advance, 0.0001);
+        $this->assertSame(LimoBooking::PAYMENT_PAID, $fresh?->payment_status);
+    }
+
+    public function test_a_real_overpayment_is_still_refused(): void
+    {
+        [$booking, $legs] = $this->bookingOfThree();
+        $booking->forceFill(['fare' => 159.998, 'amount' => 159.998, 'advance' => 0])->saveQuietly();
+
+        Livewire::test(Bookings::class)
+            ->call('openCollect', $legs[0]->id)
+            ->set('collectAmount', '160.01')
+            ->call('saveCollect')
+            ->assertHasErrors(['collectAmount' => 'max']);
+    }
+
     public function test_taking_the_rest_settles_the_booking(): void
     {
         [$booking, $legs] = $this->bookingOfThree();

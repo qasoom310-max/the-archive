@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire;
 
+use App\Erp\Money\Currencies;
 use App\Erp\Security\Permission;
 use App\Erp\Views\ValueFormat;
 use App\Livewire\Concerns\GuardsModelAccess;
@@ -730,6 +731,8 @@ final class Bookings extends Component
             return;
         }
 
+        $this->collectAmount = $this->snapToBalance($this->collectAmount, $booking->balanceDue());
+
         $this->validate([
             'collectAmount' => ['required', 'numeric', 'min:0.001', 'max:' . max(0.001, $booking->balanceDue())],
             'collectMethod' => ['required', 'string'],
@@ -778,6 +781,30 @@ final class Bookings extends Component
             : __(':amount received. This booking is settled in full.', [
                 'amount' => ValueFormat::money($taken),
             ])) . $issued);
+    }
+
+    /**
+     * An amount that equals the balance AS THE SCREEN SHOWS IT is the balance.
+     *
+     * A balance is kept to 3 decimals (a fare converted from another currency
+     * lands on e.g. 159.998) but shown at the currency's display precision
+     * ("160.00"), so typing the figure on screen used to be refused as "more
+     * than the 160.00 still owed". Snapping it to the exact balance settles the
+     * booking without leaving invisible fils owing or overpaid.
+     */
+    private function snapToBalance(string $typed, float $balance): string
+    {
+        $typed = trim(str_replace(',', '', $typed));
+        if (! is_numeric($typed) || $balance <= 0) {
+            return $typed;
+        }
+
+        $decimals = Currencies::active()->decimals;
+        if (round((float) $typed, $decimals) === round($balance, $decimals)) {
+            return number_format($balance, 3, '.', '');
+        }
+
+        return $typed;
     }
 
     /**
@@ -995,6 +1022,7 @@ final class Bookings extends Component
             return;
         }
 
+        $this->paymentAmount = $this->snapToBalance($this->paymentAmount, $booking->balanceDue());
         $balance = max(0.001, $booking->balanceDue());
         $this->validate([
             'paymentAmount' => ['required', 'numeric', 'min:0.001', 'max:' . $balance],

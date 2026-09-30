@@ -2554,6 +2554,25 @@ a commitment to the whole list.
 The total is still computed either way and simply not printed, so the two
 copies can never disagree about the trips behind them.
 
+**Vehicle Type on a quotation reads BOTH car fields (fixed 2026-09-30):** the
+owner wrote a quote, chose the car on it, and the Vehicle Type column printed
+empty. Not a mistake of theirs — the form offers TWO ways to name the car, a
+per-leg free-text "Car details" (`vehicle_details`) and a pick from the fleet
+(`car_id`, whose label is snapshotted into `vehicle`), and
+`QuotationPdf::legRow()` read only the first. `vehicleLabel()` now falls back
+`vehicle_details` -> `vehicle` -> the quotation's own `car_type` header field.
+A picked car is stored as "Ford Expedition · 363899 · White", so only the part
+before the first `·` is printed: the column is headed Vehicle Type, a quote is
+not a dispatch, and no customer chooses by plate. A quote naming no car
+anywhere still prints no column at all rather than an empty one.
+
+**Deliberately NOT the rule the invoices use.** `LimoInvoicePdf` and
+`LimoCombinedInvoicePdf` go on reading `vehicle_details` alone, because there
+`vehicle` may be the car the QUEUE assigned at dispatch and a customer who
+agreed to an SUV must not be billed by whichever plate happened to run it. A
+quotation has no dispatch behind it, so its `vehicle` can only be the car the
+office chose on the quote itself.
+
 **Quotation lists: row checkboxes narrow the downloads (shipped 2026-09-07):**
 
 Both bespoke quotation lists (Limousine `/app/limousine/quotation`, Rental

@@ -84,6 +84,64 @@ final class LimoQuotationWithoutTotalTest extends TestCase
         return $quote->refresh();
     }
 
+    /* ── The car the quote is written on ─────────────────────────────────── */
+
+    /**
+     * The office picked the car from the fleet and the Vehicle Type column came
+     * out empty, because the sheet only ever read the free-text \"Car details\"
+     * box. Both ways of saying it have to reach the paper.
+     */
+    public function test_a_car_picked_from_the_fleet_reaches_the_table(): void
+    {
+        $quote = $this->quote();
+        $quote->legs()->first()?->forceFill([
+            'vehicle' => 'Ford Expedition · 363899 · White',
+            'vehicle_details' => null,
+        ])->save();
+
+        $data = app(QuotationPdf::class)->viewData($quote->refresh());
+
+        // Headed \"Vehicle Type\", and a quote is not a dispatch — so the name,
+        // not the plate the label also carries.
+        $this->assertSame('Ford Expedition', $data['lines'][0]['vehicle']);
+
+        $html = view('limousine::quotation-pdf', $data)->render();
+        $this->assertStringContainsString('Vehicle Type', $html);
+        $this->assertStringContainsString('Ford Expedition', $html);
+    }
+
+    /** Typed car details still win: they are the more deliberate answer. */
+    public function test_typed_car_details_beat_the_picked_car(): void
+    {
+        $quote = $this->quote();
+        $quote->legs()->first()?->forceFill([
+            'vehicle' => 'Ford Expedition · 363899 · White',
+            'vehicle_details' => 'SUV (7 seats)',
+        ])->save();
+
+        $data = app(QuotationPdf::class)->viewData($quote->refresh());
+
+        $this->assertSame('SUV (7 seats)', $data['lines'][0]['vehicle']);
+    }
+
+    /** A leg that names no car falls back to the quote's own header car. */
+    public function test_the_quotes_header_car_answers_for_a_leg_with_none(): void
+    {
+        $quote = $this->quote();
+        $quote->forceFill(['car_type' => 'Mercedes Vito'])->save();
+
+        $data = app(QuotationPdf::class)->viewData($quote->refresh());
+
+        $this->assertSame('Mercedes Vito', $data['lines'][0]['vehicle']);
+    }
+
+    /** Nothing anywhere still means no column, rather than an empty one. */
+    public function test_a_quote_naming_no_car_prints_no_vehicle_column(): void
+    {
+        $html = view('limousine::quotation-pdf', app(QuotationPdf::class)->viewData($this->quote()))->render();
+
+        $this->assertStringNotContainsString('Vehicle Type', $html);
+    }
     /* ── The sheet itself ────────────────────────────────────────────────── */
 
     public function test_the_ordinary_sheet_still_carries_its_total(): void

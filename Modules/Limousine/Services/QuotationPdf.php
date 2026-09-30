@@ -52,7 +52,8 @@ final class QuotationPdf
             'preparedBy' => (string) ($quote->prepared_by ?? ''),
             'quoteDate' => $quote->quote_date?->format('j-M-Y') ?? '',
             'validUntil' => $quote->valid_until?->format('j-M-Y') ?? '',
-            'lines' => $this->lines($legs),
+            // The quote's own header car answers for a leg that names none.
+            'lines' => $this->lines($legs, (string) ($quote->car_type ?? '')),
             'subtotal' => round((float) $legs->sum(
                 static fn (LimoLeg $leg): float => LimoLeg::grossFor($leg->rate_basis, (float) $leg->rate, $leg->hours, $leg->days),
             ), 3),
@@ -78,15 +79,53 @@ final class QuotationPdf
      * @param Collection<int, LimoLeg> $legs
      * @return list<array<string, mixed>>
      */
-    private function lines(Collection $legs): array
+    private function lines(Collection $legs, string $fallbackType = ''): array
     {
-        return $legs->map(fn (LimoLeg $leg): array => $this->legRow($leg))->all();
+        return $legs->map(fn (LimoLeg $leg): array => $this->legRow($leg, $fallbackType))->all();
+    }
+
+    /**
+     * The car this leg is quoted on, as the Vehicle Type column wants it.
+     *
+     * The quotation form offers TWO ways to say it — a free-text "Car details"
+     * box per leg (`vehicle_details`) and a pick from the fleet (`car_id`,
+     * whose label is snapshotted into `vehicle`) — and the sheet used to read
+     * only the first. A quote written by picking the car printed an empty
+     * column, which is what the office hit.
+     *
+     * A picked car is stored as "Ford Expedition · 363899 · White", so only the
+     * name is taken: the column is headed Vehicle Type, the quote is not a
+     * dispatch, and no customer is choosing by plate.
+     *
+     * Deliberately NOT the rule the invoices use. There, `vehicle` may be the
+     * car the QUEUE assigned at dispatch, and a customer who agreed to an SUV
+     * must not be billed by whichever plate happened to run it. A quotation has
+     * no dispatch behind it, so its `vehicle` can only be the car the office
+     * chose on the quote itself.
+     */
+    private function vehicleLabel(LimoLeg $leg, string $fallbackType): string
+    {
+        $details = trim((string) ($leg->vehicle_details ?? ''));
+
+        if ($details !== '') {
+            return $details;
+        }
+
+        $picked = trim((string) ($leg->vehicle ?? ''));
+
+        if ($picked !== '') {
+            $name = trim((string) (explode('·', $picked)[0] ?? ''));
+
+            return $name !== '' ? $name : $picked;
+        }
+
+        return trim($fallbackType);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function legRow(LimoLeg $leg): array
+    private function legRow(LimoLeg $leg, string $fallbackType = ''): array
     {
         // Rate × Unit × Days/Trips reproduces LimoLeg::grossFor() for every
         // basis: per-trip is 1×1×rate (flat), per-day is 1×days×rate, and
@@ -97,7 +136,7 @@ final class QuotationPdf
 
         return [
             'service' => __(ucfirst(str_replace('_', ' ', $leg->service_type))),
-            'vehicle' => (string) ($leg->vehicle_details ?? ''),
+            'vehicle' => $this->vehicleLabel($leg, $fallbackType),
             'from' => (string) ($leg->from_location ?? ''),
             'to' => (string) ($leg->to_location ?? ''),
             'unit' => $unit,

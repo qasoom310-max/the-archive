@@ -99,4 +99,15 @@ final class LimoDashboardCountsTest extends TestCase
 
         Livewire::test(LimoHome::class)->assertViewHas('todayCount', 1);
     }
+
+    /** The In queue / Active / Today boxes at the top open the list they count. */
+    public function test_the_glance_boxes_link_to_their_lists(): void
+    {
+        $today = now()->toDateString();
+
+        Livewire::test(LimoHome::class)
+            ->assertSeeHtml('href="' . url('/app/limousine/booking') . '?tab=queue" wire:navigate data-glance-link')
+            ->assertSeeHtml('href="' . url('/app/limousine/booking') . '?tab=active" wire:navigate data-glance-link')
+            ->assertSeeHtml('href="' . url('/app/limousine/booking') . '?tab=all&amp;from=' . $today . '&amp;to=' . $today . '" wire:navigate data-glance-link');
+    }
 }

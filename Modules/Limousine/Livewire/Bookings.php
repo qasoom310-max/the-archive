@@ -618,12 +618,37 @@ final class Bookings extends Component
 
         $pickupAt = $text('pickup_at');
         $bookingTo = $text('booking_to');
+        $pickupMoved = ($pickupAt ?? '') !== ($booking->pickup_at?->format('Y-m-d\TH:i') ?? '');
         $booking->pickup_at = $pickupAt !== null ? Carbon::parse($pickupAt) : null;
         $booking->booking_to = $bookingTo !== null ? Carbon::parse($bookingTo) : null;
 
         $booking->save();
 
+        // "Booking from" is the FIRST trip's pick-up — the list, the queue and
+        // the driver all read the trip's own time. Saving only the booking's
+        // copy made a changed time look like it never saved, and changing the
+        // trip left the booking's copy (which the reports read) behind.
+        $firstLeg = $booking->legs()->orderBy('sequence')->orderBy('id')->first();
+        $firstBefore = $firstLeg?->start_at?->format('Y-m-d\TH:i');
+
         $this->saveEditedLeg($booking);
+
+        if ($firstLeg !== null) {
+            $firstLeg->refresh();
+            $tripMoved = $firstLeg->start_at?->format('Y-m-d\TH:i') !== $firstBefore;
+
+            // The trip's own Date & time wins when both were changed; a changed
+            // "Booking from" alone moves the first trip with it.
+            if ($pickupMoved && ! $tripMoved && $pickupAt !== null && ! $this->isLocked($firstLeg)) {
+                $firstLeg->start_at = Carbon::parse($pickupAt);
+                $firstLeg->save();
+            }
+
+            if ($firstLeg->start_at !== null) {
+                $booking->pickup_at = $firstLeg->start_at;
+                $booking->save();
+            }
+        }
 
         // Confirm with the REFERENCE, worded exactly as the booking form words
         // it: this is the line the office sends the customer, and it must not

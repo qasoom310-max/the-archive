@@ -246,6 +246,73 @@ final class LimoLegEditTest extends TestCase
         $this->assertSame(LimoBooking::PAYMENT_UNPAID, $fresh?->payment_status);
     }
 
+    /** One queued trip, the everyday booking. */
+    private function singleTrip(string $at = '2026-10-05 09:00'): LimoBooking
+    {
+        $booking = LimoBooking::query()->create([
+            'customer_id' => LimoCustomer::query()->create(['name' => 'Cox Logistics WLL'])->id,
+            'pickup_at' => $at,
+            'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+        LimoLeg::query()->create([
+            'legable_type' => LimoBooking::class, 'legable_id' => $booking->id, 'sequence' => 0,
+            'status' => LimoLeg::STATUS_QUEUE, 'start_at' => $at,
+            'from_location' => 'Hotel', 'to_location' => 'Bahrain Airport', 'rate' => 20, 'net_amount' => 20,
+        ]);
+        $booking->recalcTotal();
+        $booking->save();
+
+        return $booking->refresh();
+    }
+
+    /** "Booking from" changed in the edit dialog moves the trip the list shows. */
+    public function test_changing_booking_from_moves_the_trip_time(): void
+    {
+        $booking = $this->singleTrip();
+        $leg = $booking->legs()->firstOrFail();
+
+        Livewire::test(Bookings::class)
+            ->call('openEdit', $booking->id, $leg->id)
+            ->set('edit.pickup_at', '2026-10-05T14:30')
+            ->call('saveEdit')
+            ->assertHasNoErrors();
+
+        $this->assertSame('2026-10-05 14:30', $leg->fresh()?->start_at?->format('Y-m-d H:i'));
+        $this->assertSame('2026-10-05 14:30', $booking->fresh()?->pickup_at?->format('Y-m-d H:i'));
+    }
+
+    /** The trip's own Date & time keeps the booking's copy (read by reports) in step. */
+    public function test_changing_the_trip_time_updates_the_booking(): void
+    {
+        $booking = $this->singleTrip();
+        $leg = $booking->legs()->firstOrFail();
+
+        Livewire::test(Bookings::class)
+            ->call('openEdit', $booking->id, $leg->id)
+            ->set('editLeg.start_at', '2026-10-06T07:15')
+            ->call('saveEdit')
+            ->assertHasNoErrors();
+
+        $this->assertSame('2026-10-06 07:15', $leg->fresh()?->start_at?->format('Y-m-d H:i'));
+        $this->assertSame('2026-10-06 07:15', $booking->fresh()?->pickup_at?->format('Y-m-d H:i'));
+    }
+
+    public function test_changing_the_time_on_the_full_booking_form_saves(): void
+    {
+        $booking = $this->singleTrip();
+
+        $booking->forceFill(['pax_name' => 'Ali', 'requested_by' => 'Cox Logistics WLL', 'prepared_by' => 'Hassan'])->saveQuietly();
+        $booking->legs()->update(['vehicle_details' => 'SUV']);
+
+        Livewire::test(\Modules\Limousine\Livewire\BookingForm::class, ['id' => $booking->id])
+            ->set('legs.0.start_at', '2026-10-05T18:45')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame('2026-10-05 18:45', $booking->legs()->firstOrFail()->start_at?->format('Y-m-d H:i'));
+        $this->assertSame('2026-10-05 18:45', $booking->fresh()?->pickup_at?->format('Y-m-d H:i'));
+    }
+
     /**
      * A confirmed trip belonged to no dashboard card: not queued, not active,
      * not completed — agreed with the customer and counted nowhere.

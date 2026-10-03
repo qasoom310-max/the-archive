@@ -1,4 +1,5 @@
 import './bootstrap';
+import './receipt-printer';
 
 /**
  * Bring the first field that failed validation into view and focus it.
@@ -12,23 +13,6 @@ import './bootstrap';
  * including nested keys like `legs.0.start_at`. We scan real form controls so
  * the modifier list never has to be enumerated.
  */
-/**
- * Print a POS receipt without leaving the register: the receipt page loads
- * in an off-screen frame and prints itself (its body calls window.print()),
- * so only the slip is printed, never the terminal around it. On a till whose
- * Chrome runs with --kiosk-printing it goes straight to the default printer.
- */
-window.printReceipt = function (url) {
-    document.getElementById('pos-receipt-frame')?.remove();
-    const frame = document.createElement('iframe');
-    frame.id = 'pos-receipt-frame';
-    frame.setAttribute('aria-hidden', 'true');
-    // Off-screen but full-sized: a zero-sized frame can print blank.
-    frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:420px;height:800px;border:0;';
-    frame.src = url;
-    document.body.appendChild(frame);
-};
-
 window.scrollToFieldError = function (field) {
     if (!field) return;
 

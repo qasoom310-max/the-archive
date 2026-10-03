@@ -143,7 +143,11 @@
                                         </button>
                                     @endif
                                     @if ($row['printable'])
+                                        {{-- With a network printer set, the icon prints straight to it
+                                             instead of opening the receipt page. --}}
+                                        @php($receiptPrinter ??= \Modules\Pos\Support\ReceiptPrinter::config() ?? false)
                                         <a href="{{ url('/app/pos/order/' . $row['id'] . '/receipt') }}" target="_blank" rel="noopener"
+                                            @if ($receiptPrinter) x-data x-on:click.prevent="window.printReceipt($el.getAttribute('href'), @js($receiptPrinter))" @endif
                                             title="{{ __('Print receipt') }}" aria-label="{{ __('Print receipt') }}"
                                             class="flex size-8 items-center justify-center rounded-lg text-chrome-500 hover:bg-chrome-100 hover:text-chrome-800">
                                             <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

@@ -1461,6 +1461,28 @@ Available from **two entry points** sharing one modal + one service.
 | Receipt print | `Modules\Pos\Http\Controllers\PosReceiptPrintController` (GET `/app/pos/order/{id}/receipt`, `pos.order.receipt`, Read-gated) renders `pos::receipt-print` — a browser-printable slip reusing `PosReceiptImageRenderer::receiptViewData()` (made **public**) so it matches the WhatsApp PNG. Auto-opens the print dialog |
 | Tests | `tests/Feature/PosOrderSplitTest.php` (9 — draft move, partial-qty shrink, merge-into-existing-table-draft, can't-empty-original, empty-selection rejected, **paid split keeps stock + reapportions payment + combined cash unchanged**, modal create+dispatch, orders-list render+cancel, receipt-print renders) |
 
+**Network receipt printer — print straight to an Epson by IP (shipped 2026-10-03):**
+
+Sweileh Cafe's till has an Epson **TM-T20III** (network model). POS → Settings
+(`/app/pos/settings`, the per-app `AppFeatureSettings` page, POS only) gained a
+**Receipt printer** box: IP address (optional `:port`), paper width (80 mm = 576
+dots / 58 mm = 384), and "Secure connection (https)" (default on). Stored per
+database as `pos.printer.{ip,https,width}` via `Modules\Pos\Support\ReceiptPrinter`
+(`config()` = null when no valid address → browser printing as before);
+`SettingsPage::canSee()` hides the `pos.printer.` prefix.
+
+| Concern | Location |
+|---|---|
+| Protocol | Epson **ePOS-Print XML**, POSTed from the BROWSER (the server can't reach the shop LAN) to `{http\|https}://{ip}/cgi-bin/epos/service.cgi?devid=local_printer&timeout=10000`, one `<image … color="color_1" mode="mono">` + `<feed line="3"/><cut type="feed"/>`. Success = `success="true"` in the reply |
+| Why an image | `resources/js/receipt-printer.js` draws the receipt on a canvas the paper's width and sends it as a 1-bit raster — the printer's fonts cannot join Arabic letters, a canvas can. Text is thresholded (dark, at 170), only the logo band is Floyd–Steinberg dithered. Amounts are drawn LTR even on an Arabic slip; the phone gets an LRM so "+" stays in front |
+| Data | `PosReceiptPrintController` `?format=json` returns `receiptViewData()` minus `logoPath` (a server file path never leaves) plus `logoUrl`, `rtl`, translated `labels` |
+| Callers | `window.printReceipt(url, printer)` — the till's receipt overlay (Print button + "Print every receipt automatically on this device", localStorage `erp.pos.autoPrint`, once per order via sessionStorage) and the Orders list print icon. A failed network print alerts the reason and falls back to the browser print (off-screen iframe of the receipt page) |
+| Test page | "Print a test page" on the Settings box (`window.printReceiptTest`) + an "Open the printer page" link |
+| Device setup | Per device, once: open `https://{ip}` and accept the printer's self-signed certificate; allow Chrome's local-network-access prompt. ePOS-Print must be enabled in the printer's web config |
+| Tests | `tests/Feature/PosReceiptPrinterTest.php` (8 — saved from the POS tab, http + 58 mm, bad address refused, clearing turns it off, other apps have no box, hidden from central settings, receipt JSON without the file path). The JS was checked by rendering through headless Chrome and decoding the raster back (both LTR and RTL) — no JS test runner exists in this repo |
+
+The earlier "Chrome `--kiosk-printing` + Windows driver" route still works when no IP is set.
+
 **Deliberately OUT of scope** (say so if asked, offer as follow-ups): offline/PWA &
 hardware/IoT (cash drawer, customer display), table merge-transfer (order **split**
 and the **free-position floor-plan editor** now ship; table merge/transfer don't),

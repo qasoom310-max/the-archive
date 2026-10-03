@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Modules\Pos\Support\ReceiptPrinter;
 
 /**
  * An app's own "Settings" tab (`/app/{module}/settings`) — checkboxes that turn
@@ -38,6 +39,13 @@ final class AppFeatureSettings extends Component
 
     public bool $saved = false;
 
+    /** POS only: the network receipt printer (see {@see ReceiptPrinter}). */
+    public string $printerIp = '';
+
+    public bool $printerHttps = true;
+
+    public int $printerWidth = 576;
+
     public function mount(string $module): void
     {
         $user = $this->guardAdmin();
@@ -59,6 +67,18 @@ final class AppFeatureSettings extends Component
         foreach ($features as $feature) {
             $this->toggles[$feature->value] = Features::enabled($feature);
         }
+
+        if ($this->hasPrinter()) {
+            $this->printerIp = ReceiptPrinter::address();
+            $this->printerHttps = ReceiptPrinter::secure();
+            $this->printerWidth = ReceiptPrinter::width();
+        }
+    }
+
+    /** The receipt-printer box belongs to the Point of Sale app only. */
+    private function hasPrinter(): bool
+    {
+        return $this->module === 'pos' && class_exists(ReceiptPrinter::class);
     }
 
     /** @return User the confirmed admin, so callers can re-check the app scope */
@@ -78,6 +98,16 @@ final class AppFeatureSettings extends Component
         $values = [];
         foreach (Features::appFeatures($this->module) as $feature) {
             $values[$feature->value] = (bool) ($this->toggles[$feature->value] ?? false);
+        }
+
+        if ($this->hasPrinter()) {
+            $this->printerIp = trim($this->printerIp);
+            $this->validate([
+                'printerIp' => ['nullable', 'string', 'max:255', 'regex:' . ReceiptPrinter::ADDRESS_PATTERN],
+                'printerWidth' => ['required', 'integer', 'in:' . implode(',', array_keys(ReceiptPrinter::PAPER_WIDTHS))],
+            ], ['printerIp.regex' => __("Type the printer's IP address, for example 192.168.1.50.")]);
+
+            ReceiptPrinter::save($this->printerIp, $this->printerHttps, $this->printerWidth);
         }
 
         Features::setOverrides($values);
@@ -111,6 +141,9 @@ final class AppFeatureSettings extends Component
         return view('livewire.pages.app-feature-settings', [
             'features' => $features,
             'moduleLabel' => $label,
+            'hasPrinter' => $this->hasPrinter(),
+            'paperWidths' => $this->hasPrinter() ? ReceiptPrinter::PAPER_WIDTHS : [],
+            'printerConfig' => $this->hasPrinter() ? ReceiptPrinter::config() : null,
         ]);
     }
 }

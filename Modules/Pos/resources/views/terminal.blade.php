@@ -749,13 +749,15 @@
                     <div class="flex justify-between font-semibold text-emerald-600"><span>{{ __('Change') }}</span><span>{{ $money($receipt->change_due) }}</span></div>
                 </div>
                 <p class="mt-3 text-center text-xs text-chrome-400">{{ __('Thank you!') }}</p>
-                {{-- Print prints the receipt slip only (off-screen frame), not
-                     the terminal. "Print automatically" is remembered per
+                {{-- Print prints the receipt slip only: straight to the network
+                     printer when one is set (POS → Settings), else through the
+                     browser from an off-screen frame — never the terminal. "Print automatically" is remembered per
                      device, so only the till wired to the printer does it;
                      each order prints once even if the overlay re-renders. --}}
                 <div x-data="{
                         url: @js(url('/app/pos/order/' . $receipt->id . '/receipt')),
                         orderId: @js((string) $receipt->id),
+                        printer: @js(\Modules\Pos\Support\ReceiptPrinter::config()),
                         auto: false,
                         init() {
                             try { this.auto = localStorage.getItem('erp.pos.autoPrint') === '1'; } catch (e) {}
@@ -764,12 +766,12 @@
                                 if (sessionStorage.getItem('erp.pos.printed') === this.orderId) return;
                                 sessionStorage.setItem('erp.pos.printed', this.orderId);
                             } catch (e) {}
-                            window.printReceipt(this.url);
+                            window.printReceipt(this.url, this.printer);
                         },
                         remember() { try { localStorage.setItem('erp.pos.autoPrint', this.auto ? '1' : '0'); } catch (e) {} },
                     }">
                     <div class="mt-4 flex gap-2">
-                        <button type="button" x-on:click="window.printReceipt(url)" class="o-btn-ghost flex-1 justify-center">{{ __('Print') }}</button>
+                        <button type="button" x-on:click="window.printReceipt(url, printer)" class="o-btn-ghost flex-1 justify-center">{{ __('Print') }}</button>
                         <button wire:click="finishToFloor" class="o-btn-primary flex-1 justify-center">{{ __('New order') }}</button>
                     </div>
                     <label class="mt-3 flex items-center justify-center gap-2 text-xs text-chrome-500">

@@ -780,7 +780,7 @@ final class PosModuleTest extends TestCase
         // Print sends just the slip (its own page), and a till can opt into
         // printing every receipt automatically.
         $c->assertSee('\/app\/pos\/order\/' . $order->id . '\/receipt', false)
-            ->assertSee('window.printReceipt(url)', false)
+            ->assertSee('window.printReceipt(url, printer)', false)
             ->assertSee(__('Print every receipt automatically on this device'));
     }
 

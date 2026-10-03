@@ -349,6 +349,11 @@ final class SettingsPage extends Component
             return false;
         }
 
+        // The POS receipt printer is set on the POS app's own Settings tab.
+        if (str_starts_with($key, 'pos.printer.')) {
+            return false;
+        }
+
         // The limousine coupon rule is switched on the Limousine dashboard by
         // the owner / Supervisor accountant, never as a raw row here.
         if ($key === 'limousine.coupon_rule') {

@@ -776,6 +776,12 @@ final class PosModuleTest extends TestCase
             $order->messages()->where('type', MessageType::Log)
                 ->where('body', 'like', '%paid%')->exists(),
         );
+
+        // Print sends just the slip (its own page), and a till can opt into
+        // printing every receipt automatically.
+        $c->assertSee('\/app\/pos\/order\/' . $order->id . '\/receipt', false)
+            ->assertSee('window.printReceipt(url)', false)
+            ->assertSee(__('Print every receipt automatically on this device'));
     }
 
     public function test_session_close_reconciles_cash(): void

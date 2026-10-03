@@ -1018,6 +1018,51 @@ final class Bookings extends Component
         $this->paymentAmount = number_format(max(0.0, $booking->balanceDue()), 3, '.', '');
     }
 
+    /** The quick shares offered on the payment link, as a percent of the booking total. */
+    public const PAYMENT_SHARES = [25, 50, 100];
+
+    /**
+     * The quick amounts for the open payment link: 25% / 50% of the BOOKING
+     * TOTAL (so a second 25% instalment is the same figure as the first), and
+     * "Full" = everything still owed. Each is capped at the balance, so a
+     * share can never ask for more than is owed.
+     *
+     * @return list<array{percent: int, amount: float}>
+     */
+    public function paymentShares(): array
+    {
+        if ($this->paymentLegId === null) {
+            return [];
+        }
+
+        $leg = LimoLeg::query()->with('legable')->find($this->paymentLegId);
+        $booking = $leg?->legable instanceof LimoBooking ? $leg->legable : null;
+        if ($booking === null) {
+            return [];
+        }
+
+        $total = $booking->netAmount();
+        $balance = $booking->balanceDue();
+
+        return array_values(array_map(static fn (int $percent): array => [
+            'percent' => $percent,
+            'amount' => $percent === 100 ? $balance : round(min($balance, $total * $percent / 100), 3),
+        ], self::PAYMENT_SHARES));
+    }
+
+    /** Fill the amount from one of the quick shares. */
+    public function usePaymentShare(int $percent): void
+    {
+        foreach ($this->paymentShares() as $share) {
+            if ($share['percent'] === $percent) {
+                $this->paymentAmount = number_format($share['amount'], 3, '.', '');
+                $this->resetValidation('paymentAmount');
+
+                return;
+            }
+        }
+    }
+
     public function closePaymentLink(): void
     {
         $this->paymentLegId = null;

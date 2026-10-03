@@ -237,6 +237,38 @@ final class LimoServiceOrderPortalTest extends TestCase
         $this->assertSame(1, LimoPaymentLink::query()->where('leg_id', $leg->id)->count());
     }
 
+    /** 25% / 50% of the booking total, or the full balance, in one tap. */
+    public function test_the_link_offers_25_and_50_percent_of_the_total(): void
+    {
+        $this->enablePortal();
+        $leg = $this->trip(80.0);
+
+        $component = Livewire::test(Bookings::class)
+            ->call('openPaymentLink', $leg->id)
+            ->assertSee('Pay 25%')
+            ->assertSee('Pay 50%')
+            ->assertSee('Full balance');
+
+        $component->call('usePaymentShare', 25)->assertSet('paymentAmount', '20.000');
+        $component->call('usePaymentShare', 50)->assertSet('paymentAmount', '40.000');
+        $component->call('usePaymentShare', 100)->assertSet('paymentAmount', '80.000');
+        // Anything else is ignored rather than trusted from the browser.
+        $component->call('usePaymentShare', 90)->assertSet('paymentAmount', '80.000');
+    }
+
+    public function test_a_share_never_asks_for_more_than_is_still_owed(): void
+    {
+        $this->enablePortal();
+        $leg = $this->trip(80.0);
+        LimoBooking::query()->whereKey($leg->legable_id)->update(['advance' => 70]);
+
+        // 50% of 80 is 40, but only 10 is still owed.
+        Livewire::test(Bookings::class)
+            ->call('openPaymentLink', $leg->id)
+            ->call('usePaymentShare', 50)
+            ->assertSet('paymentAmount', '10.000');
+    }
+
     /**
      * Invoke the callback controller directly — module routes only register on
      * the boot AFTER install, the known engine gap the WhatsApp webhook test

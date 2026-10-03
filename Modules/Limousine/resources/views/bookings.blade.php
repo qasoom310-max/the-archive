@@ -1194,12 +1194,27 @@
 
                 <div class="px-5 py-4">
                     @if ($paymentLinkUrl === '')
+                        {{-- Quick shares: a deposit of 25% or 50% of the booking total, or the full balance. --}}
+                        @php $shares = $this->paymentShares(); @endphp
+                        @if ($shares !== [])
+                            <div class="mb-3 grid grid-cols-3 gap-2" data-payment-shares>
+                                @foreach ($shares as $share)
+                                    @php $chosen = abs((float) $paymentAmount - $share['amount']) < 0.0005; @endphp
+                                    <button type="button" wire:click="usePaymentShare({{ $share['percent'] }})"
+                                            class="rounded-xl px-2 py-2 text-center ring-1 transition {{ $chosen ? 'bg-primary-400 text-chrome-900 ring-primary-500' : 'bg-white text-chrome-700 ring-chrome-200 hover:bg-chrome-50' }}">
+                                        <span class="block text-sm font-semibold">{{ $share['percent'] === 100 ? __('Full balance') : __('Pay :percent%', ['percent' => $share['percent']]) }}</span>
+                                        <span class="block text-xs" dir="ltr">{{ \App\Erp\Views\ValueFormat::money($share['amount']) }}</span>
+                                    </button>
+                                @endforeach
+                            </div>
+                        @endif
+
                         <label class="{{ $lbl ?? 'text-sm font-medium text-chrome-700' }}">{{ __('Amount to charge') }} *</label>
                         <div class="mt-1 flex items-center gap-2">
                             <input type="number" step="0.001" min="0" wire:model="paymentAmount" class="o-input w-full" dir="ltr">
                             <span class="text-sm text-chrome-500">{{ __('BHD') }}</span>
                         </div>
-                        <p class="mt-1 text-[11px] text-chrome-400">{{ __('Pre-filled with the balance. Lower it to take a deposit or one partition.') }}</p>
+                        <p class="mt-1 text-[11px] text-chrome-400">{{ __('Pre-filled with the balance. Pick 25% or 50% for a deposit, or type any amount.') }}</p>
                         @error('paymentAmount') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     @else
                         <p class="mb-2 text-sm text-emerald-700">{{ __('Link created. Send it to the customer:') }}</p>

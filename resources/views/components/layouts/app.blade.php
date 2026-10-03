@@ -86,7 +86,7 @@
             }
         })();
     </script>
-    {{-- Idle sign-out, LAPTOPS AND DESKTOPS ONLY: 15 minutes with no key press,
+    {{-- Idle sign-out, LAPTOPS AND DESKTOPS ONLY: 1 hour with no key press,
          click, scroll or mouse movement posts to /logout/idle. Phones and
          tablets (a coarse primary pointer, no hover) are never signed out.
          - The last-activity time is shared across tabs via localStorage, so
@@ -108,7 +108,7 @@
                 && window.matchMedia('(hover: hover)').matches;
             if (! desktop) { return; }
 
-            var LIMIT = 15 * 60 * 1000;
+            var LIMIT = 60 * 60 * 1000;
             var KEY = 'erp.lastActivity';
             var memory = Date.now();
             var lastWrite = 0;

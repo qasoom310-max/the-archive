@@ -2942,7 +2942,7 @@
     "Retry": "إعادة المحاولة",
     ":quote :currency ≈ :amount BHD": ":quote :currency ≈ :amount د.ب",
     "Could not fetch today's exchange rate. Check your connection and try again.": "تعذّر جلب سعر الصرف اليوم. تحقّق من اتصالك وحاول مرة أخرى.",
-    "You were signed out after 15 minutes of inactivity.": "تم تسجيل خروجك بعد 15 دقيقة من عدم النشاط.",
+    "You were signed out after 1 hour of inactivity.": "تم تسجيل خروجك بعد ساعة من عدم النشاط.",
     "Signed out (inactive)": "تسجيل الخروج (عدم نشاط)",
     "The upload was interrupted. Please choose the video again.": "توقّف الرفع. يرجى اختيار الفيديو مرة أخرى.",
     "The video is larger than 1 GB.": "حجم الفيديو أكبر من 1 غيغابايت.",

@@ -2481,16 +2481,16 @@ confirmation + length enforced, non-ASCII refused, the link's email is read from
 the real URL, a bare link asks for it, `#[Locked]` token, IP rate limit,
 signed-in users bounced). 20 `lang/ar.json` keys added.
 
-**Idle sign-out on laptops/desktops — 15 minutes, phones exempt (shipped 2026-09-17):**
+**Idle sign-out on laptops/desktops — 1 hour, phones exempt (shipped 2026-09-17; 15 min → 1 hour 2026-10-03 at the owner's request):**
 
-A laptop or desktop with no key press, click, scroll or mouse movement for 15
+A laptop or desktop with no key press, click, scroll or mouse movement for 1 hour
 minutes is signed out. Phones and tablets are never signed out for inactivity.
 
 | Concern | Location |
 |---|---|
 | Timer | Inline head script in `components/layouts/app.blade.php` (global `window.__erpIdleLogout` guard — wire:navigate doesn't re-run head scripts). **Desktop = `(pointer: fine)` AND `(hover: hover)`**; anything else (phone, tablet) returns immediately. A touchscreen laptop still counts as a desktop (its primary pointer is the trackpad) |
 | Cross-tab | Last activity lives in `localStorage['erp.lastActivity']` (writes throttled to one per 5s), so work in one tab keeps the others alive. A tab whose key is removed by another tab's sign-out reloads to the login screen |
-| Sleep / closed browser | The check compares timestamps (every 30s + on focus / visibilitychange), not a countdown, so a laptop that slept past 15 min signs out the moment it wakes, and a stored stale time is honoured on page load. **The guest layout removes the key**, so a fresh sign-in never inherits a stale time and bounces out |
+| Sleep / closed browser | The check compares timestamps (every 30s + on focus / visibilitychange), not a countdown, so a laptop that slept past the hour signs out the moment it wakes, and a stored stale time is honoured on page load. **The guest layout removes the key**, so a fresh sign-in never inherits a stale time and bounces out |
 | Exemption | `/app/pos/kitchen/*` (KDS) never times out and counts as activity — a kitchen screen is watched, not touched. Consequence: a desktop with a KDS tab open keeps the whole session alive |
 | Server | `POST /logout/idle` (`logout.idle`, `auth`) — same as `/logout` but flags the request, so the Logout listener audits `logout_idle` ("Signed out (inactive)") instead of `logout`, and flashes the reason onto the login screen |
 | Limits | Browser-enforced: only the browser can see a mouse move (Livewire polls would fool a server-side check). With JS disabled or the tab killed, the normal `SESSION_LIFETIME` (720 min) still applies |

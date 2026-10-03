@@ -10,7 +10,7 @@ use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Tests\TestCase;
 
 /**
- * Laptops and desktops are signed out after 15 minutes without input; phones
+ * Laptops and desktops are signed out after 1 hour without input; phones
  * are not. The timing lives in the browser (only it can see a mouse move), so
  * these tests pin the server half - the idle endpoint - and that the timer is
  * actually shipped on every signed-in page.
@@ -26,7 +26,7 @@ final class IdleLogoutTest extends TestCase
         $this->actingAs($user)
             ->post('/logout/idle')
             ->assertRedirect(route('login'))
-            ->assertSessionHas('status', 'You were signed out after 15 minutes of inactivity.');
+            ->assertSessionHas('status', 'You were signed out after 1 hour of inactivity.');
 
         $this->assertGuest();
     }
@@ -56,7 +56,7 @@ final class IdleLogoutTest extends TestCase
         $this->assertIsString($html);
         $this->assertStringContainsString('window.__erpIdleLogout', $html);
         $this->assertStringContainsString("(pointer: fine)", $html);
-        $this->assertStringContainsString('15 * 60 * 1000', $html);
+        $this->assertStringContainsString('60 * 60 * 1000', $html);
         // @js() escapes the slashes in the URL it writes out.
         $this->assertStringContainsString(route('logout.idle'), str_replace('\/', '/', $html));
     }

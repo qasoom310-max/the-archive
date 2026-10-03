@@ -198,10 +198,10 @@ final class PettyAdvancePage extends Component
         $this->addingCategory = false;
     }
 
-    /** Growing the spending list is the owner's call, like the fee was. */
+    /** Growing the spending list: an administrator or the supervisor accountant. */
     private function guardCategory(): void
     {
-        abort_unless(Auth::user()?->isAdmin() ?? false, 403);
+        abort_unless(PettyCashService::mayManage(Auth::user()), 403);
     }
 
     public function saveCategory(): void
@@ -237,7 +237,7 @@ final class PettyAdvancePage extends Component
             'linesTotal' => $linesTotal,
             'difference' => $difference,
             'categories' => LimoPettyCategory::query()->orderBy('id')->pluck('name')->all(),
-            'canAddCategory' => Auth::user()?->isAdmin() ?? false,
+            'canAddCategory' => PettyCashService::mayManage(Auth::user()),
             'cars' => Vehicle::query()->orderBy('name')->get(['id', 'name', 'plate_no']),
             'canConfirm' => Auth::user()?->canConfirmPayments() ?? false,
             'canEdit' => ! $advance->isCleared() && $this->mayAccess(Permission::Write),

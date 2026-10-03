@@ -102,6 +102,42 @@ final class LimoPettyCashTest extends TestCase
             ->assertForbidden();
     }
 
+    /** The supervisor accountant (not an admin) runs the whole desk. */
+    public function test_the_supervisor_accountant_has_every_petty_cash_option(): void
+    {
+        $this->grantEveryone('limousine.petty_cash');
+        $this->actingAs(User::factory()->create(['is_accountant' => true, 'name' => 'Amal']));
+        $driver = $this->driver();
+
+        Livewire::test(PettyCash::class)
+            ->assertSee(__('Top up float'))
+            ->assertSee(__('Send to driver'))
+            ->assertSee(__('Import'))
+            ->call('openTopUp')
+            ->set('topAmount', '200')
+            ->call('saveTopUp')
+            ->assertHasNoErrors()
+            ->call('openIssue')
+            ->set('issueDriverId', $driver->id)
+            ->set('issueAmount', '100')
+            ->call('saveIssue')
+            ->assertHasNoErrors();
+
+        $advance = LimoPettyAdvance::query()->firstOrFail();
+        $this->assertEqualsWithDelta(100.0, app(PettyCashService::class)->floatBalance(), 0.001);
+
+        Livewire::test(PettyAdvancePage::class, ['id' => $advance->id])
+            ->call('openCategory')
+            ->set('newCategory', 'Tyre puncture')
+            ->call('saveCategory')
+            ->assertHasNoErrors()
+            ->call('confirm')
+            ->call('openSettle')
+            ->call('saveSettle');
+
+        $this->assertSame(LimoPettyAdvance::STATUS_CLEARED, $advance->fresh()?->status);
+    }
+
     public function test_confirming_takes_the_accountant_not_a_regular_admin(): void
     {
         $this->asManager();

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Services;
 
+use App\Erp\Security\AccessControl;
+use App\Erp\Security\Permission;
+use App\Models\User;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Modules\Limousine\Models\LimoDriver;
@@ -21,6 +25,19 @@ use Modules\Limousine\Models\LimoPettyTopup;
  */
 final class PettyCash
 {
+    /**
+     * Who may run the desk — top up the float, send cash to a driver, import,
+     * add a spending category: an administrator, or the supervisor accountant
+     * (the Accountant role), who also confirms and settles. Write on petty
+     * cash is required on top, so a scoped administrator stays in their apps.
+     */
+    public static function mayManage(?Authenticatable $user): bool
+    {
+        return $user instanceof User
+            && ($user->isAdmin() || $user->isAccountant())
+            && app(AccessControl::class)->allows($user, 'limousine.petty_cash', Permission::Write);
+    }
+
     public function floatBalance(): float
     {
         return round(

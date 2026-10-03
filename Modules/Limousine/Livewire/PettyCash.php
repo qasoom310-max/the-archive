@@ -22,9 +22,9 @@ use Modules\Limousine\Services\PettyCash as PettyCashService;
  * The petty-cash desk: the float, the advances out with drivers, and the
  * month's expense report.
  *
- * The manager issues; the accountant confirms and settles. Those are kept as
- * different hands on purpose — handing a man cash and vouching for what came
- * back should not be the same signature.
+ * An administrator or the supervisor accountant issues and tops up; the
+ * accountant (or a super admin) confirms and settles. The owner chose to let
+ * the accountant do both (2026-10-03), so one person can now issue and settle.
  */
 #[Layout('components.layouts.app')]
 #[Title('Petty Cash')]
@@ -55,11 +55,11 @@ final class PettyCash extends Component
         }
     }
 
-    /** Issuing and topping up are the manager's actions. */
+    /** Issuing and topping up: an administrator or the supervisor accountant. */
     private function guardManage(): void
     {
         $this->guardAccess(Permission::Write);
-        abort_unless(Auth::user()?->isAdmin() ?? false, 403);
+        abort_unless(PettyCashService::mayManage(Auth::user()), 403);
     }
 
     public function updatedTab(): void
@@ -236,7 +236,7 @@ final class PettyCash extends Component
             'toConfirmCount' => LimoPettyAdvance::query()->where('status', LimoPettyAdvance::STATUS_ISSUED)->count(),
             'openCount' => LimoPettyAdvance::query()->where('status', '!=', LimoPettyAdvance::STATUS_CLEARED)->count(),
             'drivers' => LimoDriver::query()->where('active', true)->orderBy('name')->get(['id', 'name']),
-            'canManage' => Auth::user()?->isAdmin() ?? false,
+            'canManage' => PettyCashService::mayManage(Auth::user()),
             'report' => $this->tab === 'report' ? $this->report() : null,
         ]);
     }

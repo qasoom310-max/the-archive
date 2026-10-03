@@ -124,7 +124,7 @@ final class RentalOrderImportTest extends TestCase
         $existing = RentalCustomer::query()->create(['name' => 'Abdulla H.', 'cpr' => '890902070']);
 
         $result = app(OrderImporter::class)->import($this->oldSystemCsv());
-        $this->assertSame(['imported' => 3, 'skipped' => 0, 'failed' => 0], $result);
+        $this->assertSame(['imported' => 3, 'reopened' => 0, 'skipped' => 0, 'failed' => 0], $result);
 
         $radu = RentalOrder::query()->where('reference', 'RA1815')->firstOrFail();
         $this->assertSame('Radu Mihai Carlig', $radu->customer?->name);
@@ -149,6 +149,50 @@ final class RentalOrderImportTest extends TestCase
 
         // Overdue but still owing: kept active.
         $this->assertSame(RentalOrder::STATE_ACTIVE, RentalOrder::query()->where('reference', 'RA1623')->firstOrFail()->state);
+
+        // Paid and past its return date, but still on the active list: the car is still out.
+        $this->assertSame(RentalOrder::STATE_ACTIVE, $radu->state);
+        $this->assertSame(Vehicle::STATUS_RENTED, $car->fresh()?->status);
+    }
+
+    /** The historical migration brought these in closed; the active list reopens them. */
+    public function test_an_order_on_file_as_closed_is_reopened_by_the_active_list(): void
+    {
+        $customer = RentalCustomer::query()->create(['name' => 'Radu Mihai Carlig']);
+        $car = Vehicle::query()->create(['name' => 'Ford Ecosport', 'plate_no' => '239256', 'daily_rate' => 10]);
+        RentalOrder::query()->create([
+            'reference' => 'RA1815', 'customer_id' => $customer->id, 'vehicle_id' => $car->id,
+            'start_date' => '2026-08-31', 'end_date' => '2026-09-17',
+            'total' => 130.9, 'advance_amount' => 99, 'balance' => 0,
+            'state' => RentalOrder::STATE_CLOSED, 'payment_status' => RentalOrder::PAYMENT_PAID,
+        ]);
+
+        $result = app(OrderImporter::class)->import($this->oldSystemCsv());
+
+        $this->assertSame(['imported' => 2, 'reopened' => 1, 'skipped' => 0, 'failed' => 0], $result);
+        $order = RentalOrder::query()->where('reference', 'RA1815')->firstOrFail();
+        $this->assertSame(RentalOrder::STATE_ACTIVE, $order->state);
+        $this->assertEqualsWithDelta(99.0, $order->advance_amount, 0.001, 'Money is never rewritten.');
+        $this->assertSame(Vehicle::STATUS_RENTED, $car->fresh()?->status);
+    }
+
+    public function test_an_order_returned_in_the_erp_or_cancelled_is_not_reopened(): void
+    {
+        $customer = RentalCustomer::query()->create(['name' => 'X']);
+        RentalOrder::query()->create([
+            'reference' => 'RA1815', 'customer_id' => $customer->id, 'total' => 130.9,
+            'state' => RentalOrder::STATE_CLOSED, 'returned_at' => now(),
+        ]);
+        RentalOrder::query()->create([
+            'reference' => 'RA1794', 'customer_id' => $customer->id, 'total' => 2000,
+            'state' => RentalOrder::STATE_CANCELLED,
+        ]);
+
+        $result = app(OrderImporter::class)->import($this->oldSystemCsv());
+
+        $this->assertSame(['imported' => 1, 'reopened' => 0, 'skipped' => 2, 'failed' => 0], $result);
+        $this->assertSame(RentalOrder::STATE_CLOSED, RentalOrder::query()->where('reference', 'RA1815')->value('state'));
+        $this->assertSame(RentalOrder::STATE_CANCELLED, RentalOrder::query()->where('reference', 'RA1794')->value('state'));
     }
 
     public function test_an_ra_number_already_on_file_is_skipped_not_rewritten(): void
@@ -158,7 +202,7 @@ final class RentalOrderImportTest extends TestCase
 
         $second = app(OrderImporter::class)->import($this->oldSystemCsv());
 
-        $this->assertSame(['imported' => 0, 'skipped' => 3, 'failed' => 0], $second);
+        $this->assertSame(['imported' => 0, 'reopened' => 0, 'skipped' => 3, 'failed' => 0], $second);
         $this->assertSame(3, RentalOrder::query()->count());
         $this->assertEqualsWithDelta(99.0, RentalOrder::query()->where('reference', 'RA1815')->value('advance_amount'), 0.001);
     }

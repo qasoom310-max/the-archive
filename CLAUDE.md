@@ -2683,6 +2683,17 @@ outside the old total). No Status column → active when still owing or not yet
 due back, else closed. Every row is try/caught (logged, counted as `failed`) so
 one bad row never fails the upload. Tests: `RentalOrderImportTest` (+3).
 
+**…and that file IS the active list (fixed 2026-10-03).** The owner imported
+it and saw 3 active orders instead of 6: all six RA#s were already on file, and
+the historical migration had brought RA1815 / RA1794 / RA1623 in as **closed**,
+so the "RA# on file → skip" rule changed nothing. Now a file in the old
+system's shape (`RA#` + `Hire Period`, no Status column) is treated as the
+active list: new rows land **active** regardless of figures (a paid order past
+its return date is still a car that is out), and an order on file as closed is
+**reopened** — state only, money untouched — unless it was closed in the ERP
+(`returned_at` set) or cancelled. Active orders also flip an available/reserved
+car to rented. Result gains a `reopened` count. Tests: `RentalOrderImportTest` (+2).
+
 **Rental quotation gets a real document, matching the invoice (shipped
 2026-09-12):** `/app/rental/quotation` used to have no per-document PDF at
 all — its list's "PDF"/"Print" buttons only ever rendered the generic tabular

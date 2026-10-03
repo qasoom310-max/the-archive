@@ -28,6 +28,13 @@ use Throwable;
  * sheet (`rental:fix-order-figures` exists for a deliberate figure refresh).
  * A row that cannot be read is skipped and logged; it never fails the upload.
  *
+ * The old system's export is its ACTIVE ORDERS list (an RA# and a Hire
+ * Period, no Status column), so every row in it is a car still out — even a
+ * paid one past its return date, which the figures alone would call closed.
+ * Such a row lands active, and an order already on file that the historical
+ * migration brought in as closed is REOPENED (state only, never its money).
+ * An order closed here in the ERP (a return was recorded) is left closed.
+ *
  * "Extra" is not written: in the old system it sits OUTSIDE the total
  * (Amount + VAT = Total), so folding it in would change the total.
  */
@@ -52,11 +59,11 @@ final class OrderImporter
     ];
 
     /**
-     * @return array{imported: int, skipped: int, failed: int}
+     * @return array{imported: int, reopened: int, skipped: int, failed: int}
      */
     public function import(string $path): array
     {
-        $result = ['imported' => 0, 'skipped' => 0, 'failed' => 0];
+        $result = ['imported' => 0, 'reopened' => 0, 'skipped' => 0, 'failed' => 0];
 
         $handle = fopen($path, 'r');
         if ($handle === false) {
@@ -88,9 +95,11 @@ final class OrderImporter
             return $result;
         }
 
+        $activeList = isset($cols['reference'], $cols['period']) && ! isset($cols['status']);
+
         while (($row = fgetcsv($handle)) !== false) {
             try {
-                $outcome = $this->importRow($row, $cols);
+                $outcome = $this->importRow($row, $cols, $activeList);
             } catch (Throwable $e) {
                 Log::warning('Rental order import: row skipped', ['row' => $row, 'error' => $e->getMessage()]);
                 $outcome = 'failed';
@@ -108,9 +117,10 @@ final class OrderImporter
     /**
      * @param  array<int, string|null>  $row
      * @param  array<string, int>  $cols
-     * @return 'imported'|'skipped'|null  null = an empty line
+     * @param  bool  $activeList  the file is the old system's active-orders list
+     * @return 'imported'|'reopened'|'skipped'|null  null = an empty line
      */
-    private function importRow(array $row, array $cols): ?string
+    private function importRow(array $row, array $cols, bool $activeList): ?string
     {
         $cell = static fn (string $key): string => isset($cols[$key]) ? trim((string) ($row[$cols[$key]] ?? '')) : '';
 
@@ -130,8 +140,11 @@ final class OrderImporter
         // Dedup: the RA# when the file carries one; otherwise the same
         // customer, the same pick-up date and the same total is almost
         // certainly the same order re-appearing in a second export.
-        if ($reference !== '' && RentalOrder::query()->where('reference', $reference)->exists()) {
-            return 'skipped';
+        if ($reference !== '') {
+            $existing = RentalOrder::query()->where('reference', $reference)->first();
+            if ($existing !== null) {
+                return $activeList && $this->reopen($existing) ? 'reopened' : 'skipped';
+            }
         }
         if ($reference === '' && $pickup !== null && $this->alreadyImported($customerName, $pickup, $total)) {
             return 'skipped';
@@ -157,7 +170,7 @@ final class OrderImporter
             'total' => $total,
             'advance_amount' => $received,
             'balance' => $balance,
-            'state' => $this->orderState($cell('status'), $return, $balance),
+            'state' => $activeList ? RentalOrder::STATE_ACTIVE : $this->orderState($cell('status'), $return, $balance),
             'payment_status' => $this->paymentStatus($received, $total, $balance),
             'notes' => __('Imported from previous system.'),
         ]);
@@ -172,7 +185,43 @@ final class OrderImporter
         }
         $order->save();
 
+        if ($order->state === RentalOrder::STATE_ACTIVE) {
+            $this->markCarOut($order);
+        }
+
         return 'imported';
+    }
+
+    /**
+     * The old system still lists this order as active, but it sits here as
+     * closed — the historical migration judged it by its figures. Reopen it,
+     * state only. Never an order closed in the ERP itself (a return was
+     * recorded) and never a cancelled one: those are decisions made here.
+     */
+    private function reopen(RentalOrder $order): bool
+    {
+        if ($order->state !== RentalOrder::STATE_CLOSED || $order->returned_at !== null) {
+            return false;
+        }
+
+        $order->state = RentalOrder::STATE_ACTIVE;
+        $order->save();
+        $this->markCarOut($order);
+
+        return true;
+    }
+
+    /** An active order's car is out — but never overrule a car in maintenance. */
+    private function markCarOut(RentalOrder $order): void
+    {
+        if ($order->vehicle_id === null) {
+            return;
+        }
+
+        Vehicle::query()
+            ->whereKey($order->vehicle_id)
+            ->whereIn('status', [Vehicle::STATUS_AVAILABLE, Vehicle::STATUS_RESERVED])
+            ->update(['status' => Vehicle::STATUS_RENTED]);
     }
 
     private function money(string $raw): float

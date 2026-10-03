@@ -37,6 +37,9 @@ final class RentalOrderImportController
             ':imported orders imported, :skipped already on file skipped.',
             ['imported' => $result['imported'], 'skipped' => $result['skipped']],
         );
+        if ($result['reopened'] > 0) {
+            $message .= ' ' . __(':count orders still active in the file were reopened.', ['count' => $result['reopened']]);
+        }
         if ($result['failed'] > 0) {
             $message .= ' ' . __(':count rows could not be read and were skipped.', ['count' => $result['failed']]);
         }

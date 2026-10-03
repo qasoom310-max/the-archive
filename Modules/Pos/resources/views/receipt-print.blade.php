@@ -9,43 +9,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $orderReference }}</title>
     <style>
+        /* Sized for a till printer: big, dark type that fills the paper roll.
+           Grey text prints faint on thermal paper, so "muted" stays near-black. */
+        @page { margin: 3mm; }
         body {
-            font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-            color: #1f2937;
+            font-family: system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
+            color: #000;
             background: #f3f4f6;
             margin: 0;
             padding: 24px;
-            font-size: 13px;
+            font-size: 17px;
             line-height: 1.45;
         }
         .slip {
-            max-width: 340px;
+            max-width: 420px;
             margin: 0 auto;
             background: #fff;
-            padding: 24px 28px;
+            padding: 24px 22px;
             border-radius: 10px;
             box-shadow: 0 1px 4px rgba(0,0,0,.08);
         }
         .center { text-align: center; }
-        .muted { color: #6b7280; }
-        .small { font-size: 11px; }
-        .logo { display: block; margin: 0 auto 8px; max-height: 64px; max-width: 140px; }
-        h1 { font-size: 16px; margin: 0 0 4px; font-weight: 700; }
-        .sep { border-top: 1px dashed #d1d5db; margin: 14px 0; }
+        .muted { color: #222; }
+        .small { font-size: 15px; }
+        .logo { display: block; margin: 0 auto 10px; max-height: 110px; max-width: 220px; }
+        h1 { font-size: 24px; margin: 0 0 6px; font-weight: 800; }
+        .sep { border-top: 2px dashed #000; margin: 14px 0; }
         table { width: 100%; border-collapse: collapse; }
-        td { padding: 3px 0; vertical-align: top; }
-        td.r { text-align: end; }
-        .row-bold td { font-weight: 700; }
-        .row-emerald td { color: #059669; font-weight: 600; }
-        .footer { margin-top: 18px; font-size: 11px; color: #9ca3af; }
-        .actions { max-width: 340px; margin: 12px auto 0; text-align: center; }
+        td { padding: 5px 0; vertical-align: top; }
+        td.r { text-align: end; white-space: nowrap; padding-inline-start: 10px; }
+        .lines td { font-weight: 600; }
+        .row-bold td { font-weight: 800; font-size: 21px; padding-top: 8px; }
+        .row-emerald td { color: #000; font-weight: 700; }
+        .footer { margin-top: 18px; font-size: 16px; font-weight: 600; }
+        .actions { max-width: 420px; margin: 12px auto 0; text-align: center; }
         button {
             font: inherit; cursor: pointer; border: 0; border-radius: 8px;
             background: #1f2937; color: #fff; padding: 8px 18px;
         }
         @media print {
             body { background: #fff; padding: 0; }
-            .slip { box-shadow: none; border-radius: 0; }
+            /* Fill the whole paper width rather than a box in the middle of it. */
+            .slip { max-width: none; width: auto; padding: 0; box-shadow: none; border-radius: 0; }
             .actions { display: none; }
         }
     </style>
@@ -53,8 +58,8 @@
 <body onload="window.print()">
     <div class="slip">
         <div class="center">
-            @if ($logoPath !== null)
-                <img class="logo" src="{{ $logoPath }}" alt="{{ $companyName }}">
+            @if (($logoUrl ?? null) !== null)
+                <img class="logo" src="{{ $logoUrl }}" alt="">
             @endif
             <h1>{{ $companyName }}</h1>
             <div class="muted small">{{ $orderReference }} · {{ $orderedAt }}</div>
@@ -74,7 +79,7 @@
 
         <div class="sep"></div>
 
-        <table>
+        <table class="lines">
             @foreach ($lines as $line)
                 <tr>
                     <td>{{ $line['qty'] }}× {{ $line['name'] }}</td>
@@ -82,7 +87,7 @@
                 </tr>
                 @foreach ($line['condiments'] ?? [] as $condiment)
                     <tr>
-                        <td class="muted" style="padding-inline-start: 10px; font-size: 11px;">{{ $condiment }}</td>
+                        <td class="muted" style="padding-inline-start: 14px; font-size: 15px; font-weight: 400;">{{ $condiment }}</td>
                         <td></td>
                     </tr>
                 @endforeach

@@ -437,6 +437,26 @@ final class PosOrderSplitTest extends TestCase
         $this->assertStringContainsString($order->reference, $view->render());
     }
 
+    /** The browser slip needs the logo's web address, not its file path on the server. */
+    public function test_the_printed_receipt_loads_the_logo_by_its_url(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        \Illuminate\Support\Facades\Storage::disk('public')->put('company/logo.png', 'png');
+        \App\Erp\Settings\Setting::set('company.logo', 'company/logo.png');
+
+        $session = $this->openSession();
+        $cash = PosPaymentMethod::query()->create(['name' => 'Cash', 'is_cash' => true, 'sequence' => 1, 'active' => true]);
+        $order = $this->draft($session, [[$this->product('Coffee', 2.0), 1]]);
+        $order->registerPayment($cash, 2.0);
+        $order->finalizeSale();
+
+        $html = (new PosReceiptPrintController())(app(PosReceiptImageRenderer::class), (int) $order->id)->render();
+
+        $url = (string) \Illuminate\Support\Facades\Storage::disk('public')->url('company/logo.png');
+        $this->assertStringContainsString('src="' . e($url) . '"', $html);
+        $this->assertStringNotContainsString((string) \Illuminate\Support\Facades\Storage::disk('public')->path('company/logo.png'), $html);
+    }
+
     public function test_splitting_an_order_paid_with_store_credit_leaves_both_settled(): void
     {
         // A wallet-covered sale (customer paid nothing) split in two. Before

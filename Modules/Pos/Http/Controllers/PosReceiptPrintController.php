@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Pos\Http\Controllers;
 
+use App\Erp\Branding\Logo;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
@@ -28,6 +29,11 @@ final class PosReceiptPrintController extends Controller
             ->with('lines', 'payments.method', 'partner')
             ->findOrFail($id);
 
-        return view('pos::receipt-print', $renderer->receiptViewData($order));
+        // The shared view data carries the logo as a FILE path (DomPDF reads it
+        // off disk); a browser needs its public URL instead.
+        return view('pos::receipt-print', [
+            ...$renderer->receiptViewData($order),
+            'logoUrl' => Logo::url(),
+        ]);
     }
 }

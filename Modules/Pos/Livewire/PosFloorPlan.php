@@ -84,7 +84,7 @@ final class PosFloorPlan extends Component
         $this->floorId = is_int($first) ? $first : null;
     }
 
-    /** The "Unpaid orders" tab: every open order with items, across all floors. */
+    /** The "Pay-later orders" tab: the named orders settled later. */
     public bool $showUnpaid = false;
 
     public function selectFloor(int $floorId): void
@@ -157,11 +157,10 @@ final class PosFloorPlan extends Component
     }
 
     /**
-     * Every order in this session still waiting to be paid: a draft with at
-     * least one item, on any table or none, oldest first — named by its table
-     * and floor so the cashier can find it without walking the floors. A named
-     * pay-later order is listed even before its first item, or it would vanish
-     * the moment it was opened.
+     * The named pay-later orders still open in this session, oldest first.
+     * Only those: an ordinary table order is found on its floor, and the owner
+     * wants this tab to be the pay-later list alone. Listed even before the
+     * first item, or a new one would vanish the moment it was opened.
      *
      * @return list<array{id: int, reference: string, table: ?string, floor: ?string, named: bool, url: string, items: float, total: float, status: string, since: ?\Illuminate\Support\Carbon}>
      */
@@ -170,7 +169,7 @@ final class PosFloorPlan extends Component
         $orders = PosOrder::query()
             ->where('pos_session_id', $this->sessionId)
             ->where('state', OrderState::Draft)
-            ->where(fn ($q) => $q->whereHas('lines')->orWhereNotNull('tab_name'))
+            ->whereNotNull('tab_name')
             ->with('lines:id,pos_order_id,qty,prep_status')
             ->orderBy('created_at')->orderBy('id')
             ->get();

@@ -3072,6 +3072,8 @@
     "Trip :ref": "الرحلة :ref",
     "Create payment link — trip :ref": "إنشاء رابط دفع — الرحلة :ref",
     "Unpaid orders": "الطلبات الآجلة",
+    "Pay-later orders": "الطلبات الآجلة",
+    "No pay-later orders right now.": "لا توجد طلبات آجلة حالياً.",
     "New pay-later order": "طلب آجل جديد",
     "Pay-later order": "طلب آجل",
     "Start order": "بدء الطلب",

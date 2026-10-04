@@ -48,14 +48,14 @@
                     {{ $floor->name }}
                 </button>
             @endforeach
-            {{-- Every order still waiting to be paid, across all floors. --}}
+            {{-- The named pay-later orders. --}}
             <button type="button" wire:click="showUnpaidOrders"
                 @class([
                     'inline-flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold transition',
                     'bg-primary-400 text-chrome-900' => $showUnpaid,
                     'bg-white text-chrome-600 ring-1 ring-chrome-200 hover:bg-chrome-50' => ! $showUnpaid,
                 ])>
-                {{ __('Unpaid orders') }}
+                {{ __('Pay-later orders') }}
                 @if (count($unpaid) > 0)
                     <span class="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">{{ count($unpaid) }}</span>
                 @endif
@@ -89,7 +89,7 @@
 
             @if ($unpaid === [])
                 <div class="rounded-xl border border-dashed border-chrome-300 bg-white p-10 text-center text-sm text-chrome-500">
-                    {{ __('No unpaid orders right now.') }}
+                    {{ __('No pay-later orders right now.') }}
                 </div>
             @else
                 <div class="divide-y divide-chrome-100 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5">

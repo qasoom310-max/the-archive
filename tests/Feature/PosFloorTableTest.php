@@ -199,33 +199,30 @@ final class PosFloorTableTest extends TestCase
         $floor()->assertSee('bg-emerald-500 text-white');
     }
 
-    /** The "Unpaid orders" tab: every open order with items, named by table and floor. */
-    public function test_the_unpaid_tab_lists_open_orders_by_table_name(): void
+    /** The "Pay-later orders" tab lists the named orders only — table orders live on their floor. */
+    public function test_the_pay_later_tab_lists_only_named_orders(): void
     {
         $session = $this->openSession();
         $seven = $this->table(name: '7');
-        $majlis = $this->table(name: 'Majlis');
-        $empty = $this->table(name: '9');
         $tea = PosProduct::query()->create(['name' => 'Tea', 'price' => 1.5, 'tax_rate' => 0.0, 'active' => true]);
 
         Livewire::test(PosTerminal::class, ['session' => $session->id, 'table' => $seven->id])
-            ->call('addProduct', $tea->id)->call('addProduct', $tea->id);
-        Livewire::test(PosTerminal::class, ['session' => $session->id, 'table' => $majlis->id])
             ->call('addProduct', $tea->id);
-        // Opening a table without adding anything leaves an empty draft: not unpaid.
-        Livewire::test(PosTerminal::class, ['session' => $session->id, 'table' => $empty->id]);
+        Livewire::test(PosTerminal::class, ['session' => $session->id])->call('addProduct', $tea->id);
+        $named = PosOrder::openDraft($session->id, ['tab_name' => 'Bu Jassim']);
+        Livewire::test(PosTerminal::class, ['session' => $session->id, 'order' => $named->id])
+            ->call('addProduct', $tea->id)->call('addProduct', $tea->id);
 
         Livewire::test(PosFloorPlan::class, ['session' => $session->id])
-            ->assertSee(__('Unpaid orders'))
+            ->assertSee(__('Pay-later orders'))
             ->call('showUnpaidOrders')
             ->assertSet('showUnpaid', true)
-            ->assertSee(__('Table :name', ['name' => '7']))
-            ->assertSee('Majlis')
-            ->assertSee('Main floor')
+            ->assertSee('Bu Jassim')
             ->assertSee(__('Items: :count', ['count' => '2']))
-            ->assertSee(url('/app/pos/session/' . $session->id . '/table/' . $seven->id))
-            ->assertDontSee(__('Table :name', ['name' => '9']))
-            ->assertSee(\App\Erp\Money\Currencies::format(4.5)) // waiting in total
+            ->assertDontSee(__('Table :name', ['name' => '7']))
+            ->assertDontSee(url('/app/pos/session/' . $session->id . '/table/' . $seven->id))
+            ->assertDontSee(__('Without a table'))
+            ->assertSee(\App\Erp\Money\Currencies::format(3.0)) // only the named order's total
             ->call('selectFloor', $seven->pos_floor_id)
             ->assertSet('showUnpaid', false);
     }
@@ -321,7 +318,7 @@ final class PosFloorTableTest extends TestCase
 
         Livewire::test(PosFloorPlan::class, ['session' => $session->id])
             ->call('showUnpaidOrders')
-            ->assertSee(__('No unpaid orders right now.'));
+            ->assertSee(__('No pay-later orders right now.'));
     }
 
     public function test_dine_in_payment_is_gated_until_the_kitchen_is_ready(): void

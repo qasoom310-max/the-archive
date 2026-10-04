@@ -1461,7 +1461,7 @@ Available from **two entry points** sharing one modal + one service.
 | Receipt print | `Modules\Pos\Http\Controllers\PosReceiptPrintController` (GET `/app/pos/order/{id}/receipt`, `pos.order.receipt`, Read-gated) renders `pos::receipt-print` — a browser-printable slip reusing `PosReceiptImageRenderer::receiptViewData()` (made **public**) so it matches the WhatsApp PNG. Auto-opens the print dialog |
 | Tests | `tests/Feature/PosOrderSplitTest.php` (9 — draft move, partial-qty shrink, merge-into-existing-table-draft, can't-empty-original, empty-selection rejected, **paid split keeps stock + reapportions payment + combined cash unchanged**, modal create+dispatch, orders-list render+cancel, receipt-print renders) |
 
-**Floor plan — "Unpaid orders" tab (الطلبات الآجلة, shipped 2026-10-04):** a tab
+**Floor plan — "Pay-later orders" tab (الطلبات الآجلة, shipped 2026-10-04; narrowed the same day to NAMED orders only at the owner's request — table orders are found on their floor, and the earlier all-unpaid listing below no longer applies):** a tab
 after the floor tabs on `PosFloorPlan` (`showUnpaidOrders()` / `$showUnpaid`,
 cleared by `selectFloor()`) listing every DRAFT order **with at least one line**
 in this session — any floor, or none ("Without a table") — oldest first, each

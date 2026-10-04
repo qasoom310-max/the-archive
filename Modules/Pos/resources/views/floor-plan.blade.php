@@ -42,14 +42,70 @@
                 <button type="button" wire:click="selectFloor({{ $floor->id }})" wire:key="floor-{{ $floor->id }}"
                     @class([
                         'rounded-lg px-5 py-2 text-sm font-semibold transition',
-                        'bg-primary-400 text-chrome-900' => $floor->id === $floorId,
-                        'bg-white text-chrome-600 ring-1 ring-chrome-200 hover:bg-chrome-50' => $floor->id !== $floorId,
+                        'bg-primary-400 text-chrome-900' => ! $showUnpaid && $floor->id === $floorId,
+                        'bg-white text-chrome-600 ring-1 ring-chrome-200 hover:bg-chrome-50' => $showUnpaid || $floor->id !== $floorId,
                     ])>
                     {{ $floor->name }}
                 </button>
             @endforeach
+            {{-- Every order still waiting to be paid, across all floors. --}}
+            <button type="button" wire:click="showUnpaidOrders"
+                @class([
+                    'inline-flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold transition',
+                    'bg-primary-400 text-chrome-900' => $showUnpaid,
+                    'bg-white text-chrome-600 ring-1 ring-chrome-200 hover:bg-chrome-50' => ! $showUnpaid,
+                ])>
+                {{ __('Unpaid orders') }}
+                @if (count($unpaid) > 0)
+                    <span class="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">{{ count($unpaid) }}</span>
+                @endif
+            </button>
         </div>
 
+        @if ($showUnpaid)
+            @php
+                $dot = [
+                    'pending' => 'bg-red-500',
+                    'preparing' => 'bg-amber-400',
+                    'ready' => 'bg-emerald-500',
+                ];
+            @endphp
+            @if ($unpaid === [])
+                <div class="rounded-xl border border-dashed border-chrome-300 bg-white p-10 text-center text-sm text-chrome-500">
+                    {{ __('No unpaid orders right now.') }}
+                </div>
+            @else
+                <div class="divide-y divide-chrome-100 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5">
+                    @foreach ($unpaid as $u)
+                        <a href="{{ $u['url'] }}" wire:navigate wire:key="unpaid-{{ $u['id'] }}"
+                            class="flex items-center gap-4 px-4 py-3 transition hover:bg-chrome-50">
+                            <span class="size-3 shrink-0 rounded-full {{ $dot[$u['status']] ?? 'bg-emerald-500' }}"></span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate text-base font-semibold text-chrome-900">
+                                    {{ $u['table'] ?? __('Without a table') }}
+                                    @if ($u['floor'] !== null)
+                                        <span class="font-normal text-chrome-500">· {{ $u['floor'] }}</span>
+                                    @endif
+                                </span>
+                                <span class="block text-xs text-chrome-500">
+                                    {{ $u['reference'] }}
+                                    · {{ __('Items: :count', ['count' => rtrim(rtrim(number_format($u['items'], 3), '0'), '.')]) }}
+                                    @if ($u['since'] !== null)
+                                        · {{ __('open :time', ['time' => $u['since']->diffForHumans(null, true)]) }}
+                                    @endif
+                                </span>
+                            </span>
+                            <span class="shrink-0 text-end text-base font-bold text-chrome-900">{{ \App\Erp\Money\Currencies::format($u['total']) }}</span>
+                            <svg class="size-4 shrink-0 text-chrome-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" /></svg>
+                        </a>
+                    @endforeach
+                    <div class="flex items-center justify-between bg-chrome-50 px-4 py-3 text-sm">
+                        <span class="font-medium text-chrome-600">{{ __('Total waiting to be paid') }}</span>
+                        <span class="font-bold text-chrome-900">{{ \App\Erp\Money\Currencies::format(array_sum(array_column($unpaid, 'total'))) }}</span>
+                    </div>
+                </div>
+            @endif
+        @else
         {{-- Colour legend: what each table colour means. --}}
         @unless ($editing)
             <div class="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-chrome-500">
@@ -223,5 +279,6 @@
                 </div>
             @endif
         </div>
+        @endif
     @endif
 </div>

@@ -1461,6 +1461,17 @@ Available from **two entry points** sharing one modal + one service.
 | Receipt print | `Modules\Pos\Http\Controllers\PosReceiptPrintController` (GET `/app/pos/order/{id}/receipt`, `pos.order.receipt`, Read-gated) renders `pos::receipt-print` — a browser-printable slip reusing `PosReceiptImageRenderer::receiptViewData()` (made **public**) so it matches the WhatsApp PNG. Auto-opens the print dialog |
 | Tests | `tests/Feature/PosOrderSplitTest.php` (9 — draft move, partial-qty shrink, merge-into-existing-table-draft, can't-empty-original, empty-selection rejected, **paid split keeps stock + reapportions payment + combined cash unchanged**, modal create+dispatch, orders-list render+cancel, receipt-print renders) |
 
+**Floor plan — "Unpaid orders" tab (الطلبات الآجلة, shipped 2026-10-04):** a tab
+after the floor tabs on `PosFloorPlan` (`showUnpaidOrders()` / `$showUnpaid`,
+cleared by `selectFloor()`) listing every DRAFT order **with at least one line**
+in this session — any floor, or none ("Without a table") — oldest first, each
+named by its table and floor ("Table 7 · Ground floor"; a numeric table name gets
+the "Table :name" prefix, a named one like "Majlis" stays as it is), with the
+reference, item count, how long it has been open, its kitchen colour and total,
+plus the total still waiting. Tapping a row opens that table's terminal to take
+payment. A red count badge sits on the tab. An empty draft (a table opened with
+nothing added) is not listed. Tests: `PosFloorTableTest` (+2).
+
 **Network receipt printer — print straight to an Epson by IP (shipped 2026-10-03):**
 
 Sweileh Cafe's till has an Epson **TM-T20III** (network model). POS → Settings

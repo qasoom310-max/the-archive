@@ -84,9 +84,72 @@ final class PosFloorPlan extends Component
         $this->floorId = is_int($first) ? $first : null;
     }
 
+    /** The "Unpaid orders" tab: every open order with items, across all floors. */
+    public bool $showUnpaid = false;
+
     public function selectFloor(int $floorId): void
     {
         $this->floorId = $floorId;
+        $this->showUnpaid = false;
+    }
+
+    public function showUnpaidOrders(): void
+    {
+        $this->showUnpaid = true;
+        $this->editing = false;
+        $this->selectedId = null;
+    }
+
+    /**
+     * Every order in this session still waiting to be paid: a draft with at
+     * least one item, on any table or none, oldest first — named by its table
+     * and floor so the cashier can find it without walking the floors.
+     *
+     * @return list<array{id: int, reference: string, table: ?string, floor: ?string, url: string, items: float, total: float, status: string, since: ?\Illuminate\Support\Carbon}>
+     */
+    private function unpaidOrders(): array
+    {
+        $orders = PosOrder::query()
+            ->where('pos_session_id', $this->sessionId)
+            ->where('state', OrderState::Draft)
+            ->whereHas('lines')
+            ->with('lines:id,pos_order_id,qty,prep_status')
+            ->orderBy('created_at')->orderBy('id')
+            ->get();
+
+        // Tables by id (not $order->table — that name collides with Eloquent's $table).
+        $tables = PosTable::query()->whereIn('id', $orders->pluck('pos_table_id')->filter())->get()->keyBy('id');
+        $floors = PosFloor::query()->whereIn('id', $tables->pluck('pos_floor_id')->filter())->get()->keyBy('id');
+
+        $rows = [];
+        foreach ($orders as $order) {
+            $table = $order->pos_table_id !== null ? $tables->get($order->pos_table_id) : null;
+            $floor = $table !== null && $table->pos_floor_id !== null ? $floors->get($table->pos_floor_id) : null;
+
+            $rows[] = [
+                'id' => (int) $order->id,
+                'reference' => (string) $order->reference,
+                'table' => $table !== null ? self::tableLabel((string) $table->name) : null,
+                'floor' => $floor !== null ? (string) $floor->name : null,
+                'url' => $table !== null
+                    ? url('/app/pos/session/' . $this->sessionId . '/table/' . $table->id)
+                    : url('/app/pos/session/' . $this->sessionId . '/terminal'),
+                'items' => (float) $order->lines->sum('qty'),
+                'total' => (float) $order->total,
+                'status' => $this->kitchenStatus($order),
+                'since' => $order->created_at,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /** "5" reads as "Table 5"; a table already given a name ("Majlis") keeps it. */
+    private static function tableLabel(string $name): string
+    {
+        return preg_match('/^\d+$/', trim($name)) === 1
+            ? __('Table :name', ['name' => trim($name)])
+            : $name;
     }
 
     public function toggleEditing(): void
@@ -340,6 +403,8 @@ final class PosFloorPlan extends Component
             'vLines' => $lines->where('orientation', 'v')->pluck('position')->map(fn ($p): int => (int) $p)->all(),
             'hLines' => $lines->where('orientation', 'h')->pluck('position')->map(fn ($p): int => (int) $p)->all(),
             'hasTables' => PosTable::query()->where('active', true)->exists(),
+            'showUnpaid' => $this->showUnpaid,
+            'unpaid' => $this->unpaidOrders(),
         ]);
     }
 }

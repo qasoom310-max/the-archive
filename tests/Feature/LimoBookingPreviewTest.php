@@ -171,11 +171,17 @@ final class LimoBookingPreviewTest extends TestCase
     }
 
     /**
-     * The banner carries a 3-dot menu with the row actions; a round trip lists
-     * each trip's own service order and payment link under its number.
+     * The banner's 3-dot menu holds just View and the payment link — one link
+     * per trip on a round trip, named by its number. No View button outside it.
      */
-    public function test_the_success_banner_has_a_menu_with_each_trips_actions(): void
+    public function test_the_success_banner_menu_offers_view_and_a_payment_link_per_trip(): void
     {
+        $config = \Modules\Limousine\Models\LimoPortalConfiguration::current();
+        $config->portal_url = 'https://wanaan-bh.com';
+        $config->shared_secret = 'secret';
+        $config->enabled = true;
+        $config->save();
+
         $booking = $this->booking();
         $return = $booking->legs()->create([
             'sequence' => 1, 'service_type' => LimoLeg::TYPE_TRANSFER,
@@ -191,12 +197,10 @@ final class LimoBookingPreviewTest extends TestCase
         $html = Livewire::test(Bookings::class)->html();
 
         $this->assertStringContainsString('data-saved-booking-actions', $html);
-        $this->assertStringContainsString(url('/app/limousine/booking/' . $booking->id), $html);
-        $this->assertStringContainsString("wire:click=\"openEdit({$booking->id}, {$first->id})\"", $html);
+        $this->assertSame(1, substr_count($html, "wire:click=\"openPreview({$booking->id})\""), 'View lives only in the menu.');
         foreach ([$first, $return] as $trip) {
-            $this->assertStringContainsString(e(__('Trip :ref', ['ref' => $trip->reference])), $html);
-            $this->assertStringContainsString(url('/app/limousine/service-order/' . $trip->id), $html);
-            $this->assertStringContainsString("wire:click=\"openAssign({$trip->id})\"", $html);
+            $this->assertStringContainsString("wire:click=\"openPaymentLink({$trip->id})\"", $html);
+            $this->assertStringContainsString(e(__('Create payment link — trip :ref', ['ref' => $trip->reference])), $html);
         }
     }
 

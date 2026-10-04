@@ -88,12 +88,6 @@
              x-data="{ copied: false }">
             <span class="whitespace-pre-line">{{ session('booking_status') }}</span>
             <div class="flex shrink-0 items-center gap-1">
-                @if (session('booking_status_id'))
-                    <button type="button" wire:click="openPreview({{ (int) session('booking_status_id') }})"
-                            class="rounded-md px-2 py-1 text-xs font-semibold text-primary-700 transition hover:bg-primary-100">
-                        {{ __('View') }}
-                    </button>
-                @endif
                 <button type="button"
                         x-on:click="
                             $store.clip.copy(@js((string) session('booking_status')));
@@ -110,12 +104,10 @@
                     </svg>
                 </button>
 
-                {{-- The same actions as a row's 3-dot menu, for the booking just
-                     saved — so the next step (the service order, a payment
-                     link) doesn't mean hunting its rows in the list. A round
-                     trip lists each trip's own sheet and link by its number.
-                     Same `rowActionsMenu` (fixed panel, flips above when there
-                     is no room below) as the rows. --}}
+                {{-- The two things done right after booking: look at it, or send
+                     the customer a payment link (one per trip on a round trip,
+                     named by its number). Same `rowActionsMenu` (fixed panel,
+                     flips above when there is no room below) as the rows. --}}
                 @if ($savedBooking !== null)
                     @php
                         $bItem = 'flex w-full items-center gap-2 px-3 py-1.5 text-start text-xs font-medium text-chrome-800 hover:bg-chrome-50';
@@ -144,50 +136,16 @@
                                 </svg>
                                 {{ __('View booking') }}
                             </button>
-                            <a href="{{ url('/app/limousine/booking/' . $savedBooking->id) }}" wire:navigate @click="open = false" class="{{ $bItem }}">
-                                <svg class="{{ $bIcon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
-                                </svg>
-                                {{ __('Open full booking') }}
-                            </a>
-                            @if ($canAssign && $bTrips->isNotEmpty())
-                                <button type="button" @click="open = false"
-                                        wire:click="openEdit({{ $savedBooking->id }}, {{ $bTrips->first()->id }})" class="{{ $bItem }}">
-                                    <svg class="{{ $bIcon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/>
-                                    </svg>
-                                    {{ __('Edit booking details') }}
-                                </button>
-                            @endif
-
-                            @foreach ($bTrips as $trip)
-                                <div class="my-1 border-t border-chrome-100"></div>
-                                @if ($bMany)
-                                    <p class="px-3 pb-0.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Trip :ref', ['ref' => $trip->reference]) }}</p>
-                                @endif
-                                @if ($canAssign && ! in_array($trip->status, ['completed', 'cancelled'], true))
-                                    <button type="button" @click="open = false" wire:click="openAssign({{ $trip->id }})" class="{{ $bItem }}">
-                                        <svg class="{{ $bIcon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/>
-                                        </svg>
-                                        {{ __('Assign car & driver') }}
-                                    </button>
-                                @endif
-                                <a href="{{ url('/app/limousine/service-order/' . $trip->id) }}" target="_blank" rel="noopener" @click="open = false" class="{{ $bItem }}">
-                                    <svg class="{{ $bIcon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
-                                    </svg>
-                                    {{ __('Service order (PDF)') }}
-                                </a>
-                                @if ($portalOn)
+                            @if ($portalOn)
+                                @foreach ($bTrips as $trip)
                                     <button type="button" @click="open = false" wire:click="openPaymentLink({{ $trip->id }})" class="{{ $bItem }}">
                                         <svg class="{{ $bIcon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3M3.75 19.5h16.5A2.25 2.25 0 0 0 22.5 17.25V6.75A2.25 2.25 0 0 0 20.25 4.5H3.75A2.25 2.25 0 0 0 1.5 6.75v10.5A2.25 2.25 0 0 0 3.75 19.5Z"/>
                                         </svg>
-                                        {{ __('Create payment link') }}
+                                        {{ $bMany ? __('Create payment link — trip :ref', ['ref' => $trip->reference]) : __('Create payment link') }}
                                     </button>
-                                @endif
-                            @endforeach
+                                @endforeach
+                            @endif
                         </div>
                     </div>
                 @endif

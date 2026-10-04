@@ -1472,6 +1472,21 @@ plus the total still waiting. Tapping a row opens that table's terminal to take
 payment. A red count badge sits on the tab. An empty draft (a table opened with
 nothing added) is not listed. Tests: `PosFloorTableTest` (+2).
 
+**…plus named pay-later orders (shipped 2026-10-04).** The tab has a "New
+pay-later order" box: type a name ("Bu Hassan", "Garden corner") → `openNamedOrder()`
+creates a draft with `pos_orders.tab_name` (POS migration `2026_10_04_700073`, no
+table) and redirects to the terminal route `/app/pos/session/{s}/order/{o}`
+(`pos.terminal.order`). The same name (case-insensitive) reopens the open one
+instead of doubling it. `PosTerminal::mount(..., ?int $order)` binds ONLY a draft
+of this session that has a `tab_name` (else 404), sets `#[Locked] $fromFloor` so
+`finishToFloor()` returns to the floor plan after payment, and the header shows
+the name + "Pay-later order". **The walk-in lane now excludes named orders**
+(`whereNull('tab_name')` in `resolveDraftOrder`), or "Dine-out" would pick one up.
+A named order is listed even before its first item; an empty one can be removed
+(`discardNamedOrder()` → Cancelled). New-draft numbering moved into
+`PosOrder::openDraft()` (session-locked, MAX+1) shared by the terminal and the
+floor plan. Tests: `PosFloorTableTest` (+3).
+
 **Network receipt printer — print straight to an Epson by IP (shipped 2026-10-03):**
 
 Sweileh Cafe's till has an Epson **TM-T20III** (network model). POS → Settings

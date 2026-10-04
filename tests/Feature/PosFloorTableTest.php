@@ -230,6 +230,90 @@ final class PosFloorTableTest extends TestCase
             ->assertSet('showUnpaid', false);
     }
 
+    /** A pay-later order opened under a name, settled later from the same tab. */
+    public function test_a_named_pay_later_order_is_opened_listed_and_paid(): void
+    {
+        $session = $this->openSession();
+        $this->table();
+        \Modules\Pos\Models\PosPaymentMethod::query()->create(['name' => 'Cash', 'is_cash' => true, 'sequence' => 10]);
+        $tea = PosProduct::query()->create(['name' => 'Tea', 'price' => 1.5, 'tax_rate' => 0.0, 'active' => true]);
+
+        $floor = Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('showUnpaidOrders')
+            ->assertSee(__('New pay-later order'))
+            ->set('newOrderName', '  Bu   Hassan ')
+            ->call('openNamedOrder');
+
+        $order = PosOrder::query()->whereNotNull('tab_name')->sole();
+        $this->assertSame('Bu Hassan', $order->tab_name);
+        $this->assertNull($order->pos_table_id);
+        $floor->assertRedirect(url('/app/pos/session/' . $session->id . '/order/' . $order->id));
+
+        // The same name again reopens it rather than starting a second one.
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->set('newOrderName', 'bu hassan')
+            ->call('openNamedOrder')
+            ->assertRedirect(url('/app/pos/session/' . $session->id . '/order/' . $order->id));
+        $this->assertSame(1, PosOrder::query()->whereNotNull('tab_name')->count());
+
+        // Listed under its name even before its first item.
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('showUnpaidOrders')
+            ->assertSee('Bu Hassan')
+            ->assertSee(__('Pay-later order'))
+            ->assertSee(url('/app/pos/session/' . $session->id . '/order/' . $order->id));
+
+        // The walk-in lane is a different order; the named one is untouched.
+        Livewire::test(PosTerminal::class, ['session' => $session->id])->call('addProduct', $tea->id);
+        $this->assertSame(0, $order->lines()->count());
+
+        // Ring it up and settle it: back to the floor plan afterwards.
+        Livewire::test(PosTerminal::class, ['session' => $session->id, 'order' => $order->id])
+            ->assertSee('Bu Hassan')
+            ->call('addProduct', $tea->id)
+            ->call('startPayment')
+            ->set('tendered', '1.5')
+            ->call('addPayment')
+            ->call('validateOrder')
+            ->call('finishToFloor')
+            ->assertRedirect(url('/app/pos/session/' . $session->id . '/floor'));
+
+        $this->assertSame(OrderState::Done, $order->fresh()?->state);
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('showUnpaidOrders')
+            ->assertDontSee('Bu Hassan');
+    }
+
+    public function test_a_pay_later_order_needs_a_name_and_an_empty_one_can_be_removed(): void
+    {
+        $session = $this->openSession();
+        $this->table();
+
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->set('newOrderName', '   ')
+            ->call('openNamedOrder')
+            ->assertHasErrors('newOrderName');
+        $this->assertSame(0, PosOrder::query()->whereNotNull('tab_name')->count());
+
+        $order = PosOrder::openDraft($session->id, ['tab_name' => 'Garden corner']);
+        Livewire::test(PosFloorPlan::class, ['session' => $session->id])
+            ->call('showUnpaidOrders')
+            ->call('discardNamedOrder', $order->id)
+            ->assertDontSee('Garden corner');
+        $this->assertSame(OrderState::Cancelled, $order->fresh()?->state);
+    }
+
+    public function test_the_order_link_only_opens_a_named_order(): void
+    {
+        $session = $this->openSession();
+        $table = $this->table();
+        Livewire::test(PosTerminal::class, ['session' => $session->id, 'table' => $table->id]);
+        $tableOrder = PosOrder::query()->where('pos_table_id', $table->id)->sole();
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id, 'order' => $tableOrder->id])
+            ->assertNotFound();
+    }
+
     public function test_the_unpaid_tab_says_so_when_everything_is_paid(): void
     {
         $session = $this->openSession();

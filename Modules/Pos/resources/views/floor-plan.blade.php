@@ -70,6 +70,23 @@
                     'ready' => 'bg-emerald-500',
                 ];
             @endphp
+
+            {{-- A pay-later order known by a name, not a table on the floor. --}}
+            @if ($canCreateOrder)
+                <form wire:submit="openNamedOrder" class="mb-4 rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
+                    <label for="pay-later-name" class="mb-1 block text-sm font-semibold text-chrome-800">{{ __('New pay-later order') }}</label>
+                    <p class="mb-3 text-xs text-chrome-500">{{ __('Type a name for the order (a customer or a place, e.g. Abu Ali or Outside bench). It stays here under that name until it is paid.') }}</p>
+                    <div class="flex flex-wrap gap-2">
+                        <input id="pay-later-name" type="text" wire:model="newOrderName" maxlength="80" autocomplete="off"
+                            placeholder="{{ __('Name') }}" class="o-input min-w-0 flex-1">
+                        <button type="submit" class="o-btn-primary" wire:loading.attr="disabled" wire:target="openNamedOrder">
+                            {{ __('Start order') }}
+                        </button>
+                    </div>
+                    @error('newOrderName')<p class="mt-1 text-xs font-medium text-red-600">{{ $message }}</p>@enderror
+                </form>
+            @endif
+
             @if ($unpaid === [])
                 <div class="rounded-xl border border-dashed border-chrome-300 bg-white p-10 text-center text-sm text-chrome-500">
                     {{ __('No unpaid orders right now.') }}
@@ -77,27 +94,39 @@
             @else
                 <div class="divide-y divide-chrome-100 overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5">
                     @foreach ($unpaid as $u)
-                        <a href="{{ $u['url'] }}" wire:navigate wire:key="unpaid-{{ $u['id'] }}"
-                            class="flex items-center gap-4 px-4 py-3 transition hover:bg-chrome-50">
-                            <span class="size-3 shrink-0 rounded-full {{ $dot[$u['status']] ?? 'bg-emerald-500' }}"></span>
-                            <span class="min-w-0 flex-1">
-                                <span class="block truncate text-base font-semibold text-chrome-900">
-                                    {{ $u['table'] ?? __('Without a table') }}
-                                    @if ($u['floor'] !== null)
-                                        <span class="font-normal text-chrome-500">· {{ $u['floor'] }}</span>
-                                    @endif
+                        <div wire:key="unpaid-{{ $u['id'] }}" class="flex items-center transition hover:bg-chrome-50">
+                            <a href="{{ $u['url'] }}" wire:navigate class="flex min-w-0 flex-1 items-center gap-4 px-4 py-3">
+                                <span class="size-3 shrink-0 rounded-full {{ $u['items'] > 0 ? ($dot[$u['status']] ?? 'bg-emerald-500') : 'bg-chrome-300' }}"></span>
+                                <span class="min-w-0 flex-1">
+                                    <span class="block truncate text-base font-semibold text-chrome-900">
+                                        {{ $u['table'] ?? __('Without a table') }}
+                                        @if ($u['named'])
+                                            <span class="font-normal text-chrome-500">· {{ __('Pay-later order') }}</span>
+                                        @elseif ($u['floor'] !== null)
+                                            <span class="font-normal text-chrome-500">· {{ $u['floor'] }}</span>
+                                        @endif
+                                    </span>
+                                    <span class="block text-xs text-chrome-500">
+                                        {{ $u['reference'] }}
+                                        · {{ __('Items: :count', ['count' => rtrim(rtrim(number_format($u['items'], 3), '0'), '.')]) }}
+                                        @if ($u['since'] !== null)
+                                            · {{ __('open :time', ['time' => $u['since']->diffForHumans(null, true)]) }}
+                                        @endif
+                                    </span>
                                 </span>
-                                <span class="block text-xs text-chrome-500">
-                                    {{ $u['reference'] }}
-                                    · {{ __('Items: :count', ['count' => rtrim(rtrim(number_format($u['items'], 3), '0'), '.')]) }}
-                                    @if ($u['since'] !== null)
-                                        · {{ __('open :time', ['time' => $u['since']->diffForHumans(null, true)]) }}
-                                    @endif
-                                </span>
-                            </span>
-                            <span class="shrink-0 text-end text-base font-bold text-chrome-900">{{ \App\Erp\Money\Currencies::format($u['total']) }}</span>
-                            <svg class="size-4 shrink-0 text-chrome-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" /></svg>
-                        </a>
+                                <span class="shrink-0 text-end text-base font-bold text-chrome-900">{{ \App\Erp\Money\Currencies::format($u['total']) }}</span>
+                                <svg class="size-4 shrink-0 text-chrome-400 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" /></svg>
+                            </a>
+                            {{-- A named order nothing was added to can just go. --}}
+                            @if ($u['named'] && $u['items'] <= 0)
+                                <button type="button" wire:click="discardNamedOrder({{ $u['id'] }})"
+                                    wire:confirm="{{ __('Remove this empty order?') }}"
+                                    class="me-3 rounded-lg p-2 text-chrome-400 transition hover:bg-red-50 hover:text-red-600"
+                                    title="{{ __('Remove') }}" aria-label="{{ __('Remove') }}">
+                                    <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                                </button>
+                            @endif
+                        </div>
                     @endforeach
                     <div class="flex items-center justify-between bg-chrome-50 px-4 py-3 text-sm">
                         <span class="font-medium text-chrome-600">{{ __('Total waiting to be paid') }}</span>

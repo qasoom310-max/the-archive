@@ -130,6 +130,10 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/pos/session/{session}/table/{table}', PosTerminal::class)
         ->whereNumber('session')->whereNumber('table')->name('pos.terminal.table');
 
+    // A named pay-later order, opened from the floor plan's Unpaid orders tab.
+    Route::get('/app/pos/session/{session}/order/{order}', PosTerminal::class)
+        ->whereNumber('session')->whereNumber('order')->name('pos.terminal.order');
+
     // Terminal with no table — walk-in / quick sale.
     Route::get('/app/pos/session/{session}/terminal', PosTerminal::class)
         ->whereNumber('session')->name('pos.terminal');

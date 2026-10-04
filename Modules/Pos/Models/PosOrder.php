@@ -31,6 +31,7 @@ use Modules\Pos\Services\PosSaleEraser;
  * @property string $reference
  * @property int $pos_session_id
  * @property int|null $pos_table_id
+ * @property string|null $tab_name A pay-later order's name, when it has no table
  * @property int|null $guest_count
  * @property int|null $partner_id
  * @property int|null $user_id
@@ -77,7 +78,7 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
 
     /** @var list<string> */
     protected $fillable = [
-        'reference', 'pos_session_id', 'pos_table_id', 'guest_count',
+        'reference', 'pos_session_id', 'pos_table_id', 'tab_name', 'guest_count',
         'partner_id', 'user_id', 'state', 'channel',
         'subtotal', 'tax_total', 'total', 'paid_total', 'change_due',
         'customer_discount_percent', 'customer_discount_total',
@@ -527,6 +528,35 @@ final class PosOrder extends Model implements Chatterable, DefinesIrModel
         });
 
         event(new PosOrderPaid($this));
+    }
+
+    /**
+     * Open a new draft on a session under the next reference (POS/{session}/{seq}).
+     *
+     * The session row is locked so two terminals can't take the same number,
+     * and the sequence is MAX + 1 rather than COUNT + 1, so a deleted order
+     * never hands its number out again.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public static function openDraft(int $sessionId, array $attributes = []): self
+    {
+        return DB::transaction(function () use ($sessionId, $attributes): self {
+            PosSession::query()->whereKey($sessionId)->lockForUpdate()->first();
+
+            $maxSeq = (int) self::query()
+                ->where('pos_session_id', $sessionId)
+                ->pluck('reference')
+                ->map(static fn (string $r): int => (int) substr($r, (int) strrpos($r, '/') + 1))
+                ->max();
+
+            return self::query()->create([
+                ...$attributes,
+                'pos_session_id' => $sessionId,
+                'reference' => sprintf('POS/%d/%04d', $sessionId, $maxSeq + 1),
+                'state' => OrderState::Draft,
+            ]);
+        });
     }
 
     /**

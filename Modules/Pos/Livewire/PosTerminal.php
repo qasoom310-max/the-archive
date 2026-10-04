@@ -66,6 +66,10 @@ final class PosTerminal extends Component
     #[Locked]
     public int $orderId;
 
+    /** Opened from the floor plan as a named pay-later order: paying returns there. */
+    #[Locked]
+    public bool $fromFloor = false;
+
     public string $search = '';
 
     public ?int $categoryId = null;
@@ -150,7 +154,7 @@ final class PosTerminal extends Component
     /** Set when a remote order is missing its required customer name / phone. */
     public string $channelError = '';
 
-    public function mount(int $session, ?int $table = null): void
+    public function mount(int $session, ?int $table = null, ?int $order = null): void
     {
         $pos = PosSession::query()->findOrFail($session);
 
@@ -166,7 +170,23 @@ final class PosTerminal extends Component
         }
 
         $this->sessionId = $pos->id;
-        $this->orderId = $this->resolveDraftOrder($pos)->id;
+
+        // A named pay-later order (from the floor plan's Unpaid orders tab) is
+        // opened by its own id — it has no table to be found by. Only an open
+        // draft of THIS session that really is a named order.
+        if ($order !== null) {
+            $named = PosOrder::query()
+                ->whereKey($order)
+                ->where('pos_session_id', $pos->id)
+                ->where('state', OrderState::Draft)
+                ->whereNotNull('tab_name')
+                ->first();
+            abort_if($named === null, 404);
+            $this->orderId = $named->id;
+            $this->fromFloor = true;
+        } else {
+            $this->orderId = $this->resolveDraftOrder($pos)->id;
+        }
         $this->hydrateChannelFields();
 
         // Arriving from the Remote sales dashboard's "New remote order" button
@@ -295,13 +315,15 @@ final class PosTerminal extends Component
             PosSession::query()->whereKey($session->id)->lockForUpdate()->first();
 
             // Scope the draft to THIS table (or the table-less walk-in lane)
-            // so every table keeps its own running order independently.
+            // so every table keeps its own running order independently. A
+            // named pay-later order has no table either, but it is not the
+            // walk-in lane: it is only ever reached through its own link.
             $existing = PosOrder::query()
                 ->where('pos_session_id', $session->id)
                 ->where('state', OrderState::Draft)
                 ->when(
                     $this->tableId === null,
-                    fn ($q) => $q->whereNull('pos_table_id'),
+                    fn ($q) => $q->whereNull('pos_table_id')->whereNull('tab_name'),
                     fn ($q) => $q->where('pos_table_id', $this->tableId),
                 )
                 ->latest('id')
@@ -311,25 +333,9 @@ final class PosTerminal extends Component
                 return $existing;
             }
 
-            // Next sequence = MAX(seq) + 1, NOT count() + 1. Using count()
-            // breaks the moment any order is deleted (count goes down but
-            // the unique reference column doesn't), reusing the deleted
-            // row's number on the next terminal open. Parse the trailing
-            // digits off every reference for this session in PHP — small
-            // dataset (orders in one session), portable across SQLite/
-            // MySQL/Postgres without driver-specific SUBSTRING_INDEX.
-            $maxSeq = (int) PosOrder::query()
-                ->where('pos_session_id', $session->id)
-                ->pluck('reference')
-                ->map(static fn (string $r): int => (int) substr($r, (int) strrpos($r, '/') + 1))
-                ->max();
-
-            return PosOrder::query()->create([
-                'pos_session_id' => $session->id,
+            return PosOrder::openDraft($session->id, [
                 'pos_table_id' => $this->tableId,
                 'user_id' => $this->currentUserId(),
-                'reference' => sprintf('POS/%d/%04d', $session->id, $maxSeq + 1),
-                'state' => OrderState::Draft,
             ]);
         });
     }
@@ -999,7 +1005,7 @@ final class PosTerminal extends Component
      */
     public function finishToFloor(): void
     {
-        if ($this->tableId !== null) {
+        if ($this->tableId !== null || $this->fromFloor) {
             $this->redirect(url('/app/pos/session/' . $this->sessionId . '/floor'), navigate: true);
 
             return;

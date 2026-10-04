@@ -25,6 +25,14 @@
                     </p>
                     <a href="{{ url('/app/pos/session/' . $sessionId . '/floor') }}" wire:navigate
                         class="text-xs text-chrome-400 hover:text-primary-700">&larr; {{ __('Floor') }} · {{ $order->reference }}</a>
+                @elseif ($order->tab_name !== null)
+                    {{-- A named pay-later order: known by its name, not a table. --}}
+                    <p class="truncate text-sm font-bold text-chrome-900">
+                        {{ $order->tab_name }}
+                        <span class="ms-1 text-xs font-normal text-chrome-400">· {{ __('Pay-later order') }}</span>
+                    </p>
+                    <a href="{{ url('/app/pos/session/' . $sessionId . '/floor') }}" wire:navigate
+                        class="text-xs text-chrome-400 hover:text-primary-700">&larr; {{ __('Floor') }} · {{ $order->reference }}</a>
                 @else
                     <p class="text-sm font-bold text-chrome-900">{{ $order->reference }}</p>
                     <a href="{{ url('/app/pos/session/' . $sessionId) }}" wire:navigate

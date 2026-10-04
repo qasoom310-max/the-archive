@@ -93,6 +93,62 @@ final class PosFloorPlan extends Component
         $this->showUnpaid = false;
     }
 
+    /** The name typed for a new pay-later order ("Abu Ali", "Outside bench"). */
+    public string $newOrderName = '';
+
+    /**
+     * Open a pay-later order under a NAME instead of a table and go to the
+     * register for it. An open one already carrying that name is reopened
+     * rather than doubled — the cashier typing "Abu Ali" twice means the same
+     * customer's tab.
+     */
+    public function openNamedOrder(): void
+    {
+        app(AccessControl::class)->authorize(Auth::user(), 'pos.order', Permission::Create);
+        $session = PosSession::query()->findOrFail($this->sessionId);
+        abort_unless($session->state === SessionState::Opened, 403, 'The register is closed.');
+
+        $this->newOrderName = trim(preg_replace('/\s+/u', ' ', $this->newOrderName) ?? '');
+        $this->validate(
+            ['newOrderName' => ['required', 'string', 'max:80']],
+            [],
+            ['newOrderName' => __('Name')],
+        );
+
+        $existing = PosOrder::query()
+            ->where('pos_session_id', $this->sessionId)
+            ->where('state', OrderState::Draft)
+            ->whereNotNull('tab_name')
+            ->get(['id', 'tab_name'])
+            ->first(fn (PosOrder $o): bool => mb_strtolower((string) $o->tab_name) === mb_strtolower($this->newOrderName));
+
+        $order = $existing ?? PosOrder::openDraft($this->sessionId, [
+            'tab_name' => $this->newOrderName,
+            'user_id' => Auth::id(),
+        ]);
+
+        $this->redirect(url('/app/pos/session/' . $this->sessionId . '/order/' . $order->id), navigate: true);
+    }
+
+    /** Drop a named pay-later order that never got an item — nothing to pay. */
+    public function discardNamedOrder(int $orderId): void
+    {
+        app(AccessControl::class)->authorize(Auth::user(), 'pos.order', Permission::Write);
+
+        $order = PosOrder::query()
+            ->whereKey($orderId)
+            ->where('pos_session_id', $this->sessionId)
+            ->where('state', OrderState::Draft)
+            ->whereNotNull('tab_name')
+            ->whereDoesntHave('lines')
+            ->first();
+
+        if ($order !== null) {
+            $order->state = OrderState::Cancelled;
+            $order->save();
+        }
+    }
+
     public function showUnpaidOrders(): void
     {
         $this->showUnpaid = true;
@@ -103,16 +159,18 @@ final class PosFloorPlan extends Component
     /**
      * Every order in this session still waiting to be paid: a draft with at
      * least one item, on any table or none, oldest first — named by its table
-     * and floor so the cashier can find it without walking the floors.
+     * and floor so the cashier can find it without walking the floors. A named
+     * pay-later order is listed even before its first item, or it would vanish
+     * the moment it was opened.
      *
-     * @return list<array{id: int, reference: string, table: ?string, floor: ?string, url: string, items: float, total: float, status: string, since: ?\Illuminate\Support\Carbon}>
+     * @return list<array{id: int, reference: string, table: ?string, floor: ?string, named: bool, url: string, items: float, total: float, status: string, since: ?\Illuminate\Support\Carbon}>
      */
     private function unpaidOrders(): array
     {
         $orders = PosOrder::query()
             ->where('pos_session_id', $this->sessionId)
             ->where('state', OrderState::Draft)
-            ->whereHas('lines')
+            ->where(fn ($q) => $q->whereHas('lines')->orWhereNotNull('tab_name'))
             ->with('lines:id,pos_order_id,qty,prep_status')
             ->orderBy('created_at')->orderBy('id')
             ->get();
@@ -129,11 +187,16 @@ final class PosFloorPlan extends Component
             $rows[] = [
                 'id' => (int) $order->id,
                 'reference' => (string) $order->reference,
-                'table' => $table !== null ? self::tableLabel((string) $table->name) : null,
+                'table' => $order->tab_name !== null
+                    ? (string) $order->tab_name
+                    : ($table !== null ? self::tableLabel((string) $table->name) : null),
                 'floor' => $floor !== null ? (string) $floor->name : null,
-                'url' => $table !== null
-                    ? url('/app/pos/session/' . $this->sessionId . '/table/' . $table->id)
-                    : url('/app/pos/session/' . $this->sessionId . '/terminal'),
+                'named' => $order->tab_name !== null,
+                'url' => match (true) {
+                    $order->tab_name !== null => url('/app/pos/session/' . $this->sessionId . '/order/' . $order->id),
+                    $table !== null => url('/app/pos/session/' . $this->sessionId . '/table/' . $table->id),
+                    default => url('/app/pos/session/' . $this->sessionId . '/terminal'),
+                },
                 'items' => (float) $order->lines->sum('qty'),
                 'total' => (float) $order->total,
                 'status' => $this->kitchenStatus($order),
@@ -405,6 +468,7 @@ final class PosFloorPlan extends Component
             'hasTables' => PosTable::query()->where('active', true)->exists(),
             'showUnpaid' => $this->showUnpaid,
             'unpaid' => $this->unpaidOrders(),
+            'canCreateOrder' => app(AccessControl::class)->allows(Auth::user(), 'pos.order', Permission::Create),
         ]);
     }
 }

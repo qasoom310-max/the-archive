@@ -170,6 +170,36 @@ final class LimoBookingPreviewTest extends TestCase
         $component->call('openPreview', $booking->id)->assertSet('previewingId', $booking->id);
     }
 
+    /**
+     * The banner carries a 3-dot menu with the row actions; a round trip lists
+     * each trip's own service order and payment link under its number.
+     */
+    public function test_the_success_banner_has_a_menu_with_each_trips_actions(): void
+    {
+        $booking = $this->booking();
+        $return = $booking->legs()->create([
+            'sequence' => 1, 'service_type' => LimoLeg::TYPE_TRANSFER,
+            'from_location' => 'Hotel', 'to_location' => 'Airport',
+            'start_at' => '2026-09-08 18:00:00', 'days' => 1,
+            'rate' => 45.0, 'rate_basis' => 'trip', 'net_amount' => 45.0,
+            'status' => LimoLeg::STATUS_QUEUE,
+        ]);
+        $first = $booking->legs()->orderBy('sequence')->firstOrFail();
+        session()->flash('booking_status', 'Booking done successfully.');
+        session()->flash('booking_status_id', $booking->id);
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        $this->assertStringContainsString('data-saved-booking-actions', $html);
+        $this->assertStringContainsString(url('/app/limousine/booking/' . $booking->id), $html);
+        $this->assertStringContainsString("wire:click=\"openEdit({$booking->id}, {$first->id})\"", $html);
+        foreach ([$first, $return] as $trip) {
+            $this->assertStringContainsString(e(__('Trip :ref', ['ref' => $trip->reference])), $html);
+            $this->assertStringContainsString(url('/app/limousine/service-order/' . $trip->id), $html);
+            $this->assertStringContainsString("wire:click=\"openAssign({$trip->id})\"", $html);
+        }
+    }
+
     /** No flashed id (a plain status message, or none at all) — no View button. */
     public function test_no_view_button_without_a_flashed_booking_id(): void
     {

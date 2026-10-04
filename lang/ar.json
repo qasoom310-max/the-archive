@@ -3069,6 +3069,7 @@
     ":count rows could not be read and were skipped.": "تعذّرت قراءة :count صفوف وتم تخطيها.",
     ":count orders still active in the file were reopened.": "أُعيد فتح :count طلبات ما زالت نشطة في الملف.",
     "Print every receipt automatically on this device": "اطبع كل إيصال تلقائياً على هذا الجهاز",
+    "Trip :ref": "الرحلة :ref",
     "Unpaid orders": "الطلبات الآجلة",
     "Without a table": "بدون طاولة",
     "No unpaid orders right now.": "لا توجد طلبات آجلة حالياً.",

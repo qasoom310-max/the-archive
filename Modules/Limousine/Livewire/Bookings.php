@@ -1346,7 +1346,15 @@ final class Bookings extends Component
             ? LimoBooking::query()->with(['customer:id,name,type,phone,email', 'legs' => fn ($q) => $q->orderBy('sequence')])->find($this->previewingId)
             : null;
 
+        // The booking the "Booking done successfully" banner is about, with its
+        // trips, so the banner's 3-dot menu offers the same actions as a row.
+        $savedId = session('booking_status_id');
+        $savedBooking = is_numeric($savedId)
+            ? LimoBooking::query()->with('legs')->find((int) $savedId)
+            : null;
+
         return view('limousine::bookings', [
+            'savedBooking' => $savedBooking,
             'dayHeader' => $this->dayHeader(),
             'legs' => $legs,
             // Flattened through the shared builder so the table prints exactly

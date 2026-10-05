@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Storage;
  * @property int $legable_id
  * @property int $sequence
  * @property string|null $reference  Plain running number, e.g. "10000"
+ * @property string|null $previous_reference  The number it had before 2026_10_05_950039 closed the old numbers up
  * @property string|null $status     queue|confirmed|active|completed|cancelled; null on quotation legs
  * @property string $service_type
  * @property int|null $car_id

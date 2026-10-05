@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Limousine\Support;
 
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoInvoice;
@@ -33,6 +34,14 @@ use Throwable;
  */
 final class BookingImporter
 {
+    private ?bool $hasPreviousReference = null;
+
+    /** Asked once per import, not once per row. */
+    private function hasPreviousReference(): bool
+    {
+        return $this->hasPreviousReference ??= Schema::hasColumn('limo_legs', 'previous_reference');
+    }
+
     /** @var array<string, string> spreadsheet header (lower) → canonical key */
     private const HEADER_MAP = [
         'reference' => 'reference', 'booking #' => 'reference', 'booking no' => 'reference',
@@ -136,7 +145,11 @@ final class BookingImporter
             $tripNumber = preg_match('/^\d{5,}$/', $referenceRaw) === 1 ? (int) $referenceRaw : 0;
 
             $exists = $tripNumber > 0
-                ? LimoLeg::query()->where('reference', (string) $tripNumber)->exists()
+                ? LimoLeg::query()->where('reference', (string) $tripNumber)
+                    // An export taken before the old numbers were closed up
+                    // (2026_10_05_950039) still carries the old number.
+                    ->when($this->hasPreviousReference(), static fn ($q) => $q->orWhere('previous_reference', (string) $tripNumber))
+                    ->exists()
                 : $pickupAt !== null && $this->alreadyImported($customerName, $pickupAt, $fare);
             if ($exists) {
                 $skipped++;

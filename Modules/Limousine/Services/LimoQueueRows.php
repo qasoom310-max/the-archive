@@ -262,6 +262,12 @@ final class LimoQueueRows
             $query->leftJoin($customers, $customers . '.id', '=', $bookings . '.customer_id');
         }
 
+        // Trip numbers are text: plain string order puts "41697" above
+        // "200001". Shorter numbers are smaller numbers.
+        if ($sort === 'reference') {
+            $query->orderByRaw('LENGTH(' . $legs . '.reference) ' . ($direction === 'desc' ? 'desc' : 'asc'));
+        }
+
         $query->orderBy($column, $direction);
         $query->orderBy($legs . '.sequence')->orderBy($legs . '.id');
     }

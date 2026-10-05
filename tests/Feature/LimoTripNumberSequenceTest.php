@@ -104,6 +104,126 @@ final class LimoTripNumberSequenceTest extends TestCase
         $this->assertSame('200001', $liveA->refresh()->reference);
     }
 
+    /**
+     * After the 22 Sep wipe the re-imported trips sat at 26215–41697 with
+     * 10000–26214 empty, so the oldest trips carried 4xxxx numbers. Closing
+     * the gap leaves no number starting with 3 or 4.
+     */
+    public function test_old_trip_numbers_close_up_so_none_start_with_four(): void
+    {
+        $first = $this->leg($this->booking(true), '26215');
+        $middle = $this->leg($this->booking(true), '35000');
+        $oldest = $this->leg($this->booking(true), '41697');
+        $quoteLeg = $this->leg(LimoQuotation::query()->create(['customer_id' => LimoCustomer::query()->create(['name' => 'Q'])->id]), '41801');
+        $live = $this->leg($this->booking(), '200001');
+        LimoCoupon::query()->create(['code' => 'CPN-OLD', 'leg_reference' => '41697', 'amount' => 5]);
+        LimoCoupon::query()->create(['code' => 'CPN-LIVE', 'leg_reference' => '200001', 'amount' => 5]);
+
+        $migration = require base_path('Modules/Limousine/database/migrations/2026_10_05_950039_close_up_old_trip_numbers_from_10000.php');
+        $migration->up();
+
+        $this->assertSame('10000', $first->refresh()->reference);
+        $this->assertSame('10001', $middle->refresh()->reference);
+        $this->assertSame('10002', $oldest->refresh()->reference);
+        $this->assertSame('10003', $quoteLeg->refresh()->reference);
+        $this->assertSame('200001', $live->refresh()->reference);
+        $this->assertSame('41697', $oldest->previous_reference);
+        $this->assertSame('10002', LimoCoupon::query()->where('code', 'CPN-OLD')->value('leg_reference'));
+        $this->assertSame('200001', LimoCoupon::query()->where('code', 'CPN-LIVE')->value('leg_reference'));
+        $this->assertNotEmpty(app(DatabaseBackup::class)->list());
+
+        // New trips still carry on from the live numbers.
+        $this->assertSame('200002', $this->leg($this->booking())->reference);
+
+        // Running again changes nothing.
+        $migration->up();
+        $this->assertSame('10002', $oldest->refresh()->reference);
+    }
+
+    public function test_closing_up_keeps_the_order_and_shifts_a_full_block_by_the_same_amount(): void
+    {
+        $legs = [];
+        foreach (['26215', '26216', '39999', '40000', '41697'] as $ref) {
+            $legs[$ref] = $this->leg($this->booking(true), $ref);
+        }
+        $this->leg($this->booking(), '200001');
+
+        $migration = require base_path('Modules/Limousine/database/migrations/2026_10_05_950039_close_up_old_trip_numbers_from_10000.php');
+        $migration->up();
+
+        $this->assertSame(['10000', '10001', '10002', '10003', '10004'], array_map(
+            static fn (LimoLeg $leg): string => (string) $leg->refresh()->reference,
+            array_values($legs),
+        ));
+    }
+
+    /** A coupon whose trip was deleted must not end up naming the trip that now has its number. */
+    public function test_a_coupon_for_a_deleted_trip_is_marked_old(): void
+    {
+        $this->leg($this->booking(true), '26215');
+        $this->leg($this->booking(), '200001');
+        LimoCoupon::query()->create(['code' => 'CPN-GONE', 'limo_leg_id' => 999999, 'leg_reference' => '10000', 'amount' => 5]);
+
+        $migration = require base_path('Modules/Limousine/database/migrations/2026_10_05_950039_close_up_old_trip_numbers_from_10000.php');
+        $migration->up();
+
+        $this->assertSame('old-10000', LimoCoupon::query()->where('code', 'CPN-GONE')->value('leg_reference'));
+    }
+
+    /** Without six-digit live trips, the freed numbers would be handed out again. */
+    public function test_closing_up_waits_until_live_trips_run_on_six_digits(): void
+    {
+        $leg = $this->leg($this->booking(true), '41697');
+
+        $migration = require base_path('Modules/Limousine/database/migrations/2026_10_05_950039_close_up_old_trip_numbers_from_10000.php');
+        $migration->up();
+
+        $this->assertSame('41697', $leg->refresh()->reference);
+    }
+
+    /** An export taken before the renumbering still carries the old number. */
+    public function test_reimporting_an_export_with_the_old_number_is_recognised(): void
+    {
+        $leg = $this->leg($this->booking(true), '41697');
+        $this->leg($this->booking(), '200001');
+
+        $migration = require base_path('Modules/Limousine/database/migrations/2026_10_05_950039_close_up_old_trip_numbers_from_10000.php');
+        $migration->up();
+
+        $path = tempnam(sys_get_temp_dir(), 'bkg') . '.csv';
+        file_put_contents($path, "Reference,From date,To date,Type,Customer,Amount,Received,Pickup,Drop off,Vehicle,Driver,Company reference,Pax name,Status,Payment\n"
+            . "41697,2022-01-01 09:00,,Transfer,C,10,10,A,B,,,,,Completed,Paid\n");
+
+        $result = app(\Modules\Limousine\Support\BookingImporter::class)->import($path);
+
+        $this->assertSame(0, $result['imported']);
+        $this->assertSame(1, LimoLeg::query()->where('previous_reference', '41697')->count());
+        $this->assertSame('10000', $leg->refresh()->reference);
+    }
+
+    public function test_closing_up_skips_a_database_without_the_legacy_import(): void
+    {
+        $leg = $this->leg($this->booking(), '41697');
+
+        $migration = require base_path('Modules/Limousine/database/migrations/2026_10_05_950039_close_up_old_trip_numbers_from_10000.php');
+        $migration->up();
+
+        $this->assertSame('41697', $leg->refresh()->reference);
+    }
+
+    public function test_the_reference_column_sorts_live_six_digit_trips_above_old_ones(): void
+    {
+        $old = $this->leg($this->booking(true), '41697');
+        $live = $this->leg($this->booking(), '200001');
+
+        $ids = (new \Modules\Limousine\Services\LimoQueueRows())
+            ->query(\Modules\Limousine\Services\LimoQueueRows::TAB_ALL, '', '', '', 'reference', 'desc')
+            ->pluck('id')
+            ->all();
+
+        $this->assertSame([$live->id, $old->id], array_values(array_filter($ids, static fn (mixed $id): bool => in_array($id, [$live->id, $old->id], true))));
+    }
+
     public function test_a_database_without_the_legacy_import_keeps_its_own_numbers(): void
     {
         $leg = $this->leg($this->booking(), '10005');

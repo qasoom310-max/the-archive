@@ -3890,6 +3890,27 @@ change — six digits outrank five, so new trips carry on from 2000xx. **Lesson:
 never assert what live data looks like from a stale number; a renumbering needs
 the real range checked first.**
 
+**…and the old numbers were closed up from 10000 (2026-10-05, the owner: "let
+all the ref no. which start with 4 start with 2, do whatever it takes").** The
+4xxxx trips are the OLDEST bookings (BK/00002 → 41697): the 22 Sep wipe deleted
+legs but SQLite never reuses an id, so the re-import (closed-bookings file sorted
+newest first) ran ~26,215–41,697 and left 10000–26,214 empty. Migration
+`2026_10_05_950039` renumbers every five-digit trip (booking and quotation —
+one unique index) gap-free from 10000 **keeping their order** (~15.5k trips →
+10000–~25,5xx, so the 4xxxx ones land on 2xxxx; nothing starts with 3 or 4).
+Ascending in-place updates cannot clash on the unique index. Each moved trip
+keeps its old number in new column **`limo_legs.previous_reference`** (indexed),
+which `BookingImporter` also checks, so re-importing a pre-change export skips
+instead of duplicating. Coupons follow their trip by `limo_leg_id`; a coupon
+whose trip was deleted is marked `old-…`. Gate: legacy import present AND
+six-digit live trips exist (elsewhere freed numbers would be re-issued). Backup
+first (a failed backup throws so the next deploy retries); range summary in the
+log + activity log. Same day the Reference column sort became length-aware
+(`LimoQueueRows`), because plain string order put "41697" above "200001". Not
+fixable from here: service orders/WhatsApp texts already sent and the WordPress
+portal's copy of a payment link's `confirmation_no` keep the old number. Tests:
+`LimoTripNumberSequenceTest` (+7).
+
 **Next step, still pending an explicit decision:** run
 `limo:review-duplicate-trips` against Wanaan and read the "no money
 recorded" shortlist with someone who knows what a same-time/same-fare

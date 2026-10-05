@@ -802,7 +802,9 @@ final class AssistantActions
         // A trip (leg) number, the one the office quotes, e.g. "10043".
         $leg = LimoLeg::query()
             ->where('legable_type', (new LimoBooking())->getMorphClass())
-            ->where('reference', $digits)
+            // …or the one it had before it was renumbered.
+            ->where(static fn ($q) => $q->where('reference', $digits)->orWhere('previous_reference', $digits))
+            ->orderByRaw('CASE WHEN reference = ? THEN 0 ELSE 1 END', [$digits])
             ->first();
         if ($leg !== null) {
             return LimoBooking::query()->find($leg->legable_id);

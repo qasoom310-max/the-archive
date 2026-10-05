@@ -224,6 +224,56 @@ final class LimoTripNumberSequenceTest extends TestCase
         $this->assertSame([$live->id, $old->id], array_values(array_filter($ids, static fn (mixed $id): bool => in_array($id, [$live->id, $old->id], true))));
     }
 
+    /** After closing up, the 2000xx trips run straight on from the old ones on five digits. */
+    public function test_live_trips_drop_the_extra_digit_and_follow_the_old_ones(): void
+    {
+        $this->leg($this->booking(true), '25481');
+        $this->leg($this->booking(true), '25482');
+        $a = $this->leg($this->booking(), '200015');
+        $quoteLeg = $this->leg(LimoQuotation::query()->create(['customer_id' => LimoCustomer::query()->create(['name' => 'Q'])->id]), '200016');
+        $b = $this->leg($this->booking(), '200021');
+        $c = $this->leg($this->booking(), '200023');
+        LimoCoupon::query()->create(['code' => 'CPN-LIVE', 'limo_leg_id' => $b->id, 'leg_reference' => '200021', 'amount' => 5]);
+
+        $migration = require base_path('Modules/Limousine/database/migrations/2026_10_05_950040_number_live_trips_after_the_old_ones.php');
+        $migration->up();
+
+        // Consecutive, in the order they were made — the quote no longer takes a number.
+        $this->assertSame('25483', $a->refresh()->reference);
+        $this->assertSame('25484', $b->refresh()->reference);
+        $this->assertSame('25485', $c->refresh()->reference);
+        $this->assertSame('200021', $b->previous_reference);
+        $this->assertNull($quoteLeg->refresh()->reference);
+        $this->assertSame('25484', LimoCoupon::query()->where('code', 'CPN-LIVE')->value('leg_reference'));
+        $this->assertNotEmpty(app(DatabaseBackup::class)->list());
+
+        // New trips carry on from there; a new quote's trip gets no number.
+        $this->assertSame('25486', $this->leg($this->booking())->reference);
+        $this->assertNull($this->leg(LimoQuotation::query()->create(['customer_id' => LimoCustomer::query()->create(['name' => 'Q2'])->id]))->reference);
+        $this->assertSame('25487', $this->leg($this->booking())->reference);
+
+        // Searching the old number still finds the trip.
+        $ids = app(\Modules\Limousine\Services\LimoQueueRows::class)
+            ->query(\Modules\Limousine\Services\LimoQueueRows::TAB_ALL, '', '', '200021')
+            ->pluck('id')->all();
+        $this->assertContains($b->id, $ids);
+
+        // Running again changes nothing.
+        $migration->up();
+        $this->assertSame('25483', $a->refresh()->reference);
+    }
+
+    public function test_live_trips_stay_on_six_digits_when_five_would_reach_30000(): void
+    {
+        $this->leg($this->booking(true), '29999');
+        $live = $this->leg($this->booking(), '200001');
+
+        $migration = require base_path('Modules/Limousine/database/migrations/2026_10_05_950040_number_live_trips_after_the_old_ones.php');
+        $migration->up();
+
+        $this->assertSame('200001', $live->refresh()->reference);
+    }
+
     public function test_a_database_without_the_legacy_import_keeps_its_own_numbers(): void
     {
         $leg = $this->leg($this->booking(), '10005');

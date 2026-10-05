@@ -131,6 +131,8 @@ final class LimoQueueRows
 
             $query->where(function (Builder $q) use ($like, $legs): void {
                 $q->where($legs . '.reference', 'like', $like)
+                    // The number a trip had before it was renumbered.
+                    ->orWhere($legs . '.previous_reference', 'like', $like)
                     ->orWhere($legs . '.from_location', 'like', $like)
                     ->orWhere($legs . '.to_location', 'like', $like)
                     ->orWhere($legs . '.vehicle', 'like', $like)

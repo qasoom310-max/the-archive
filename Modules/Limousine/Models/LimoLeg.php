@@ -138,6 +138,13 @@ final class LimoLeg extends Model
                 return;
             }
 
+            // A quote's trip is never dispatched and nobody sees its number (a
+            // converted quote gets fresh trips); numbering it only left gaps
+            // between the booking trips.
+            if ($leg->legable_type === (new LimoQuotation())->getMorphClass()) {
+                return;
+            }
+
             for ($attempt = 0; $attempt < 5; $attempt++) {
                 $leg->reference = self::nextReference();
                 try {

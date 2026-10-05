@@ -3911,6 +3911,20 @@ fixable from here: service orders/WhatsApp texts already sent and the WordPress
 portal's copy of a payment link's `confirmation_no` keep the old number. Tests:
 `LimoTripNumberSequenceTest` (+7).
 
+**…and the extra digit is gone (same day, the owner: "change any number that
+has an added digit to the last new number which starts with 2").** Migration
+`2026_10_05_950040` renumbers the six-digit booking trips (2000xx) to the next
+five-digit numbers after the last old trip (~25,48x on), consecutively in
+creation order, keeping the old number in `previous_reference`; coupons follow.
+Refused (logged) if the result would reach 30000. **Quotation trips no longer
+carry a number at all** — nobody sees it (a converted quote gets fresh trips)
+and it was what left gaps like 200015/200021/200023 between booking trips: the
+`LimoLeg` created hook skips them and the migration clears the six-digit ones.
+The bookings search and the WhatsApp assistant's trip lookup also match
+`previous_reference`, so a 2000xx (or old 4xxxx) number still finds its trip.
+`nextReference()` is unchanged: with no six-digit trips left it continues from
+the highest five-digit one. Tests: `LimoTripNumberSequenceTest` (+2).
+
 **Next step, still pending an explicit decision:** run
 `limo:review-duplicate-trips` against Wanaan and read the "no money
 recorded" shortlist with someone who knows what a same-time/same-fare

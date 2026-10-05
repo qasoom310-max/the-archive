@@ -2254,6 +2254,19 @@ out-of-scope and not yet paused). Test:
 (pauses/unpauses both a shared staff row and a shared ADMIN row from inside a
 workspace, neither locked to it).
 
+**Full Limousine petty cash for one named user (shipped 2026-10-05):**
+`users.petty_cash_full` (core migration `2026_10_05_100001`, which also grants
+it by email to **Abbas Hamdan `hamdanabbas98@gmail.com`**, a supervisor, at the
+owner's request — in Main and every workspace) + `User::hasFullPettyCash()`.
+It opens the whole petty-cash desk as the supervisor accountant has it:
+`PettyCash::mayManage()` (top up, send to driver, import, add category) and the
+new `PettyCash::mayConfirm()` (confirm + settle; used by `PettyAdvancePage`),
+both still requiring Write on `limousine.petty_cash`. It does **not** make the
+user an accountant: `canConfirmPayments()` (rental payment confirmation etc.)
+is untouched. No UI toggle yet — to grant someone else, add their email to the
+migration's `GRANTED` list in a NEW migration, or ask for a Users-form checkbox.
+Tests: `LimoPettyCashTest` (+2).
+
 **Remove a login from every database — `user:remove` (shipped 2026-09-08):**
 the CLI twin of Settings → Users' **Delete**, for the case the screen can't
 serve the job: a GLOBAL account (shared across every database, "Managed on

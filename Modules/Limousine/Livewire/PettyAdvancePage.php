@@ -52,10 +52,10 @@ final class PettyAdvancePage extends Component
         return LimoPettyAdvance::query()->with(['driver', 'lines' => fn ($q) => $q->orderBy('date')->orderBy('id')])->find($this->id);
     }
 
-    /** Confirming and settling are the accountant's, with super-admins. */
+    /** Confirming and settling: the accountant, a super admin, or someone given the desk in full. */
     private function guardConfirm(): void
     {
-        abort_unless(Auth::user()?->canConfirmPayments() ?? false, 403);
+        abort_unless(PettyCashService::mayConfirm(Auth::user()), 403);
     }
 
     /** New receipt line. */
@@ -239,7 +239,7 @@ final class PettyAdvancePage extends Component
             'categories' => LimoPettyCategory::query()->orderBy('id')->pluck('name')->all(),
             'canAddCategory' => PettyCashService::mayManage(Auth::user()),
             'cars' => Vehicle::query()->orderBy('name')->get(['id', 'name', 'plate_no']),
-            'canConfirm' => Auth::user()?->canConfirmPayments() ?? false,
+            'canConfirm' => PettyCashService::mayConfirm(Auth::user()),
             'canEdit' => ! $advance->isCleared() && $this->mayAccess(Permission::Write),
         ]);
     }

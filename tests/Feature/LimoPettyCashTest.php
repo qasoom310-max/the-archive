@@ -138,6 +138,48 @@ final class LimoPettyCashTest extends TestCase
         $this->assertSame(LimoPettyAdvance::STATUS_CLEARED, $advance->fresh()?->status);
     }
 
+    /** A supervisor given the desk in full gets every option; another supervisor does not. */
+    public function test_a_supervisor_granted_the_petty_cash_desk_has_every_option(): void
+    {
+        $this->grantEveryone('limousine.petty_cash');
+        $driver = $this->driver();
+
+        $this->actingAs(User::factory()->create(['name' => 'Other supervisor']));
+        Livewire::test(PettyCash::class)->assertDontSee(__('Send to driver'))->call('openIssue')->assertForbidden();
+
+        $abbas = User::factory()->create(['name' => 'Abbas', 'petty_cash_full' => true]);
+        $this->assertFalse($abbas->isAccountant(), 'Not made an accountant.');
+        $this->assertFalse($abbas->canConfirmPayments(), 'No payment-confirmation power elsewhere.');
+        $this->actingAs($abbas);
+
+        Livewire::test(PettyCash::class)
+            ->assertSee(__('Top up float'))
+            ->assertSee(__('Send to driver'))
+            ->call('openTopUp')->set('topAmount', '200')->call('saveTopUp')->assertHasNoErrors()
+            ->call('openIssue')->set('issueDriverId', $driver->id)->set('issueAmount', '100')->call('saveIssue')->assertHasNoErrors();
+
+        $advance = LimoPettyAdvance::query()->firstOrFail();
+        Livewire::test(PettyAdvancePage::class, ['id' => $advance->id])
+            ->call('openCategory')->set('newCategory', 'Car wash')->call('saveCategory')->assertHasNoErrors()
+            ->call('confirm')
+            ->call('openSettle')
+            ->call('saveSettle');
+
+        $this->assertSame(LimoPettyAdvance::STATUS_CLEARED, $advance->fresh()?->status);
+    }
+
+    public function test_the_migration_grants_abbas_the_desk_by_email(): void
+    {
+        $abbas = User::factory()->create(['email' => 'HamdanAbbas98@gmail.com']);
+        $other = User::factory()->create();
+
+        $migration = require base_path('database/migrations/2026_10_05_100001_add_petty_cash_full_to_users.php');
+        $migration->up(); // column already there: only re-grants, idempotent
+
+        $this->assertTrue($abbas->fresh()?->hasFullPettyCash());
+        $this->assertFalse($other->fresh()?->hasFullPettyCash());
+    }
+
     public function test_confirming_takes_the_accountant_not_a_regular_admin(): void
     {
         $this->asManager();

@@ -27,15 +27,32 @@ final class PettyCash
 {
     /**
      * Who may run the desk — top up the float, send cash to a driver, import,
-     * add a spending category: an administrator, or the supervisor accountant
-     * (the Accountant role), who also confirms and settles. Write on petty
-     * cash is required on top, so a scoped administrator stays in their apps.
+     * add a spending category: an administrator, the supervisor accountant
+     * (the Accountant role), or someone granted the desk in full
+     * ({@see User::hasFullPettyCash()}). Write on petty cash is required on
+     * top, so a scoped administrator stays in their apps.
      */
     public static function mayManage(?Authenticatable $user): bool
     {
         return $user instanceof User
-            && ($user->isAdmin() || $user->isAccountant())
+            && ($user->isAdmin() || $user->isAccountant() || $user->hasFullPettyCash())
             && app(AccessControl::class)->allows($user, 'limousine.petty_cash', Permission::Write);
+    }
+
+    /**
+     * Who may confirm a hand-over and settle an advance: the accountant or a
+     * super admin (the payment-confirmation power), or someone granted the
+     * desk in full.
+     */
+    public static function mayConfirm(?Authenticatable $user): bool
+    {
+        if (! $user instanceof User) {
+            return false;
+        }
+
+        return $user->canConfirmPayments()
+            || ($user->hasFullPettyCash()
+                && app(AccessControl::class)->allows($user, 'limousine.petty_cash', Permission::Write));
     }
 
     public function floatBalance(): float

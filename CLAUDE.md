@@ -2634,6 +2634,26 @@ byte-identical imported legs and, for an IMPORTED booking only, falls back to
 the leg's `vehicle` for Car type (the old system had one vehicle field; a live
 booking still prints `vehicle_details` only). Tests: `LimoCombinedInvoiceTest` (+3).
 
+**Second pass, same day (migration `2026_10_06_950042`), for the rows still bare:**
+- **INV/01327's list was cut off by the old system's own export** ("…, 15225,
+  152" — the cell is truncated in `limo-invoice.csv` too), so "152" matched an
+  unrelated 2022 booking and 384 BD of trips was missing.
+  `LegacyInvoiceBookings::completeTruncated()` drops a last token shorter than
+  the first. It then adds the same customer's next bookings by id that no other
+  invoice covers, in order, only if they make up the missing amount EXACTLY.
+  The combined PDF and `linkWaiting()` also ignore a notes booking belonging to
+  another customer.
+- **INV/01340–01380 were invoices raised in this ERP** that came back after the
+  22 Sep wipe through `InvoiceImporter` (no booking). The snapshot restore then
+  reused them by number without linking — that branch of
+  `BookingSnapshot::restore()` now links when the booking has no invoice.
+  `LegacyInvoiceBookings::linkRestored()` re-ties existing ones: same customer,
+  booking created on the issue date, fare = total, no invoice of its own.
+  It tries ERP-entered bookings first, then imported ones no old invoice names.
+  Equal counts per (customer, day, amount) pair in id order; anything else is
+  left alone.
+Tests: `LimoCombinedInvoiceTest` (+4).
+
 **Vehicle Type on a quotation reads BOTH car fields (fixed 2026-09-30):** the
 owner wrote a quote, chose the car on it, and the Vehicle Type column printed
 empty. Not a mistake of theirs — the form offers TWO ways to name the car, a

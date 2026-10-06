@@ -54,7 +54,9 @@ final class LimoCombinedInvoicePdf
             $bookings = $invoice->booking !== null
                 ? [$invoice->booking]
                 : array_values(array_filter(array_map(
-                    static fn (int $id): ?LimoBooking => $legacy->get($id),
+                    // The same customer's bookings only: a number cut short
+                    // in the old export can name someone else's trip.
+                    static fn (int $id): ?LimoBooking => ($b = $legacy->get($id)) !== null && $b->customer_id === $invoice->customer_id ? $b : null,
                     LegacyInvoiceBookings::ids($invoice->notes),
                 )));
             $legCount = 0;

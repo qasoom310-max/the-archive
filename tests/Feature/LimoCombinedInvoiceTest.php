@@ -288,6 +288,75 @@ final class LimoCombinedInvoiceTest extends TestCase
         $this->assertSame('Jaber', $rows[0]['pax']);
     }
 
+    /** The old export cut INV/01327's list off at "152": the stub goes and the hidden trips come back. */
+    public function test_a_booking_list_cut_off_mid_number_is_completed(): void
+    {
+        $customer = $this->customer('Braxtone Plus W.L.L');
+        $stranger = $this->customer('Someone Else');
+        $this->oldBooking($customer, 15119, 8, 'Noora');
+        $this->oldBooking($customer, 15225, 24, 'Ameera');
+        $this->oldBooking($stranger, 152, 70, 'Nobody'); // what "152" used to match
+        $this->oldBooking($customer, 15230, 14, 'Hidden one');
+        $this->oldBooking($customer, 15231, 8, 'Hidden two');
+        $this->oldBooking($customer, 15240, 8, 'Billed elsewhere');
+        $this->oldInvoice($customer, 1390, 8, 'Invoice #1390 | Bookings: 15240');
+        $invoice = $this->oldInvoice($customer, 1327, 54, 'Invoice #1327 | Bookings: 15119, 15225, 152');
+
+        LegacyInvoiceBookings::completeTruncated();
+
+        $this->assertSame('Invoice #1327 | Bookings: 15119, 15225, 15230, 15231', $invoice->refresh()->notes);
+        $rows = app(LimoCombinedInvoicePdf::class)->viewData(LimoInvoice::query()->whereKey($invoice->id)->get())['rows'];
+        $this->assertSame(['BK/15119', 'BK/15225', 'BK/15230', 'BK/15231'], array_column($rows, 'booking'));
+    }
+
+    /** Without an exact match, only the stub is dropped. */
+    public function test_a_cut_off_list_that_cannot_be_matched_only_loses_the_stub(): void
+    {
+        $customer = $this->customer('Braxtone Plus W.L.L');
+        $this->oldBooking($customer, 15119, 8, 'Noora');
+        $this->oldBooking($customer, 15230, 14, 'Too much');
+        $invoice = $this->oldInvoice($customer, 1327, 20, 'Invoice #1327 | Bookings: 15119, 152');
+
+        LegacyInvoiceBookings::completeTruncated();
+
+        $this->assertSame('Invoice #1327 | Bookings: 15119', $invoice->refresh()->notes);
+    }
+
+    /** An ERP invoice the restore brought back bare is tied to the booking it was raised for. */
+    public function test_an_erp_invoice_that_lost_its_booking_is_tied_back(): void
+    {
+        $customer = $this->customer('Braxtone Plus W.L.L');
+        $a = LimoBooking::query()->create(['customer_id' => $customer->id, 'fare' => 8, 'pax_name' => 'Leena']);
+        $b = LimoBooking::query()->create(['customer_id' => $customer->id, 'fare' => 8, 'pax_name' => 'Mahmood']);
+        LimoInvoice::query()->whereIn('booking_id', [$a->id, $b->id])->delete();
+        $day = $a->created_at?->toDateString();
+        $first = $this->oldInvoice($customer, 1340, 8, 'Imported from previous system.');
+        $second = $this->oldInvoice($customer, 1341, 8, 'Imported from previous system.');
+        LimoInvoice::query()->whereKey([$first->id, $second->id])->update(['issue_date' => $day]);
+
+        LegacyInvoiceBookings::linkRestored();
+
+        $this->assertSame($a->id, $first->refresh()->booking_id);
+        $this->assertSame($b->id, $second->refresh()->booking_id);
+    }
+
+    /** Two bare invoices and one possible booking: nothing is guessed. */
+    public function test_an_erp_invoice_is_not_guessed_when_the_counts_differ(): void
+    {
+        $customer = $this->customer('Braxtone Plus W.L.L');
+        $a = LimoBooking::query()->create(['customer_id' => $customer->id, 'fare' => 8]);
+        LimoInvoice::query()->where('booking_id', $a->id)->delete();
+        $day = $a->created_at?->toDateString();
+        $first = $this->oldInvoice($customer, 1340, 8, null);
+        $second = $this->oldInvoice($customer, 1341, 8, null);
+        LimoInvoice::query()->whereKey([$first->id, $second->id])->update(['issue_date' => $day]);
+
+        LegacyInvoiceBookings::linkRestored();
+
+        $this->assertNull($first->refresh()->booking_id);
+        $this->assertNull($second->refresh()->booking_id);
+    }
+
     /** A booking that already has its own invoice is not billed a second time. */
     public function test_an_old_invoice_is_not_linked_to_a_booking_that_already_has_an_invoice(): void
     {

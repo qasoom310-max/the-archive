@@ -154,6 +154,14 @@ final class BookingSnapshot
                 if ($existing !== null) {
                     $invoiceMap[$oldId] = (int) $existing;
 
+                    // It came back without its booking (the plain invoice
+                    // import keeps no booking): this booking is it.
+                    if ((int) ($invoice['booking_id'] ?? 0) === $oldBookingId
+                        && ! LimoInvoice::query()->where('booking_id', $bookingId)->exists()) {
+                        LimoInvoice::query()->whereKey($existing)->whereNull('booking_id')->whereNull('quotation_id')
+                            ->update(['booking_id' => $bookingId]);
+                    }
+
                     continue;
                 }
 

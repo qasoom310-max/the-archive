@@ -107,6 +107,11 @@ final class LegacyBookingImporter
         // A dry run takes the exact same path, then throws every write away.
         $pretend ? DB::rollBack() : DB::commit();
 
+        // Invoices imported before their booking was on file can link now.
+        if (! $pretend) {
+            LegacyInvoiceBookings::linkWaiting();
+        }
+
         return $result;
     }
 

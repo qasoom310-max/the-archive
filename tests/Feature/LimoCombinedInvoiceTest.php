@@ -14,7 +14,9 @@ use Modules\Limousine\Livewire\Invoices;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoInvoice;
+use Modules\Limousine\Models\LimoReceipt;
 use Modules\Limousine\Services\LimoCombinedInvoicePdf;
+use Modules\Limousine\Support\LegacyInvoiceBookings;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
@@ -210,5 +212,93 @@ final class LimoCombinedInvoiceTest extends TestCase
             Request::create('/', 'GET', ['ids' => $mine->id . ',' . $theirs->id]),
             app(LimoCombinedInvoicePdf::class),
         );
+    }
+
+    /** An old-system booking, keeping the old number as its id, with one trip. */
+    private function oldBooking(LimoCustomer $customer, int $id, float $fare, string $pax): LimoBooking
+    {
+        $booking = new LimoBooking();
+        $booking->forceFill([
+            'id' => $id, 'customer_id' => $customer->id, 'fare' => $fare,
+            'pax_name' => $pax, 'company_reference' => 'BTRSA/' . $id,
+        ])->save();
+        $booking->forceFill(['imported_at' => now()])->saveQuietly();
+        // The old system kept one vehicle field; the import put it in `vehicle`.
+        $booking->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'Hamad Town',
+            'to_location' => 'Airport', 'start_at' => '2026-09-05 09:00:00', 'days' => 1,
+            'vehicle' => 'Sedan', 'rate' => $fare, 'rate_basis' => 'trip', 'net_amount' => $fare,
+        ]);
+
+        return $booking;
+    }
+
+    private function oldInvoice(LimoCustomer $customer, int $number, float $total, ?string $notes): LimoInvoice
+    {
+        $invoice = new LimoInvoice();
+        $invoice->forceFill([
+            'id' => $number, 'customer_id' => $customer->id, 'issue_date' => '2026-09-10',
+            'subtotal' => $total, 'discount' => 0, 'total' => $total, 'amount_paid' => 0,
+            'status' => LimoInvoice::STATUS_UNPAID, 'notes' => $notes,
+        ])->save();
+
+        return $invoice;
+    }
+
+    /** An invoice the old system raised for several trips prints each of them. */
+    public function test_an_old_invoice_for_several_bookings_prints_their_trips(): void
+    {
+        $customer = $this->customer('Braxtone Plus W.L.L');
+        $this->oldBooking($customer, 15119, 8, 'Noora');
+        $this->oldBooking($customer, 15124, 14, 'Abdulla');
+        $invoice = $this->oldInvoice($customer, 1327, 22, 'Invoice #1327 | Bookings: 15119, 15124');
+
+        $rows = app(LimoCombinedInvoicePdf::class)->viewData(LimoInvoice::query()->whereKey($invoice->id)->get())['rows'];
+
+        $this->assertCount(2, $rows);
+        $this->assertSame('BK/15119', $rows[0]['booking']);
+        $this->assertSame('Sedan', $rows[0]['vehicle']);
+        $this->assertSame('Hamad Town', $rows[0]['from']);
+        $this->assertSame('BTRSA/15119', $rows[0]['company_reference']);
+        $this->assertSame('Noora', $rows[0]['pax']);
+        $this->assertSame('BK/15124', $rows[1]['booking']);
+        $this->assertNotSame('', $rows[1]['date']);
+    }
+
+    /** One waiting for its booking gets linked once the booking is on file. */
+    public function test_an_old_invoice_waiting_for_its_booking_is_linked_to_it(): void
+    {
+        $customer = $this->customer('Braxtone Plus W.L.L');
+        $invoice = $this->oldInvoice($customer, 1340, 8, 'Invoice #1340 | Bookings: 15523');
+        $booking = $this->oldBooking($customer, 15523, 8, 'Jaber');
+        $receipt = new LimoReceipt();
+        $receipt->forceFill(['customer_id' => $customer->id, 'booking_id' => $booking->id, 'amount' => 8, 'date' => '2026-09-12'])->save();
+
+        $migration = require base_path('Modules/Limousine/database/migrations/2026_10_06_950041_link_legacy_invoices_to_their_booking.php');
+        $migration->up();
+
+        $invoice->refresh();
+        $this->assertSame($booking->id, $invoice->booking_id);
+        $this->assertSame($invoice->id, $receipt->refresh()->invoice_id);
+        $this->assertSame(LimoInvoice::STATUS_PAID, $invoice->status);
+
+        $rows = app(LimoCombinedInvoicePdf::class)->viewData(LimoInvoice::query()->whereKey($invoice->id)->get())['rows'];
+        $this->assertCount(1, $rows);
+        $this->assertSame('BK/15523', $rows[0]['booking']);
+        $this->assertSame('Jaber', $rows[0]['pax']);
+    }
+
+    /** A booking that already has its own invoice is not billed a second time. */
+    public function test_an_old_invoice_is_not_linked_to_a_booking_that_already_has_an_invoice(): void
+    {
+        $customer = $this->customer();
+        $booking = $this->oldBooking($customer, 15600, 8, 'Hasan');
+        $own = $this->oldInvoice($customer, 1500, 8, null);
+        $own->forceFill(['booking_id' => $booking->id])->save();
+        $waiting = $this->oldInvoice($customer, 1501, 8, 'Invoice #1501 | Bookings: 15600');
+
+        LegacyInvoiceBookings::linkWaiting();
+
+        $this->assertNull($waiting->refresh()->booking_id);
     }
 }

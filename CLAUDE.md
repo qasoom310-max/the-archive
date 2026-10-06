@@ -2615,6 +2615,25 @@ a commitment to the whole list.
 The total is still computed either way and simply not printed, so the two
 copies can never disagree about the trips behind them.
 
+**Old-system invoices show their trips on the combined invoice (fixed
+2026-10-06):** Braxtone's September combined invoice printed 16 rows of bare
+"Limousine services". Those were invoices from `LegacyInvoiceImporter` with no
+`booking_id`, only `notes` "Invoice #1340 | Bookings: 15523" (booking not on
+file yet at import time, or several bookings on one invoice).
+`Modules\Limousine\Support\LegacyInvoiceBookings` parses that note (`ids()`)
+and `linkWaiting()` links each single-booking one to its now-imported booking
+(claiming that booking's receipts with no invoice, like the importer does),
+**unless the booking already has an invoice** (no trip billed twice). Run by
+migration `2026_10_06_950041` and after every `LegacyBookingImporter` import.
+`LimoCombinedInvoicePdf` prints every trip of a multi-booking legacy invoice
+(each with its own booking ref, company ref, pax) plus the usual
+adjustment row when they don't add up. **The single-invoice PDF still prints a
+multi-booking legacy invoice as one line** — the owner rejected the expansion
+there on 2026-09-09 (commit c7321ff). The combined PDF also de-duplicates
+byte-identical imported legs and, for an IMPORTED booking only, falls back to
+the leg's `vehicle` for Car type (the old system had one vehicle field; a live
+booking still prints `vehicle_details` only). Tests: `LimoCombinedInvoiceTest` (+3).
+
 **Vehicle Type on a quotation reads BOTH car fields (fixed 2026-09-30):** the
 owner wrote a quote, chose the car on it, and the Vehicle Type column printed
 empty. Not a mistake of theirs — the form offers TWO ways to name the car, a

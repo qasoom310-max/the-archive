@@ -111,6 +111,39 @@ final class LimoTripMessageTest extends TestCase
         $this->assertStringContainsString('Car: *Suv*', $text);
     }
 
+    /**
+     * A car is assigned late, often the morning of the trip. Printing only the
+     * assigned car left the copied message with no car at all until then.
+     */
+    public function test_the_message_carries_the_car_type_before_a_car_is_assigned(): void
+    {
+        $leg = $this->leg([], ['vehicle' => null, 'vehicle_details' => 'Sedan']);
+
+        $text = app(LimoQueueRows::class)->whatsappText($leg);
+
+        $this->assertStringContainsString('Car type: *Sedan*', $text);
+        $this->assertStringNotContainsString('Car: ', $text);
+    }
+
+    public function test_the_assigned_car_follows_the_type_it_was_asked_for(): void
+    {
+        $leg = $this->leg([], ['vehicle' => 'Ford Expedition · 363899', 'vehicle_details' => 'SUV']);
+
+        $text = app(LimoQueueRows::class)->whatsappText($leg);
+
+        $this->assertLessThan(
+            strpos($text, 'Car: *Ford Expedition · 363899*'),
+            strpos($text, 'Car type: *SUV*'),
+        );
+    }
+
+    public function test_an_imported_trip_falls_back_to_the_bookings_car_type(): void
+    {
+        $leg = $this->leg(['car_type' => 'Vito'], ['vehicle' => null]);
+
+        $this->assertStringContainsString('Car type: *Vito*', app(LimoQueueRows::class)->whatsappText($leg));
+    }
+
     public function test_a_settled_trip_says_paid_instead_of_a_balance(): void
     {
         $leg = $this->leg(['advance' => 14, 'payment_status' => LimoBooking::PAYMENT_PAID]);

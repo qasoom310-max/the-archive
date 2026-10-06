@@ -101,7 +101,9 @@ final class LimoQueueVehicleTypeTest extends TestCase
 
         $this->assertStringContainsString('Ford Expedition', $html);
         $this->assertStringContainsString('SUV', $html);
-        $this->assertLessThan(mb_strpos($html, 'SUV'), mb_strpos($html, 'Ford Expedition'));
+        // The last mention of each is the Vehicle cell; the copy-trip text
+        // earlier in the row names the type first.
+        $this->assertLessThan(mb_strrpos($html, 'SUV'), mb_strrpos($html, 'Ford Expedition'));
     }
 
     /** Nothing recorded either way still reads as nothing, not a blank line. */

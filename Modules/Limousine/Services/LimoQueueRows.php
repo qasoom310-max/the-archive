@@ -367,9 +367,7 @@ final class LimoQueueRows
             // to run it. The leg's own note wins; `car_type` is where the old
             // system kept it, so imported bookings still answer. Not a printed
             // column: exports read by heading, so this never reaches a sheet.
-            'vehicle_type' => trim((string) ($leg->vehicle_details ?? '')) !== ''
-                ? trim((string) $leg->vehicle_details)
-                : trim((string) ($booking->car_type ?? '')),
+            'vehicle_type' => $this->vehicleType($leg, $booking),
             // A trip carried over names the old system's login; once that
             // login has been matched, the person is shown in its place.
             'driver' => app(DriverAliases::class)->resolve((string) ($leg->driver ?? ''))['name'],
@@ -465,9 +463,20 @@ final class LimoQueueRows
             }
         }
 
+        // The car TYPE asked for is known from the moment the trip is booked;
+        // a particular car is only assigned later, often the morning of the
+        // trip. Printing only the assigned one left most messages with no car
+        // at all, so the type comes first and the assigned car follows once
+        // there is one (unless it just repeats the type).
+        $type = $this->vehicleType($leg, $booking);
         $car = trim((string) ($leg->vehicle ?? ''));
-        if ($car !== '') {
+        if ($type !== '' || $car !== '') {
             $lines[] = '';
+        }
+        if ($type !== '') {
+            $lines[] = __('Car type') . ': *' . $type . '*';
+        }
+        if ($car !== '' && strcasecmp($car, $type) !== 0) {
             $lines[] = __('Car') . ': *' . $car . '*';
         }
 
@@ -491,6 +500,14 @@ final class LimoQueueRows
         }
 
         return implode("\n", $lines);
+    }
+
+    /** The car type asked for: the leg's own note first, else the booking's field (where the old system kept it). */
+    private function vehicleType(LimoLeg $leg, ?LimoBooking $booking): string
+    {
+        $details = trim((string) ($leg->vehicle_details ?? ''));
+
+        return $details !== '' ? $details : trim((string) ($booking->car_type ?? ''));
     }
 
     /**

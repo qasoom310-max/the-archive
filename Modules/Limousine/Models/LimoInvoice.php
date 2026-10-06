@@ -24,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $quotation_id
  * @property Carbon|null $issue_date
  * @property Carbon|null $due_date
+ * @property Carbon|null $service_date  First trip's date (InvoiceServiceDates); null for a bill with no trip
  * @property float $subtotal
  * @property float $discount
  * @property float $total
@@ -60,6 +61,16 @@ final class LimoInvoice extends Model implements DefinesIrModel
         'status' => self::STATUS_UNPAID,
     ];
 
+    protected static function booted(): void
+    {
+        // When the trips ran follows whatever the bill is tied to.
+        static::saved(static function (self $invoice): void {
+            if ($invoice->wasRecentlyCreated || $invoice->wasChanged(['booking_id', 'quotation_id', 'notes'])) {
+                \Modules\Limousine\Support\InvoiceServiceDates::sync([(int) $invoice->id]);
+            }
+        });
+    }
+
     /**
      * @return array<string, string>
      */
@@ -71,6 +82,7 @@ final class LimoInvoice extends Model implements DefinesIrModel
             'quotation_id' => 'integer',
             'issue_date' => 'date',
             'due_date' => 'date',
+            'service_date' => 'date',
             'subtotal' => 'float',
             'discount' => 'float',
             'total' => 'float',

@@ -27,11 +27,16 @@ final class LimoInvoiceRows
             $query->where('status', $tab);
         }
 
+        // By when the trips ran, not when the bill was printed: an invoice
+        // issued on 1 September for August's trips is August's. A bill with
+        // no trip (a late fee, an undispatched quote) goes by its issue date.
+        // DATE() because a date column holds "Y-m-d 00:00:00" on SQLite.
+        $day = 'DATE(COALESCE(service_date, issue_date))';
         if ($from !== '') {
-            $query->whereDate('issue_date', '>=', $from);
+            $query->whereRaw($day . ' >= ?', [$from]);
         }
         if ($to !== '') {
-            $query->whereDate('issue_date', '<=', $to);
+            $query->whereRaw($day . ' <= ?', [$to]);
         }
 
         $term = trim($search);
@@ -90,6 +95,7 @@ final class LimoInvoiceRows
             'reference' => (string) ($invoice->reference ?? ''),
             'customer' => (string) ($invoice->customer->name ?? ''),
             'issued' => $invoice->issue_date?->isoFormat('DD-MMM-YYYY') ?? '',
+            'service' => $invoice->service_date?->isoFormat('DD-MMM-YYYY') ?? '',
             'total' => ValueFormat::money($invoice->total),
             'paid' => ValueFormat::money($invoice->amount_paid),
             'balance' => ValueFormat::money($invoice->balance()),
@@ -103,7 +109,7 @@ final class LimoInvoiceRows
     public function headings(): array
     {
         return [
-            'reference' => __('Reference'), 'customer' => __('Customer'), 'issued' => __('Issued'),
+            'reference' => __('Reference'), 'customer' => __('Customer'), 'issued' => __('Issued'), 'service' => __('Service date'),
             'total' => __('Total'), 'paid' => __('Paid'), 'balance' => __('Balance'), 'status' => __('Status'),
         ];
     }

@@ -109,35 +109,8 @@ final class Invoices extends Component
      */
     private function baseQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        $query = LimoInvoice::query()->with('customer:id,name')->orderByDesc('id');
-
-        if (in_array($this->tab, [LimoInvoice::STATUS_UNPAID, LimoInvoice::STATUS_PARTIAL, LimoInvoice::STATUS_PAID], true)) {
-            $query->where('status', $this->tab);
-        }
-
-        if ($this->from !== '') {
-            $query->whereDate('issue_date', '>=', $this->from);
-        }
-        if ($this->to !== '') {
-            $query->whereDate('issue_date', '<=', $this->to);
-        }
-
-        $term = trim($this->search);
-        if ($term !== '') {
-            // Everything the office would reach for: the bill's number, the
-            // customer, the trip it bills for, and what a charge is called.
-            // Grouped so the ORs cannot widen the tab and date filters above.
-            $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $term) . '%';
-
-            $query->where(function ($q) use ($like): void {
-                $q->where('reference', 'like', $like)
-                    ->orWhere('charge_label', 'like', $like)
-                    ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', $like))
-                    ->orWhereHas('booking', fn ($b) => $b->where('reference', 'like', $like));
-            });
-        }
-
-        return $query;
+        // One definition of the list, shared with its exports.
+        return app(\Modules\Limousine\Services\LimoInvoiceRows::class)->query($this->tab, $this->from, $this->to, $this->search);
     }
 
     /** Payment dialog: the invoice being collected against, or null. */
@@ -270,7 +243,11 @@ final class Invoices extends Component
             'selectedCount' => $picked->count(),
             'mixedCustomers' => $customerIds->count() > 1,
             'combinedUrl' => $picked->count() > 0 && $customerIds->count() === 1
-                ? url('/app/limousine/invoice/combined?ids=' . implode(',', $this->selected))
+                ? url('/app/limousine/invoice/combined?' . http_build_query(array_filter([
+                    'ids' => implode(',', $this->selected),
+                    // The window picked, so the bill's Period says which month it is.
+                    'from' => $this->from, 'to' => $this->to,
+                ], static fn (string $v): bool => $v !== '')))
                 : null,
             'pickedCustomer' => $customerIds->count() === 1
                 ? LimoCustomer::query()->find($customerIds->first())?->name

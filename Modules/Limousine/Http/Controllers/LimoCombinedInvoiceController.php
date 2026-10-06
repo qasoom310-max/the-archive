@@ -37,15 +37,19 @@ final class LimoCombinedInvoiceController
         $invoices = LimoInvoice::query()
             ->with(['booking.legs', 'customer'])
             ->whereIn('id', $ids)
-            // Oldest first: a schedule of a month's work reads forwards.
-            ->orderBy('issue_date')
+            // Oldest first: a schedule of a month's work reads forwards, by
+            // when the trips ran.
+            ->orderByRaw('COALESCE(service_date, issue_date)')
             ->orderBy('id')
             ->get();
 
         abort_if($invoices->isEmpty(), 404);
         abort_if($invoices->pluck('customer_id')->unique()->count() > 1, 422, __('A combined invoice belongs to one customer.'));
 
-        return response($pdf->render($pdf->viewData($invoices)), 200, [
+        $from = is_string($request->query('from')) ? $request->query('from') : null;
+        $to = is_string($request->query('to')) ? $request->query('to') : null;
+
+        return response($pdf->render($pdf->viewData($invoices, $from, $to)), 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="' . $pdf->filename($invoices) . '"',
         ]);

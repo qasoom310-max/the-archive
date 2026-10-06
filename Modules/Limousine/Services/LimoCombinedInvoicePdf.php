@@ -31,7 +31,7 @@ final class LimoCombinedInvoicePdf
      * @param  Collection<int, LimoInvoice>  $invoices
      * @return array<string, mixed>
      */
-    public function viewData(Collection $invoices): array
+    public function viewData(Collection $invoices, ?string $from = null, ?string $to = null): array
     {
         $invoices->loadMissing(['booking.legs', 'customer']);
 
@@ -48,6 +48,8 @@ final class LimoCombinedInvoicePdf
 
         $rows = [];
         $serial = 0;
+        /** @var list<\Illuminate\Support\Carbon> $tripDays */
+        $tripDays = [];
 
         foreach ($invoices as $invoice) {
             /** @var list<LimoBooking> $bookings */
@@ -67,6 +69,9 @@ final class LimoCombinedInvoicePdf
                     $serial++;
                     $legCount++;
                     $legTotal = round($legTotal + (float) $leg->net_amount, 3);
+                    if ($leg->start_at !== null) {
+                        $tripDays[] = $leg->start_at->copy()->startOfDay();
+                    }
 
                     $rows[] = [
                         'serial' => $serial,
@@ -125,14 +130,16 @@ final class LimoCombinedInvoicePdf
         $total = round((float) $invoices->sum('total'), 3);
         $paid = round((float) $invoices->sum('amount_paid'), 3);
 
-        $dates = $invoices->pluck('issue_date')->filter()->sort()->values();
+        // The period is the work's, not the paper's: the window asked for,
+        // else from the first trip to the last.
+        $dates = $invoices->map(static fn (LimoInvoice $i): ?\Illuminate\Support\Carbon => $i->service_date ?? $i->issue_date)
+            ->filter()->sort()->values();
 
         return [
             'customer' => $invoices->first()?->customer,
             'rows' => $rows,
             'references' => $invoices->pluck('reference')->filter()->values()->all(),
-            'periodFrom' => $dates->first(),
-            'periodTo' => $dates->last(),
+            ...$this->period($this->day($from), $this->day($to), $tripDays, $dates),
             'total' => $total,
             'paid' => $paid,
             'balance' => round($total - $paid, 3),
@@ -177,6 +184,40 @@ final class LimoCombinedInvoicePdf
             (string) $leg->start_at,
             (string) $leg->net_amount,
         ]))->values();
+    }
+
+    /**
+     * The window asked for — but only when every trip printed falls inside
+     * it. Invoices ticked under another month, or a bill whose trips run on
+     * past the month end, get the real first-to-last trip dates instead: a
+     * Period that disagrees with the rows below it is worse than none.
+     *
+     * @param  list<\Illuminate\Support\Carbon>  $tripDays
+     * @param  \Illuminate\Support\Collection<int, \Illuminate\Support\Carbon>  $invoiceDays
+     * @return array{periodFrom: ?\Illuminate\Support\Carbon, periodTo: ?\Illuminate\Support\Carbon}
+     */
+    private function period(?\Illuminate\Support\Carbon $from, ?\Illuminate\Support\Carbon $to, array $tripDays, \Illuminate\Support\Collection $invoiceDays): array
+    {
+        $days = collect($tripDays)->sort()->values();
+        if ($days->isEmpty()) {
+            $days = $invoiceDays;
+        }
+
+        $inside = $days->every(static fn (\Illuminate\Support\Carbon $d): bool => ($from === null || $d->gte($from)) && ($to === null || $d->lte($to)));
+
+        return [
+            'periodFrom' => $inside && $from !== null ? $from : $days->first(),
+            'periodTo' => $inside && $to !== null ? $to : $days->last(),
+        ];
+    }
+
+    private function day(?string $value): ?\Illuminate\Support\Carbon
+    {
+        if ($value === null || preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) !== 1) {
+            return null;
+        }
+
+        return \Illuminate\Support\Carbon::createFromFormat('Y-m-d', $value)?->startOfDay();
     }
 
     private function service(LimoLeg $leg): string

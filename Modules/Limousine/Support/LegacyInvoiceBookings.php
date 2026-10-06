@@ -200,6 +200,7 @@ final class LegacyInvoiceBookings
 
             $invoice->notes = sprintf('Invoice #%s | Bookings: %s', $m[1], implode(', ', $ids));
             $invoice->saveQuietly();
+            InvoiceServiceDates::sync([(int) $invoice->id]);
             $corrected++;
         }
 
@@ -222,5 +223,7 @@ final class LegacyInvoiceBookings
                 $invoice->refresh()->recomputePaid();
             }
         });
+
+        InvoiceServiceDates::sync([(int) $invoice->id]);
     }
 }

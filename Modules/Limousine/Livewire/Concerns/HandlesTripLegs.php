@@ -459,6 +459,10 @@ trait HandlesTripLegs
 
         $parent->recalcTotal();
         $parent->save();
+
+        // A bulk delete fires no model events: the bill's service date has to
+        // be re-read for the trips that are left.
+        \Modules\Limousine\Support\InvoiceServiceDates::syncForParent($parent->getMorphClass(), (int) $parent->id);
     }
 
     private function blankToNull(string $value): ?string

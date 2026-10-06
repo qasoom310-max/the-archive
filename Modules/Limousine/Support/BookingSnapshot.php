@@ -188,6 +188,8 @@ final class BookingSnapshot
                 $this->insert(new LimoReceipt(), $receipt);
             }
 
+            InvoiceServiceDates::sync(array_values(array_unique(array_values($invoiceMap))));
+
             return true;
         });
     }

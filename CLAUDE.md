@@ -2654,6 +2654,27 @@ booking still prints `vehicle_details` only). Tests: `LimoCombinedInvoiceTest` (
   left alone.
 Tests: `LimoCombinedInvoiceTest` (+4).
 
+**Limousine invoices are read by when the trips ran, not the issue date
+(shipped 2026-10-06).** The owner picked Braxtone + 1–30 Sep and got August
+trips: INV/01327 was ISSUED 1 Sep for August's work. New column
+`limo_invoices.service_date` (migration `2026_10_06_950043`, backfilled) = the
+date of the first trip of the invoice's booking, quotation, or the old-system
+bookings named in its notes (same customer only). `Modules\Limousine\Support\InvoiceServiceDates`
+computes it (`sync()`, `syncForParent()`); it is kept in step by `LimoLeg`
+saved/deleted hooks, `LimoInvoice` saved, `HandlesTripLegs::persistLegs` after
+its bulk delete, `BookingSnapshot::restore`, and the `LegacyInvoiceBookings`
+re-links. `syncForParent` for a booking also finds old invoices whose notes name
+it. **The invoices list window (`LimoInvoiceRows::query`, also used by the
+screen's `baseQuery()` and exports) filters `DATE(COALESCE(service_date,
+issue_date))`.** A bill with no trip (late fee, undispatched quote) goes by issue
+date. Filters are labelled "Service from / to", and the list and exports show a
+Service date column. The combined invoice is ordered by service date. Its
+Period is the requested window only when every printed trip falls inside it,
+otherwise the real first–last trip dates. Rule: an invoice spanning months
+belongs to the month of its FIRST trip. Not changed: the statement of account
+and account payments still go by issue date (a ledger).
+Tests: `LimoCombinedInvoiceTest` (+4).
+
 **Vehicle Type on a quotation reads BOTH car fields (fixed 2026-09-30):** the
 owner wrote a quote, chose the car on it, and the Vehicle Type column printed
 empty. Not a mistake of theirs — the form offers TWO ways to name the car, a

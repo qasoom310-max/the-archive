@@ -127,6 +127,15 @@ final class LimoLeg extends Model
 
     protected static function booted(): void
     {
+        // An invoice is read by when its trips ran; keep that date in step.
+        $serviceDates = static function (self $leg): void {
+            if ($leg->wasRecentlyCreated || ! $leg->exists || $leg->wasChanged(['start_at', 'legable_id', 'legable_type'])) {
+                \Modules\Limousine\Support\InvoiceServiceDates::syncForParent((string) $leg->legable_type, (int) $leg->legable_id);
+            }
+        };
+        static::saved($serviceDates);
+        static::deleted($serviceDates);
+
         // The next trip number follows on from the highest one on file. It used
         // to be derived from the row id (REFERENCE_START - 1 + id), but imports
         // and re-imports ran the id counter far ahead of the trip numbers, so

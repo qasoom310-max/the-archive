@@ -52,11 +52,11 @@
                    placeholder="{{ __('Invoice, customer, booking…') }}">
         </div>
         <div>
-            <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Issued from') }}</label>
+            <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Service from') }}</label>
             <x-date-field wire:model.live="from" class="o-input text-sm" />
         </div>
         <div>
-            <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Issued to') }}</label>
+            <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Service to') }}</label>
             <x-date-field wire:model.live="to" class="o-input text-sm" />
         </div>
     </div>
@@ -117,6 +117,7 @@
                     <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Customer') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Issued') }}</th>
+                    <th class="px-4 py-2 text-start">{{ __('Service date') }}</th>
                     <th class="px-4 py-2 text-end">{{ __('Total') }}</th>
                     <th class="px-4 py-2 text-end">{{ __('Paid') }}</th>
                     <th class="px-4 py-2 text-end">{{ __('Balance') }}</th>
@@ -139,6 +140,7 @@
                         <td class="px-4 py-2 font-medium text-chrome-800">{{ $invoice->reference }}</td>
                         <td class="px-4 py-2 text-chrome-700">{{ $invoice->customer?->name ?? '—' }}</td>
                         <td class="px-4 py-2 text-chrome-600">{{ $invoice->issue_date?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
+                        <td class="px-4 py-2 text-chrome-600">{{ $invoice->service_date?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($invoice->total) }}</td>
                         <td class="px-4 py-2 text-end text-emerald-700">{{ \App\Erp\Views\ValueFormat::money($invoice->amount_paid) }}</td>
                         <td class="px-4 py-2 text-end text-chrome-700">{{ \App\Erp\Views\ValueFormat::money($invoice->balance()) }}</td>
@@ -172,7 +174,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="9" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No invoices found.') }}</td></tr>
+                    <tr><td colspan="10" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No invoices found.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>

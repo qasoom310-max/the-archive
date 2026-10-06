@@ -94,6 +94,80 @@ final class LimoCombinedInvoiceTest extends TestCase
             ->assertDontSee((string) $july->reference);
     }
 
+    /** Issued on 1 September for an August trip: that is August's bill, not September's. */
+    public function test_the_window_reads_invoices_by_when_the_trips_ran(): void
+    {
+        $customer = $this->customer('Braxtone Plus W.L.L');
+        $august = $this->trip($customer, 14, '2026-08-01');
+        $august->forceFill(['issue_date' => '2026-09-01'])->save();
+        $september = $this->trip($customer, 8, '2026-09-23');
+        $fee = LimoInvoice::query()->create([
+            'customer_id' => $customer->id, 'issue_date' => '2026-09-15', 'total' => 5, 'subtotal' => 5,
+            'charge_label' => 'Late payment fee',
+        ]);
+
+        $this->assertSame('2026-08-01', $august->refresh()->service_date?->toDateString());
+
+        $component = Livewire::test(Invoices::class)
+            ->set('from', '2026-09-01')
+            ->set('to', '2026-09-30')
+            ->assertSee((string) $september->reference)
+            ->assertDontSee((string) $august->reference)
+            // A charge with no trip goes by the day it was raised.
+            ->assertSee((string) $fee->reference)
+            ->call('selectAll');
+        $this->assertNotContains($august->id, $component->get('selected'));
+
+        Livewire::test(Invoices::class)
+            ->set('from', '2026-08-01')
+            ->set('to', '2026-08-31')
+            ->assertSee((string) $august->reference);
+
+        // The bill's Period is the month asked for.
+        $data = app(LimoCombinedInvoicePdf::class)->viewData(LimoInvoice::query()->whereKey($september->id)->get(), '2026-09-01', '2026-09-30');
+        $this->assertSame('2026-09-01', $data['periodFrom']->toDateString());
+        $this->assertSame('2026-09-30', $data['periodTo']->toDateString());
+    }
+
+    /** Moving a trip to another day moves its bill with it. */
+    public function test_editing_a_trip_date_moves_the_invoice_to_that_month(): void
+    {
+        $invoice = $this->trip($this->customer(), 14, '2026-09-30');
+        $leg = $invoice->booking->legs()->firstOrFail();
+
+        $leg->start_at = \Illuminate\Support\Carbon::parse('2026-10-02 09:00:00');
+        $leg->save();
+
+        $this->assertSame('2026-10-02', $invoice->refresh()->service_date?->toDateString());
+    }
+
+    /** An old invoice imported before its bookings takes their date once they arrive. */
+    public function test_an_old_invoice_takes_its_date_when_its_bookings_arrive(): void
+    {
+        $customer = $this->customer('Braxtone Plus W.L.L');
+        $invoice = $this->oldInvoice($customer, 1327, 22, 'Invoice #1327 | Bookings: 15119, 15124');
+        $this->assertNull($invoice->refresh()->service_date);
+
+        $this->oldBooking($customer, 15119, 8, 'Noora');
+
+        $this->assertSame('2026-09-05', $invoice->refresh()->service_date?->toDateString());
+    }
+
+    /** A ticked bill from another month is not printed under this month's Period. */
+    public function test_the_period_never_claims_a_month_its_rows_are_not_in(): void
+    {
+        $customer = $this->customer();
+        $august = $this->trip($customer, 14, '2026-08-20');
+        $september = $this->trip($customer, 8, '2026-09-23');
+
+        $data = app(LimoCombinedInvoicePdf::class)->viewData(
+            LimoInvoice::query()->whereKey([$august->id, $september->id])->get(), '2026-09-01', '2026-09-30',
+        );
+
+        $this->assertSame('2026-08-20', $data['periodFrom']->toDateString());
+        $this->assertSame('2026-09-23', $data['periodTo']->toDateString());
+    }
+
     public function test_select_all_takes_the_whole_filter_not_just_the_page(): void
     {
         $customer = $this->customer();

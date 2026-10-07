@@ -104,6 +104,20 @@ final class LimoBookingCalendarTest extends TestCase
     }
 
     /**
+     * The browser's time box is a fiddly spinner on a phone; the hour and the
+     * minute are two plain lists instead, one tap each.
+     */
+    public function test_the_time_is_chosen_from_an_hour_and_a_minute_list(): void
+    {
+        $html = Livewire::test(BookingForm::class)->html();
+
+        $this->assertStringNotContainsString('type="time"', $html);
+        $this->assertStringContainsString("setTimePart('hour'", $html);
+        $this->assertStringContainsString("setTimePart('minute'", $html);
+        $this->assertStringContainsString('<option value="23">23</option>', $html);
+    }
+
+    /**
      * Scoped to the booking, which is what was asked for. The quotation shares
      * the very same legs partial, so this is the line that keeps them apart.
      */

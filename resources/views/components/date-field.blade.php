@@ -135,10 +135,30 @@
             </div>
 
             @if ($withTime)
+                {{-- Two drop-downs, not the browser's time box: on a phone that
+                     box is a fiddly spinner, where a list is one tap each.
+                     dir="ltr" keeps hour before minute under Arabic. --}}
                 <div class="mt-3 flex items-center gap-2 border-t border-chrome-100 pt-3">
                     <label class="text-xs font-medium text-chrome-500" for="{{ $timeId }}">{{ __('Time') }}</label>
-                    <input type="time" id="{{ $timeId }}" x-model="time" x-on:change="applyTime()"
-                           class="o-input w-32 text-sm">
+                    <div dir="ltr" class="flex items-center gap-1">
+                        <select id="{{ $timeId }}" aria-label="{{ __('Hour') }}"
+                                :value="hourPart()" x-on:change="setTimePart('hour', $event.target.value)"
+                                class="o-input w-20 py-1.5 text-sm">
+                            <option value="">{{ __('HH') }}</option>
+                            @for ($h = 0; $h < 24; $h++)
+                                <option value="{{ sprintf('%02d', $h) }}">{{ sprintf('%02d', $h) }}</option>
+                            @endfor
+                        </select>
+                        <span class="font-semibold text-chrome-500">:</span>
+                        <select aria-label="{{ __('Minute') }}"
+                                :value="minutePart()" x-on:change="setTimePart('minute', $event.target.value)"
+                                class="o-input w-20 py-1.5 text-sm">
+                            <option value="">{{ __('MM') }}</option>
+                            <template x-for="m in minuteOptions()" :key="m">
+                                <option :value="m" x-text="m" :selected="m === minutePart()"></option>
+                            </template>
+                        </select>
+                    </div>
                 </div>
             @endif
 

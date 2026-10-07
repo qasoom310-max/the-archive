@@ -681,6 +681,40 @@ document.addEventListener('alpine:init', () => {
 
             this.write(iso + 'T' + this.time);
         },
+
+        /*
+         * Hour and minute are two plain drop-downs rather than the browser's
+         * time box: on a phone that box is a fiddly spinner (and shows AM/PM
+         * on some), where a list of 00–23 and one of minutes is one tap each.
+         */
+        hourPart() {
+            return this.time.slice(0, 2);
+        },
+
+        minutePart() {
+            return this.time.slice(3, 5);
+        },
+
+        /** Every 5 minutes, plus a stored minute that falls between them. */
+        minuteOptions() {
+            const options = [];
+            for (let m = 0; m < 60; m += 5) options.push(String(m).padStart(2, '0'));
+            const current = this.minutePart();
+            if (current !== '' && !options.includes(current)) {
+                options.push(current);
+                options.sort();
+            }
+
+            return options;
+        },
+
+        setTimePart(part, value) {
+            if (value === '') return;
+            const hour = part === 'hour' ? value : (this.hourPart() || '00');
+            const minute = part === 'minute' ? value : (this.minutePart() || '00');
+            this.time = hour + ':' + minute;
+            this.applyTime();
+        },
     }));
 
     window.Alpine.store('clip', {

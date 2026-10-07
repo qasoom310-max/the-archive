@@ -3109,5 +3109,9 @@
     "Pay :percent%": "دفع :percent٪",
     "Pre-filled with the balance. Pick 25% or 50% for a deposit, or type any amount.": "معبّأ بالرصيد المتبقي. اختر ٢٥٪ أو ٥٠٪ كدفعة مقدّمة، أو اكتب أي مبلغ.",
     "Service from": "الخدمة من",
-    "Service to": "الخدمة إلى"
+    "Service to": "الخدمة إلى",
+    "Hour": "الساعة",
+    "Minute": "الدقيقة",
+    "HH": "س",
+    "MM": "د"
 }

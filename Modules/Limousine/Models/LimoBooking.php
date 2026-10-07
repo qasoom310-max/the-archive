@@ -321,14 +321,16 @@ final class LimoBooking extends Model implements DefinesIrModel, TakesCouponCred
      *
      * Every trip is invoiced — a booking with no invoice is money nobody is
      * accounting for — so this runs when the booking is written and again
-     * whenever its price moves. The invoice follows the fare only while nothing
-     * has been paid against it; after that {@see LimoInvoice::followTotal()}
-     * refuses, and a change needs a new document rather than a rewritten one.
+     * whenever its price moves, paid or not (see {@see LimoInvoice::followTotal()}).
+     * A re-priced invoice can stop being paid in full, so the booking's own
+     * paid flag is worked out again.
      */
     public function syncInvoice(): LimoInvoice
     {
         $invoice = $this->createInvoice();
-        $invoice->followTotal((float) $this->fare);
+        if ($invoice->followTotal((float) $this->fare)) {
+            $this->syncPaymentFromAdvance();
+        }
 
         return $invoice;
     }

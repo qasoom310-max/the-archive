@@ -35,6 +35,9 @@ final class LimoInvoicePdf
         // ?? already suppresses the null property access, so no nullsafe on
         // the left: a bill with no trip falls through to the quote's legs.
         $legs = $invoice->booking->legs ?? $invoice->quotation?->legs;
+        // Each line reads its parent's car type when the leg names none.
+        $parent = $invoice->booking ?? $invoice->quotation;
+        $legs?->each(static fn (LimoLeg $leg): LimoLeg => $leg->setRelation('legable', $parent));
         $paid = round((float) $invoice->amount_paid, 3);
         $total = round((float) $invoice->total, 3);
 
@@ -82,6 +85,10 @@ final class LimoInvoicePdf
             return [];
         }
 
+        // A cancelled trip is not on the bill (unless its money was kept), so
+        // it is not printed either — the fare it is summed into leaves it out.
+        $legs = $legs->filter(static fn (LimoLeg $leg): bool => $leg->isBillable());
+
         return $this->dedupeLegs($legs)->map(fn (LimoLeg $leg): array => $this->legRow($leg, $bookingReference))->all();
     }
 
@@ -119,7 +126,7 @@ final class LimoInvoicePdf
             // The car TYPE the customer agreed to at booking, not whichever
             // plate the queue later assigned — same choice LimoCombinedInvoicePdf
             // makes, for the same reason: that's what they're being billed for.
-            'vehicle' => (string) ($leg->vehicle_details ?? ''),
+            'vehicle' => $leg->billedVehicle($leg->relationLoaded('legable') ? $leg->legable : null),
             'from' => (string) ($leg->from_location ?? ''),
             'to' => (string) ($leg->to_location ?? ''),
             'when' => $leg->start_at?->format('j-n-Y') ?? '',

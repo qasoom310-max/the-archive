@@ -2675,6 +2675,22 @@ belongs to the month of its FIRST trip. Not changed: the statement of account
 and account payments still go by issue date (a ledger).
 Tests: `LimoCombinedInvoiceTest` (+4).
 
+**A booking's invoice follows its price even after payment (changed 2026-10-07,
+the owner's request).** It used to freeze at the first payment, so a booking
+re-priced after its deposit kept an invoice for the old amount, and no correct
+one could be raised (a booking has exactly one invoice). `LimoInvoice::followTotal()`
+now always follows and re-runs `recomputePaid()` when anything was paid (a paid
+invoice raised in price becomes partial); `LimoBooking::syncInvoice()` then
+re-runs `syncPaymentFromAdvance()`. Issued receipts are untouched. Migration
+`2026_10_07_950044` corrected the invoices already out of step: ERP-entered
+bookings only (`imported_at` null AND created since `LiveEntry::since()`), fare
+> 0, old → new logged. Importers still never call it. Same day, both invoice
+PDFs skip cancelled trips (`LimoLeg::isBillable()`, as the fare does), and the
+car prints via `LimoLeg::billedVehicle()`: Car details → booking `car_type` →
+the fleet car's MODEL (text before the first `·`, never the plate). The
+combined invoice's PAX falls back to a private customer's own name when blank
+or ".". Tests: `LimoInvoiceChainTest` (+4), `LimoCombinedInvoiceTest` (+3).
+
 **Vehicle Type on a quotation reads BOTH car fields (fixed 2026-09-30):** the
 owner wrote a quote, chose the car on it, and the Vehicle Type column printed
 empty. Not a mistake of theirs — the form offers TWO ways to name the car, a

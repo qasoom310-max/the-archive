@@ -254,6 +254,27 @@ final class LimoLeg extends Model
             || in_array($this->refund_outcome, self::BILLABLE_OUTCOMES, true);
     }
 
+    /**
+     * The car as an invoice names it: the type agreed at booking ("Car
+     * details"), else the booking's own car type (where the old system kept
+     * it), else the model of the car picked from the fleet — model only, never
+     * the plate, since the customer is billed for a kind of car, not a plate.
+     */
+    public function billedVehicle(?Model $parent = null): string
+    {
+        $details = trim((string) ($this->vehicle_details ?? ''));
+        if ($details !== '') {
+            return $details;
+        }
+
+        $type = trim((string) ($parent?->getAttribute('car_type') ?? ''));
+        if ($type !== '') {
+            return ucfirst($type);
+        }
+
+        return trim(explode('·', (string) ($this->vehicle ?? ''))[0]);
+    }
+
     /** Whether the customer has signed this leg's Service Order. */
     public function isSigned(): bool
     {

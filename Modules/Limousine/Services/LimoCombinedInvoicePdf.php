@@ -77,14 +77,15 @@ final class LimoCombinedInvoicePdf
                         'serial' => $serial,
                         'booking' => (string) ($booking->reference ?? ''),
                         'service' => $this->service($leg),
-                        'vehicle' => $this->vehicle($leg, $booking),
+                        'vehicle' => $leg->billedVehicle($booking),
                         'from' => (string) ($leg->from_location ?? ''),
                         'to' => (string) ($leg->to_location ?? ''),
                         'date' => $leg->start_at?->isoFormat('DD-MMM-YY HH:mm') ?? '',
                         // The customer's OWN reference for the job — what they look
                         // it up by in their system, not ours.
                         'company_reference' => (string) ($booking->company_reference ?? ''),
-                        'pax' => (string) ($booking->pax_name ?? ''),
+                        // A private customer is usually the one travelling.
+                        'pax' => $this->pax($booking, $invoice),
                         'total' => round((float) $leg->net_amount, 3),
                     ];
                 }
@@ -151,32 +152,30 @@ final class LimoCombinedInvoicePdf
         ];
     }
 
-    /**
-     * The car TYPE written at booking ("Car details" on the sheet), NOT the
-     * vehicle the queue later assigned: the customer agreed to an SUV, and
-     * which plate ran the job is our operations detail, not theirs to be
-     * billed by. A trip brought over from the old system has only the one
-     * vehicle field the old system kept, so that is what it prints.
-     */
-    private function vehicle(LimoLeg $leg, LimoBooking $booking): string
+    private function pax(LimoBooking $booking, LimoInvoice $invoice): string
     {
-        $details = trim((string) ($leg->vehicle_details ?? ''));
-        if ($details !== '' || $booking->imported_at === null) {
-            return $details;
+        $pax = trim((string) ($booking->pax_name ?? ''));
+        // "." or "-" typed to get past the form is not a name.
+        if (preg_match('/[\p{L}\p{N}]/u', $pax) === 1) {
+            return $pax;
         }
 
-        return trim((string) ($leg->vehicle ?? ''));
+        $customer = $invoice->customer;
+
+        return $customer !== null && ! $customer->isCompany() ? (string) $customer->name : '';
     }
 
     /**
-     * The import that carried old bookings over duplicated a handful of their
-     * legs byte for byte; printing one journey twice reads as a double charge.
+     * The trips on the bill: a cancelled one is left out (unless its money
+     * was kept), exactly as the fare leaves it out. The import that carried
+     * old bookings over also duplicated a handful of legs byte for byte;
+     * printing one journey twice reads as a double charge.
      *
      * @return \Illuminate\Support\Collection<int, LimoLeg>
      */
     private function distinctLegs(LimoBooking $booking): \Illuminate\Support\Collection
     {
-        return $booking->legs->unique(static fn (LimoLeg $leg): string => implode('|', [
+        return $booking->legs->filter(static fn (LimoLeg $leg): bool => $leg->isBillable())->unique(static fn (LimoLeg $leg): string => implode('|', [
             $leg->service_type,
             (string) $leg->vehicle_details,
             (string) $leg->from_location,

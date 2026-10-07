@@ -22,9 +22,9 @@ use Tests\TestCase;
  * Quote → invoice → trip → receipt.
  *
  * Every trip is billed, and it is billed by existing rather than by somebody
- * remembering to press a button. The invoice follows the job while the price is
- * still being settled and stops the moment money lands, because a document
- * somebody holds a receipt against must not re-price itself afterwards.
+ * remembering to press a button. The invoice follows the job's price for as
+ * long as the job exists, paid or not: a booking has exactly one invoice, so an
+ * invoice left on an old price could never be corrected.
  */
 final class LimoInvoiceChainTest extends TestCase
 {
@@ -91,20 +91,68 @@ final class LimoInvoiceChainTest extends TestCase
         );
     }
 
-    public function test_once_money_lands_the_invoice_stops_following(): void
+    /**
+     * The office's report: a booking re-priced after its deposit kept an
+     * invoice for the old amount, and no second invoice could be raised.
+     */
+    public function test_a_part_paid_invoice_still_follows_the_trip(): void
     {
         $booking = $this->bookThrough(rate: 45, advance: 20);
 
-        $invoice = LimoInvoice::query()->where('booking_id', $booking->id)->firstOrFail();
-        $this->assertTrue($invoice->isFrozen(), 'a part payment freezes the document');
-
-        // Re-pricing the trip afterwards must NOT rewrite a bill somebody holds
-        // a receipt against.
         Livewire::test(BookingForm::class, ['id' => $booking->id])
             ->set('legs.0.rate', 90)
             ->set('legs.0.car_details', 'Sedan')
             ->call('save')
             ->assertHasNoErrors();
+
+        $invoice = LimoInvoice::query()->where('booking_id', $booking->id)->sole();
+        $this->assertEqualsWithDelta(90.0, $invoice->total, 0.001);
+        $this->assertEqualsWithDelta(20.0, $invoice->amount_paid, 0.001);
+        $this->assertSame(LimoInvoice::STATUS_PARTIAL, $invoice->status);
+    }
+
+    /** Paid in full, then a trip is added: the invoice and the booking both owe again. */
+    public function test_a_paid_invoice_raised_in_price_owes_the_difference(): void
+    {
+        $booking = $this->bookThrough(rate: 45, advance: 45);
+
+        Livewire::test(BookingForm::class, ['id' => $booking->id])
+            ->set('legs.0.rate', 60)
+            ->set('legs.0.car_details', 'Sedan')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $invoice = LimoInvoice::query()->where('booking_id', $booking->id)->sole();
+        $this->assertEqualsWithDelta(60.0, $invoice->total, 0.001);
+        $this->assertSame(LimoInvoice::STATUS_PARTIAL, $invoice->status);
+        $this->assertSame(LimoBooking::PAYMENT_UNPAID, $booking->fresh()?->payment_status);
+    }
+
+    /** The deploy repair: an invoice left on the old price is put right. */
+    public function test_the_repair_corrects_an_invoice_left_on_an_old_price(): void
+    {
+        $booking = $this->bookThrough(rate: 45, advance: 20);
+        $invoice = LimoInvoice::query()->where('booking_id', $booking->id)->sole();
+        // As the old rule left it: the booking re-priced, the invoice not.
+        $booking->forceFill(['fare' => 70, 'amount' => 70])->saveQuietly();
+        $invoice->forceFill(['total' => 45, 'subtotal' => 45])->saveQuietly();
+
+        $migration = require base_path('Modules/Limousine/database/migrations/2026_10_07_950044_bring_paid_invoices_back_in_step_with_their_booking.php');
+        $migration->up();
+
+        $this->assertEqualsWithDelta(70.0, $invoice->fresh()?->total, 0.001);
+        $this->assertSame(LimoInvoice::STATUS_PARTIAL, $invoice->fresh()?->status);
+    }
+
+    /** An old-system booking's invoice keeps the old system's figure. */
+    public function test_the_repair_leaves_imported_bookings_alone(): void
+    {
+        $booking = $this->bookThrough(rate: 45);
+        $invoice = LimoInvoice::query()->where('booking_id', $booking->id)->sole();
+        $booking->forceFill(['fare' => 70, 'imported_at' => now()])->saveQuietly();
+
+        $migration = require base_path('Modules/Limousine/database/migrations/2026_10_07_950044_bring_paid_invoices_back_in_step_with_their_booking.php');
+        $migration->up();
 
         $this->assertEqualsWithDelta(45.0, $invoice->fresh()?->total, 0.001);
     }

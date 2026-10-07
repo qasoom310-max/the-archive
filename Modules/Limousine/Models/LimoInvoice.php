@@ -151,32 +151,25 @@ final class LimoInvoice extends Model implements DefinesIrModel
         return $this->belongsTo(LimoBooking::class, 'booking_id');
     }
 
-    /**
-     * Has money landed against this invoice?
-     *
-     * Once it has, the document stops following the trip. An invoice somebody
-     * has paid against must not change its own total afterwards — the customer
-     * holds a receipt quoting a figure, and a document that quietly re-prices
-     * itself makes that receipt a lie.
-     */
+    /** Has money landed against this invoice? */
     public function isFrozen(): bool
     {
         return round((float) $this->amount_paid, 3) > 0.0;
     }
 
     /**
-     * Follow the trip's price — but only while nothing is paid.
+     * Follow the trip's price, paid or not.
      *
      * A booking is shaped after it is taken: legs are added, priced, cancelled.
-     * The invoice tracks that so the two never disagree, and stops the moment
-     * the first payment lands.
+     * The invoice tracks that so the two never disagree. It used to stop at the
+     * first payment, which left every booking re-priced after its deposit with
+     * an invoice for the old amount — and no way to raise a correct one, since
+     * a booking has exactly one invoice. A receipt already issued is unharmed:
+     * it records what was paid and what was owed at that moment. The paid
+     * status is worked out again against the new total.
      */
     public function followTotal(float $total): bool
     {
-        if ($this->isFrozen()) {
-            return false;
-        }
-
         $total = round($total, 3);
         if (abs($total - round((float) $this->total, 3)) < 0.0005) {
             return false;
@@ -185,6 +178,10 @@ final class LimoInvoice extends Model implements DefinesIrModel
         $this->subtotal = $total;
         $this->total = $total;
         $this->save();
+
+        if ($this->isFrozen() || $this->status !== self::STATUS_UNPAID) {
+            $this->recomputePaid();
+        }
 
         return true;
     }

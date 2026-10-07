@@ -219,6 +219,61 @@ final class LimoCombinedInvoiceTest extends TestCase
         $this->assertEqualsWithDelta(500.0, $data['total'], 0.001);
     }
 
+    /**
+     * A cancelled trip is out of the fare, so printing it made the document
+     * list a journey that never ran and then take it off again on a
+     * "Discount" line.
+     */
+    public function test_a_cancelled_trip_is_not_printed(): void
+    {
+        $customer = $this->customer();
+        $invoice = $this->trip($customer, 400, '2026-06-10');
+        $booking = $invoice->booking;
+        $booking->legs()->create([
+            'sequence' => 1, 'service_type' => 'transfer', 'from_location' => 'Hotel',
+            'to_location' => 'Airport', 'start_at' => '2026-06-12 09:00:00', 'days' => 1,
+            'rate' => 150, 'rate_basis' => 'trip', 'net_amount' => 150,
+            'status' => \Modules\Limousine\Models\LimoLeg::STATUS_CANCELLED,
+        ]);
+        $booking->recalcTotal();
+        $booking->save();
+        $booking->syncInvoice();
+
+        $data = app(LimoCombinedInvoicePdf::class)->viewData(
+            LimoInvoice::query()->where('id', $invoice->id)->get()
+        );
+
+        $this->assertCount(1, $data['rows']);
+        $this->assertEqualsWithDelta(400.0, $data['total'], 0.001);
+    }
+
+    /** A car picked from the fleet with no type typed prints its model, never the plate. */
+    public function test_a_car_picked_from_the_fleet_prints_its_model(): void
+    {
+        $customer = $this->customer();
+        $invoice = $this->trip($customer, 400, '2026-06-10');
+        $invoice->booking->legs()->update(['vehicle_details' => null, 'vehicle' => 'Ford Expedition · 363899 · White']);
+
+        $data = app(LimoCombinedInvoicePdf::class)->viewData(
+            LimoInvoice::query()->where('id', $invoice->id)->get()
+        );
+
+        $this->assertSame('Ford Expedition', $data['rows'][0]['vehicle']);
+    }
+
+    /** A private customer with no passenger typed is the passenger. */
+    public function test_a_private_customers_own_name_fills_a_blank_passenger(): void
+    {
+        $customer = LimoCustomer::query()->create(['name' => 'Helen Friberg', 'type' => 'individual']);
+        $invoice = $this->trip($customer, 40, '2026-06-10', pax: '.');
+
+        $data = app(LimoCombinedInvoicePdf::class)->viewData(
+            LimoInvoice::query()->where('id', $invoice->id)->get()
+        );
+
+        $this->assertSame('Helen Friberg', $data['rows'][0]['pax']);
+    }
+
     public function test_a_bill_whose_trips_do_not_sum_to_it_says_so_on_its_own_line(): void
     {
         $customer = $this->customer();

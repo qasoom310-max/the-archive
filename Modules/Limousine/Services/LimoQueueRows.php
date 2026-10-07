@@ -423,7 +423,11 @@ final class LimoQueueRows
         $lines = [];
         $lines[] = '*' . __('Ref. #') . ' ' . ($leg->reference ?? '') . '*';
 
-        if ($leg->start_at !== null) {
+        if ($leg->start_at !== null && $leg->service_type === LimoLeg::TYPE_CHAUFFEUR) {
+            // A chauffeur job holds the car for a stretch, so the driver needs
+            // when it ends as well as when it starts.
+            $lines = [...$lines, ...$this->chauffeurWindow($leg)];
+        } elseif ($leg->start_at !== null) {
             // 24-hour, like the queue's own date columns and the rest of the
             // office's paperwork — a driver reading 05:30 off a message should
             // never have to work out which half of the day it means.
@@ -511,6 +515,43 @@ final class LimoQueueRows
         $details = trim((string) ($leg->vehicle_details ?? ''));
 
         return $details !== '' ? $details : trim((string) ($booking->car_type ?? ''));
+    }
+
+    /**
+     * Start, end and length of a chauffeur job: `hours` a day across `days`
+     * consecutive days, so it ends on the last day, `hours` after the start
+     * time (past midnight when it runs late).
+     *
+     * @return list<string>
+     */
+    private function chauffeurWindow(LimoLeg $leg): array
+    {
+        $start = $leg->start_at;
+        if ($start === null) {
+            return [];
+        }
+
+        $stamp = static fn (\Carbon\CarbonInterface $at): string => $at->isoFormat('DD-MMM-YY') . ' · ' . $at->isoFormat('HH:mm');
+        $days = max(1, (int) $leg->days);
+        $hours = (float) ($leg->hours ?? 0);
+
+        $lines = [__('Start') . ': ' . $stamp($start)];
+        if ($hours <= 0) {
+            if ($days > 1) {
+                $lines[] = __('End') . ': ' . $start->copy()->addDays($days - 1)->isoFormat('DD-MMM-YY');
+            }
+
+            return $lines;
+        }
+
+        $end = $start->copy()->addDays($days - 1)->addMinutes((int) round($hours * 60));
+        $length = trans_choice(':count hour|:count hours', $hours == floor($hours) ? (int) $hours : 2, ['count' => rtrim(rtrim(number_format($hours, 2, '.', ''), '0'), '.')]);
+        if ($days > 1) {
+            $length .= ' × ' . trans_choice(':count day|:count days', $days, ['count' => $days]);
+        }
+        $lines[] = __('End') . ': ' . $stamp($end) . ' (' . $length . ')';
+
+        return $lines;
     }
 
     /**

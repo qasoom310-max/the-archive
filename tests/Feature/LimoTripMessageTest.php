@@ -144,6 +144,42 @@ final class LimoTripMessageTest extends TestCase
         $this->assertStringContainsString('Car type: *Vito*', app(LimoQueueRows::class)->whatsappText($leg));
     }
 
+    /** A chauffeur job says when it ends, past midnight included. */
+    public function test_a_chauffeur_trip_says_when_it_starts_and_ends(): void
+    {
+        $leg = $this->leg([], [
+            'service_type' => LimoLeg::TYPE_CHAUFFEUR, 'start_at' => '2026-10-07 20:30:00',
+            'hours' => 4, 'days' => 1, 'to_location' => null,
+        ]);
+
+        $text = app(LimoQueueRows::class)->whatsappText($leg);
+
+        $this->assertStringContainsString('Start: 07-Oct-26 · 20:30', $text);
+        $this->assertStringContainsString('End: 08-Oct-26 · 00:30 (4 hours)', $text);
+    }
+
+    public function test_a_multi_day_chauffeur_trip_ends_on_its_last_day(): void
+    {
+        $leg = $this->leg([], [
+            'service_type' => LimoLeg::TYPE_CHAUFFEUR, 'start_at' => '2026-10-07 09:00:00',
+            'hours' => 8, 'days' => 3,
+        ]);
+
+        $text = app(LimoQueueRows::class)->whatsappText($leg);
+
+        $this->assertStringContainsString('Start: 07-Oct-26 · 09:00', $text);
+        $this->assertStringContainsString('End: 09-Oct-26 · 17:00 (8 hours × 3 days)', $text);
+    }
+
+    /** A transfer keeps its single date line. */
+    public function test_a_transfer_has_no_end_line(): void
+    {
+        $text = app(LimoQueueRows::class)->whatsappText($this->leg());
+
+        $this->assertStringNotContainsString('End:', $text);
+        $this->assertStringContainsString('21-Aug-26 · 14:20', $text);
+    }
+
     public function test_a_settled_trip_says_paid_instead_of_a_balance(): void
     {
         $leg = $this->leg(['advance' => 14, 'payment_status' => LimoBooking::PAYMENT_PAID]);

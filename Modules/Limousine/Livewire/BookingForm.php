@@ -377,9 +377,10 @@ final class BookingForm extends Component
             return '';
         }
 
-        return (string) __('Receipt :reference issued for :amount.', [
+        // The amount is left off on purpose: the banner is read over shoulders
+        // and copied into chats; the receipt itself carries the figure.
+        return (string) __('Receipt :reference issued.', [
             'reference' => (string) $receipt->reference,
-            'amount' => ValueFormat::money($taken),
         ]);
     }
 

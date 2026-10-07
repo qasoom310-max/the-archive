@@ -185,6 +185,17 @@ final class LimoAutoReceiptTest extends TestCase
         $this->assertSame(20.0, $receipt->balance_after);
     }
 
+    /** The banner names the receipt but never the money taken. */
+    public function test_the_saved_banner_names_the_receipt_without_the_amount(): void
+    {
+        $this->form($this->customer(), '45')->call('save')->assertHasNoErrors();
+
+        $banner = (string) session('booking_status');
+        $this->assertStringContainsString((string) LimoReceipt::query()->sole()->reference, $banner);
+        $this->assertStringNotContainsString('45', $banner);
+        $this->assertStringNotContainsString('BD', $banner);
+    }
+
     public function test_booking_with_nothing_paid_leaves_no_receipt(): void
     {
         $this->form($this->customer(), '0')->call('save')->assertHasNoErrors();

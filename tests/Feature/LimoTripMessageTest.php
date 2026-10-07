@@ -196,10 +196,10 @@ final class LimoTripMessageTest extends TestCase
 
     /**
      * A company's trips are settled on its account, not by the driver
-     * collecting cash from whoever is riding — so neither "collect from
-     * customer" nor "Paid" belongs in the message for one.
+     * collecting cash from whoever is riding — so a company's message says
+     * whether the trip is paid, but never prints an amount to collect.
      */
-    public function test_a_company_customer_gets_no_balance_or_paid_line(): void
+    public function test_a_company_trip_says_unpaid_without_an_amount(): void
     {
         $leg = $this->leg(
             ['customer' => ['type' => LimoCustomer::TYPE_COMPANY], 'advance' => 0],
@@ -207,13 +207,24 @@ final class LimoTripMessageTest extends TestCase
 
         $text = app(LimoQueueRows::class)->whatsappText($leg);
 
+        $this->assertStringEndsWith('Unpaid', trim($text));
         $this->assertStringNotContainsString('Balance', $text);
-        $this->assertStringNotContainsString('Paid', $text);
-        $this->assertStringNotContainsString('✅', $text);
+        $this->assertStringNotContainsString('BD', $text);
     }
 
-    /** Even fully settled, a company still gets no "Paid" line. */
-    public function test_a_settled_company_trip_still_gets_no_paid_line(): void
+    public function test_a_part_paid_company_trip_says_part_paid_without_an_amount(): void
+    {
+        $leg = $this->leg(
+            ['customer' => ['type' => LimoCustomer::TYPE_COMPANY], 'advance' => 5],
+        );
+
+        $text = app(LimoQueueRows::class)->whatsappText($leg);
+
+        $this->assertStringEndsWith('Part paid', trim($text));
+        $this->assertStringNotContainsString('BD', $text);
+    }
+
+    public function test_a_settled_company_trip_says_paid(): void
     {
         $leg = $this->leg([
             'customer' => ['type' => LimoCustomer::TYPE_COMPANY],
@@ -222,8 +233,19 @@ final class LimoTripMessageTest extends TestCase
 
         $text = app(LimoQueueRows::class)->whatsappText($leg);
 
+        $this->assertStringEndsWith('Paid', trim($text));
         $this->assertStringNotContainsString('Balance', $text);
-        $this->assertStringNotContainsString('Paid', $text);
+    }
+
+    /** A private customer who paid a deposit is part paid, and the driver is told what is left. */
+    public function test_a_part_paid_private_trip_says_so_and_what_to_collect(): void
+    {
+        $leg = $this->leg(['advance' => 4, 'payment_method' => 'cash']);
+
+        $text = app(LimoQueueRows::class)->whatsappText($leg);
+
+        $this->assertStringContainsString('Part paid', $text);
+        $this->assertStringContainsString('Balance 10.000 BD', $text);
     }
 
     /**

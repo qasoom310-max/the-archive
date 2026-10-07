@@ -480,22 +480,25 @@ final class LimoQueueRows
             $lines[] = __('Car') . ': *' . $car . '*';
         }
 
-        // Money the driver has to handle goes LAST, where the office asked for
-        // it — it is the note they finish the message on, and up among the
-        // customer's details it read as part of who the trip is for. Left out
-        // entirely for a company: those trips are settled on the account, not
-        // by the driver collecting cash from whoever is riding, so neither
-        // "collect from customer" nor "Paid" means anything.
-        if ($customer === null || ! $customer->isCompany()) {
-            $balance = round($booking?->balanceDue() ?? 0.0, 3);
-            $lines[] = '';
+        // Money goes LAST, where the office asked for it — it is the note they
+        // finish the message on. Every trip says whether it is paid, part paid
+        // or unpaid. Only a private customer gets the amount to collect: a
+        // company's trips are settled on its account, not by the driver taking
+        // cash from whoever is riding, so no figure is printed for one.
+        $balance = round($booking?->balanceDue() ?? 0.0, 3);
+        $lines[] = '';
 
-            if ($balance > 0.001) {
+        if ($balance <= 0.001 || $booking?->payment_status === LimoBooking::PAYMENT_PAID) {
+            $lines[] = '✅ ' . __('Paid');
+        } else {
+            $lines[] = (float) ($booking->advance ?? 0) > 0.001
+                ? '🟡 ' . __('Part paid')
+                : '❌ ' . __('Unpaid');
+
+            if ($customer === null || ! $customer->isCompany()) {
                 $method = $booking !== null ? trim((string) ($booking->payment_method ?? '')) : '';
                 $collect = __('Balance :amount BD — collect from customer', ['amount' => number_format($balance, 3)]);
                 $lines[] = '*' . ($method !== '' ? $collect . ' ' . __('in') . ' ' . ucfirst($method) : $collect) . '*';
-            } else {
-                $lines[] = '✅ ' . __('Paid');
             }
         }
 

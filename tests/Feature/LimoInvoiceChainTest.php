@@ -281,6 +281,41 @@ final class LimoInvoiceChainTest extends TestCase
         $this->assertSame(0, LimoInvoice::query()->count());
     }
 
+    /**
+     * The old system's quotation register came over with no prices, and those
+     * filled the picker as rows of "0.00 BD" that would bill nothing.
+     */
+    public function test_a_quote_with_no_price_is_not_offered_for_billing(): void
+    {
+        $customer = $this->customer();
+        $priced = $this->quoteFor($customer, fare: 40);
+        $old = LimoQuotation::query()->create(['customer_id' => $customer->id, 'fare' => 0]);
+        $old->forceFill(['reference' => 'QT/0040'])->save();
+
+        Livewire::test(InvoiceForm::class)
+            ->set('customer_id', $customer->id)
+            ->assertSee($priced->reference)
+            ->assertDontSee('QT/0040')
+            ->call('selectQuote', $old->id)
+            ->assertHasErrors('quotation_id');
+    }
+
+    /** A quote whose trips are priced but whose own total reads 0 is priced from them. */
+    public function test_the_repair_prices_a_quote_from_its_trips(): void
+    {
+        $quote = $this->quoteFor($this->customer(), fare: 0);
+        $quote->legs()->create([
+            'sequence' => 0, 'service_type' => 'transfer', 'start_at' => '2026-10-10 09:00:00',
+            'rate' => 25, 'rate_basis' => 'trip', 'net_amount' => 25,
+        ]);
+        $quote->forceFill(['fare' => 0])->saveQuietly();
+
+        $migration = require base_path('Modules/Limousine/database/migrations/2026_10_07_950045_price_quotations_from_their_trips.php');
+        $migration->up();
+
+        $this->assertEqualsWithDelta(25.0, $quote->fresh()?->fare, 0.001);
+    }
+
     public function test_a_blank_form_cannot_conjure_an_invoice(): void
     {
         // There is no create-from-nothing any more: an invoice is raised from a

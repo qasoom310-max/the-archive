@@ -193,8 +193,10 @@ final class InvoiceForm extends Component
      * one — and searchable by quote number for when they already know it.
      * Excluded: a quote already invoiced (billing it twice is the whole thing
      * this guards), one that has already become a trip under the old
-     * quote-straight-to-booking flow (its trip carries the bill), and a
-     * declined one, which is a price nobody agreed.
+     * quote-straight-to-booking flow (its trip carries the bill), a declined
+     * one, which is a price nobody agreed, and one with no price — the old
+     * system's quotation register came over without any prices, and billing
+     * one would raise an invoice for nothing.
      *
      * @return \Illuminate\Support\Collection<int, LimoQuotation>
      */
@@ -207,6 +209,7 @@ final class InvoiceForm extends Component
             ->doesntHave('invoice')
             ->whereNull('booking_id')
             ->where('status', '!=', LimoQuotation::STATUS_DECLINED)
+            ->where('fare', '>', 0)
             ->when($this->customer_id !== null, fn ($q) => $q->where('customer_id', $this->customer_id))
             ->when($search !== '', function ($q) use ($search): void {
                 $q->where(function ($w) use ($search): void {
@@ -234,6 +237,7 @@ final class InvoiceForm extends Component
             ->doesntHave('invoice')
             ->whereNull('booking_id')
             ->where('status', '!=', LimoQuotation::STATUS_DECLINED)
+            ->where('fare', '>', 0)
             ->find($id);
 
         if ($quote === null) {

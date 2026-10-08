@@ -71,6 +71,52 @@ final class DailySummaryTest extends TestCase
             ->assertSee('In the red');
     }
 
+    /**
+     * Sweileh trades past midnight and counts its day 8 AM to 8 AM: a 2 AM
+     * sale belongs to the evening before, not to a day that has not opened.
+     */
+    public function test_a_day_starting_at_8_counts_after_midnight_sales_for_the_evening_before(): void
+    {
+        \App\Erp\Settings\Setting::set('company.day_starts_at', '8');
+        Carbon::setTestNow('2026-10-08 11:09:00');
+        $session = $this->openSession();
+        PosOrder::query()->create(['pos_session_id' => $session->id, 'reference' => 'POS/1', 'state' => OrderState::Done, 'total' => 28.45, 'ordered_at' => '2026-10-08 02:00:00']);
+        PosOrder::query()->create(['pos_session_id' => $session->id, 'reference' => 'POS/2', 'state' => OrderState::Done, 'total' => 10, 'ordered_at' => '2026-10-07 20:00:00']);
+        PosOrder::query()->create(['pos_session_id' => $session->id, 'reference' => 'POS/3', 'state' => OrderState::Done, 'total' => 4, 'ordered_at' => '2026-10-08 09:30:00']);
+
+        Livewire::test(DailySummary::class)
+            ->assertSet('date', '2026-10-08')
+            ->assertViewHas('today', fn (array $t): bool => $t['sales'] === 4.0)
+            ->set('date', '2026-10-07')
+            ->assertViewHas('today', fn (array $t): bool => $t['sales'] === 38.45);
+
+        Carbon::setTestNow();
+    }
+
+    /** Before 8 AM the day still running is yesterday's. */
+    public function test_before_the_day_starts_it_opens_on_the_day_still_running(): void
+    {
+        \App\Erp\Settings\Setting::set('company.day_starts_at', '8');
+        Carbon::setTestNow('2026-10-08 06:30:00');
+
+        Livewire::test(DailySummary::class)->assertSet('date', '2026-10-07');
+
+        Carbon::setTestNow();
+    }
+
+    /** Every other database keeps plain calendar days. */
+    public function test_by_default_a_day_is_the_calendar_day(): void
+    {
+        Carbon::setTestNow('2026-10-08 11:09:00');
+        $session = $this->openSession();
+        PosOrder::query()->create(['pos_session_id' => $session->id, 'reference' => 'POS/1', 'state' => OrderState::Done, 'total' => 28.45, 'ordered_at' => '2026-10-08 02:00:00']);
+
+        Livewire::test(DailySummary::class)
+            ->assertViewHas('today', fn (array $t): bool => $t['sales'] === 28.45);
+
+        Carbon::setTestNow();
+    }
+
     public function test_non_admin_is_forbidden(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => false]));

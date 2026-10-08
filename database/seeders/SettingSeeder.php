@@ -50,6 +50,9 @@ final class SettingSeeder extends Seeder
             // Super-admin-only (the Settings page hides it from regular admins
             // via SettingsPage::SUPER_ADMIN_KEYS). Descriptive for now; can
             // later drive module suggestions / defaults.
+            // The hour a trading day starts (App\Erp\Settings\BusinessDay): a
+            // café open past midnight counts a 2 AM sale for the evening before.
+            ['key' => 'company.day_starts_at', 'label' => 'Business day starts at (hour)', 'type' => 'number', 'group' => 'General', 'default' => '0', 'sort' => 18, 'description' => '0 = midnight. 8 means each day runs 8 AM to 8 AM the next morning, so after-midnight sales count for the evening before.'],
             ['key' => 'currency.default', 'label' => 'Default Currency', 'type' => 'string', 'group' => 'General', 'default' => 'USD', 'sort' => 20, 'description' => 'ISO code, e.g. USD, EUR.'],
             // Printed in the footer band on every customer document (the shared
             // <x-document-footer /> component). Per database, so each business

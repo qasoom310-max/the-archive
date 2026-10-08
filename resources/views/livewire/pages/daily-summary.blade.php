@@ -22,7 +22,12 @@
         </div>
     </div>
 
-    <p class="mb-3 text-sm font-medium text-chrome-600">{{ $dayLabel }}</p>
+    <p class="mb-3 text-sm font-medium text-chrome-600">
+        {{ $dayLabel }}
+        @if ($dayStartsAt > 0)
+            <span class="ms-1 text-xs font-normal text-chrome-400">· {{ __('Each day runs :from to :from the next morning.', ['from' => sprintf('%02d:00', $dayStartsAt)]) }}</span>
+        @endif
+    </p>
 
     {{-- Headline cards: Sales · Purchases · Net --}}
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">

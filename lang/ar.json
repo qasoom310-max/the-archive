@@ -3117,5 +3117,8 @@
     "No price — enter it when billing": "بدون سعر — أدخله عند الفوترة",
     "Amount to bill": "المبلغ المطلوب فوترته",
     "This quotation came from the old system without a price.": "جاء عرض السعر هذا من النظام القديم بدون سعر.",
-    "This quotation has no price. Enter the amount to bill.": "عرض السعر هذا بدون سعر. أدخل المبلغ المطلوب فوترته."
+    "This quotation has no price. Enter the amount to bill.": "عرض السعر هذا بدون سعر. أدخل المبلغ المطلوب فوترته.",
+    "Business day starts at (hour)": "بداية يوم العمل (الساعة)",
+    "0 = midnight. 8 means each day runs 8 AM to 8 AM the next morning, so after-midnight sales count for the evening before.": "0 = منتصف الليل. 8 تعني أن كل يوم يمتد من 8 صباحًا حتى 8 صباح اليوم التالي، فتُحسب مبيعات ما بعد منتصف الليل لليوم السابق.",
+    "Each day runs :from to :from the next morning.": "يمتد كل يوم من :from حتى :from صباح اليوم التالي."
 }

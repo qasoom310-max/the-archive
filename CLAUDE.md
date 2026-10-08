@@ -1216,6 +1216,19 @@ owner's request, same mechanism as drinks). (Window hours = `START_HOUR` /
 | Scope note | It's the **database identity** (company name), NOT the café **business type** — a different café won't get it. Renaming the Sweileh Café database's company name away from "sweileh…" silently turns it off (per the user's chosen trade-off over a toggle). To retune: change the constants / window hours in `HappyHour`, or the name match in `isSweilehCafe()`. Stacks with the per-phone customer discount (line-level deal, then order-level %) |
 | Tests | `tests/Feature/PosHappyHourTest.php` (12 — window bounds incl. Bahrain-vs-UTC, database gate + spelling tolerance, not-active-elsewhere, shisha cap, **shisha cheaper than the cap keeps its price (Zaglol)**, food 25%, **drinks excluded by category name**, **sweets excluded by category name**, taps stack, normal outside window, a windowed line keeps its price after close). AR keys added for the banner |
 
+**Business day for the Daily Summary (shipped 2026-10-08).** Sweileh trades
+past midnight and counts its day **8 AM → 8 AM** (the owner's choice), so a
+2 AM sale belongs to the evening before. New General setting
+`company.day_starts_at` (hour 0–23, per database; core migration
+`2026_10_08_100001` inserts 8 for the Sweileh database by company name, 0
+elsewhere, never overwriting; also in `SettingSeeder`). `App\Erp\Settings\BusinessDay`
+(`startHour()`, `of()`, `window()`) is the one place the boundary is decided.
+`DailySummary` counts POS sales over the window, opens on the business day
+still running (before 8 AM that is yesterday) and says "Each day runs 08:00 to
+08:00 the next morning" when the hour isn't 0. Purchases carry a date only,
+so they stay on their date. Not changed: the emailed `DailyReport`
+(noon → 6 AM) and other reports. Tests: `DailySummaryTest` (+3).
+
 **Production lifecycle — reverse / reopen (shipped 2026-08-11):**
 
 A completed production run is corrected through a **state machine keyed to its

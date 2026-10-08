@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Pages;
 
+use App\Erp\Settings\BusinessDay;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
@@ -43,12 +44,16 @@ final class DailySummary extends Component
         abort_unless($user instanceof User && $user->isAdmin(), 403);
 
         if ($this->date === '') {
-            $this->date = Carbon::today()->toDateString();
+            $this->date = BusinessDay::of();
         }
     }
 
     /**
-     * Sales / purchases / net for a single calendar day.
+     * Sales / purchases / net for a single business day.
+     *
+     * Sales are counted over the business day ({@see BusinessDay}): with the
+     * day starting at 08:00, a sale at 2 AM belongs to the evening before.
+     * A purchase carries a date and no time, so it stays on its date.
      *
      * @return array{sales: float, purchases: float, net: float}
      */
@@ -58,7 +63,8 @@ final class DailySummary extends Component
         if (Schema::hasTable('pos_orders')) {
             $sales = (float) PosOrder::query()
                 ->where('state', OrderState::Done->value)
-                ->whereDate('ordered_at', $date)
+                ->where('ordered_at', '>=', BusinessDay::window($date)[0]->toDateTimeString())
+                ->where('ordered_at', '<', BusinessDay::window($date)[1]->toDateTimeString())
                 ->sum('total');
         }
 
@@ -82,7 +88,7 @@ final class DailySummary extends Component
 
     public function render(): View
     {
-        $selected = $this->date !== '' ? $this->date : Carbon::today()->toDateString();
+        $selected = $this->date !== '' ? $this->date : BusinessDay::of();
         $base = Carbon::parse($selected);
 
         // 7-day trend ending on the selected day (most recent first).
@@ -99,6 +105,7 @@ final class DailySummary extends Component
         return view('livewire.pages.daily-summary', [
             'today' => $this->dayTotals($selected),
             'dayLabel' => $base->isoFormat('dddd, D MMMM YYYY'),
+            'dayStartsAt' => BusinessDay::startHour(),
             'history' => $history,
         ]);
     }

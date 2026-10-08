@@ -118,7 +118,11 @@
                                             <span class="font-semibold text-chrome-800">{{ $q->reference }}</span>
                                             <span class="text-chrome-500">{{ $q->customer?->name }}</span>
                                             <span class="text-chrome-400">{{ $q->pickup_at?->isoFormat('DD-MMM-YYYY') ?: $q->quote_date?->isoFormat('DD-MMM-YYYY') }}</span>
-                                            <span class="font-semibold text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($q->fare) }}</span>
+                                            @if ((float) $q->fare > 0)
+                                                <span class="font-semibold text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($q->fare) }}</span>
+                                            @else
+                                                <span class="text-xs font-medium text-amber-700">{{ __('No price — enter it when billing') }}</span>
+                                            @endif
                                         </button>
                                     </li>
                                 @endforeach
@@ -171,6 +175,14 @@
                 @else
                     @if ($selectedQuote)
                         <p class="mt-3 text-xs text-chrome-500">{{ __('Billing') }} <span class="font-semibold text-chrome-700">{{ $selectedQuote->reference }}</span></p>
+                        @if ((float) $selectedQuote->fare <= 0)
+                            <div class="mt-3">
+                                <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Amount to bill') }} *</label>
+                                <input type="number" step="0.001" min="0" wire:model.live.debounce.300ms="quoteAmount" class="o-input w-full" placeholder="0">
+                                <p class="mt-1 text-xs text-chrome-500">{{ __('This quotation came from the old system without a price.') }}</p>
+                                @error('quoteAmount') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            </div>
+                        @endif
                     @endif
                     <button wire:click="issueInvoice" @disabled(! $selectedQuote) class="o-btn-primary mt-4 w-full justify-center disabled:cursor-not-allowed disabled:opacity-50">
                         <span wire:loading.remove wire:target="issueInvoice">{{ __('Issue invoice') }}</span>

@@ -75,6 +75,12 @@ final class InvoiceForm extends Component
     #[Locked]
     public ?int $quotation_id = null;
 
+    /**
+     * What to bill when the chosen quote carries no price — the old system's
+     * quotation register came over without prices, so the office types it.
+     */
+    public string $quoteAmount = '';
+
     /** Free text over the quote picker — a quote number, or a customer's name. */
     public string $quoteSearch = '';
 
@@ -193,10 +199,10 @@ final class InvoiceForm extends Component
      * one — and searchable by quote number for when they already know it.
      * Excluded: a quote already invoiced (billing it twice is the whole thing
      * this guards), one that has already become a trip under the old
-     * quote-straight-to-booking flow (its trip carries the bill), a declined
-     * one, which is a price nobody agreed, and one with no price — the old
-     * system's quotation register came over without any prices, and billing
-     * one would raise an invoice for nothing.
+     * quote-straight-to-booking flow (its trip carries the bill), and a
+     * declined one, which is a price nobody agreed. A quote with no price (the
+     * old system's register came over without any) is still offered: the
+     * office types the amount when billing it.
      *
      * @return \Illuminate\Support\Collection<int, LimoQuotation>
      */
@@ -209,7 +215,6 @@ final class InvoiceForm extends Component
             ->doesntHave('invoice')
             ->whereNull('booking_id')
             ->where('status', '!=', LimoQuotation::STATUS_DECLINED)
-            ->where('fare', '>', 0)
             ->when($this->customer_id !== null, fn ($q) => $q->where('customer_id', $this->customer_id))
             ->when($search !== '', function ($q) use ($search): void {
                 $q->where(function ($w) use ($search): void {
@@ -237,7 +242,6 @@ final class InvoiceForm extends Component
             ->doesntHave('invoice')
             ->whereNull('booking_id')
             ->where('status', '!=', LimoQuotation::STATUS_DECLINED)
-            ->where('fare', '>', 0)
             ->find($id);
 
         if ($quote === null) {
@@ -246,8 +250,9 @@ final class InvoiceForm extends Component
             return;
         }
 
-        $this->resetErrorBag('quotation_id');
+        $this->resetErrorBag(['quotation_id', 'quoteAmount']);
         $this->quotation_id = $quote->id;
+        $this->quoteAmount = '';
         // Following the quote rather than the box: searching a number is how
         // the office finds a quote when it does not remember whose it is.
         $this->customer_id = $quote->customer_id;
@@ -298,6 +303,17 @@ final class InvoiceForm extends Component
             $this->addError('quotation_id', __('That quotation cannot be billed.'));
 
             return;
+        }
+
+        // No price on file: the amount typed here becomes the quote's price
+        // too, so the quote and its invoice agree.
+        if ((float) $quote->fare <= 0) {
+            $this->validate(
+                ['quoteAmount' => ['required', 'numeric', 'gt:0']],
+                ['quoteAmount.required' => __('This quotation has no price. Enter the amount to bill.')],
+            );
+            $quote->fare = round((float) $this->quoteAmount, 3);
+            $quote->save();
         }
 
         $invoice = $quote->convertToInvoice();
@@ -439,7 +455,9 @@ final class InvoiceForm extends Component
             'customers' => LimoCustomer::activeOrSelected($this->customer_id, ['id', 'name', 'phone']),
             'quotes' => $this->id === null ? $this->billableQuotes() : collect(),
             'selectedQuote' => $selectedQuote,
-            'previewTotal' => $selectedQuote !== null ? (float) $selectedQuote->fare : $this->previewTotal(),
+            'previewTotal' => $selectedQuote !== null
+                ? ((float) $selectedQuote->fare > 0 ? (float) $selectedQuote->fare : round((float) (is_numeric($this->quoteAmount) ? $this->quoteAmount : 0), 3))
+                : $this->previewTotal(),
             'balance' => $balance,
             'receipts' => $receipts,
             'invoice' => $invoice,

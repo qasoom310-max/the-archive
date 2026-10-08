@@ -3113,5 +3113,9 @@
     "Hour": "الساعة",
     "Minute": "الدقيقة",
     "HH": "س",
-    "MM": "د"
+    "MM": "د",
+    "No price — enter it when billing": "بدون سعر — أدخله عند الفوترة",
+    "Amount to bill": "المبلغ المطلوب فوترته",
+    "This quotation came from the old system without a price.": "جاء عرض السعر هذا من النظام القديم بدون سعر.",
+    "This quotation has no price. Enter the amount to bill.": "عرض السعر هذا بدون سعر. أدخل المبلغ المطلوب فوترته."
 }

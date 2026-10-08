@@ -282,22 +282,30 @@ final class LimoInvoiceChainTest extends TestCase
     }
 
     /**
-     * The old system's quotation register came over with no prices, and those
-     * filled the picker as rows of "0.00 BD" that would bill nothing.
+     * The old system's quotation register came over with no prices. They are
+     * still offered for billing; the office types the amount, which becomes
+     * the quote's price as well.
      */
-    public function test_a_quote_with_no_price_is_not_offered_for_billing(): void
+    public function test_a_quote_with_no_price_is_billed_at_the_amount_typed(): void
     {
         $customer = $this->customer();
-        $priced = $this->quoteFor($customer, fare: 40);
         $old = LimoQuotation::query()->create(['customer_id' => $customer->id, 'fare' => 0]);
         $old->forceFill(['reference' => 'QT/0040'])->save();
 
         Livewire::test(InvoiceForm::class)
             ->set('customer_id', $customer->id)
-            ->assertSee($priced->reference)
-            ->assertDontSee('QT/0040')
+            ->assertSee('QT/0040')
+            ->assertSee('No price')
             ->call('selectQuote', $old->id)
-            ->assertHasErrors('quotation_id');
+            ->call('issueInvoice')
+            ->assertHasErrors('quoteAmount')
+            ->set('quoteAmount', '120')
+            ->call('issueInvoice')
+            ->assertHasNoErrors();
+
+        $invoice = LimoInvoice::query()->where('quotation_id', $old->id)->sole();
+        $this->assertEqualsWithDelta(120.0, $invoice->total, 0.001);
+        $this->assertEqualsWithDelta(120.0, $old->fresh()?->fare, 0.001);
     }
 
     /** A quote whose trips are priced but whose own total reads 0 is priced from them. */

@@ -60,6 +60,36 @@ final class LimoChauffeurTest extends TestCase
         $this->assertNull($leg->to_location);
     }
 
+    /**
+     * A second leg starts on "per trip"; switched to chauffeur it stayed
+     * there, so 8 hours at 20 BD an hour totalled 20.
+     */
+    public function test_switching_a_leg_to_chauffeur_prices_it_per_hour(): void
+    {
+        $form = Livewire::test(BookingForm::class)
+            ->call('addLeg')
+            ->set('legs.1.service_type', LimoLeg::TYPE_CHAUFFEUR)
+            ->assertSet('legs.1.rate_basis', LimoLeg::BASIS_HOUR)
+            ->set('legs.1.hours', '8')
+            ->set('legs.1.days', '1')
+            ->set('legs.1.rate', '20');
+
+        $this->assertEqualsWithDelta(160.0, $form->instance()->grandTotal(), 0.001);
+
+        // Back to a transfer, it is priced per trip again.
+        $form->set('legs.1.service_type', LimoLeg::TYPE_TRANSFER)
+            ->assertSet('legs.1.rate_basis', LimoLeg::BASIS_TRIP);
+    }
+
+    /** A basis picked by hand is not overridden. */
+    public function test_a_per_day_basis_survives_switching_to_chauffeur(): void
+    {
+        Livewire::test(BookingForm::class)
+            ->set('legs.0.rate_basis', LimoLeg::BASIS_DAY)
+            ->set('legs.0.service_type', LimoLeg::TYPE_CHAUFFEUR)
+            ->assertSet('legs.0.rate_basis', LimoLeg::BASIS_DAY);
+    }
+
     public function test_the_queue_renders_a_chauffeur_trip(): void
     {
         $this->chauffeurLeg();

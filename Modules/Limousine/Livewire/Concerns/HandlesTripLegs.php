@@ -61,6 +61,24 @@ trait HandlesTripLegs
      */
     public function updated(string $name): void
     {
+        // A chauffeur job is hours of a car, so switching a leg to chauffeur
+        // prices it per hour: left on "per trip" the hours were ignored and an
+        // 8-hour job at 20 BD an hour totalled 20. Back to a transfer, a
+        // per-hour price goes back to per trip. A basis chosen by hand (per
+        // day) is left alone.
+        if (preg_match('/^legs\.(\d+)\.service_type$/', $name, $st) && isset($this->legs[(int) $st[1]])) {
+            $leg = &$this->legs[(int) $st[1]];
+            $basis = $leg['rate_basis'] ?? LimoLeg::BASIS_TRIP;
+            if ($leg['service_type'] === LimoLeg::TYPE_CHAUFFEUR && $basis === LimoLeg::BASIS_TRIP) {
+                $leg['rate_basis'] = LimoLeg::BASIS_HOUR;
+            } elseif ($leg['service_type'] === LimoLeg::TYPE_TRANSFER && $basis === LimoLeg::BASIS_HOUR) {
+                $leg['rate_basis'] = LimoLeg::BASIS_TRIP;
+            }
+            unset($leg);
+
+            return;
+        }
+
         if (! preg_match('/^legs\.(\d+)\.(currency|quote_rate)$/', $name, $m)) {
             return;
         }

@@ -418,6 +418,11 @@ document.addEventListener('alpine:init', () => {
         viewYear: 0,
         viewMonth: 0,
         time: '',
+        // A day or time picked in the open grid that is not written yet. Every
+        // write is a round trip that redraws the form, which shut the panel
+        // after the hour was picked and before the minute; so the grid holds
+        // its choice and writes it once, on Done or on closing.
+        pending: false,
         touch: false,
         // Kept in step by sync(), not read off the input each time: a DOM
         // property is not reactive, so the highlighted day and the line
@@ -589,10 +594,18 @@ document.addEventListener('alpine:init', () => {
             }
 
             this.time = (this.$refs.native.value || '').split('T')[1]?.slice(0, 5) || '';
+            this.pending = false;
             this.calendarOpen = true;
         },
 
+        /** Closing by any route keeps what was picked: it is written now. */
         closeCalendar() {
+            if (this.pending) {
+                this.pending = false;
+                if (this.chosen !== '' && this.time !== '') {
+                    this.write(this.chosen + 'T' + this.time);
+                }
+            }
             this.calendarOpen = false;
         },
 
@@ -666,10 +679,19 @@ document.addEventListener('alpine:init', () => {
                 this.time = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
             }
 
-            // Left OPEN: the time still has to be set, and a panel that shut on
-            // the date would have to be reopened to do it. It closes on Escape,
-            // on the calendar button, or on a click anywhere else.
-            this.write(this.iso(day) + 'T' + this.time);
+            // Left OPEN and held, not written: the time still has to be set,
+            // and writing now would redraw the form and shut the panel. It is
+            // written on Done, Escape, the calendar button or a click elsewhere.
+            this.chosen = this.iso(day);
+            this.pending = true;
+            this.showPending();
+        },
+
+        /** The box shows the held choice while the grid is open. */
+        showPending() {
+            if (this.chosen === '') return;
+            const ymd = this.chosen.split('-');
+            this.display = ymd[2] + '/' + ymd[1] + '/' + ymd[0] + (this.time !== '' ? ' ' + this.time : '');
         },
 
         /** The time changed on its own; keep the day that is already chosen. */
@@ -713,7 +735,8 @@ document.addEventListener('alpine:init', () => {
             const hour = part === 'hour' ? value : (this.hourPart() || '00');
             const minute = part === 'minute' ? value : (this.minutePart() || '00');
             this.time = hour + ':' + minute;
-            this.applyTime();
+            this.pending = true;
+            this.showPending();
         },
     }));
 

@@ -1216,6 +1216,13 @@ owner's request, same mechanism as drinks). (Window hours = `START_HOUR` /
 | Scope note | It's the **database identity** (company name), NOT the café **business type** — a different café won't get it. Renaming the Sweileh Café database's company name away from "sweileh…" silently turns it off (per the user's chosen trade-off over a toggle). To retune: change the constants / window hours in `HappyHour`, or the name match in `isSweilehCafe()`. Stacks with the per-phone customer discount (line-level deal, then order-level %) |
 | Tests | `tests/Feature/PosHappyHourTest.php` (12 — window bounds incl. Bahrain-vs-UTC, database gate + spelling tolerance, not-active-elsewhere, shisha cap, **shisha cheaper than the cap keeps its price (Zaglol)**, food 25%, **drinks excluded by category name**, **sweets excluded by category name**, taps stack, normal outside window, a windowed line keeps its price after close). AR keys added for the banner |
 
+**Happy hour: sweets found by more names and through parents (2026-10-10).**
+`HappyHour::isSweet()` now walks the category AND its parents (cycle-safe) and
+matches `SWEET_WORDS` (sweet, dessert, حلويات, حلوى, حلى, تحلية) in any
+translation, so "Kunafa" under "Sweets" or a "Desserts" category gets no
+discount. Drinks keep the old direct-category "drink" rule. Tests:
+`PosHappyHourTest` (+2).
+
 **Business day for the Daily Summary (shipped 2026-10-08).** Sweileh trades
 past midnight and counts its day **8 AM → 8 AM** (the owner's choice), so a
 2 AM sale belongs to the evening before. New General setting

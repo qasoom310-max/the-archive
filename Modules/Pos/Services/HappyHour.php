@@ -8,6 +8,7 @@ use App\Erp\Settings\Setting;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Modules\Pos\Enums\PrepStation;
+use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosProduct;
 
 /**
@@ -120,7 +121,42 @@ final class HappyHour
      */
     public function isSweet(PosProduct $product): bool
     {
-        return $this->categoryNameContains($product, 'sweet');
+        // Named any way the menu does — "Sweets", "Desserts", "حلويات" — and
+        // found on a parent too, so "Kunafa" under "Sweets" counts.
+        foreach ($this->categoryChainNames($product) as $name) {
+            foreach (self::SWEET_WORDS as $word) {
+                if (str_contains($name, $word)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /** Words that make a category a sweets one, in any of its translations. */
+    private const SWEET_WORDS = ['sweet', 'dessert', 'حلويات', 'حلوى', 'حلى', 'تحلية'];
+
+    /**
+     * Every name (all translations, lower-cased) of the product's category and
+     * the categories above it. Cycle-safe.
+     *
+     * @return list<string>
+     */
+    private function categoryChainNames(PosProduct $product): array
+    {
+        $names = [];
+        $seen = [];
+        $category = $product->category;
+        while ($category !== null && ! isset($seen[$category->id])) {
+            $seen[$category->id] = true;
+            foreach ([...array_values($category->getTranslations('name')), (string) $category->name] as $name) {
+                $names[] = Str::lower((string) $name);
+            }
+            $category = $category->parent_id !== null ? PosCategory::query()->find($category->parent_id) : null;
+        }
+
+        return $names;
     }
 
     /**

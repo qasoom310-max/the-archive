@@ -218,6 +218,49 @@ final class PosHappyHourTest extends TestCase
         $this->assertSame(1.0, round((float) $line->total, 2));
     }
 
+    /**
+     * Sweets still got the discount when the menu called them something else
+     * or kept them in a sub-category under "Sweets".
+     */
+    public function test_sweets_are_found_by_other_names_and_under_a_sweets_parent(): void
+    {
+        $hh = app(\Modules\Pos\Services\HappyHour::class);
+        $product = function (string $category, ?int $parent = null): PosProduct {
+            $cat = PosCategory::query()->create([
+                'name' => $category, 'slug' => \Illuminate\Support\Str::slug($category) . '-' . uniqid(),
+                'active' => true, 'parent_id' => $parent,
+            ]);
+
+            return PosProduct::query()->create([
+                'name' => 'Item', 'price' => 1, 'tax_rate' => 0.0, 'active' => true, 'pos_category_id' => $cat->id,
+            ]);
+        };
+
+        $sweets = PosCategory::query()->create(['name' => 'Sweets', 'slug' => 'sweets-parent', 'active' => true]);
+
+        $this->assertTrue($hh->isSweet($product('Kunafa', $sweets->id)));
+        $this->assertTrue($hh->isSweet($product('Desserts')));
+        $this->assertTrue($hh->isSweet($product('حلويات')));
+        $this->assertFalse($hh->isSweet($product('Sandwiches')));
+    }
+
+    public function test_a_sweet_in_a_sub_category_gets_no_discount(): void
+    {
+        $this->beSweilehCafeAt('2026-07-14 14:00');
+        $session = $this->openSession();
+        $parent = PosCategory::query()->create(['name' => 'Sweets', 'slug' => 'sweets', 'active' => true]);
+        $child = PosCategory::query()->create(['name' => 'Kunafa', 'slug' => 'kunafa', 'active' => true, 'parent_id' => $parent->id]);
+        $item = PosProduct::query()->create([
+            'name' => 'Nabulsi', 'price' => 1.5, 'tax_rate' => 0.0, 'active' => true, 'pos_category_id' => $child->id,
+        ]);
+
+        Livewire::test(PosTerminal::class, ['session' => $session->id])
+            ->call('addProduct', $item->id);
+
+        $line = PosOrder::query()->latest('id')->first()?->lines()->first();
+        $this->assertSame(0.0, round((float) $line?->discount, 2));
+    }
+
     public function test_a_shisha_cheaper_than_the_cap_keeps_its_price(): void
     {
         // Zaglol shisha at 1.200 must NOT be raised to the 1.400 cap.

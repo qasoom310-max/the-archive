@@ -961,8 +961,14 @@ document.addEventListener('alpine:init', () => {
             // by name and number at once without them being typed adjacently.
             const words = query.split(/\s+/);
 
+            // A phone number typed with its country code or spaces is matched
+            // on its last 8 digits, so "+962 7 9678 1946" finds "0796781946".
+            const digits = query.replace(/\D/g, '').replace(/^0+/, '');
+            const phone = /\p{L}/u.test(query) || digits.length < 7 ? null : digits.slice(-8);
+
             return this.options.filter((option) => {
                 const haystack = option.label.toLowerCase();
+                if (phone !== null && haystack.replace(/\D/g, '').includes(phone)) return true;
 
                 return words.every((word) => haystack.includes(word));
             });

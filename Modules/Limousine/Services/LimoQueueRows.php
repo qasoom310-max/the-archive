@@ -8,6 +8,7 @@ use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use App\Erp\Search\PhoneSearch;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoLeg;
@@ -129,7 +130,7 @@ final class LimoQueueRows
             // above into an "or match anything" query.
             $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $term) . '%';
 
-            $query->where(function (Builder $q) use ($like, $legs): void {
+            $query->where(function (Builder $q) use ($like, $legs, $term): void {
                 $q->where($legs . '.reference', 'like', $like)
                     // The number a trip had before it was renumbered.
                     ->orWhere($legs . '.previous_reference', 'like', $like)
@@ -137,12 +138,24 @@ final class LimoQueueRows
                     ->orWhere($legs . '.to_location', 'like', $like)
                     ->orWhere($legs . '.vehicle', 'like', $like)
                     ->orWhere($legs . '.driver', 'like', $like)
-                    ->orWhereHasMorph('legable', LimoBooking::class, function ($booking) use ($like): void {
+                    ->orWhereHasMorph('legable', LimoBooking::class, function ($booking) use ($like, $term): void {
+                        // A phone number is matched on its digits — typed with
+                        // a country code or spaces it still finds the trip,
+                        // the customer's own number as well as the passenger's.
+                        $phone = PhoneSearch::ending($term);
                         $booking->where('reference', 'like', $like)
                             ->orWhere('pax_name', 'like', $like)
                             ->orWhere('pax_contact', 'like', $like)
                             ->orWhere('flight_number', 'like', $like)
-                            ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', $like));
+                            ->orWhereHas('customer', function ($c) use ($like, $phone): void {
+                                $c->where('name', 'like', $like)->orWhere('phone', 'like', $like);
+                                if ($phone !== null) {
+                                    PhoneSearch::orWhere($c, 'phone', $phone);
+                                }
+                            });
+                        if ($phone !== null) {
+                            $booking->orWhere(fn ($q) => PhoneSearch::orWhere($q, 'pax_contact', $phone));
+                        }
                     });
             });
         }

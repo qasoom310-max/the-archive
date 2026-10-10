@@ -151,7 +151,7 @@
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
                 <label class="{{ $lbl }}">{{ __('Advance (BHD)') }}</label>
-                <input type="number" step="0.001" min="0" wire:model.live="advance" class="o-input w-full">
+                <input type="number" step="0.001" min="0" placeholder="0" wire:model.live="advance" class="o-input w-full">
                 {{-- Credit from a cancelled trip counts as money already taken, so
                      applying it raises the advance and the balance falls through the
                      same path a cash payment takes. --}}

@@ -77,7 +77,8 @@ final class BookingForm extends Component
     #[Locked]
     public string $prepared_by = '';
 
-    public string $advance = '0';
+    /** Blank, not '0': a typed amount must not land after a zero ("059"). */
+    public string $advance = '';
 
     /** Refund-coupon code being applied against this booking. */
     public string $couponCode = '';
@@ -130,7 +131,7 @@ final class BookingForm extends Component
                 // time somebody else opened the record — the opposite of an
                 // audit trail. Only a brand-new booking gets stamped (below).
                 $this->prepared_by = $booking->prepared_by ?? '';
-                $this->advance = (string) $booking->advance;
+                $this->advance = (float) $booking->advance > 0 ? (string) $booking->advance : '';
                 $this->payment_method = $booking->payment_method ?? 'cash';
                 $this->notes = $booking->notes ?? '';
                 $this->status = $booking->status;
@@ -306,7 +307,7 @@ final class BookingForm extends Component
         // INCREASE is new money, and receipting the rest again would hand the
         // customer a second receipt for a payment they already have one for.
         $advanceBefore = round((float) ($booking->advance ?? 0), 3);
-        $booking->advance = (float) $this->advance;
+        $booking->advance = (float) ($this->advance === '' ? '0' : $this->advance);
         $booking->payment_method = $this->trimOrNull($this->payment_method);
         $booking->notes = $this->trimOrNull($this->notes);
         // Header trip basics from the first leg (used by invoicing / the lists).

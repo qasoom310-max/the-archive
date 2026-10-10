@@ -672,6 +672,61 @@ final class LimousineModuleTest extends TestCase
         $this->assertCount(0, $rows->all('all', '', '', 'nothing-matches-this'));
     }
 
+    /**
+     * A number typed with its country code and spaces matched nothing: the
+     * search compared it letter for letter with "0796781946". Phones match
+     * on their digits now — the customer's own number as well as the
+     * passenger's.
+     */
+    public function test_the_queue_search_finds_a_phone_however_it_is_typed(): void
+    {
+        $this->install();
+        $jordan = LimoCustomer::query()->create(['name' => 'Rami Haddad', 'phone' => '0796781946']);
+        $kuwait = LimoCustomer::query()->create(['name' => 'Fahad Al Mutairi', 'phone' => '+96594033227']);
+        foreach ([[$jordan, null], [$kuwait, '+965 9403 3227']] as [$customer, $pax]) {
+            $booking = LimoBooking::query()->create([
+                'customer_id' => $customer->id, 'pax_name' => 'X', 'pax_contact' => $pax,
+                'requested_by' => 'S', 'prepared_by' => 'P', 'status' => LimoBooking::STATUS_QUEUE,
+            ]);
+            $booking->legs()->create([
+                'sequence' => 0, 'service_type' => 'transfer', 'from_location' => 'A',
+                'to_location' => 'B', 'start_at' => now(), 'days' => 1,
+                'rate' => 5, 'rate_basis' => 'trip', 'status' => LimoLeg::STATUS_QUEUE,
+            ]);
+        }
+
+        $rows = app(\Modules\Limousine\Services\LimoQueueRows::class);
+
+        $this->assertSame(['Rami Haddad'], array_column($rows->all('all', '', '', '+962 7 9678 1946'), 'customer'));
+        $this->assertSame(['Fahad Al Mutairi'], array_column($rows->all('all', '', '', '+965 9403 3227'), 'customer'));
+        $this->assertSame(['Fahad Al Mutairi'], array_column($rows->all('all', '', '', '94033227'), 'customer'));
+        // A short number is not a phone: no digits-only widening.
+        $this->assertCount(0, $rows->all('all', '', '', '1946x'));
+    }
+
+    /** The customers list finds the same numbers. */
+    public function test_the_customer_list_finds_a_phone_however_it_is_typed(): void
+    {
+        $this->install();
+        LimoCustomer::query()->create(['name' => 'Rami Haddad', 'phone' => '0796781946']);
+        LimoCustomer::query()->create(['name' => 'Someone Else', 'phone' => '33445566']);
+
+        \Livewire\Livewire::test(\App\Livewire\Views\ListView::class, ['model' => LimoCustomer::class, 'modelKey' => 'limousine.customer'])
+            ->set('search', '+962 7 9678 1946')
+            ->assertSee('Rami Haddad')
+            ->assertDontSee('Someone Else');
+    }
+
+    /** The advance is blank with a 0 placeholder, so typing never lands after a zero. */
+    public function test_the_advance_starts_blank(): void
+    {
+        $this->install();
+
+        \Livewire\Livewire::test(\Modules\Limousine\Livewire\BookingForm::class)
+            ->assertSet('advance', '')
+            ->assertSeeHtml('placeholder="0" wire:model.live="advance"');
+    }
+
     public function test_the_queue_search_does_not_widen_the_status_filter(): void
     {
         $this->install();

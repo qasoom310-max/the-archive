@@ -644,9 +644,16 @@ final class ListView extends Component
 
         $fields = $this->arch->searchable;
 
-        $query->where(function (Builder $sub) use ($fields, $needle): void {
+        // A phone number is matched on its digits, so one typed with a
+        // country code or spaces still finds the record.
+        $phone = \App\Erp\Search\PhoneSearch::ending($needle);
+
+        $query->where(function (Builder $sub) use ($fields, $needle, $phone): void {
             foreach ($fields as $field) {
                 $sub->orWhere($field, 'like', '%'.$needle.'%');
+                if ($phone !== null && (str_contains($field, 'phone') || str_contains($field, 'contact') || str_contains($field, 'mobile'))) {
+                    \App\Erp\Search\PhoneSearch::orWhere($sub, $field, $phone);
+                }
             }
         });
     }

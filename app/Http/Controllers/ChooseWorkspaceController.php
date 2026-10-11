@@ -39,6 +39,11 @@ final class ChooseWorkspaceController
 
         $accessible = $manager->accessibleFor($user);
 
+        // Remembered for the session so the user menu can offer "Switch
+        // database" to staff with a choice, without opening every database's
+        // file on each page.
+        session(['erp.database_count' => $accessible->count()]);
+
         // Locked user, or a single database → nothing to choose, go right in.
         if ($accessible->count() <= 1) {
             $only = $accessible->first();

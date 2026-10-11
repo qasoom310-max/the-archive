@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Auth\Group;
+use App\Models\Auth\ModelAccess;
 use App\Models\Workspace;
 use App\Notifications\ResetPasswordLink;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -198,6 +199,29 @@ final class User extends Authenticatable
     public function isLockedToWorkspace(): bool
     {
         return $this->homeWorkspaceId() !== null;
+    }
+
+    /**
+     * Can this row actually do anything in its own database? An admin always
+     * can; anyone else needs at least one Read rule through their groups. A
+     * bare login shell on Main (written so a tenant-only account can sign in)
+     * has neither, which is how Main tells "works here" from "only signs in
+     * here". Read on this row's own connection, so it answers for the
+     * database the row came from even while another one is active.
+     */
+    public function hasGrantedAccess(): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        $groupIds = $this->groups()->pluck('res_groups.id');
+
+        return $groupIds->isNotEmpty()
+            && ModelAccess::on($this->getConnectionName())
+                ->whereIn('group_id', $groupIds)
+                ->where('perm_read', true)
+                ->exists();
     }
 
 

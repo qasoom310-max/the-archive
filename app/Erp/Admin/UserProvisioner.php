@@ -432,6 +432,235 @@ final class UserProvisioner
     }
 
     /**
+     * Apps a user has access to on the CURRENT connection, read from their
+     * per-user group's rules (model → owning module).
+     *
+     * @return list<string>
+     */
+    public function appsOf(User $user): array
+    {
+        $group = Group::query()->where('code', 'user:' . $user->getKey())->first();
+        if ($group === null) {
+            return [];
+        }
+
+        $models = ModelAccess::query()->where('group_id', $group->id)->pluck('model');
+
+        /** @var list<string> $apps */
+        $apps = IrModel::query()
+            ->whereIn('model', $models)
+            ->pluck('module')
+            ->unique()
+            ->values()
+            ->all();
+
+        return $apps;
+    }
+
+    /**
+     * Which databases an existing account works in, and the role + apps it
+     * holds there — for the Edit form on Main, which must show the truth even
+     * when the Main row is only a login shell (an account made for Kaleem
+     * alone, say, whose real role lives in Kaleem's database).
+     *
+     * Main counts when its row can do something there ({@see User::hasGrantedAccess()}),
+     * or when the account exists nowhere else (a plain Main account). A tenant
+     * counts whenever it holds the account. The role and apps are read from the
+     * home database of a locked account, else Main when it counts, else the
+     * first database that holds it.
+     *
+     * @return array{databases: list<int>, role: StaffRole, apps: list<string>}|null  null when Main has no such account
+     */
+    public function accessOf(string $email): ?array
+    {
+        $read = function (User $user): array {
+            $role = $this->roleOf($user);
+
+            return [
+                'role' => $role,
+                'apps' => $role->isScopableAdmin() ? ($user->adminAppScope() ?? []) : $this->appsOf($user),
+            ];
+        };
+
+        /** @var array{0: User, 1: bool, 2: array{role: StaffRole, apps: list<string>}}|null $main */
+        $main = $this->workspaces->withMain(static function () use ($email, $read): ?array {
+            $user = User::query()->where('email', $email)->first();
+
+            return $user === null ? null : [$user, $user->hasGrantedAccess(), $read($user)];
+        });
+
+        if ($main === null) {
+            return null;
+        }
+
+        [$mainUser, $mainHasAccess, $mainProfile] = $main;
+        $home = $mainUser->homeWorkspaceId();
+
+        $mainId = null;
+        /** @var array<int, array{role: StaffRole, apps: list<string>}> $found */
+        $found = [];
+
+        foreach ($this->workspaces->all() as $workspace) {
+            if ($workspace->is_main) {
+                $mainId = (int) $workspace->id;
+
+                continue;
+            }
+
+            $path = $workspace->databasePath();
+            if ($path === null || ! is_file($path)) {
+                continue;
+            }
+
+            $profile = $this->workspaces->withTenant($path, static function () use ($email, $read): ?array {
+                $user = User::query()->where('email', $email)->first();
+
+                return $user === null ? null : $read($user);
+            });
+
+            if (is_array($profile)) {
+                $found[(int) $workspace->id] = $profile;
+            }
+        }
+
+        $databases = array_keys($found);
+        $onMain = $home === null && ($mainHasAccess || $found === []);
+        if ($onMain && $mainId !== null) {
+            array_unshift($databases, $mainId);
+        }
+
+        $profile = match (true) {
+            $home !== null && isset($found[$home]) => $found[$home],
+            $onMain || $found === [] => $mainProfile,
+            default => $found[array_key_first($found)],
+        };
+
+        return ['databases' => $databases, 'role' => $profile['role'], 'apps' => $profile['apps']];
+    }
+
+    /**
+     * Put an existing account in exactly these databases, with this name,
+     * email, role and apps in each. The Edit form's twin of {@see provision()}.
+     *
+     * - A ticked database gets the account (created if new, with the same
+     *   password as the Main login) and its grants, filtered to what THAT
+     *   database runs ({@see grantApps()}).
+     * - An unticked workspace loses its copy of the account.
+     * - Main always keeps a row (logins are checked there); unticked, it becomes
+     *   a bare login shell with no flags and no grants.
+     * - An account locked to one workspace stays locked when that is still its
+     *   only database; given any other, it is unlocked and picks at sign-in.
+     *
+     * Every copy is found by the CURRENT email, so a renamed email follows
+     * the account into every database instead of leaving copies behind.
+     *
+     * @param  list<string>  $appNames
+     * @param  list<int>     $workspaceIds
+     */
+    public function updateAcross(
+        string $currentEmail,
+        string $name,
+        string $email,
+        StaffRole $role,
+        array $appNames,
+        array $workspaceIds,
+    ): ?User {
+        $mainUser = $this->workspaces->withMain(
+            static fn (): ?User => User::query()->where('email', $currentEmail)->first(),
+        );
+        if (! $mainUser instanceof User) {
+            return null;
+        }
+
+        $hashed = (string) $mainUser->password;
+        $oldHome = $mainUser->homeWorkspaceId();
+        $home = ($oldHome !== null && $workspaceIds === [$oldHome]) ? $oldHome : null;
+
+        foreach ($this->workspaces->all() as $workspace) {
+            $wanted = in_array((int) $workspace->id, $workspaceIds, true);
+
+            if ($workspace->is_main) {
+                $mainUser = $this->workspaces->withMain(fn (): User => $wanted
+                    ? $this->writeCopy($currentEmail, $name, $email, $hashed, null, $role, $appNames)
+                    : $this->writeShell($currentEmail, $name, $email, $home));
+
+                continue;
+            }
+
+            $path = $workspace->databasePath();
+            if ($path === null || ! is_file($path)) {
+                continue;
+            }
+
+            $this->workspaces->withTenant($path, function () use ($wanted, $currentEmail, $name, $email, $hashed, $home, $role, $appNames): void {
+                if ($wanted) {
+                    $this->writeCopy($currentEmail, $name, $email, $hashed, $home, $role, $appNames);
+
+                    return;
+                }
+
+                $existing = User::query()->where('email', $currentEmail)->first();
+                if ($existing !== null) {
+                    $this->deleteUser($existing);
+                }
+            });
+        }
+
+        return $mainUser instanceof User ? $mainUser : null;
+    }
+
+    /**
+     * The account's working copy on the CURRENT connection.
+     *
+     * @param  list<string>  $appNames
+     */
+    private function writeCopy(string $currentEmail, string $name, string $email, string $hashedPassword, ?int $home, StaffRole $role, array $appNames): User
+    {
+        return DB::transaction(function () use ($currentEmail, $name, $email, $hashedPassword, $home, $role, $appNames): User {
+            $user = User::query()->updateOrCreate(['email' => $currentEmail], [
+                'name' => $name,
+                'email' => $email,
+                'password' => $hashedPassword,
+                'is_admin' => $role->isAdmin(),
+                'is_super_admin' => $role->isSuperAdmin(),
+                'admin_apps' => $this->adminScopeFor($role, $appNames),
+                'is_accountant' => $role->isAccountant(),
+                'home_workspace_id' => $home,
+            ]);
+
+            if ($role->grantsApps()) {
+                $this->grantApps($user, $appNames, $role);
+            }
+
+            return $user;
+        });
+    }
+
+    /** A login-only row on the CURRENT connection: no flags, no grants. */
+    private function writeShell(string $currentEmail, string $name, string $email, ?int $home): User
+    {
+        return DB::transaction(function () use ($currentEmail, $name, $email, $home): User {
+            $user = User::query()->where('email', $currentEmail)->firstOrFail();
+            $user->forceFill([
+                'name' => $name,
+                'email' => $email,
+                'is_admin' => false,
+                'is_super_admin' => false,
+                'admin_apps' => null,
+                'is_accountant' => false,
+                'home_workspace_id' => $home,
+            ])->save();
+
+            $group = Group::query()->where('code', 'user:' . $user->getKey())->first();
+            if ($group !== null) {
+                ModelAccess::query()->where('group_id', $group->id)->delete();
+            }
+
+            return $user;
+        });
+    }
+
+    /**
      * Remove a staff user and their per-user access group (Main only — tenant
      * copies are left in place, harmless without a login). Admins and the
      * acting user are protected by the caller.

@@ -226,14 +226,26 @@ final class UserManager extends Component
             'role' => ['required', Rule::in($assignable)],
             'apps' => ['array'],
             'apps.*' => ['string'],
-            // At least one database when creating on Main — unless the account
-            // is locked to a single workspace, which uses its own picker below.
+            // At least one database on Main, when creating AND when editing —
+            // unless the account is locked to a single workspace (its own picker
+            // below) or is a super admin (every database, nothing to pick).
             // Inside a workspace there's nothing to pick: the account belongs to
             // the database you're in.
-            'workspaces' => ($userId === null && ! $this->lockToWorkspace && $this->onMain()) ? ['array', 'min:1'] : ['array'],
+            'workspaces' => $this->picksDatabases() ? ['array', 'min:1'] : ['array'],
             'workspaces.*' => ['integer'],
             'lockWorkspaceId' => $this->lockToWorkspace ? ['required', 'integer'] : ['nullable', 'integer'],
         ];
+    }
+
+    /**
+     * Does the form's database picker apply? Only on Main (inside a workspace
+     * the account belongs to that database), never for a workspace-locked
+     * owner (one database, its own picker) and never for a super admin, who
+     * reaches every database anyway.
+     */
+    private function picksDatabases(): bool
+    {
+        return $this->onMain() && ! $this->lockToWorkspace && ! $this->selectedRole()->isSuperAdmin();
     }
 
     /**
@@ -315,8 +327,24 @@ final class UserManager extends Component
         // An Administrator's apps are a SCOPE (users.admin_apps), not a grant
         // — read back separately from the per-user group's ACL rules every
         // other role uses.
-        $this->apps = $role->isScopableAdmin() ? ($user->adminAppScope() ?? []) : $this->currentApps($user);
+        $this->apps = $role->isScopableAdmin() ? ($user->adminAppScope() ?? []) : app(UserProvisioner::class)->appsOf($user);
         $this->workspaces = [];
+
+        // On Main, the account may live in other databases too (or ONLY there,
+        // with a bare login row here). Read where it works and the role + apps
+        // it holds there, so the form shows the truth and a database can be
+        // added or taken away.
+        if ($workspaceId === null && Schema::hasTable('workspaces')) {
+            $access = app(UserProvisioner::class)->accessOf((string) $user->email);
+            if ($access !== null) {
+                $this->workspaces = $access['databases'];
+                // A super admin's role and reach are Main's own.
+                if (! $user->isSuperAdmin()) {
+                    $this->role = $access['role']->value;
+                    $this->apps = $access['apps'];
+                }
+            }
+        }
         $this->lockToWorkspace = false;
         $this->lockWorkspaceId = null;
         $this->resetValidation();
@@ -328,28 +356,6 @@ final class UserManager extends Component
         $this->resetValidation();
     }
 
-    /**
-     * Apps a user currently has view access to, derived from their per-user
-     * group's Read rules (model → owning module).
-     *
-     * @return list<string>
-     */
-    private function currentApps(User $user): array
-    {
-        $group = Group::query()->where('code', 'user:' . $user->getKey())->first();
-        if ($group === null) {
-            return [];
-        }
-
-        $models = ModelAccess::query()->where('group_id', $group->id)->pluck('model');
-
-        return IrModel::query()
-            ->whereIn('model', $models)
-            ->pluck('module')
-            ->unique()
-            ->values()
-            ->all();
-    }
 
     public function save(): void
     {
@@ -577,6 +583,14 @@ final class UserManager extends Component
 
         $role = $this->safeRole($user, $this->selectedRole());
 
+        // Not a super admin: the account goes into exactly the ticked
+        // databases, with its role and apps in each.
+        if (Schema::hasTable('workspaces') && ! $role->isSuperAdmin() && ! $user->isSuperAdmin()) {
+            $this->updateAcrossDatabases($user, $role);
+
+            return;
+        }
+
         $user->name = trim($this->name);
         $user->email = strtolower(trim($this->email));
 
@@ -595,6 +609,42 @@ final class UserManager extends Component
         }
 
         app(\App\Erp\Activity\ActivityLogger::class)->log('user_updated', (string) $user->email, __('Updated :name', ['name' => (string) $user->name]));
+
+        $this->reset(['editingId', 'editingGlobal', 'name', 'email', 'role', 'apps', 'workspaces']);
+        session()->flash('user_saved', __('User updated.'));
+    }
+
+    /**
+     * Edit an account across every database it should be in (see
+     * {@see UserProvisioner::updateAcross()}). An admin editing themselves, or
+     * the last admin, always keeps Main — unticking it would strip their admin
+     * flag on the database they are standing in.
+     */
+    private function updateAcrossDatabases(User $user, StaffRole $role): void
+    {
+        $ids = array_values(array_unique(array_map('intval', $this->workspaces)));
+
+        $keepsMain = $user->getKey() === Auth::id()
+            || ($user->isAdmin() && User::query()->where('is_admin', true)->count() <= 1);
+        if ($keepsMain) {
+            $mainId = (int) app(WorkspaceManager::class)->ensureMain()->id;
+            if (! in_array($mainId, $ids, true)) {
+                $ids[] = $mainId;
+            }
+        }
+
+        $name = trim($this->name);
+
+        app(UserProvisioner::class)->updateAcross(
+            (string) $user->email,
+            $name,
+            strtolower(trim($this->email)),
+            $role,
+            $role->usesAppPicker() ? array_values($this->apps) : [],
+            $ids,
+        );
+
+        app(\App\Erp\Activity\ActivityLogger::class)->log('user_updated', strtolower(trim($this->email)), __('Updated :name', ['name' => $name]));
 
         $this->reset(['editingId', 'editingGlobal', 'name', 'email', 'role', 'apps', 'workspaces']);
         session()->flash('user_saved', __('User updated.'));

@@ -91,8 +91,9 @@ final class WorkspaceManager
 
         foreach ($this->all() as $workspace) {
             if ($workspace->is_main) {
-                // Main holds the owner's landlord data — admins only.
-                if ($user->isAdmin()) {
+                // Main holds the owner's landlord data — admins, and staff
+                // granted apps on it. A bare login shell is neither.
+                if ($user->hasGrantedAccess()) {
                     $out->push($workspace);
                 }
 

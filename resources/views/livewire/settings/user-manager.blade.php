@@ -104,7 +104,7 @@
                 @if ($currentRole->isScopableAdmin())
                     <p class="mb-2 text-xs text-chrome-400">{{ __('Leave every box unticked for unrestricted access to every app (the default). Tick specific apps to limit this administrator to just those — still with full add/edit/delete rights and that app’s own Settings tab.') }}</p>
                 @endif
-                @if (! $editingId && ! $workspaceId && ! $editingGlobal && ! $lockToWorkspace)
+                @if (! $workspaceId && ! $editingGlobal && ! $lockToWorkspace)
                     <p class="mb-2 text-xs text-chrome-400">{{ __('Showing apps run by the databases ticked below — pick a database first to see apps like Rent A Car or Limousine.') }}</p>
                 @endif
                 @if ($appModules->isEmpty())
@@ -133,15 +133,16 @@
             </p>
         @endif
 
-        {{-- Database access — only meaningful when creating FROM MAIN (it seeds
-             the account into each picked database). Inside a workspace there's
-             nothing to pick: the account belongs to the database you're in. On
-             edit the account already lives where it lives. --}}
-        @if (! $editingId && ! $workspaceId)
+        {{-- Database access — only on MAIN. Creating seeds the account into
+             each picked database; editing adds it to newly ticked ones and
+             takes it out of unticked ones. Inside a workspace there's nothing
+             to pick: the account belongs to the database you're in. A super
+             admin reaches every database, so there's nothing to pick either. --}}
+        @if (! $workspaceId && ! ($editingId && $currentRole->isSuperAdmin()))
             {{-- Workspace-locked admin: full owner of ONE database, no access to
                  any other. Only a super admin may mint one. --}}
             @php $tenantWorkspaces = $workspaceList->where('is_main', false); @endphp
-            @if ($actorIsSuperAdmin && $tenantWorkspaces->isNotEmpty())
+            @if (! $editingId && $actorIsSuperAdmin && $tenantWorkspaces->isNotEmpty())
                 <div class="rounded-lg border border-chrome-200 p-3">
                     <label class="flex cursor-pointer items-start gap-2">
                         <input type="checkbox" wire:model.live="lockToWorkspace"
@@ -170,7 +171,13 @@
             @unless ($lockToWorkspace)
                 <div>
                     <label class="mb-2 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Databases this user can access') }}</label>
-                    <p class="mb-2 text-xs text-chrome-400">{{ __('Pick the databases to create this account in.') }}</p>
+                    <p class="mb-2 text-xs text-chrome-400">
+                        @if ($editingId)
+                            {{ __('Tick a database to give this account access to it, untick one to take it away. With more than one, they choose which to open when they sign in.') }}
+                        @else
+                            {{ __('Pick the databases to create this account in.') }}
+                        @endif
+                    </p>
                     @if ($workspaceList->isEmpty())
                         <p class="text-sm text-chrome-400">{{ __('No databases available.') }}</p>
                     @else

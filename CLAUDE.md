@@ -2984,6 +2984,26 @@ had "given her access to all databases".
 | UI | List: `$canSetAccessHere` (`$workspaceId && ! $inScope && home_workspace_id === null && ! is_admin`) renders **Edit access** in an `@elseif` — deliberately NOT by widening the existing `@if ($inScope && $canManage)`, because the **remove** button is nested inside it. Form: heading "Edit app access", a read-only who-this-is panel, credentials + role block hidden, button "Save app access" |
 | Tests | `UserManagerTest::{test_a_shared_accounts_app_access_can_be_set_from_inside_a_workspace, test_a_shared_accounts_name_email_and_role_are_left_to_main, test_a_shared_account_still_cannot_be_deleted_from_inside_a_workspace}` + the existing global-admin no-op test, comment sharpened. 7 `lang/ar.json` keys |
 
+**An existing account's databases are editable on Main (shipped 2026-10-11).**
+The owner could not give Prejith (an accountant made for Kaleem only) access to
+Sweileh (Main): the database picker existed only on create. Now **Edit user on
+Main** shows "Databases this user can access" too (not for a super admin), pre-
+ticked from `UserProvisioner::accessOf()`, which also reads the role + apps from
+where the account really works (the home database of a locked account, else Main
+if it has access there, else the first tenant holding it) — previously the form
+read the Main login shell and showed "Staff, no apps". Saving goes through
+`UserProvisioner::updateAcross()`: a ticked database gets the account (Main's
+password hash, role, apps filtered per database), an unticked workspace loses its
+copy, an unticked Main becomes a bare login shell (no flags, grants removed), a
+renamed email follows into every copy, and a locked account stays locked only if
+its home is still its sole database. An admin editing themselves, or the last
+admin, always keeps Main. **Non-admins can now open Main**: `accessibleFor()`
+lists it when `User::hasGrantedAccess()` (admin, or any Read rule through a
+group) — a bare shell has none, so tenant-only staff still never see it. Staff
+with more than one database get a "Switch database" item in the user menu
+(`/choose`), shown when the count stored in the session at sign-in
+(`erp.database_count`) is > 1. Tests: `UserManagerTest` (+6).
+
 **Rule: ACL grants are per-database rows, identity is Main's.** Anything that
 edits a shared account from inside a workspace must stay on that side of the
 line.

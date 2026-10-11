@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Erp\Admin\StaffRole;
+use App\Erp\Admin\UserProvisioner;
 use App\Erp\Modules\ModuleManager;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
@@ -751,6 +752,144 @@ final class UserManagerTest extends TestCase
     }
 
     // ── Adding users from INSIDE a workspace (no trip back to Main) ──────────
+
+    // ── An existing account can be given (or lose) other databases ──────────
+
+    /** The owner on Main, a POS workspace, and an accountant made for that workspace alone. */
+    private function accountantInOneWorkspace(bool $locked): Workspace
+    {
+        Notification::fake();
+        $owner = User::factory()->create(['is_admin' => true, 'is_super_admin' => true, 'email' => 'owner@erp.test']);
+        $this->actingAs($owner);
+        $this->installPos();
+
+        $workspace = app(WorkspaceManager::class)->provision('Kaleem', $owner, ['contacts', 'pos']);
+
+        if ($locked) {
+            app(UserProvisioner::class)->provisionLocked(
+                'Prejith', 'account@wanaan.test', 'secret-pass', (int) $workspace->id, StaffRole::Accountant, ['pos'],
+            );
+        } else {
+            app(UserProvisioner::class)->provision(
+                'Prejith', 'account@wanaan.test', 'secret-pass', ['pos'], [(int) $workspace->id], StaffRole::Accountant,
+            );
+        }
+
+        return $workspace;
+    }
+
+    public function test_editing_on_main_shows_the_databases_role_and_apps_the_account_really_has(): void
+    {
+        $workspace = $this->accountantInOneWorkspace(locked: false);
+        $user = User::query()->where('email', 'account@wanaan.test')->firstOrFail();
+
+        // Main only holds a login row; the real accountant lives in Kaleem.
+        Livewire::test(UserManager::class)
+            ->call('editUser', $user->id)
+            ->assertSet('workspaces', [(int) $workspace->id])
+            ->assertSet('role', StaffRole::Accountant->value)
+            ->assertSet('apps', ['pos']);
+    }
+
+    public function test_an_account_made_for_one_workspace_can_be_given_main_too(): void
+    {
+        $workspace = $this->accountantInOneWorkspace(locked: false);
+        $user = User::query()->where('email', 'account@wanaan.test')->firstOrFail();
+
+        Livewire::test(UserManager::class)
+            ->call('editUser', $user->id)
+            ->set('workspaces', [$this->mainId(), (int) $workspace->id])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $main = User::query()->where('email', 'account@wanaan.test')->firstOrFail();
+        $this->assertTrue($main->isAccountant());
+        $this->assertTrue(app(AccessControl::class)->allows($main, 'pos.order', Permission::Read));
+
+        // At sign-in they now choose between both databases.
+        $ids = app(WorkspaceManager::class)->accessibleFor($main)->pluck('id')->all();
+        $this->assertEqualsCanonicalizing([$this->mainId(), (int) $workspace->id], $ids);
+
+        // Kaleem keeps its copy.
+        app(WorkspaceManager::class)->withTenant((string) $workspace->databasePath(), function (): void {
+            $this->assertTrue(User::query()->where('email', 'account@wanaan.test')->firstOrFail()->isAccountant());
+        });
+    }
+
+    public function test_a_locked_account_given_another_database_is_unlocked(): void
+    {
+        $workspace = $this->accountantInOneWorkspace(locked: true);
+        $user = User::query()->where('email', 'account@wanaan.test')->firstOrFail();
+        $this->assertSame((int) $workspace->id, $user->homeWorkspaceId());
+
+        Livewire::test(UserManager::class)
+            ->call('editUser', $user->id)
+            // The role shown is the one it holds in Kaleem, not the Main shell's.
+            ->assertSet('role', StaffRole::Accountant->value)
+            ->assertSet('workspaces', [(int) $workspace->id])
+            ->set('workspaces', [$this->mainId(), (int) $workspace->id])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $main = User::query()->where('email', 'account@wanaan.test')->firstOrFail();
+        $this->assertNull($main->homeWorkspaceId());
+        $this->assertTrue(app(AccessControl::class)->allows($main, 'pos.order', Permission::Read));
+
+        app(WorkspaceManager::class)->withTenant((string) $workspace->databasePath(), function (): void {
+            $this->assertNull(User::query()->where('email', 'account@wanaan.test')->firstOrFail()->homeWorkspaceId());
+        });
+    }
+
+    public function test_a_locked_account_left_on_its_one_database_stays_locked(): void
+    {
+        $workspace = $this->accountantInOneWorkspace(locked: true);
+        $user = User::query()->where('email', 'account@wanaan.test')->firstOrFail();
+
+        Livewire::test(UserManager::class)
+            ->call('editUser', $user->id)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $main = User::query()->where('email', 'account@wanaan.test')->firstOrFail();
+        $this->assertSame((int) $workspace->id, $main->homeWorkspaceId());
+        $this->assertFalse($main->isAccountant(), 'Main stays a bare login row.');
+    }
+
+    public function test_unticking_a_database_takes_the_account_out_of_it(): void
+    {
+        $workspace = $this->accountantInOneWorkspace(locked: false);
+        $user = User::query()->where('email', 'account@wanaan.test')->firstOrFail();
+
+        // First give them Main as well, then take Kaleem away.
+        Livewire::test(UserManager::class)->call('editUser', $user->id)
+            ->set('workspaces', [$this->mainId(), (int) $workspace->id])->call('save');
+
+        Livewire::test(UserManager::class)->call('editUser', $user->id)
+            ->set('workspaces', [$this->mainId()])->call('save')->assertHasNoErrors();
+
+        app(WorkspaceManager::class)->withTenant((string) $workspace->databasePath(), function (): void {
+            $this->assertNull(User::query()->where('email', 'account@wanaan.test')->first());
+        });
+
+        // Kaleem again, without Main: Main is left a login row only.
+        Livewire::test(UserManager::class)->call('editUser', $user->id)
+            ->set('workspaces', [(int) $workspace->id])->call('save')->assertHasNoErrors();
+
+        $main = User::query()->where('email', 'account@wanaan.test')->firstOrFail();
+        $this->assertFalse($main->hasGrantedAccess());
+        $this->assertFalse(app(AccessControl::class)->allows($main, 'pos.order', Permission::Read));
+        $this->assertSame([(int) $workspace->id], app(WorkspaceManager::class)->accessibleFor($main)->pluck('id')->all());
+    }
+
+    public function test_editing_needs_at_least_one_database(): void
+    {
+        $this->accountantInOneWorkspace(locked: false);
+        $user = User::query()->where('email', 'account@wanaan.test')->firstOrFail();
+
+        Livewire::test(UserManager::class)->call('editUser', $user->id)
+            ->set('workspaces', [])->call('save')
+            ->assertHasErrors(['workspaces' => 'min']);
+    }
 
     /**
      * Provision a workspace, then run the callback with the request switched

@@ -3122,5 +3122,7 @@
     "0 = midnight. 8 means each day runs 8 AM to 8 AM the next morning, so after-midnight sales count for the evening before.": "0 = منتصف الليل. 8 تعني أن كل يوم يمتد من 8 صباحًا حتى 8 صباح اليوم التالي، فتُحسب مبيعات ما بعد منتصف الليل لليوم السابق.",
     "Each day runs :from to :from the next morning.": "يمتد كل يوم من :from حتى :from صباح اليوم التالي.",
     ":count advance|:count advances": "سلفة واحدة|:count سلف",
-    "Still out": "المتبقي مع السائق"
+    "Still out": "المتبقي مع السائق",
+    "Switch database": "تبديل قاعدة البيانات",
+    "Tick a database to give this account access to it, untick one to take it away. With more than one, they choose which to open when they sign in.": "ضع علامة على قاعدة بيانات لمنح هذا الحساب الوصول إليها، وأزل العلامة لسحبه. إذا كانت أكثر من واحدة، يختار المستخدم أيها يفتح عند تسجيل الدخول."
 }

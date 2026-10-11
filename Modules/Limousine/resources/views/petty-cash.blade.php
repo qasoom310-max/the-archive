@@ -176,6 +176,44 @@
                         <th class="px-4 py-2 text-start">{{ __('Status') }}</th>
                     </tr>
                 </thead>
+                @if ($groups !== null)
+                    {{-- Open: one row per driver; tap it for each reference,
+                         date and amount behind the totals. --}}
+                    @forelse ($groups as $group)
+                        <tbody x-data="{ open: false }" wire:key="pgrp-{{ $group['key'] }}" class="border-b border-chrome-100">
+                            <tr class="cursor-pointer bg-white hover:bg-chrome-50" x-on:click="open = ! open">
+                                <td class="px-4 py-2.5 font-semibold text-chrome-800" colspan="2">
+                                    <span class="inline-flex items-center gap-2">
+                                        <svg class="size-3.5 shrink-0 text-chrome-400 transition rtl:-scale-x-100" :class="open && 'rotate-90'" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M7.2 14.8a.75.75 0 0 1 0-1.06L10.94 10 7.2 6.26a.75.75 0 1 1 1.06-1.06l4.27 4.27a.75.75 0 0 1 0 1.06l-4.27 4.27a.75.75 0 0 1-1.06 0Z" clip-rule="evenodd"/></svg>
+                                        {{ $group['name'] }}
+                                        <span class="rounded-full bg-chrome-100 px-2 py-0.5 text-[11px] font-medium text-chrome-600">{{ trans_choice(':count advance|:count advances', $group['advances']->count(), ['count' => $group['advances']->count()]) }}</span>
+                                    </span>
+                                </td>
+                                <td class="px-4 py-2.5 text-chrome-600">{{ $group['advances']->first()?->date?->isoFormat('DD-MMM-YYYY') }}</td>
+                                <td class="px-4 py-2.5 text-end font-semibold text-chrome-900">{{ \App\Erp\Views\ValueFormat::money($group['given']) }}</td>
+                                <td class="px-4 py-2.5 text-end text-chrome-700">{{ \App\Erp\Views\ValueFormat::money($group['receipts']) }}</td>
+                                <td class="px-4 py-2.5 text-xs font-medium text-chrome-600">{{ __('Still out') }}: <span class="font-semibold text-chrome-800">{{ \App\Erp\Views\ValueFormat::money(max(0, $group['given'] - $group['receipts'])) }}</span></td>
+                            </tr>
+                            @foreach ($group['advances'] as $advance)
+                                @php
+                                    $sb = ['issued' => 'bg-amber-100 text-amber-700', 'confirmed' => 'bg-sky-100 text-sky-700', 'cleared' => 'bg-emerald-100 text-emerald-700'][$advance->status] ?? 'bg-chrome-200 text-chrome-700';
+                                    $receipts = $advance->isCleared() ? $advance->receipts_total : (float) ($advance->lines_sum_amount ?? 0);
+                                @endphp
+                                <tr x-show="open" x-cloak wire:key="padv-{{ $advance->id }}" class="cursor-pointer bg-chrome-50/60 hover:bg-chrome-100"
+                                    onclick="window.location='{{ url('/app/limousine/petty_cash/' . $advance->id) }}'">
+                                    <td class="py-2 pe-4 ps-10 font-medium text-chrome-800">{{ $advance->reference }}</td>
+                                    <td class="px-4 py-2 text-chrome-400">{{ $advance->driver?->name ?? '—' }}</td>
+                                    <td class="px-4 py-2 text-chrome-600">{{ $advance->date?->isoFormat('DD-MMM-YYYY') }}</td>
+                                    <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($advance->amount) }}</td>
+                                    <td class="px-4 py-2 text-end text-chrome-700">{{ \App\Erp\Views\ValueFormat::money($receipts) }}</td>
+                                    <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst($advance->status)) }}</span></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    @empty
+                        <tbody><tr><td colspan="6" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No petty cash yet. Top up the float, then send to a driver.') }}</td></tr></tbody>
+                    @endforelse
+                @else
                 <tbody class="divide-y divide-chrome-50">
                     @forelse ($advances as $advance)
                         @php
@@ -202,6 +240,7 @@
                         <tr><td colspan="6" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No petty cash yet. Top up the float, then send to a driver.') }}</td></tr>
                     @endforelse
                 </tbody>
+                @endif
             </table>
         </div>
 

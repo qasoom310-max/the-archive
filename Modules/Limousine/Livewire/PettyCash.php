@@ -229,8 +229,32 @@ final class PettyCash extends Component
             $query->where('status', LimoPettyAdvance::STATUS_CLEARED);
         }
 
+        // Open money is read per driver — "what does Sohail still hold" — so
+        // the Open tab gathers each driver's advances under one row, with
+        // every reference, date and amount inside it. Few enough to load
+        // whole; the Cleared history stays a paged list.
+        $groups = null;
+        if ($this->tab === 'open') {
+            $groups = $query->get()
+                ->groupBy(static fn (LimoPettyAdvance $a): int => (int) ($a->driver_id ?? 0))
+                ->map(static function ($advances): array {
+                    $receipts = static fn (LimoPettyAdvance $a): float => $a->isCleared() ? (float) $a->receipts_total : (float) ($a->lines_sum_amount ?? 0);
+
+                    return [
+                        'key' => (int) ($advances->first()->driver_id ?? 0),
+                        'name' => (string) ($advances->first()?->driver->name ?? '—'),
+                        'advances' => $advances->sortByDesc(static fn (LimoPettyAdvance $a): string => ($a->date?->toDateString() ?? '') . sprintf('%010d', $a->id))->values(),
+                        'given' => round((float) $advances->sum('amount'), 3),
+                        'receipts' => round((float) $advances->sum($receipts), 3),
+                    ];
+                })
+                ->sortBy(static fn (array $g): string => mb_strtolower($g['name']))
+                ->values();
+        }
+
         return view('limousine::petty-cash', [
-            'advances' => $this->tab === 'report' ? null : $query->paginate(20),
+            'advances' => $this->tab === 'report' || $this->tab === 'open' ? null : $query->paginate(20),
+            'groups' => $groups,
             'balance' => $petty->floatBalance(),
             'outstanding' => $petty->outstanding(),
             'toConfirmCount' => LimoPettyAdvance::query()->where('status', LimoPettyAdvance::STATUS_ISSUED)->count(),

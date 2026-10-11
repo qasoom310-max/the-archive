@@ -77,6 +77,30 @@ final class LimoPettyCashTest extends TestCase
         $this->assertEqualsWithDelta(100.0, app(PettyCashService::class)->outstanding(), 0.001);
     }
 
+    /** The Open tab gathers each driver's advances under one row with their total. */
+    public function test_the_open_tab_groups_advances_by_driver(): void
+    {
+        $this->asManager();
+        $petty = app(PettyCashService::class);
+        $petty->topUp(500, '2026-09-01', null, 'Qassim');
+        $sohail = $this->driver('Sohail');
+        $ali = $this->driver('Ali Makhlooq');
+        $petty->issue($sohail, 50, '2026-09-02', null, 'Mohmd');
+        $petty->issue($ali, 30, '2026-09-03', null, 'Mohmd');
+        $petty->issue($sohail, 20, '2026-09-05', null, 'Mohmd');
+
+        $component = \Livewire\Livewire::test(\Modules\Limousine\Livewire\PettyCash::class);
+        $groups = $component->viewData('groups');
+
+        $this->assertCount(2, $groups);
+        $sohailGroup = collect($groups)->firstWhere('name', 'Sohail');
+        $this->assertCount(2, $sohailGroup['advances']);
+        $this->assertEqualsWithDelta(70.0, $sohailGroup['given'], 0.001);
+        // Newest first inside the driver.
+        $this->assertSame('2026-09-05', $sohailGroup['advances'][0]->date?->toDateString());
+        $component->assertSee('2 advances');
+    }
+
     public function test_cash_the_float_does_not_hold_cannot_be_handed_out(): void
     {
         $this->asManager();

@@ -650,10 +650,25 @@ final class PricingApiTest extends TestCase
     {
         $body = $this->withHeaders($this->signedHeaders())->get($this->path)->json();
 
-        $this->assertSame('97317474949', $body['settings']['whatsapp']);
+        $this->assertSame('97339991869', $body['settings']['whatsapp']);
         $this->assertSame(12, $body['settings']['lead_hours']);
     }
 
+    public function test_the_whatsapp_number_moves_to_the_new_one_and_bumps_the_version(): void
+    {
+        \Illuminate\Support\Facades\DB::table('pricing_settings')->update(['whatsapp' => '97317474949']);
+        $before = \App\Erp\Pricing\PricingVersion::current();
+
+        $migration = require base_path('database/migrations/2026_10_12_100001_set_wanaan_whatsapp_number.php');
+        $migration->up();
+
+        $this->assertSame('97339991869', \Illuminate\Support\Facades\DB::table('pricing_settings')->value('whatsapp'));
+        $this->assertSame($before + 1, \App\Erp\Pricing\PricingVersion::current());
+
+        // Running it again changes nothing.
+        $migration->up();
+        $this->assertSame($before + 1, \App\Erp\Pricing\PricingVersion::current());
+    }
     public function test_the_estimated_flag_never_reaches_the_website(): void
     {
         $raw = (string) $this->withHeaders($this->signedHeaders())->get($this->path)->getContent();

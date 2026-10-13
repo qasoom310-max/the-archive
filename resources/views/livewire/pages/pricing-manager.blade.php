@@ -206,7 +206,7 @@
                 <div class="grid gap-3 sm:grid-cols-2">
                     <label class="block">
                         <span class="text-xs font-medium text-chrome-500">{{ __('WhatsApp number') }}</span>
-                        <input type="text" inputmode="numeric" dir="ltr" wire:model="whatsapp" class="o-input mt-1 w-full text-sm" placeholder="97339991869">
+                        <input type="text" inputmode="numeric" dir="ltr" wire:model="whatsapp" class="o-input mt-1 w-full text-sm" placeholder="97317474949">
                         <span class="mt-1 block text-[11px] text-chrome-400">{{ __('Digits only, including the country code.') }}</span>
                         @error('whatsapp') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </label>

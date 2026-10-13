@@ -16,6 +16,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoReceipt;
+use Modules\Limousine\Services\CustomerDocumentEmails;
 
 /**
  * Bespoke limousine receipt form: record a payment against an invoice (pre-fill
@@ -158,6 +159,10 @@ final class ReceiptForm extends Component
         $receipt->save();
 
         $invoice->refresh()->recomputePaid();
+
+        if ($receipt->wasRecentlyCreated) {
+            app(CustomerDocumentEmails::class)->paymentReceived((int) $receipt->id);
+        }
 
         session()->flash('toast', __('Payment recorded.'));
         $this->redirect('/app/limousine/invoice', navigate: true);

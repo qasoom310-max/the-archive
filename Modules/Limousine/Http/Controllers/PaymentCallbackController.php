@@ -16,6 +16,7 @@ use Modules\Limousine\Models\LimoPaymentLink;
 use Modules\Limousine\Models\LimoPortalConfiguration;
 use Modules\Limousine\Services\BookingPayments;
 use Modules\Limousine\Support\PortalSignature;
+use Modules\Limousine\Services\CustomerDocumentEmails;
 
 /**
  * The WordPress portal calls this after Tap confirms a payment. Public and
@@ -90,12 +91,15 @@ final class PaymentCallbackController
             $booking = LimoBooking::query()->find($fresh->booking_id);
             if ($booking !== null) {
                 $ref = trim((string) ($data['transaction_ref'] ?? ''));
-                app(BookingPayments::class)->receive(
+                $receipt = app(BookingPayments::class)->receive(
                     $booking,
                     (float) $fresh->amount,
                     'online',
                     $ref !== '' ? (string) __('Paid online — :ref', ['ref' => $ref]) : (string) __('Paid online'),
                 );
+                if ($receipt !== null) {
+                    app(CustomerDocumentEmails::class)->paymentReceived((int) $receipt->id);
+                }
             }
 
             $fresh->forceFill([

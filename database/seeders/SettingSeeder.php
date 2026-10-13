@@ -73,6 +73,11 @@ final class SettingSeeder extends Seeder
             ['key' => 'company.bank_account', 'label' => 'Bank account number', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 30, 'description' => 'Printed on invoices for bank transfers.'],
             ['key' => 'company.bank_iban', 'label' => 'IBAN', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 31, 'description' => 'Printed on invoices for bank transfers.'],
             ['key' => 'company.bank_swift', 'label' => 'SWIFT code', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 32, 'description' => 'Printed on invoices for bank transfers from abroad.'],
+            // Customer emails (App\Erp\Mail\CustomerMailer): off until a business
+            // switches them on; see the 2026_10_13 customer-email migration.
+            ['key' => 'mail.customer_documents', 'label' => 'Email documents to customers', 'type' => 'bool', 'group' => 'General', 'default' => '0', 'sort' => 40, 'description' => 'Email every new quotation, invoice and receipt to the customer automatically.'],
+            ['key' => 'mail.from_address', 'label' => 'Send customer emails from', 'type' => 'string', 'group' => 'General', 'default' => '', 'sort' => 41, 'description' => 'The address customers see the emails come from. Leave blank to use the server’s default.'],
+            ['key' => 'company.customer_terms', 'label' => 'Terms for customers', 'type' => 'text', 'group' => 'General', 'default' => '', 'sort' => 42, 'description' => 'Sent as a PDF with every quotation, invoice and receipt emailed to a customer. Use # for headings and - for points. Leave blank to send none.'],
             ['key' => 'company.timezone', 'label' => 'Timezone', 'type' => 'string', 'group' => 'General', 'default' => 'UTC', 'sort' => 30, 'description' => null],
             ['key' => 'company.language', 'label' => 'Language', 'type' => 'string', 'group' => 'General', 'default' => 'en', 'sort' => 40, 'description' => 'Default language for the system.'],
             // Terms & conditions printed on the rental Car Hire Agreement PDF

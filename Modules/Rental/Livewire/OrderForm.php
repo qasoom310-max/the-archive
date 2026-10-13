@@ -30,6 +30,7 @@ use Modules\Rental\Models\Driver;
 use Modules\Rental\Models\RentalCustomer;
 use Modules\Rental\Models\RentalOrder;
 use Modules\Rental\Models\Vehicle;
+use Modules\Rental\Services\RentalDocumentEmails;
 
 /**
  * Bespoke rental-order form: pick a customer + vehicle + dates + rate and the
@@ -764,6 +765,9 @@ final class OrderForm extends Component
         }
 
         $invoice = $order->createInvoice();
+        if ($invoice->wasRecentlyCreated) {
+            app(RentalDocumentEmails::class)->invoiceIssued((int) $invoice->id);
+        }
         app(ActivityLogger::class)->logFor($order, 'invoiced');
         session()->flash('toast', __('Invoice created.'));
         $this->redirect('/app/rental/invoice/' . $invoice->id, navigate: true);

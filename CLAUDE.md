@@ -2613,6 +2613,28 @@ Consequences to keep in mind:
   the mail carries email/password/forgot-link/login action; editing never
   changes the hash and sends no second mail). 11 `lang/ar.json` keys.
 
+**Customer emails — every new quotation, invoice and receipt (shipped 2026-10-13):**
+
+Asked for by the Wanaan owner: the customer gets their paperwork by email from
+`Erp@wanaan-bh.com`, with the logo as the header and a terms PDF attached.
+
+| Concern | Location |
+|---|---|
+| Settings (per database, General) | `mail.customer_documents` (bool, the switch — OFF by default), `mail.from_address` (From + Reply-To; blank = server default), `company.customer_terms` (`text` type → textarea; Markdown). Core migration `2026_10_13_100002` inserts them everywhere and switches Wanaan on (company name contains "wanaan" or its VAT), with terms taken from wanaan-bh.com: the terms page (car rental + its cancellation policy), the limousine product pages' terms, the FAQ's cross-border rule, and the services on the home page. Also in `SettingSeeder`. The settings page gained a `text` row type (textarea) |
+| Engine | `App\Erp\Mail\CustomerMailer` — `later(Closure, bool $now = false)` runs after the response via `defer()` (Save is never slowed or broken by the mail server), forces the **English** locale, and **re-enters the database it was called from** (the online-payment callback only borrows a workspace inside `runFor`, so a deferred closure would otherwise run on Main). `$now` runs immediately — for the WhatsApp assistant, which is itself already deferred (a `defer()` inside a deferred callback never runs). `send()` skips an empty/invalid address, attaches the terms PDF (`termsPdf()`, view `pdf.customer-terms`, blank terms = none), logs `emailed` (or the failure) to the activity log, never throws. `logo()` converts WebP/AVIF to PNG because Outlook shows nothing for them |
+| Mail | `App\Mail\CustomerDocumentMail` + `emails.customer-document` (table layout, inline CSS, logo embedded with `embedData`, gold rule, summary box, attachment list, dark footer from company phone/website/address). Content is a `CustomerDocument` VO |
+| Limousine | `Modules\Limousine\Services\CustomerDocumentEmails` — `quotationCreated`, `invoiceIssued` (invoice + every receipt on the invoice or its booking; wording says unpaid / part paid / paid in full), `paymentReceived` (receipt + invoice as it stands). Address = customer `email`, else `service_email`. Called from: QuotationForm (new quote; convert → invoice), Quotations (accept), InvoiceForm (issue from quote; collect), Invoices (collect), Bookings (take payment), BookingForm (new booking → invoice; money added on an edit → receipt), ReceiptForm (new), PaymentCallbackController (paid online), AssistantActions (booking, quotation; `now: true`). A converted invoice is emailed only when `wasRecentlyCreated` |
+| Rent A Car | `Modules\Rental\Services\RentalDocumentEmails` — same three. Called from QuotationForm / InvoiceForm / ReceiptForm (new only) and OrderForm::createInvoice (when new) |
+| Deliberately NOT sent | imports (they never call these), edits that move no money, statement/account batch payments (`AccountPayment` — one company payment can receipt dozens of trips), coupons, combined invoices |
+| Tests | `tests/Feature/CustomerDocumentEmailTest.php` (10) |
+
+**Mail setup it depends on:** prod `.env` SMTP. Hostinger only lets a mailbox
+send as itself, so the SMTP login must be `Erp@wanaan-bh.com` (or a mailbox
+allowed to send as it), or every email fails (logged in the activity log).
+The website contradicts itself on limousine cancellations (product pages:
+non-refundable within 24 h; FAQ: a 50 % fee) — the terms use the product pages;
+the owner can edit them in Settings → General.
+
 **A quotation the customer gets WITHOUT a total (shipped 2026-09-30):**
 
 The owner asked for it off the quotations list: a quote for several journeys

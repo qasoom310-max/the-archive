@@ -19,6 +19,7 @@ use Livewire\Component;
 use Modules\Limousine\Livewire\Concerns\HandlesTripLegs;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoQuotation;
+use Modules\Limousine\Services\CustomerDocumentEmails;
 
 /**
  * Bespoke limousine quotation: a header plus unlimited trip legs (transfer /
@@ -286,6 +287,7 @@ final class QuotationForm extends Component
         $this->guardSave($this->id === null);
         $this->validateFocusing();
 
+        $isNew = $this->id === null;
         $quote = $this->id !== null ? LimoQuotation::query()->find($this->id) : new LimoQuotation();
         if ($quote === null) {
             return;
@@ -308,6 +310,10 @@ final class QuotationForm extends Component
         $quote->save();
 
         $this->persistLegs($quote);
+
+        if ($isNew) {
+            app(CustomerDocumentEmails::class)->quotationCreated((int) $quote->id);
+        }
 
         session()->flash('toast', __('Quotation saved.'));
         $this->redirect('/app/limousine/quotation', navigate: true);
@@ -392,6 +398,9 @@ final class QuotationForm extends Component
         }
 
         $invoice = $quote->convertToInvoice();
+        if ($invoice->wasRecentlyCreated) {
+            app(CustomerDocumentEmails::class)->invoiceIssued((int) $invoice->id);
+        }
         session()->flash('toast', __('Invoice raised from this quotation.'));
         $this->redirect('/app/limousine/invoice', navigate: true);
     }

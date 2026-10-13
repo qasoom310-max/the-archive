@@ -21,6 +21,7 @@ use Livewire\WithPagination;
 use Modules\Limousine\Services\LimoQuotationRows;
 use Modules\Limousine\Mail\QuotationMail;
 use Modules\Limousine\Models\LimoQuotation;
+use Modules\Limousine\Services\CustomerDocumentEmails;
 use Modules\Limousine\Services\QuotationPdf;
 use Throwable;
 use App\Erp\Settings\Setting;
@@ -92,6 +93,9 @@ final class Quotations extends Component
         // that invoice — the customer agrees a price, we bill it, and the
         // journey runs against the bill.
         $invoice = $quote->convertToInvoice();
+        if ($invoice->wasRecentlyCreated) {
+            app(CustomerDocumentEmails::class)->invoiceIssued((int) $invoice->id);
+        }
 
         session()->flash('quotation_status', __('Quotation :ref is now invoice :invoice.', [
             'ref' => (string) $quote->reference,

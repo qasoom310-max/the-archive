@@ -15,6 +15,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Rental\Models\RentalInvoice;
 use Modules\Rental\Models\RentalReceipt;
+use Modules\Rental\Services\RentalDocumentEmails;
 
 /**
  * Bespoke receipt form: record a payment against an invoice. Reachable
@@ -119,6 +120,7 @@ final class ReceiptForm extends Component
             return;
         }
 
+        $isNew = $this->id === null;
         $receipt = $this->id !== null ? RentalReceipt::query()->find($this->id) : new RentalReceipt();
         if ($receipt === null) {
             return;
@@ -135,6 +137,10 @@ final class ReceiptForm extends Component
         // created-hook recomputes on insert; do it explicitly so edits also
         // re-settle the invoice.
         $invoice->refresh()->recomputePaid();
+
+        if ($isNew) {
+            app(RentalDocumentEmails::class)->paymentReceived((int) $receipt->id);
+        }
 
         session()->flash('toast', __('Payment recorded.'));
         $this->redirect('/app/rental/invoice/' . $invoice->id, navigate: true);

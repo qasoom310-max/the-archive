@@ -19,6 +19,7 @@ use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoReceipt;
 use Modules\Limousine\Services\BookingPayments;
+use Modules\Limousine\Services\CustomerDocumentEmails;
 
 /**
  * The bills, and the three things anyone does with one.
@@ -182,12 +183,13 @@ final class Invoices extends Component
         $note = $this->collectNote !== '' ? $this->collectNote : null;
         $booking = $invoice->booking;
 
-        if ($booking !== null) {
-            $payments->receive($booking, (float) $this->collectAmount, $this->collectMethod, $note);
-        } else {
-            // A charge with no journey behind it — a late fee. The receipt is
-            // written against the document alone.
-            $payments->receiveForCharge($invoice, (float) $this->collectAmount, $this->collectMethod, $note);
+        // A charge with no journey behind it (a late fee) is receipted against
+        // the document alone.
+        $receipt = $booking !== null
+            ? $payments->receive($booking, (float) $this->collectAmount, $this->collectMethod, $note)
+            : $payments->receiveForCharge($invoice, (float) $this->collectAmount, $this->collectMethod, $note);
+        if ($receipt !== null) {
+            app(CustomerDocumentEmails::class)->paymentReceived((int) $receipt->id);
         }
 
         $this->collectingId = null;

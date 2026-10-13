@@ -31,6 +31,7 @@ use Modules\Limousine\Services\ServiceOrderPortalClient;
 use Modules\WhatsApp\Models\AssistantPaymentLink;
 use Modules\WhatsApp\Models\Conversation;
 use Throwable;
+use Modules\Limousine\Services\CustomerDocumentEmails;
 
 /**
  * Everything the assistant is allowed to DO, split in two:
@@ -590,6 +591,7 @@ final class AssistantActions
 
         $leg = $booking->legs()->orderBy('sequence')->first();
         $this->activity->logFor($booking, 'created', 'Booked via the WhatsApp assistant', $user);
+        $this->emailCustomer(static fn (CustomerDocumentEmails $emails) => $emails->invoiceIssued((int) $booking->createInvoice()->id, now: true));
         $this->logOverrideIfAny($booking, $fare->total, $tableTotal, $user);
 
         return new ActionOutcome(Replies::booked($lang, [
@@ -653,6 +655,7 @@ final class AssistantActions
         });
 
         $this->activity->logFor($quote, 'created', 'Quotation prepared via the WhatsApp assistant', $user);
+        $this->emailCustomer(static fn (CustomerDocumentEmails $emails) => $emails->quotationCreated((int) $quote->id, now: true));
         $this->logOverrideIfAny($quote, $fare->total, $tableTotal, $user);
 
         $pdfs = app(QuotationPdf::class);
@@ -662,6 +665,22 @@ final class AssistantActions
             $pdfs->render($quote),
             $pdfs->filename($quote),
         );
+    }
+
+    /**
+     * Email the customer their document too, as the office's own screens do.
+     * Straight away rather than deferred: the assistant already runs after
+     * the webhook's response. A mail problem never spoils the reply.
+     *
+     * @param  \Closure(CustomerDocumentEmails): void  $send
+     */
+    private function emailCustomer(\Closure $send): void
+    {
+        try {
+            $send(app(CustomerDocumentEmails::class));
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     /**

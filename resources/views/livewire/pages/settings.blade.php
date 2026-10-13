@@ -231,6 +231,8 @@
                                         </ul>
                                     </div>
                                 </div>
+                            @elseif ($row['type'] === 'text')
+                                <textarea wire:model="form.{{ $i }}.value" rows="10" class="o-input font-mono text-xs"></textarea>
                             @elseif ($row['type'] === 'number')
                                 <input type="number" step="0.01" wire:model="form.{{ $i }}.value" class="o-input max-w-xs">
                             @elseif ($row['type'] === 'image')

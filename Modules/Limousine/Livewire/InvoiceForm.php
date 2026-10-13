@@ -17,6 +17,7 @@ use Livewire\Component;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoQuotation;
+use Modules\Limousine\Services\CustomerDocumentEmails;
 use Modules\Limousine\Models\LimoReceipt;
 use Modules\Limousine\Services\BookingPayments;
 
@@ -317,6 +318,9 @@ final class InvoiceForm extends Component
         }
 
         $invoice = $quote->convertToInvoice();
+        if ($invoice->wasRecentlyCreated) {
+            app(CustomerDocumentEmails::class)->invoiceIssued((int) $invoice->id);
+        }
 
         session()->flash('toast', __('Invoice issued from the quotation.'));
         // The list, not a form: a bill is a document, and everything anyone
@@ -393,10 +397,11 @@ final class InvoiceForm extends Component
         $note = $this->collectNote !== '' ? $this->collectNote : null;
         $booking = $invoice->booking;
 
-        if ($booking !== null) {
-            $payments->receive($booking, (float) $this->collectAmount, $this->collectMethod, $note);
-        } else {
-            $payments->receiveForCharge($invoice, (float) $this->collectAmount, $this->collectMethod, $note);
+        $receipt = $booking !== null
+            ? $payments->receive($booking, (float) $this->collectAmount, $this->collectMethod, $note)
+            : $payments->receiveForCharge($invoice, (float) $this->collectAmount, $this->collectMethod, $note);
+        if ($receipt !== null) {
+            app(CustomerDocumentEmails::class)->paymentReceived((int) $receipt->id);
         }
 
         $this->collecting = false;

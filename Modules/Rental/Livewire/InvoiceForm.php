@@ -15,6 +15,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Rental\Models\RentalCustomer;
 use Modules\Rental\Models\RentalInvoice;
+use Modules\Rental\Services\RentalDocumentEmails;
 
 /**
  * Bespoke invoice form: edit the bill, see its running balance + receipts, and
@@ -116,6 +117,7 @@ final class InvoiceForm extends Component
         $this->guardSave($this->id === null);
         $this->validateFocusing();
 
+        $isNew = $this->id === null;
         $invoice = $this->id !== null ? RentalInvoice::query()->find($this->id) : new RentalInvoice();
         if ($invoice === null) {
             return;
@@ -130,6 +132,10 @@ final class InvoiceForm extends Component
         $invoice->notes = $this->notes !== '' ? $this->notes : null;
         $invoice->save();
         $invoice->recomputePaid(); // keep status correct after a total change
+
+        if ($isNew) {
+            app(RentalDocumentEmails::class)->invoiceIssued((int) $invoice->id);
+        }
 
         session()->flash('toast', __('Invoice saved.'));
         $this->redirect('/app/rental/invoice', navigate: true);

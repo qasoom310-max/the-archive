@@ -19,6 +19,7 @@ use Modules\Rental\Models\Driver;
 use Modules\Rental\Models\RentalCustomer;
 use Modules\Rental\Models\RentalQuotation;
 use Modules\Rental\Models\Vehicle;
+use Modules\Rental\Services\RentalDocumentEmails;
 
 /**
  * Bespoke quotation form: same live maths as the order form, plus status
@@ -165,6 +166,7 @@ final class QuotationForm extends Component
         $this->guardSave($this->id === null);
         $this->validateFocusing();
 
+        $isNew = $this->id === null;
         $quote = $this->id !== null ? RentalQuotation::query()->find($this->id) : new RentalQuotation();
         if ($quote === null) {
             return;
@@ -184,6 +186,10 @@ final class QuotationForm extends Component
         $quote->notes = $this->notes !== '' ? $this->notes : null;
         $quote->recalcTotals();
         $quote->save();
+
+        if ($isNew) {
+            app(RentalDocumentEmails::class)->quotationCreated((int) $quote->id);
+        }
 
         session()->flash('toast', __('Quotation saved.'));
         $this->redirect('/app/rental/quotation', navigate: true);

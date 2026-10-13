@@ -23,6 +23,8 @@ use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Services\BookingPayments;
 use Modules\Limousine\Services\CouponRedeemer;
+use Modules\Limousine\Services\CustomerDocumentEmails;
+use Modules\Limousine\Models\LimoReceipt;
 
 /**
  * Bespoke limousine booking: a customer/PAX header plus unlimited trip legs
@@ -327,7 +329,7 @@ final class BookingForm extends Component
         // rather than by remembering to press a button — a trip with no invoice
         // is money nobody is accounting for. On an edit this keeps the document
         // in step with the fare, until a payment freezes it.
-        $booking->syncInvoice();
+        $invoice = $booking->syncInvoice();
 
         // A coupon carried in from the Refund coupons page is spent HERE, once
         // there is a priced booking for it to come off. Applying it any earlier
@@ -337,7 +339,21 @@ final class BookingForm extends Component
         // The receipt for money taken here — full fare, half of it, whatever
         // was handed over. Issued AFTER the legs priced the job, so the balance
         // printed on it is the real one.
-        $receiptNote = $this->receiptForNewMoney($booking, $advanceBefore);
+        $receipt = $this->receiptForNewMoney($booking, $advanceBefore);
+        // The amount is left off on purpose: the banner is read over shoulders
+        // and copied into chats; the receipt itself carries the figure.
+        $receiptNote = $receipt === null ? '' : (string) __('Receipt :reference issued.', [
+            'reference' => (string) $receipt->reference,
+        ]);
+
+        // The customer gets their paperwork by email: a new booking sends its
+        // invoice (with the receipt when something was paid); money added on an
+        // edit sends that receipt and the invoice as it now stands.
+        if ($wasNew) {
+            app(CustomerDocumentEmails::class)->invoiceIssued((int) $invoice->id);
+        } elseif ($receipt !== null) {
+            app(CustomerDocumentEmails::class)->paymentReceived((int) $receipt->id);
+        }
 
         // Confirm with the REFERENCES rather than just "saved": they are what
         // the office quotes to the customer, and a multi-leg booking produces
@@ -364,7 +380,7 @@ final class BookingForm extends Component
      * screen for it. Only the INCREASE counts — editing a booking that was
      * already part paid must not receipt the old money again.
      */
-    private function receiptForNewMoney(LimoBooking $booking, float $advanceBefore): string
+    private function receiptForNewMoney(LimoBooking $booking, float $advanceBefore): ?LimoReceipt
     {
         $taken = round((float) $booking->fresh()->advance - $advanceBefore, 3);
 
@@ -374,15 +390,7 @@ final class BookingForm extends Component
             $this->payment_method !== '' ? $this->payment_method : 'cash',
         );
 
-        if ($receipt === null) {
-            return '';
-        }
-
-        // The amount is left off on purpose: the banner is read over shoulders
-        // and copied into chats; the receipt itself carries the figure.
-        return (string) __('Receipt :reference issued.', [
-            'reference' => (string) $receipt->reference,
-        ]);
+        return $receipt;
     }
 
     /**

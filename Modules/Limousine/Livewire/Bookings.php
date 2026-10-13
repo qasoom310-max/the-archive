@@ -29,6 +29,7 @@ use Modules\Limousine\Services\ServiceOrderSender;
 use Modules\Limousine\Services\TripCancellation;
 use Modules\Rental\Models\Vehicle;
 use Throwable;
+use Modules\Limousine\Services\CustomerDocumentEmails;
 
 /**
  * Limousine bookings list — status tabs + a pick-up date range filter.
@@ -788,6 +789,9 @@ final class Bookings extends Component
             null,
             Carbon::parse($this->collectDate),
         );
+        if ($receipt !== null) {
+            app(CustomerDocumentEmails::class)->paymentReceived((int) $receipt->id);
+        }
 
         $fresh = $booking->fresh();
         $remaining = $fresh?->balanceDue() ?? 0.0;

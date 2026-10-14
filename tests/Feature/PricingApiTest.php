@@ -650,12 +650,14 @@ final class PricingApiTest extends TestCase
     {
         $body = $this->withHeaders($this->signedHeaders())->get($this->path)->json();
 
-        $this->assertSame('97317474949', $body['settings']['whatsapp']);
+        $this->assertSame('97339991869', $body['settings']['whatsapp']);
         $this->assertSame(12, $body['settings']['lead_hours']);
     }
 
     public function test_the_whatsapp_number_moved_and_then_came_back_bumping_the_version_each_time(): void
     {
+        // Start from the number the site had before any of these moves.
+        \Illuminate\Support\Facades\DB::table("pricing_settings")->update(["whatsapp" => "97317474949"]);
         $before = \App\Erp\Pricing\PricingVersion::current();
         $whatsapp = static fn (): mixed => \Illuminate\Support\Facades\DB::table('pricing_settings')->value('whatsapp');
 
@@ -669,9 +671,14 @@ final class PricingApiTest extends TestCase
         $this->assertSame('97317474949', $whatsapp());
         $this->assertSame($before + 2, \App\Erp\Pricing\PricingVersion::current());
 
+        $again = require base_path("database/migrations/2026_10_14_100001_set_wanaan_whatsapp_number_again.php");
+        $again->up();
+        $this->assertSame("97339991869", $whatsapp());
+        $this->assertSame($before + 3, \App\Erp\Pricing\PricingVersion::current());
+
         // Running it again changes nothing.
-        $back->up();
-        $this->assertSame($before + 2, \App\Erp\Pricing\PricingVersion::current());
+        $again->up();
+        $this->assertSame($before + 3, \App\Erp\Pricing\PricingVersion::current());
     }
 
     public function test_the_estimated_flag_never_reaches_the_website(): void

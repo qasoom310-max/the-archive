@@ -148,7 +148,7 @@ final class SeedPricingCommand extends Command
     }
 
     /** @var array<string, mixed> */
-    private const SETTINGS = ['whatsapp' => '97317474949', 'lead_hours' => 12];
+    private const SETTINGS = ['whatsapp' => '97339991869', 'lead_hours' => 12];
 
     /**
      * Cars and buses. The four CAR `pax`/`bags` figures are sensible values per

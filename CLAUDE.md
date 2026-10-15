@@ -3355,6 +3355,28 @@ constant `WANAAN_SO_VERSION` (currently 1.0.6). Structure:
 **Live since 2026-09-03 on Tap live keys.** The plugin is edited by re-uploading a freshly
 built ZIP in WP admin (there's no CI for `wp-plugin/`).
 
+**WordPress plugin `wanaan-whatsapp-number` (built 2026-10-15, `wp-plugin/`, uploaded as a ZIP like the service-order plugin):**
+one WhatsApp number for the whole of wanaan-bh.com, so the owner stops
+changing it by hand (it flipped 39991869 ↔ 17474949 three times in a week).
+`WWN_Rewriter` (pure PHP, no WP calls) runs on the finished front-end page
+(`ob_start` at `template_redirect` priority 0, so before a page cache stores it;
+skipped for admin, AJAX, REST, cron, feeds, customizer and the Elementor preview)
+and (1) points EVERY WhatsApp link — `wa.me/`, `api|web.whatsapp.com/send?phone=`,
+`whatsapp://`, including Elementor's JSON-escaped `https:\/\/wa.me\/…` — at the
+number, and (2) shows each number in the "Numbers on your pages to show as the
+WhatsApp number" list (default "+973 3999 1869") as the WhatsApp number in text
+and `tel:` links, keeping its written style. **The hotline 17474949 is never
+touched unless listed** — the site uses it as the hotline AND it has been the
+WhatsApp number. Pages are never edited. The number comes from the ERP by
+default: `WWN_Number` GETs `/api/v1/workspaces/7/pricing` signed with
+`signRequest`'s scheme and the existing `WANAAN_PORTAL_SECRET`, reads
+`settings.whatsapp` (ERP /fares → Settings), keeps it 10 minutes (2 on failure),
+falls back to the last good answer then the typed number, and purges known page
+caches when it changes. Settings → WhatsApp number in WP admin. Checked against
+eight downloaded live pages (no old number left, every link moved, hotline
+intact). **So the ERP's /fares WhatsApp field is now the single place to change
+the site's WhatsApp number.**
+
 **WhatsApp staff assistant — quote, book, documents, payment links by chat (built 2026-09-17, merged + deployed 2026-09-20):**
 
 An INTERNAL bot: an authorised Wanaan employee messages it on WhatsApp in

@@ -2717,6 +2717,8 @@ belongs to the month of its FIRST trip. Not changed: the statement of account
 and account payments still go by issue date (a ledger).
 Tests: `LimoCombinedInvoiceTest` (+4).
 
+**Units on a limousine booking (shipped 2026-10-15).** A "Units" box on the booking form (beside Prepared by, default 1, 1–100): two cars for the same trip = 2, and every leg's price is multiplied by it. Stored on the booking's existing `num_cars` and on each leg's new `limo_legs.units` (migration `2026_10_15_950046`, default 1). `LimoLeg::grossFor()`/`netFor()` take a trailing `int $units = 1` (rate × hours/days × units, then the typed discount and VAT, which are amounts for the whole line). `HandlesTripLegs::legUnits()` returns 1 (quotations) and `BookingForm` overrides it. The queue's single-trip edit keeps the leg's units. Invoices read `net_amount`, so they follow. Tests: `LimoBookingUnitsTest` (6).
+
 **A booking's invoice follows its price even after payment (changed 2026-10-07,
 the owner's request).** It used to freeze at the first payment, so a booking
 re-priced after its deposit kept an invoice for the old amount, and no correct

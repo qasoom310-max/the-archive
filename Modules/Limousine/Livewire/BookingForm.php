@@ -79,6 +79,13 @@ final class BookingForm extends Component
     #[Locked]
     public string $prepared_by = '';
 
+    /**
+     * How many of the trip are sold — two cars for the same journey is 2, and
+     * every leg's price is multiplied by it. Kept on the booking's `num_cars`
+     * and on each leg's `units`.
+     */
+    public string $units = '1';
+
     /** Blank, not '0': a typed amount must not land after a zero ("059"). */
     public string $advance = '';
 
@@ -133,6 +140,7 @@ final class BookingForm extends Component
                 // time somebody else opened the record — the opposite of an
                 // audit trail. Only a brand-new booking gets stamped (below).
                 $this->prepared_by = $booking->prepared_by ?? '';
+                $this->units = (string) max(1, (int) $booking->num_cars);
                 $this->advance = (float) $booking->advance > 0 ? (string) $booking->advance : '';
                 $this->payment_method = $booking->payment_method ?? 'cash';
                 $this->notes = $booking->notes ?? '';
@@ -250,6 +258,12 @@ final class BookingForm extends Component
         return true;
     }
 
+    /** Every leg is priced for this many units (see HandlesTripLegs::legUnits()). */
+    public function legUnits(): int
+    {
+        return max(1, min(100, (int) $this->units));
+    }
+
     /**
      * @return array<string, list<string>>
      */
@@ -265,6 +279,7 @@ final class BookingForm extends Component
             'email' => ['nullable', 'email', 'max:255'],
             'requested_by' => ['required', 'string', 'max:255'],
             'prepared_by' => ['required', 'string', 'max:255'],
+            'units' => ['required', 'integer', 'min:1', 'max:100'],
             'advance' => ['nullable', 'numeric', 'min:0'],
             'payment_method' => ['required', 'string'],
             'notes' => ['nullable', 'string'],
@@ -304,6 +319,7 @@ final class BookingForm extends Component
         $booking->email = $this->trimOrNull($this->email);
         $booking->requested_by = $this->trimOrNull($this->requested_by);
         $booking->prepared_by = $this->trimOrNull($this->prepared_by);
+        $booking->num_cars = $this->legUnits();
         // Money taken while the booking is being written gets its own receipt
         // below, so remember what was already on the record: on an edit only the
         // INCREASE is new money, and receipting the rest again would hand the

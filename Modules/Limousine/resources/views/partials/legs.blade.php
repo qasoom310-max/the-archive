@@ -24,8 +24,9 @@
             // that gets saved rather than a second formula that can drift.
             $discount = (float) (($leg['discount'] ?? '') === '' ? 0 : $leg['discount']);
             $vat = (float) (($leg['vat'] ?? '') === '' ? 0 : $leg['vat']);
-            $gross = \Modules\Limousine\Models\LimoLeg::grossFor($basis, $rate, $hours, $days);
-            $net = \Modules\Limousine\Models\LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat);
+            $units = $this->legUnits();
+            $gross = \Modules\Limousine\Models\LimoLeg::grossFor($basis, $rate, $hours, $days, $units);
+            $net = \Modules\Limousine\Models\LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat, $units);
         @endphp
         <div wire:key="leg-{{ $i }}" class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -214,7 +215,7 @@
 
             {{-- Live leg total + net --}}
             <div class="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-chrome-100 pt-3 text-sm">
-                <span class="text-chrome-500">{{ __('Leg total') }} <span class="font-medium text-chrome-700">{{ \App\Erp\Views\ValueFormat::money($gross) }}</span></span>
+                <span class="text-chrome-500">{{ __('Leg total') }} <span class="font-medium text-chrome-700">{{ \App\Erp\Views\ValueFormat::money($gross) }}</span>@if ($units > 1) <span class="text-xs text-chrome-500">({{ __(':units units', ['units' => $units]) }})</span>@endif</span>
                 <span class="flex items-center gap-2 rounded-lg bg-primary-50 px-3 py-1.5"><span class="font-semibold text-primary-800">{{ __('Net') }}</span><span class="font-bold text-primary-700">{{ \App\Erp\Views\ValueFormat::money($net) }}</span></span>
             </div>
         </div>

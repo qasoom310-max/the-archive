@@ -327,6 +327,16 @@ trait HandlesTripLegs
         ];
     }
 
+    /**
+     * How many of each trip are sold (two cars for the same trip = 2). Every
+     * leg's price is multiplied by it. One unless the host form asks for it —
+     * the booking form does, a quotation doesn't.
+     */
+    public function legUnits(): int
+    {
+        return 1;
+    }
+
     /** Grand total = sum of leg nets, recomputed from the live inputs. */
     public function grandTotal(): float
     {
@@ -339,6 +349,7 @@ trait HandlesTripLegs
                 max(1, (int) ($leg['days'] ?? 1)),
                 (float) ($leg['discount'] ?? 0),
                 (float) ($leg['vat'] ?? 0),
+                $this->legUnits(),
             );
         }
 
@@ -434,6 +445,7 @@ trait HandlesTripLegs
                 'start_at' => ($leg['start_at'] ?? '') !== '' ? Carbon::parse($leg['start_at']) : null,
                 'hours' => $hours,
                 'days' => $days,
+                'units' => $this->legUnits(),
                 'vehicle_details' => $this->blankToNull($leg['car_details'] ?? ''),
                 'rate' => $rate,
                 'currency' => $currency,
@@ -442,8 +454,8 @@ trait HandlesTripLegs
                 'rate_basis' => $basis,
                 'discount' => $discount,
                 'vat' => $vat,
-                'line_total' => LimoLeg::grossFor($basis, $rate, $hours, $days),
-                'net_amount' => LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat),
+                'line_total' => LimoLeg::grossFor($basis, $rate, $hours, $days, $this->legUnits()),
+                'net_amount' => LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat, $this->legUnits()),
             ];
 
             // The car is only carried through the form where the form actually

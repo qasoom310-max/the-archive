@@ -3143,5 +3143,8 @@
     "Your quotation :reference": "عرض السعر :reference",
     "Email documents to customers": "إرسال المستندات للعملاء بالبريد الإلكتروني",
     "Send customer emails from": "عنوان إرسال رسائل العملاء",
-    "Terms for customers": "الشروط للعملاء"
+    "Terms for customers": "الشروط للعملاء",
+    "Units": "الوحدات",
+    ":units units": ":units وحدات",
+    "The price of every trip is multiplied by this. 2 cars for the same trip = 2.": "يُضرب سعر كل رحلة في هذا الرقم. سيارتان لنفس الرحلة = 2."
 }

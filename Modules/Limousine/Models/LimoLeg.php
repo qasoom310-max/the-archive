@@ -41,6 +41,7 @@ use Illuminate\Support\Facades\Storage;
  * @property float|null $quote_rate The rate as typed, in `currency` — equals `rate` when currency is BHD
  * @property float|null $exchange_rate  BHD value of 1 unit of `currency`, looked up live (not typed); `rate` = quote_rate × exchange_rate
  * @property string $rate_basis
+ * @property int $units           How many of the trip are sold (two cars = 2); multiplies the price
  * @property float $discount
  * @property float $vat
  * @property float $line_total
@@ -119,7 +120,7 @@ final class LimoLeg extends Model
     /** @var list<string> */
     protected $fillable = [
         'legable_type', 'legable_id', 'sequence', 'reference', 'status', 'service_type',
-        'car_id', 'driver_id', 'driver', 'from_location', 'from_location_url', 'to_location', 'to_location_url', 'start_at', 'hours', 'days', 'vehicle',
+        'car_id', 'driver_id', 'driver', 'from_location', 'from_location_url', 'to_location', 'to_location_url', 'start_at', 'hours', 'days', 'units', 'vehicle',
         'vehicle_details', 'rate', 'currency', 'quote_rate', 'exchange_rate', 'rate_basis', 'discount', 'vat', 'line_total', 'net_amount', 'notes',
         'signature_path', 'signed_at', 'signed_name', 'signed_ip', 'service_order_sent_at',
         'cancelled_at', 'cancellation_reason', 'refund_outcome', 'refund_amount',
@@ -203,6 +204,7 @@ final class LimoLeg extends Model
     protected $attributes = [
         'service_type' => self::TYPE_TRANSFER,
         'days' => 1,
+        'units' => 1,
         'rate' => 0,
         'currency' => self::DEFAULT_CURRENCY,
         'rate_basis' => self::BASIS_TRIP,
@@ -225,6 +227,7 @@ final class LimoLeg extends Model
             'start_at' => 'datetime',
             'hours' => 'float',
             'days' => 'integer',
+            'units' => 'integer',
             'rate' => 'float',
             'quote_rate' => 'float',
             'exchange_rate' => 'float',
@@ -312,23 +315,25 @@ final class LimoLeg extends Model
      *   - per hour → rate × hours × days
      *   - per day  → rate × days
      *   - per trip → rate (flat)
+     * …times the units: two cars for the same trip cost twice the rate.
      */
-    public static function grossFor(string $basis, float $rate, ?float $hours, int $days): float
+    public static function grossFor(string $basis, float $rate, ?float $hours, int $days, int $units = 1): float
     {
         $days = max(1, $days);
+        $units = max(1, $units);
         $gross = match ($basis) {
             self::BASIS_HOUR => $rate * (float) ($hours ?? 0) * $days,
             self::BASIS_DAY => $rate * $days,
             default => $rate,
         };
 
-        return round($gross, 3);
+        return round($gross * $units, 3);
     }
 
     /** Net leg = gross − discount + VAT (never below zero before VAT). */
-    public static function netFor(string $basis, float $rate, ?float $hours, int $days, float $discount, float $vat): float
+    public static function netFor(string $basis, float $rate, ?float $hours, int $days, float $discount, float $vat, int $units = 1): float
     {
-        return round(max(0.0, self::grossFor($basis, $rate, $hours, $days) - $discount) + $vat, 3);
+        return round(max(0.0, self::grossFor($basis, $rate, $hours, $days, $units) - $discount) + $vat, 3);
     }
 
     /**

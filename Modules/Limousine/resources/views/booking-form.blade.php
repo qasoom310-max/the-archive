@@ -130,6 +130,12 @@
                        class="o-input w-full cursor-not-allowed opacity-70">
                 <p class="mt-1 text-xs text-chrome-500">{{ __('Recorded automatically from your account.') }}</p>
             </div>
+            <div>
+                <label class="{{ $lbl }}">{{ __('Units') }} *</label>
+                <input type="number" min="1" max="100" step="1" wire:model.live.debounce.300ms="units" class="o-input w-full">
+                @error('units') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                <p class="mt-1 text-xs text-chrome-500">{{ __('The price of every trip is multiplied by this. 2 cars for the same trip = 2.') }}</p>
+            </div>
             <div class="sm:col-span-2">
                 <label class="{{ $lbl }}">{{ __('Comments') }}</label>
                 <textarea wire:model="notes" rows="2" class="o-input w-full"></textarea>

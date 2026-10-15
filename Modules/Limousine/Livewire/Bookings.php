@@ -856,6 +856,7 @@ final class Bookings extends Component
             $chauffeur ? max(1, (int) (($this->editLeg['days'] ?? '') === '' ? '1' : $this->editLeg['days'])) : 1,
             $number('discount'),
             $number('vat'),
+            (int) (LimoLeg::query()->whereKey($this->editingLegId)->value('units') ?? 1),
         );
     }
 
@@ -933,8 +934,9 @@ final class Bookings extends Component
             'rate_basis' => $basis,
             'discount' => $discount,
             'vat' => $vat,
-            'line_total' => LimoLeg::grossFor($basis, $rate, $hours, $days),
-            'net_amount' => LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat),
+            // The units stay what the booking set; this dialog does not change them.
+            'line_total' => LimoLeg::grossFor($basis, $rate, $hours, $days, $leg->units),
+            'net_amount' => LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat, $leg->units),
         ]);
         $leg->save();
 

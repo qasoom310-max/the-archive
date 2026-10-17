@@ -170,9 +170,9 @@ final class CustomerForm extends Component
         $wasNew = ! $customer->exists;
 
         // The individual/company type is set once at creation. After that only a
-        // super-admin may change it — for everyone else the saved type wins,
-        // even if the property was tampered with client-side.
-        if ($customer->exists && ! $this->isSuperAdmin()) {
+        // super-admin or a user granted it by name may change it — for everyone
+        // else the saved type wins, even if the property was tampered with.
+        if ($customer->exists && ! $this->mayChangeType()) {
             $this->type = $customer->type;
         }
 
@@ -228,11 +228,11 @@ final class CustomerForm extends Component
         return $value === '' ? null : $value;
     }
 
-    private function isSuperAdmin(): bool
+    private function mayChangeType(): bool
     {
         $user = Auth::user();
 
-        return $user instanceof User && $user->isSuperAdmin();
+        return $user instanceof User && $user->canChangeCustomerType();
     }
 
     public function render(): View
@@ -292,8 +292,9 @@ final class CustomerForm extends Component
 
         return view('rental::customer-form', [
             'isEditing' => $this->id !== null,
-            // Type is chosen at creation; afterwards only a super-admin may change it.
-            'canChangeType' => $this->id === null || $this->isSuperAdmin(),
+            // Type is chosen at creation; afterwards only a super-admin or a
+            // user granted it (User::canChangeCustomerType()) may change it.
+            'canChangeType' => $this->id === null || $this->mayChangeType(),
             'countries' => RentalCustomer::countries(),
             'typeOptions' => RentalCustomer::typeOptions(),
             'customer' => $customer,

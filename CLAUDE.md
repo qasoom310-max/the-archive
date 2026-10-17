@@ -2287,6 +2287,8 @@ is untouched. No UI toggle yet — to grant someone else, add their email to the
 migration's `GRANTED` list in a NEW migration, or ask for a Users-form checkbox.
 Tests: `LimoPettyCashTest` (+2).
 
+**Changing an existing customer between Individual and Company (shipped 2026-10-17):** was super-admin only (`CustomerForm`). Now `User::canChangeCustomerType()` = super admin OR `users.can_change_customer_type` (core migration `2026_10_17_100001`, which grants it to Abbas by email `hamdanabbas98@gmail.com` and to the accounts named `ali` / `via` or whose e-mail starts `ali@` / `via@`, in Main and every workspace, and logs who got it). No UI toggle: to grant someone else, add them in a NEW migration. Tests: `CustomerTypeChangeTest` (4).
+
 **Remove a login from every database — `user:remove` (shipped 2026-09-08):**
 the CLI twin of Settings → Users' **Delete**, for the case the screen can't
 serve the job: a GLOBAL account (shared across every database, "Managed on

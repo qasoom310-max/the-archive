@@ -29,6 +29,7 @@ use Throwable;
  * @property list<string>|null $admin_apps   Narrows an Administrator to just these apps; null = every app (unrestricted)
  * @property bool $is_accountant    May confirm payments (with super-admins); not even a regular admin can
  * @property bool $petty_cash_full  Every Limousine petty-cash action (issue, top up, confirm, settle) without the Accountant role
+ * @property bool $can_change_customer_type  May switch an existing customer between Individual and Company
  * @property bool $is_paused        Suspended by an admin — signed out and refused sign-in until unpaused
  * @property \Illuminate\Support\Carbon|null $paused_at
  * @property int|null $home_workspace_id  Locked to this workspace (database); null = unrestricted
@@ -53,6 +54,7 @@ final class User extends Authenticatable
         'admin_apps',
         'is_accountant',
         'petty_cash_full',
+        'can_change_customer_type',
         'is_paused',
         'paused_at',
         'home_workspace_id',
@@ -78,6 +80,7 @@ final class User extends Authenticatable
             'admin_apps' => 'array',
             'is_accountant' => 'boolean',
             'petty_cash_full' => 'boolean',
+            'can_change_customer_type' => 'boolean',
             'is_paused' => 'boolean',
             'paused_at' => 'datetime',
             // Project module: the column is added by that module's migration,
@@ -128,6 +131,16 @@ final class User extends Authenticatable
     public function hasFullPettyCash(): bool
     {
         return ($this->getAttribute('petty_cash_full') ?? false) === true;
+    }
+
+    /**
+     * Whether this user may switch an EXISTING customer between Individual and
+     * Company. A super admin always may; anyone else only when granted by name
+     * (users.can_change_customer_type). Column-guarded like the flags above.
+     */
+    public function canChangeCustomerType(): bool
+    {
+        return $this->isSuperAdmin() || ($this->getAttribute('can_change_customer_type') ?? false) === true;
     }
 
     /**

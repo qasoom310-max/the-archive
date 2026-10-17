@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Border offers — preview</title>
+<link rel="stylesheet" href="../assets/wbo.css">
+<style>
+	body { margin: 0; padding: 24px 16px; background: #f3f4f6; }
+	body.dark { background: #202124; }
+</style>
+</head>
+<body>
+<div id="mount"></div>
+<script src="strings.generated.js"></script>
+<script src="../assets/wbo-core.js"></script>
+<script src="../assets/wbo-app.js"></script>
+<script src="fixture.js"></script>
+<script>
+// preview.html?lang=ar&theme=dark&state=results|form|nudge
+(async function () {
+	var p = new URLSearchParams(location.search);
+	// ?frame=390 — draw the page inside a frame that wide, so a screenshot gets a
+	// true phone layout (a desktop browser window cannot be made that narrow).
+	if (p.get('frame')) {
+		var w = parseInt(p.get('frame'), 10);
+		p.delete('frame');
+		document.body.style.cssText = 'margin:0;padding:0;background:#888';
+		document.body.innerHTML = '<iframe src="preview.html?' + p.toString() + '" style="border:0;width:' + w + 'px;height:' + (parseInt(p.get('h'), 10) || 2400) + 'px;display:block;background:#fff"></iframe>';
+		return;
+	}
+	var lang = p.get('lang') || 'en';
+	var theme = p.get('theme') || 'light';
+	var state = p.get('state') || 'results';
+	if (theme === 'dark') document.body.classList.add('dark');
+	document.documentElement.lang = lang;
+	var root = wboMount(lang, {}, {}, theme);
+	if (state === 'form') return;
+	root.querySelector('.wbo__search').click();
+	await new Promise(function (r) { setTimeout(r, 50); });
+	var out = root.querySelector('.wbo__hour[data-leg="out"][data-hour="' + (state === 'nudge' ? 2 : 3) + '"]');
+	out.click();
+	if (state !== 'nudge') root.querySelector('.wbo__hour[data-leg="back"][data-hour="15"]').click();
+})();
+</script>
+</body>
+</html>

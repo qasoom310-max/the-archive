@@ -94,6 +94,20 @@ jobs:
       - name: Composer test (PHPUnit)
         run: composer test
 
+      # The WordPress border-offers plugin's own tests (the plugin is uploaded
+      # to WordPress by hand, never deployed from here).
+      - name: Border offers plugin tests (logic)
+        working-directory: wp-plugin/wanaan-border-offers
+        run: node --test tests/core.test.js
+
+      # The search box clicked through in headless Chrome against a fake ERP.
+      # Allowed to fail so a browser hiccup on the runner never holds up an
+      # ERP deploy; a failure still shows in the run.
+      - name: Border offers plugin tests (browser)
+        working-directory: wp-plugin/wanaan-border-offers
+        continue-on-error: true
+        run: node --test tests/app.test.js
+
   # ─────────────────────────────────────────────────────────────────────
   # Deploy — only on push to main, only after `test` passes.
   # ─────────────────────────────────────────────────────────────────────

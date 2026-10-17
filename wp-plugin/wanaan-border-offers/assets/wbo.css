@@ -1,0 +1,331 @@
+/* Wanaan Border Offers — the search box. Everything is scoped under .wbo so a
+   theme's styles and these never meet. Colours are variables: a theme can
+   override them on .wbo. Logical properties throughout, so dir="rtl" mirrors. */
+
+.wbo {
+	--wbo-bg: #ffffff;
+	--wbo-surface: #ffffff;
+	--wbo-field: #ffffff;
+	--wbo-ink: #1f2328;
+	--wbo-muted: #5f6672;
+	--wbo-line: #d5d9e0;
+	--wbo-line-strong: #9aa2ae;
+	--wbo-accent: #ffc837;
+	--wbo-accent-ink: #1f2328;
+	--wbo-offer: #0f8a43;
+	--wbo-offer-bg: #e7f6ec;
+	--wbo-offer-line: #5cc285;
+	--wbo-closed: #eef0f3;
+	--wbo-closed-ink: #a3a9b3;
+	--wbo-shadow: 0 1px 3px rgba(16, 24, 40, .08), 0 6px 20px rgba(16, 24, 40, .06);
+	--wbo-radius: 16px;
+	--wbo-whatsapp: #1fa855;
+
+	box-sizing: border-box;
+	color: var(--wbo-ink);
+	font: 400 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", "Helvetica Neue", Arial, sans-serif;
+	max-inline-size: 1240px;
+	margin-inline: auto;
+	-webkit-text-size-adjust: 100%;
+}
+
+.wbo--dark {
+	--wbo-bg: #202124;
+	--wbo-surface: #303134;
+	--wbo-field: #303134;
+	--wbo-ink: #e8eaed;
+	--wbo-muted: #b0b5bc;
+	--wbo-line: #5f6368;
+	--wbo-line-strong: #9aa0a6;
+	--wbo-offer: #6dd58c;
+	--wbo-offer-bg: rgba(109, 213, 140, .14);
+	--wbo-offer-line: #6dd58c;
+	--wbo-closed: #3a3b3e;
+	--wbo-closed-ink: #7d8187;
+	--wbo-shadow: 0 1px 3px rgba(0, 0, 0, .5), 0 8px 24px rgba(0, 0, 0, .35);
+}
+
+.wbo *, .wbo *::before, .wbo *::after { box-sizing: inherit; }
+.wbo svg { inline-size: 20px; block-size: 20px; flex: none; }
+/* :where() keeps this at the weight of one class, so each control's own colour wins. */
+.wbo :where(button, select, input) { font: inherit; color: inherit; }
+.wbo [hidden] { display: none !important; }
+.wbo__sr {
+	position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden;
+	clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* --- The card ----------------------------------------------------------- */
+
+.wbo__card {
+	position: relative;
+	background: var(--wbo-surface);
+	border-radius: var(--wbo-radius);
+	box-shadow: var(--wbo-shadow);
+	padding: 14px 14px 40px;
+	margin-block-end: 34px;
+}
+
+.wbo__opts { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-block-end: 10px; }
+
+.wbo__pill {
+	position: relative;
+	display: inline-flex; align-items: center; gap: 6px;
+	padding: 6px 8px; border-radius: 8px; color: var(--wbo-muted);
+	cursor: pointer;
+}
+.wbo__pill:hover { background: color-mix(in srgb, var(--wbo-line) 35%, transparent); }
+.wbo__pill select {
+	appearance: none; -webkit-appearance: none; border: 0; background: transparent;
+	color: var(--wbo-ink); padding: 0 18px 0 0; padding-inline: 0 18px; cursor: pointer;
+	font-size: 15px;
+}
+.wbo__pill select:focus-visible { outline: 2px solid var(--wbo-accent); outline-offset: 4px; border-radius: 4px; }
+.wbo__pill > svg:last-child { position: absolute; inset-inline-end: 6px; inline-size: 18px; block-size: 18px; pointer-events: none; }
+
+.wbo__row { display: grid; gap: 10px; }
+
+/* Countries: two boxes, the swap button over the line between them. */
+.wbo__places { position: relative; display: grid; gap: 8px; }
+
+.wbo__field, .wbo__date {
+	position: relative;
+	display: flex; align-items: center; gap: 10px;
+	min-block-size: 60px;
+	padding: 8px 14px;
+	background: var(--wbo-field);
+	border: 1px solid var(--wbo-line);
+	border-radius: 10px;
+	transition: border-color .15s, box-shadow .15s;
+}
+.wbo__field:hover, .wbo__date:hover { border-color: var(--wbo-line-strong); }
+.wbo__field:focus-within, .wbo__date:focus-within {
+	border-color: var(--wbo-accent);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--wbo-accent) 35%, transparent);
+}
+.wbo__ico { display: inline-flex; color: var(--wbo-muted); }
+
+.wbo__field { flex-wrap: wrap; align-content: center; cursor: pointer; padding-inline-end: 52px; }
+.wbo__cap {
+	display: block; font-size: 12px; line-height: 1.2; color: var(--wbo-muted);
+	inline-size: 100%;
+}
+.wbo__field .wbo__cap { inline-size: calc(100% - 30px); }
+.wbo__field select {
+	appearance: none; -webkit-appearance: none;
+	inline-size: 100%; border: 0; background: transparent; padding: 0; margin: 0;
+	font-size: 17px; font-weight: 500; cursor: pointer;
+	margin-inline-start: 30px; margin-block-start: -2px;
+}
+.wbo__field select:focus { outline: none; }
+.wbo__field .wbo__ico { position: absolute; inset-inline-start: 14px; inset-block-start: 50%; transform: translateY(-50%); }
+.wbo__field .wbo__cap { margin-inline-start: 30px; }
+
+.wbo__swap {
+	position: absolute; z-index: 2;
+	inset-inline-end: 14px; inset-block-start: 50%;
+	inline-size: 40px; block-size: 40px; margin-block-start: -20px;
+	display: grid; place-items: center;
+	border: 1px solid var(--wbo-line); border-radius: 50%;
+	background: var(--wbo-surface); color: var(--wbo-ink);
+	cursor: pointer;
+	transition: transform .25s, border-color .15s;
+	transform: rotate(90deg);
+}
+.wbo__swap:hover { border-color: var(--wbo-line-strong); }
+.wbo__swap:focus-visible { outline: 2px solid var(--wbo-accent); outline-offset: 2px; }
+.wbo__swap.is-turned { transform: rotate(270deg); }
+
+/* Dates: one box per way, each with a back/forward day stepper. */
+.wbo__dates { display: grid; gap: 8px; }
+.wbo__date { padding-inline-end: 6px; gap: 6px; }
+.wbo__datefield { position: relative; flex: 1; min-inline-size: 0; display: block; cursor: pointer; }
+.wbo__dateshow { display: block; font-size: 17px; font-weight: 500; line-height: 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The real input covers the box, unseen: a tap opens the device's picker. */
+.wbo__date input {
+	position: absolute; inset: 0; inline-size: 100%; block-size: 100%;
+	margin: 0; padding: 0; border: 0; background: transparent;
+	opacity: 0; cursor: pointer; font-size: 16px; color-scheme: light;
+	-webkit-appearance: none; appearance: none;
+}
+.wbo__date input::-webkit-calendar-picker-indicator {
+	position: absolute; inset: 0; inline-size: auto; block-size: auto; margin: 0; padding: 0; cursor: pointer;
+}
+.wbo--dark .wbo__date input { color-scheme: dark; }
+.wbo__step {
+	inline-size: 36px; block-size: 36px; display: grid; place-items: center;
+	border: 0; border-radius: 50%; background: transparent; color: var(--wbo-ink); cursor: pointer;
+}
+.wbo__step:hover:not(:disabled) { background: color-mix(in srgb, var(--wbo-line) 45%, transparent); }
+.wbo__step:focus-visible { outline: 2px solid var(--wbo-accent); }
+.wbo__step:disabled { color: var(--wbo-closed-ink); cursor: default; }
+[dir="rtl"] .wbo__step svg { transform: scaleX(-1); }
+
+.wbo__error { margin: 10px 2px 0; color: #c62828; font-size: 14px; }
+.wbo--dark .wbo__error { color: #ff8a80; }
+
+/* The search button sits on the card's bottom edge. */
+.wbo__go { position: absolute; inset-inline: 0; inset-block-end: -24px; display: flex; justify-content: center; }
+.wbo__search {
+	display: inline-flex; align-items: center; gap: 8px;
+	min-block-size: 48px; padding: 0 28px;
+	border: 0; border-radius: 999px; cursor: pointer;
+	background: var(--wbo-accent); color: var(--wbo-accent-ink);
+	font-weight: 600; font-size: 16px;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, .18);
+	transition: transform .1s, box-shadow .15s;
+}
+.wbo__search:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, .22); }
+.wbo__search:active { transform: translateY(1px); }
+.wbo__search:focus-visible { outline: 3px solid var(--wbo-ink); outline-offset: 3px; }
+.wbo__search.is-busy { opacity: .8; cursor: progress; }
+
+/* --- Results -------------------------------------------------------------- */
+
+.wbo__results { display: grid; gap: 16px; }
+
+.wbo__leg {
+	background: var(--wbo-surface); border-radius: var(--wbo-radius); box-shadow: var(--wbo-shadow);
+	padding: 16px;
+}
+.wbo__leghead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.wbo__leghead h3 { margin: 0; font-size: 17px; font-weight: 600; color: var(--wbo-ink); }
+.wbo__leghead p { margin: 2px 0 0; color: var(--wbo-muted); font-size: 14px; }
+.wbo__badge {
+	flex: none; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 600;
+	background: var(--wbo-offer-bg); color: var(--wbo-offer); border: 1px solid var(--wbo-offer-line);
+}
+.wbo__hint { margin: 10px 0 8px; color: var(--wbo-muted); font-size: 13px; }
+
+.wbo__hours { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+
+.wbo__hour {
+	position: relative;
+	display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+	min-block-size: 54px; padding: 6px 4px;
+	border: 1px solid var(--wbo-line); border-radius: 10px;
+	background: var(--wbo-field); color: var(--wbo-ink); cursor: pointer;
+	transition: border-color .12s, background .12s, transform .08s;
+}
+.wbo__hour:hover:not(:disabled) { border-color: var(--wbo-line-strong); }
+.wbo__hour:active:not(:disabled) { transform: scale(.97); }
+.wbo__hour:focus-visible { outline: 2px solid var(--wbo-accent); outline-offset: 2px; }
+.wbo__time { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.wbo__tag {
+	display: inline-block; font-size: 11.5px; font-weight: 700; line-height: 1.2;
+	color: var(--wbo-offer); white-space: nowrap;
+}
+.wbo__hour.is-offer { background: var(--wbo-offer-bg); border-color: var(--wbo-offer-line); }
+.wbo__hour.is-closed { background: var(--wbo-closed); color: var(--wbo-closed-ink); border-color: transparent; cursor: not-allowed; }
+.wbo__hour.is-closed .wbo__tag { color: var(--wbo-closed-ink); }
+.wbo__hour.is-selected {
+	background: var(--wbo-accent); color: var(--wbo-accent-ink); border-color: var(--wbo-accent);
+	box-shadow: 0 0 0 2px var(--wbo-accent), 0 2px 8px rgba(0, 0, 0, .15);
+}
+.wbo__hour.is-selected .wbo__tag { color: var(--wbo-accent-ink); }
+
+.wbo__note { margin: 12px 0 0; font-size: 14px; }
+.wbo__note--good { color: var(--wbo-offer); font-weight: 500; }
+.wbo__note--nudge {
+	display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+	padding: 10px 12px; border-radius: 10px;
+	background: var(--wbo-offer-bg); color: var(--wbo-ink);
+}
+.wbo__note--none p { margin: 0; color: var(--wbo-muted); }
+.wbo__next { margin-block-start: 10px !important; font-weight: 600; color: var(--wbo-ink) !important; }
+.wbo__chips { display: flex; flex-wrap: wrap; gap: 8px; margin-block-start: 8px; }
+.wbo__chip {
+	min-block-size: 36px; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+	border: 1px solid var(--wbo-offer-line); background: var(--wbo-surface); color: var(--wbo-offer);
+	font-weight: 600; font-size: 14px;
+}
+.wbo__chip:hover { background: var(--wbo-offer-bg); }
+.wbo__chip:focus-visible { outline: 2px solid var(--wbo-accent); outline-offset: 2px; }
+
+.wbo__legend {
+	display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; padding: 0 4px; list-style: none;
+	font-size: 13px; color: var(--wbo-muted);
+}
+.wbo__legend li { display: inline-flex; align-items: center; gap: 6px; }
+.wbo__legend i {
+	inline-size: 14px; block-size: 14px; border-radius: 4px;
+	border: 1px solid var(--wbo-line); background: var(--wbo-field);
+}
+.wbo__legend i.is-offer { background: var(--wbo-offer-bg); border-color: var(--wbo-offer-line); }
+.wbo__legend i.is-closed { background: var(--wbo-closed); border-color: transparent; }
+
+/* The trip and the booking button: pinned to the bottom of the screen on a
+   phone while the hours scroll past. */
+.wbo__summary {
+	position: sticky; inset-block-end: 0; z-index: 3;
+	display: flex; flex-direction: column; gap: 10px;
+	padding: 12px 14px;
+	background: var(--wbo-surface); border-radius: var(--wbo-radius) var(--wbo-radius) 0 0;
+	box-shadow: 0 -4px 18px rgba(16, 24, 40, .12);
+}
+.wbo__sumtitle { margin: 0 0 4px; font-size: 13px; color: var(--wbo-muted); }
+.wbo__summary ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; font-size: 14px; }
+.wbo__summary .wbo__hint { margin: 6px 0 0; }
+.wbo__summary .wbo__tag { margin-inline-start: 4px; }
+
+.wbo__book {
+	display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+	min-block-size: 48px; padding: 0 22px; border-radius: 999px;
+	background: var(--wbo-whatsapp); color: #fff !important; text-decoration: none !important;
+	font-weight: 600; font-size: 16px; white-space: nowrap;
+}
+.wbo__book:hover { filter: brightness(1.06); }
+.wbo__book:focus-visible { outline: 3px solid var(--wbo-ink); outline-offset: 3px; }
+.wbo__book[aria-disabled="true"] { background: var(--wbo-closed); color: var(--wbo-closed-ink) !important; pointer-events: none; }
+
+.wbo__down {
+	display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+	padding: 16px; border-radius: var(--wbo-radius); background: var(--wbo-surface); box-shadow: var(--wbo-shadow);
+}
+.wbo__down p { margin: 0; }
+
+/* --- Wider screens --------------------------------------------------------- */
+
+@media (min-width: 560px) {
+	.wbo__hours { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+	.wbo__dates { grid-template-columns: 1fr 1fr; }
+	.wbo--oneway .wbo__dates { grid-template-columns: 1fr; }
+	.wbo__summary { flex-direction: row; align-items: center; justify-content: space-between; }
+}
+
+@media (min-width: 900px) {
+	.wbo__card { padding: 16px 20px 44px; }
+	.wbo__row { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px; }
+
+	/* Side by side, the swap button on the line between them, as flight search boxes. */
+	.wbo__places { grid-template-columns: 1fr 1fr; gap: 10px; }
+	.wbo__field { padding-inline-end: 14px; }
+	.wbo__field--from { padding-inline-end: 30px; }
+	.wbo__field--to { padding-inline-start: 30px; }
+	.wbo__field--to .wbo__ico { inset-inline-start: 26px; }
+	.wbo__swap {
+		inset-inline-end: auto; inset-inline-start: 50%;
+		margin-inline-start: -20px; transform: none;
+	}
+	[dir="rtl"] .wbo__swap { margin-inline-start: 0; margin-inline-end: -20px; inset-inline-start: auto; inset-inline-end: 50%; }
+	.wbo__swap.is-turned { transform: rotate(180deg); }
+
+	/* Both dates in one box, split down the middle. */
+	.wbo__dates { gap: 0; border: 1px solid var(--wbo-line); border-radius: 10px; background: var(--wbo-field); }
+	.wbo__dates:focus-within { border-color: var(--wbo-accent); }
+	.wbo__date { border: 0; border-radius: 10px; background: transparent; }
+	.wbo__date:focus-within { box-shadow: none; }
+	.wbo__date--ret { border-inline-start: 1px solid var(--wbo-line); border-radius: 0 10px 10px 0; }
+	.wbo__date--ret .wbo__ico { display: none; }
+
+	.wbo__hours { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+	.wbo__summary { position: static; border-radius: var(--wbo-radius); box-shadow: var(--wbo-shadow); padding: 16px 20px; }
+}
+
+@media (min-width: 1100px) {
+	.wbo__hours { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.wbo *, .wbo *::before, .wbo *::after { transition: none !important; }
+}

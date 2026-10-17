@@ -3171,5 +3171,13 @@
     "France": "فرنسا",
     "Germany": "ألمانيا",
     "Türkiye": "تركيا",
-    "Iran": "إيران"
+    "Iran": "إيران",
+    "Empty car discount (Bahrain ↔ Saudi)": "خصم السيارة الفارغة (البحرين ↔ السعودية)",
+    "When a booked trip leaves a car in Saudi (or needs one sent there), the website offers that empty drive at a discount, at the hours it fits.": "عندما تترك رحلة محجوزة سيارة في السعودية (أو تحتاج إرسال سيارة إليها)، يعرض الموقع هذه الرحلة الفارغة بخصم في الساعات المناسبة لها.",
+    "Discount (%)": "الخصم (%)",
+    "Drive between the countries (hours)": "مدة القيادة بين الدولتين (ساعات)",
+    "Door to door, causeway included.": "من الباب إلى الباب، شاملة الجسر.",
+    "Longest a car waits (hours)": "أطول مدة انتظار للسيارة (ساعات)",
+    "How long a car may stand in the other country for a passenger.": "المدة التي يمكن أن تنتظر فيها السيارة في الدولة الأخرى لراكب.",
+    "Least notice for the offer (hours)": "أقل مهلة لحجز العرض (ساعات)"
 }

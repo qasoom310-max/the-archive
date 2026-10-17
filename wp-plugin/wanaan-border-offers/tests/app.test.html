@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Border offers — browser tests</title>
+<link rel="stylesheet" href="../assets/wbo.css">
+</head>
+<body>
+<div id="mount"></div>
+<pre id="wbo-result"></pre>
+<script src="strings.generated.js"></script>
+<script src="../assets/wbo-core.js"></script>
+<script src="../assets/wbo-app.js"></script>
+<script src="fixture.js"></script>
+<script>
+(async function () {
+	'use strict';
+
+	var results = [];
+	var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+
+	async function check(name, fn) {
+		document.getElementById('mount').innerHTML = '';
+		try {
+			await fn();
+			results.push({ name: name, ok: true });
+		} catch (e) {
+			results.push({ name: name, ok: false, error: String(e && e.message || e) });
+		}
+	}
+
+	function expect(cond, msg) {
+		if (!cond) {
+			throw new Error(msg);
+		}
+	}
+
+	function hour(root, leg, h) {
+		return root.querySelector('.wbo__hour[data-leg="' + leg + '"][data-hour="' + h + '"]');
+	}
+
+	async function searchIn(root) {
+		root.querySelector('.wbo__search').click();
+		await sleep(50);
+	}
+
+	await check('draws the search box: trip, passengers, both countries, two dates', async function () {
+		var root = wboMount('en');
+		expect(root.querySelector('[data-k="trip"]').value === 'round', 'round trip by default');
+		expect(root.querySelector('[data-k="from"]').value === 'SA', 'from Saudi');
+		expect(root.querySelector('[data-k="to"]').value === 'BH', 'to Bahrain');
+		expect(!root.querySelector('.wbo__date--ret').hidden, 'return date shown for a round trip');
+		expect(root.querySelector('[data-k="dep"]').value === WBOCore.todayIn('Asia/Bahrain'), 'departs today in Bahrain');
+		expect(root.querySelector('[data-k="passengers"]').options.length === 12, '1 to 12 passengers');
+		expect(root.querySelector('.wbo__results').hidden, 'no results before a search');
+	});
+
+	await check('the swap button and picking the same country both swap', async function () {
+		var root = wboMount('en');
+		root.querySelector('.wbo__swap').click();
+		expect(root.querySelector('[data-k="from"]').value === 'BH' && root.querySelector('[data-k="to"]').value === 'SA', 'swapped');
+		var to = root.querySelector('[data-k="to"]');
+		to.value = 'BH';
+		to.dispatchEvent(new Event('change', { bubbles: true }));
+		expect(root.querySelector('[data-k="from"]').value === 'SA', 'picking the same country swaps the other');
+	});
+
+	await check('a search shows 00:00 to 23:00 each way, the empty-car hours marked', async function () {
+		var root = wboMount('en');
+		await searchIn(root);
+		var out = root.querySelectorAll('.wbo__hour[data-leg="out"]');
+		var back = root.querySelectorAll('.wbo__hour[data-leg="back"]');
+		expect(out.length === 24 && back.length === 24, '24 hours each way');
+		expect(out[0].textContent.indexOf('00:00') === 0 && out[23].textContent.indexOf('23:00') === 0, '00:00 to 23:00');
+		expect(hour(root, 'out', 3).classList.contains('is-offer'), '03:00 is an offer');
+		expect(hour(root, 'out', 3).textContent.indexOf('30% off') > 0, 'with the discount on it');
+		expect(!hour(root, 'out', 2).classList.contains('is-offer'), '02:00 is not');
+		expect(root.querySelectorAll('.wbo__hour.is-offer[data-leg="back"]').length === 0, 'no offer coming back that day');
+		expect(root.querySelector('.wbo__leg[data-leg="out"] .wbo__badge'), 'badge on the way with an offer');
+		var fetch = root.__wboFetch;
+		expect(fetch.calls.length === 2, 'asked once per way');
+		expect(/from=SA&to=BH/.test(fetch.calls[0]) && /from=BH&to=SA/.test(fetch.calls[1]), 'the return is the reverse');
+	});
+
+	await check('wanting 02:00 suggests the 03:00 empty car, and taking it selects it', async function () {
+		var root = wboMount('en');
+		await searchIn(root);
+		hour(root, 'out', 2).click();
+		var nudge = root.querySelector('.wbo__leg[data-leg="out"] .wbo__note--nudge');
+		expect(nudge && nudge.textContent.indexOf('Leave at 03:00 instead and save 30%') >= 0, 'nudge shown: ' + (nudge && nudge.textContent));
+		nudge.querySelector('button').click();
+		expect(hour(root, 'out', 3).classList.contains('is-selected'), '03:00 now selected');
+		expect(hour(root, 'out', 3).getAttribute('aria-pressed') === 'true', 'and announced as pressed');
+		expect(root.querySelector('.wbo__leg[data-leg="out"] .wbo__note--good'), 'explains the offer');
+	});
+
+	await check('an hour too soon to book cannot be picked', async function () {
+		var root = wboMount('en', { closedFive: true });
+		await searchIn(root);
+		var five = hour(root, 'out', 5);
+		expect(five.disabled && five.classList.contains('is-closed'), '05:00 closed');
+		five.click();
+		expect(!five.classList.contains('is-selected'), 'not selected');
+	});
+
+	await check('WhatsApp opens only once both ways have a time, with the trip in the message', async function () {
+		var root = wboMount('en');
+		await searchIn(root);
+		var book = root.querySelector('.wbo__book');
+		expect(book.getAttribute('aria-disabled') === 'true', 'disabled at first');
+		hour(root, 'out', 3).click();
+		expect(root.querySelector('.wbo__book').getAttribute('aria-disabled') === 'true', 'still needs the return');
+		root.querySelector('[data-k="passengers"]').value = '3';
+		root.querySelector('[data-k="passengers"]').dispatchEvent(new Event('change', { bubbles: true }));
+		hour(root, 'back', 15).click();
+		book = root.querySelector('.wbo__book');
+		expect(book.getAttribute('aria-disabled') === 'false', 'enabled');
+		var href = book.getAttribute('href');
+		expect(href.indexOf('https://wa.me/97339991869?text=') === 0, 'the ERP number: ' + href);
+		var text = decodeURIComponent(href.split('text=')[1]);
+		expect(text.indexOf('Saudi Arabia → Bahrain') >= 0 && text.indexOf('at 03:00 (empty car offer, 30% off)') >= 0, 'outbound + offer: ' + text);
+		expect(text.indexOf('Return: Bahrain → Saudi Arabia') >= 0 && text.indexOf('at 15:00 (full fare)') >= 0, 'return at full fare');
+		expect(text.indexOf('Passengers: 3') >= 0, 'passengers');
+		expect(book.getAttribute('target') === '_blank' && book.getAttribute('rel') === 'noopener', 'opens safely in a new tab');
+	});
+
+	await check('a day with no empty car offers the next one, and taking it moves the date', async function () {
+		var root = wboMount('en');
+		await searchIn(root);
+		var chip = root.querySelector('.wbo__leg[data-leg="back"] [data-act="jump"]');
+		expect(chip, 'next empty car offered');
+		var date = chip.getAttribute('data-date');
+		chip.click();
+		await sleep(50);
+		expect(root.querySelector('[data-k="ret"]').value === date, 'return day moved');
+		expect(hour(root, 'back', 9).classList.contains('is-selected'), 'and 09:00 picked');
+	});
+
+	await check('one way hides the return and books with one time', async function () {
+		var root = wboMount('en');
+		var trip = root.querySelector('[data-k="trip"]');
+		trip.value = 'oneway';
+		trip.dispatchEvent(new Event('change', { bubbles: true }));
+		expect(root.querySelector('.wbo__date--ret').hidden, 'return hidden');
+		await searchIn(root);
+		expect(root.querySelectorAll('.wbo__leg').length === 1, 'one way searched');
+		hour(root, 'out', 4).click();
+		expect(root.querySelector('.wbo__book').getAttribute('aria-disabled') === 'false', 'bookable');
+	});
+
+	await check('changing the day after a search asks again', async function () {
+		var root = wboMount('en');
+		await searchIn(root);
+		root.querySelector('[data-step="1"][data-for="dep"]').click();
+		await sleep(400);
+		var calls = root.__wboFetch.calls;
+		expect(calls.length === 4, 'searched again: ' + calls.length);
+		expect(calls[2].indexOf(WBOCore.addDays(WBOCore.todayIn('Asia/Bahrain'), 1)) > 0, 'for the next day');
+	});
+
+	await check('the day cannot go before today, and the return not before departure', async function () {
+		var root = wboMount('en');
+		expect(root.querySelector('[data-step="-1"][data-for="dep"]').disabled, 'no going back from today');
+		var ret = root.querySelector('[data-k="ret"]');
+		ret.value = '2000-01-01';
+		ret.dispatchEvent(new Event('change', { bubbles: true }));
+		expect(ret.value === root.querySelector('[data-k="dep"]').value, 'return pulled up to departure');
+	});
+
+	await check('when the ERP cannot answer, the visitor is told and can still WhatsApp', async function () {
+		var root = wboMount('en', { status: 502 });
+		await searchIn(root);
+		var down = root.querySelector('.wbo__down');
+		expect(down && down.textContent.indexOf('not available right now') >= 0, 'told');
+		expect(down.querySelector('a').getAttribute('href').indexOf('https://wa.me/97300000000') === 0, 'WhatsApp still offered');
+	});
+
+	await check('too many searches says try again', async function () {
+		var root = wboMount('en', { status: 429 });
+		await searchIn(root);
+		expect(root.querySelector('.wbo__down').textContent.indexOf('Too many searches') >= 0, 'busy message');
+	});
+
+	await check('Arabic reads right to left, in Arabic, with the times left to right', async function () {
+		var root = wboMount('ar');
+		expect(root.dir === 'rtl', 'rtl');
+		expect(root.querySelector('.wbo__search').textContent.indexOf('بحث') >= 0, 'Arabic button');
+		expect(root.querySelector('[data-k="from"]').selectedOptions[0].textContent === 'السعودية', 'Arabic country');
+		await searchIn(root);
+		expect(hour(root, 'out', 3).querySelector('.wbo__time').getAttribute('dir') === 'ltr', 'times stay 03:00');
+		expect(hour(root, 'out', 3).textContent.indexOf('خصم 30%') >= 0, 'Arabic discount');
+		hour(root, 'out', 3).click();
+		hour(root, 'back', 15).click();
+		var text = decodeURIComponent(root.querySelector('.wbo__book').getAttribute('href').split('text=')[1]);
+		expect(text.indexOf('السعودية ← البحرين') >= 0, 'route arrow points the reading way: ' + text);
+	});
+
+	await check('every hour is a labelled button a keyboard can reach', async function () {
+		var root = wboMount('en');
+		await searchIn(root);
+		var b = hour(root, 'out', 3);
+		expect(b.tagName === 'BUTTON' && b.type === 'button', 'button');
+		expect(b.getAttribute('aria-label') === '03:00, 30% off', 'label: ' + b.getAttribute('aria-label'));
+		expect(hour(root, 'out', 10).getAttribute('aria-label') === '10:00, Full fare', 'full fare label');
+		expect(root.querySelector('.wbo__swap').getAttribute('aria-label'), 'swap labelled');
+		expect(root.querySelector('[data-k="from"]').getAttribute('aria-label'), 'country labelled');
+	});
+
+	document.getElementById('wbo-result').textContent = JSON.stringify(results);
+	document.title = 'done';
+})();
+</script>
+</body>
+</html>

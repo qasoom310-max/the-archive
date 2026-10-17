@@ -71,6 +71,17 @@ final class PricingManager extends Component
 
     public string $leadHours = '12';
 
+    /** The cross-border empty-car offer (see BorderOffers). */
+    public bool $borderEnabled = true;
+
+    public string $borderDiscount = '30';
+
+    public string $borderTravelHours = '2';
+
+    public string $borderWaitHours = '4';
+
+    public string $borderNoticeHours = '2';
+
     #[Locked]
     public int $version = 0;
 
@@ -162,6 +173,11 @@ final class PricingManager extends Component
         $settings = PricingSetting::current();
         $this->whatsapp = $settings->whatsapp;
         $this->leadHours = (string) $settings->lead_hours;
+        $this->borderEnabled = (bool) ($settings->border_enabled ?? true);
+        $this->borderDiscount = $this->trim((float) ($settings->border_discount_percent ?? 30));
+        $this->borderTravelHours = $this->trim((float) ($settings->border_travel_hours ?? 2));
+        $this->borderWaitHours = (string) ($settings->border_wait_hours ?? 4);
+        $this->borderNoticeHours = (string) ($settings->border_notice_hours ?? 2);
     }
 
     public function save(PricingWriter $writer, PricingPortalPing $ping): void
@@ -251,7 +267,13 @@ final class PricingManager extends Component
             $changes[] = $writer->updateSettings([
                 'whatsapp' => $this->whatsapp,
                 'lead_hours' => (int) $this->leadHours,
-            ]);
+            ] + (Schema::hasColumn('pricing_settings', 'border_enabled') ? [
+                'border_enabled' => $this->borderEnabled,
+                'border_discount_percent' => (float) $this->borderDiscount,
+                'border_travel_hours' => (float) $this->borderTravelHours,
+                'border_wait_hours' => (int) $this->borderWaitHours,
+                'border_notice_hours' => (int) $this->borderNoticeHours,
+            ] : []));
 
             return array_values(array_filter($changes));
         });
@@ -296,6 +318,10 @@ final class PricingManager extends Component
             'returnFactor' => ['nullable', 'numeric', 'min:1', 'max:9.99'],
             'whatsapp' => ['required', 'string', 'regex:/^[0-9]{8,15}$/'],
             'leadHours' => ['required', 'integer', 'min:0', 'max:168'],
+            'borderDiscount' => ['required', 'numeric', 'min:0', 'max:100'],
+            'borderTravelHours' => ['required', 'numeric', 'min:0', 'max:24', 'decimal:0,1'],
+            'borderWaitHours' => ['required', 'integer', 'min:0', 'max:48'],
+            'borderNoticeHours' => ['required', 'integer', 'min:0', 'max:168'],
         ];
     }
 

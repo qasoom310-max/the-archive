@@ -219,6 +219,46 @@
                 </div>
             </div>
 
+            {{-- The cross-border offer: a car that has to cross Bahrain ↔ Saudi
+                 empty anyway is sold at a discount on the website's search box. --}}
+            <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-5">
+                <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-sm font-semibold text-chrome-800">{{ __('Empty car discount (Bahrain ↔ Saudi)') }}</h2>
+                        <p class="text-xs text-chrome-400">{{ __('When a booked trip leaves a car in Saudi (or needs one sent there), the website offers that empty drive at a discount, at the hours it fits.') }}</p>
+                    </div>
+                    <label class="inline-flex items-center gap-2 text-sm text-chrome-700">
+                        <input type="checkbox" wire:model="borderEnabled" class="rounded border-chrome-300 text-primary-600">
+                        {{ __('Offer is on') }}
+                    </label>
+                </div>
+
+                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <label class="block">
+                        <span class="text-xs font-medium text-chrome-500">{{ __('Discount (%)') }}</span>
+                        <input type="number" min="0" max="100" step="any" inputmode="decimal" wire:model="borderDiscount" class="o-input mt-1 w-full text-sm">
+                        @error('borderDiscount') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </label>
+                    <label class="block">
+                        <span class="text-xs font-medium text-chrome-500">{{ __('Drive between the countries (hours)') }}</span>
+                        <input type="number" min="0" max="24" step="0.5" inputmode="decimal" wire:model="borderTravelHours" class="o-input mt-1 w-full text-sm">
+                        <span class="mt-1 block text-[11px] text-chrome-400">{{ __('Door to door, causeway included.') }}</span>
+                        @error('borderTravelHours') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </label>
+                    <label class="block">
+                        <span class="text-xs font-medium text-chrome-500">{{ __('Longest a car waits (hours)') }}</span>
+                        <input type="number" min="0" max="48" inputmode="numeric" wire:model="borderWaitHours" class="o-input mt-1 w-full text-sm">
+                        <span class="mt-1 block text-[11px] text-chrome-400">{{ __('How long a car may stand in the other country for a passenger.') }}</span>
+                        @error('borderWaitHours') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </label>
+                    <label class="block">
+                        <span class="text-xs font-medium text-chrome-500">{{ __('Least notice for the offer (hours)') }}</span>
+                        <input type="number" min="0" max="168" inputmode="numeric" wire:model="borderNoticeHours" class="o-input mt-1 w-full text-sm">
+                        @error('borderNoticeHours') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </label>
+                </div>
+            </div>
+
             <div class="flex flex-wrap items-center justify-end gap-3">
                 <span class="text-xs text-chrome-400">{{ __('Saving publishes a new version and tells the website.') }}</span>
                 <button type="submit" wire:loading.attr="disabled" wire:target="save" class="o-btn-primary">

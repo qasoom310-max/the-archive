@@ -198,3 +198,12 @@ Route::get('/api/v1/workspaces/{ws}/pricing', \App\Http\Controllers\PricingApiCo
     ->where('ws', '[0-9]+')
     ->middleware('throttle:60,1')
     ->name('api.pricing');
+
+// The cross-border empty-car offer (which departure hours are discounted),
+// read by the website's search box. Same signing, with the query string
+// signed too. Every visitor's search arrives from the one WordPress server,
+// so the limit is higher than the fares read (the plugin also caches).
+Route::get('/api/v1/workspaces/{ws}/border-offers', \App\Http\Controllers\BorderOffersApiController::class)
+    ->where('ws', '[0-9]+')
+    ->middleware('throttle:240,1')
+    ->name('api.border-offers');

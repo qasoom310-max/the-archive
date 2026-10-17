@@ -601,9 +601,12 @@
                                     </svg>
                                 </button>
 
+                                {{-- Teleported to <body>: on an iPhone the sticky Actions cell clipped the
+                                     fixed panel to the table and slid it under the sticky header. --}}
+                                <template x-teleport="body">
                                 <div x-ref="panel" x-show="open" x-cloak x-transition.opacity.duration.100ms
                                      :style="(coords.top === null ? 'bottom:' + coords.bottom + 'px;' : 'top:' + coords.top + 'px;') + (coords.rtl ? 'right:' + coords.right + 'px' : 'left:' + coords.left + 'px')"
-                                     class="fixed z-30 max-h-[70vh] w-56 overflow-y-auto overflow-x-hidden rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
+                                     class="fixed z-50 max-h-[70vh] w-56 overflow-y-auto overflow-x-hidden rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
                                     <a href="{{ url('/app/limousine/booking/' . $leg->legable_id) }}" wire:navigate
                                        @click="open = false" class="{{ $item }}">
                                         <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -705,6 +708,7 @@
                                         @endif
                                     @endif
                                 </div>
+                                </template>
                             </div>
                         </td>
                     </tr>

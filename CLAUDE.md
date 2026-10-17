@@ -4631,7 +4631,7 @@ the panel's real height on `$nextTick` and flips it to open ABOVE the
 trigger** when there is no room below — without this, a row near the bottom
 of the screen (phone OR laptop) cropped its lower actions off-screen,
 unreachable by touch or mouse. `max-h-[70vh] overflow-y-auto` on the panel is
-the last-resort scroll fallback for a panel taller than the screen. **Rule:
+the last-resort scroll fallback for a panel taller than the screen. **Teleported to `<body>` (fixed 2026-10-17):** on an iPhone the panel, though `fixed`, was clipped to the table and slid under the sticky Actions header, because its parent cell is `sticky` inside the `overflow-x-auto` scroller (a WebKit behaviour). The row panel now sits in `<template x-teleport="body">` at `z-50`; `$refs.panel` and `wire:click` still resolve through Alpine's teleport link. A tap inside the teleported panel counts as "outside" the root, so the menu closes on any tap in it, which is harmless because every item closes it anyway. **Rule:
 any new per-row popover menu inside a scrollable table should reuse
 `rowActionsMenu`** (or its measure-then-flip technique) rather than the
 app-bar dropdown's simpler always-below positioning, which assumes the

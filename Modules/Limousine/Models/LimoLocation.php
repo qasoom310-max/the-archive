@@ -28,6 +28,9 @@ final class LimoLocation extends Model implements DefinesIrModel
 
     public const DEFAULT_COUNTRY = 'BH';
 
+    /** The limo desk drives in the Gulf only, so a place is in a GCC country. */
+    public const COUNTRIES = ['BH', 'SA', 'AE', 'KW', 'QA', 'OM'];
+
     protected $table = 'limo_locations';
 
     /** @var list<string> */
@@ -43,10 +46,10 @@ final class LimoLocation extends Model implements DefinesIrModel
      */
     public static function countryOptions(): array
     {
-        return array_map(
+        return array_values(array_map(
             static fn (array $c): array => ['value' => $c['code'], 'label' => $c['name']],
-            self::countries(),
-        );
+            array_filter(self::countries(), static fn (array $c): bool => in_array($c['code'], self::COUNTRIES, true)),
+        ));
     }
 
     /** The ISO-2 code if it is one of ours, else null. */
@@ -54,10 +57,8 @@ final class LimoLocation extends Model implements DefinesIrModel
     {
         $code = strtoupper(trim((string) $code));
 
-        foreach (self::countries() as $c) {
-            if ($c['code'] === $code) {
-                return $code;
-            }
+        if (in_array($code, self::COUNTRIES, true)) {
+            return $code;
         }
 
         return null;

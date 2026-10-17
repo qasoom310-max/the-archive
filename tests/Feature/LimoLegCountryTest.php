@@ -52,6 +52,17 @@ final class LimoLegCountryTest extends TestCase
         $this->assertSame('BH', $leg['to_country']);
     }
 
+    public function test_only_the_gulf_countries_are_offered(): void
+    {
+        Livewire::test(BookingForm::class)
+            ->assertViewHas('countryOptions', fn (array $options): bool => array_column($options, 'value') === ['BH', 'SA', 'AE', 'KW', 'QA', 'OM'])
+            ->set('legs.0.from_location', 'Cairo')
+            ->set('legs.0.from_country', 'EG')
+            ->set('legs.0.to_location', 'Manama')
+            ->call('save')
+            ->assertHasErrors('legs.0.from_country');
+    }
+
     public function test_the_places_are_offered_per_country(): void
     {
         LimoLocation::query()->create(['name' => 'Bahrain Airport']);

@@ -370,7 +370,7 @@ trait HandlesTripLegs
             // requirement is enforced at the point it actually matters, in
             // BookingForm::start().
             $rules["legs.$i.car_id"] = ['nullable', 'integer'];
-            $rules["legs.$i.from_country"] = ['required', Rule::in(array_column(LimoLocation::countries(), 'code'))];
+            $rules["legs.$i.from_country"] = ['required', Rule::in(LimoLocation::COUNTRIES)];
             $rules["legs.$i.from_location"] = ['required', 'string', 'max:255'];
             // Map pins are optional, but must be a real URL if given — a
             // mistyped link is worse than none for a driver at speed.
@@ -404,7 +404,7 @@ trait HandlesTripLegs
                 $rules["legs.$i.hours"] = ['required', 'numeric', 'min:0.5'];
                 $rules["legs.$i.days"] = ['required', 'integer', 'min:1'];
             } else {
-                $rules["legs.$i.to_country"] = ['required', Rule::in(array_column(LimoLocation::countries(), 'code'))];
+                $rules["legs.$i.to_country"] = ['required', Rule::in(LimoLocation::COUNTRIES)];
                 $rules["legs.$i.to_location"] = ['required', 'string', 'max:255'];
 
                 // Asked for only where the price actually depends on it, so a

@@ -497,6 +497,18 @@ final class LimoQueueRows
             $lines[] = __('Car') . ': *' . $car . '*';
         }
 
+        // The office's comments are instructions for the driver (meet at gate
+        // 3, child seat…), so they travel with the trip: the booking's
+        // Comments, then this trip's own note when it says something else.
+        $notes = array_values(array_unique(array_filter([
+            trim((string) ($booking->notes ?? '')),
+            trim((string) ($leg->notes ?? '')),
+        ], static fn (string $n): bool => $n !== '')));
+        if ($notes !== []) {
+            $lines[] = '';
+            $lines[] = __('Comments') . ': ' . implode("\n", $notes);
+        }
+
         // Money goes LAST, where the office asked for it — it is the note they
         // finish the message on. Every trip says whether it is paid, part paid
         // or unpaid. Only a private customer gets the amount to collect: a

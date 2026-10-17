@@ -289,6 +289,21 @@ final class LimoTripMessageTest extends TestCase
      * is rarely the account the trip is billed to — so the message names them
      * right under the customer.
      */
+    public function test_the_bookings_comments_travel_with_the_trip_before_the_money(): void
+    {
+        $leg = $this->leg(['notes' => 'Meet at gate 3 with a name board'], ['notes' => 'Child seat']);
+
+        $text = app(LimoQueueRows::class)->whatsappText($leg);
+
+        $this->assertStringContainsString("Comments: Meet at gate 3 with a name board\nChild seat", $text);
+        $this->assertLessThan(strpos($text, 'Unpaid'), strpos($text, 'Comments:'));
+    }
+
+    public function test_a_trip_with_no_comments_sends_no_comments_line(): void
+    {
+        $this->assertStringNotContainsString('Comments', app(LimoQueueRows::class)->whatsappText($this->leg()));
+    }
+
     public function test_the_message_names_the_passenger_under_the_customer(): void
     {
         $leg = $this->leg(['pax_name' => 'Mr Ahmed Salem', 'pax_contact' => '+968 99200984']);

@@ -279,7 +279,9 @@
             'reference' => '',
             'from_date' => '',
             'to_date' => 'hidden sm:table-cell',
-            'type' => '',
+            // Off on a phone (the owner's call): the copied trip message and the
+            // full booking still say what kind of job it is.
+            'type' => 'hidden sm:table-cell',
             'customer' => '',
             'amount' => '',
             'received' => 'hidden lg:table-cell',
@@ -410,7 +412,7 @@
                         </td>
                         <td class="px-2 py-2 text-chrome-900">{{ $row['from_date'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 text-chrome-900 sm:table-cell">{{ $row['to_date'] ?: '—' }}</td>
-                        <td class="px-2 py-2 text-chrome-900">{{ $row['type'] }}</td>
+                        <td class="hidden px-2 py-2 text-chrome-900 sm:table-cell">{{ $row['type'] }}</td>
                         {{-- The name is the way into their account: what they
                              have asked for, what is billed and what is owed.
                              stopPropagation so it doesn't also open the row. --}}

@@ -281,6 +281,16 @@ final class LimoQueuePhoneColumnsTest extends TestCase
      * odd one out sits under the wrong heading, which reads as wrong data
      * rather than as a layout fault.
      */
+    public function test_the_type_column_is_hidden_on_a_phone(): void
+    {
+        $this->trip();
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        $this->assertStringContainsString('hidden', $this->cellAround($html, 'Sort by Type'));
+        $this->assertStringContainsString('sm:table-cell', $this->cellAround($html, 'Sort by Type'));
+    }
+
     public function test_every_columns_heading_and_cells_appear_at_the_same_width(): void
     {
         $this->trip();

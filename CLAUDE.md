@@ -4614,7 +4614,7 @@ Received/Balance/Vehicle/Driver at `xl`. Per the office's requests, **From
 date, To date, Type, Pickup, Drop off and Vehicle are now always visible**
 (no breakpoint prefix) — a phone shows the same trip facts a laptop does,
 short of Received/Balance/Driver (still `xl`) and Added by/Comments/Booked
-time (still `2xl`). **2026-09-17:** Payment and Status swapped places — the
+time (still `2xl`). **2026-10-17:** Type is hidden on a phone again (`hidden sm:table-cell`), at the owner's request. **2026-09-17:** Payment and Status swapped places — the
 **Payment** column (badge + take-payment button) is now always visible and
 **Status** (badge + advance/cancel icons) joins at `md`.
 

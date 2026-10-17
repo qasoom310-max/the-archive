@@ -20,6 +20,7 @@ final class LocationImporter
     private const HEADER_MAP = [
         'name' => 'name',
         'area' => 'area',
+        'country' => 'country',
         'notes' => 'notes',
         'active' => 'active',
     ];
@@ -67,7 +68,9 @@ final class LocationImporter
                 continue;
             }
 
-            if (LimoLocation::query()->where('name', $name)->exists()) {
+            $country = isset($cols['country']) ? $this->country((string) ($row[$cols['country']] ?? '')) : LimoLocation::DEFAULT_COUNTRY;
+
+            if (LimoLocation::query()->where('name', $name)->where('country', $country)->exists()) {
                 $skipped++;
 
                 continue;
@@ -78,6 +81,7 @@ final class LocationImporter
             LimoLocation::query()->create([
                 'name' => $name,
                 'area' => isset($cols['area']) ? $this->orNull((string) ($row[$cols['area']] ?? '')) : null,
+                'country' => $country,
                 'notes' => isset($cols['notes']) ? $this->orNull((string) ($row[$cols['notes']] ?? '')) : null,
                 'active' => $activeRaw === '' || $this->truthy($activeRaw),
             ]);
@@ -87,6 +91,20 @@ final class LocationImporter
         fclose($handle);
 
         return ['imported' => $imported, 'skipped' => $skipped];
+    }
+
+    /** A country cell as a code (SA) or a name (Saudi Arabia); blank or unknown = Bahrain. */
+    private function country(string $value): string
+    {
+        $value = trim($value);
+
+        foreach (LimoLocation::countries() as $c) {
+            if (strcasecmp($c['code'], $value) === 0 || strcasecmp($c['name'], $value) === 0) {
+                return $c['code'];
+            }
+        }
+
+        return LimoLocation::DEFAULT_COUNTRY;
     }
 
     private function truthy(string $value): bool

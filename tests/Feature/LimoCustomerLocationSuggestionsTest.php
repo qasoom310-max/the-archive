@@ -94,8 +94,8 @@ final class LimoCustomerLocationSuggestionsTest extends TestCase
 
         Livewire::test(BookingForm::class)
             ->set('customer_id', $customer->id)
-            ->assertViewHas('locationNames', function (array $names) {
-                return $names === ['Ahmed Home', 'Ahmed Office', 'Bahrain Airport'];
+            ->assertViewHas('locationsByCountry', function (array $byCountry) {
+                return $byCountry === ['BH' => ['Ahmed Home', 'Ahmed Office', 'Bahrain Airport']];
             });
     }
 
@@ -105,7 +105,7 @@ final class LimoCustomerLocationSuggestionsTest extends TestCase
         LimoLocation::query()->create(['name' => 'Bahrain Airport', 'active' => true]);
 
         Livewire::test(BookingForm::class)
-            ->assertViewHas('locationNames', fn (array $names) => $names === ['Bahrain Airport']);
+            ->assertViewHas('locationsByCountry', fn (array $byCountry) => $byCountry === ['BH' => ['Bahrain Airport']]);
     }
 
     /** Shared trait, so the quotation form offers the same suggestions. */
@@ -116,6 +116,6 @@ final class LimoCustomerLocationSuggestionsTest extends TestCase
 
         Livewire::test(QuotationForm::class)
             ->set('customer_id', $customer->id)
-            ->assertViewHas('locationNames', fn (array $names) => $names === ['LineCo Depot', 'LineCo Yard']);
+            ->assertViewHas('locationsByCountry', fn (array $byCountry) => $byCountry === ['BH' => ['LineCo Depot', 'LineCo Yard']]);
     }
 }

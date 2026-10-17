@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire\Concerns;
 
+use App\Erp\Activity\ActivityLogger;
 use App\Erp\Money\Currencies;
 use App\Erp\Money\ExchangeRateService;
+use App\Erp\Security\AccessControl;
+use App\Erp\Security\Permission;
 use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
@@ -37,7 +41,9 @@ trait HandlesTripLegs
             // updates that row instead of replacing it and burning its reference.
             'id' => '',
             'service_type' => LimoLeg::TYPE_TRANSFER,
-            'car_id' => '', 'from_location' => '', 'from_location_url' => '', 'to_location' => '', 'to_location_url' => '', 'start_at' => '',
+            'car_id' => '',
+            'from_country' => LimoLocation::DEFAULT_COUNTRY, 'from_location' => '', 'from_location_url' => '',
+            'to_country' => LimoLocation::DEFAULT_COUNTRY, 'to_location' => '', 'to_location_url' => '', 'start_at' => '',
             'hours' => '', 'days' => '1', 'car_details' => '',
             'rate' => '', 'currency' => LimoLeg::DEFAULT_CURRENCY, 'quote_rate' => '', 'exchange_rate' => '',
             'rate_basis' => LimoLeg::BASIS_TRIP, 'discount' => '', 'vat' => '',
@@ -79,6 +85,14 @@ trait HandlesTripLegs
             return;
         }
 
+        // Country first, then the place: a place picked from the old
+        // country's list does not belong to the new one, so it is cleared.
+        if (preg_match('/^legs\.(\d+)\.(from|to)_country$/', $name, $cc) && isset($this->legs[(int) $cc[1]])) {
+            $this->clearPlaceOutsideCountry((int) $cc[1], $cc[2]);
+
+            return;
+        }
+
         if (! preg_match('/^legs\.(\d+)\.(currency|quote_rate)$/', $name, $m)) {
             return;
         }
@@ -95,6 +109,98 @@ trait HandlesTripLegs
         }
 
         $this->recomputeLegRate($i);
+    }
+
+    /**
+     * After the country of one side changes: drop the place when it is a saved
+     * place of another country only. Anything typed by hand is kept.
+     */
+    private function clearPlaceOutsideCountry(int $i, string $side): void
+    {
+        $place = trim($this->legs[$i][$side . '_location'] ?? '');
+        if ($place === '') {
+            return;
+        }
+
+        $country = LimoLocation::knownCountry($this->legs[$i][$side . '_country'] ?? null) ?? LimoLocation::DEFAULT_COUNTRY;
+        $countries = LimoLocation::query()
+            ->whereRaw('LOWER(name) = ?', [mb_strtolower($place)])
+            ->pluck('country')
+            ->all();
+
+        if ($countries !== [] && ! in_array($country, $countries, true)) {
+            $this->legs[$i][$side . '_location'] = '';
+        }
+    }
+
+    /**
+     * The "Add" button under a From/To box: save a place that is not on the
+     * list yet, under the country chosen for that side, and use it on the leg.
+     */
+    public function addLegLocation(int $i, string $side, string $name): void
+    {
+        if (! isset($this->legs[$i]) || ! in_array($side, ['from', 'to'], true)) {
+            return;
+        }
+
+        abort_unless($this->mayAddLocation(), 403);
+
+        $name = trim((string) preg_replace('/\s+/u', ' ', $name));
+        if ($name === '' || mb_strlen($name) > 255) {
+            return;
+        }
+
+        $country = LimoLocation::knownCountry($this->legs[$i][$side . '_country'] ?? null) ?? LimoLocation::DEFAULT_COUNTRY;
+
+        $existing = LimoLocation::query()
+            ->where('country', $country)
+            ->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
+            ->first();
+
+        if ($existing instanceof LimoLocation) {
+            if (! $existing->active) {
+                $existing->active = true;
+                $existing->save();
+            }
+            $name = $existing->name;
+        } else {
+            LimoLocation::query()->create(['name' => $name, 'country' => $country]);
+            app(ActivityLogger::class)->log('created', __('Location'), $name . ' (' . $country . ')');
+        }
+
+        $this->legs[$i][$side . '_country'] = $country;
+        $this->legs[$i][$side . '_location'] = $name;
+    }
+
+    private function mayAddLocation(): bool
+    {
+        return app(AccessControl::class)->allows(Auth::user(), 'limousine.location', Permission::Create);
+    }
+
+    /**
+     * Saved place name (lower case) → its country, to work out the country of
+     * a trip saved before trips had one.
+     *
+     * @return array<string, string>
+     */
+    private function placeCountries(): array
+    {
+        $map = [];
+        foreach (LimoLocation::query()->orderBy('id')->get(['name', 'country']) as $loc) {
+            $map[mb_strtolower(trim($loc->name))] ??= $loc->country ?? LimoLocation::DEFAULT_COUNTRY;
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param  array<string, string>  $placeCountries
+     */
+    private function countryOfPlace(?string $stored, ?string $place, array $placeCountries): string
+    {
+        return LimoLocation::knownCountry($stored)
+            ?? $placeCountries[mb_strtolower(trim((string) $place))]
+            ?? LimoLocation::DEFAULT_COUNTRY;
     }
 
     /**
@@ -214,12 +320,18 @@ trait HandlesTripLegs
     /** Load legs from a saved parent into the form array. */
     protected function loadLegs(LimoBooking|LimoQuotation $parent): void
     {
+        $placeCountries = $this->placeCountries();
+
         $this->legs = $parent->legs->map(fn (LimoLeg $l): array => [
             'id' => (string) $l->id,
             'service_type' => $l->service_type,
             'car_id' => $l->car_id !== null ? (string) $l->car_id : '',
+            // A trip saved before trips had a country takes it from the
+            // saved place of that name, else Bahrain.
+            'from_country' => $this->countryOfPlace($l->from_country, $l->from_location, $placeCountries),
             'from_location' => $l->from_location ?? '',
             'from_location_url' => $l->from_location_url ?? '',
+            'to_country' => $this->countryOfPlace($l->to_country, $l->to_location, $placeCountries),
             'to_location' => $l->to_location ?? '',
             'to_location_url' => $l->to_location_url ?? '',
             'start_at' => $l->start_at?->format('Y-m-d\TH:i') ?? '',
@@ -258,6 +370,7 @@ trait HandlesTripLegs
             // requirement is enforced at the point it actually matters, in
             // BookingForm::start().
             $rules["legs.$i.car_id"] = ['nullable', 'integer'];
+            $rules["legs.$i.from_country"] = ['required', Rule::in(array_column(LimoLocation::countries(), 'code'))];
             $rules["legs.$i.from_location"] = ['required', 'string', 'max:255'];
             // Map pins are optional, but must be a real URL if given — a
             // mistyped link is worse than none for a driver at speed.
@@ -291,6 +404,7 @@ trait HandlesTripLegs
                 $rules["legs.$i.hours"] = ['required', 'numeric', 'min:0.5'];
                 $rules["legs.$i.days"] = ['required', 'integer', 'min:1'];
             } else {
+                $rules["legs.$i.to_country"] = ['required', Rule::in(array_column(LimoLocation::countries(), 'code'))];
                 $rules["legs.$i.to_location"] = ['required', 'string', 'max:255'];
 
                 // Asked for only where the price actually depends on it, so a
@@ -438,8 +552,10 @@ trait HandlesTripLegs
             $attributes = [
                 'sequence' => $i,
                 'service_type' => $leg['service_type'] ?? LimoLeg::TYPE_TRANSFER,
+                'from_country' => LimoLocation::knownCountry($leg['from_country'] ?? null) ?? LimoLocation::DEFAULT_COUNTRY,
                 'from_location' => $this->blankToNull($leg['from_location'] ?? ''),
                 'from_location_url' => $this->blankToNull($leg['from_location_url'] ?? ''),
+                'to_country' => $chauffeur ? null : (LimoLocation::knownCountry($leg['to_country'] ?? null) ?? LimoLocation::DEFAULT_COUNTRY),
                 'to_location' => $chauffeur ? null : $this->blankToNull($leg['to_location'] ?? ''),
                 'to_location_url' => $chauffeur ? null : $this->blankToNull($leg['to_location_url'] ?? ''),
                 'start_at' => ($leg['start_at'] ?? '') !== '' ? Carbon::parse($leg['start_at']) : null,
@@ -520,19 +636,22 @@ trait HandlesTripLegs
             'serviceTypes' => LimoLeg::serviceTypeOptions(),
             'rateBasisOptions' => LimoLeg::rateBasisOptions(),
             'carOptions' => $this->carOptions(),
-            'locationNames' => $this->locationSuggestions(),
+            'locationsByCountry' => $this->locationSuggestions(),
+            'countryOptions' => LimoLocation::countryOptions(),
+            'canAddLocation' => $this->mayAddLocation(),
             'grandTotal' => $this->grandTotal(),
             'currencyOptions' => $this->currencyOptions(),
         ];
     }
 
     /**
-     * Every From/To field shares one datalist, listing the selected
-     * customer's own repeat locations first — their trips are usually to
-     * the same handful of places — then the company-wide saved list. Both
-     * host forms declare `public ?int $customer_id`.
+     * The places offered in a From/To box, per country (the box lists the
+     * country chosen beside it): the selected customer's own repeat places
+     * first — their trips are usually to the same handful of places — then
+     * the company-wide saved list. Both host forms declare
+     * `public ?int $customer_id`.
      *
-     * @return list<string>
+     * @return array<string, list<string>>
      */
     private function locationSuggestions(): array
     {
@@ -540,13 +659,21 @@ trait HandlesTripLegs
         $customerId = $this->customer_id ?? null;
         $customer = $customerId !== null ? LimoCustomer::query()->find($customerId) : null;
 
-        $savedLocations = LimoLocation::query()->where('active', true)->orderBy('name')->pluck('name')->all();
+        $placeCountries = $this->placeCountries();
+        $byCountry = [];
 
-        return collect($customer?->recentLocations() ?? [])
-            ->merge($savedLocations)
-            ->unique()
-            ->values()
-            ->all();
+        foreach ($customer?->recentPlaces() ?? [] as $place) {
+            $byCountry[$this->countryOfPlace($place['country'], $place['name'], $placeCountries)][] = $place['name'];
+        }
+
+        foreach (LimoLocation::query()->where('active', true)->orderBy('name')->get(['name', 'country']) as $loc) {
+            $byCountry[LimoLocation::knownCountry($loc->country) ?? LimoLocation::DEFAULT_COUNTRY][] = $loc->name;
+        }
+
+        return array_map(
+            static fn (array $names): array => array_values(array_unique($names)),
+            $byCountry,
+        );
     }
 
     /**

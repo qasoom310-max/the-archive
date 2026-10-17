@@ -1,14 +1,17 @@
 {{-- Shared trip-leg editor for the Limousine booking + quotation forms. The host
      component must expose: $legs (array), addLeg(), removeLeg($i); and pass the
-     view vars $serviceTypes, $rateBasisOptions, $vehicleOptions, $locationNames. --}}
+     view vars $serviceTypes, $rateBasisOptions, $vehicleOptions, $locationsByCountry,
+     $countryOptions, $canAddLocation. --}}
 @php $lbl = 'mb-1 block text-sm font-medium text-chrome-700'; @endphp
 
-{{-- One datalist reused by every From/To input: the selected customer's own
-     repeat locations first (see HandlesTripLegs::locationSuggestions()),
-     then the company-wide saved list. --}}
-<datalist id="limo-locations">
-    @foreach ($locationNames as $name)<option value="{{ $name }}"></option>@endforeach
-</datalist>
+{{-- One datalist per country, reused by every From/To box set to that
+     country: the selected customer's own repeat places first (see
+     HandlesTripLegs::locationSuggestions()), then the saved list. --}}
+@foreach ($locationsByCountry as $cc => $names)
+    <datalist id="limo-locations-{{ $cc }}">
+        @foreach ($names as $name)<option value="{{ $name }}"></option>@endforeach
+    </datalist>
+@endforeach
 
 <div class="space-y-4">
     @error('legs') <p class="text-sm text-red-600">{{ $message }}</p> @enderror
@@ -54,9 +57,7 @@
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                    <label class="{{ $lbl }}">{{ __('From') }} *</label>
-                    <input type="text" list="limo-locations" wire:model="legs.{{ $i }}.from_location" class="o-input w-full" placeholder="{{ __('e.g. Bahrain Airport') }}">
-                    @error('legs.'.$i.'.from_location') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    @include('limousine::partials.leg-place', ['side' => 'from', 'label' => __('From'), 'placeholder' => __('e.g. Bahrain Airport')])
                     {{-- An address finds the street; a pin finds the door. The link
                          rides along to the driver in the trip message. --}}
                     <input type="url" wire:model="legs.{{ $i }}.from_location_url" class="o-input mt-1 w-full text-xs"
@@ -82,9 +83,7 @@
                     </div>
                 @else
                     <div>
-                        <label class="{{ $lbl }}">{{ __('To') }} *</label>
-                        <input type="text" list="limo-locations" wire:model="legs.{{ $i }}.to_location" class="o-input w-full" placeholder="{{ __('e.g. Manama') }}">
-                        @error('legs.'.$i.'.to_location') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        @include('limousine::partials.leg-place', ['side' => 'to', 'label' => __('To'), 'placeholder' => __('e.g. Manama')])
                         <input type="url" wire:model="legs.{{ $i }}.to_location_url" class="o-input mt-1 w-full text-xs"
                                placeholder="{{ __('Drop-off map link (optional)') }}">
                         @error('legs.'.$i.'.to_location_url') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror

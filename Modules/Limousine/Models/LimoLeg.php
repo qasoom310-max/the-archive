@@ -28,6 +28,8 @@ use Illuminate\Support\Facades\Storage;
  * @property int|null $driver_id  Logical ref to the shared rental_drivers table
  * @property string|null $driver  Driver name at assignment time
  * @property string|null $from_location
+ * @property string|null $from_country  ISO-2 country of the pick-up
+ * @property string|null $to_country  ISO-2 country of the drop-off
  * @property string|null $from_location_url  Map pin for the pick-up (a link gets the driver to the door)
  * @property string|null $to_location
  * @property string|null $to_location_url    Map pin for the drop-off
@@ -120,7 +122,7 @@ final class LimoLeg extends Model
     /** @var list<string> */
     protected $fillable = [
         'legable_type', 'legable_id', 'sequence', 'reference', 'status', 'service_type',
-        'car_id', 'driver_id', 'driver', 'from_location', 'from_location_url', 'to_location', 'to_location_url', 'start_at', 'hours', 'days', 'units', 'vehicle',
+        'car_id', 'driver_id', 'driver', 'from_location', 'from_country', 'from_location_url', 'to_location', 'to_country', 'to_location_url', 'start_at', 'hours', 'days', 'units', 'vehicle',
         'vehicle_details', 'rate', 'currency', 'quote_rate', 'exchange_rate', 'rate_basis', 'discount', 'vat', 'line_total', 'net_amount', 'notes',
         'signature_path', 'signed_at', 'signed_name', 'signed_ip', 'service_order_sent_at',
         'cancelled_at', 'cancellation_reason', 'refund_outcome', 'refund_amount',

@@ -75,6 +75,17 @@ final class LimoCustomer extends Model implements DefinesIrModel
      */
     public function recentLocations(int $limit = 12): array
     {
+        return array_column($this->recentPlaces($limit), 'name');
+    }
+
+    /**
+     * {@see recentLocations()} with the country each place was used in (null
+     * on a trip saved before trips had a country).
+     *
+     * @return list<array{name: string, country: string|null}>
+     */
+    public function recentPlaces(int $limit = 12): array
+    {
         $bookingIds = LimoBooking::query()->where('customer_id', $this->id)->pluck('id');
 
         if ($bookingIds->isEmpty()) {
@@ -89,11 +100,13 @@ final class LimoCustomer extends Model implements DefinesIrModel
             ->whereIn('legable_id', $bookingIds)
             ->latest('id')
             ->limit(100)
-            ->get(['from_location', 'to_location'])
-            ->flatMap(fn (LimoLeg $l): array => [$l->from_location, $l->to_location])
-            ->filter(fn (?string $v): bool => $v !== null && trim($v) !== '')
-            ->map(fn (string $v): string => trim($v))
-            ->unique()
+            ->get(['from_location', 'from_country', 'to_location', 'to_country'])
+            ->flatMap(fn (LimoLeg $l): array => [
+                ['name' => trim((string) $l->from_location), 'country' => $l->from_country],
+                ['name' => trim((string) $l->to_location), 'country' => $l->to_country],
+            ])
+            ->filter(fn (array $p): bool => $p['name'] !== '')
+            ->unique('name')
             ->values()
             ->take($limit)
             ->all();

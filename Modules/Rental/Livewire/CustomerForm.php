@@ -258,7 +258,17 @@ final class CustomerForm extends Component
                     ->where('customer_id', $customer->id)
                     ->orderByDesc('id')
                     ->limit(100)
-                    ->get(['id', 'reference', 'pickup_at', 'fare', 'status', 'payment_status']);
+                    ->get(['id', 'reference', 'pickup_at', 'fare', 'status', 'payment_status', 'advance']);
+
+                // Paid / partial / unpaid read from the money, as the bookings list shows it.
+                $states = \Modules\Limousine\Models\LimoBooking::query()
+                    ->withInvoicesPaid()
+                    ->whereKey($limoBookings->pluck('id')->all())
+                    ->get()
+                    ->mapWithKeys(fn (\Modules\Limousine\Models\LimoBooking $b): array => [$b->id => $b->paymentState()]);
+                $limoBookings->each(function (object $b) use ($states): void {
+                    $b->payment_state = $states[$b->id] ?? (string) $b->payment_status;
+                });
                 $limoSpend = (float) $limoBookings->where('payment_status', 'paid')->sum('fare');
             }
         }

@@ -728,6 +728,10 @@ final class BookingForm extends Component
             'couponCredit' => $credit = $this->couponCredit(),
             'balance' => round(max(0.0, $grand - (float) ($this->advance === '' ? '0' : $this->advance) - $credit), 3),
             'isEditing' => $this->id !== null,
+            // Paid / partial / unpaid from the money on file, not the flag alone.
+            'paymentState' => $this->id !== null
+                ? (LimoBooking::query()->find($this->id)?->paymentState() ?? $this->payment_status)
+                : $this->payment_status,
             ...$this->legViewData(),
         ]);
     }

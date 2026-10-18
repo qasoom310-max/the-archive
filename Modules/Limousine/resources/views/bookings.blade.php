@@ -499,7 +499,7 @@
                         <td class="hidden max-w-[16rem] px-2 py-2 text-chrome-900 lg:table-cell">{{ $row['comments'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 text-chrome-900 lg:table-cell">{{ $row['booked_time'] ?: '—' }}</td>
                         <td class="px-2 py-2">
-                            <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $row['payment'] === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($row['payment'])) }}</span>
+                            <span class="whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ \Modules\Limousine\Models\LimoBooking::paymentBadgeClass($row['payment']) }}" data-payment-state="{{ $row['payment'] }}">{{ \Modules\Limousine\Models\LimoBooking::paymentLabel($row['payment']) }}</span>
                             {{-- Taking money is a booking-level act, so it is offered
                                  from any of its trips and settles all of them. --}}
                             @if ($canAssign && $row['payment'] !== 'paid' && $row['balance'] > 0)
@@ -1331,7 +1331,7 @@
                             <div class="sm:text-end">
                                 <p class="text-xs font-medium uppercase tracking-wide text-chrome-400">{{ __('Status') }}</p>
                                 <span class="inline-block rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb2[$previewing->status] ?? 'bg-chrome-200 text-chrome-700' }}">{{ __(ucfirst($previewing->status)) }}</span>
-                                <span class="ms-1 inline-block rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $previewing->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($previewing->payment_status)) }}</span>
+                                <span class="ms-1 inline-block rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ \Modules\Limousine\Models\LimoBooking::paymentBadgeClass($previewing->paymentState()) }}">{{ \Modules\Limousine\Models\LimoBooking::paymentLabel($previewing->paymentState()) }}</span>
                                 @if ($previewing->company_reference)
                                     <p class="mt-1 text-xs text-chrome-500">{{ __('Company reference') }}: {{ $previewing->company_reference }}</p>
                                 @endif

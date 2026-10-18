@@ -12,6 +12,7 @@ use App\Erp\Registry\ViewDefinition;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -78,6 +79,12 @@ final class LimoBooking extends Model implements DefinesIrModel, TakesCouponCred
     public const PAYMENT_UNPAID = 'unpaid';
 
     public const PAYMENT_PAID = 'paid';
+
+    /**
+     * Shown, never stored: some money taken, some still owed. Read it through
+     * {@see paymentState()}; `payment_status` itself stays paid / unpaid.
+     */
+    public const PAYMENT_PARTIAL = 'partial';
 
     /** @var list<string> */
     protected $fillable = [
@@ -234,6 +241,138 @@ final class LimoBooking extends Model implements DefinesIrModel, TakesCouponCred
         }
     }
 
+    /**
+     * What the customer has paid towards this booking: the advance (where the
+     * counter, the booking form, coupons and online payments put it) or what
+     * its invoices record as paid, whichever is more. A receipt taken through
+     * the booking lands on both, so the two are not added together; a receipt
+     * written against the invoice alone reaches only the invoice.
+     *
+     * Reads `invoices_paid` when the caller loaded it ({@see scopeWithInvoicesPaid()}),
+     * so a list of bookings does not ask once per row.
+     */
+    public function amountReceived(): float
+    {
+        $invoices = array_key_exists('invoices_paid', $this->getAttributes())
+            ? (float) $this->getAttribute('invoices_paid')
+            : ($this->exists ? (float) $this->invoices()->sum('amount_paid') : 0.0);
+
+        return round(max((float) $this->advance, $invoices), 3);
+    }
+
+    /** What is still owed, counting money recorded on its invoices as well as the advance. */
+    public function amountOwed(): float
+    {
+        return round(max(0.0, $this->netAmount() - $this->amountReceived()), 3);
+    }
+
+    /**
+     * Paid, partial or unpaid, from the money rather than the flag alone.
+     *
+     * The flag says paid in places that never check the balance (a fully paid
+     * invoice whose booking was re-priced since, the import's Payment column,
+     * "Mark paid"), so a booking with some money taken and some still owed is
+     * PARTIAL whatever the flag says. With no money recorded the flag decides:
+     * a booking marked paid by hand, with nothing written down, stays paid.
+     */
+    public function paymentState(): string
+    {
+        $flag = $this->payment_status === self::PAYMENT_PAID ? self::PAYMENT_PAID : self::PAYMENT_UNPAID;
+        $fare = $this->netAmount();
+        if ($fare <= 0) {
+            return $flag;
+        }
+
+        $received = $this->amountReceived();
+        if ($received + 0.0005 >= $fare) {
+            return self::PAYMENT_PAID;
+        }
+
+        return $received > 0.0005 ? self::PAYMENT_PARTIAL : $flag;
+    }
+
+    /** Tailwind classes for the payment badge. */
+    public static function paymentBadgeClass(string $state): string
+    {
+        return match ($state) {
+            self::PAYMENT_PAID => 'bg-emerald-100 text-emerald-700',
+            self::PAYMENT_PARTIAL => 'bg-sky-100 text-sky-700',
+            default => 'bg-amber-100 text-amber-700',
+        };
+    }
+
+    /** The badge's words. */
+    public static function paymentLabel(string $state): string
+    {
+        return match ($state) {
+            self::PAYMENT_PAID => __('Paid'),
+            self::PAYMENT_PARTIAL => __('Partial paid'),
+            default => __('Unpaid'),
+        };
+    }
+
+    /**
+     * Load what each booking's invoices record as paid, for {@see amountReceived()}.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeWithInvoicesPaid(Builder $query): Builder
+    {
+        return self::withInvoicesPaidOn($query);
+    }
+
+    /**
+     * The same, on a query typed loosely (a morph constraint hands one over).
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    public static function withInvoicesPaidOn(Builder $query): Builder
+    {
+        return $query->withSum('invoices as invoices_paid', 'amount_paid');
+    }
+
+    /**
+     * Only the bookings with money still owed, paid in part or not at all: the
+     * same reading as {@see paymentState()}, in SQL. A booking marked paid with
+     * nothing recorded against it reads paid, so it is left out.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeOwing(Builder $query): Builder
+    {
+        return self::owingOn($query);
+    }
+
+    /**
+     * The same, on a query typed loosely (whereHasMorph hands one over).
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    public static function owingOn(Builder $query): Builder
+    {
+        $bookings = $query->getModel()->getTable();
+        $paid = '(select coalesce(sum(owing_inv.amount_paid), 0) from ' . (new LimoInvoice)->getTable()
+            . ' owing_inv where owing_inv.booking_id = ' . $bookings . '.id)';
+
+        return $query
+            ->where($bookings . '.fare', '>', 0)
+            ->whereRaw($bookings . '.advance + 0.0005 < ' . $bookings . '.fare')
+            ->whereRaw($paid . ' + 0.0005 < ' . $bookings . '.fare')
+            ->where(function (Builder $q) use ($bookings, $paid): void {
+                $q->where($bookings . '.payment_status', self::PAYMENT_UNPAID)
+                    ->orWhere($bookings . '.advance', '>', 0.0005)
+                    ->orWhereRaw($paid . ' > 0.0005');
+            });
+    }
+
     public function referencePrefix(): string
     {
         return 'BK';
@@ -287,6 +426,14 @@ final class LimoBooking extends Model implements DefinesIrModel, TakesCouponCred
     public function customer(): BelongsTo
     {
         return $this->belongsTo(LimoCustomer::class, 'customer_id');
+    }
+
+    /**
+     * @return HasMany<LimoInvoice, $this>
+     */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(LimoInvoice::class, 'booking_id');
     }
 
     /**

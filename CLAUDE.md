@@ -2739,6 +2739,28 @@ the fleet car's MODEL (text before the first `·`, never the plate). The
 combined invoice's PAX falls back to a private customer's own name when blank
 or ".". Tests: `LimoInvoiceChainTest` (+4), `LimoCombinedInvoiceTest` (+3).
 
+**A part-paid booking reads PARTIAL PAID, never paid (fixed 2026-10-18).** The
+stored `limo_bookings.payment_status` is still only paid / unpaid, and several
+paths set "paid" without checking the balance (a fully paid invoice whose
+booking was re-priced since, the import's Payment column, "Mark paid"). What is
+SHOWN now comes from the money: `LimoBooking::paymentState()` = paid when
+received ≥ fare, `partial` (constant `PAYMENT_PARTIAL`, never stored) when some
+but not all was received, otherwise the flag (so a booking marked paid by hand
+with nothing recorded stays paid). Received = `amountReceived()` = the larger of
+`advance` and the sum of its invoices' `amount_paid` (receipts taken through the
+booking land on both, so never add them); `amountOwed()` = fare − received.
+`scopeWithInvoicesPaid()` loads the invoice sum with a page of bookings
+(`LimoQueueRows::query()` does, so no per-row query), `scopeOwing()` /
+`owingOn()` is the same reading in SQL. Used by: the queue rows (badge,
+Received, Balance, its sort, WhatsApp text "Part paid"), the Unpaid tab + its
+badge (now includes part-paid bookings flagged paid), the Limousine dashboard's
+unpaid count, the booking form badge (Mark paid / Mark unpaid hidden on a
+part-paid booking: it is settled by taking the rest), the preview, and the
+customer page's booking list. Badge colours/words: `paymentBadgeClass()` /
+`paymentLabel()` (sky "Partial paid"). Not changed: `balanceDue()` (advance
+only) still drives the take-payment dialog, payment links and cancellations.
+Test: `LimoPartialPaymentTest` (10).
+
 **Vehicle Type on a quotation reads BOTH car fields (fixed 2026-09-30):** the
 owner wrote a quote, chose the car on it, and the Vehicle Type column printed
 empty. Not a mistake of theirs — the form offers TWO ways to name the car, a

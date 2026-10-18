@@ -78,7 +78,8 @@ final class LimoHome extends Component
         // Money stays per BOOKING: the customer settles the whole job, not each
         // leg, so payment lives on the booking.
         $unpaid = LimoBooking::query()
-            ->where('payment_status', LimoBooking::PAYMENT_UNPAID)
+            // Paid in part counts too: money is still owed on it.
+            ->owing()
             ->whereNotIn('status', [LimoBooking::STATUS_CANCELLED])
             ->count();
 

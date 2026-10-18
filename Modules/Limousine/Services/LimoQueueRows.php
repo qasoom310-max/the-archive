@@ -7,10 +7,13 @@ namespace Modules\Limousine\Services;
 use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\DB;
 use App\Erp\Search\PhoneSearch;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
+use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Support\DriverAliases;
 use Modules\Limousine\Support\LiveEntry;
@@ -73,7 +76,16 @@ final class LimoQueueRows
     {
         $query = LimoLeg::query()
             ->whereMorphedTo('legable', LimoBooking::class)
-            ->with(['legable.customer:id,name,type,phone'])
+            // What each booking's invoices record as paid, so the row can tell
+            // paid from part paid without asking once per trip.
+            // In this order: the nested load would otherwise replace the
+            // constraint on `legable` with a blank one.
+            ->with('legable.customer:id,name,type,phone')
+            ->with('legable', function (Relation $legable): void {
+                if ($legable instanceof MorphTo) {
+                    $legable->constrain([LimoBooking::class => static fn (Builder $b): Builder => LimoBooking::withInvoicesPaidOn($b)]);
+                }
+            })
             // Sorting can reach through to the parent booking, which means a
             // join, which means two tables offering `id`, `reference`, `status`
             // and `notes`. Select the legs explicitly so the model is always
@@ -192,9 +204,9 @@ final class LimoQueueRows
     {
         $query
             ->where($this->table(LimoLeg::class) . '.status', '!=', LimoLeg::STATUS_CANCELLED)
-            ->whereHasMorph('legable', LimoBooking::class, function ($booking): void {
-                $booking->where('payment_status', LimoBooking::PAYMENT_UNPAID)
-                    ->whereColumn('fare', '>', 'advance');
+            ->whereHasMorph('legable', LimoBooking::class, function (Builder $booking): void {
+                // Paid in part or not at all, whatever the flag says.
+                LimoBooking::owingOn($booking);
             });
     }
 
@@ -316,8 +328,13 @@ final class LimoQueueRows
     private function balanceColumn(): Expression
     {
         $b = $this->table(LimoBooking::class);
+        $i = (new LimoInvoice())->getTable();
+        // What was received: the advance or the invoices' paid, the larger
+        // (LimoBooking::amountReceived()).
+        $paid = "(select coalesce(sum(sort_inv.amount_paid), 0) from {$i} sort_inv where sort_inv.booking_id = {$b}.id)";
+        $received = "(case when {$b}.advance > {$paid} then {$b}.advance else {$paid} end)";
 
-        return DB::raw("case when {$b}.fare - {$b}.advance < 0 then 0 else {$b}.fare - {$b}.advance end");
+        return DB::raw("case when {$b}.fare - {$received} < 0 then 0 else {$b}.fare - {$received} end");
     }
 
     /**
@@ -370,8 +387,8 @@ final class LimoQueueRows
             'contact_phone' => $this->contactPhone($booking),
             // The leg's own price; the money below is the whole booking's.
             'amount' => round((float) $leg->net_amount, 3),
-            'received' => round((float) ($booking->advance ?? 0), 3),
-            'balance' => round($booking?->balanceDue() ?? 0.0, 3),
+            'received' => $booking?->amountReceived() ?? 0.0,
+            'balance' => $booking?->amountOwed() ?? 0.0,
             'pickup' => (string) ($leg->from_location ?? ''),
             'dropoff' => (string) ($leg->to_location ?? ''),
             'vehicle' => (string) ($leg->vehicle ?? ''),
@@ -387,7 +404,8 @@ final class LimoQueueRows
             'added_by' => (string) ($booking->prepared_by ?? ''),
             'comments' => (string) ($booking->notes ?? ''),
             'booked_time' => $booking?->created_at?->isoFormat('DD-MMM-YY HH:mm') ?? '',
-            'payment' => (string) ($booking->payment_status ?? ''),
+            // paid / partial / unpaid, read from the money (LimoBooking::paymentState()).
+            'payment' => $booking?->paymentState() ?? '',
             'status' => (string) ($leg->status ?? ''),
         ];
     }
@@ -514,13 +532,14 @@ final class LimoQueueRows
         // or unpaid. Only a private customer gets the amount to collect: a
         // company's trips are settled on its account, not by the driver taking
         // cash from whoever is riding, so no figure is printed for one.
-        $balance = round($booking?->balanceDue() ?? 0.0, 3);
+        $balance = $booking?->amountOwed() ?? 0.0;
+        $state = $booking?->paymentState() ?? LimoBooking::PAYMENT_PAID;
         $lines[] = '';
 
-        if ($balance <= 0.001 || $booking?->payment_status === LimoBooking::PAYMENT_PAID) {
+        if ($state === LimoBooking::PAYMENT_PAID) {
             $lines[] = '✅ ' . __('Paid');
         } else {
-            $lines[] = (float) ($booking->advance ?? 0) > 0.001
+            $lines[] = $state === LimoBooking::PAYMENT_PARTIAL
                 ? '🟡 ' . __('Part paid')
                 : '❌ ' . __('Unpaid');
 

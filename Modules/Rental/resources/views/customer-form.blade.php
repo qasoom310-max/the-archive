@@ -253,7 +253,7 @@
                                 <td class="px-4 py-2 text-chrome-600">{{ $b->pickup_at ? \Illuminate\Support\Carbon::parse($b->pickup_at)->isoFormat('DD-MMM, h:mm A') : '—' }}</td>
                                 <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ ValueFormat::money((float) $b->fare) }}</td>
                                 <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $lb }}">{{ __(ucfirst($b->status)) }}</span></td>
-                                <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $b->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($b->payment_status)) }}</span></td>
+                                <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ \Modules\Limousine\Models\LimoBooking::paymentBadgeClass($b->payment_state) }}">{{ \Modules\Limousine\Models\LimoBooking::paymentLabel($b->payment_state) }}</span></td>
                             </tr>
                         @endforeach
                     </tbody>

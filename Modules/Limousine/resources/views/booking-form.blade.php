@@ -18,7 +18,7 @@
             <div class="flex items-center gap-3">
                 <span class="text-sm font-semibold text-chrome-800">{{ $reference }}</span>
                 <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $statusBadge }}">{{ __(ucfirst($status)) }}</span>
-                <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($payment_status)) }}</span>
+                <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ \Modules\Limousine\Models\LimoBooking::paymentBadgeClass($paymentState) }}" data-payment-state="{{ $paymentState }}">{{ \Modules\Limousine\Models\LimoBooking::paymentLabel($paymentState) }}</span>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 @if ($status === 'queue')
@@ -31,9 +31,10 @@
                 @if ($status !== 'cancelled')
                     <button wire:click="createInvoice" class="o-btn-ghost text-sm">{{ __('Create invoice') }}</button>
                 @endif
-                @if ($payment_status === 'unpaid')
+                {{-- A part-paid booking is settled by taking the rest, not by a flag. --}}
+                @if ($paymentState === 'unpaid')
                     <button wire:click="markPaid" class="o-btn-ghost text-sm">{{ __('Mark paid') }}</button>
-                @else
+                @elseif ($paymentState === 'paid')
                     <button wire:click="markUnpaid" class="o-btn-ghost text-sm">{{ __('Mark unpaid') }}</button>
                 @endif
                 @if (! in_array($status, ['completed', 'cancelled'], true))

@@ -53,6 +53,9 @@
 		expect(!root.querySelector('.wbo__date--ret').hidden, 'return date shown for a round trip');
 		expect(root.querySelector('[data-k="dep"]').value === WBOCore.todayIn('Asia/Bahrain'), 'departs today in Bahrain');
 		expect(root.querySelector('[data-k="passengers"]').options.length === 12, '1 to 12 passengers');
+		var hrs = root.querySelector('[data-k="hours"]');
+		expect(hrs.options.length === 12 && hrs.options[0].textContent === 'About 1 hour' && hrs.options[11].textContent === 'About 12 hours', 'time on the road, 1 to 12 hours');
+		expect(hrs.value === '2', '2 hours to start with');
 		expect(root.querySelector('.wbo__results').hidden, 'no results before a search');
 	});
 
@@ -81,6 +84,7 @@
 		var fetch = root.__wboFetch;
 		expect(fetch.calls.length === 2, 'asked once per way');
 		expect(/from=SA&to=BH/.test(fetch.calls[0]) && /from=BH&to=SA/.test(fetch.calls[1]), 'the return is the reverse');
+		expect(/&hours=2$/.test(fetch.calls[0]) && /&hours=2$/.test(fetch.calls[1]), 'with the time on the road: ' + fetch.calls[0]);
 	});
 
 	await check('wanting 02:00 suggests the 03:00 empty car, and taking it selects it', async function () {
@@ -119,10 +123,64 @@
 		var href = book.getAttribute('href');
 		expect(href.indexOf('https://wa.me/97339991869?text=') === 0, 'the ERP number: ' + href);
 		var text = decodeURIComponent(href.split('text=')[1]);
-		expect(text.indexOf('Saudi Arabia → Bahrain') >= 0 && text.indexOf('at 03:00 (empty car offer, 30% off)') >= 0, 'outbound + offer: ' + text);
-		expect(text.indexOf('Return: Bahrain → Saudi Arabia') >= 0 && text.indexOf('at 15:00 (full fare)') >= 0, 'return at full fare');
+		expect(text.indexOf('Saudi Arabia → Bahrain') >= 0 && text.indexOf('at 03:00, arrive about 05:00 (empty car offer, 30% off)') >= 0, 'outbound + offer: ' + text);
+		expect(text.indexOf('Return: Bahrain → Saudi Arabia') >= 0 && text.indexOf('at 15:00, arrive about 17:00 (full fare)') >= 0, 'return at full fare');
+		expect(text.indexOf('Time on the road: About 2 hours') >= 0, 'time on the road');
 		expect(text.indexOf('Passengers: 3') >= 0, 'passengers');
 		expect(book.getAttribute('target') === '_blank' && book.getAttribute('rel') === 'noopener', 'opens safely in a new tab');
+	});
+
+	await check('changing the time on the road asks again with it, and moves the arrival', async function () {
+		var root = wboMount('en');
+		await searchIn(root);
+		var hrs = root.querySelector('[data-k="hours"]');
+		hrs.value = '5';
+		hrs.dispatchEvent(new Event('change', { bubbles: true }));
+		await sleep(400);
+		var calls = root.__wboFetch.calls;
+		expect(calls.length === 4 && /&hours=5$/.test(calls[2]) && /&hours=5$/.test(calls[3]), 'searched again with 5 hours: ' + calls.join(' | '));
+		expect(root.querySelector('.wbo__leg[data-leg="out"] .wbo__hint').textContent.indexOf('About 5 hours') >= 0, 'said under the hours');
+		hour(root, 'out', 3).click();
+		expect(root.querySelector('.wbo__summary').textContent.indexOf('arrive about 08:00') >= 0, 'arrival in the summary');
+	});
+
+	await check('a same-day return cannot leave before the outward trip arrives', async function () {
+		var root = wboMount('en');
+		var ret = root.querySelector('[data-k="ret"]');
+		ret.value = root.querySelector('[data-k="dep"]').value;
+		ret.dispatchEvent(new Event('change', { bubbles: true }));
+		var hrs = root.querySelector('[data-k="hours"]');
+		hrs.value = '4';
+		hrs.dispatchEvent(new Event('change', { bubbles: true }));
+		await searchIn(root);
+		hour(root, 'back', 9).click();
+		expect(hour(root, 'back', 9).classList.contains('is-selected'), '09:00 return picked first');
+		hour(root, 'out', 7).click();
+		expect(!hour(root, 'back', 9).classList.contains('is-selected'), 'a return before the 11:00 arrival is dropped');
+		expect(hour(root, 'back', 10).disabled && hour(root, 'back', 10).getAttribute('aria-label') === '10:00, Before you arrive', '10:00 closed: ' + hour(root, 'back', 10).getAttribute('aria-label'));
+		expect(!hour(root, 'back', 11).disabled, '11:00 open');
+		var info = root.querySelector('.wbo__leg[data-leg="back"] .wbo__note--info');
+		expect(info && info.textContent.indexOf('11:00') >= 0, 'says when they arrive');
+		hour(root, 'back', 11).click();
+		expect(root.querySelector('.wbo__book').getAttribute('aria-disabled') === 'false', 'bookable');
+	});
+
+	await check('a theme\x27s button style does not paint the hours', async function () {
+		var style = document.createElement('style');
+		style.textContent = '.kit button, .kit button:hover { background-color: rgb(255, 0, 0); padding: 30px; }';
+		document.head.appendChild(style);
+		document.body.classList.add('kit');
+		try {
+			var root = wboMount('en');
+			await searchIn(root);
+			var bg = getComputedStyle(hour(root, 'out', 12)).backgroundColor;
+			expect(bg !== 'rgb(255, 0, 0)', 'full-fare hour: ' + bg);
+			expect(getComputedStyle(root.querySelector('.wbo__step')).backgroundColor !== 'rgb(255, 0, 0)', 'day buttons');
+			expect(getComputedStyle(root.querySelector('.wbo__swap')).paddingTop === '0px', 'swap button padding');
+		} finally {
+			document.body.classList.remove('kit');
+			style.remove();
+		}
 	});
 
 	await check('a day with no empty car offers the next one, and taking it moves the date', async function () {

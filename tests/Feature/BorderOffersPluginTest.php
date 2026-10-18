@@ -85,6 +85,30 @@ final class BorderOffersPluginTest extends TestCase
         $this->assertSame('97339991869', $answer['whatsapp']);
     }
 
+    public function test_the_customers_time_on_the_road_reaches_the_erp(): void
+    {
+        $customer = LimoCustomer::query()->create(['name' => 'Traveller']);
+        // A car must be in Dammam at 12:00: someone riding it for 5 hours leaves by 07:00.
+        LimoBooking::query()->create(['customer_id' => $customer->id])->legs()->create([
+            'sequence' => 0, 'service_type' => LimoLeg::TYPE_TRANSFER, 'status' => LimoLeg::STATUS_QUEUE,
+            'from_location' => 'Dammam', 'from_country' => 'SA', 'to_location' => 'Manama', 'to_country' => 'BH',
+            'start_at' => '2026-10-21 12:00', 'rate' => 100, 'rate_basis' => LimoLeg::BASIS_TRIP, 'days' => 1,
+        ]);
+
+        $workspace = (int) app(WorkspaceManager::class)->ensureMain()->getKey();
+        $search = \WBO_Query::normalise('BH', 'SA', '2026-10-21', '2026-10-20', '5');
+        $this->assertIsArray($search);
+
+        $path = \WBO_Query::path($workspace, $search);
+        $this->assertStringEndsWith('&hours=5', $path);
+        $answer = \WBO_Query::public_answer($this->withHeaders(\WBO_Signature::headers('GET', $path, self::SECRET))->get($path)->assertOk()->json());
+
+        $this->assertNotNull($answer);
+        $this->assertSame(5, $answer['query']['hours']);
+        $this->assertTrue($answer['hours'][7]['discount']);
+        $this->assertFalse($answer['hours'][8]['discount']);
+    }
+
     public function test_a_wrong_secret_is_refused(): void
     {
         $workspace = (int) app(WorkspaceManager::class)->ensureMain()->getKey();
@@ -104,13 +128,22 @@ final class BorderOffersPluginTest extends TestCase
         $this->assertSame('date', \WBO_Query::normalise('SA', 'BH', '2026-10-19', $today));
         $this->assertSame('date', \WBO_Query::normalise('SA', 'BH', '2027-01-19', $today));
         $this->assertSame('date', \WBO_Query::normalise('SA', 'BH', "2026-10-21'; drop", $today));
-        $this->assertSame(['from' => 'SA', 'to' => 'BH', 'date' => '2027-01-18'], \WBO_Query::normalise(' sa ', 'BH', '2027-01-18', $today));
+        $this->assertSame(['from' => 'SA', 'to' => 'BH', 'date' => '2027-01-18', 'hours' => 2], \WBO_Query::normalise(' sa ', 'BH', '2027-01-18', $today));
+
+        // The time on the road: whole hours, 1 to 12.
+        $this->assertSame(12, \WBO_Query::normalise('SA', 'BH', '2026-10-21', $today, '12')['hours'] ?? null);
+        $this->assertSame(1, \WBO_Query::normalise('SA', 'BH', '2026-10-21', $today, 1)['hours'] ?? null);
+        foreach (['0', '13', '2.5', 'x', ['4'], -1] as $bad) {
+            $this->assertSame('hours', \WBO_Query::normalise('SA', 'BH', '2026-10-21', $today, $bad));
+        }
     }
 
     public function test_the_plugin_and_the_erp_offer_the_same_countries_and_window(): void
     {
         $this->assertSame(BorderOffers::COUNTRIES, \WBO_Query::COUNTRIES);
         $this->assertSame(BorderOffers::MAX_DAYS_AHEAD, \WBO_Query::MAX_DAYS_AHEAD);
+        $this->assertSame(BorderOffers::MIN_TRIP_HOURS, \WBO_Query::MIN_TRIP_HOURS);
+        $this->assertSame(BorderOffers::MAX_TRIP_HOURS, \WBO_Query::MAX_TRIP_HOURS);
         $this->assertSame(BorderOffers::COUNTRY_NAMES['SA']['ar'], \WBO_Strings::countries('ar')[1]['name']);
     }
 

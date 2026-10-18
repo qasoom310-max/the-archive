@@ -123,18 +123,61 @@
 		return null;
 	}
 
+	/** The time on the road kept to whole hours, 1 to 12 (2 when unknown). */
+	function tripHours(n) {
+		var h = parseInt(n, 10);
+		return isNaN(h) ? 2 : Math.max(1, Math.min(12, h));
+	}
+
+	/** "About 1 hour" … "About 12 hours", with the Arabic plural forms. */
+	function tripHoursLabel(strings, n) {
+		var key = n === 1 ? 'trip_hours_one' : n === 2 ? 'trip_hours_two' : n <= 10 ? 'trip_hours_few' : 'trip_hours_many';
+		return t(strings, key, { n: n });
+	}
+
 	/** The one or two directions to search. */
 	function legsFor(state) {
-		var legs = [{ key: 'out', from: state.from, to: state.to, date: state.dep }];
+		var hours = tripHours(state.tripHours);
+		var legs = [{ key: 'out', from: state.from, to: state.to, date: state.dep, hours: hours }];
 		if (state.trip === 'round') {
-			legs.push({ key: 'back', from: state.to, to: state.from, date: state.ret });
+			legs.push({ key: 'back', from: state.to, to: state.from, date: state.ret, hours: hours });
 		}
 		return legs;
 	}
 
 	function buildUrl(endpoint, leg) {
 		var sep = String(endpoint).indexOf('?') >= 0 ? '&' : '?';
-		return endpoint + sep + 'from=' + encodeURIComponent(leg.from) + '&to=' + encodeURIComponent(leg.to) + '&date=' + encodeURIComponent(leg.date);
+		return endpoint + sep + 'from=' + encodeURIComponent(leg.from) + '&to=' + encodeURIComponent(leg.to) + '&date=' + encodeURIComponent(leg.date) +
+			'&hours=' + tripHours(leg.hours);
+	}
+
+	/** Leaving at `hour` for `hours` on the road: the arrival hour, and whether it is the next day (or later). */
+	function arrival(hour, hours) {
+		var at = hour + tripHours(hours);
+		return { hour: at % 24, days: Math.floor(at / 24) };
+	}
+
+	/** "arrive about 07:00", "(next day)" added when it is past midnight. */
+	function arriveLabel(strings, hour, hours) {
+		var a = arrival(hour, hours);
+		return t(strings, 'arrive', { time: hourLabel(a.hour) }) + (a.days > 0 ? ' (' + t(strings, 'next_day_short') + ')' : '');
+	}
+
+	function dayNumber(ymd) {
+		var p = parseYmd(ymd);
+		return p ? Date.UTC(p[0], p[1] - 1, p[2]) / 86400000 : 0;
+	}
+
+	/**
+	 * A round trip cannot come back before it has arrived: with a departure
+	 * time picked, is this return hour too early?
+	 */
+	function returnTooEarly(state, hour) {
+		if (state.trip !== 'round' || state.selected.out === null || state.selected.out === undefined) {
+			return false;
+		}
+		var arrives = dayNumber(state.dep) * 24 + state.selected.out + tripHours(state.tripHours);
+		return dayNumber(state.ret) * 24 + hour < arrives;
 	}
 
 	function hourOf(hours, h) {
@@ -184,7 +227,7 @@
 			var r = results[legs[i].key];
 			var picked = state.selected[legs[i].key];
 			var h = r ? hourOf(r.hours, picked) : null;
-			if (!h || !h.bookable) {
+			if (!h || !h.bookable || (legs[i].key === 'back' && returnTooEarly(state, picked))) {
 				return false;
 			}
 		}
@@ -198,7 +241,7 @@
 			? t(s, 'msg_offer', { p: percent(result.discount_percent) })
 			: t(s, 'msg_full');
 		return countryName(cfg.countries, leg.from) + arrow(cfg.lang) + countryName(cfg.countries, leg.to) + ', ' +
-			formatDate(leg.date, cfg.lang) + ' ' + t(s, 'at') + ' ' + hourLabel(picked) + ' (' + price + ')';
+			formatDate(leg.date, cfg.lang) + ' ' + t(s, 'at') + ' ' + hourLabel(picked) + ', ' + arriveLabel(s, picked, leg.hours) + ' (' + price + ')';
 	}
 
 	/** The WhatsApp message for the chosen trip. */
@@ -210,6 +253,7 @@
 		if (legs[1]) {
 			lines.push('• ' + t(s, 'msg_return') + ': ' + legLine(legs[1], results.back, state.selected.back, cfg));
 		}
+		lines.push('• ' + t(s, 'msg_trip') + ': ' + tripHoursLabel(s, tripHours(state.tripHours)));
 		lines.push('• ' + t(s, 'msg_passengers') + ': ' + state.passengers);
 		return lines.join('\n');
 	}
@@ -237,6 +281,11 @@
 		arrow: arrow,
 		countryName: countryName,
 		validate: validate,
+		tripHours: tripHours,
+		tripHoursLabel: tripHoursLabel,
+		arrival: arrival,
+		arriveLabel: arriveLabel,
+		returnTooEarly: returnTooEarly,
 		legsFor: legsFor,
 		buildUrl: buildUrl,
 		hourOf: hourOf,

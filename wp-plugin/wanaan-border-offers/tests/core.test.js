@@ -11,6 +11,13 @@ const strings = {
 	msg_full: 'full fare',
 	msg_return: 'Return',
 	msg_passengers: 'Passengers',
+	msg_trip: 'Time on the road',
+	arrive: 'arrive about :time',
+	next_day_short: 'next day',
+	trip_hours_one: 'About 1 hour',
+	trip_hours_two: 'About 2 hours',
+	trip_hours_few: 'About :n hours',
+	trip_hours_many: 'About :n hours',
 	at: 'at',
 	passenger_one: '1 passenger',
 	passenger_many: ':n passengers',
@@ -77,20 +84,20 @@ test('a search needs two different countries and a return on or after departure'
 });
 
 test('a round trip searches both ways, the return reversed', () => {
-	const legs = core.legsFor({ from: 'SA', to: 'BH', trip: 'round', dep: '2026-10-21', ret: '2026-10-30' });
+	const legs = core.legsFor({ from: 'SA', to: 'BH', trip: 'round', dep: '2026-10-21', ret: '2026-10-30', tripHours: 5 });
 	assert.deepEqual(legs, [
-		{ key: 'out', from: 'SA', to: 'BH', date: '2026-10-21' },
-		{ key: 'back', from: 'BH', to: 'SA', date: '2026-10-30' },
+		{ key: 'out', from: 'SA', to: 'BH', date: '2026-10-21', hours: 5 },
+		{ key: 'back', from: 'BH', to: 'SA', date: '2026-10-30', hours: 5 },
 	]);
 	assert.equal(core.legsFor({ from: 'SA', to: 'BH', trip: 'oneway', dep: '2026-10-21' }).length, 1);
 });
 
 test('the search address works with and without pretty permalinks', () => {
-	const leg = { from: 'SA', to: 'BH', date: '2026-10-21' };
+	const leg = { from: 'SA', to: 'BH', date: '2026-10-21', hours: 4 };
 	assert.equal(core.buildUrl('https://x.test/wp-json/wanaan/v1/border-offers', leg),
-		'https://x.test/wp-json/wanaan/v1/border-offers?from=SA&to=BH&date=2026-10-21');
+		'https://x.test/wp-json/wanaan/v1/border-offers?from=SA&to=BH&date=2026-10-21&hours=4');
 	assert.equal(core.buildUrl('https://x.test/index.php?rest_route=/wanaan/v1/border-offers', leg),
-		'https://x.test/index.php?rest_route=/wanaan/v1/border-offers&from=SA&to=BH&date=2026-10-21');
+		'https://x.test/index.php?rest_route=/wanaan/v1/border-offers&from=SA&to=BH&date=2026-10-21&hours=4');
 });
 
 test('wanting 02:00 when the car is there at 03:00 suggests 03:00', () => {
@@ -131,8 +138,9 @@ test('the WhatsApp message says each way, the offer and the passengers', () => {
 	};
 	assert.equal(core.buildMessage(state, results, cfg), [
 		'Hello Wanaan, I would like to book a ride:',
-		'• Saudi Arabia → Bahrain, Wed 21 Oct at 03:00 (empty car offer, 30% off)',
-		'• Return: Bahrain → Saudi Arabia, Fri 30 Oct at 14:00 (full fare)',
+		'• Saudi Arabia → Bahrain, Wed 21 Oct at 03:00, arrive about 05:00 (empty car offer, 30% off)',
+		'• Return: Bahrain → Saudi Arabia, Fri 30 Oct at 14:00, arrive about 16:00 (full fare)',
+		'• Time on the road: About 2 hours',
 		'• Passengers: 2',
 	].join('\n'));
 });
@@ -144,4 +152,44 @@ test('the WhatsApp link carries the number as digits and the message encoded', (
 test('passengers read naturally', () => {
 	assert.equal(core.passengersLabel(strings, 1), '1 passenger');
 	assert.equal(core.passengersLabel(strings, 3), '3 passengers');
+});
+
+test('the time on the road is kept to 1–12 whole hours', () => {
+	assert.equal(core.tripHours(5), 5);
+	assert.equal(core.tripHours('12'), 12);
+	assert.equal(core.tripHours(0), 1);
+	assert.equal(core.tripHours(40), 12);
+	assert.equal(core.tripHours(undefined), 2);
+	assert.equal(core.tripHours('x'), 2);
+});
+
+test('the time on the road reads naturally, with a form for each Arabic plural', () => {
+	const ar = { trip_hours_one: 'حوالي ساعة', trip_hours_two: 'حوالي ساعتين', trip_hours_few: 'حوالي :n ساعات', trip_hours_many: 'حوالي :n ساعة' };
+	assert.equal(core.tripHoursLabel(strings, 1), 'About 1 hour');
+	assert.equal(core.tripHoursLabel(strings, 7), 'About 7 hours');
+	assert.equal(core.tripHoursLabel(ar, 2), 'حوالي ساعتين');
+	assert.equal(core.tripHoursLabel(ar, 3), 'حوالي 3 ساعات');
+	assert.equal(core.tripHoursLabel(ar, 10), 'حوالي 10 ساعات');
+	assert.equal(core.tripHoursLabel(ar, 11), 'حوالي 11 ساعة');
+});
+
+test('the arrival time runs past midnight into the next day', () => {
+	assert.deepEqual(core.arrival(3, 4), { hour: 7, days: 0 });
+	assert.deepEqual(core.arrival(22, 5), { hour: 3, days: 1 });
+	assert.equal(core.arriveLabel(strings, 3, 4), 'arrive about 07:00');
+	assert.equal(core.arriveLabel(strings, 22, 5), 'arrive about 03:00 (next day)');
+});
+
+test('a round trip cannot come back before it has arrived', () => {
+	const state = { from: 'SA', to: 'BH', trip: 'round', tripHours: 5, dep: '2026-10-21', ret: '2026-10-21', selected: { out: 8, back: null } };
+	assert.equal(core.returnTooEarly(state, 12), true, '12:00 is before the 13:00 arrival');
+	assert.equal(core.returnTooEarly(state, 13), false);
+	assert.equal(core.returnTooEarly({ ...state, ret: '2026-10-22' }, 0), false, 'the next day is fine');
+	assert.equal(core.returnTooEarly({ ...state, selected: { out: 21, back: null }, ret: '2026-10-22' }, 1), true, 'arrives 02:00 the next day');
+	assert.equal(core.returnTooEarly({ ...state, selected: { out: null, back: null } }, 0), false, 'no departure picked yet');
+	assert.equal(core.returnTooEarly({ ...state, trip: 'oneway' }, 0), false);
+
+	const results = { out: { hours: day([]) }, back: { hours: day([]) } };
+	assert.equal(core.canBook({ ...state, selected: { out: 8, back: 12 } }, results), false);
+	assert.equal(core.canBook({ ...state, selected: { out: 8, back: 13 } }, results), true);
 });

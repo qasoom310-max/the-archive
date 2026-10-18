@@ -1,7 +1,7 @@
 # Wanaan Border Offers
 
 A search box for rides between Bahrain and Saudi Arabia, laid out like a flight search:
-round trip / one way, passengers, pick-up country ⇄ drop-off country, departure and return
+round trip / one way, passengers, time on the road (about 1 to 12 hours), pick-up country ⇄ drop-off country, departure and return
 days (with ‹ › to step a day), then every departure hour of the day from 00:00 to 23:00.
 
 The Wanaan ERP knows where every booked car will be. When a car has to cross the border
@@ -14,6 +14,12 @@ The customer picks a time each way and books on WhatsApp; the message says which
 the empty-car offer, so the office applies the discount when it books the trip in the ERP.
 Once that trip is booked, the car is no longer on offer.
 
+The time on the road is the customer's own estimate (Khobar is about 1 hour, Riyadh about 5).
+A customer riding a car that is going out to collect someone must arrive before that pick-up,
+and one riding a car home must arrive before its next job, so a longer trip leaves earlier.
+The summary and the WhatsApp message show the arrival time, and a same-day return cannot be
+picked before the outward trip arrives.
+
 ## Install
 
 1. Plugins → Add New → Upload Plugin → `wanaan-border-offers.zip` → Activate.
@@ -24,7 +30,7 @@ Once that trip is booked, the car is no longer on offer.
 4. Put `[wanaan_border_offers]` on a page (Elementor: the Shortcode widget).
 
 Shortcode options: `lang="ar"` / `lang="en"` (otherwise the site language), `theme="dark"`,
-`from="BH" to="SA"`, `trip="oneway"`.
+`from="BH" to="SA"`, `trip="oneway"`, `hours="5"` (the time on the road shown first, default 2).
 
 ## The rules live in the ERP
 

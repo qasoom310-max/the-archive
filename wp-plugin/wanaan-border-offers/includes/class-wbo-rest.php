@@ -1,6 +1,6 @@
 <?php
 /**
- * GET /wp-json/wanaan/v1/border-offers?from=SA&to=BH&date=2026-10-21
+ * GET /wp-json/wanaan/v1/border-offers?from=SA&to=BH&date=2026-10-21&hours=2
  *
  * What the search box calls. Public (any visitor may search), so it checks
  * the question itself, limits how often one visitor may ask, and passes on
@@ -34,7 +34,7 @@ final class WBO_Rest {
 			return self::reply( array( 'error' => 'busy' ), 429 );
 		}
 
-		$search = WBO_Query::normalise( $request->get_param( 'from' ), $request->get_param( 'to' ), $request->get_param( 'date' ), WBO_Client::today() );
+		$search = WBO_Query::normalise( $request->get_param( 'from' ), $request->get_param( 'to' ), $request->get_param( 'date' ), WBO_Client::today(), $request->get_param( 'hours' ) );
 		if ( ! is_array( $search ) ) {
 			return self::reply( array( 'error' => $search ), 422 );
 		}

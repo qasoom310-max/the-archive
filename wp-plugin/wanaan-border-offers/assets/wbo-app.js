@@ -13,6 +13,7 @@
 	var ICON = {
 		swap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h11l-3-3m3 3-3 3M17 17H6l3 3m-3-3 3-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 		trip: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h14l-3-3M20 16H6l3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+		clock: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 		person: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
 		origin: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>',
 		pin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15 12 21 12 21Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>',
@@ -43,6 +44,7 @@
 		this.state = {
 			trip: cfg.trip === 'oneway' ? 'oneway' : 'round',
 			passengers: 1,
+			tripHours: C.tripHours(cfg.hours),
 			from: cfg.from || 'SA',
 			to: cfg.to || 'BH',
 			dep: this.today,
@@ -74,6 +76,10 @@
 		for (var n = 1; n <= 12; n++) {
 			passengerOptions += '<option value="' + n + '">' + esc(C.passengersLabel(this.s, n)) + '</option>';
 		}
+		var hourOptions = '';
+		for (var k = 1; k <= 12; k++) {
+			hourOptions += '<option value="' + k + '">' + esc(C.tripHoursLabel(this.s, k)) + '</option>';
+		}
 
 		this.root.innerHTML =
 			'<div class="wbo__card">' +
@@ -85,6 +91,10 @@
 					'<label class="wbo__pill">' + ICON.person +
 						'<span class="wbo__sr">' + esc(this.t('passengers')) + '</span>' +
 						'<select data-k="passengers">' + passengerOptions + '</select>' + ICON.caret +
+					'</label>' +
+					'<label class="wbo__pill" title="' + esc(this.t('trip_time')) + '">' + ICON.clock +
+						'<span class="wbo__sr">' + esc(this.t('trip_time')) + '</span>' +
+						'<select data-k="hours" aria-label="' + esc(this.t('trip_time')) + '">' + hourOptions + '</select>' + ICON.caret +
 					'</label>' +
 				'</div>' +
 				'<div class="wbo__row">' +
@@ -109,6 +119,7 @@
 
 		this.q('[data-k="trip"]').value = s.trip;
 		this.q('[data-k="passengers"]').value = String(s.passengers);
+		this.q('[data-k="hours"]').value = String(s.tripHours);
 		this.syncDates();
 		this.bind();
 	};
@@ -218,6 +229,8 @@
 		} else if (key === 'passengers') {
 			s.passengers = Math.max(1, Math.min(12, parseInt(value, 10) || 1));
 			changesHours = false;
+		} else if (key === 'hours') {
+			s.tripHours = C.tripHours(value);
 		} else if (key === 'dep') {
 			s.dep = C.clampDate(value, this.today, this.maxDate);
 			if (s.ret < s.dep) {
@@ -317,8 +330,7 @@
 	};
 
 	App.prototype.pick = function (leg, hour) {
-		var r = this.results[leg];
-		var h = r ? C.hourOf(r.hours, hour) : null;
+		var h = C.hourOf(this.hoursFor(leg), hour);
 		if (!h || !h.bookable) {
 			return;
 		}
@@ -354,11 +366,15 @@
 		var picked = this.state.selected[leg.key];
 		var pct = C.percent(r.discount_percent);
 		var self = this;
-		var offerOn = r.enabled && C.hasOffer(r.hours);
+		var hours = this.hoursFor(leg.key);
+		var early = hours.filter(function (h) {
+			return h.early;
+		}).length;
+		var offerOn = r.enabled && C.hasOffer(hours);
 
-		var chips = r.hours.map(function (h) {
+		var chips = hours.map(function (h) {
 			var cls = 'wbo__hour' + (h.discount ? ' is-offer' : '') + (!h.bookable ? ' is-closed' : '') + (picked === h.hour ? ' is-selected' : '');
-			var label = C.hourLabel(h.hour) + ', ' + (!h.bookable ? self.t('legend_closed') : h.discount ? self.t('off', { p: pct }) : self.t('full_fare'));
+			var label = C.hourLabel(h.hour) + ', ' + (h.early ? self.t('before_arrival') : !h.bookable ? self.t('legend_closed') : h.discount ? self.t('off', { p: pct }) : self.t('full_fare'));
 			return '<button type="button" class="' + cls + '" data-act="hour" data-leg="' + leg.key + '" data-hour="' + h.hour + '"' +
 				' aria-pressed="' + (picked === h.hour ? 'true' : 'false') + '" aria-label="' + esc(label) + '"' + (!h.bookable ? ' disabled' : '') + '>' +
 				'<span class="wbo__time" dir="ltr">' + C.hourLabel(h.hour) + '</span>' +
@@ -367,8 +383,13 @@
 		}).join('');
 
 		var note = '';
-		var chosen = picked !== null ? C.hourOf(r.hours, picked) : null;
-		var better = C.nearestOffer(r.hours, picked);
+		if (early > 0) {
+			var a = C.arrival(this.state.selected.out, this.state.tripHours);
+			var when = C.formatDate(C.addDays(this.state.dep, a.days), this.cfg.lang) + ' ' + C.hourLabel(a.hour);
+			note += '<p class="wbo__note wbo__note--info">' + esc(this.t('return_after', { time: when })) + '</p>';
+		}
+		var chosen = picked !== null ? C.hourOf(hours, picked) : null;
+		var better = C.nearestOffer(hours, picked);
 		if (chosen && chosen.discount) {
 			note = '<p class="wbo__note wbo__note--good">' + esc(this.t('offer_explain', { p: pct })) + '</p>';
 		} else if (chosen && better !== null && r.enabled) {
@@ -390,14 +411,27 @@
 				'<p>' + esc(C.countryName(this.cfg.countries, leg.from)) + C.arrow(this.cfg.lang) + esc(C.countryName(this.cfg.countries, leg.to)) + '</p></div>' +
 				(offerOn ? '<span class="wbo__badge">' + esc(this.t('off', { p: pct })) + '</span>' : '') +
 			'</header>' +
-			'<p class="wbo__hint">' + esc(this.t('pick_hour')) + '</p>' +
+			'<p class="wbo__hint">' + esc(this.t('pick_hour')) + ' · ' + esc(C.tripHoursLabel(this.s, this.state.tripHours)) + '</p>' +
 			'<div class="wbo__hours" role="group" aria-label="' + esc(this.t('pick_hour')) + '">' + chips + '</div>' +
 			note +
 		'</section>';
 	};
 
+	/** A leg's hours as they may be booked: a return before the outward trip arrives cannot. */
+	App.prototype.hoursFor = function (key) {
+		var r = this.results[key];
+		var s = this.state;
+		return (r ? r.hours : []).map(function (h) {
+			var early = key === 'back' && C.returnTooEarly(s, h.hour);
+			return early ? { hour: h.hour, bookable: false, discount: h.discount, cars: h.cars, early: true } : h;
+		});
+	};
+
 	App.prototype.renderResults = function () {
 		var box = this.q('.wbo__results');
+		if (this.state.selected.back !== null && C.returnTooEarly(this.state, this.state.selected.back)) {
+			this.state.selected.back = null;
+		}
 		var legs = C.legsFor(this.state);
 		var self = this;
 		var pct = C.percent((this.results.out || {}).discount_percent || 0);
@@ -431,7 +465,7 @@
 			var h = r && picked !== null ? C.hourOf(r.hours, picked) : null;
 			return '<li><b>' + esc(C.countryName(self.cfg.countries, leg.from)) + C.arrow(self.cfg.lang) + esc(C.countryName(self.cfg.countries, leg.to)) + '</b> ' +
 				esc(C.formatDate(leg.date, self.cfg.lang)) +
-				(h ? ' · <span dir="ltr">' + C.hourLabel(picked) + '</span>' + (h.discount ? ' <span class="wbo__tag">' + esc(self.t('off', { p: C.percent(r.discount_percent) })) + '</span>' : '') : ' · —') +
+				(h ? ' · <span dir="ltr">' + C.hourLabel(picked) + '</span> · ' + esc(C.arriveLabel(self.s, picked, s.tripHours)) + (h.discount ? ' <span class="wbo__tag">' + esc(self.t('off', { p: C.percent(r.discount_percent) })) + '</span>' : '') : ' · —') +
 			'</li>';
 		}).join('');
 

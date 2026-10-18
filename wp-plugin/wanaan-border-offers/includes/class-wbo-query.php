@@ -1,6 +1,6 @@
 <?php
 /**
- * One search, checked: two countries and a day.
+ * One search, checked: two countries, a day and the time on the road.
  *
  * The visitor's browser sends these, so nothing reaches the ERP unless it is
  * one of our countries and a real date. Also builds the query string in ONE
@@ -19,14 +19,22 @@ final class WBO_Query {
 	/** How far ahead a customer may search. Mirrors BorderOffers::MAX_DAYS_AHEAD. */
 	const MAX_DAYS_AHEAD = 90;
 
+	/** The customer's time on the road, whole hours. Mirrors BorderOffers::MIN/MAX_TRIP_HOURS. */
+	const MIN_TRIP_HOURS = 1;
+	const MAX_TRIP_HOURS = 12;
+
+	/** Shown first: a ride to the Eastern Province. */
+	const DEFAULT_TRIP_HOURS = 2;
+
 	/**
 	 * @param mixed  $from  Country code.
 	 * @param mixed  $to    Country code.
 	 * @param mixed  $date  YYYY-MM-DD.
 	 * @param string $today YYYY-MM-DD in Bahrain.
-	 * @return array{from:string,to:string,date:string}|string the search, or why it was refused
+	 * @param mixed  $hours Time on the road, 1–12 (missing = DEFAULT_TRIP_HOURS).
+	 * @return array{from:string,to:string,date:string,hours:int}|string the search, or why it was refused
 	 */
-	public static function normalise( $from, $to, $date, $today ) {
+	public static function normalise( $from, $to, $date, $today, $hours = null ) {
 		$from = strtoupper( trim( is_string( $from ) ? $from : '' ) );
 		$to   = strtoupper( trim( is_string( $to ) ? $to : '' ) );
 		$date = trim( is_string( $date ) ? $date : '' );
@@ -49,16 +57,27 @@ final class WBO_Query {
 			return 'date';
 		}
 
+		if ( null === $hours || '' === $hours ) {
+			$hours = self::DEFAULT_TRIP_HOURS;
+		} elseif ( is_string( $hours ) && ctype_digit( $hours ) ) {
+			$hours = (int) $hours;
+		}
+		if ( ! is_int( $hours ) || $hours < self::MIN_TRIP_HOURS || $hours > self::MAX_TRIP_HOURS ) {
+			return 'hours';
+		}
+
 		return array(
-			'from' => $from,
-			'to'   => $to,
-			'date' => $date,
+			'from'  => $from,
+			'to'    => $to,
+			'date'  => $date,
+			'hours' => $hours,
 		);
 	}
 
-	/** The query string, always in the order from, to, date. */
+	/** The query string, always in the order from, to, date, hours. */
 	public static function query_string( array $search ) {
-		return 'from=' . rawurlencode( $search['from'] ) . '&to=' . rawurlencode( $search['to'] ) . '&date=' . rawurlencode( $search['date'] );
+		return 'from=' . rawurlencode( $search['from'] ) . '&to=' . rawurlencode( $search['to'] ) . '&date=' . rawurlencode( $search['date'] )
+			. '&hours=' . (int) ( $search['hours'] ?? self::DEFAULT_TRIP_HOURS );
 	}
 
 	/** The ERP path for a search. */
@@ -108,9 +127,10 @@ final class WBO_Query {
 			'max_date'         => (string) ( $body['max_date'] ?? '' ),
 			'whatsapp'         => preg_replace( '/\D+/', '', (string) ( $body['whatsapp'] ?? '' ) ),
 			'query'            => array(
-				'from' => (string) ( $body['query']['from'] ?? '' ),
-				'to'   => (string) ( $body['query']['to'] ?? '' ),
-				'date' => (string) ( $body['query']['date'] ?? '' ),
+				'from'  => (string) ( $body['query']['from'] ?? '' ),
+				'to'    => (string) ( $body['query']['to'] ?? '' ),
+				'date'  => (string) ( $body['query']['date'] ?? '' ),
+				'hours' => max( 0, min( self::MAX_TRIP_HOURS, (int) ( $body['query']['hours'] ?? 0 ) ) ),
 			),
 			'hours'            => $hours,
 			'upcoming'         => array_slice( $upcoming, 0, 6 ),

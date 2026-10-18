@@ -56,7 +56,7 @@ final class WBO_Client {
 	}
 
 	/**
-	 * @param array{from:string,to:string,date:string} $search A checked search.
+	 * @param array{from:string,to:string,date:string,hours:int} $search A checked search.
 	 * @return array<string,mixed>|null the public answer, or null when the ERP could not be asked
 	 */
 	public static function search( array $search ) {

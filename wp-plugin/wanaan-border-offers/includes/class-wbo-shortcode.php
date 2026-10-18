@@ -8,6 +8,7 @@
  *   from  = SA | BH          (pick-up country shown first, default SA)
  *   to    = BH | SA          (default BH)
  *   trip  = round | oneway   (default round)
+ *   hours = 1 … 12           (time on the road shown first, default 2)
  *
  * The box is drawn by assets/wbo-app.js from the settings printed here; the
  * hours come from /wp-json/wanaan/v1/border-offers.
@@ -38,6 +39,7 @@ final class WBO_Shortcode {
 				'from'  => 'SA',
 				'to'    => 'BH',
 				'trip'  => 'round',
+				'hours' => WBO_Query::DEFAULT_TRIP_HOURS,
 			),
 			is_array( $atts ) ? $atts : array(),
 			'wanaan_border_offers'
@@ -53,6 +55,11 @@ final class WBO_Shortcode {
 			$to = 'SA' === $from ? 'BH' : 'SA';
 		}
 
+		$hours = (int) $atts['hours'];
+		if ( $hours < WBO_Query::MIN_TRIP_HOURS || $hours > WBO_Query::MAX_TRIP_HOURS ) {
+			$hours = WBO_Query::DEFAULT_TRIP_HOURS;
+		}
+
 		$config = array(
 			'endpoint'  => esc_url_raw( rest_url( 'wanaan/v1/border-offers' ) ),
 			'lang'      => $lang,
@@ -60,6 +67,9 @@ final class WBO_Shortcode {
 			'to'        => $to,
 			'trip'      => 'oneway' === $atts['trip'] ? 'oneway' : 'round',
 			'today'     => WBO_Client::today(),
+			'hours'     => $hours,
+			'minHours'  => WBO_Query::MIN_TRIP_HOURS,
+			'maxHours'  => WBO_Query::MAX_TRIP_HOURS,
 			'maxDays'   => WBO_Query::MAX_DAYS_AHEAD,
 			'timezone'  => WBO_Client::TIMEZONE,
 			'countries' => WBO_Strings::countries( $lang ),

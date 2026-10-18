@@ -90,6 +90,17 @@ final class BorderOffersApiController
             return response()->json(['error' => 'bad date'], 422);
         }
 
+        // The customer's time on the road, whole hours; absent = the set drive time.
+        $hours = $request->query('hours');
+        $tripHours = null;
+        if ($hours !== null) {
+            if (! is_string($hours) || ! ctype_digit($hours)
+                || (int) $hours < BorderOffers::MIN_TRIP_HOURS || (int) $hours > BorderOffers::MAX_TRIP_HOURS) {
+                return response()->json(['error' => 'bad hours'], 422);
+            }
+            $tripHours = (int) $hours;
+        }
+
         try {
             $day = CarbonImmutable::createFromFormat('!Y-m-d', $date);
         } catch (Throwable) {
@@ -105,7 +116,7 @@ final class BorderOffersApiController
         }
 
         return response()
-            ->json($offers->payload($from, $to, $day), 200, [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+            ->json($offers->payload($from, $to, $day, $tripHours), 200, [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
             ->header('Cache-Control', 'no-store, private');
     }
 

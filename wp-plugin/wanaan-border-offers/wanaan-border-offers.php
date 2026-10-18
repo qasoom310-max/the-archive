@@ -3,7 +3,7 @@
  * Plugin Name:       Wanaan Border Offers
  * Plugin URI:        https://www.wanaan-bh.com
  * Description:       A search box for rides between Bahrain and Saudi Arabia. The Wanaan ERP knows where every booked car will be; when one has to drive that way empty, the hours it can take a passenger are shown at a discount (30% by default, set in the ERP). Shortcode: [wanaan_border_offers]
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Wanaan
@@ -20,7 +20,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WBO_VERSION', '1.0.0' );
+define( 'WBO_VERSION', '1.1.0' );
 define( 'WBO_FILE', __FILE__ );
 define( 'WBO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WBO_URL', plugin_dir_url( __FILE__ ) );

@@ -237,6 +237,52 @@ final class BorderOffersTest extends TestCase
         $this->assertSame([4, 5], $this->discounted('SA', 'BH', '2026-10-21'));
     }
 
+    /** @return list<int> */
+    private function discountedFor(string $from, string $to, string $date, int $tripHours): array
+    {
+        $hours = BorderOffers::make()->hours($from, $to, CarbonImmutable::parse($date), $tripHours);
+
+        return array_values(array_map(
+            static fn (array $h): int => $h['hour'],
+            array_filter($hours, static fn (array $h): bool => $h['discount']),
+        ));
+    }
+
+    public function test_the_customers_trip_time_decides_when_they_must_leave_to_reach_the_pick_up(): void
+    {
+        // A car must be in Dammam at 12:00. Riding with it for 5 hours, the
+        // customer leaves 03:00–07:00; for 1 hour, 07:00–11:00.
+        $this->trip('Dammam', 'SA', 'Bahrain Airport', 'BH', '2026-10-21 12:00');
+
+        $this->assertSame([3, 4, 5, 6, 7], $this->discountedFor('BH', 'SA', '2026-10-21', 5));
+        $this->assertSame([7, 8, 9, 10, 11], $this->discountedFor('BH', 'SA', '2026-10-21', 1));
+    }
+
+    public function test_a_long_trip_home_cannot_take_a_car_due_back_for_its_next_job(): void
+    {
+        $this->trip('Manama', 'BH', 'Khobar', 'SA', '2026-10-21 01:00', ['car_id' => 7]);
+        // Needed in Bahrain at 06:00.
+        $this->trip('Seef', 'BH', 'Juffair', 'BH', '2026-10-21 06:00', ['car_id' => 7]);
+
+        $this->assertSame([3, 4, 5], $this->discountedFor('SA', 'BH', '2026-10-21', 1));
+        $this->assertSame([], $this->discountedFor('SA', 'BH', '2026-10-21', 4));
+    }
+
+    public function test_a_car_with_nothing_after_it_takes_a_trip_of_any_length_home(): void
+    {
+        $this->trip('Manama', 'BH', 'Riyadh', 'SA', '2026-10-21 01:00');
+
+        $this->assertSame([3, 4, 5, 6, 7], $this->discountedFor('SA', 'BH', '2026-10-21', 12));
+    }
+
+    public function test_the_trip_time_is_kept_between_one_and_twelve_hours(): void
+    {
+        $this->trip('Dammam', 'SA', 'Bahrain Airport', 'BH', '2026-10-21 12:00');
+
+        $this->assertSame($this->discountedFor('BH', 'SA', '2026-10-21', 12), $this->discountedFor('BH', 'SA', '2026-10-21', 40));
+        $this->assertSame($this->discountedFor('BH', 'SA', '2026-10-21', 1), $this->discountedFor('BH', 'SA', '2026-10-21', 0));
+    }
+
     public function test_a_search_inside_one_country_never_has_the_offer(): void
     {
         $this->trip('Manama', 'BH', 'Riyadh', 'SA', '2026-10-21 01:00');
@@ -290,6 +336,26 @@ final class BorderOffersTest extends TestCase
             ->assertJsonPath('upcoming.0.date', '2026-10-21');
     }
 
+    public function test_a_search_with_the_trip_time_uses_it(): void
+    {
+        $this->trip('Dammam', 'SA', 'Bahrain Airport', 'BH', '2026-10-21 12:00');
+        $uri = $this->base . '?from=BH&to=SA&date=2026-10-21&hours=5';
+
+        $this->withHeaders($this->signed($uri))->get($uri)
+            ->assertOk()
+            ->assertJsonPath('query.hours', 5)
+            ->assertJsonPath('hours.3.discount', true)
+            ->assertJsonPath('hours.8.discount', false);
+
+        // Without one, the set drive time (2 hours) is used.
+        $plain = $this->base . '?from=BH&to=SA&date=2026-10-21';
+        $this->withHeaders($this->signed($plain))->get($plain)
+            ->assertOk()
+            ->assertJsonPath('query.hours', 2)
+            ->assertJsonPath('hours.3.discount', false)
+            ->assertJsonPath('hours.8.discount', true);
+    }
+
     public function test_the_answer_names_no_booking_customer_or_car(): void
     {
         $this->trip('Manama', 'BH', 'Riyadh', 'SA', '2026-10-21 01:00', ['car_id' => 5]);
@@ -332,6 +398,10 @@ final class BorderOffersTest extends TestCase
             '?from=SA&to=BH&date=2026-02-30',
             '?from=SA&to=BH&date=2026-10-19',
             '?from=SA&to=BH&date=2027-06-01',
+            '?from=SA&to=BH&date=2026-10-21&hours=0',
+            '?from=SA&to=BH&date=2026-10-21&hours=13',
+            '?from=SA&to=BH&date=2026-10-21&hours=2.5',
+            '?from=SA&to=BH&date=2026-10-21&hours=x',
         ] as $query) {
             $uri = $this->base . $query;
             $this->withHeaders($this->signed($uri))->get($uri)->assertStatus(422);

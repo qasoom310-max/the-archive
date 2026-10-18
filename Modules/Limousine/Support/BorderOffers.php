@@ -55,6 +55,15 @@ final class BorderOffers
 
     public const UPCOMING_LIMIT = 6;
 
+    /**
+     * The customer's own estimate of their time on the road, in whole hours
+     * (Khobar is about 1, Riyadh about 5). It replaces `border_travel_hours`
+     * for THEIR trip: they must arrive in time for the car's next job.
+     */
+    public const MIN_TRIP_HOURS = 1;
+
+    public const MAX_TRIP_HOURS = 12;
+
     /** A trip inside one country takes this long when nothing better is known. */
     private const LOCAL_TRIP_HOURS = 1;
 
@@ -88,6 +97,16 @@ final class BorderOffers
         return (int) round(max(0.0, (float) ($this->settings->border_travel_hours ?? 2)) * 60);
     }
 
+    /** The customer's time on the road: their estimate, else the set drive time. */
+    private function tripMinutes(?int $tripHours): int
+    {
+        if ($tripHours === null) {
+            return $this->travelMinutes();
+        }
+
+        return max(self::MIN_TRIP_HOURS, min(self::MAX_TRIP_HOURS, $tripHours)) * 60;
+    }
+
     private function waitMinutes(): int
     {
         return max(0, (int) ($this->settings->border_wait_hours ?? 4)) * 60;
@@ -115,14 +134,15 @@ final class BorderOffers
      * `bookable` = far enough ahead to book online (discounted hours need
      * `border_notice_hours`, the rest the website's usual `lead_hours`);
      * `discount` = an empty car makes this hour cheaper; `cars` = how many.
+     * `$tripHours` = the customer's time on the road (null = the set drive time).
      *
      * @return list<array{hour: int, time: string, bookable: bool, discount: bool, cars: int}>
      */
-    public function hours(string $from, string $to, CarbonImmutable $day): array
+    public function hours(string $from, string $to, CarbonImmutable $day, ?int $tripHours = null): array
     {
         $day = $day->startOfDay();
         $runs = $this->enabled() && self::crossesHome($from, $to)
-            ? $this->runs($from, $to, $day, $day->addDay())
+            ? $this->runs($from, $to, $day, $day->addDay(), $tripHours)
             : [];
 
         $discountFrom = $this->now->addHours($this->noticeHours());
@@ -158,7 +178,7 @@ final class BorderOffers
      *
      * @return list<array{date: string, hour: int, time: string}>
      */
-    public function upcoming(string $from, string $to): array
+    public function upcoming(string $from, string $to, ?int $tripHours = null): array
     {
         if (! $this->enabled() || ! self::crossesHome($from, $to)) {
             return [];
@@ -167,7 +187,7 @@ final class BorderOffers
         $earliest = $this->now->addHours($this->noticeHours());
         $slots = [];
 
-        foreach ($this->runs($from, $to, $this->now, $this->now->addDays(self::UPCOMING_DAYS)) as $run) {
+        foreach ($this->runs($from, $to, $this->now, $this->now->addDays(self::UPCOMING_DAYS), $tripHours) as $run) {
             $first = $this->ceilHour($run['start']->max($earliest));
             if ($first->gt($run['end']) || $first->gt($this->now->addDays(self::UPCOMING_DAYS))) {
                 continue;
@@ -188,7 +208,7 @@ final class BorderOffers
      *
      * @return array<string, mixed>
      */
-    public function payload(string $from, string $to, CarbonImmutable $day): array
+    public function payload(string $from, string $to, CarbonImmutable $day, ?int $tripHours = null): array
     {
         return [
             'enabled' => $this->enabled(),
@@ -202,9 +222,9 @@ final class BorderOffers
                 static fn (string $code): array => ['code' => $code, 'name_en' => self::COUNTRY_NAMES[$code]['en'], 'name_ar' => self::COUNTRY_NAMES[$code]['ar']],
                 self::COUNTRIES,
             ),
-            'query' => ['from' => $from, 'to' => $to, 'date' => $day->toDateString()],
-            'hours' => $this->hours($from, $to, $day),
-            'upcoming' => $this->upcoming($from, $to),
+            'query' => ['from' => $from, 'to' => $to, 'date' => $day->toDateString(), 'hours' => $this->trim($this->tripMinutes($tripHours) / 60)],
+            'hours' => $this->hours($from, $to, $day, $tripHours),
+            'upcoming' => $this->upcoming($from, $to, $tripHours),
         ];
     }
 
@@ -213,7 +233,7 @@ final class BorderOffers
      *
      * @return list<array{start: CarbonImmutable, end: CarbonImmutable, cars: int}>
      */
-    public function runs(string $from, string $to, CarbonInterface $rangeStart, CarbonInterface $rangeEnd): array
+    public function runs(string $from, string $to, CarbonInterface $rangeStart, CarbonInterface $rangeEnd, ?int $tripHours = null): array
     {
         if (! self::crossesHome($from, $to) || ! Schema::hasTable('limo_legs')) {
             return [];
@@ -223,7 +243,7 @@ final class BorderOffers
         $rangeEnd = CarbonImmutable::instance($rangeEnd);
 
         $runs = [];
-        foreach ($this->allRuns($rangeStart->subDays(8), $rangeEnd->addDays(2)) as $run) {
+        foreach ($this->allRuns($rangeStart->subDays(8), $rangeEnd->addDays(2), $this->tripMinutes($tripHours)) as $run) {
             if ($run['from'] === $from && $run['to'] === $to && $run['end']->gte($rangeStart) && $run['start']->lte($rangeEnd)) {
                 $runs[] = ['start' => $run['start'], 'end' => $run['end'], 'cars' => $run['cars']];
             }
@@ -233,11 +253,14 @@ final class BorderOffers
     }
 
     /**
+     * $trip = the customer's minutes on the road: riding a car home they must
+     * arrive before its next job, riding one out they must arrive before the
+     * pick-up it is going for.
+     *
      * @return list<array{from: string, to: string, start: CarbonImmutable, end: CarbonImmutable, cars: int}>
      */
-    private function allRuns(CarbonImmutable $from, CarbonImmutable $to): array
+    private function allRuns(CarbonImmutable $from, CarbonImmutable $to, int $trip): array
     {
-        $travel = $this->travelMinutes();
         $wait = $this->waitMinutes();
         $legs = $this->legs($from, $to);
 
@@ -272,10 +295,10 @@ final class BorderOffers
                     continue;
                 }
 
-                // The car moves on to somewhere else: it has to leave in time
-                // for its next trip, and cannot leave home before its last.
+                // The car moves on to somewhere else: the customer riding it must
+                // arrive in time for its next trip, and it cannot leave home before its last.
                 if (isset($supply[$ids[$k]])) {
-                    $supply[$ids[$k]]['until'] = $b['start']->subMinutes($travel);
+                    $supply[$ids[$k]]['until'] = $b['start']->subMinutes($trip);
                 }
                 if (isset($demand[$ids[$k + 1]]) && $a['end_country'] === self::HOME) {
                     $demand[$ids[$k + 1]]['since'] = $a['end'];
@@ -323,7 +346,7 @@ final class BorderOffers
             if (isset($usedDemand[$d])) {
                 continue;
             }
-            $end = $need['at']->subMinutes($travel);
+            $end = $need['at']->subMinutes($trip);
             $start = $end->subMinutes($wait);
             if ($need['since'] !== null && $need['since']->gt($start)) {
                 $start = $need['since'];

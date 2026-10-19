@@ -4,7 +4,7 @@
     them would be translating a thing that has to match byte for byte.
 --}}
 <div class="mx-auto max-w-3xl p-4 sm:p-6">
-    @include('partials.settings-nav')
+    @include('partials.settings-nav', ['active' => 'web_bookings'])
 
     <h1 class="mb-1 mt-4 text-lg font-bold text-chrome-900">{{ __('Web bookings') }}</h1>
     <p class="mb-4 text-sm text-chrome-500">

@@ -1,5 +1,7 @@
 @php
     /** @var string $active */
+    // A page that forgets to say which tab it is shows no tab open, not a 500.
+    $active = $active ?? '';
     $authUser = \Illuminate\Support\Facades\Auth::user();
     $isAdmin = $authUser instanceof \App\Models\User && $authUser->isAdmin();
 

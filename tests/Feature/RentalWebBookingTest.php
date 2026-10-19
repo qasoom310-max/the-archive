@@ -316,4 +316,18 @@ final class RentalWebBookingTest extends TestCase
 
         Livewire::test(WebBookings::class)->assertForbidden();
     }
+
+    /**
+     * Both screens, loaded for real. Livewire::test() never renders the layout
+     * or the settings tab bar, which is how the settings page shipped with a
+     * 500 (the tab bar was never told which tab was open).
+     */
+    public function test_both_screens_load_as_real_pages(): void
+    {
+        \Illuminate\Support\Facades\Route::middleware('web')->group(base_path('Modules/Rental/routes/web.php'));
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+
+        $this->get('/app/settings/web-bookings')->assertOk()->assertSee('Web Bookings');
+        $this->get('/app/rental/web_booking')->assertOk();
+    }
 }

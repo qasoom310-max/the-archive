@@ -3184,5 +3184,18 @@
     "Door to door, causeway included.": "من الباب إلى الباب، شاملة الجسر.",
     "Longest a car waits (hours)": "أطول مدة انتظار للسيارة (ساعات)",
     "How long a car may stand in the other country for a passenger.": "المدة التي يمكن أن تنتظر فيها السيارة في الدولة الأخرى لراكب.",
-    "Least notice for the offer (hours)": "أقل مهلة لحجز العرض (ساعات)"
+    "Least notice for the offer (hours)": "أقل مهلة لحجز العرض (ساعات)",
+    "Car hires and limousine trips booked on the website.": "حجوزات تأجير السيارات ورحلات الليموزين من الموقع الإلكتروني.",
+    "All services": "كل الخدمات",
+    "Car rental": "تأجير السيارات",
+    "This is a limousine trip. It becomes a limousine booking in the trip queue.": "هذه رحلة ليموزين. ستصبح حجز ليموزين في قائمة انتظار الرحلات.",
+    "This is a car hire. It becomes a rental order.": "هذا تأجير سيارة. سيصبح طلب تأجير.",
+    "No, it is a car hire": "لا، هذا تأجير سيارة",
+    "No, it is a limousine trip": "لا، هذه رحلة ليموزين",
+    "Details the customer gave": "التفاصيل التي أدخلها العميل",
+    "A limousine booking was made from this.": "تم إنشاء حجز ليموزين من هذا الحجز.",
+    "Open the booking": "فتح الحجز",
+    "Create limousine booking": "إنشاء حجز ليموزين",
+    "Website total": "الإجمالي في الموقع",
+    "Not paid": "غير مدفوع"
 }

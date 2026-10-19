@@ -1,5 +1,6 @@
 {{--
-    Bookings taken on the website, waiting to become rental orders.
+    Bookings taken on the website, waiting to become rental orders (a car
+    hire) or limousine bookings (a trip with a driver).
 
     Two tabs, Pending and Complete, as the old system had them. The columns are
     what the website reliably sends; everything it sent is in the View panel,
@@ -11,7 +12,7 @@
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
             <h1 class="text-lg font-bold text-chrome-900">{{ __('Web bookings') }}</h1>
-            <p class="text-sm text-chrome-500">{{ __('Bookings taken on the website, ready to become orders.') }}</p>
+            <p class="text-sm text-chrome-500">{{ __('Car hires and limousine trips booked on the website.') }}</p>
         </div>
         <a href="{{ url('/app/rental') }}" wire:navigate
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-700 transition hover:bg-chrome-50">
@@ -41,6 +42,22 @@
             </button>
         @endforeach
 
+        <span class="mx-1 h-5 w-px bg-chrome-200"></span>
+
+        @foreach ([
+            '' => __('All services'),
+            \Modules\Rental\Models\RentalWebBooking::SERVICE_RENTAL => __('Car rental'),
+            \Modules\Rental\Models\RentalWebBooking::SERVICE_LIMOUSINE => __('Limousine'),
+        ] as $value => $label)
+            <button type="button" wire:click="$set('service', '{{ $value }}')" data-service-filter="{{ $value }}"
+                    class="rounded-lg px-3 py-1.5 text-xs font-medium transition {{ $service === $value ? 'bg-chrome-900 text-white' : 'border border-chrome-200 text-chrome-700 hover:bg-chrome-50' }}">
+                {{ $label }}
+                @if ($value !== '' && ($pendingByService[$value] ?? 0) > 0)
+                    <span class="ms-1 rounded-full bg-amber-100 px-1.5 text-amber-800">{{ $pendingByService[$value] }}</span>
+                @endif
+            </button>
+        @endforeach
+
         <input type="search" wire:model.live.debounce.300ms="search"
                placeholder="{{ __('Search name, phone, email…') }}"
                class="o-input ms-auto w-full max-w-xs text-sm">
@@ -51,6 +68,7 @@
             <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-700">
                 <tr>
                     <th class="whitespace-nowrap px-3 py-2 text-start">{{ __('Reference') }}</th>
+                    <th class="whitespace-nowrap px-3 py-2 text-start">{{ __('Service') }}</th>
                     <th class="px-3 py-2 text-start">{{ __('Name') }}</th>
                     <th class="whitespace-nowrap px-3 py-2 text-start">{{ __('Phone') }}</th>
                     <th class="px-3 py-2 text-start">{{ __('Product') }}</th>
@@ -65,9 +83,10 @@
                 @forelse ($bookings as $b)
                     <tr class="hover:bg-chrome-50">
                         <td class="whitespace-nowrap px-3 py-2 font-medium text-chrome-900" dir="ltr">{{ $b->source_reference }}</td>
+                        <td class="whitespace-nowrap px-3 py-2">@include('rental::partials.web-booking-service', ['booking' => $b])</td>
                         <td class="px-3 py-2 text-chrome-900">{{ $b->customerName() }}</td>
                         <td class="whitespace-nowrap px-3 py-2 text-chrome-900" dir="ltr">{{ $b->phone ?: '—' }}</td>
-                        <td class="max-w-[18rem] truncate px-3 py-2 text-chrome-600" title="{{ $b->product }}">{{ $b->product ?: '—' }}</td>
+                        <td class="max-w-[18rem] truncate px-3 py-2 text-chrome-600" title="{{ $b->product }}">{{ $b->productName() }}</td>
                         <td class="whitespace-nowrap px-3 py-2 text-chrome-900">{{ $b->pickup_at?->isoFormat('DD-MMM-YY HH:mm') ?? '—' }}</td>
                         <td class="whitespace-nowrap px-3 py-2 text-chrome-900">{{ $b->dropoff_at?->isoFormat('DD-MMM-YY HH:mm') ?? '—' }}</td>
                         <td class="whitespace-nowrap px-3 py-2 text-end font-medium text-chrome-900">
@@ -90,7 +109,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="9" class="px-3 py-10 text-center text-sm text-chrome-400">
+                        <td colspan="10" class="px-3 py-10 text-center text-sm text-chrome-400">
                             {{ __('No bookings here yet.') }}
                         </td>
                     </tr>
@@ -110,23 +129,34 @@
                     <div class="flex items-center justify-between border-b border-chrome-200 px-5 py-3">
                         <h2 class="text-base font-bold text-chrome-900">
                             {{ __('Web booking') }} — <span dir="ltr">{{ $viewing->source_reference }}</span>
+                            <span class="ms-1 align-middle">@include('rental::partials.web-booking-service', ['booking' => $viewing])</span>
                         </h2>
                         <button type="button" wire:click="closeView"
                                 class="text-lg leading-none text-chrome-400 hover:text-chrome-700" aria-label="{{ __('Close') }}">&times;</button>
                     </div>
 
                     <div class="max-h-[70vh] overflow-y-auto px-5 py-4">
+                        @if ($mayAct && ! $viewing->isConverted())
+                            <p class="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-chrome-50 px-4 py-2 text-xs text-chrome-600">
+                                {{ $viewing->isLimousine() ? __('This is a limousine trip. It becomes a limousine booking in the trip queue.') : __('This is a car hire. It becomes a rental order.') }}
+                                <button type="button" wire:click="switchService" data-switch-service
+                                        class="font-semibold text-chrome-900 underline">
+                                    {{ $viewing->isLimousine() ? __('No, it is a car hire') : __('No, it is a limousine trip') }}
+                                </button>
+                            </p>
+                        @endif
+
                         <dl class="grid gap-3 sm:grid-cols-2">
                             @foreach ([
                                 __('Name') => $viewing->customerName(),
                                 __('Phone') => $viewing->phone ?: '—',
                                 __('Email') => $viewing->email ?: '—',
                                 __('Address') => trim(($viewing->address ?? '') . ' ' . ($viewing->town ?? '')) ?: '—',
-                                __('Product') => $viewing->product ?: '—',
+                                ($viewing->isLimousine() ? __('Trip') : __('Product')) => $viewing->productName(),
                                 __('Qty') => (string) $viewing->quantity,
                                 __('Pick up') => $viewing->pickup_location ?: '—',
                                 __('Drop off') => $viewing->dropoff_location ?: '—',
-                                __('From date') => $viewing->pickup_at?->isoFormat('DD-MMM-YY HH:mm') ?? '—',
+                                ($viewing->isLimousine() ? __('Pick-up time') : __('From date')) => $viewing->pickup_at?->isoFormat('DD-MMM-YY HH:mm') ?? '—',
                                 __('To date') => $viewing->dropoff_at?->isoFormat('DD-MMM-YY HH:mm') ?? '—',
                                 __('Payment') => trim(($viewing->payment_mode ?? '—') . ' · ' . ($viewing->payment_status ?? '—')),
                                 __('Total') => $viewing->total !== null ? \App\Erp\Views\ValueFormat::money($viewing->total) : '—',
@@ -138,11 +168,37 @@
                             @endforeach
                         </dl>
 
+                        {{-- What the customer filled in on the product page, as the
+                             website listed it: flight number, passengers and the
+                             like, which have no field of their own here. --}}
+                        @php $details = $viewing->details(); @endphp
+                        @if ($details !== [])
+                            <div class="mt-4" data-web-booking-details>
+                                <p class="text-xs font-medium uppercase tracking-wide text-chrome-400">{{ __('Details the customer gave') }}</p>
+                                <dl class="mt-1 divide-y divide-chrome-100 rounded-xl ring-1 ring-chrome-100">
+                                    @foreach ($details as $line)
+                                        <div class="grid grid-cols-3 gap-2 px-3 py-1.5 text-sm">
+                                            <dt class="text-chrome-500">{{ $line['label'] }}</dt>
+                                            <dd class="col-span-2 text-chrome-800">{{ $line['value'] }}</dd>
+                                        </div>
+                                    @endforeach
+                                </dl>
+                            </div>
+                        @endif
+
                         @if ($viewing->notes)
                             <div class="mt-4">
                                 <p class="text-xs font-medium uppercase tracking-wide text-chrome-400">{{ __('Notes') }}</p>
                                 <p class="mt-1 whitespace-pre-line text-sm text-chrome-600">{{ $viewing->notes }}</p>
                             </div>
+                        @endif
+
+                        @if ($viewing->limo_booking_id !== null)
+                            <p class="mt-4 rounded-xl bg-emerald-50 px-4 py-2 text-sm text-emerald-800 ring-1 ring-emerald-200">
+                                {{ __('A limousine booking was made from this.') }}
+                                <a href="{{ url('/app/limousine/booking/' . $viewing->limo_booking_id) }}" wire:navigate
+                                   class="font-semibold underline">{{ __('Open the booking') }}</a>
+                            </p>
                         @endif
 
                         @if ($viewing->rental_order_id !== null)
@@ -182,9 +238,16 @@
                                     </button>
                                 @endif
 
-                                @if ($viewing->rental_order_id === null)
-                                    <button type="button" wire:click="createOrder" wire:loading.attr="disabled"
-                                            class="o-btn-primary text-sm">{{ __('Create rental order') }}</button>
+                                @if (! $viewing->isConverted())
+                                    @if ($viewing->isLimousine())
+                                        @if ($mayCreateLimo)
+                                            <button type="button" wire:click="createLimoBooking" wire:loading.attr="disabled"
+                                                    data-create-limo class="o-btn-primary text-sm">{{ __('Create limousine booking') }}</button>
+                                        @endif
+                                    @else
+                                        <button type="button" wire:click="createOrder" wire:loading.attr="disabled"
+                                                data-create-order class="o-btn-primary text-sm">{{ __('Create rental order') }}</button>
+                                    @endif
                                 @endif
                             </div>
                         @endif

@@ -11,6 +11,7 @@ use Illuminate\Support\Carbon;
 use Modules\Limousine\Support\PortalSignature;
 use Modules\Rental\Models\RentalPortalConfiguration;
 use Modules\Rental\Models\RentalWebBooking;
+use Modules\Rental\Support\WebBookingDetails;
 
 /**
  * The website posts a booking here the moment a customer's order is placed.
@@ -96,6 +97,12 @@ final class WebBookingController
     {
         $booking = RentalWebBooking::query()->firstOrNew(['source_reference' => $reference]);
 
+        // The line's own details (what the customer filled in on the product
+        // page). The fare finder keeps a trip's places and time there, not in
+        // the fields a car hire uses, so they fill whatever the main fields
+        // left empty.
+        $lines = WebBookingDetails::lines($data);
+
         $booking->fill([
             'first_name' => $this->text($data, 'first_name'),
             'last_name' => $this->text($data, 'last_name'),
@@ -105,10 +112,10 @@ final class WebBookingController
             'town' => $this->text($data, 'town'),
             'product' => $this->text($data, 'product'),
             'quantity' => max(1, (int) ($data['product_quantity'] ?? 1)),
-            'pickup_location' => $this->text($data, 'pickup_location'),
-            'dropoff_location' => $this->text($data, 'dropoff_location'),
-            'pickup_at' => $this->moment($data, 'pickup_datetime'),
-            'dropoff_at' => $this->moment($data, 'dropoff_datetime'),
+            'pickup_location' => $this->text($data, 'pickup_location') ?? WebBookingDetails::pickupLocation($lines),
+            'dropoff_location' => $this->text($data, 'dropoff_location') ?? WebBookingDetails::dropoffLocation($lines),
+            'pickup_at' => $this->moment($data, 'pickup_datetime') ?? WebBookingDetails::pickupAt($lines),
+            'dropoff_at' => $this->moment($data, 'dropoff_datetime') ?? WebBookingDetails::dropoffAt($lines),
             'subtotal' => isset($data['sub_total']) ? (float) $data['sub_total'] : null,
             'total' => isset($data['total']) ? (float) $data['total'] : null,
             'payment_mode' => $this->text($data, 'payment_mode'),
@@ -123,6 +130,12 @@ final class WebBookingController
 
         if (! $booking->exists) {
             $booking->status = RentalWebBooking::STATUS_PENDING;
+        }
+
+        // Rental or limousine, unless a person has already said which, or the
+        // booking has already become one or the other.
+        if (! $booking->service_manual && ! $booking->isConverted()) {
+            $booking->service = RentalWebBooking::classify($data, $booking->product);
         }
 
         $booking->save();

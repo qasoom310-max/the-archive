@@ -54,7 +54,18 @@
                     <svg class="size-4" viewBox="0 0 20 20" fill="currentColor">{!! $ic['plus'] !!}</svg>{{ __('New booking') }}
                 </a>
                 <div class="flex flex-wrap gap-2 lg:justify-end">
-                    @foreach ([['Bookings', '/app/limousine/booking'], ['Quotations', '/app/limousine/quotation'], ['Invoices', '/app/limousine/invoice'], ['Receipts', '/app/limousine/receipt'], ['Coupons', '/app/limousine/coupon'], ['Expenses', '/app/limousine/expense'], ['Reports', '/app/limousine/reports']] as [$lbl, $href])
+                    @php
+                        $quickLinks = [['Bookings', '/app/limousine/booking'], ['Quotations', '/app/limousine/quotation'], ['Invoices', '/app/limousine/invoice'], ['Receipts', '/app/limousine/receipt'], ['Coupons', '/app/limousine/coupon'], ['Expenses', '/app/limousine/expense'], ['Reports', '/app/limousine/reports']];
+                        // Limousine trips booked on the website wait on the shared
+                        // Web bookings list (Rent A Car), filtered to limousine.
+                        $viewer = \Illuminate\Support\Facades\Auth::user();
+                        if (\Illuminate\Support\Facades\Schema::hasTable('rental_web_bookings')
+                            && $viewer instanceof \App\Models\User
+                            && app(\App\Erp\Security\AccessControl::class)->allows($viewer, 'rental.web_booking', \App\Erp\Security\Permission::Read)) {
+                            array_splice($quickLinks, 1, 0, [['Web bookings', '/app/rental/web_booking?service=limousine']]);
+                        }
+                    @endphp
+                    @foreach ($quickLinks as [$lbl, $href])
                         <a href="{{ url($href) }}" wire:navigate class="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90 ring-1 ring-white/10 transition hover:bg-white/20">{{ __($lbl) }}</a>
                     @endforeach
                 </div>

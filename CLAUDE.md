@@ -2739,6 +2739,29 @@ the fleet car's MODEL (text before the first `·`, never the plate). The
 combined invoice's PAX falls back to a private customer's own name when blank
 or ".". Tests: `LimoInvoiceChainTest` (+4), `LimoCombinedInvoiceTest` (+3).
 
+**Website bookings: car hire vs limousine (shipped 2026-10-19).** The website
+(plugin `wp-plugin/wanaan-web-booking`, live since 2026-10-19, replacing
+woocom-integ-wanaan) posts to `/rental/web-booking`; rows land in
+`rental_web_bookings`, screen Rent A Car → Web bookings
+(`/app/rental/web_booking`). The site sells two things: car hires (car
+products) and limousine trips, which ALL go through the fare finder's one
+product **"Wanaan Booking"** (slug `wanaan-booking`, id 14066), its line named
+"Airport Transfer — Sedan (Ford Taurus 2024)". Rental migration
+`2026_10_19_900050` adds `service` (rental|limousine, backfilled),
+`service_manual` and `limo_booking_id`. `RentalWebBooking::classify()`: the
+plugin's own `service` (1.1+) → slug → limousine words in the name → rental.
+A person can switch it (`switchService()`, kept across re-deliveries). A
+limousine row offers **Create limousine booking** (needs `limousine.booking`
+Create): `Modules\Limousine\Services\WebBookingToLimousine` makes a booking +
+one queue leg (from/to/time/car type = the line name, rate = website total, no
+car/driver), takes a paid-online total through `BookingPayments::receive()`,
+and puts every customer detail in the notes. Plugin 1.1.0 also sends
+`item_meta` (the line's visible details) and `item_meta_raw` (stored keys);
+`Modules\Rental\Support\WebBookingDetails` reads places and times from them by
+label meaning because the fare finder's field names are not in this repo. The
+Limousine dashboard links to the list filtered to limousine. Tests:
+`WebBookingServiceTest` (12).
+
 **A trip's 3-dot menu opens its invoice and receipts (shipped 2026-10-19).**
 On the bookings list each row's menu has "Open invoice INV/…" (the booking's
 invoice, newest if several) and one "Open receipt RCPT/… · amount" per receipt

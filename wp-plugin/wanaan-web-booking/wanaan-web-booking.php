@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Wanaan Web Booking
  * Description:       Sends WooCommerce car-rental bookings to the Wanaan ERP, signed and once each.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Author:            Wanaan
  * License:           GPL-2.0+
  * Text Domain:       wanaan-web-booking
@@ -123,6 +123,17 @@ function wanaan_wb_map_order( $order ) {
 			'product'                    => 'O#' . $order->get_id() . ' P#' . ( $product ? $product->get_id() : 0 ) . ' ' . $item->get_name(),
 			'product_quantity'           => (int) $item->get_quantity(),
 
+			// 1.1: which service this line is, and everything the customer
+			// filled in on the product page. The fare finder keeps a trip's
+			// places and time in its own fields, so the ERP reads them from
+			// item_meta when the fields above are empty.
+			'service'                    => wanaan_wb_service( $product ),
+			'product_id'                 => $product ? (int) $product->get_id() : null,
+			'product_slug'               => $product ? (string) $product->get_slug() : '',
+			'item_name'                  => (string) $item->get_name(),
+			'item_meta'                  => wanaan_wb_item_meta( $item ),
+			'item_meta_raw'              => wanaan_wb_item_meta_raw( $item ),
+
 			'pickup_location'            => html_entity_decode( wp_strip_all_tags( (string) $pickup_location ) ),
 			'dropoff_location'           => html_entity_decode( wp_strip_all_tags( (string) $dropoff_location ) ),
 			'pickup_datetime'            => wanaan_wb_date( $pickup_time ),
@@ -136,6 +147,75 @@ function wanaan_wb_map_order( $order ) {
 	}
 
 	return $result;
+}
+
+/**
+ * 'limousine' for a trip booked through the fare finder (its one "Wanaan
+ * Booking" product), 'rental' for a car-hire product. Another site can change
+ * the rule with the `wanaan_wb_service` filter.
+ */
+function wanaan_wb_service( $product ) {
+	$service = ( $product && 'wanaan-booking' === $product->get_slug() ) ? 'limousine' : 'rental';
+
+	return apply_filters( 'wanaan_wb_service', $service, $product );
+}
+
+/**
+ * Every detail on the order line as label → value, the way WooCommerce shows
+ * it on the order (internal keys starting with "_" are left out by WooCommerce
+ * itself). Values are plain text, capped so one odd field cannot bloat the
+ * request.
+ *
+ * @return array<int, array{label: string, value: string}>
+ */
+function wanaan_wb_item_meta( $item ) {
+	$lines = array();
+
+	foreach ( $item->get_formatted_meta_data( '_', true ) as $meta ) {
+		$label = trim( html_entity_decode( wp_strip_all_tags( (string) $meta->display_key ) ) );
+		$value = trim( html_entity_decode( wp_strip_all_tags( (string) $meta->display_value ) ) );
+
+		if ( '' === $label || '' === $value ) {
+			continue;
+		}
+
+		$lines[] = array(
+			'label' => substr( $label, 0, 120 ),
+			'value' => substr( $value, 0, 500 ),
+		);
+	}
+
+	return $lines;
+}
+
+/**
+ * The same line's details by their stored keys, hidden ones included, for a
+ * booking form that keeps its answers under "_" keys and so never shows them
+ * on the order. Only plain values (a list is joined); the ERP uses these only
+ * when item_meta came back empty.
+ *
+ * @return array<string, string>
+ */
+function wanaan_wb_item_meta_raw( $item ) {
+	$raw = array();
+
+	foreach ( $item->get_meta_data() as $meta ) {
+		$data  = $meta->get_data();
+		$key   = ltrim( (string) $data['key'], '_' );
+		$value = $data['value'];
+
+		if ( is_array( $value ) ) {
+			$value = implode( ' | ', array_filter( $value, 'is_scalar' ) );
+		}
+
+		if ( '' === $key || ! is_scalar( $value ) || '' === trim( (string) $value ) ) {
+			continue;
+		}
+
+		$raw[ substr( $key, 0, 120 ) ] = substr( trim( wp_strip_all_tags( (string) $value ) ), 0, 500 );
+	}
+
+	return $raw;
 }
 
 /** The first of these meta keys the item actually has, flattened if it is a list. */

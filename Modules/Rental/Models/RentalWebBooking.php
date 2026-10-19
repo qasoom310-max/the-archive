@@ -26,6 +26,8 @@ use Illuminate\Database\Eloquent\Model;
  *
  * @property int $id
  * @property string $source_reference
+ * @property string $service
+ * @property bool $service_manual
  * @property string|null $first_name
  * @property string|null $last_name
  * @property string|null $phone
@@ -45,6 +47,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $notes
  * @property string $status
  * @property int|null $rental_order_id
+ * @property int|null $limo_booking_id
  * @property \Illuminate\Support\Carbon|null $completed_at
  * @property array<string, mixed>|null $payload
  */
@@ -54,13 +57,35 @@ final class RentalWebBooking extends Model implements DefinesIrModel
 
     public const STATUS_COMPLETE = 'complete';
 
+    /** A car hire: becomes a rental order. */
+    public const SERVICE_RENTAL = 'rental';
+
+    /** A chauffeured trip: becomes a limousine booking in the trip queue. */
+    public const SERVICE_LIMOUSINE = 'limousine';
+
+    /**
+     * The website's fare-finder product. Every limousine trip booked through
+     * the fare finder is sold as this one product, with the trip in its name.
+     */
+    public const FARE_FINDER_SLUG = 'wanaan-booking';
+
+    /**
+     * Words that only a limousine trip's name carries. The fare finder names a
+     * line "Airport Transfer — Sedan (Ford Taurus 2024)"; a car hire is named
+     * after the car alone.
+     */
+    private const LIMOUSINE_WORDS = [
+        'transfer', 'chauffeur', 'hourly', 'per hour', 'limo', 'city to city',
+        'to ksa', 'bahrain to', 'saudi', 'airport', 'wanaan booking', 'with driver',
+    ];
+
     protected $table = 'rental_web_bookings';
 
     protected $fillable = [
-        'source_reference', 'first_name', 'last_name', 'phone', 'email', 'address', 'town',
+        'source_reference', 'service', 'service_manual', 'first_name', 'last_name', 'phone', 'email', 'address', 'town',
         'product', 'quantity', 'pickup_location', 'dropoff_location', 'pickup_at', 'dropoff_at',
         'subtotal', 'total', 'payment_mode', 'payment_status', 'notes',
-        'status', 'rental_order_id', 'completed_at', 'payload',
+        'status', 'rental_order_id', 'limo_booking_id', 'completed_at', 'payload',
     ];
 
     /** @var array<string, string> */
@@ -71,6 +96,8 @@ final class RentalWebBooking extends Model implements DefinesIrModel
         'subtotal' => 'float',
         'total' => 'float',
         'rental_order_id' => 'integer',
+        'limo_booking_id' => 'integer',
+        'service_manual' => 'boolean',
         'completed_at' => 'datetime',
         'payload' => 'array',
     ];
@@ -78,6 +105,8 @@ final class RentalWebBooking extends Model implements DefinesIrModel
     /** @var array<string, mixed> */
     protected $attributes = [
         'status' => self::STATUS_PENDING,
+        'service' => self::SERVICE_RENTAL,
+        'service_manual' => false,
         'quantity' => 1,
     ];
 
@@ -88,6 +117,71 @@ final class RentalWebBooking extends Model implements DefinesIrModel
             ['value' => self::STATUS_PENDING, 'label' => 'Pending'],
             ['value' => self::STATUS_COMPLETE, 'label' => 'Complete'],
         ];
+    }
+
+    /**
+     * Rental or limousine, from what the website sent.
+     *
+     * The plugin says so itself from version 1.1 (`service`); before that, and
+     * as a back-stop, the fare finder's product and the words in the line's
+     * name decide. A car hire is the default: that is what the old connection
+     * carried, and a person can switch a booking either way.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    public static function classify(array $payload, ?string $product): string
+    {
+        $said = strtolower(trim(is_scalar($payload['service'] ?? null) ? (string) $payload['service'] : ''));
+        if (in_array($said, [self::SERVICE_RENTAL, self::SERVICE_LIMOUSINE], true)) {
+            return $said;
+        }
+
+        $slug = strtolower(trim(is_scalar($payload['product_slug'] ?? null) ? (string) $payload['product_slug'] : ''));
+        if ($slug === self::FARE_FINDER_SLUG) {
+            return self::SERVICE_LIMOUSINE;
+        }
+
+        $name = strtolower((string) $product . ' ' . (is_scalar($payload['item_name'] ?? null) ? (string) $payload['item_name'] : ''));
+        foreach (self::LIMOUSINE_WORDS as $word) {
+            if (str_contains($name, $word)) {
+                return self::SERVICE_LIMOUSINE;
+            }
+        }
+
+        return self::SERVICE_RENTAL;
+    }
+
+    public function isLimousine(): bool
+    {
+        return $this->service === self::SERVICE_LIMOUSINE;
+    }
+
+    /** True once a rental order or a limousine booking has been raised from it. */
+    public function isConverted(): bool
+    {
+        return $this->rental_order_id !== null || $this->limo_booking_id !== null;
+    }
+
+    /**
+     * The line's own details as the website listed them (what the customer
+     * filled in on the product page), for the desk to read.
+     *
+     * @return list<array{label: string, value: string}>
+     */
+    public function details(): array
+    {
+        return \Modules\Rental\Support\WebBookingDetails::lines($this->payload ?? []);
+    }
+
+    /**
+     * What was booked, without the "O#14949 P#14066" order and product ids the
+     * plugin puts in front: "Airport Transfer — Sedan (Ford Taurus 2024)".
+     */
+    public function productName(): string
+    {
+        $name = trim(preg_replace('/^(O#\d+\s*)?(P#\d+\s*)?/', '', (string) $this->product) ?? '');
+
+        return $name !== '' ? $name : '—';
     }
 
     public function isPending(): bool

@@ -86,7 +86,7 @@ final class RentalWebBookingTest extends TestCase
             'email' => 'qassim@example.com',
             'street_address' => 'Road 4101',
             'town' => 'Juffair',
-            'product' => 'O#14113 P#14066 Wanaan Booking',
+            'product' => 'O#14113 P#2201 Toyota Fortuner 2024',
             'product_quantity' => 1,
             'pickup_location' => 'Bahrain Airport',
             'dropoff_location' => 'Juffair',

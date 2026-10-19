@@ -17,8 +17,11 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use App\Erp\Security\AccessControl;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoDriver;
+use Modules\Limousine\Models\LimoInvoice;
+use Modules\Limousine\Models\LimoReceipt;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Models\LimoPaymentLink;
 use Modules\Limousine\Models\LimoPortalConfiguration;
@@ -1363,6 +1366,57 @@ final class Bookings extends Component
     }
 
     /**
+     * The invoice and receipts of each booking on the page, so a row's menu
+     * can open them: two queries for the whole page, not two per row. Each
+     * side only for a user who may read it.
+     *
+     * A receipt belongs to the booking when it names the booking or is written
+     * against one of its invoices. Newest first.
+     *
+     * @param  list<int>  $bookingIds
+     * @return array<int, array{invoice: array{id: int, reference: string}|null, receipts: list<array{id: int, reference: string, amount: float}>}>
+     */
+    private function paperwork(array $bookingIds): array
+    {
+        $bookingIds = array_values(array_unique($bookingIds));
+        $user = Auth::user();
+        $acl = app(AccessControl::class);
+        $out = array_fill_keys($bookingIds, ['invoice' => null, 'receipts' => []]);
+
+        if ($bookingIds === []) {
+            return [];
+        }
+
+        $invoices = LimoInvoice::query()
+            ->whereIn('booking_id', $bookingIds)
+            ->orderByDesc('id')
+            ->get(['id', 'reference', 'booking_id']);
+        $invoiceBooking = $invoices->pluck('booking_id', 'id')->map(static fn ($b): int => (int) $b)->all();
+
+        if ($acl->allows($user, 'limousine.invoice', Permission::Read)) {
+            foreach ($invoices as $invoice) {
+                $out[(int) $invoice->booking_id]['invoice'] ??= ['id' => (int) $invoice->id, 'reference' => (string) $invoice->reference];
+            }
+        }
+
+        if ($acl->allows($user, 'limousine.receipt', Permission::Read)) {
+            $receipts = LimoReceipt::query()
+                ->where(fn ($q) => $q->whereIn('booking_id', $bookingIds)->orWhereIn('invoice_id', array_keys($invoiceBooking)))
+                ->orderByDesc('id')
+                ->get(['id', 'reference', 'amount', 'booking_id', 'invoice_id']);
+
+            foreach ($receipts as $receipt) {
+                $booking = $receipt->booking_id !== null ? (int) $receipt->booking_id : ($invoiceBooking[(int) $receipt->invoice_id] ?? null);
+                if ($booking !== null && isset($out[$booking])) {
+                    $out[$booking]['receipts'][] = ['id' => (int) $receipt->id, 'reference' => (string) $receipt->reference, 'amount' => (float) $receipt->amount];
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
      * The page title for a whole month (opened from a day page's tabs), and the
      * months either side for the arrows. Null unless the list is one month.
      *
@@ -1476,6 +1530,8 @@ final class Bookings extends Component
                 'search' => $this->search, 'sort' => $this->sort, 'dir' => $this->dir,
             ]),
             'counts' => $counts,
+            // Each row's booking's invoice and receipts, for the 3-dot menu.
+            'paperwork' => $this->paperwork(array_map(static fn (LimoLeg $l): int => (int) $l->legable_id, $legs->items())),
             'unpaidCount' => $rows->unpaidCount($monthFrom, $monthTo),
             // "October 2026" over the tabs when their counts are one month's.
             'countsMonth' => $month?->isoFormat('MMMM YYYY'),

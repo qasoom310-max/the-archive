@@ -628,7 +628,7 @@
                                 <template x-teleport="body">
                                 <div x-ref="panel" x-show="open" x-cloak x-transition.opacity.duration.100ms
                                      :style="(coords.top === null ? 'bottom:' + coords.bottom + 'px;' : 'top:' + coords.top + 'px;') + (coords.rtl ? 'right:' + coords.right + 'px' : 'left:' + coords.left + 'px')"
-                                     class="fixed z-50 max-h-[70vh] w-56 overflow-y-auto overflow-x-hidden rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
+                                     class="fixed z-50 max-h-[70vh] w-64 overflow-y-auto overflow-x-hidden rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
                                     <a href="{{ url('/app/limousine/booking/' . $leg->legable_id) }}" wire:navigate
                                        @click="open = false" class="{{ $item }}">
                                         <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -671,6 +671,28 @@
                                         </svg>
                                         {{ __('Service order (PDF)') }}
                                     </a>
+
+                                    {{-- The booking's invoice and its receipts (newest first),
+                                         each opening its own page. --}}
+                                    @php $docs = $paperwork[$leg->legable_id] ?? ['invoice' => null, 'receipts' => []]; @endphp
+                                    @if ($docs['invoice'])
+                                        <a href="{{ url('/app/limousine/invoice/' . $docs['invoice']['id']) }}" wire:navigate
+                                           @click="open = false" class="{{ $item }}" data-open-invoice>
+                                            <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 14.25h6m-6-4.5h6M7.5 3h9A1.5 1.5 0 0 1 18 4.5v16.5l-3-1.5-3 1.5-3-1.5-3 1.5V4.5A1.5 1.5 0 0 1 7.5 3Z"/>
+                                            </svg>
+                                            <span class="min-w-0 truncate">{{ __('Open invoice') }} <span class="text-chrome-400">{{ $docs['invoice']['reference'] }}</span></span>
+                                        </a>
+                                    @endif
+                                    @foreach (array_slice($docs['receipts'], 0, 5) as $receipt)
+                                        <a href="{{ url('/app/limousine/receipt/' . $receipt['id']) }}" wire:navigate
+                                           @click="open = false" class="{{ $item }}" data-open-receipt>
+                                            <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z"/>
+                                            </svg>
+                                            <span class="min-w-0 truncate">{{ __('Open receipt') }} <span class="text-chrome-400">{{ $receipt['reference'] }} · {{ \App\Erp\Money\Currencies::format($receipt['amount']) }}</span></span>
+                                        </a>
+                                    @endforeach
 
                                     {{-- Online payment link (Wanaan website → Tap). Only when the portal is on. --}}
                                     @if ($portalOn)

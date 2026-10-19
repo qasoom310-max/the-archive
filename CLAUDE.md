@@ -2739,6 +2739,15 @@ the fleet car's MODEL (text before the first `·`, never the plate). The
 combined invoice's PAX falls back to a private customer's own name when blank
 or ".". Tests: `LimoInvoiceChainTest` (+4), `LimoCombinedInvoiceTest` (+3).
 
+**A trip's 3-dot menu opens its invoice and receipts (shipped 2026-10-19).**
+On the bookings list each row's menu has "Open invoice INV/…" (the booking's
+invoice, newest if several) and one "Open receipt RCPT/… · amount" per receipt
+(newest first, up to 5): a receipt belongs to the booking when it names it or
+is written against one of its invoices. Each opens the record's own page and
+shows only to a user with Read on `limousine.invoice` / `limousine.receipt`.
+Loaded for the whole page in two queries (`Bookings::paperwork()`). Menu panel
+widened to `w-64`. Test: `LimoBookingRowPaperworkTest` (3).
+
 **Day pages count the month (shipped 2026-10-19).** On a single-day bookings
 page (the dashboard's Yesterday / Today / Tomorrow cards, From = To) the tab
 counts (All, Queue … Unpaid, Cancelled) are that day's MONTH by pick-up date,

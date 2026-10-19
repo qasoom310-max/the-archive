@@ -1240,6 +1240,75 @@ final class Bookings extends Component
         }
     }
 
+    /**
+     * The month the list is about: a single day's month (the dashboard's
+     * Yesterday / Today / Tomorrow pages), or a From–To that is exactly one
+     * whole month. The tab counts then cover that month, not every trip since
+     * the first booking. Null for any other range or none.
+     */
+    private function listMonth(): ?Carbon
+    {
+        $day = $this->singleDay();
+        if ($day !== null) {
+            return $day->copy()->startOfMonth();
+        }
+
+        try {
+            $from = $this->from !== '' ? Carbon::createFromFormat('Y-m-d', $this->from) : null;
+            $to = $this->to !== '' ? Carbon::createFromFormat('Y-m-d', $this->to) : null;
+        } catch (Throwable) {
+            return null;
+        }
+
+        if ($from === null || $to === null) {
+            return null;
+        }
+
+        $month = $from->copy()->startOfMonth();
+
+        return $from->isSameDay($month) && $to->isSameDay($month->copy()->endOfMonth()) ? $month : null;
+    }
+
+    /** Whether the From–To is one whole month (not a single day). */
+    private function showingMonth(): bool
+    {
+        return $this->singleDay() === null && $this->listMonth() !== null;
+    }
+
+    /**
+     * A tab. On a single-day page the tabs are the month's (their counts say
+     * so), so opening one shows that tab for the whole month of the day.
+     */
+    public function openTab(string $tab): void
+    {
+        if (! in_array($tab, self::VALID_TABS, true)) {
+            return;
+        }
+
+        $day = $this->singleDay();
+        if ($day !== null) {
+            $this->from = $day->copy()->startOfMonth()->toDateString();
+            $this->to = $day->copy()->endOfMonth()->toDateString();
+        }
+
+        $this->tab = $tab;
+        $this->resetPage();
+    }
+
+    /** Step a whole-month list one month back (-1) or forward (+1). */
+    public function shiftMonth(int $months): void
+    {
+        $month = $this->showingMonth() ? $this->listMonth() : null;
+        if ($month === null) {
+            return;
+        }
+
+        $month = $month->copy()->addMonthsNoOverflow($months > 0 ? 1 : -1);
+        $this->from = $month->toDateString();
+        $this->to = $month->copy()->endOfMonth()->toDateString();
+        $this->resetPage();
+    }
+
     /** Step a single-day list one day back (-1) or forward (+1). */
     public function shiftDay(int $days): void
     {
@@ -1294,6 +1363,26 @@ final class Bookings extends Component
     }
 
     /**
+     * The page title for a whole month (opened from a day page's tabs), and the
+     * months either side for the arrows. Null unless the list is one month.
+     *
+     * @return array{title: string, previous: string, next: string}|null
+     */
+    private function monthHeader(): ?array
+    {
+        $month = $this->showingMonth() ? $this->listMonth() : null;
+        if ($month === null) {
+            return null;
+        }
+
+        return [
+            'title' => __('Bookings for :month', ['month' => $month->isoFormat('MMMM YYYY')]),
+            'previous' => $month->copy()->subMonthNoOverflow()->isoFormat('MMMM YYYY'),
+            'next' => $month->copy()->addMonthNoOverflow()->isoFormat('MMMM YYYY'),
+        ];
+    }
+
+    /**
      * Sort by a column, or turn it around if it is already the one sorting.
      *
      * First click on a column gives the end of it people actually want: newest
@@ -1339,8 +1428,14 @@ final class Bookings extends Component
         $perPage = in_array($this->perPage, self::PER_PAGE_OPTIONS, true) ? $this->perPage : self::PER_PAGE_DEFAULT;
         $legs = $rows->paginate($this->tab, $this->from, $this->to, $this->search, $perPage, $this->sort, $this->dir);
 
+        // On a day or month page the tab counts are that month's trips, by
+        // pick-up date; elsewhere every trip.
+        $month = $this->listMonth();
+        $monthFrom = $month?->toDateString() ?? '';
+        $monthTo = $month?->copy()->endOfMonth()->toDateString() ?? '';
         $counts = LimoLeg::query()
             ->whereMorphedTo('legable', LimoBooking::class)
+            ->when($month !== null, fn ($q) => $q->whereDate('start_at', '>=', $monthFrom)->whereDate('start_at', '<=', $monthTo))
             ->selectRaw('status, COUNT(*) as aggregate')
             ->groupBy('status')
             ->pluck('aggregate', 'status');
@@ -1381,7 +1476,10 @@ final class Bookings extends Component
                 'search' => $this->search, 'sort' => $this->sort, 'dir' => $this->dir,
             ]),
             'counts' => $counts,
-            'unpaidCount' => $rows->unpaidCount(),
+            'unpaidCount' => $rows->unpaidCount($monthFrom, $monthTo),
+            // "October 2026" over the tabs when their counts are one month's.
+            'countsMonth' => $month?->isoFormat('MMMM YYYY'),
+            'monthHeader' => $this->monthHeader(),
             'perPageOptions' => self::PER_PAGE_OPTIONS,
             'carOptions' => $this->assigningId !== null ? $this->carOptions() : [],
             'driverOptions' => $this->assigningId !== null ? $this->driverOptions() : [],

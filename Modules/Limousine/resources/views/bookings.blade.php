@@ -7,10 +7,11 @@
     // Whether the online payment portal is switched on — read once for the whole
     // page so the per-row "payment link" button doesn't re-query per trip.
     $portalOn = $this->portalEnabled();
+    $pageTitle = $dayHeader['title'] ?? $monthHeader['title'] ?? __('Bookings');
 @endphp
 
 <div class="mx-auto w-full p-4 sm:p-6">
-    <x-page-header :title="$dayHeader['title'] ?? __('Bookings')" :subtitle="__('Trip bookings.')" icon="calendar" accent="indigo">
+    <x-page-header :title="$pageTitle" :subtitle="__('Trip bookings.')" icon="calendar" accent="indigo">
         <x-slot:actions>
             @if ($canManage)
                 <button type="button" onclick="document.getElementById('import-bookings').classList.toggle('hidden')" class="o-btn-ghost">{{ __('Import') }}</button>
@@ -38,6 +39,22 @@
                     class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-indigo-700 ring-1 ring-indigo-100 transition hover:bg-indigo-50"
                     aria-label="{{ __('Next day') }}">
                 {{ $dayHeader['next'] }}
+                <svg class="size-5 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clip-rule="evenodd"/></svg>
+            </button>
+        </div>
+    @elseif ($monthHeader)
+        {{-- A whole month (a tab opened from a day page): step a month. --}}
+        <div class="-mt-2 mb-4 flex items-center justify-between gap-2" data-month-nav>
+            <button type="button" wire:click="shiftMonth(-1)"
+                    class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-indigo-700 ring-1 ring-indigo-100 transition hover:bg-indigo-50"
+                    aria-label="{{ __('Previous month') }}">
+                <svg class="size-5 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clip-rule="evenodd"/></svg>
+                {{ $monthHeader['previous'] }}
+            </button>
+            <button type="button" wire:click="shiftMonth(1)"
+                    class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-indigo-700 ring-1 ring-indigo-100 transition hover:bg-indigo-50"
+                    aria-label="{{ __('Next month') }}">
+                {{ $monthHeader['next'] }}
                 <svg class="size-5 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clip-rule="evenodd"/></svg>
             </button>
         </div>
@@ -170,6 +187,9 @@
             'cancelled' => __('Cancelled'),
         ];
     @endphp
+    @if ($countsMonth)
+        <p class="mb-1 text-xs text-chrome-500" data-counts-month>{{ __('Counts for :month', ['month' => $countsMonth]) }}</p>
+    @endif
     <div class="mb-4 flex flex-wrap items-center gap-1 border-b border-chrome-200">
         @foreach ($tabs as $key => $label)
             @php $n = match ($key) {
@@ -178,7 +198,7 @@
                 'all' => (int) $counts->except('cancelled')->sum(),
                 default => (int) $counts->get($key, 0),
             }; @endphp
-            <button wire:click="$set('tab', '{{ $key }}')"
+            <button wire:click="openTab('{{ $key }}')"
                 class="-mb-px flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium {{ $tab === $key ? 'border-primary-600 text-primary-700' : 'border-transparent text-chrome-800 hover:text-chrome-900' }}">
                 {{ $label }}
                 <span class="rounded-full bg-chrome-100 px-1.5 text-[11px] text-chrome-700">{{ $n }}</span>

@@ -2739,6 +2739,18 @@ the fleet car's MODEL (text before the first `·`, never the plate). The
 combined invoice's PAX falls back to a private customer's own name when blank
 or ".". Tests: `LimoInvoiceChainTest` (+4), `LimoCombinedInvoiceTest` (+3).
 
+**Day pages count the month (shipped 2026-10-19).** On a single-day bookings
+page (the dashboard's Yesterday / Today / Tomorrow cards, From = To) the tab
+counts (All, Queue … Unpaid, Cancelled) are that day's MONTH by pick-up date,
+captioned "Counts for October 2026", not every trip since the first booking.
+Tabs call `Bookings::openTab()`: on a day page it also widens From–To to the
+whole month, so the tab lists what its count says; elsewhere it only switches
+the tab. A From–To that is exactly one month gets the title "Bookings for
+October 2026" with ‹ › month arrows (`shiftMonth()`) and month counts too
+(`listMonth()`, `monthHeader()`). `LimoQueueRows::unpaidCount($from, $to)`
+takes the same bounds. Any other range, or none, counts everything as before.
+Test: `LimoBookingsMonthTest` (5).
+
 **A part-paid booking reads PARTIAL PAID, never paid (fixed 2026-10-18).** The
 stored `limo_bookings.payment_status` is still only paid / unpaid, and several
 paths set "paid" without checking the balance (a fully paid invoice whose

@@ -211,10 +211,17 @@ final class LimoQueueRows
     }
 
     /** How many trips are waiting to be paid for — the tab's badge. */
-    public function unpaidCount(): int
+    public function unpaidCount(string $from = '', string $to = ''): int
     {
         $query = LimoLeg::query()->whereMorphedTo('legable', LimoBooking::class);
         $this->onlyUnpaid($query);
+        // Bounded by pick-up date, like the list (a day or month page).
+        if ($from !== '') {
+            $query->whereDate('start_at', '>=', $from);
+        }
+        if ($to !== '') {
+            $query->whereDate('start_at', '<=', $to);
+        }
 
         return $query->count();
     }

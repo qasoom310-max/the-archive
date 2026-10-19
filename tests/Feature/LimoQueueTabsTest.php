@@ -56,7 +56,7 @@ final class LimoQueueTabsTest extends TestCase
             ->assertSee(__('Queue'))
             ->assertSee(__('Completed'))
             ->assertSee(__('Cancelled'))
-            ->assertSeeHtml("\$set('tab', 'all')");
+            ->assertSeeHtml("openTab('all')");
     }
 
     public function test_all_lists_every_trip_but_the_cancelled_ones_and_counts_them(): void
@@ -73,7 +73,7 @@ final class LimoQueueTabsTest extends TestCase
 
         // The number on the tab matches the rows under it.
         $this->assertMatchesRegularExpression(
-            "/\\\$set\('tab', 'all'\)\"[^>]*>\s*" . preg_quote(__('All'), '/') . "\s*<span[^>]*>3<\/span>/",
+            "/openTab\('all'\)\"[^>]*>\s*" . preg_quote(__('All'), '/') . "\s*<span[^>]*>3<\/span>/",
             $page->html(),
         );
     }

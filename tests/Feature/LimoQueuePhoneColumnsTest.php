@@ -255,6 +255,27 @@ final class LimoQueuePhoneColumnsTest extends TestCase
      * Who took the booking is asked for across the desk all day, and it was
      * waiting for a laptop. It reads on a phone now, heading and value both.
      */
+    /**
+     * When the booking was taken reads beside who took it, on a phone too.
+     * Only the screen moves it: the export keeps the service's order.
+     */
+    public function test_booked_time_reads_on_a_phone_right_after_added_by(): void
+    {
+        $this->trip();
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        $heading = $this->cellAround($html, 'Sort by Booked time');
+        $this->assertStringNotContainsString('hidden', $heading, 'The Booked time heading is still hidden on a phone.');
+        $this->assertMatchesRegularExpression('/<td class="whitespace-nowrap px-2 py-2 text-chrome-900" data-booked-time>/', $html);
+
+        $this->assertLessThan(strpos($html, 'Sort by Booked time'), strpos($html, 'Sort by Added by'));
+        $this->assertLessThan(strpos($html, 'Sort by Comments'), strpos($html, 'Sort by Booked time'));
+
+        $keys = array_keys(app(LimoQueueRows::class)->headings());
+        $this->assertSame(array_search('comments', $keys, true) + 1, array_search('booked_time', $keys, true));
+    }
+
     public function test_added_by_reads_on_a_phone(): void
     {
         $this->trip();

@@ -311,8 +311,9 @@
             'vehicle' => '',
             'driver' => 'hidden lg:table-cell',
             'added_by' => '',
+            // Beside Added by, on a phone too: who took the booking and when.
+            'booked_time' => '',
             'comments' => 'hidden lg:table-cell',
-            'booked_time' => 'hidden lg:table-cell',
             'status' => 'hidden md:table-cell',
             'payment' => '',
         ];
@@ -323,6 +324,11 @@
         // back. Taken from the service rather than retyped, so a column added
         // there appears here too and the exports cannot disagree with the screen.
         $order = array_keys($headings);
+
+        // On screen only, Booked time sits right after Added by. The exports
+        // keep the service's order, which the office's spreadsheets expect.
+        $order = array_values(array_diff($order, ['booked_time']));
+        array_splice($order, (int) array_search('added_by', $order, true) + 1, 0, ['booked_time']);
     @endphp
     <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
         <table id="limo-queue" class="w-full table-auto divide-y divide-chrome-100 text-xs">
@@ -516,8 +522,8 @@
                             @endif
                         </td>
                         <td class="px-2 py-2 text-chrome-900">{{ $row['added_by'] ?: '—' }}</td>
+                        <td class="whitespace-nowrap px-2 py-2 text-chrome-900" data-booked-time>{{ $row['booked_time'] ?: '—' }}</td>
                         <td class="hidden max-w-[16rem] px-2 py-2 text-chrome-900 lg:table-cell">{{ $row['comments'] ?: '—' }}</td>
-                        <td class="hidden px-2 py-2 text-chrome-900 lg:table-cell">{{ $row['booked_time'] ?: '—' }}</td>
                         <td class="px-2 py-2">
                             <span class="whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ \Modules\Limousine\Models\LimoBooking::paymentBadgeClass($row['payment']) }}" data-payment-state="{{ $row['payment'] }}">{{ \Modules\Limousine\Models\LimoBooking::paymentLabel($row['payment']) }}</span>
                             {{-- Taking money is a booking-level act, so it is offered

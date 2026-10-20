@@ -50,6 +50,10 @@
         }
         table.items th.num, table.items td.num { text-align: right; }
         table.items td { padding: 9px 6px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+        table.items td.trips { font-size: 9.5px; color: #374151; }
+        table.items .trip + .trip { margin-top: 7px; padding-top: 7px; border-top: 1px dashed #e5e7eb; }
+        table.items .trip b { color: #111827; }
+        table.items .trip-car { color: #6b7280; }
 
         table.summary { width: 240px; margin-top: 12px; }
         table.summary td { padding: 5px 0; font-size: 10px; }
@@ -130,15 +134,29 @@
     <table class="items">
         <thead>
             <tr>
-                <th style="width:100px">{{ __('Date') }}</th>
-                <th>{{ __('Paid by') }}</th>
-                <th class="num" style="width:110px">{{ __('Amount') }}</th>
+                <th style="width:80px">{{ __('Date') }}</th>
+                <th style="width:70px">{{ __('Paid by') }}</th>
+                {{-- What the money was for, trip by trip, so the customer can
+                     tie the payment to the journey without the invoice. --}}
+                <th>{{ __('Trip details') }}</th>
+                <th class="num" style="width:90px">{{ __('Amount') }}</th>
             </tr>
         </thead>
         <tbody>
             <tr>
                 <td>{{ $date }}</td>
                 <td>{{ $method }}</td>
+                <td class="trips">
+                    @forelse ($trips as $trip)
+                        <div class="trip">
+                            <b>@if ($trip['reference'] !== '')#{{ $trip['reference'] }}@endif{{ $trip['reference'] !== '' && $trip['when'] !== '' ? ' · ' : '' }}{{ $trip['when'] }}</b>
+                            @if ($trip['route'] !== '')<div>{{ $trip['route'] }}</div>@endif
+                            @if ($trip['car'] !== '')<div class="trip-car">{{ $trip['car'] }}</div>@endif
+                        </div>
+                    @empty
+                        —
+                    @endforelse
+                </td>
                 <td class="num">{{ \App\Erp\Views\ValueFormat::money($amount) }}</td>
             </tr>
         </tbody>

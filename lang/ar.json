@@ -3197,5 +3197,7 @@
     "Open the booking": "فتح الحجز",
     "Create limousine booking": "إنشاء حجز ليموزين",
     "Website total": "الإجمالي في الموقع",
-    "Not paid": "غير مدفوع"
+    "Not paid": "غير مدفوع",
+    ":hours hours": ":hours ساعات",
+    "from": "من"
 }

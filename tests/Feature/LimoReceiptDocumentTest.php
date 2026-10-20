@@ -15,6 +15,7 @@ use Modules\Limousine\Livewire\Receipts;
 use Modules\Limousine\Mail\ReceiptMail;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
+use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Models\LimoReceipt;
 use Modules\Limousine\Services\LimoReceiptPdf;
 use Tests\TestCase;
@@ -112,6 +113,49 @@ final class LimoReceiptDocumentTest extends TestCase
         // The sign-off row keeps its three even columns regardless — the
         // third simply prints nothing rather than reflowing the layout.
         $this->assertStringContainsString('width:33%', $html);
+    }
+
+    public function test_the_receipt_lists_the_trips_it_paid_for(): void
+    {
+        $receipt = $this->receipt();
+        $booking = LimoBooking::query()->findOrFail($receipt->booking_id);
+        $legs = [
+            ['from_location' => 'Bahrain Airport', 'to_location' => 'Juffair', 'start_at' => '2026-10-24 18:30:00', 'vehicle_details' => 'Sedan', 'status' => LimoLeg::STATUS_QUEUE],
+            ['service_type' => LimoLeg::TYPE_CHAUFFEUR, 'from_location' => 'Seef', 'hours' => 4, 'start_at' => '2026-10-25 09:00:00', 'vehicle_details' => 'SUV', 'status' => LimoLeg::STATUS_QUEUE],
+            ['from_location' => 'Cancelled place', 'to_location' => 'Nowhere', 'start_at' => '2026-10-26 09:00:00', 'status' => LimoLeg::STATUS_CANCELLED],
+        ];
+        foreach ($legs as $i => $leg) {
+            $booking->legs()->create($leg + ['sequence' => $i, 'rate' => 20, 'net_amount' => 20]);
+        }
+
+        $trips = app(LimoReceiptPdf::class)->viewData($receipt->fresh())['trips'];
+
+        $this->assertCount(2, $trips, 'A cancelled, unbilled trip is not on the receipt.');
+        $this->assertSame('24-Oct-2026 6:30 PM', $trips[0]['when']);
+        $this->assertSame('Bahrain Airport → Juffair', $trips[0]['route']);
+        $this->assertSame('Sedan', $trips[0]['car']);
+        $this->assertSame('Chauffeur · 4 hours · from Seef', $trips[1]['route']);
+
+        $html = view('limousine::receipt-pdf', app(LimoReceiptPdf::class)->viewData($receipt->fresh()))->render();
+        $this->assertStringContainsString('Trip details', $html);
+        $this->assertStringContainsString('#' . $booking->legs()->orderBy('sequence')->value('reference'), $html);
+        $this->assertStringContainsString('Bahrain Airport → Juffair', $html);
+        $this->assertStringNotContainsString('Cancelled place', $html);
+    }
+
+    public function test_a_receipt_against_an_invoice_lists_that_bookings_trips(): void
+    {
+        $receipt = $this->receipt();
+        $booking = LimoBooking::query()->findOrFail($receipt->booking_id);
+        $booking->legs()->create(['sequence' => 0, 'from_location' => 'Hotel', 'to_location' => 'Airport', 'rate' => 20, 'net_amount' => 20, 'status' => LimoLeg::STATUS_QUEUE]);
+        $invoice = \Modules\Limousine\Models\LimoInvoice::query()->create([
+            'booking_id' => $booking->id, 'customer_id' => $receipt->customer_id, 'issue_date' => now(), 'total' => 20,
+        ]);
+        $receipt->forceFill(['booking_id' => null, 'invoice_id' => $invoice->id])->save();
+
+        $trips = app(LimoReceiptPdf::class)->viewData($receipt->fresh())['trips'];
+
+        $this->assertSame('Hotel → Airport', $trips[0]['route']);
     }
 
     public function test_the_document_shows_the_booking_number_as_its_own_field(): void

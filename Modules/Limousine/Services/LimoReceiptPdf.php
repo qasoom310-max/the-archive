@@ -7,6 +7,8 @@ namespace Modules\Limousine\Services;
 use App\Erp\Settings\Setting;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
+use Modules\Limousine\Models\LimoBooking;
+use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Models\LimoReceipt;
 
 /**
@@ -45,6 +47,7 @@ final class LimoReceiptPdf
             // invoice tells the customer nothing they can match to a journey.
             'bookingReference' => (string) ($receipt->booking->reference ?? ''),
             'invoiceReference' => (string) ($receipt->invoice->reference ?? ''),
+            'trips' => $this->trips($receipt),
             'amount' => $amount,
             'balance' => $balance,
             'method' => __(ucfirst((string) $receipt->method)),
@@ -59,6 +62,46 @@ final class LimoReceiptPdf
             'logoPath' => $this->logoPath(),
             'logoScale' => $this->logoScale(),
         ];
+    }
+
+    /**
+     * The trips the money was paid for: the receipt's booking, or else the
+     * booking of the invoice it was written against. Cancelled trips that are
+     * not billed are left out, as on the invoice.
+     *
+     * @return list<array{reference: string, when: string, route: string, car: string}>
+     */
+    private function trips(LimoReceipt $receipt): array
+    {
+        $booking = $receipt->booking ?? $receipt->invoice?->booking;
+        if (! $booking instanceof LimoBooking) {
+            return [];
+        }
+
+        return $booking->legs()->orderBy('sequence')->get()
+            ->filter(static fn (LimoLeg $leg): bool => $leg->isBillable())
+            ->map(static function (LimoLeg $leg) use ($booking): array {
+                $chauffeur = $leg->service_type === LimoLeg::TYPE_CHAUFFEUR;
+                $from = trim((string) $leg->from_location);
+                $to = trim((string) $leg->to_location);
+
+                if ($chauffeur) {
+                    $hours = $leg->hours !== null ? rtrim(rtrim(number_format((float) $leg->hours, 2, '.', ''), '0'), '.') : '';
+                    $route = trim(__('Chauffeur') . ($hours !== '' ? ' · ' . __(':hours hours', ['hours' => $hours]) : '')
+                        . ($from !== '' ? ' · ' . __('from') . ' ' . $from : ''));
+                } else {
+                    $route = $from !== '' || $to !== '' ? ($from !== '' ? $from : '—') . ' → ' . ($to !== '' ? $to : '—') : '';
+                }
+
+                return [
+                    'reference' => (string) ($leg->reference ?? ''),
+                    'when' => $leg->start_at?->format('j-M-Y g:i A') ?? '',
+                    'route' => $route,
+                    'car' => $leg->billedVehicle($booking),
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /** Rendered PDF bytes. */

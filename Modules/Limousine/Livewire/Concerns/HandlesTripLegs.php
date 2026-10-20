@@ -598,6 +598,10 @@ trait HandlesTripLegs
                 'status' => $parent instanceof LimoBooking ? LimoLeg::STATUS_QUEUE : null,
             ]);
             $keptIds[] = $created->id;
+
+            // The form now holds this trip, so saving again updates it
+            // instead of adding the same trip a second time.
+            $this->legs[$i]['id'] = (string) $created->id;
         }
 
         // Only legs genuinely taken off the form are removed.

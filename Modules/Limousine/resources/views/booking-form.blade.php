@@ -214,7 +214,7 @@
             <div class="flex items-center justify-between rounded-lg bg-primary-50 px-3 py-2"><dt class="font-semibold text-primary-800">{{ __('Balance') }}</dt><dd class="text-base font-bold text-primary-700">{{ \App\Erp\Views\ValueFormat::money($balance) }}</dd></div>
         </dl>
 
-        <button wire:click="save" class="o-btn-primary mt-4 w-full justify-center py-2.5">
+        <button wire:click="save" wire:loading.attr="disabled" wire:target="save" class="o-btn-primary mt-4 w-full justify-center py-2.5 disabled:opacity-60">
             <span wire:loading.remove wire:target="save">{{ $isEditing ? __('Save booking') : __('Add record') }}</span>
             <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
         </button>

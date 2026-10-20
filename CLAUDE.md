@@ -2739,6 +2739,16 @@ the fleet car's MODEL (text before the first `·`, never the plate). The
 combined invoice's PAX falls back to a private customer's own name when blank
 or ".". Tests: `LimoInvoiceChainTest` (+4), `LimoCombinedInvoiceTest` (+3).
 
+**A new booking saved twice no longer makes two (fixed 2026-10-20).** The
+booking and quotation forms never stored the new record's id (nor each new
+trip's id) after the first save, so a second save from the same page (a double
+press, or going back to the form after saving) created another booking with
+its own trip and invoice. `BookingForm::save()` / `QuotationForm::save()` now
+set `$this->id` right after the first save, `HandlesTripLegs::persistLegs()`
+writes each created trip's id back into `$this->legs`, and both Save buttons
+are `wire:loading.attr="disabled"`. Editing an existing booking was always in
+place. Test: `LimoBookingNoDuplicateTest` (5).
+
 **Website bookings: car hire vs limousine (shipped 2026-10-19).** The website
 (plugin `wp-plugin/wanaan-web-booking`, live since 2026-10-19, replacing
 woocom-integ-wanaan) posts to `/rental/web-booking`; rows land in

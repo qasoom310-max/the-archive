@@ -136,7 +136,7 @@
             <span class="text-sm font-semibold text-chrome-700">{{ __('Grand total') }} <span class="text-chrome-400">· {{ count($legs) }} {{ __('leg(s)') }}</span></span>
             <span class="text-2xl font-bold text-chrome-900">{{ \App\Erp\Views\ValueFormat::money($grandTotal) }}</span>
         </div>
-        <button wire:click="save" class="o-btn-primary mt-4 w-full justify-center py-2.5">
+        <button wire:click="save" wire:loading.attr="disabled" wire:target="save" class="o-btn-primary mt-4 w-full justify-center py-2.5 disabled:opacity-60">
             <span wire:loading.remove wire:target="save">{{ $isEditing ? __('Save quotation') : __('Add record') }}</span>
             <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
         </button>

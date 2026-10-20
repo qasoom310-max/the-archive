@@ -309,6 +309,11 @@ final class QuotationForm extends Component
         $quote->fare = $this->grandTotal();
         $quote->save();
 
+        // From here this form IS that quotation: a second save from the same
+        // page (a double press, or going back to it) must change it, not add
+        // another one beside it.
+        $this->id = (int) $quote->id;
+
         $this->persistLegs($quote);
 
         if ($isNew) {

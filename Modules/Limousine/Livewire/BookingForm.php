@@ -333,6 +333,13 @@ final class BookingForm extends Component
         $booking->car_type = null; // the car now lives on each leg
         $booking->save();
 
+        // From here this form IS that booking: a second save from the same
+        // page (a double press, or going back to it and changing something)
+        // must change it, never make a second booking with its own trip and
+        // invoice beside the first.
+        $this->id = (int) $booking->id;
+        $this->reference = (string) ($booking->reference ?? '');
+
         $this->persistLegs($booking); // updates legs + sets fare/amount = grand total
 
         // After the legs have priced the job, decide the payment flag from the

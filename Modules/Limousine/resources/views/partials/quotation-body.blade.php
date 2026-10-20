@@ -70,6 +70,10 @@
 
     @php
         $hasVehicle = collect($lines)->contains(fn (array $line): bool => trim((string) $line['vehicle']) !== '');
+        // Hours a day only matter to a chauffeur job; a quote of transfers alone
+        // prints no empty column for them.
+        $hasHours = collect($lines)->contains(fn (array $line): bool => ($line['hours'] ?? null) !== null);
+        $qty = static fn (float $n): string => rtrim(rtrim(number_format($n, 1), '0'), '.');
     @endphp
     <table class="items">
         <thead>
@@ -81,6 +85,9 @@
                 @endif
                 <th>{{ __('From') }}</th>
                 <th>{{ __('To') }}</th>
+                @if ($hasHours)
+                    <th class="num" style="width:46px">{{ __('Hours/Day') }}</th>
+                @endif
                 <th class="num" style="width:56px">{{ __('Days/Trips') }}</th>
                 <th class="num" style="width:40px">{{ __('Unit') }}</th>
                 <th class="num" style="width:72px">{{ __('Rate per Unit') }}</th>
@@ -97,15 +104,18 @@
                     @endif
                     <td>{{ $line['from'] }}</td>
                     <td>{{ $line['to'] }}</td>
-                    <td class="num">{{ rtrim(rtrim(number_format((float) $line['daysTrips'], 1), '0'), '.') }}</td>
-                    <td class="num">{{ rtrim(rtrim(number_format((float) $line['unit'], 1), '0'), '.') }}</td>
+                    @if ($hasHours)
+                        <td class="num">{{ ($line['hours'] ?? null) !== null ? $qty((float) $line['hours']) : '—' }}</td>
+                    @endif
+                    <td class="num">{{ $qty((float) $line['daysTrips']) }}</td>
+                    <td class="num">{{ $qty((float) $line['unit']) }}</td>
                     <td class="num">{{ \App\Erp\Views\ValueFormat::money($line['rate']) }}</td>
                     <td class="num">{{ \App\Erp\Views\ValueFormat::money($line['amount']) }}</td>
                 </tr>
             @empty
                 <tr>
                     <td>1</td>
-                    <td colspan="{{ $hasVehicle ? 6 : 5 }}">{{ __('Limousine services') }}</td>
+                    <td colspan="{{ 6 + ($hasVehicle ? 1 : 0) + ($hasHours ? 1 : 0) }}">{{ __('Limousine services') }}</td>
                     <td class="num">{{ \App\Erp\Views\ValueFormat::money($subtotal) }}</td>
                 </tr>
             @endforelse

@@ -127,19 +127,23 @@ final class QuotationPdf
      */
     private function legRow(LimoLeg $leg, string $fallbackType = ''): array
     {
-        // Rate × Unit × Days/Trips reproduces LimoLeg::grossFor() for every
-        // basis: per-trip is 1×1×rate (flat), per-day is 1×days×rate, and
-        // per-hour is hours×days×rate — so the printed columns multiply out
-        // to the same figure the booking is actually priced by.
-        $unit = $leg->rate_basis === LimoLeg::BASIS_HOUR ? (float) ($leg->hours ?? 0) : 1.0;
+        // The printed columns multiply out to LimoLeg::grossFor() for every
+        // basis: per-trip is rate × units, per-day rate × days × units, and
+        // per-hour rate × hours × days × units. Unit is the number of cars.
+        // Hours/Day is printed for any chauffeur trip (what the customer gets
+        // each day) but only counts in the sum when the rate is per hour.
         $daysTrips = $leg->rate_basis === LimoLeg::BASIS_TRIP ? 1 : $leg->days;
+        $hours = $leg->hours !== null && (float) $leg->hours > 0
+            && ($leg->rate_basis === LimoLeg::BASIS_HOUR || $leg->service_type === LimoLeg::TYPE_CHAUFFEUR)
+            ? (float) $leg->hours : null;
 
         return [
             'service' => __(ucfirst(str_replace('_', ' ', $leg->service_type))),
             'vehicle' => $this->vehicleLabel($leg, $fallbackType),
             'from' => (string) ($leg->from_location ?? ''),
             'to' => (string) ($leg->to_location ?? ''),
-            'unit' => $unit,
+            'hours' => $hours,
+            'unit' => max(1, (int) ($leg->units ?? 1)),
             'daysTrips' => $daysTrips,
             'rate' => round((float) $leg->rate, 3),
             'amount' => LimoLeg::grossFor($leg->rate_basis, (float) $leg->rate, $leg->hours, $leg->days, $leg->units),

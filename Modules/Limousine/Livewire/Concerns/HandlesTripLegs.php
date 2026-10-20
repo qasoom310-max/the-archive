@@ -44,7 +44,7 @@ trait HandlesTripLegs
             'car_id' => '',
             'from_country' => LimoLocation::DEFAULT_COUNTRY, 'from_location' => '', 'from_location_url' => '',
             'to_country' => LimoLocation::DEFAULT_COUNTRY, 'to_location' => '', 'to_location_url' => '', 'start_at' => '',
-            'hours' => '', 'days' => '1', 'car_details' => '',
+            'hours' => '', 'estimated_hours' => '', 'days' => '1', 'car_details' => '',
             'rate' => '', 'currency' => LimoLeg::DEFAULT_CURRENCY, 'quote_rate' => '', 'exchange_rate' => '',
             'rate_basis' => LimoLeg::BASIS_TRIP, 'discount' => '', 'vat' => '',
         ];
@@ -336,6 +336,7 @@ trait HandlesTripLegs
             'to_location_url' => $l->to_location_url ?? '',
             'start_at' => $l->start_at?->format('Y-m-d\TH:i') ?? '',
             'hours' => $l->hours !== null ? (string) $l->hours : '',
+            'estimated_hours' => $l->estimated_hours !== null ? (string) $l->estimated_hours : '',
             'days' => (string) $l->days,
             // A trip brought over from the old system recorded the car it was
             // booked for in `vehicle`, not `vehicle_details` — so fall back to
@@ -377,6 +378,10 @@ trait HandlesTripLegs
             $rules["legs.$i.from_location_url"] = ['nullable', 'url', 'max:500'];
             $rules["legs.$i.to_location_url"] = ['nullable', 'url', 'max:500'];
             $rules["legs.$i.start_at"] = ['required', 'date'];
+            // How long the journey takes, in whole hours. It is a note about
+            // the trip, never a multiplier: `hours` is what an hourly job is
+            // priced by, and the two must not be confused.
+            $rules["legs.$i.estimated_hours"] = ['nullable', 'integer', 'min:1', 'max:'.LimoLeg::MAX_ESTIMATED_HOURS];
             // The car itself is picked at dispatch, so on a booking this line
             // is what says which car was asked for — the office needs it on
             // every trip. A quotation prices a service, not a named car, so
@@ -545,6 +550,12 @@ trait HandlesTripLegs
 
             $hours = $wantsHours && ($leg['hours'] ?? '') !== '' ? (float) $leg['hours'] : null;
             $days = $wantsDays ? max(1, (int) (($leg['days'] ?? '') === '' ? '1' : $leg['days'])) : 1;
+            // A chauffeur job is already measured in hours a day, so the
+            // estimate belongs to a point-to-point trip only — and is clamped
+            // to the range the box offers, whatever the browser sends.
+            $estimated = ! $chauffeur && ($leg['estimated_hours'] ?? '') !== ''
+                ? min(LimoLeg::MAX_ESTIMATED_HOURS, max(1, (int) $leg['estimated_hours']))
+                : null;
             $discount = (float) ($leg['discount'] === '' ? '0' : $leg['discount']);
             $vat = (float) ($leg['vat'] === '' ? '0' : $leg['vat']);
             $carId = ($leg['car_id'] ?? '') !== '' ? (int) $leg['car_id'] : null;
@@ -560,6 +571,7 @@ trait HandlesTripLegs
                 'to_location_url' => $chauffeur ? null : $this->blankToNull($leg['to_location_url'] ?? ''),
                 'start_at' => ($leg['start_at'] ?? '') !== '' ? Carbon::parse($leg['start_at']) : null,
                 'hours' => $hours,
+                'estimated_hours' => $estimated,
                 'days' => $days,
                 'units' => $this->legUnits(),
                 'vehicle_details' => $this->blankToNull($leg['car_details'] ?? ''),

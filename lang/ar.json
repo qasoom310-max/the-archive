@@ -3200,5 +3200,8 @@
     "Not paid": "غير مدفوع",
     ":hours hours": ":hours ساعات",
     "from": "من",
-    "Hours/Day": "ساعات/اليوم"
+    "Hours/Day": "ساعات/اليوم",
+    "Estimated time": "الوقت المقدر",
+    "1 hour": "ساعة واحدة",
+    "Arrives about :time": "الوصول تقريبًا :time"
 }

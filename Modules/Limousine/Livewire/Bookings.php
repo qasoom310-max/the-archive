@@ -932,6 +932,10 @@ final class Bookings extends Component
             'to_location_url' => $chauffeur ? null : $blank('to_location_url'),
             'start_at' => Carbon::parse((string) $this->editLeg['start_at']),
             'hours' => $hours,
+            // The estimate is not edited here, but the rule it follows still
+            // holds: a chauffeur job is measured in hours a day, so switching
+            // a trip to one leaves no journey estimate behind.
+            'estimated_hours' => $chauffeur ? null : $leg->estimated_hours,
             'days' => $days,
             'rate' => $rate,
             'rate_basis' => $basis,

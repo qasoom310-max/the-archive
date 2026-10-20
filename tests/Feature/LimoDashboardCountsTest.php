@@ -110,4 +110,22 @@ final class LimoDashboardCountsTest extends TestCase
             ->assertSeeHtml('href="' . url('/app/limousine/booking') . '?tab=active" wire:navigate data-glance-link')
             ->assertSeeHtml('href="' . url('/app/limousine/booking') . '?tab=all&amp;from=' . $today . '&amp;to=' . $today . '" wire:navigate data-glance-link');
     }
+
+    /** On a phone the top boxes are Yesterday / Today / Tomorrow instead. */
+    public function test_a_phone_sees_yesterday_today_and_tomorrow(): void
+    {
+        $day = static fn (string $date): string => 'href="' . url('/app/limousine/booking') . '?tab=all&amp;from=' . $date . '&amp;to=' . $date . '" wire:navigate data-glance-link';
+        $html = Livewire::test(LimoHome::class)->html();
+
+        $this->assertMatchesRegularExpression('/class="mt-5 grid sm:hidden [^"]*" data-glance="phone"/', $html);
+        $this->assertMatchesRegularExpression('/class="mt-5 hidden sm:grid [^"]*" data-glance="wide"/', $html);
+
+        $phone = (string) strstr((string) strstr($html, 'data-glance="phone"'), 'data-glance="wide"', true);
+        $this->assertStringContainsString($day(now()->subDay()->toDateString()), $phone);
+        $this->assertStringContainsString($day(now()->toDateString()), $phone);
+        $this->assertStringContainsString($day(now()->addDay()->toDateString()), $phone);
+        $this->assertStringContainsString('Yesterday', $phone);
+        $this->assertStringContainsString('Tomorrow', $phone);
+        $this->assertStringNotContainsString('In queue', $phone);
+    }
 }

@@ -27,26 +27,38 @@
                 <h1 class="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">{{ __('Limousine') }}</h1>
                 <p class="mt-1 text-sm text-white/55">{{ __('Bookings, trips & revenue at a glance.') }}</p>
 
-                <div class="mt-5 grid max-w-md grid-cols-3 gap-3">
-                    @php
-                        // Each box opens the list its number counts — the same
-                        // links as the cards below, so the two always agree.
-                        $glance = [
+                @php
+                    // Each box opens the list its number counts — the same links
+                    // as the cards below, so the two always agree.
+                    $dayLink = static fn (string $date): string => url('/app/limousine/booking') . '?tab=all&from=' . $date . '&to=' . $date;
+                    $glanceSets = [
+                        // On a phone the day cards further down are a long scroll
+                        // away, so the hero shows the three days instead.
+                        'phone' => ['grid sm:hidden', [
+                            ['label' => __('Yesterday'), 'value' => $yesterdayCount, 'dot' => 'bg-slate-400', 'href' => $dayLink($yesterdayDate)],
+                            ['label' => __('Today'), 'value' => $todayCount, 'dot' => 'bg-emerald-400', 'href' => $dayLink($todayDate)],
+                            ['label' => __('Tomorrow'), 'value' => $tomorrowCount, 'dot' => 'bg-sky-400', 'href' => $dayLink($tomorrowDate)],
+                        ]],
+                        'wide' => ['hidden sm:grid', [
                             ['label' => __('In queue'), 'value' => $queue, 'dot' => 'bg-amber-400', 'href' => url('/app/limousine/booking') . '?tab=queue'],
                             ['label' => __('Active'), 'value' => $active, 'dot' => 'bg-indigo-400', 'href' => url('/app/limousine/booking') . '?tab=active'],
-                            ['label' => __('Today'), 'value' => $todayCount, 'dot' => 'bg-emerald-400', 'href' => url('/app/limousine/booking') . '?tab=all&from=' . $todayDate . '&to=' . $todayDate],
-                        ];
-                    @endphp
-                    @foreach ($glance as $g)
-                        <a href="{{ $g['href'] }}" wire:navigate data-glance-link
-                           class="block rounded-2xl bg-white/[0.06] px-3 py-2.5 ring-1 ring-white/10 backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/[0.12] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300">
-                            <div class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-white/50">
-                                <span class="size-1.5 rounded-full {{ $g['dot'] }}"></span>{{ $g['label'] }}
-                            </div>
-                            <div class="mt-1 text-2xl font-bold text-white">{{ $g['value'] }}</div>
-                        </a>
-                    @endforeach
-                </div>
+                            ['label' => __('Today'), 'value' => $todayCount, 'dot' => 'bg-emerald-400', 'href' => $dayLink($todayDate)],
+                        ]],
+                    ];
+                @endphp
+                @foreach ($glanceSets as $set => [$visibility, $glance])
+                    <div class="mt-5 {{ $visibility }} max-w-md grid-cols-3 gap-3" data-glance="{{ $set }}">
+                        @foreach ($glance as $g)
+                            <a href="{{ $g['href'] }}" wire:navigate data-glance-link
+                               class="block rounded-2xl bg-white/[0.06] px-3 py-2.5 ring-1 ring-white/10 backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/[0.12] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300">
+                                <div class="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-white/50">
+                                    <span class="size-1.5 rounded-full {{ $g['dot'] }}"></span>{{ $g['label'] }}
+                                </div>
+                                <div class="mt-1 text-2xl font-bold text-white">{{ $g['value'] }}</div>
+                            </a>
+                        @endforeach
+                    </div>
+                @endforeach
             </div>
 
             <div class="flex flex-col items-stretch gap-3 lg:items-end">

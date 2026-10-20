@@ -329,6 +329,14 @@
         // keep the service's order, which the office's spreadsheets expect.
         $order = array_values(array_diff($order, ['booked_time']));
         array_splice($order, (int) array_search('added_by', $order, true) + 1, 0, ['booked_time']);
+
+        // ETA, after the dates, on the tabs where a car is on its way or was:
+        // Queue, Active and Completed. Screen only, like Booked time's place.
+        $showEta = in_array($tab, [\Modules\Limousine\Models\LimoLeg::STATUS_QUEUE, \Modules\Limousine\Models\LimoLeg::STATUS_ACTIVE, \Modules\Limousine\Models\LimoLeg::STATUS_COMPLETED], true);
+        if ($showEta) {
+            $headings['eta'] = __('ETA');
+            array_splice($order, (int) array_search('to_date', $order, true) + 1, 0, ['eta']);
+        }
     @endphp
     <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
         <table id="limo-queue" class="w-full table-auto divide-y divide-chrome-100 text-xs">
@@ -348,6 +356,13 @@
                             // "To date" joins it at sm.
                             $phoneLabel = $key === 'from_date' ? __('Date') : null;
                         @endphp
+                        @if ($key === 'eta')
+                            {{-- Worked out per trip (start + estimated time), not a
+                                 stored column, so it does not sort. --}}
+                            <th class="whitespace-nowrap px-2 py-2 text-start" data-eta-heading
+                                title="{{ __('Estimated time of arrival') }}">{{ $label }}</th>
+                            @continue
+                        @endif
                         <th class="px-2 py-2 {{ $isMoney ? 'text-end' : 'text-start' }} {{ $vis[$key] ?? '' }}"
                             @if ($sorted) aria-sort="{{ $dir === 'asc' ? 'ascending' : 'descending' }}" @endif>
                             <button type="button" wire:click="sortBy('{{ $key }}')"
@@ -438,6 +453,9 @@
                         </td>
                         <td class="px-2 py-2 text-chrome-900">{{ $row['from_date'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 text-chrome-900 sm:table-cell">{{ $row['to_date'] ?: '—' }}</td>
+                        @if ($showEta)
+                            <td class="whitespace-nowrap px-2 py-2 font-medium text-chrome-900" data-eta>{{ $row['eta'] ?: '—' }}</td>
+                        @endif
                         <td class="hidden px-2 py-2 text-chrome-900 sm:table-cell">{{ $row['type'] }}</td>
                         {{-- The name is the way into their account: what they
                              have asked for, what is billed and what is owed.
@@ -763,7 +781,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="19" class="px-4 py-10 text-center text-sm text-chrome-600">{{ __('No bookings found.') }}</td></tr>
+                    <tr><td colspan="{{ 19 + ($showEta ? 1 : 0) }}" class="px-4 py-10 text-center text-sm text-chrome-600">{{ __('No bookings found.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>

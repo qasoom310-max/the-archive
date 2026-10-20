@@ -33,7 +33,7 @@ use Modules\Limousine\Support\LiveEntry;
  *
  * @phpstan-type QueueRow array{
  *     leg_id: int, booking_id: int, reference: string, booking_reference: string,
- *     from_date: string, to_date: string, type: string, customer: string, customer_id: int, contact_phone: string,
+ *     from_date: string, to_date: string, eta: string, type: string, customer: string, customer_id: int, contact_phone: string,
  *     amount: float, received: float, balance: float, pickup: string, dropoff: string,
  *     vehicle: string, vehicle_type: string, driver: string, added_by: string, comments: string, booked_time: string,
  *     status: string, payment: string
@@ -382,6 +382,9 @@ final class LimoQueueRows
             'booking_reference' => (string) ($booking->reference ?? ''),
             'from_date' => $leg->start_at?->isoFormat('DD-MMM-YY HH:mm') ?? '',
             'to_date' => $this->endsAt($leg),
+            // Not a printed column (exports keep their order): the screen
+            // shows it on the Queue, Active and Completed tabs.
+            'eta' => $leg->eta()?->isoFormat('DD-MMM-YY HH:mm') ?? '',
             'type' => $this->tripType($leg, $booking),
             'customer' => (string) ($booking->customer->name ?? ''),
             // Not a printed column — the screen links the name to the

@@ -2739,6 +2739,13 @@ the fleet car's MODEL (text before the first `·`, never the plate). The
 combined invoice's PAX falls back to a private customer's own name when blank
 or ".". Tests: `LimoInvoiceChainTest` (+4), `LimoCombinedInvoiceTest` (+3).
 
+**ETA column on the bookings list (shipped 2026-10-20).** On the Queue,
+Active and Completed tabs only, after To date. `LimoLeg::eta()`: a transfer =
+start + `estimated_hours` (the trip's "Estimated time", null when not set); a
+chauffeur job = start + (days − 1) days + `hours` (when its last day ends).
+Screen only, not sortable (computed per row), not in `headings()` so exports
+keep their columns; the row carries it as `eta`. Test: `LimoBookingEtaTest`.
+
 **A new booking saved twice no longer makes two (fixed 2026-10-20).** The
 booking and quotation forms never stored the new record's id (nor each new
 trip's id) after the first save, so a second save from the same page (a double

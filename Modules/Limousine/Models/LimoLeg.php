@@ -261,6 +261,33 @@ final class LimoLeg extends Model
      * the booking it was paid to, and the coupon carries the customer's half of
      * it. Taking it off the bill as well would give the same money away twice.
      */
+    /**
+     * When the car is expected to arrive, or null when nobody has said.
+     *
+     * A transfer arrives its estimated time after it leaves; with no estimate
+     * there is no ETA (a guess shown as fact is worse than a blank). A
+     * chauffeur job is "arrived" when its last day's hours run out, which is
+     * when the car is free again.
+     */
+    public function eta(): ?Carbon
+    {
+        if ($this->start_at === null) {
+            return null;
+        }
+
+        if ($this->service_type === self::TYPE_CHAUFFEUR) {
+            $hours = (float) ($this->hours ?? 0);
+
+            return $hours > 0
+                ? $this->start_at->copy()->addDays(max(0, $this->days - 1))->addMinutes((int) round($hours * 60))
+                : null;
+        }
+
+        $estimate = (int) ($this->estimated_hours ?? 0);
+
+        return $estimate > 0 ? $this->start_at->copy()->addHours($estimate) : null;
+    }
+
     public function isBillable(): bool
     {
         return $this->status !== self::STATUS_CANCELLED

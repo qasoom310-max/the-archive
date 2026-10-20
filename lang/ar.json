@@ -3203,5 +3203,7 @@
     "Hours/Day": "ساعات/اليوم",
     "Estimated time": "الوقت المقدر",
     "1 hour": "ساعة واحدة",
-    "Arrives about :time": "الوصول تقريبًا :time"
+    "Arrives about :time": "الوصول تقريبًا :time",
+    "ETA": "وقت الوصول المتوقع",
+    "Estimated time of arrival": "الوقت المتوقع للوصول"
 }

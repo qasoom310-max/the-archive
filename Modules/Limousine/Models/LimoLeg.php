@@ -35,6 +35,7 @@ use Illuminate\Support\Facades\Storage;
  * @property string|null $to_location_url    Map pin for the drop-off
  * @property Carbon|null $start_at
  * @property float|null $hours
+ * @property float|null $driver_payment  What a commission driver is paid for this trip (BD)
  * @property int|null $estimated_hours  Roughly how long the journey takes (1-12); informational, never priced
  * @property int $days
  * @property string|null $vehicle
@@ -129,7 +130,7 @@ final class LimoLeg extends Model
     /** @var list<string> */
     protected $fillable = [
         'legable_type', 'legable_id', 'sequence', 'reference', 'status', 'service_type',
-        'car_id', 'driver_id', 'driver', 'from_location', 'from_country', 'from_location_url', 'to_location', 'to_country', 'to_location_url', 'start_at', 'hours', 'estimated_hours', 'days', 'units', 'vehicle',
+        'car_id', 'driver_id', 'driver', 'driver_payment', 'from_location', 'from_country', 'from_location_url', 'to_location', 'to_country', 'to_location_url', 'start_at', 'hours', 'estimated_hours', 'days', 'units', 'vehicle',
         'vehicle_details', 'rate', 'currency', 'quote_rate', 'exchange_rate', 'rate_basis', 'discount', 'vat', 'line_total', 'net_amount', 'notes',
         'signature_path', 'signed_at', 'signed_name', 'signed_ip', 'service_order_sent_at',
         'cancelled_at', 'cancellation_reason', 'refund_outcome', 'refund_amount',
@@ -236,6 +237,7 @@ final class LimoLeg extends Model
             'start_at' => 'datetime',
             'hours' => 'float',
             'estimated_hours' => 'integer',
+            'driver_payment' => 'float',
             'days' => 'integer',
             'units' => 'integer',
             'rate' => 'float',

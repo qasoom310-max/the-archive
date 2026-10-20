@@ -123,6 +123,12 @@ final class Bookings extends Component
     public string $assignDriver = '';
 
     /**
+     * What a COMMISSION driver is paid for the trip, in BD. Only asked for
+     * when the chosen driver is one; a company driver is on a salary.
+     */
+    public string $assignDriverPay = '';
+
+    /**
      * The dialog was opened by pressing Start trip, not by the Assign buttons.
      *
      * Only changes what the dialog SAYS — that naming both sends the trip out —
@@ -268,6 +274,14 @@ final class Bookings extends Component
         $this->assigningId = $leg->id;
         $this->assignCar = $leg->car_id !== null ? (string) $leg->car_id : '';
         $this->assignDriver = $leg->driver_id !== null ? (string) $leg->driver_id : '';
+        $this->assignDriverPay = $leg->driver_payment !== null ? $this->plainAmount((float) $leg->driver_payment) : '';
+        $this->resetErrorBag();
+    }
+
+    /** "15.000" → "15", "12.500" → "12.5": what a person would have typed. */
+    private function plainAmount(float $amount): string
+    {
+        return rtrim(rtrim(number_format($amount, 3, '.', ''), '0'), '.');
     }
 
     /**
@@ -286,6 +300,7 @@ final class Bookings extends Component
         $this->assigningId = null;
         $this->assignCar = '';
         $this->assignDriver = '';
+        $this->assignDriverPay = '';
         $this->startAfterAssign = false;
     }
 
@@ -386,6 +401,22 @@ final class Bookings extends Component
             return;
         }
 
+        // A commission driver is paid per trip, and the amount is agreed when
+        // the trip is given to them. Anyone else has nothing to record, so a
+        // figure left over from a previous commission driver is cleared.
+        if ($driver !== null && $driver->isCommissionDriver()) {
+            $pay = trim($this->assignDriverPay);
+            if ($pay !== '' && (! is_numeric($pay) || (float) $pay < 0 || (float) $pay > 100000)) {
+                $leg->save();
+                $this->addError('assignDriverPay', __('Enter the payment as an amount in BD, or leave it blank.'));
+
+                return;
+            }
+            $leg->driver_payment = $pay === '' ? null : round((float) $pay, 3);
+        } else {
+            $leg->driver_payment = null;
+        }
+
         $leg->driver_id = $driver?->id;
         $leg->driver = $driver?->displayName();
 
@@ -462,6 +493,23 @@ final class Bookings extends Component
             ->map(fn (Vehicle $v): array => [
                 'value' => $v->id,
                 'label' => $v->displayName() . ($v->is_outside ? ' · ' . __('Outside') : ''),
+            ])
+            ->all();
+    }
+
+    /**
+     * The commission drivers in the picker, each with their usual amount
+     * (blank when their record has none). The dialog shows the payment box only
+     * for these, and pre-fills it from here.
+     *
+     * @return array<string, string>
+     */
+    public function commissionDrivers(): array
+    {
+        return LimoDriver::query()->where('pay_type', LimoDriver::PAY_TYPE_COMMISSION)
+            ->get(['id', 'commission_amount'])
+            ->mapWithKeys(fn (LimoDriver $d): array => [
+                (string) $d->id => $d->commission_amount !== null ? $this->plainAmount((float) $d->commission_amount) : '',
             ])
             ->all();
     }
@@ -1543,6 +1591,7 @@ final class Bookings extends Component
             'perPageOptions' => self::PER_PAGE_OPTIONS,
             'carOptions' => $this->assigningId !== null ? $this->carOptions() : [],
             'driverOptions' => $this->assigningId !== null ? $this->driverOptions() : [],
+            'commissionDrivers' => $this->assigningId !== null ? $this->commissionDrivers() : [],
             'assigningLeg' => $this->assigningId !== null
                 ? LimoLeg::query()->with('legable.customer:id,name')->find($this->assigningId)
                 : null,

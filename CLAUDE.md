@@ -2739,6 +2739,17 @@ the fleet car's MODEL (text before the first `·`, never the plate). The
 combined invoice's PAX falls back to a private customer's own name when blank
 or ".". Tests: `LimoInvoiceChainTest` (+4), `LimoCombinedInvoiceTest` (+3).
 
+**Commission driver's payment on a trip (shipped 2026-10-20).** The Assign
+car & driver dialog has a "Payment amount (BD)" box under Driver, shown only
+while a COMMISSION driver (`pay_type = commission`) is picked; it pre-fills
+from that driver's `commission_amount` whenever a different driver is picked,
+and an amount already saved on the trip is kept when the dialog opens. Stored
+on the trip: `limo_legs.driver_payment` (decimal 10,3; Limousine migration
+`2026_10_20_950049`), cleared when the trip goes to a non-commission driver.
+`Bookings::commissionDrivers()` feeds the box; validated in `saveAssign()`
+(0–100000, blank allowed). Not yet used by any report or petty cash. Test:
+`LimoDriverPaymentTest` (6).
+
 **ETA column on the bookings list (shipped 2026-10-20).** On the Queue,
 Active and Completed tabs only, after To date. `LimoLeg::eta()`: a transfer =
 start + `estimated_hours` (the trip's "Estimated time", null when not set); a

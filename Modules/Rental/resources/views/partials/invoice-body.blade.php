@@ -63,6 +63,7 @@
                 <div class="bill-label">{{ __('Bill to') }}</div>
                 <div class="bill-name">{{ $customerName !== '' ? $customerName : '—' }}</div>
                 @if ($customerPhone !== '')<div class="bill-line">{{ $customerPhone }}</div>@endif
+                @if (($customerVat ?? '') !== '')<div class="bill-line">{{ __('VAT No.') }}: {{ $customerVat }}</div>@endif
                 @if ($orderReference !== '')<div class="bill-line">{{ __('For order') }}: {{ $orderReference }}</div>@endif
             </td>
         </tr>

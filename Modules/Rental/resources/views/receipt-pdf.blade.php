@@ -115,6 +115,7 @@
                     {{ $customerName !== '' ? $customerName : '—' }}{{ $customerCpr !== '' ? ', ' . $customerCpr : '' }}
                 </div>
                 @if ($customerPhone !== '')<div class="bill-line">{{ $customerPhone }}</div>@endif
+                @if (($customerVat ?? '') !== '')<div class="bill-line">{{ __('VAT No.') }}: {{ $customerVat }}</div>@endif
             </td>
         </tr>
     </table>

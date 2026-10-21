@@ -57,6 +57,8 @@ final class BookingForm extends Component
 
     public string $company_reference = '';
 
+    public string $company_vat_number = '';
+
     public string $pax_name = '';
 
     public string $pax_contact = '';
@@ -130,6 +132,7 @@ final class BookingForm extends Component
                 $this->booking_type = $booking->booking_type ?? '';
                 $this->customer_id = $booking->customer_id;
                 $this->company_reference = $booking->company_reference ?? '';
+                $this->company_vat_number = $booking->company_vat_number ?? '';
                 $this->pax_name = $booking->pax_name ?? '';
                 $this->pax_contact = $booking->pax_contact ?? '';
                 $this->flight_number = $booking->flight_number ?? '';
@@ -246,6 +249,14 @@ final class BookingForm extends Component
         // The customer is who asked for the trip — the company for a company,
         // the person themself otherwise. Prepared by is our own staff member.
         $this->requested_by = (string) ($customer->name ?? '');
+
+        // A company's VAT number does not change between jobs: carry it over
+        // from their last booking that had one, unless one is typed already.
+        if (trim($this->company_vat_number) === '') {
+            $this->company_vat_number = (string) (LimoBooking::query()->where('customer_id', $customer->id)
+                ->whereNotNull('company_vat_number')->where('company_vat_number', '!=', '')
+                ->latest('id')->value('company_vat_number') ?? '');
+        }
     }
 
     /**
@@ -273,6 +284,7 @@ final class BookingForm extends Component
             'customer_id' => ['required', 'integer'],
             'booking_type' => ['nullable', 'string'],
             'company_reference' => ['nullable', 'string', 'max:255'],
+            'company_vat_number' => ['nullable', 'string', 'max:50'],
             'pax_name' => ['required', 'string', 'max:255'],
             'pax_contact' => ['nullable', 'string', 'max:100'],
             'flight_number' => ['nullable', 'string', 'max:100'],
@@ -313,6 +325,7 @@ final class BookingForm extends Component
         $booking->booking_type = $this->trimOrNull($this->booking_type);
         $booking->customer_id = $this->customer_id;
         $booking->company_reference = $this->trimOrNull($this->company_reference);
+        $booking->company_vat_number = $this->trimOrNull($this->company_vat_number);
         $booking->pax_name = $this->trimOrNull($this->pax_name);
         $booking->pax_contact = $this->trimOrNull($this->pax_contact);
         $booking->flight_number = $this->trimOrNull($this->flight_number);

@@ -110,6 +110,8 @@ final class OrderForm extends Component
 
     public string $notes = '';
 
+    public string $company_vat_number = '';
+
     /**
      * Document uploads. Stored paths come from the direct-upload controller
      * (a single synchronous POST that works on Hostinger shared hosting, unlike
@@ -231,6 +233,7 @@ final class OrderForm extends Component
                 $this->deposit = (string) $order->deposit;
                 $this->payment_type = $order->payment_type ?? 'cash';
                 $this->notes = $order->notes ?? '';
+                $this->company_vat_number = $order->company_vat_number ?? '';
                 $this->existingCprImage = $order->cpr_image_path;
                 $this->existingLicenseImage = $order->license_image_path;
                 $this->reference = $order->reference ?? '';
@@ -307,6 +310,7 @@ final class OrderForm extends Component
             'deposit' => ['nullable', 'numeric', 'min:0'],
             'payment_type' => ['nullable', 'string'],
             'notes' => ['nullable', 'string'],
+            'company_vat_number' => ['nullable', 'string', 'max:50'],
         ];
     }
 
@@ -358,6 +362,14 @@ final class OrderForm extends Component
             // Auto-fill the phone from the chosen customer (still editable, and
             // refreshes if a different customer is picked).
             $this->phone = (string) ($customer->phone ?? '');
+
+            // A company's VAT number does not change between hires: carry it
+            // over from their last order that had one, unless one is typed.
+            if (trim($this->company_vat_number) === '') {
+                $this->company_vat_number = (string) (RentalOrder::query()->where('customer_id', $customer->id)
+                    ->whereNotNull('company_vat_number')->where('company_vat_number', '!=', '')
+                    ->latest('id')->value('company_vat_number') ?? '');
+            }
         }
     }
 
@@ -457,6 +469,7 @@ final class OrderForm extends Component
         $order->deposit = $this->toFloat($this->deposit);
         $order->payment_type = $this->trimOrNull($this->payment_type);
         $order->notes = $this->trimOrNull($this->notes);
+        $order->company_vat_number = $this->trimOrNull($this->company_vat_number);
 
         if ($this->cprImagePath !== '') {
             $order->cpr_image_path = $this->cprImagePath;

@@ -43,6 +43,7 @@ final class RentalReceiptPdf
             'customerName' => (string) ($receipt->customer->name ?? ''),
             'customerCpr' => (string) ($receipt->customer->cpr ?? ''),
             'customerPhone' => (string) ($receipt->customer->phone ?? ''),
+            'customerVat' => trim((string) ($order->company_vat_number ?? '')),
             'method' => __(ucfirst((string) $receipt->method)),
             'amount' => $amount,
             ...$this->breakdown($order, $amount),

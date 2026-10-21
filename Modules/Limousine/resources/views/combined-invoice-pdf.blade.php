@@ -41,7 +41,7 @@
 <table class="doc-meta">
     <tr>
         <td class="k" style="width:92px">{{ __('Billed to') }}</td>
-        <td class="v">{{ $customer->name ?? '—' }}@if ($customer?->phone) · {{ $customer->phone }}@endif</td>
+        <td class="v">{{ $customer->name ?? '—' }}@if ($customer?->phone) · {{ $customer->phone }}@endif@if (($customerVat ?? '') !== '') · {{ __('VAT No.') }}: {{ $customerVat }}@endif</td>
     </tr>
     <tr>
         <td class="k" style="width:92px">{{ __('Period') }}</td>

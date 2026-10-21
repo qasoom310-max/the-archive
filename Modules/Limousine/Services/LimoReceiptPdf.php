@@ -28,7 +28,7 @@ final class LimoReceiptPdf
      */
     public function viewData(LimoReceipt $receipt): array
     {
-        $receipt->loadMissing(['customer', 'invoice', 'booking']);
+        $receipt->loadMissing(['customer', 'invoice.booking', 'booking']);
 
         $amount = round((float) $receipt->amount, 3);
         // Stored on the receipt at the moment it was written. Null on older
@@ -43,6 +43,7 @@ final class LimoReceiptPdf
             'date' => $receipt->date?->format('j-M-Y') ?? '',
             'customerName' => (string) ($receipt->customer->name ?? ''),
             'customerPhone' => (string) ($receipt->customer->phone ?? ''),
+            'customerVat' => trim((string) ($receipt->booking->company_vat_number ?? $receipt->invoice->booking->company_vat_number ?? '')),
             // What the money was FOR. A receipt naming neither a booking nor an
             // invoice tells the customer nothing they can match to a journey.
             'bookingReference' => (string) ($receipt->booking->reference ?? ''),

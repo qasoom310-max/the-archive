@@ -3210,5 +3210,7 @@
     "Choose roughly how long the trip takes.": "اختر المدة التقريبية للرحلة.",
     "What the driver is paid for this trip. An amount here makes them a commission driver.": "ما يُدفع للسائق مقابل هذه الرحلة. إدخال مبلغ هنا يجعله سائقًا بالعمولة.",
     "Now a commission driver (:amount BD), set when assigning a trip.": "أصبح سائقًا بالعمولة (:amount د.ب) عند تعيين رحلة.",
-    "Usual commission set to :amount BD when assigning a trip.": "تم تحديد العمولة المعتادة :amount د.ب عند تعيين رحلة."
+    "Usual commission set to :amount BD when assigning a trip.": "تم تحديد العمولة المعتادة :amount د.ب عند تعيين رحلة.",
+    "Company VAT No.": "الرقم الضريبي للشركة",
+    "Printed on the invoice and receipts.": "يُطبع على الفاتورة والإيصالات."
 }

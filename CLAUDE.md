@@ -2739,6 +2739,8 @@ the fleet car's MODEL (text before the first `·`, never the plate). The
 combined invoice's PAX falls back to a private customer's own name when blank
 or ".". Tests: `LimoInvoiceChainTest` (+4), `LimoCombinedInvoiceTest` (+3).
 
+**Company VAT No. on a booking (shipped 2026-10-21).** The limousine booking form and the rental order form have a "Company VAT No." box before Comments: `limo_bookings.company_vat_number` / `rental_orders.company_vat_number` (Limousine migration `2026_10_21_950050`, Rental `2026_10_21_900052`). Picking a customer fills it from their last booking/order that had one, unless one is typed. Printed as "VAT No.: …" under the customer on the limousine invoice (single + batch, via the shared partial), the combined invoice (newest booking that has one), the limousine receipt (its booking, else its invoice's booking), and the rental invoice + receipt (from the order). Not on quotations or the agreement. Test: `CompanyVatNumberTest` (6).
+
 **Commission driver's payment on a trip (shipped 2026-10-20).** The Assign
 car & driver dialog has a "Payment amount (BD)" box under Driver, shown only
 while a COMMISSION driver (`pay_type = commission`) is picked; it pre-fills

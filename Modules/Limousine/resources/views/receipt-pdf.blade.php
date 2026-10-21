@@ -126,6 +126,7 @@
                 <div class="bill-label">{{ __('Received from') }}</div>
                 <div class="bill-name">{{ $customerName !== '' ? $customerName : '—' }}</div>
                 @if ($customerPhone !== '')<div class="bill-line">{{ $customerPhone }}</div>@endif
+                @if (($customerVat ?? '') !== '')<div class="bill-line">{{ __('VAT No.') }}: {{ $customerVat }}</div>@endif
                 @if ($invoiceReference !== '')<div class="bill-line">{{ __('Against invoice') }}: {{ $invoiceReference }}</div>@endif
             </td>
         </tr>

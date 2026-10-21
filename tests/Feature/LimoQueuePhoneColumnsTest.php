@@ -256,21 +256,25 @@ final class LimoQueuePhoneColumnsTest extends TestCase
      * waiting for a laptop. It reads on a phone now, heading and value both.
      */
     /**
-     * When the booking was taken reads beside who took it, on a phone too.
-     * Only the screen moves it: the export keeps the service's order.
+     * When the booking was taken reads UNDER who took it, in the same cell,
+     * on a phone and a laptop alike. Only the screen moves it: the export
+     * keeps the service's order.
      */
-    public function test_booked_time_reads_on_a_phone_right_after_added_by(): void
+    public function test_booked_time_reads_under_added_by_in_the_same_cell(): void
     {
         $this->trip();
 
         $html = Livewire::test(Bookings::class)->html();
 
+        // Both sort from the Added by heading, which shows on a phone.
         $heading = $this->cellAround($html, 'Sort by Booked time');
-        $this->assertStringNotContainsString('hidden', $heading, 'The Booked time heading is still hidden on a phone.');
-        $this->assertMatchesRegularExpression('/<td class="whitespace-nowrap px-2 py-2 text-chrome-900" data-booked-time>/', $html);
+        $this->assertStringNotContainsString('hidden', strtok($heading, '>'), 'The Booked time heading is still hidden on a phone.');
+        $this->assertStringContainsString('Sort by Added by', $heading);
+        $this->assertSame(1, substr_count($html, 'Sort by Booked time'));
 
-        $this->assertLessThan(strpos($html, 'Sort by Booked time'), strpos($html, 'Sort by Added by'));
-        $this->assertLessThan(strpos($html, 'Sort by Comments'), strpos($html, 'Sort by Booked time'));
+        // And the value sits inside the Added by cell, not a cell of its own.
+        $this->assertMatchesRegularExpression('/<td class="px-2 py-2 text-chrome-900">\s*<div>[^<]*<\/div>\s*<div class="[^"]*" data-booked-time>/', $html);
+        $this->assertDoesNotMatchRegularExpression('/<td[^>]*data-booked-time/', $html);
 
         $keys = array_keys(app(LimoQueueRows::class)->headings());
         $this->assertSame(array_search('comments', $keys, true) + 1, array_search('booked_time', $keys, true));
@@ -289,7 +293,7 @@ final class LimoQueuePhoneColumnsTest extends TestCase
         // The value sits in the same column and has its own class, so being
         // told about the heading alone would not mean it is readable.
         $this->assertMatchesRegularExpression(
-            '/<td class="px-2 py-2 text-chrome-900">\s*qassim\s*<\/td>/',
+            '/<td class="px-2 py-2 text-chrome-900">\s*<div>\s*qassim\s*<\/div>/',
             $html,
             'The Added by value is still hidden on a phone.',
         );

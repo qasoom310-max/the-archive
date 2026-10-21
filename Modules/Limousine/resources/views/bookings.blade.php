@@ -311,8 +311,6 @@
             'vehicle' => '',
             'driver' => 'hidden lg:table-cell',
             'added_by' => '',
-            // Beside Added by, on a phone too: who took the booking and when.
-            'booked_time' => '',
             'comments' => 'hidden lg:table-cell',
             'status' => 'hidden md:table-cell',
             'payment' => '',
@@ -325,10 +323,10 @@
         // there appears here too and the exports cannot disagree with the screen.
         $order = array_keys($headings);
 
-        // On screen only, Booked time sits right after Added by. The exports
-        // keep the service's order, which the office's spreadsheets expect.
+        // On screen, Booked time is read UNDER Added by in the same cell (who
+        // took the booking and when), so it has no column of its own. The
+        // exports keep the service's order, which the office's spreadsheets expect.
         $order = array_values(array_diff($order, ['booked_time']));
-        array_splice($order, (int) array_search('added_by', $order, true) + 1, 0, ['booked_time']);
 
         // ETA, after the dates, on the tabs where a car is on its way or was:
         // Queue, Active and Completed. Screen only, like Booked time's place.
@@ -382,6 +380,19 @@
                                     <path fill-rule="evenodd" d="M10 15a1 1 0 0 1-.71-.29l-5-5a1 1 0 1 1 1.42-1.42L10 12.59l4.29-4.3a1 1 0 1 1 1.42 1.42l-5 5A1 1 0 0 1 10 15Z" clip-rule="evenodd"/>
                                 </svg>
                             </button>
+                            @if ($key === 'added_by')
+                                {{-- Booked time shares this column, so it sorts from here. --}}
+                                <button type="button" wire:click="sortBy('booked_time')"
+                                    class="mt-0.5 flex items-center gap-1 text-[10px] font-medium normal-case tracking-normal transition hover:text-chrome-800 {{ $sort === 'booked_time' ? 'text-chrome-900' : 'text-chrome-500' }}"
+                                    title="{{ __('Sort by :column', ['column' => __('Booked time')]) }}"
+                                    @if ($sort === 'booked_time') aria-sort="{{ $dir === 'asc' ? 'ascending' : 'descending' }}" @endif>
+                                    <span>{{ __('Booked time') }}</span>
+                                    <svg class="hidden size-3 shrink-0 transition sm:inline-block {{ $sort === 'booked_time' ? 'text-primary-600' : 'text-chrome-300' }} {{ $sort === 'booked_time' && $dir === 'asc' ? 'rotate-180' : '' }}"
+                                         viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M10 15a1 1 0 0 1-.71-.29l-5-5a1 1 0 1 1 1.42-1.42L10 12.59l4.29-4.3a1 1 0 1 1 1.42 1.42l-5 5A1 1 0 0 1 10 15Z" clip-rule="evenodd"/>
+                                    </svg>
+                                </button>
+                            @endif
                         </th>
                     @endforeach
                     {{-- Columns are sized to fit the window, but a narrow laptop can still
@@ -539,8 +550,10 @@
                                 <span class="text-chrome-400">—</span>
                             @endif
                         </td>
-                        <td class="px-2 py-2 text-chrome-900">{{ $row['added_by'] ?: '—' }}</td>
-                        <td class="whitespace-nowrap px-2 py-2 text-chrome-900" data-booked-time>{{ $row['booked_time'] ?: '—' }}</td>
+                        <td class="px-2 py-2 text-chrome-900">
+                            <div>{{ $row['added_by'] ?: '—' }}</div>
+                            <div class="whitespace-nowrap text-[11px] text-chrome-500" data-booked-time>{{ $row['booked_time'] ?: '—' }}</div>
+                        </td>
                         <td class="hidden max-w-[16rem] px-2 py-2 text-chrome-900 lg:table-cell">{{ $row['comments'] ?: '—' }}</td>
                         <td class="px-2 py-2">
                             <span class="whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ \Modules\Limousine\Models\LimoBooking::paymentBadgeClass($row['payment']) }}" data-payment-state="{{ $row['payment'] }}">{{ \Modules\Limousine\Models\LimoBooking::paymentLabel($row['payment']) }}</span>
@@ -781,7 +794,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="{{ 19 + ($showEta ? 1 : 0) }}" class="px-4 py-10 text-center text-sm text-chrome-600">{{ __('No bookings found.') }}</td></tr>
+                    <tr><td colspan="{{ 18 + ($showEta ? 1 : 0) }}" class="px-4 py-10 text-center text-sm text-chrome-600">{{ __('No bookings found.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>

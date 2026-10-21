@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire;
 
+use App\Erp\Activity\ActivityLogger;
 use App\Erp\Money\Currencies;
 use App\Erp\Security\Permission;
 use App\Erp\Views\ValueFormat;
@@ -401,18 +402,20 @@ final class Bookings extends Component
             return;
         }
 
-        // A commission driver is paid per trip, and the amount is agreed when
-        // the trip is given to them. Anyone else has nothing to record, so a
-        // figure left over from a previous commission driver is cleared.
-        if ($driver !== null && $driver->isCommissionDriver()) {
-            $pay = trim($this->assignDriverPay);
-            if ($pay !== '' && (! is_numeric($pay) || (float) $pay < 0 || (float) $pay > 100000)) {
+        // The driver's commission for this trip, optional, agreed when the trip
+        // is given to them. An amount for a driver on the company's books makes
+        // them a commission driver on their record (the owner's rule), with this
+        // as their usual amount. No driver, no commission.
+        $pay = trim($this->assignDriverPay);
+        if ($driver !== null && $pay !== '') {
+            if (! is_numeric($pay) || (float) $pay < 0 || (float) $pay > 100000) {
                 $leg->save();
                 $this->addError('assignDriverPay', __('Enter the payment as an amount in BD, or leave it blank.'));
 
                 return;
             }
-            $leg->driver_payment = $pay === '' ? null : round((float) $pay, 3);
+            $leg->driver_payment = round((float) $pay, 3);
+            $this->makeCommissionDriver($driver, (float) $leg->driver_payment);
         } else {
             $leg->driver_payment = null;
         }
@@ -495,6 +498,30 @@ final class Bookings extends Component
                 'label' => $v->displayName() . ($v->is_outside ? ' · ' . __('Outside') : ''),
             ])
             ->all();
+    }
+
+    /**
+     * A commission given to a company driver moves them onto commission, with
+     * that figure as their usual amount. A commission driver with no usual
+     * amount yet takes this one; one who has an amount keeps it (this trip's
+     * figure is a one-off).
+     */
+    private function makeCommissionDriver(LimoDriver $driver, float $amount): void
+    {
+        if ($driver->isCommissionDriver() && $driver->commission_amount !== null) {
+            return;
+        }
+
+        $wasCompany = ! $driver->isCommissionDriver();
+        $driver->forceFill(['pay_type' => LimoDriver::PAY_TYPE_COMMISSION, 'commission_amount' => $amount])->save();
+
+        app(ActivityLogger::class)->log(
+            'updated',
+            __('Driver').' '.$driver->displayName(),
+            $wasCompany
+                ? __('Now a commission driver (:amount BD), set when assigning a trip.', ['amount' => $this->plainAmount($amount)])
+                : __('Usual commission set to :amount BD when assigning a trip.', ['amount' => $this->plainAmount($amount)]),
+        );
     }
 
     /**

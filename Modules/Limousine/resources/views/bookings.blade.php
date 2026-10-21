@@ -859,22 +859,20 @@
                         </p>
                     </div>
 
-                    {{-- What a COMMISSION driver is paid for this trip. Shown only
-                         while one is picked (a company driver is on a salary),
-                         and pre-filled from their usual amount whenever a
-                         different driver is picked (a figure already saved on
-                         the trip is kept when the dialog opens). The picker
-                         changes in the browser alone until Save, so this
+                    {{-- The driver's commission for this trip, always offered and
+                         optional. Picking a commission driver fills in their usual
+                         amount; picking anyone else empties it, so one driver's
+                         figure never rides over to the next. An amount typed for a
+                         company driver makes them a commission driver on Save. The
+                         picker changes in the browser alone until Save, so this
                          follows it in the browser too. --}}
                     <div x-data="{ rates: @js($commissionDrivers), last: @js($assignDriver) }"
-                         x-show="Object.hasOwn(rates, String($wire.assignDriver ?? ''))"
-                         x-effect="const id = String($wire.assignDriver ?? ''); if (id !== last) { last = id; if (Object.hasOwn(rates, id)) { $wire.assignDriverPay = rates[id] } }"
-                         @if (! array_key_exists($assignDriver, $commissionDrivers)) style="display: none" @endif
+                         x-effect="const id = String($wire.assignDriver ?? ''); if (id !== last) { last = id; $wire.assignDriverPay = Object.hasOwn(rates, id) ? rates[id] : '' }"
                          data-driver-pay>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Payment amount (BD)') }}</label>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Commission (BD)') }} <span class="font-normal text-chrome-500">({{ __('optional') }})</span></label>
                         <input type="number" step="any" min="0" inputmode="decimal" wire:model="assignDriverPay"
                                placeholder="0" class="o-input w-full">
-                        <p class="mt-1 text-xs text-chrome-500">{{ __('What this commission driver is paid for the trip.') }}</p>
+                        <p class="mt-1 text-xs text-chrome-500">{{ __('What the driver is paid for this trip. An amount here makes them a commission driver.') }}</p>
                         @error('assignDriverPay') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                 </div>

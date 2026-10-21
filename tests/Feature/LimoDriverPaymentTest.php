@@ -17,9 +17,9 @@ use Modules\Rental\Models\Vehicle;
 use Tests\TestCase;
 
 /**
- * Giving a trip to a COMMISSION driver records what they are paid for it.
- * A company driver is on a salary, so for them the box is not shown and
- * nothing is kept.
+ * The assign dialog always offers an optional commission for the trip. It is
+ * kept on the trip, and an amount given to a company driver makes them a
+ * commission driver on their record.
  */
 final class LimoDriverPaymentTest extends TestCase
 {
@@ -80,21 +80,57 @@ final class LimoDriverPaymentTest extends TestCase
         $this->assertSame(12.5, $leg->fresh()?->driver_payment);
     }
 
-    public function test_a_company_driver_has_no_payment_kept(): void
+    public function test_a_commission_given_to_a_company_driver_makes_them_a_commission_driver(): void
     {
         $leg = $this->leg();
+        $driver = $this->companyDriver();
 
         Livewire::test(Bookings::class)
             ->call('openAssign', $leg->id)
             ->set('assignCar', (string) $this->car()->id)
-            ->set('assignDriver', (string) $this->companyDriver()->id)
+            ->set('assignDriver', (string) $driver->id)
             ->set('assignDriverPay', '30')
             ->call('saveAssign')
             ->assertHasNoErrors();
 
-        $this->assertNull($leg->fresh()?->driver_payment);
+        $this->assertSame(30.0, $leg->fresh()?->driver_payment);
+        $driver = $driver->fresh();
+        $this->assertSame(LimoDriver::PAY_TYPE_COMMISSION, $driver?->pay_type);
+        $this->assertSame(30.0, (float) $driver?->commission_amount);
     }
 
+    public function test_a_company_driver_with_no_commission_stays_a_company_driver(): void
+    {
+        $leg = $this->leg();
+        $driver = $this->companyDriver();
+
+        Livewire::test(Bookings::class)
+            ->call('openAssign', $leg->id)
+            ->set('assignCar', (string) $this->car()->id)
+            ->set('assignDriver', (string) $driver->id)
+            ->call('saveAssign')
+            ->assertHasNoErrors();
+
+        $this->assertNull($leg->fresh()?->driver_payment);
+        $this->assertSame(LimoDriver::PAY_TYPE_COMPANY, $driver->fresh()?->pay_type);
+    }
+
+    public function test_a_commission_drivers_usual_amount_is_not_changed_by_one_trip(): void
+    {
+        $leg = $this->leg();
+        $driver = $this->commissionDriver(15.0);
+
+        Livewire::test(Bookings::class)
+            ->call('openAssign', $leg->id)
+            ->set('assignCar', (string) $this->car()->id)
+            ->set('assignDriver', (string) $driver->id)
+            ->set('assignDriverPay', '22')
+            ->call('saveAssign')
+            ->assertHasNoErrors();
+
+        $this->assertSame(22.0, $leg->fresh()?->driver_payment);
+        $this->assertSame(15.0, (float) $driver->fresh()?->commission_amount);
+    }
     public function test_handing_the_trip_to_a_company_driver_clears_the_old_payment(): void
     {
         $leg = $this->leg();
@@ -105,6 +141,7 @@ final class LimoDriverPaymentTest extends TestCase
             ->assertSet('assignDriverPay', '20')
             ->set('assignCar', (string) $this->car()->id)
             ->set('assignDriver', (string) $this->companyDriver()->id)
+            ->set('assignDriverPay', '')
             ->call('saveAssign');
 
         $this->assertNull($leg->fresh()?->driver_payment);
@@ -126,28 +163,19 @@ final class LimoDriverPaymentTest extends TestCase
         $this->assertNull($leg->fresh()?->driver_payment);
     }
 
-    public function test_the_box_knows_the_commission_drivers_and_their_usual_amount(): void
+    public function test_the_box_is_always_shown_and_knows_the_usual_amounts(): void
     {
         $leg = $this->leg();
         $commission = $this->commissionDriver(15.0);
         $this->companyDriver();
 
-        $component = Livewire::test(Bookings::class)->call('openAssign', $leg->id);
+        $html = Livewire::test(Bookings::class)->call('openAssign', $leg->id)
+            ->assertViewHas('commissionDrivers', [(string) $commission->id => '15'])
+            ->html();
 
-        $component->assertSeeHtml('data-driver-pay')
-            ->assertViewHas('commissionDrivers', [(string) $commission->id => '15']);
-
-        // Nobody picked yet: the box starts hidden.
-        $this->assertMatchesRegularExpression('/style="display: none"\s+data-driver-pay/', $component->html());
-    }
-
-    public function test_the_box_opens_shown_for_a_trip_already_with_a_commission_driver(): void
-    {
-        $leg = $this->leg();
-        $leg->forceFill(['driver_id' => $this->commissionDriver()->id, 'driver_payment' => 18])->save();
-
-        $html = Livewire::test(Bookings::class)->call('openAssign', $leg->id)->html();
-
+        $this->assertStringContainsString('data-driver-pay', $html);
+        $this->assertStringContainsString('Commission (BD)', $html);
         $this->assertDoesNotMatchRegularExpression('/style="display: none"\s+data-driver-pay/', $html);
+        $this->assertStringNotContainsString('x-show="Object.hasOwn(rates', $html);
     }
 }

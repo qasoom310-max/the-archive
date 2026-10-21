@@ -2750,6 +2750,14 @@ on the trip: `limo_legs.driver_payment` (decimal 10,3; Limousine migration
 (0–100000, blank allowed). Not yet used by any report or petty cash. Test:
 `LimoDriverPaymentTest` (6).
 
+**…changed 2026-10-21 (the owner): the box is always shown**, labelled
+"Commission (BD) (optional)", for any driver. Picking a commission driver
+fills their usual amount, anyone else empties it. An amount saved for a
+COMPANY driver makes them a commission driver on their record, with that
+amount as their usual one (`Bookings::makeCommissionDriver()`, activity-logged);
+a commission driver with no usual amount takes it, one who has an amount keeps
+it. No amount = nothing kept and nobody converted. Test: `LimoDriverPaymentTest` (7).
+
 **ETA column on the bookings list (shipped 2026-10-20).** On the Queue,
 Active and Completed tabs only, after To date. `LimoLeg::eta()`: a transfer =
 start + `estimated_hours` (the trip's "Estimated time", null when not set); a

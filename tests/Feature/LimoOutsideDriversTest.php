@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Erp\Admin\StaffRole;
+use App\Erp\Admin\UserProvisioner;
 use App\Erp\Modules\ModuleManager;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
@@ -127,10 +129,47 @@ final class LimoOutsideDriversTest extends TestCase
             ->assertDontSee('Four Seasons → Airport');
     }
 
-    public function test_only_an_admin_may_open_it(): void
+    public function test_staff_may_not_open_it(): void
     {
-        $this->actingAs(User::factory()->create(['is_admin' => false]));
-        $this->grantEveryone('limousine.driver');
+        $staff = User::factory()->create(['is_admin' => false]);
+        app(UserProvisioner::class)->grantApps($staff, ['limousine'], StaffRole::Staff);
+        $this->actingAs($staff);
+
+        Livewire::test(OutsideDrivers::class)->assertForbidden();
+    }
+
+    public function test_supervisors_and_accountants_may_open_it(): void
+    {
+        $supervisor = User::factory()->create(['is_admin' => false]);
+        app(UserProvisioner::class)->grantApps($supervisor, ['limousine'], StaffRole::Supervisor);
+        $this->actingAs($supervisor);
+        Livewire::test(OutsideDrivers::class)->assertOk()->assertSee('Outside drivers');
+
+        $accountant = User::factory()->create(['is_admin' => false, 'is_accountant' => true]);
+        app(UserProvisioner::class)->grantApps($accountant, ['limousine'], StaffRole::Accountant);
+        $this->actingAs($accountant);
+        Livewire::test(OutsideDrivers::class)->assertOk();
+    }
+
+    /** The dashboard tile is admins only, so the others find it on the Limousine home. */
+    public function test_the_limousine_home_links_it_for_a_supervisor_but_not_staff(): void
+    {
+        $supervisor = User::factory()->create(['is_admin' => false]);
+        app(UserProvisioner::class)->grantApps($supervisor, ['limousine'], StaffRole::Supervisor);
+        $this->actingAs($supervisor);
+        Livewire::test(\Modules\Limousine\Livewire\LimoHome::class)->assertSee('/app/limousine/outside-drivers');
+
+        $staff = User::factory()->create(['is_admin' => false]);
+        app(UserProvisioner::class)->grantApps($staff, ['limousine'], StaffRole::Staff);
+        $this->actingAs($staff);
+        Livewire::test(\Modules\Limousine\Livewire\LimoHome::class)->assertDontSee('/app/limousine/outside-drivers');
+    }
+
+    public function test_a_supervisor_without_limousine_may_not_open_it(): void
+    {
+        $supervisor = User::factory()->create(['is_admin' => false]);
+        app(UserProvisioner::class)->grantApps($supervisor, ['rental'], StaffRole::Supervisor);
+        $this->actingAs($supervisor);
 
         Livewire::test(OutsideDrivers::class)->assertForbidden();
     }

@@ -76,6 +76,14 @@
                             && app(\App\Erp\Security\AccessControl::class)->allows($viewer, 'rental.web_booking', \App\Erp\Security\Permission::Read)) {
                             array_splice($quickLinks, 1, 0, [['Web bookings', '/app/rental/web_booking?service=limousine']]);
                         }
+                        // What each outside driver is paid: Administrators, Supervisors
+                        // and Accountants with Read on drivers (the dashboard tile is
+                        // admins only, so this is where the others find it).
+                        if ($viewer instanceof \App\Models\User
+                            && \Modules\Limousine\Livewire\OutsideDrivers::roleMayView($viewer)
+                            && app(\App\Erp\Security\AccessControl::class)->allows($viewer, 'limousine.driver', \App\Erp\Security\Permission::Read)) {
+                            $quickLinks[] = ['Outside drivers', '/app/limousine/outside-drivers'];
+                        }
                     @endphp
                     @foreach ($quickLinks as [$lbl, $href])
                         <a href="{{ url($href) }}" wire:navigate class="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90 ring-1 ring-white/10 transition hover:bg-white/20">{{ __($lbl) }}</a>

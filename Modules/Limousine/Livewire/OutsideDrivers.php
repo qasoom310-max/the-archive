@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire;
 
+use App\Erp\Admin\StaffRole;
+use App\Erp\Admin\UserProvisioner;
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
 use App\Models\User;
@@ -18,8 +20,9 @@ use Modules\Limousine\Support\OutsideDriverPayments;
 
 /**
  * Outside drivers: each commission driver, with every trip they drove in the
- * period and what they are paid for it. Admin only, like the other tiles in
- * the dashboard's Reports & Team box.
+ * period and what they are paid for it. Administrators, Supervisors and
+ * Accountants (the owner's call, 2026-10-21), each still needing Read on
+ * Limousine drivers; Staff do not see what drivers are paid.
  */
 #[Layout('components.layouts.app')]
 #[Title('Outside drivers')]
@@ -48,7 +51,7 @@ final class OutsideDrivers extends Component
     public function mount(): void
     {
         $this->guardAccess(Permission::Read);
-        $this->guardAdmin();
+        $this->guardRole();
 
         if ($this->month === '' || ! preg_match('/^\d{4}-\d{2}$/', $this->month)) {
             $this->month = Carbon::now()->format('Y-m');
@@ -57,7 +60,7 @@ final class OutsideDrivers extends Component
 
     public function shiftMonth(int $by): void
     {
-        $this->guardAdmin();
+        $this->guardRole();
 
         $this->month = $this->monthStart()->addMonthsNoOverflow($by)->format('Y-m');
         $this->from = '';
@@ -120,10 +123,21 @@ final class OutsideDrivers extends Component
         }
     }
 
-    private function guardAdmin(): void
+    /** Administrators, Supervisors and Accountants. */
+    public static function roleMayView(?User $user): bool
+    {
+        if (! $user instanceof User) {
+            return false;
+        }
+
+        return $user->isAdmin()
+            || in_array(app(UserProvisioner::class)->roleOf($user), [StaffRole::Supervisor, StaffRole::Accountant], true);
+    }
+
+    private function guardRole(): void
     {
         $user = Auth::user();
 
-        abort_unless($user instanceof User && $user->isAdmin(), 403);
+        abort_unless($user instanceof User && self::roleMayView($user), 403);
     }
 }

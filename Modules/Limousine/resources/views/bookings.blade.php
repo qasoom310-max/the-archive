@@ -552,7 +552,14 @@
                         </td>
                         <td class="px-2 py-2 text-chrome-900">
                             <div>{{ $row['added_by'] ?: '—' }}</div>
-                            <div class="whitespace-nowrap text-[11px] text-chrome-500" data-booked-time>{{ $row['booked_time'] ?: '—' }}</div>
+                            {{-- "27-Jan-26 21:08" read as the date, then the time under it. --}}
+                            @php [$bookedDate, $bookedClock] = array_pad(explode(' ', (string) $row['booked_time'], 2), 2, ''); @endphp
+                            <div class="whitespace-nowrap text-[11px] leading-tight text-chrome-500" data-booked-time>
+                                <div>{{ $bookedDate !== '' ? $bookedDate : '—' }}</div>
+                                @if ($bookedClock !== '')
+                                    <div>{{ $bookedClock }}</div>
+                                @endif
+                            </div>
                         </td>
                         <td class="hidden max-w-[16rem] px-2 py-2 text-chrome-900 lg:table-cell">{{ $row['comments'] ?: '—' }}</td>
                         <td class="px-2 py-2">

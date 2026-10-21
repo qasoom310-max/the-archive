@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Wanaan Web Booking
  * Description:       Sends WooCommerce car-rental bookings to the Wanaan ERP, signed and once each.
- * Version:           1.1.0
+ * Version:           1.1.1
  * Author:            Wanaan
  * License:           GPL-2.0+
  * Text Domain:       wanaan-web-booking
@@ -155,7 +155,12 @@ function wanaan_wb_map_order( $order ) {
  * the rule with the `wanaan_wb_service` filter.
  */
 function wanaan_wb_service( $product ) {
-	$service = ( $product && 'wanaan-booking' === $product->get_slug() ) ? 'limousine' : 'rental';
+	$service = 'rental';
+	if ( $product && 'wanaan-booking' === $product->get_slug() ) {
+		$service = 'limousine';
+	} elseif ( $product && preg_match( '/limo|chauffeur|transfer|with driver/i', $product->get_name() ) ) {
+		$service = 'limousine';
+	}
 
 	return apply_filters( 'wanaan_wb_service', $service, $product );
 }

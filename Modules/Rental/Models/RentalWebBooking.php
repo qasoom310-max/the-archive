@@ -122,17 +122,18 @@ final class RentalWebBooking extends Model implements DefinesIrModel
     /**
      * Rental or limousine, from what the website sent.
      *
-     * The plugin says so itself from version 1.1 (`service`); before that, and
-     * as a back-stop, the fare finder's product and the words in the line's
-     * name decide. A car hire is the default: that is what the old connection
-     * carried, and a person can switch a booking either way.
+     * The plugin's `limousine` (1.1+) is taken at its word, as is the fare
+     * finder's product. Its `rental` is only the plugin's default for every
+     * other product, so the line's name still decides: a "Limousine Service"
+     * product is a limousine trip whatever the plugin guessed. A car hire is
+     * the default, and a person can switch a booking either way.
      *
      * @param  array<string, mixed>  $payload
      */
     public static function classify(array $payload, ?string $product): string
     {
         $said = strtolower(trim(is_scalar($payload['service'] ?? null) ? (string) $payload['service'] : ''));
-        if (in_array($said, [self::SERVICE_RENTAL, self::SERVICE_LIMOUSINE], true)) {
+        if ($said === self::SERVICE_LIMOUSINE) {
             return $said;
         }
 

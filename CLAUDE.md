@@ -2790,6 +2790,15 @@ label meaning because the fare finder's field names are not in this repo. The
 Limousine dashboard links to the list filtered to limousine. Tests:
 `WebBookingServiceTest` (12).
 
+**…and a "Limousine Service" product is limousine (fixed 2026-10-21).** Plugin
+1.1.0 sent `service: rental` for EVERY product but the fare finder, and that
+won over the name, so the site's "Limousine Service" product landed as car
+rental. `classify()` now takes only `limousine` from the plugin at its word; a
+`rental` falls through to the slug and name words. Plugin 1.1.1 also checks
+the product name (limo / chauffeur / transfer / with driver). Rental migration
+`2026_10_21_900051` re-sorts received rows (not switched by hand, not yet
+converted; rental → limousine only). Tests: `WebBookingServiceTest` (+2).
+
 **A trip's 3-dot menu opens its invoice and receipts (shipped 2026-10-19).**
 On the bookings list each row's menu has "Open invoice INV/…" (the booking's
 invoice, newest if several) and one "Open receipt RCPT/… · amount" per receipt

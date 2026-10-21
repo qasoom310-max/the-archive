@@ -92,10 +92,33 @@ final class WebBookingServiceTest extends TestCase
 
     public function test_the_plugins_own_word_wins(): void
     {
-        $this->assertSame(RentalWebBooking::SERVICE_RENTAL, RentalWebBooking::classify(['service' => 'rental'], 'Airport Transfer — Sedan'));
+        $this->assertSame(RentalWebBooking::SERVICE_LIMOUSINE, RentalWebBooking::classify(['service' => 'limousine'], 'Toyota Fortuner 2024'));
+        $this->assertSame(RentalWebBooking::SERVICE_RENTAL, RentalWebBooking::classify(['service' => 'rental'], 'Toyota Fortuner 2024'));
         $this->assertSame(RentalWebBooking::SERVICE_LIMOUSINE, RentalWebBooking::classify(['product_slug' => 'wanaan-booking'], 'Something'));
         $this->assertSame(RentalWebBooking::SERVICE_LIMOUSINE, RentalWebBooking::classify([], 'Chauffeur — SUV (4 hours)'));
         $this->assertSame(RentalWebBooking::SERVICE_RENTAL, RentalWebBooking::classify([], 'Mercedes Vito'));
+    }
+
+    public function test_a_limousine_product_is_limousine_even_when_the_plugin_says_rental(): void
+    {
+        // Plugin 1.1.0 says "rental" for every product but the fare finder.
+        $this->assertSame(RentalWebBooking::SERVICE_LIMOUSINE, RentalWebBooking::classify(['service' => 'rental'], 'O#14969 P#2210 Limousine Service'));
+        $this->assertSame(RentalWebBooking::SERVICE_LIMOUSINE, RentalWebBooking::classify(['service' => 'rental'], 'Airport Transfer — Sedan'));
+    }
+
+    public function test_the_bookings_already_received_as_rental_are_sorted_again(): void
+    {
+        $base = ['first_name' => 'Ahmed', 'phone' => '+966503835404', 'total' => 40, 'status' => RentalWebBooking::STATUS_PENDING,
+            'payload' => ['service' => 'rental']];
+        $limo = RentalWebBooking::query()->create($base + ['source_reference' => '14969-1573', 'service' => 'rental', 'product' => 'O#14969 P#2210 Limousine Service']);
+        $car = RentalWebBooking::query()->create($base + ['source_reference' => '14970-1574', 'service' => 'rental', 'product' => 'O#14970 P#2201 Toyota Fortuner 2024']);
+        $kept = RentalWebBooking::query()->create($base + ['source_reference' => '14971-1575', 'service' => 'rental', 'service_manual' => true, 'product' => 'O#14971 P#2210 Limousine Service']);
+
+        (require base_path('Modules/Rental/database/migrations/2026_10_21_900051_resort_limousine_web_bookings.php'))->up();
+
+        $this->assertSame(RentalWebBooking::SERVICE_LIMOUSINE, $limo->fresh()?->service);
+        $this->assertSame(RentalWebBooking::SERVICE_RENTAL, $car->fresh()?->service);
+        $this->assertSame(RentalWebBooking::SERVICE_RENTAL, $kept->fresh()?->service);
     }
 
     public function test_places_and_time_are_read_from_the_lines_details(): void

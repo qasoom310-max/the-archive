@@ -45,6 +45,15 @@ final class LimoLegCountryTest extends TestCase
             ->set('legs.0.rate', '20');
     }
 
+    /** On a phone the country and the place each get a row; from sm up they share one. */
+    public function test_country_and_place_stack_on_a_phone(): void
+    {
+        $html = Livewire::test(BookingForm::class)->html();
+
+        $this->assertSame(2, substr_count($html, '<div class="flex flex-col gap-1 sm:flex-row sm:gap-2">'), 'From and To both stack.');
+        $this->assertStringContainsString('class="o-input w-full sm:w-40 sm:shrink-0"', $html);
+    }
+
     public function test_a_new_leg_starts_in_bahrain_on_both_sides(): void
     {
         $leg = Livewire::test(BookingForm::class)->get('legs')[0];

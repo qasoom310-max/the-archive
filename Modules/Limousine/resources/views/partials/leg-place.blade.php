@@ -8,8 +8,10 @@
     $countryName = collect($countryOptions)->firstWhere('value', $country)['label'] ?? $country;
 @endphp
 <label class="mb-1 block text-sm font-medium text-chrome-700">{{ $label }} *</label>
-<div class="flex gap-2">
-    <select wire:model.live="legs.{{ $i }}.{{ $side }}_country" class="o-input w-32 shrink-0 sm:w-40"
+{{-- On a phone the country and the place each take a full row (like the map
+     link under them); from sm up they share one. --}}
+<div class="flex flex-col gap-1 sm:flex-row sm:gap-2">
+    <select wire:model.live="legs.{{ $i }}.{{ $side }}_country" class="o-input w-full sm:w-40 sm:shrink-0"
             aria-label="{{ $side === 'from' ? __('Pick-up country') : __('Drop-off country') }}">
         @foreach ($countryOptions as $opt)
             <option value="{{ $opt['value'] }}">{{ __($opt['label']) }}</option>

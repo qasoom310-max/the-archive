@@ -137,12 +137,6 @@
                 @error('units') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 <p class="mt-1 text-xs text-chrome-500">{{ __('The price of every trip is multiplied by this. 2 cars for the same trip = 2.') }}</p>
             </div>
-            <div>
-                <label class="{{ $lbl }}">{{ __('Company VAT No.') }}</label>
-                <input type="text" wire:model="company_vat_number" class="o-input w-full" maxlength="50">
-                @error('company_vat_number') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                <p class="mt-1 text-xs text-chrome-500">{{ __('Printed on the invoice and receipts.') }}</p>
-            </div>
             <div class="sm:col-span-2">
                 <label class="{{ $lbl }}">{{ __('Comments') }}</label>
                 <textarea wire:model="notes" rows="2" class="o-input w-full"></textarea>

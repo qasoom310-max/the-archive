@@ -50,7 +50,7 @@ final class LimoInvoicePdf
             'dueDate' => $invoice->due_date?->format('j-M-Y') ?? '',
             'customerName' => (string) ($invoice->customer->name ?? ''),
             'customerPhone' => (string) ($invoice->customer->phone ?? ''),
-            'customerVat' => trim((string) ($invoice->booking->company_vat_number ?? '')),
+            'customerVat' => trim((string) ($invoice->customer->vat_number ?? '')),
             // What the bill is against, so the customer can match it to a job.
             'bookingReference' => (string) ($invoice->booking->reference ?? ''),
             'quotationReference' => (string) ($invoice->quotation->reference ?? ''),

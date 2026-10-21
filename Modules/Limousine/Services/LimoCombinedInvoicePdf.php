@@ -138,10 +138,7 @@ final class LimoCombinedInvoicePdf
 
         return [
             'customer' => $invoices->first()?->customer,
-            // The newest booking's VAT number, when any of them carries one.
-            'customerVat' => (string) $invoices->sortByDesc('id')
-                ->map(static fn (LimoInvoice $i): string => trim((string) ($i->booking->company_vat_number ?? '')))
-                ->first(static fn (string $v): bool => $v !== '', ''),
+            'customerVat' => trim((string) ($invoices->first()?->customer->vat_number ?? '')),
             'rows' => $rows,
             'references' => $invoices->pluck('reference')->filter()->values()->all(),
             ...$this->period($this->day($from), $this->day($to), $tripDays, $dates),

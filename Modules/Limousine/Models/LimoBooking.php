@@ -26,7 +26,6 @@ use Illuminate\Support\Carbon;
  * @property string|null $booking_type
  * @property string|null $contact_person
  * @property string|null $company_reference
- * @property string|null $company_vat_number  The customer company's VAT number, printed on its invoice and receipts
  * @property string|null $pax_name
  * @property string|null $pax_contact
  * @property string|null $flight_number
@@ -89,7 +88,7 @@ final class LimoBooking extends Model implements DefinesIrModel, TakesCouponCred
 
     /** @var list<string> */
     protected $fillable = [
-        'reference', 'booking_type', 'customer_id', 'contact_person', 'company_reference', 'company_vat_number',
+        'reference', 'booking_type', 'customer_id', 'contact_person', 'company_reference',
         'pax_name', 'pax_contact', 'flight_number', 'email',
         'pickup_location_id', 'dropoff_location_id', 'pickup_address', 'dropoff_address',
         'pickup_at', 'booking_to', 'passengers', 'car_type', 'driver_name',

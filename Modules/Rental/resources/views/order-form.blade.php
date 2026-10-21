@@ -561,13 +561,6 @@
                     </div>
                 </header>
 
-                <div class="mb-4 sm:w-1/2 sm:pe-2">
-                    <label class="{{ $lbl }}">{{ __('Company VAT No.') }}</label>
-                    <input type="text" wire:model="company_vat_number" class="o-input w-full" maxlength="50">
-                    @error('company_vat_number') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    <p class="mt-1 text-xs text-chrome-500">{{ __('Printed on the invoice and receipts.') }}</p>
-                </div>
-
                 <div>
                     <label class="{{ $lbl }}">{{ __('Comments') }}</label>
                     <textarea wire:model="notes" rows="2" class="o-input w-full"></textarea>

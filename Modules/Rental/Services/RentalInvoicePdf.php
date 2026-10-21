@@ -48,7 +48,7 @@ final class RentalInvoicePdf
             'vatRegistrationNo' => trim((string) Setting::get('company.vat_number', '')),
             'customerName' => (string) ($invoice->customer->name ?? ''),
             'customerPhone' => (string) ($invoice->customer->phone ?? ''),
-            'customerVat' => trim((string) ($order->company_vat_number ?? '')),
+            'customerVat' => trim((string) ($invoice->customer->vat_number ?? '')),
             // Plain "->" throughout, not "?->": PHP's ?? already walks the
             // chain via isset() semantics, safely short-circuiting even when
             // $order (or a further step) is null — a nullsafe operator here

@@ -6,16 +6,18 @@ namespace Tests\Feature;
 
 use App\Erp\Modules\ModuleManager;
 use App\Models\User;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
-use Modules\Limousine\Livewire\BookingForm;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoReceipt;
 use Modules\Limousine\Services\LimoInvoicePdf;
 use Modules\Limousine\Services\LimoReceiptPdf;
-use Modules\Rental\Livewire\OrderForm;
+use Modules\Rental\Livewire\CustomerForm;
 use Modules\Rental\Models\RentalCustomer;
 use Modules\Rental\Models\RentalOrder;
 use Modules\Rental\Models\RentalReceipt;
@@ -25,8 +27,8 @@ use Modules\Rental\Services\RentalReceiptPdf;
 use Tests\TestCase;
 
 /**
- * A company customer's VAT number, typed on the limousine booking or the
- * rental order, printed on that job's invoice and receipts.
+ * A company customer's VAT number, kept on the customer and printed on its
+ * limousine and rental invoices and receipts.
  */
 final class CompanyVatNumberTest extends TestCase
 {
@@ -40,46 +42,37 @@ final class CompanyVatNumberTest extends TestCase
         app(ModuleManager::class)->install('rental');
     }
 
-    public function test_a_limousine_booking_saves_the_vat_number(): void
+    public function test_a_company_customer_saves_its_vat_number(): void
     {
-        $customer = LimoCustomer::query()->create(['name' => 'Braxtone', 'type' => 'company', 'phone' => '17000000']);
+        $customer = RentalCustomer::query()->create(['name' => 'Braxtone', 'type' => RentalCustomer::TYPE_COMPANY]);
 
-        Livewire::test(BookingForm::class)
-            ->set('customer_id', $customer->id)
-            ->set('pax_name', 'Helen Friberg')
-            ->set('requested_by', 'Office')
-            ->set('company_vat_number', ' 220015215500002 ')
-            ->set('legs.0.from_location', 'Hotel')
-            ->set('legs.0.to_location', 'Airport')
-            ->set('legs.0.estimated_hours', '2')
-            ->set('legs.0.start_at', now()->addDay()->format('Y-m-d\TH:i'))
-            ->set('legs.0.car_details', 'Sedan')
-            ->set('legs.0.rate', '20')
+        Livewire::test(CustomerForm::class, ['id' => $customer->id])
+            ->assertSee('Company VAT No.')
+            ->set('vat_number', ' 220015215500002 ')
             ->call('save')
             ->assertHasNoErrors();
 
-        $this->assertSame('220015215500002', LimoBooking::query()->sole()->company_vat_number);
+        $this->assertSame('220015215500002', $customer->refresh()->vat_number);
     }
 
-    public function test_picking_the_customer_again_fills_it_in_from_their_last_booking(): void
+    public function test_an_individual_keeps_no_vat_number(): void
     {
-        $customer = LimoCustomer::query()->create(['name' => 'Braxtone', 'type' => 'company']);
-        LimoBooking::query()->create(['customer_id' => $customer->id, 'status' => LimoBooking::STATUS_QUEUE, 'company_vat_number' => '220015215500002']);
+        $customer = RentalCustomer::query()->create(['name' => 'Helen Friberg', 'type' => RentalCustomer::TYPE_INDIVIDUAL]);
 
-        Livewire::test(BookingForm::class)
-            ->set('customer_id', $customer->id)
-            ->assertSet('company_vat_number', '220015215500002');
+        Livewire::test(CustomerForm::class, ['id' => $customer->id])
+            ->assertDontSee('Company VAT No.')
+            ->set('vat_number', '123')
+            ->call('save');
+
+        $this->assertNull($customer->refresh()->vat_number);
     }
 
     public function test_the_limousine_invoice_and_receipt_print_it(): void
     {
-        $customer = LimoCustomer::query()->create(['name' => 'Braxtone', 'type' => 'company']);
-        $booking = LimoBooking::query()->create(['customer_id' => $customer->id, 'status' => LimoBooking::STATUS_QUEUE, 'company_vat_number' => '220015215500002']);
+        $customer = LimoCustomer::query()->create(['name' => 'Braxtone', 'type' => 'company', 'vat_number' => '220015215500002']);
+        $booking = LimoBooking::query()->create(['customer_id' => $customer->id, 'status' => LimoBooking::STATUS_QUEUE]);
         $invoice = LimoInvoice::query()->create(['booking_id' => $booking->id, 'customer_id' => $customer->id, 'issue_date' => now(), 'total' => 20]);
         $receipt = LimoReceipt::query()->create(['customer_id' => $customer->id, 'invoice_id' => $invoice->id, 'date' => now(), 'amount' => 20, 'method' => 'cash']);
-
-        $this->assertSame('220015215500002', app(LimoInvoicePdf::class)->viewData($invoice)['customerVat']);
-        $this->assertSame('220015215500002', app(LimoReceiptPdf::class)->viewData($receipt)['customerVat']);
 
         $html = view('limousine::invoice-pdf', app(LimoInvoicePdf::class)->viewData($invoice))->render();
         $this->assertStringContainsString('VAT No.: 220015215500002', $html);
@@ -97,14 +90,13 @@ final class CompanyVatNumberTest extends TestCase
         $this->assertStringNotContainsString('VAT No.:', $html);
     }
 
-    public function test_a_rental_order_carries_it_to_the_invoice_and_receipt(): void
+    public function test_the_rental_invoice_and_receipt_print_it(): void
     {
-        $customer = RentalCustomer::query()->create(['name' => 'Braxtone', 'phone' => '17000000']);
+        $customer = RentalCustomer::query()->create(['name' => 'Braxtone', 'type' => RentalCustomer::TYPE_COMPANY, 'vat_number' => '220015215500002']);
         $vehicle = Vehicle::query()->create(['name' => 'Ford Expedition', 'plate_no' => '278003', 'daily_rate' => 50]);
         $order = RentalOrder::query()->create([
             'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id,
             'start_date' => '2026-02-20', 'end_date' => '2026-02-21', 'rate_type' => 'daily', 'rate' => 50,
-            'company_vat_number' => '220015215500002',
         ]);
         $order->recalcTotals();
         $order->save();
@@ -112,10 +104,7 @@ final class CompanyVatNumberTest extends TestCase
         $receipt = RentalReceipt::query()->create([
             'customer_id' => $customer->id, 'invoice_id' => $invoice->id, 'date' => '2026-02-21', 'amount' => 50, 'method' => 'cash',
         ])->fresh();
-
-        $this->assertSame('220015215500002', app(RentalInvoicePdf::class)->viewData($invoice)['customerVat']);
         $this->assertNotNull($receipt);
-        $this->assertSame('220015215500002', app(RentalReceiptPdf::class)->viewData($receipt)['customerVat']);
 
         $html = view('rental::invoice-pdf', app(RentalInvoicePdf::class)->viewData($invoice))->render();
         $this->assertStringContainsString('VAT No.: 220015215500002', $html);
@@ -123,17 +112,25 @@ final class CompanyVatNumberTest extends TestCase
         $this->assertStringContainsString('VAT No.: 220015215500002', $html);
     }
 
-    public function test_the_rental_order_form_shows_it_and_fills_it_from_the_last_order(): void
+    /** A number typed on a booking the morning it lived there moves to its customer. */
+    public function test_numbers_typed_on_bookings_and_orders_move_to_their_customer(): void
     {
-        $customer = RentalCustomer::query()->create(['name' => 'Braxtone']);
-        RentalOrder::query()->create([
-            'customer_id' => $customer->id, 'start_date' => '2026-02-20', 'end_date' => '2026-02-21',
-            'rate_type' => 'daily', 'rate' => 50, 'company_vat_number' => '220015215500002',
-        ]);
+        $migration = require base_path('Modules/Rental/database/migrations/2026_10_21_900053_move_company_vat_number_to_customers.php');
+        $migration->down();
+        foreach (['limo_bookings', 'rental_orders'] as $table) {
+            Schema::table($table, fn (Blueprint $t) => $t->string('company_vat_number', 50)->nullable());
+        }
 
-        Livewire::test(OrderForm::class)
-            ->assertSee('Company VAT No.')
-            ->set('customer_id', $customer->id)
-            ->assertSet('company_vat_number', '220015215500002');
+        $braxtone = RentalCustomer::query()->create(['name' => 'Braxtone', 'type' => RentalCustomer::TYPE_COMPANY]);
+        $kept = RentalCustomer::query()->create(['name' => 'Gulf Air', 'type' => RentalCustomer::TYPE_COMPANY]);
+        DB::table('limo_bookings')->insert(['customer_id' => $braxtone->id, 'status' => 'queue', 'company_vat_number' => '220015215500002', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('rental_orders')->insert(['customer_id' => $kept->id, 'start_date' => '2026-02-20', 'end_date' => '2026-02-21', 'company_vat_number' => '300000000000003', 'created_at' => now(), 'updated_at' => now()]);
+
+        $migration->up();
+
+        $this->assertSame('220015215500002', $braxtone->refresh()->vat_number);
+        $this->assertSame('300000000000003', $kept->refresh()->vat_number);
+        $this->assertFalse(Schema::hasColumn('limo_bookings', 'company_vat_number'));
+        $this->assertFalse(Schema::hasColumn('rental_orders', 'company_vat_number'));
     }
 }

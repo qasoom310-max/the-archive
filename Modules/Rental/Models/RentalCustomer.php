@@ -34,6 +34,7 @@ use Modules\Rental\Models\Concerns\DerivesServiceTag;
  * @property string|null $email
  * @property string|null $cpr
  * @property string|null $cr_number
+ * @property string|null $vat_number  A company's VAT number, printed on its invoices and receipts
  * @property string|null $cr_document
  * @property string|null $contact_person
  * @property string|null $contact_phone
@@ -59,7 +60,7 @@ final class RentalCustomer extends Model implements DefinesIrModel
 
     /** @var list<string> */
     protected $fillable = [
-        'name', 'type', 'phone', 'country', 'email', 'cpr', 'cr_number', 'cr_document',
+        'name', 'type', 'phone', 'country', 'email', 'cpr', 'cr_number', 'vat_number', 'cr_document',
         'contact_person', 'contact_phone', 'license_no', 'nationality', 'address', 'active',
     ];
 

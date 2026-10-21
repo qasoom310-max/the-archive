@@ -84,6 +84,8 @@ final class CustomerForm extends Component
     // Company
     public string $cr_number = '';
 
+    public string $vat_number = '';
+
     public string $contact_person = '';
 
     public string $contact_phone = '';
@@ -130,6 +132,7 @@ final class CustomerForm extends Component
         $this->license_no = $customer->license_no ?? '';
         $this->nationality = $customer->nationality ?? '';
         $this->cr_number = $customer->cr_number ?? '';
+        $this->vat_number = $customer->vat_number ?? '';
         $this->contact_person = $customer->contact_person ?? '';
         $this->contact_phone = $customer->contact_phone ?? '';
         $this->existingCrDocument = $customer->cr_document;
@@ -151,6 +154,7 @@ final class CustomerForm extends Component
             'license_no' => ['nullable', 'string', 'max:50'],
             'nationality' => ['nullable', 'string', 'max:80'],
             'cr_number' => ['nullable', 'string', 'max:50'],
+            'vat_number' => ['nullable', 'string', 'max:50'],
             'contact_person' => ['nullable', 'string', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:40'],
             'crDocumentPath' => ['nullable', 'string'],
@@ -191,6 +195,7 @@ final class CustomerForm extends Component
         $customer->license_no = $isCompany ? null : $this->trimOrNull($this->license_no);
         $customer->nationality = $isCompany ? null : $this->trimOrNull($this->nationality);
         $customer->cr_number = $isCompany ? $this->trimOrNull($this->cr_number) : null;
+        $customer->vat_number = $isCompany ? $this->trimOrNull($this->vat_number) : null;
         $customer->contact_person = $isCompany ? $this->trimOrNull($this->contact_person) : null;
         $customer->contact_phone = $isCompany ? $this->trimOrNull($this->contact_phone) : null;
 

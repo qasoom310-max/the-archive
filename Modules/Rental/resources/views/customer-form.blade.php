@@ -65,6 +65,12 @@
                     <input type="text" wire:model="cr_number" class="o-input w-full">
                     @error('cr_number') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
+                <div>
+                    <label class="{{ $lbl }}">{{ __('Company VAT No.') }}</label>
+                    <input type="text" wire:model="vat_number" class="o-input w-full" maxlength="50">
+                    @error('vat_number') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    <p class="mt-1 text-xs text-chrome-500">{{ __('Printed on the invoice and receipts.') }}</p>
+                </div>
                 <div x-data="{
                          busy: false, error: '', done: false,
                          async upload(e) {

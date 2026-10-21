@@ -92,6 +92,8 @@ Route::middleware('auth')->group(function (): void {
     // Masters.
     // Limousine earnings — drivers, routes and demand (owner only).
     Route::get('/app/limousine/earnings', LimoEarnings::class)->name('limousine.earnings');
+    // Outside (commission) drivers and what each is paid per trip (admin only).
+    Route::get('/app/limousine/outside-drivers', \Modules\Limousine\Livewire\OutsideDrivers::class)->name('limousine.outside_drivers');
 
     Route::get('/app/limousine/customer', Customers::class)->name('limousine.customer.index');
     // ONE customer page for both apps — the same person hires a car and books a

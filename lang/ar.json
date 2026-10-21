@@ -3212,5 +3212,19 @@
     "Now a commission driver (:amount BD), set when assigning a trip.": "أصبح سائقًا بالعمولة (:amount د.ب) عند تعيين رحلة.",
     "Usual commission set to :amount BD when assigning a trip.": "تم تحديد العمولة المعتادة :amount د.ب عند تعيين رحلة.",
     "Company VAT No.": "الرقم الضريبي للشركة",
-    "Printed on the invoice and receipts.": "يُطبع على الفاتورة والإيصالات."
+    "Printed on the invoice and receipts.": "يُطبع على الفاتورة والإيصالات.",
+    "Outside drivers": "السائقون الخارجيون",
+    "Commission per trip": "العمولة لكل رحلة",
+    "Commission drivers and what each is paid, trip by trip.": "سائقو العمولة وما يُدفع لكل منهم، رحلة برحلة.",
+    "Search a driver…": "ابحث عن سائق…",
+    "To pay": "المستحق للدفع",
+    "Trips with no amount": "رحلات بلا مبلغ",
+    "Usual commission :amount": "العمولة المعتادة :amount",
+    "No usual commission set": "لم تُحدد عمولة معتادة",
+    "Company driver now": "سائق شركة حاليًا",
+    ":count trips": ":count رحلات",
+    ":count with no amount": ":count بلا مبلغ",
+    "No trips in this period.": "لا توجد رحلات في هذه الفترة.",
+    "Commission": "العمولة",
+    "No outside drivers yet. A driver becomes one when they are set to commission, or when a commission is entered while assigning them a trip.": "لا يوجد سائقون خارجيون بعد. يصبح السائق خارجيًا عند تعيينه بالعمولة، أو عند إدخال عمولة أثناء تعيينه لرحلة."
 }

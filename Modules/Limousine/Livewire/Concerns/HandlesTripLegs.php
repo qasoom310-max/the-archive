@@ -364,6 +364,13 @@ trait HandlesTripLegs
     {
         $rules = ['legs' => ['required', 'array', 'min:1']];
 
+        // A trip already done or cancelled is not asked for an estimate it
+        // never had (thousands came over from the old system without one).
+        $savedIds = array_values(array_filter(array_map(static fn (array $l): int => (int) ($l['id'] ?? 0), $this->legs)));
+        $finished = $savedIds === [] ? [] : LimoLeg::query()->whereKey($savedIds)
+            ->whereIn('status', [LimoLeg::STATUS_COMPLETED, LimoLeg::STATUS_CANCELLED])
+            ->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all();
+
         foreach ($this->legs as $i => $leg) {
             $rules["legs.$i.service_type"] = ['required', 'in:transfer,chauffeur'];
             // The car is assigned later, when the trip is dispatched — not when
@@ -380,8 +387,13 @@ trait HandlesTripLegs
             $rules["legs.$i.start_at"] = ['required', 'date'];
             // How long the journey takes, in whole hours. It is a note about
             // the trip, never a multiplier: `hours` is what an hourly job is
-            // priced by, and the two must not be confused.
-            $rules["legs.$i.estimated_hours"] = ['nullable', 'integer', 'min:1', 'max:'.LimoLeg::MAX_ESTIMATED_HOURS];
+            // priced by, and the two must not be confused. Required on a
+            // transfer (the owner's call, 2026-10-21: the ETA and the car's
+            // next job depend on it); a chauffeur job has no such box, and a
+            // finished trip is not held up for one.
+            $optional = ($leg['service_type'] ?? '') === LimoLeg::TYPE_CHAUFFEUR
+                || in_array((int) ($leg['id'] ?? 0), $finished, true);
+            $rules["legs.$i.estimated_hours"] = [$optional ? 'nullable' : 'required', 'integer', 'min:1', 'max:'.LimoLeg::MAX_ESTIMATED_HOURS];
             // The car itself is picked at dispatch, so on a booking this line
             // is what says which car was asked for — the office needs it on
             // every trip. A quotation prices a service, not a named car, so
@@ -440,6 +452,7 @@ trait HandlesTripLegs
 
         return [
             'legs.*.car_details.required' => __('Say which car was asked for.'),
+            'legs.*.estimated_hours.required' => __('Choose roughly how long the trip takes.'),
             'legs.*.exchange_rate.required' => $lookupFailed,
             'legs.*.exchange_rate.numeric' => $lookupFailed,
             'legs.*.exchange_rate.min' => $lookupFailed,

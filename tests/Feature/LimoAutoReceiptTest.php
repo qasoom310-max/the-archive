@@ -65,6 +65,7 @@ final class LimoAutoReceiptTest extends TestCase
             'sequence' => 0,
             'reference' => '10001',
             'status' => LimoLeg::STATUS_QUEUE,
+            'estimated_hours' => 2,
             'start_at' => now()->addDay(),
             'from_location' => 'Hotel',
             'vehicle_details' => 'Sedan',
@@ -159,6 +160,7 @@ final class LimoAutoReceiptTest extends TestCase
             ->set('requested_by', 'Office')
             ->set('legs.0.from_location', 'Hotel')
             ->set('legs.0.to_location', 'Airport')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', now()->addDay()->format('Y-m-d\TH:i'))
             ->set('legs.0.rate', '45')
             ->set('legs.0.car_details', 'Sedan')

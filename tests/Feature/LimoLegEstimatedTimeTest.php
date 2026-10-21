@@ -62,11 +62,52 @@ final class LimoLegEstimatedTimeTest extends TestCase
         $this->assertSame(20.0, LimoBooking::query()->sole()->fare);
     }
 
-    public function test_a_trip_can_be_saved_without_one(): void
+    /** Required on a transfer since 2026-10-21 (the owner's call). */
+    public function test_a_transfer_cannot_be_saved_without_one(): void
     {
-        $this->form('')->call('save')->assertHasNoErrors();
+        $this->form('')->call('save')
+            ->assertHasErrors(['legs.0.estimated_hours' => 'required'])
+            ->assertSee('Choose roughly how long the trip takes.');
+
+        $this->assertSame(0, LimoLeg::query()->count());
+    }
+
+    /** An old trip still to run is asked for one when it is edited... */
+    public function test_an_open_trip_without_one_is_asked_for_it_on_edit(): void
+    {
+        $booking = $this->savedTrip(LimoLeg::STATUS_QUEUE);
+
+        Livewire::test(BookingForm::class, ['id' => $booking->id])
+            ->call('save')
+            ->assertHasErrors(['legs.0.estimated_hours' => 'required']);
+    }
+
+    /** ...but a finished one, like the thousands imported without it, is not. */
+    public function test_a_finished_trip_without_one_still_saves(): void
+    {
+        $booking = $this->savedTrip(LimoLeg::STATUS_COMPLETED);
+
+        Livewire::test(BookingForm::class, ['id' => $booking->id])
+            ->call('save')
+            ->assertHasNoErrors();
 
         $this->assertNull(LimoLeg::query()->sole()->estimated_hours);
+    }
+
+    private function savedTrip(string $status): LimoBooking
+    {
+        $booking = LimoBooking::query()->create([
+            'customer_id' => LimoCustomer::query()->create(['name' => 'Helen Friberg', 'phone' => '39000000'])->id,
+            'pax_name' => 'Helen Friberg', 'requested_by' => 'Office', 'prepared_by' => 'Qassim',
+            'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+        $booking->legs()->create([
+            'sequence' => 0, 'status' => $status, 'service_type' => LimoLeg::TYPE_TRANSFER,
+            'start_at' => now()->subDay(), 'from_location' => 'Hotel', 'to_location' => 'Airport',
+            'vehicle_details' => 'Sedan', 'rate' => 20, 'net_amount' => 20,
+        ]);
+
+        return $booking;
     }
 
     public function test_reopening_a_booking_shows_the_estimate_again(): void

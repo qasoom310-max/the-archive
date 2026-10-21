@@ -2757,6 +2757,15 @@ chauffeur job = start + (days − 1) days + `hours` (when its last day ends).
 Screen only, not sortable (computed per row), not in `headings()` so exports
 keep their columns; the row carries it as `eta`. Test: `LimoBookingEtaTest`.
 
+**Estimated time is required on a transfer (2026-10-21, the owner's call).**
+`HandlesTripLegs::rules()` makes `legs.*.estimated_hours` required on the
+booking AND quotation forms, except on a chauffeur leg (no such box) and on a
+saved trip already completed or cancelled (thousands were imported without
+one, and a finished trip must not block a save). An open old trip IS asked for
+it when edited. Message "Choose roughly how long the trip takes.". The queue's
+single-trip edit modal and the WhatsApp assistant do not ask. Tests:
+`LimoLegEstimatedTimeTest`.
+
 **A new booking saved twice no longer makes two (fixed 2026-10-20).** The
 booking and quotation forms never stored the new record's id (nor each new
 trip's id) after the first save, so a second save from the same page (a double

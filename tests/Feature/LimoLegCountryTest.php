@@ -39,6 +39,7 @@ final class LimoLegCountryTest extends TestCase
             ->set('customer_id', $customer->id)
             ->set('pax_name', 'Helen Friberg')
             ->set('requested_by', 'Office')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', now()->addDay()->format('Y-m-d\TH:i'))
             ->set('legs.0.car_details', 'Sedan')
             ->set('legs.0.rate', '20');

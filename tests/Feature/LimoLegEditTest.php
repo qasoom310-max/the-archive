@@ -305,6 +305,7 @@ final class LimoLegEditTest extends TestCase
         $booking->legs()->update(['vehicle_details' => 'SUV']);
 
         Livewire::test(\Modules\Limousine\Livewire\BookingForm::class, ['id' => $booking->id])
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', '2026-10-05T18:45')
             ->call('save')
             ->assertHasNoErrors();

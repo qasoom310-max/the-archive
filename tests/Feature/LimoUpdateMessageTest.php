@@ -137,6 +137,7 @@ final class LimoUpdateMessageTest extends TestCase
             ->set('requested_by', 'Office')
             ->set('legs.0.from_location', 'Home')
             ->set('legs.0.to_location', 'Dammam Airport')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', now()->addDay()->format('Y-m-d\TH:i'))
             ->set('legs.0.rate', '45')
             ->set('legs.0.car_details', 'Sedan')

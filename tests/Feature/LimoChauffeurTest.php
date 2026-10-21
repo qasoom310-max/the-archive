@@ -41,6 +41,7 @@ final class LimoChauffeurTest extends TestCase
             ->set('requested_by', 'Office')
             ->set('legs.0.service_type', LimoLeg::TYPE_CHAUFFEUR)
             ->set('legs.0.from_location', 'Manama')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', now()->addDays(2)->format('Y-m-d\TH:i'))
             ->set('legs.0.hours', '8')
             ->set('legs.0.days', '3')
@@ -131,6 +132,7 @@ final class LimoChauffeurTest extends TestCase
             ->set('customer_id', $customer->id)
             ->set('legs.0.from_location', 'Manama')
             ->set('legs.0.to_location', 'Riffa')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', now()->addDay()->format('Y-m-d\TH:i'));
 
         // Transfer → chauffeur, the way the toggle button does it.
@@ -176,6 +178,7 @@ final class LimoChauffeurTest extends TestCase
             ->set('customer_id', $customer->id)
             ->set('legs.0.service_type', LimoLeg::TYPE_CHAUFFEUR)
             ->set('legs.0.hours', '8')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', $typed)
             ->assertOk();
     }

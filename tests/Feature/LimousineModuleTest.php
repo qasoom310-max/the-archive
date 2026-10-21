@@ -160,6 +160,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.service_type', 'transfer')
             ->set('legs.0.from_location', 'Bahrain Airport')
             ->set('legs.0.to_location', 'Manama')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', '2026-07-05T09:00')
             ->set('legs.0.car_id', $carA->id)
             ->set('legs.0.rate', 45)
@@ -169,6 +170,7 @@ final class LimousineModuleTest extends TestCase
             ->call('addLeg')
             ->set('legs.1.service_type', 'chauffeur')
             ->set('legs.1.from_location', 'Manama')
+            ->set('legs.1.estimated_hours', '2')
             ->set('legs.1.start_at', '2026-07-06T09:00')
             ->set('legs.1.hours', 8)
             ->set('legs.1.days', 4)
@@ -245,6 +247,7 @@ final class LimousineModuleTest extends TestCase
             ->set('requested_by', 'A')
             ->set('legs.0.service_type', 'chauffeur')
             ->set('legs.0.from_location', 'Manama')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', '2026-07-05T09:00')
             ->set('legs.0.car_id', $this->availableCar()->id)
             ->set('legs.0.rate', 10)
@@ -272,6 +275,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.service_type', 'transfer')
             ->set('legs.0.from_location', 'Airport')
             ->set('legs.0.to_location', 'Manama')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', '2026-07-05T09:00')
             ->set('legs.0.rate', 20)
             ->set('legs.0.rate_basis', 'trip');
@@ -287,6 +291,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.service_type', 'transfer')
             ->set('legs.0.from_location', 'Airport')
             ->set('legs.0.to_location', 'Manama')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', '2026-07-05T09:00')
             ->set('legs.0.rate', 20)
             ->set('legs.0.rate_basis', 'trip')
@@ -306,6 +311,7 @@ final class LimousineModuleTest extends TestCase
         LimoLeg::query()->create([
             'legable_type' => LimoBooking::class, 'legable_id' => $booking->id,
             'sequence' => 1, 'status' => LimoLeg::STATUS_QUEUE,
+            'estimated_hours' => 2,
             'start_at' => '2026-07-05 09:00:00',
             'from_location' => 'Airport', 'to_location' => 'Manama',
             'vehicle' => 'Sedan', 'rate' => 20, 'net_amount' => 20,
@@ -347,6 +353,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.service_type', 'transfer')
             ->set('legs.0.from_location', 'Airport')
             ->set('legs.0.to_location', 'City Centre')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', '2026-07-01T14:30')
             ->set('legs.0.car_id', $car->id)
             ->set('legs.0.rate', 18.5)
@@ -385,6 +392,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.service_type', 'transfer')
             ->set('legs.0.from_location', 'Airport')
             ->set('legs.0.to_location', 'City Centre')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', '2026-07-01T14:30')
             ->set('legs.0.rate', 18.5)
             ->set('legs.0.car_details', 'Sedan')
@@ -426,6 +434,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.service_type', 'transfer')
             ->set('legs.0.from_location', 'Airport')
             ->set('legs.0.to_location', 'City')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', '2026-08-27T17:00')
             ->set('legs.0.rate', 25)
             ->set('legs.0.car_details', 'Sedan')
@@ -455,6 +464,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.service_type', 'transfer')
             ->set('legs.0.from_location', 'Bahrain Airport')
             ->set('legs.0.to_location', 'Home')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', '2026-08-27T17:00')
             ->set('legs.0.rate', 13)
             ->set('legs.0.car_details', 'Sedan')
@@ -463,6 +473,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.1.service_type', 'transfer')
             ->set('legs.1.from_location', 'Home')
             ->set('legs.1.to_location', 'Bahrain Airport')
+            ->set('legs.1.estimated_hours', '2')
             ->set('legs.1.start_at', '2026-08-27T18:00')
             ->set('legs.1.rate', 12)
             ->set('legs.1.car_details', 'Sedan')
@@ -938,6 +949,7 @@ final class LimousineModuleTest extends TestCase
             'to_location' => 'City', 'start_at' => now(), 'days' => 1, 'rate' => 10,
             'rate_basis' => 'trip', 'car_id' => $car->id, 'vehicle' => 'Lexus ES',
             'status' => LimoLeg::STATUS_CONFIRMED,
+            'estimated_hours' => 2,
         ]);
         $ref = $leg->fresh()?->reference;
 
@@ -1425,6 +1437,7 @@ final class LimousineModuleTest extends TestCase
             ->set('legs.0.service_type', 'transfer')
             ->set('legs.0.from_location', 'Airport')
             ->set('legs.0.to_location', 'City Centre')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', '2026-07-01T14:30')
             ->set('legs.0.car_id', $car->id)
             ->set('legs.0.rate', 18.5)

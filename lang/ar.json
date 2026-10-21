@@ -3208,5 +3208,6 @@
     "Estimated time of arrival": "الوقت المتوقع للوصول",
     "Payment amount (BD)": "مبلغ الدفع (د.ب)",
     "What this commission driver is paid for the trip.": "المبلغ الذي يُدفع لسائق العمولة مقابل هذه الرحلة.",
-    "Enter the payment as an amount in BD, or leave it blank.": "أدخل مبلغ الدفع بالدينار البحريني، أو اتركه فارغاً."
+    "Enter the payment as an amount in BD, or leave it blank.": "أدخل مبلغ الدفع بالدينار البحريني، أو اتركه فارغاً.",
+    "Choose roughly how long the trip takes.": "اختر المدة التقريبية للرحلة."
 }

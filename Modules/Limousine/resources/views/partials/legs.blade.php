@@ -96,16 +96,16 @@
                     {{-- Roughly how long the journey itself takes — the same
                          question the website's fare finder asks. It is a note
                          about the trip, never part of the price: the Hours box
-                         below is what an hourly rate multiplies by. Optional,
-                         because the desk often does not know yet. --}}
+                         below is what an hourly rate multiplies by. Required on
+                         a transfer: the ETA on the bookings list comes from it. --}}
                     @php
                         $estimated = (int) (($leg['estimated_hours'] ?? '') === '' ? 0 : $leg['estimated_hours']);
                         $arrives = $estimated > 0 ? $this->legStart($leg)?->copy()->addHours($estimated) : null;
                     @endphp
                     <div>
-                        <label class="{{ $lbl }}">{{ __('Estimated time') }}</label>
+                        <label class="{{ $lbl }}">{{ __('Estimated time') }} *</label>
                         <select wire:model.live="legs.{{ $i }}.estimated_hours" class="o-input w-full">
-                            <option value="">{{ __('Not set') }}</option>
+                            <option value="">{{ __('— Select —') }}</option>
                             @for ($h = 1; $h <= \Modules\Limousine\Models\LimoLeg::MAX_ESTIMATED_HOURS; $h++)
                                 <option value="{{ $h }}">{{ $h === 1 ? __('1 hour') : __(':hours hours', ['hours' => $h]) }}</option>
                             @endfor

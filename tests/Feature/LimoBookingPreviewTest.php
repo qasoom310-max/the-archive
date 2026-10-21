@@ -226,6 +226,7 @@ final class LimoBookingPreviewTest extends TestCase
             ->set('legs.0.service_type', 'transfer')
             ->set('legs.0.from_location', 'Airport')
             ->set('legs.0.to_location', 'City Centre')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', '2026-07-01T14:30')
             ->set('legs.0.rate', 18.5)
             ->set('legs.0.car_details', 'Sedan')

@@ -54,6 +54,7 @@ final class LimoInvoiceChainTest extends TestCase
             ->set('legs.0.service_type', 'transfer')
             ->set('legs.0.from_location', 'Airport')
             ->set('legs.0.to_location', 'Hotel')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', '2026-09-05T09:00')
             ->set('legs.0.rate', $rate)
             ->set('legs.0.car_details', 'Sedan')

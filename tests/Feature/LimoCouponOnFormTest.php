@@ -59,6 +59,7 @@ final class LimoCouponOnFormTest extends TestCase
             ->set('requested_by', 'Office')
             ->set('legs.0.from_location', 'Hotel')
             ->set('legs.0.to_location', 'Bahrain Airport')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', now()->addDay()->format('Y-m-d\TH:i'))
             ->set('legs.0.rate', '45')
             ->set('legs.0.car_details', 'Sedan');
@@ -114,6 +115,7 @@ final class LimoCouponOnFormTest extends TestCase
         $component->call('addLeg')
             ->set('legs.1.from_location', 'Airport')
             ->set('legs.1.to_location', 'Hotel')
+            ->set('legs.1.estimated_hours', '2')
             ->set('legs.1.start_at', now()->addDays(2)->format('Y-m-d\TH:i'))
             ->set('legs.1.rate', '30')
             ->set('legs.1.car_details', 'Sedan')
@@ -216,6 +218,7 @@ final class LimoCouponOnFormTest extends TestCase
             ->assertSet('customer_id', $customer->id)
             ->set('legs.0.from_location', 'Hotel')
             ->set('legs.0.to_location', 'Airport')
+            ->set('legs.0.estimated_hours', '2')
             ->set('legs.0.start_at', now()->addDay()->format('Y-m-d\TH:i'))
             ->set('legs.0.rate', '45')
             ->set('legs.0.car_details', 'Sedan')
@@ -246,6 +249,7 @@ final class LimoCouponOnFormTest extends TestCase
             'sequence' => 0,
             'reference' => '10001',
             'status' => LimoLeg::STATUS_QUEUE,
+            'estimated_hours' => 2,
             'start_at' => now()->addDay(),
             'from_location' => 'Hotel',
             'vehicle_details' => 'Sedan',

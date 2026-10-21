@@ -277,7 +277,7 @@ final class LimoQueuePhoneColumnsTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/<td[^>]*data-booked-time/', $html);
 
         // The time reads on its own line under the date.
-        $this->assertMatchesRegularExpression('/data-booked-time>\s*<div>\d{2}-[A-Za-z]{3}-\d{2}<\/div>\s*(<!--[^>]*-->\s*)*<div>\d{2}:\d{2}<\/div>/', $html);
+        $this->assertMatchesRegularExpression('/data-booked-time>\s*<div>\d{2}-[A-Za-z]{3}-\d{2}<\/div>\s*(<!--.*?-->\s*)*<div>\d{2}:\d{2}<\/div>/', $html);
 
         $keys = array_keys(app(LimoQueueRows::class)->headings());
         $this->assertSame(array_search('comments', $keys, true) + 1, array_search('booked_time', $keys, true));

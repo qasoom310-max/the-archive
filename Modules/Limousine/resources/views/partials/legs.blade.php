@@ -65,30 +65,35 @@
                     @error('legs.'.$i.'.from_location_url') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
 
+                {{-- Each branch's boxes carry their own wire:key. Without them,
+                     switching Transfer -> Chauffeur reused the To box as the start
+                     date box, whose script then started before its inputs existed:
+                     a date picked from the calendar reached the server but the box
+                     stayed blank. --}}
                 @if ($isChauffeur)
-                    <div>
+                    <div wire:key="leg-{{ $i }}-chauffeur-start">
                         <label class="{{ $lbl }}">{{ __('Start date & time') }} *</label>
                         <x-date-field type="datetime-local" :calendar="$calendar ?? false" wire:model.live="legs.{{ $i }}.start_at" class="o-input w-full" />
                         @error('legs.'.$i.'.start_at') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
-                    <div>
+                    <div wire:key="leg-{{ $i }}-chauffeur-hours">
                         <label class="{{ $lbl }}">{{ __('Hours per day') }} *</label>
                         <input type="number" step="0.5" min="0" wire:model.live="legs.{{ $i }}.hours" class="o-input w-full" placeholder="{{ __('e.g. 8') }}">
                         @error('legs.'.$i.'.hours') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
-                    <div>
+                    <div wire:key="leg-{{ $i }}-chauffeur-days">
                         <label class="{{ $lbl }}">{{ __('Number of days') }} *</label>
                         <input type="number" min="1" wire:model.live="legs.{{ $i }}.days" class="o-input w-full">
                         @error('legs.'.$i.'.days') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                 @else
-                    <div>
+                    <div wire:key="leg-{{ $i }}-transfer-to">
                         @include('limousine::partials.leg-place', ['side' => 'to', 'label' => __('To'), 'placeholder' => __('e.g. Manama')])
                         <input type="url" wire:model="legs.{{ $i }}.to_location_url" class="o-input mt-1 w-full text-xs"
                                placeholder="{{ __('Drop-off map link (optional)') }}">
                         @error('legs.'.$i.'.to_location_url') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
-                    <div>
+                    <div wire:key="leg-{{ $i }}-transfer-start">
                         <label class="{{ $lbl }}">{{ __('Date & time') }} *</label>
                         <x-date-field type="datetime-local" :calendar="$calendar ?? false" wire:model.live="legs.{{ $i }}.start_at" class="o-input w-full" />
                         @error('legs.'.$i.'.start_at') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
@@ -102,7 +107,7 @@
                         $estimated = (int) (($leg['estimated_hours'] ?? '') === '' ? 0 : $leg['estimated_hours']);
                         $arrives = $estimated > 0 ? $this->legStart($leg)?->copy()->addHours($estimated) : null;
                     @endphp
-                    <div>
+                    <div wire:key="leg-{{ $i }}-transfer-eta">
                         <label class="{{ $lbl }}">{{ __('Estimated time') }} *</label>
                         <select wire:model.live="legs.{{ $i }}.estimated_hours" class="o-input w-full">
                             <option value="">{{ __('— Select —') }}</option>

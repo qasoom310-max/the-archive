@@ -429,8 +429,16 @@ document.addEventListener('alpine:init', () => {
         // naming the weekday would both go stale the moment one was picked.
         chosen: '',
 
-        init() {
+        init(attempt = 0) {
             const native = this.$refs.native;
+
+            // A Livewire redraw that turns another element into this one runs
+            // init() before the inputs inside have arrived. Wait for them
+            // instead of crashing, or the box never shows a picked date.
+            if (!native || !this.$refs.text) {
+                if (attempt < 10) this.$nextTick(() => this.init(attempt + 1));
+                return;
+            }
 
             // Livewire renders a wire:model input with NO value attribute and
             // fills it AFTER it boots, by ASSIGNING the value property. That

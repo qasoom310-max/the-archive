@@ -1584,11 +1584,25 @@ final class Bookings extends Component
         // trips, so the banner's 3-dot menu offers the same actions as a row.
         $savedId = session('booking_status_id');
         $savedBooking = is_numeric($savedId)
-            ? LimoBooking::query()->with('legs')->find((int) $savedId)
+            ? LimoBooking::query()->with(['customer', 'legs' => fn ($q) => $q->orderBy('sequence')])->find((int) $savedId)
             : null;
+
+        // Each trip's details, shown under the banner's message and copied
+        // with it. Called-off trips are left out.
+        $savedTrips = [];
+        if ($savedBooking !== null) {
+            foreach ($savedBooking->legs as $leg) {
+                if ($leg->status === LimoLeg::STATUS_CANCELLED) {
+                    continue;
+                }
+                $leg->setRelation('legable', $savedBooking);
+                $savedTrips[] = ['reference' => (string) ($leg->reference ?? ''), 'lines' => $rows->confirmationLines($leg)];
+            }
+        }
 
         return view('limousine::bookings', [
             'savedBooking' => $savedBooking,
+            'savedTrips' => $savedTrips,
             'dayHeader' => $this->dayHeader(),
             'legs' => $legs,
             // Flattened through the shared builder so the table prints exactly

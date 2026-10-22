@@ -204,6 +204,25 @@ final class LimoBookingPreviewTest extends TestCase
         }
     }
 
+    /** The banner shows the trip's details under the reference, and copies them with it. */
+    public function test_the_success_banner_shows_the_trip_details(): void
+    {
+        $booking = $this->booking();
+        $booking->update(['pax_name' => 'Mr Lars']);
+        $booking->legs()->update(['vehicle_details' => 'GMC Yukon']);
+        session()->flash('booking_status', 'Booking done successfully. Ref. # 10021');
+        session()->flash('booking_status_id', $booking->id);
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        $this->assertStringContainsString('data-saved-trip', $html);
+        foreach (['05-Sep-26 · 09:00', 'Pick up: Airport', 'Drop off: Hotel', 'Car type: GMC Yukon', 'PAX: Mr Lars'] as $needle) {
+            $this->assertStringContainsString($needle, $html);
+        }
+        // Copied together with the message.
+        $this->assertStringContainsString('Ref. # 10021\n\nDate: 05-Sep-26', $html);
+    }
+
     /** No flashed id (a plain status message, or none at all) — no View button. */
     public function test_no_view_button_without_a_flashed_booking_id(): void
     {

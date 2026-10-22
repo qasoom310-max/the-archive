@@ -103,11 +103,37 @@
     @if (session('booking_status'))
         <div class="mb-4 flex items-start justify-between gap-3 rounded-lg bg-primary-50 px-4 py-2.5 text-sm font-medium text-chrome-800 ring-1 ring-primary-200"
              x-data="{ copied: false }">
-            <span class="whitespace-pre-line">{{ session('booking_status') }}</span>
+            @php
+                // The trip details go under the message and into the copy, so
+                // what the office forwards says when, where and which car.
+                $manyTrips = count($savedTrips) > 1;
+                $bannerCopy = (string) session('booking_status');
+                foreach ($savedTrips as $t) {
+                    $block = $manyTrips ? [__('Ref. #') . ' ' . $t['reference'], ...$t['lines']] : $t['lines'];
+                    if ($block !== []) {
+                        $bannerCopy .= "\n\n" . implode("\n", $block);
+                    }
+                }
+            @endphp
+            <div class="min-w-0">
+                <span class="whitespace-pre-line">{{ session('booking_status') }}</span>
+                @foreach ($savedTrips as $t)
+                    @if ($t['lines'] !== [])
+                        <div class="mt-2 border-t border-primary-200 pt-2 text-xs font-normal text-chrome-700" data-saved-trip>
+                            @if ($manyTrips)
+                                <div class="font-semibold text-chrome-800">{{ __('Ref. #') }} {{ $t['reference'] }}</div>
+                            @endif
+                            @foreach ($t['lines'] as $line)
+                                <div class="break-words">{{ $line }}</div>
+                            @endforeach
+                        </div>
+                    @endif
+                @endforeach
+            </div>
             <div class="flex shrink-0 items-center gap-1">
                 <button type="button"
                         x-on:click="
-                            $store.clip.copy(@js((string) session('booking_status')));
+                            $store.clip.copy(@js($bannerCopy));
                             copied = true; setTimeout(() => copied = false, 1500)
                         "
                         :title="copied ? @js(__('Copied')) : @js(__('Copy this message'))"

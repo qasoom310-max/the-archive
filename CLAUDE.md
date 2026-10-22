@@ -2762,6 +2762,8 @@ amount as their usual one (`Bookings::makeCommissionDriver()`, activity-logged);
 a commission driver with no usual amount takes it, one who has an amount keeps
 it. No amount = nothing kept and nobody converted. Test: `LimoDriverPaymentTest` (7).
 
+**Trip details in the "Booking done successfully" banner (shipped 2026-10-22).** Under the yellow banner's message on the bookings list, each trip of the saved booking (not cancelled) shows its date · time (a chauffeur job: start/end), Type, PAX, Pick up, Drop off and Car type, from `LimoQueueRows::confirmationLines()`. There is no money, no phone numbers and no driver notes, because the office forwards this to the customer. A booking with several trips heads each block with its Ref. #. The banner's Copy button copies the message plus these details. Test: `LimoBookingPreviewTest::test_the_success_banner_shows_the_trip_details`.
+
 **ETA column on the bookings list (shipped 2026-10-20).** On the Queue,
 Active and Completed tabs only, after To date. `LimoLeg::eta()`: a transfer =
 start + `estimated_hours` (the trip's "Estimated time", null when not set); a

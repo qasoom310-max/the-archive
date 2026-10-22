@@ -563,6 +563,47 @@ final class LimoQueueRows
         return implode("\n", $lines);
     }
 
+    /**
+     * The trip's details for the "Booking done successfully" banner: when,
+     * what kind of trip, who rides, from and to, and which car. The office
+     * reads it back to the customer, so no money, phone numbers or driver
+     * notes go in. Empty fields are dropped.
+     *
+     * @return list<string>
+     */
+    public function confirmationLines(LimoLeg $leg): array
+    {
+        $booking = $this->bookingOf($leg);
+        $lines = [];
+
+        if ($leg->start_at !== null && $leg->service_type === LimoLeg::TYPE_CHAUFFEUR) {
+            $lines = $this->chauffeurWindow($leg);
+        } elseif ($leg->start_at !== null) {
+            $lines[] = __('Date') . ': ' . $leg->start_at->isoFormat('DD-MMM-YY') . ' · ' . $leg->start_at->isoFormat('HH:mm');
+        }
+
+        $lines[] = __('Type') . ': ' . $this->tripType($leg, $booking);
+
+        $pax = trim((string) ($booking->pax_name ?? ''));
+        if ($pax !== '') {
+            $lines[] = __('PAX') . ': ' . $pax;
+        }
+
+        if (trim((string) ($leg->from_location ?? '')) !== '') {
+            $lines[] = __('Pick up') . ': ' . trim((string) $leg->from_location);
+        }
+        if (trim((string) ($leg->to_location ?? '')) !== '') {
+            $lines[] = __('Drop off') . ': ' . trim((string) $leg->to_location);
+        }
+
+        $type = $this->vehicleType($leg, $booking);
+        if ($type !== '') {
+            $lines[] = __('Car type') . ': ' . $type;
+        }
+
+        return $lines;
+    }
+
     /** The car type asked for: the leg's own note first, else the booking's field (where the old system kept it). */
     private function vehicleType(LimoLeg $leg, ?LimoBooking $booking): string
     {

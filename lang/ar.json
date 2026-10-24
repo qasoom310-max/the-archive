@@ -3226,5 +3226,7 @@
     ":count with no amount": ":count بلا مبلغ",
     "No trips in this period.": "لا توجد رحلات في هذه الفترة.",
     "Commission": "العمولة",
-    "No outside drivers yet. A driver becomes one when they are set to commission, or when a commission is entered while assigning them a trip.": "لا يوجد سائقون خارجيون بعد. يصبح السائق خارجيًا عند تعيينه بالعمولة، أو عند إدخال عمولة أثناء تعيينه لرحلة."
+    "No outside drivers yet. A driver becomes one when they are set to commission, or when a commission is entered while assigning them a trip.": "لا يوجد سائقون خارجيون بعد. يصبح السائق خارجيًا عند تعيينه بالعمولة، أو عند إدخال عمولة أثناء تعيينه لرحلة.",
+    "Search all tabs": "البحث في كل التبويبات",
+    ":count matching trip is on another tab.|:count matching trips are on other tabs.": "توجد رحلة مطابقة واحدة في تبويب آخر.|توجد :count رحلات مطابقة في تبويبات أخرى."
 }

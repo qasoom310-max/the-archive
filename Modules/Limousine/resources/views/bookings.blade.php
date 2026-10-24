@@ -380,13 +380,17 @@
                             // "To date" joins it at sm.
                             $phoneLabel = $key === 'from_date' ? __('Date') : null;
                         @endphp
+                        {{-- if/else, never @continue inside the @if: Livewire marks
+                             each @if with an opening and closing comment, and a
+                             @continue skips the closing one. The browser then could
+                             not redraw the header when the ETA column came or went,
+                             and the list stopped following the tabs and the search. --}}
                         @if ($key === 'eta')
                             {{-- Worked out per trip (start + estimated time), not a
                                  stored column, so it does not sort. --}}
                             <th class="whitespace-nowrap px-2 py-2 text-start" data-eta-heading
                                 title="{{ __('Estimated time of arrival') }}">{{ $label }}</th>
-                            @continue
-                        @endif
+                        @else
                         <th class="px-2 py-2 {{ $isMoney ? 'text-end' : 'text-start' }} {{ $vis[$key] ?? '' }}"
                             @if ($sorted) aria-sort="{{ $dir === 'asc' ? 'ascending' : 'descending' }}" @endif>
                             <button type="button" wire:click="sortBy('{{ $key }}')"
@@ -420,6 +424,7 @@
                                 </button>
                             @endif
                         </th>
+                        @endif
                     @endforeach
                     {{-- Columns are sized to fit the window, but a narrow laptop can still
                          overflow — keep Open/Edit pinned to the trailing edge so they can
@@ -827,7 +832,15 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="{{ 18 + ($showEta ? 1 : 0) }}" class="px-4 py-10 text-center text-sm text-chrome-600">{{ __('No bookings found.') }}</td></tr>
+                    <tr><td colspan="{{ 18 + ($showEta ? 1 : 0) }}" class="px-4 py-10 text-center text-sm text-chrome-600">
+                        {{ __('No bookings found.') }}
+                        @if ($elsewhere > 0)
+                            <div class="mt-2" data-search-elsewhere>
+                                {{ trans_choice(':count matching trip is on another tab.|:count matching trips are on other tabs.', $elsewhere, ['count' => $elsewhere]) }}
+                                <button type="button" wire:click="openTab('all')" class="ms-1 font-semibold text-primary-700 hover:underline">{{ __('Search all tabs') }}</button>
+                            </div>
+                        @endif
+                    </td></tr>
                 @endforelse
             </tbody>
         </table>

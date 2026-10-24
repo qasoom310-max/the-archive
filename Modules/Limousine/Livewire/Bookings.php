@@ -1561,6 +1561,13 @@ final class Bookings extends Component
         $perPage = in_array($this->perPage, self::PER_PAGE_OPTIONS, true) ? $this->perPage : self::PER_PAGE_DEFAULT;
         $legs = $rows->paginate($this->tab, $this->from, $this->to, $this->search, $perPage, $this->sort, $this->dir);
 
+        // A search that finds nothing on this tab may still find trips on the
+        // others (the list opens on Queue, and most trips are Completed); say
+        // how many, so an empty tab is not read as "no such customer".
+        $elsewhere = ($legs->total() === 0 && trim($this->search) !== '' && $this->tab !== 'all')
+            ? $rows->query('all', $this->from, $this->to, $this->search)->count()
+            : 0;
+
         // On a day or month page the tab counts are that month's trips, by
         // pick-up date; elsewhere every trip.
         $month = $this->listMonth();
@@ -1602,6 +1609,7 @@ final class Bookings extends Component
 
         return view('limousine::bookings', [
             'savedBooking' => $savedBooking,
+            'elsewhere' => $elsewhere,
             'savedTrips' => $savedTrips,
             'dayHeader' => $this->dayHeader(),
             'legs' => $legs,

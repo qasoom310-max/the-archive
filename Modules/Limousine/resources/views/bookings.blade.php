@@ -509,6 +509,11 @@
                             @else
                                 {{ $row['customer'] ?: '—' }}
                             @endif
+                            {{-- A company is the account, not who rides: the passenger's
+                                 name goes under it. --}}
+                            @if ($row['passenger'] !== '')
+                                <span class="mt-0.5 block text-[11px] text-chrome-700" data-passenger>{{ __('PAX') }}: {{ $row['passenger'] }}</span>
+                            @endif
                             {{-- The number to ring: the passenger's for a company,
                                  the customer's own otherwise. --}}
                             @if ($row['contact_phone'] !== '')

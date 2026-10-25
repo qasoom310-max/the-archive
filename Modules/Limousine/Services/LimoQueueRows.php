@@ -33,7 +33,7 @@ use Modules\Limousine\Support\LiveEntry;
  *
  * @phpstan-type QueueRow array{
  *     leg_id: int, booking_id: int, reference: string, booking_reference: string,
- *     from_date: string, to_date: string, eta: string, type: string, customer: string, customer_id: int, contact_phone: string,
+ *     from_date: string, to_date: string, eta: string, type: string, customer: string, customer_id: int, passenger: string, contact_phone: string,
  *     amount: float, received: float, balance: float, pickup: string, dropoff: string,
  *     vehicle: string, vehicle_type: string, driver: string, added_by: string, comments: string, booked_time: string,
  *     status: string, payment: string
@@ -356,6 +356,19 @@ final class LimoQueueRows
      * Phone for the row: the passenger's for a company customer, the
      * customer's own otherwise.
      */
+    /** The passenger's name on a company booking, unless it only repeats the company's. */
+    private function passenger(?LimoBooking $booking): string
+    {
+        $customer = $booking?->customer;
+        if ($customer === null || ! $customer->isCompany()) {
+            return '';
+        }
+
+        $pax = trim((string) ($booking->pax_name ?? ''));
+
+        return strcasecmp($pax, trim((string) $customer->name)) === 0 ? '' : $pax;
+    }
+
     private function contactPhone(?LimoBooking $booking): string
     {
         $customer = $booking?->customer;
@@ -395,6 +408,9 @@ final class LimoQueueRows
             // A company is not who gets in the car, so for one it is the
             // passenger's number; for a person it is their own.
             'contact_phone' => $this->contactPhone($booking),
+            // Who rides, under a COMPANY's name: the account is not the person
+            // the driver meets. Not a printed column, like contact_phone.
+            'passenger' => $this->passenger($booking),
             // The leg's own price; the money below is the whole booking's.
             'amount' => round((float) $leg->net_amount, 3),
             'received' => $booking?->amountReceived() ?? 0.0,

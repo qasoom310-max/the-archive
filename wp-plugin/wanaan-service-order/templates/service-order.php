@@ -111,7 +111,7 @@ $detail = function ( $label, $value ) {
 
 				<div class="wso-amount">
 					<span class="lbl"><?php esc_html_e( 'Amount due', 'wanaan-service-order' ); ?></span>
-					<span class="val"><?php echo esc_html( number_format( (float) $row->amount, 3 ) . ' ' . $row->currency ); ?></span>
+					<span class="val"><?php echo esc_html( number_format( (float) $row->amount, 2 ) . ' ' . $row->currency ); ?></span>
 				</div>
 
 				<?php if ( 'paid' === $row->status ) : ?>

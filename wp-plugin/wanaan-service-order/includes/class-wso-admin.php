@@ -112,7 +112,7 @@ class WSO_Admin {
 								<td><?php echo esc_html( $row->confirmation_no ); ?></td>
 								<td><?php echo esc_html( $row->booking_no ); ?></td>
 								<td><?php echo esc_html( $row->customer_name ); ?></td>
-								<td><?php echo esc_html( number_format( (float) $row->amount, 3 ) . ' ' . $row->currency ); ?></td>
+								<td><?php echo esc_html( number_format( (float) $row->amount, 2 ) . ' ' . $row->currency ); ?></td>
 								<td>
 									<?php if ( 'paid' === $row->status ) : ?>
 										<span style="color:#137333;font-weight:600;">&#10003; <?php esc_html_e( 'Paid', 'wanaan-service-order' ); ?></span>

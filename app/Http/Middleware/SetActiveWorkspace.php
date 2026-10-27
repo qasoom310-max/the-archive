@@ -10,6 +10,7 @@ use App\Models\Workspace;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,10 +22,10 @@ use Throwable;
  * starts (so the logged-in identity is known) and BEFORE the `auth` route
  * middleware (so it can rebind auth to the tenant DB).
  *
- * Main is a strict, zero-cost no-op: with no workspace cookie the request
- * returns immediately — no DB query, no dependency on the `workspaces` table
- * — so the live app is byte-for-byte unchanged and safe even mid-deploy
- * before the table exists. Any failure in the tenant path is swallowed and
+ * Main is cheap: with no workspace cookie an admin returns at once and other
+ * users pay one check per session. Someone with nothing to do on Main (staff
+ * of one business) is sent to their own database instead. Safe mid-deploy
+ * before the `workspaces` table exists. Any failure is swallowed and
  * falls back to Main rather than ever breaking a request.
  *
  * For a tenant: swap the default connection to its SQLite file and rebind the
@@ -64,55 +65,93 @@ final class SetActiveWorkspace
             $targetId = $lockedId;
         } else {
             $cookie = $request->cookie(Workspace::COOKIE);
-
-            // No cookie → Main. Return before touching the DB at all.
-            if (! is_string($cookie) || ! ctype_digit($cookie)) {
-                return $next($request);
-            }
-            $targetId = (int) $cookie;
+            $targetId = is_string($cookie) && ctype_digit($cookie) ? (int) $cookie : null;
         }
 
         try {
-            if (! Schema::hasTable('workspaces')) {
-                return $next($request);
+            if ($targetId !== null && Schema::hasTable('workspaces')) {
+                $workspace = Workspace::query()->find($targetId);
+
+                if ($workspace !== null && ! $workspace->is_main && $this->enter($workspace)) {
+                    return $next($request);
+                }
             }
 
-            $workspace = Workspace::query()->find($targetId);
+            // Still on Main. Fine for anyone who can work here; but someone
+            // whose Main account is only a login (staff of one business) would
+            // get 403 on every page. That happens when the browser lost its
+            // workspace cookie, or carries another business's. Send them to
+            // their own database instead, and remember it in the cookie.
+            if ($user instanceof User && $lockedId === null && ! $this->mayWorkOnMain($user)
+                && Schema::hasTable('workspaces')) {
+                $own = app(WorkspaceManager::class)->accessibleFor($user)
+                    ->first(static fn (Workspace $w): bool => ! $w->is_main);
 
-            if ($workspace === null || $workspace->is_main) {
-                return $next($request);
-            }
-
-            // Capture the logged-in identity from Main BEFORE the swap.
-            $email = Auth::user()?->email;
-
-            $previous = DB::getDefaultConnection();
-            $previousCachePrefix = config('cache.prefix');
-            app(WorkspaceManager::class)->activate($workspace);
-
-            // Rebind to the SAME identity inside the tenant, matched by email
-            // (how provisioning aligns accounts across databases). We must
-            // ALWAYS either positively rebind or revert to Main — never leave
-            // the request on the tenant with the guard free to resolve Main's
-            // session id against the tenant's unrelated ids. So a user with no
-            // email to match on, or no account in this workspace, fails safe
-            // back to Main rather than impersonating a tenant row.
-            $tenantUser = (is_string($email) && $email !== '')
-                ? User::query()->where('email', $email)->first()
-                : null;
-
-            if ($tenantUser !== null) {
-                Auth::setUser($tenantUser);
-            } else {
-                config(['database.default' => $previous, 'cache.prefix' => $previousCachePrefix]);
-                DB::setDefaultConnection($previous);
+                if ($own instanceof Workspace && $this->enter($own)) {
+                    Cookie::queue(Workspace::COOKIE, (string) $own->id, 60 * 24 * 365);
+                }
             }
         } catch (Throwable $e) {
             // The workspace layer must never break a request — log and serve
-            // Main. (Main users never reach here; only cookie-bearing admins.)
+            // Main.
             report($e);
         }
 
         return $next($request);
+    }
+
+    /**
+     * Admins, and staff with apps on Main, belong there. Checked once per
+     * session when true (cashiers on Main pay nothing per request after it).
+     */
+    private function mayWorkOnMain(User $user): bool
+    {
+        if ($user->isAdmin() || session('erp.main_access') === true) {
+            return true;
+        }
+
+        if ($user->hasGrantedAccess()) {
+            session(['erp.main_access' => true]);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Switch this request to a workspace and rebind auth to the same person
+     * there. False (and still on Main) when they have no account in it.
+     */
+    private function enter(Workspace $workspace): bool
+    {
+        // Capture the logged-in identity from Main BEFORE the swap.
+        $email = Auth::user()?->email;
+
+        $previous = DB::getDefaultConnection();
+        $previousCachePrefix = config('cache.prefix');
+        app(WorkspaceManager::class)->activate($workspace);
+
+        // Rebind to the SAME identity inside the tenant, matched by email
+        // (how provisioning aligns accounts across databases). We must
+        // ALWAYS either positively rebind or revert to Main — never leave
+        // the request on the tenant with the guard free to resolve Main's
+        // session id against the tenant's unrelated ids. So a user with no
+        // email to match on, or no account in this workspace, fails safe
+        // back to Main rather than impersonating a tenant row.
+        $tenantUser = (is_string($email) && $email !== '')
+            ? User::query()->where('email', $email)->first()
+            : null;
+
+        if ($tenantUser !== null) {
+            Auth::setUser($tenantUser);
+
+            return true;
+        }
+
+        config(['database.default' => $previous, 'cache.prefix' => $previousCachePrefix]);
+        DB::setDefaultConnection($previous);
+
+        return false;
     }
 }

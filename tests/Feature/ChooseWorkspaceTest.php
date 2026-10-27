@@ -179,4 +179,53 @@ final class ChooseWorkspaceTest extends TestCase
             ->get(route('workspaces.enter', $kaleem->id))
             ->assertRedirect('/');
     }
+
+    /**
+     * Staff of one business whose Main account is only a login: a browser
+     * without the workspace cookie used to leave them on Main, where every
+     * page is 403 (Hasan, 2026-10-27). They are sent to their own database.
+     */
+    public function test_a_staff_member_with_no_cookie_lands_in_their_own_database(): void
+    {
+        $owner = $this->owner();
+        $this->actingAs($owner);
+        $wanaan = app(WorkspaceManager::class)->provision('Wanaan', $owner, ['contacts']);
+
+        $hasan = app(UserProvisioner::class)->provision('Hasan', 'hasan@erp.test', 'password123', ['contacts'], [(int) $wanaan->id]);
+
+        $this->actingAs($hasan)
+            ->get('/profile')
+            ->assertOk()
+            ->assertCookie(Workspace::COOKIE, (string) $wanaan->id);
+
+        $this->assertSame('tenant', Auth::user()?->getConnectionName());
+    }
+
+    /** A cookie for a database he has no account in no longer strands him on Main. */
+    public function test_another_businesss_cookie_does_not_strand_staff_on_main(): void
+    {
+        $owner = $this->owner();
+        $this->actingAs($owner);
+        $wanaan = app(WorkspaceManager::class)->provision('Wanaan', $owner, ['contacts']);
+        $kaleem = app(WorkspaceManager::class)->provision('Kaleem', $owner, ['contacts']);
+
+        $hasan = app(UserProvisioner::class)->provision('Hasan', 'hasan@erp.test', 'password123', ['contacts'], [(int) $wanaan->id]);
+
+        $this->actingAs($hasan)
+            ->withUnencryptedCookie(Workspace::COOKIE, (string) $kaleem->id)
+            ->get('/profile')
+            ->assertOk()
+            ->assertCookie(Workspace::COOKIE, (string) $wanaan->id);
+    }
+
+    /** Someone who works on Main stays there with no cookie, as before. */
+    public function test_an_admin_with_no_cookie_stays_on_main(): void
+    {
+        $owner = $this->ownerWithTwoTenants();
+
+        $this->actingAs($owner)
+            ->get('/profile')
+            ->assertOk()
+            ->assertCookieMissing(Workspace::COOKIE);
+    }
 }

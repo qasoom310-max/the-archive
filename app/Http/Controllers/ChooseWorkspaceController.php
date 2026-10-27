@@ -48,7 +48,7 @@ final class ChooseWorkspaceController
         if ($accessible->count() <= 1) {
             $only = $accessible->first();
 
-            return $only instanceof Workspace ? $this->enterWorkspace($only) : redirect('/');
+            return $only instanceof Workspace ? $this->enterWorkspace($only) : redirect()->intended('/');
         }
 
         $cookie = request()->cookie(Workspace::COOKIE);
@@ -86,7 +86,11 @@ final class ChooseWorkspaceController
         // picker regardless, so this never causes a silent auto-jump.
         Cookie::queue(Workspace::COOKIE, (string) $workspace->id, 60 * 24 * 365);
 
-        return redirect('/');
+        // A link opened while signed out (an invoice sent on WhatsApp, opened
+        // on a phone) was remembered by the login redirect: land on it, not
+        // on the home page. Pulled once, so switching database later from the
+        // user menu still goes home.
+        return redirect()->intended('/');
     }
 
     /**

@@ -48,7 +48,7 @@
                                 :search-placeholder="__('Search name or number…')" />
                             @error('customer_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
-                        <div></div>
+                        <div class="hidden sm:block"></div>
                         <div>
                             <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Issue date') }} *</label>
                             <x-date-field wire:model="issue_date" class="o-input w-full" />
@@ -60,12 +60,12 @@
                         </div>
                         <div>
                             <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Subtotal (BHD)') }} *</label>
-                            <input type="number" step="0.001" min="0" wire:model.live="subtotal" class="o-input w-full">
+                            <input type="number" step="0.001" min="0" wire:model.blur="subtotal" class="o-input w-full">
                             @error('subtotal') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
                         <div>
                             <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Discount (BHD)') }}</label>
-                            <input type="number" step="0.001" min="0" wire:model.live="discount" class="o-input w-full">
+                            <input type="number" step="0.001" min="0" wire:model.blur="discount" class="o-input w-full">
                         </div>
                     </div>
                     <div class="mt-4">

@@ -142,4 +142,41 @@ final class ChooseWorkspaceTest extends TestCase
     {
         $this->get(route('workspaces.choose'))->assertRedirect(route('login'));
     }
+
+    /**
+     * An invoice link opened while signed out (a phone tapping it in WhatsApp)
+     * lands on that invoice after signing in, not on the home page.
+     */
+    public function test_a_link_opened_while_signed_out_is_where_sign_in_lands(): void
+    {
+        $solo = User::factory()->create(['is_admin' => true, 'email' => 'solo@erp.test']);
+        app(WorkspaceManager::class)->ensureMain();
+
+        $this->get('/profile?from=whatsapp')->assertRedirect(route('login'));
+
+        $this->actingAs($solo)
+            ->get(route('workspaces.choose'))
+            ->assertRedirect(url('/profile?from=whatsapp'));
+    }
+
+    /** With a choice of databases, the link is kept until one is picked. */
+    public function test_the_link_survives_the_database_picker(): void
+    {
+        $owner = $this->ownerWithTwoTenants();
+        $kaleem = app(WorkspaceManager::class)->all()->firstWhere('name', 'Kaleem');
+        $this->assertInstanceOf(Workspace::class, $kaleem);
+
+        Auth::logout();
+        $this->get('/profile?from=whatsapp')->assertRedirect(route('login'));
+
+        $this->actingAs($owner)->get(route('workspaces.choose'))->assertOk();
+        $this->actingAs($owner)
+            ->get(route('workspaces.enter', $kaleem->id))
+            ->assertRedirect(url('/profile?from=whatsapp'));
+
+        // Pulled once: switching database later goes home again.
+        $this->actingAs($owner)
+            ->get(route('workspaces.enter', $kaleem->id))
+            ->assertRedirect('/');
+    }
 }

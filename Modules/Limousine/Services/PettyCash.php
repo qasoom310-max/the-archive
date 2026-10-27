@@ -65,6 +65,118 @@ final class PettyCash
         );
     }
 
+    /**
+     * Where the float balance came from: every movement in a period, oldest
+     * first, with the balance after each one.
+     *
+     * Three kinds of movement, the same three {@see floatBalance()} adds up:
+     * a top-up (in, on its date), an advance (out, on the day it was handed
+     * over) and an overspend paid back to a driver (out, when the advance was
+     * settled). A shortfall is not a movement — the float never gets it back.
+     * Null bounds read all time; the opening balance is everything before
+     * $from, so opening + in − out always equals the closing balance.
+     *
+     * @return array{
+     *     opening: float, closing: float, in: float, out: float,
+     *     rows: list<array{date: string, kind: string, reference: ?string, advance_id: ?int, driver: ?string, by: ?string, notes: ?string, in: float, out: float, balance: float}>,
+     *     totals: array{topups: float, topup_count: int, given: float, given_count: int, paid_back: float, paid_back_count: int, short: float, short_count: int}
+     * }
+     */
+    public function statement(?Carbon $from = null, ?Carbon $to = null): array
+    {
+        // A date column is "Y-m-d" on MySQL and "Y-m-d 00:00:00" on SQLite,
+        // compared as text: a date lower bound and a datetime upper bound
+        // catch both.
+        $within = static function ($query, string $column, bool $isDate) use ($from, $to) {
+            if ($from !== null) {
+                $query->where($column, '>=', $isDate ? $from->toDateString() : $from->toDateTimeString());
+            }
+            if ($to !== null) {
+                $query->where($column, '<=', (clone $to)->endOfDay()->toDateTimeString());
+            }
+
+            return $query;
+        };
+
+        $opening = 0.0;
+        if ($from !== null) {
+            $opening = round(
+                (float) LimoPettyTopup::query()->where('date', '<', $from->toDateString())->sum('amount')
+                - (float) LimoPettyAdvance::query()->where('date', '<', $from->toDateString())->sum('amount')
+                - (float) LimoPettyAdvance::query()->where('settled_at', '<', $from->toDateTimeString())->sum('excess'),
+                3,
+            );
+        }
+
+        $rows = [];
+
+        foreach ($within(LimoPettyTopup::query(), 'date', true)->get() as $topup) {
+            $rows[] = [
+                'sort' => ($topup->date?->toDateString() ?? '') . ' 0 ' . sprintf('%010d', $topup->id),
+                'date' => (string) $topup->date?->toDateString(),
+                'kind' => 'topup', 'reference' => null, 'advance_id' => null, 'driver' => null,
+                'by' => $topup->added_by, 'notes' => $topup->notes,
+                'in' => (float) $topup->amount, 'out' => 0.0,
+            ];
+        }
+
+        foreach ($within(LimoPettyAdvance::query()->with('driver:id,name'), 'date', true)->get() as $advance) {
+            $rows[] = [
+                'sort' => ($advance->date?->toDateString() ?? '') . ' 1 ' . sprintf('%010d', $advance->id),
+                'date' => (string) $advance->date?->toDateString(),
+                'kind' => 'advance', 'reference' => $advance->reference, 'advance_id' => $advance->id,
+                'driver' => $advance->driver?->name, 'by' => $advance->issued_by, 'notes' => $advance->notes,
+                'in' => 0.0, 'out' => (float) $advance->amount,
+            ];
+        }
+
+        $paidBack = $within(LimoPettyAdvance::query()->with('driver:id,name')->where('excess', '>', 0), 'settled_at', false)->get();
+        foreach ($paidBack as $advance) {
+            $rows[] = [
+                'sort' => ($advance->settled_at?->toDateString() ?? '') . ' 2 ' . sprintf('%010d', $advance->id),
+                'date' => (string) $advance->settled_at?->toDateString(),
+                'kind' => 'paid_back', 'reference' => $advance->reference, 'advance_id' => $advance->id,
+                'driver' => $advance->driver?->name, 'by' => $advance->settled_by, 'notes' => null,
+                'in' => 0.0, 'out' => (float) $advance->excess,
+            ];
+        }
+
+        usort($rows, static fn (array $a, array $b): int => strcmp($a['sort'], $b['sort']));
+
+        $balance = $opening;
+        $in = 0.0;
+        $out = 0.0;
+        $listed = [];
+        foreach ($rows as $row) {
+            unset($row['sort']);
+            $balance = round($balance + $row['in'] - $row['out'], 3);
+            $in += $row['in'];
+            $out += $row['out'];
+            $row['balance'] = $balance;
+            $listed[] = $row;
+        }
+
+        $short = LimoPettyAdvance::query()->where('shortfall', '>', 0);
+
+        return [
+            'opening' => $opening,
+            'closing' => $balance,
+            'in' => round($in, 3),
+            'out' => round($out, 3),
+            'rows' => $listed,
+            'totals' => [
+                'topups' => round((float) LimoPettyTopup::query()->sum('amount'), 3),
+                'topup_count' => LimoPettyTopup::query()->count(),
+                'given' => round((float) LimoPettyAdvance::query()->sum('amount'), 3),
+                'given_count' => LimoPettyAdvance::query()->count(),
+                'paid_back' => round((float) LimoPettyAdvance::query()->sum('excess'), 3),
+                'paid_back_count' => LimoPettyAdvance::query()->where('excess', '>', 0)->count(),
+                'short' => round((float) (clone $short)->sum('shortfall'), 3),
+                'short_count' => (clone $short)->count(),
+            ],
+        ];
+    }
+
     /** Money handed out but not yet settled — the float's exposure. */
     public function outstanding(): float
     {

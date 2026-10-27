@@ -21,9 +21,9 @@ use Tests\TestCase;
  * confirmed by the accountant, backed by paper, then settled.
  *
  * The settlement is the arithmetic the office used to do by hand: receipts
- * under the amount → a salary deduction; over it → reimbursed from the float.
- * Both snapshotted, because what was decided about a man's pay must not move
- * when a line is edited later.
+ * under the amount → recorded as short (never taken from salary); over it →
+ * reimbursed from the float. Both snapshotted, so a later edit to a line
+ * cannot move what the settlement decided.
  */
 final class LimoPettyCashTest extends TestCase
 {
@@ -415,5 +415,70 @@ final class LimoPettyCashTest extends TestCase
             ->assertSee('16.00')
             ->assertDontSee('Salary deductions this month')
             ->assertDontSee('From salary');
+    }
+
+    /** Top-ups in, advances out, overspend paid back: one running balance that lands on the card. */
+    public function test_the_float_statement_lists_every_movement_with_a_running_balance(): void
+    {
+        $this->asAccountant();
+        $petty = app(PettyCashService::class);
+        $petty->topUp(500, '2026-09-01', 'Opening cash', 'Qassim');
+        $advance = $petty->issue($this->driver('Hassan'), 100, '2026-09-02', null, 'Mohmd');
+        $this->assertNotNull($advance);
+        $petty->confirm($advance, 'Amal');
+        $advance->lines()->create(['date' => '2026-09-03', 'category' => 'Fuel', 'amount' => 110]);
+        $petty->settle($advance->fresh() ?? $advance, 'Amal');
+        $petty->issue($this->driver('Sohail'), 50, '2026-09-04', null, 'Mohmd');
+
+        $all = $petty->statement();
+        $this->assertSame(['topup', 'advance', 'advance', 'paid_back'], array_column($all['rows'], 'kind'));
+        $this->assertSame([500.0, 400.0, 350.0, 340.0], array_column($all['rows'], 'balance'));
+        $this->assertEqualsWithDelta($petty->floatBalance(), $all['closing'], 0.001);
+        $this->assertSame(1, $all['totals']['paid_back_count']);
+        $this->assertEqualsWithDelta(150.0, $all['totals']['given'], 0.001);
+    }
+
+    /** A month opens on everything before it, so opening + in − out = closing. */
+    public function test_a_months_statement_carries_the_balance_brought_forward(): void
+    {
+        $this->asManager();
+        $petty = app(PettyCashService::class);
+        $petty->topUp(300, '2026-08-20', null, 'Qassim');
+        $petty->issue($this->driver(), 120, '2026-08-25', null, 'Mohmd');
+        $petty->topUp(200, '2026-09-01', null, 'Qassim');
+        $petty->issue($this->driver('Sohail'), 30, '2026-09-30', null, 'Mohmd');
+        $petty->topUp(999, '2026-10-01', null, 'Qassim');
+
+        $sep = $petty->statement(\Illuminate\Support\Carbon::parse('2026-09-01'), \Illuminate\Support\Carbon::parse('2026-09-30'));
+
+        $this->assertEqualsWithDelta(180.0, $sep['opening'], 0.001);
+        $this->assertEqualsWithDelta(200.0, $sep['in'], 0.001);
+        $this->assertEqualsWithDelta(30.0, $sep['out'], 0.001);
+        $this->assertEqualsWithDelta(350.0, $sep['closing'], 0.001);
+        $this->assertCount(2, $sep['rows']);
+    }
+
+    public function test_the_float_card_opens_the_full_details(): void
+    {
+        $this->asManager();
+        $petty = app(PettyCashService::class);
+        $petty->topUp(250, now()->format('Y-m-d'), 'From the safe', 'Qassim');
+        $petty->issue($this->driver('Hassan'), 40, now()->format('Y-m-d'), null, 'Mohmd');
+
+        Livewire::test(PettyCash::class)
+            ->assertSee('Full details')
+            ->call('$set', 'tab', 'float')
+            ->assertSee('How the float balance adds up')
+            ->assertSee('From the safe')
+            ->assertSee('Given to driver')
+            ->assertSee('Hassan')
+            ->assertSee('210.00')
+            ->call('$set', 'floatMonth', 'all')
+            ->assertSee('All time')
+            ->call('shiftFloatMonth', -1)
+            ->assertSet('floatMonth', now()->format('Y-m'))
+            ->call('shiftFloatMonth', -1)
+            ->assertSet('floatMonth', now()->subMonthNoOverflow()->format('Y-m'))
+            ->assertSee('No money moved in or out of the float in this period.');
     }
 }

@@ -38,7 +38,7 @@ final class PettyCash extends Component
         return 'limousine.petty_cash';
     }
 
-    /** open · cleared · report */
+    /** open · cleared · float · report */
     #[Url(except: '')]
     public string $tab = 'open';
 
@@ -46,9 +46,17 @@ final class PettyCash extends Component
     #[Url(except: '')]
     public string $month = '';
 
+    /** The float statement's month, as Y-m, or "all" for all time. */
+    #[Url(except: '')]
+    public string $floatMonth = '';
+
     public function mount(): void
     {
         $this->guardAccess(Permission::Read);
+
+        if ($this->floatMonth === '') {
+            $this->floatMonth = now()->format('Y-m');
+        }
 
         if ($this->month === '') {
             $this->month = now()->format('Y-m');
@@ -217,6 +225,38 @@ final class PettyCash extends Component
         ];
     }
 
+    /** Step the float statement a month back or forward (from "all", this month). */
+    public function shiftFloatMonth(int $by): void
+    {
+        $base = $this->floatMonthStart() ?? now()->startOfMonth()->subMonths($by);
+
+        $this->floatMonth = $base->addMonths($by)->format('Y-m');
+    }
+
+    private function floatMonthStart(): ?Carbon
+    {
+        return preg_match('/^\d{4}-\d{2}$/', $this->floatMonth) === 1
+            ? Carbon::parse($this->floatMonth . '-01')->startOfMonth()
+            : null;
+    }
+
+    /**
+     * Every movement behind the float balance, for the chosen month or all time.
+     *
+     * @return array<string, mixed>
+     */
+    private function floatStatement(PettyCashService $petty): array
+    {
+        $from = $this->floatMonthStart();
+
+        if ($from === null) {
+            return $petty->statement() + ['label' => __('All time'), 'allTime' => true];
+        }
+
+        return $petty->statement($from, (clone $from)->endOfMonth())
+            + ['label' => $from->translatedFormat('F Y'), 'allTime' => false];
+    }
+
     public function render(PettyCashService $petty): View
     {
         $query = LimoPettyAdvance::query()->with('driver:id,name')->withSum('lines', 'amount')->orderByDesc('id');
@@ -251,7 +291,7 @@ final class PettyCash extends Component
         }
 
         return view('limousine::petty-cash', [
-            'advances' => $this->tab === 'report' || $this->tab === 'open' ? null : $query->paginate(20),
+            'advances' => in_array($this->tab, ['report', 'open', 'float'], true) ? null : $query->paginate(20),
             'groups' => $groups,
             'balance' => $petty->floatBalance(),
             'outstanding' => $petty->outstanding(),
@@ -260,6 +300,7 @@ final class PettyCash extends Component
             'drivers' => LimoDriver::query()->where('active', true)->orderBy('name')->get(['id', 'name']),
             'canManage' => PettyCashService::mayManage(Auth::user()),
             'report' => $this->tab === 'report' ? $this->report() : null,
+            'statement' => $this->tab === 'float' ? $this->floatStatement($petty) : null,
         ]);
     }
 }

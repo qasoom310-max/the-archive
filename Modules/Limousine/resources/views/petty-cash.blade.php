@@ -33,10 +33,14 @@
     {{-- The float in three figures: what is in the drawer, what is out on the
          road, and what still needs the accountant's signature. --}}
     <div class="mb-6 grid gap-4 sm:grid-cols-3">
-        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
-            <div class="text-sm font-medium text-chrome-600">{{ __('Float balance') }}</div>
+        <button type="button" wire:click="$set('tab', 'float')" data-float-card
+                class="rounded-xl bg-white p-5 text-start shadow-sm ring-1 ring-chrome-900/5 transition hover:ring-primary-400 {{ $tab === 'float' ? 'ring-2 ring-primary-400' : '' }}">
+            <div class="flex items-center justify-between text-sm font-medium text-chrome-600">
+                {{ __('Float balance') }}
+                <span class="text-xs font-medium text-primary-700">{{ __('Full details') }} <span class="rtl:hidden">→</span><span class="hidden rtl:inline">←</span></span>
+            </div>
             <div class="mt-2 text-2xl font-bold {{ $balance < 0 ? 'text-red-600' : 'text-chrome-800' }}">{{ \App\Erp\Views\ValueFormat::money($balance) }}</div>
-        </div>
+        </button>
         <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
             <div class="text-sm font-medium text-chrome-600">{{ __('Out with drivers') }}</div>
             <div class="mt-2 text-2xl font-bold text-amber-700">{{ \App\Erp\Views\ValueFormat::money($outstanding) }}</div>
@@ -47,7 +51,7 @@
         </div>
     </div>
 
-    @php $tabs = ['open' => __('Open'), 'cleared' => __('Cleared'), 'report' => __('Report')]; @endphp
+    @php $tabs = ['open' => __('Open'), 'cleared' => __('Cleared'), 'float' => __('Float history'), 'report' => __('Report')]; @endphp
     <div class="mb-4 flex flex-wrap items-center gap-1 border-b border-chrome-200">
         @foreach ($tabs as $key => $label)
             <button wire:click="$set('tab', '{{ $key }}')"
@@ -60,7 +64,134 @@
         @endforeach
     </div>
 
-    @if ($tab === 'report')
+    @if ($tab === 'float')
+        @php
+            $m = fn ($v) => \App\Erp\Views\ValueFormat::money($v);
+            $t = $statement['totals'];
+            $kinds = [
+                'topup' => [__('Top-up'), 'bg-emerald-100 text-emerald-700'],
+                'advance' => [__('Given to driver'), 'bg-amber-100 text-amber-700'],
+                'paid_back' => [__('Paid back (overspent)'), 'bg-sky-100 text-sky-700'],
+            ];
+        @endphp
+
+        {{-- How the balance adds up, all time: the same three figures
+             floatBalance() sums, so this always lands on the card above. --}}
+        <div class="mb-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]" data-float-summary>
+            <h2 class="mb-3 text-sm font-semibold text-chrome-800">{{ __('How the float balance adds up') }}</h2>
+            <ul class="divide-y divide-chrome-100 text-sm">
+                <li class="flex items-center justify-between gap-3 py-2">
+                    <span class="text-chrome-700">{{ __('Topped up') }} <span class="text-xs text-chrome-400">({{ trans_choice(':count top-up|:count top-ups', $t['topup_count'], ['count' => $t['topup_count']]) }})</span></span>
+                    <span class="font-semibold text-emerald-700">+ {{ $m($t['topups']) }}</span>
+                </li>
+                <li class="flex items-center justify-between gap-3 py-2">
+                    <span class="text-chrome-700">{{ __('Given to drivers') }} <span class="text-xs text-chrome-400">({{ trans_choice(':count advance|:count advances', $t['given_count'], ['count' => $t['given_count']]) }})</span></span>
+                    <span class="font-semibold text-chrome-800">− {{ $m($t['given']) }}</span>
+                </li>
+                <li class="flex items-center justify-between gap-3 py-2">
+                    <span class="text-chrome-700">{{ __('Paid back to drivers who spent more') }} <span class="text-xs text-chrome-400">({{ trans_choice(':count advance|:count advances', $t['paid_back_count'], ['count' => $t['paid_back_count']]) }})</span></span>
+                    <span class="font-semibold text-chrome-800">− {{ $m($t['paid_back']) }}</span>
+                </li>
+                <li class="flex items-center justify-between gap-3 py-2 text-base font-bold text-chrome-900">
+                    <span>{{ __('Float balance') }}</span>
+                    <span class="{{ $balance < 0 ? 'text-red-600' : '' }}">{{ $m($balance) }}</span>
+                </li>
+            </ul>
+            <div class="mt-3 grid gap-2 text-xs text-chrome-500 sm:grid-cols-2">
+                <p>{{ __('Of the money given, still out with drivers (not settled yet)') }}: <span class="font-semibold text-amber-700">{{ $m($outstanding) }}</span></p>
+                <p>{{ __('Short on settled advances') }}: <span class="font-semibold text-chrome-700">{{ $m($t['short']) }}</span> ({{ trans_choice(':count advance|:count advances', $t['short_count'], ['count' => $t['short_count']]) }}). {{ __('Recorded only: it does not come back into the float.') }}</p>
+            </div>
+        </div>
+
+        <div class="mb-4 flex flex-wrap items-end gap-2">
+            <div>
+                <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Month') }}</label>
+                <div class="flex items-center gap-1">
+                    <button type="button" wire:click="shiftFloatMonth(-1)" class="rounded-lg border border-chrome-200 px-2 py-1.5 text-sm text-chrome-600 hover:bg-chrome-50" aria-label="{{ __('Previous month') }}"><span class="rtl:hidden">‹</span><span class="hidden rtl:inline">›</span></button>
+                    <input type="month" wire:model.live="floatMonth" class="o-input text-sm">
+                    <button type="button" wire:click="shiftFloatMonth(1)" class="rounded-lg border border-chrome-200 px-2 py-1.5 text-sm text-chrome-600 hover:bg-chrome-50" aria-label="{{ __('Next month') }}"><span class="rtl:hidden">›</span><span class="hidden rtl:inline">‹</span></button>
+                </div>
+            </div>
+            <button type="button" wire:click="$set('floatMonth', 'all')"
+                    class="rounded-lg border px-3 py-1.5 text-sm font-medium {{ $statement['allTime'] ? 'border-primary-400 bg-primary-400 text-chrome-900' : 'border-chrome-200 text-chrome-600 hover:bg-chrome-50' }}">{{ __('All time') }}</button>
+            <span class="pb-2 text-sm font-semibold text-chrome-800">{{ $statement['label'] }}</span>
+        </div>
+
+        <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
+                <div class="text-xs font-medium text-chrome-500">{{ __('Opening balance') }}</div>
+                <div class="mt-1 text-lg font-bold text-chrome-800">{{ $m($statement['opening']) }}</div>
+            </div>
+            <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
+                <div class="text-xs font-medium text-chrome-500">{{ __('Money in') }}</div>
+                <div class="mt-1 text-lg font-bold text-emerald-700">+ {{ $m($statement['in']) }}</div>
+            </div>
+            <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
+                <div class="text-xs font-medium text-chrome-500">{{ __('Money out') }}</div>
+                <div class="mt-1 text-lg font-bold text-chrome-800">− {{ $m($statement['out']) }}</div>
+            </div>
+            <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5">
+                <div class="text-xs font-medium text-chrome-500">{{ __('Closing balance') }}</div>
+                <div class="mt-1 text-lg font-bold {{ $statement['closing'] < 0 ? 'text-red-600' : 'text-chrome-800' }}">{{ $m($statement['closing']) }}</div>
+            </div>
+        </div>
+
+        <div class="mb-3 flex flex-wrap items-center gap-2" x-data="listExportCopy">
+            <button type="button" x-on:click="copyTable('limo-float-table')"
+                    class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
+                <span x-show="! copied">{{ __('Copy') }}</span>
+                <span x-show="copied" x-cloak class="text-emerald-600">{{ __('Copied') }}</span>
+            </button>
+        </div>
+
+        <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
+            <table class="w-full min-w-[860px] divide-y divide-chrome-100 text-sm" id="limo-float-table">
+                <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
+                    <tr>
+                        <th class="px-4 py-2 text-start">{{ __('Date') }}</th>
+                        <th class="px-4 py-2 text-start">{{ __('Movement') }}</th>
+                        <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
+                        <th class="px-4 py-2 text-start">{{ __('Driver') }}</th>
+                        <th class="px-4 py-2 text-start">{{ __('By') }}</th>
+                        <th class="px-4 py-2 text-start">{{ __('Note') }}</th>
+                        <th class="px-4 py-2 text-end">{{ __('In') }}</th>
+                        <th class="px-4 py-2 text-end">{{ __('Out') }}</th>
+                        <th class="px-4 py-2 text-end">{{ __('Balance') }}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-chrome-50">
+                    @unless ($statement['allTime'])
+                        <tr class="bg-chrome-50/60">
+                            <td class="px-4 py-2 text-chrome-500" colspan="8">{{ __('Opening balance') }}</td>
+                            <td class="px-4 py-2 text-end font-semibold text-chrome-800">{{ $m($statement['opening']) }}</td>
+                        </tr>
+                    @endunless
+                    @forelse ($statement['rows'] as $row)
+                        @php [$kindLabel, $kindClass] = $kinds[$row['kind']]; @endphp
+                        <tr data-float-row="{{ $row['kind'] }}">
+                            <td class="whitespace-nowrap px-4 py-2 text-chrome-600">{{ \Illuminate\Support\Carbon::parse($row['date'])->isoFormat('DD-MMM-YYYY') }}</td>
+                            <td class="px-4 py-2"><span class="whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-semibold {{ $kindClass }}">{{ $kindLabel }}</span></td>
+                            <td class="px-4 py-2">
+                                @if ($row['advance_id'] !== null)
+                                    <a href="{{ url('/app/limousine/petty_cash/' . $row['advance_id']) }}" wire:navigate class="font-medium text-primary-700 hover:underline">{{ $row['reference'] }}</a>
+                                @else
+                                    <span class="text-chrome-300">—</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-2 text-chrome-700">{{ $row['driver'] ?? '—' }}</td>
+                            <td class="px-4 py-2 text-chrome-500">{{ $row['by'] ?: '—' }}</td>
+                            <td class="max-w-[16rem] truncate px-4 py-2 text-chrome-500" title="{{ $row['notes'] }}">{{ $row['notes'] ?: '' }}</td>
+                            <td class="px-4 py-2 text-end font-medium text-emerald-700">{{ $row['in'] > 0 ? $m($row['in']) : '' }}</td>
+                            <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ $row['out'] > 0 ? $m($row['out']) : '' }}</td>
+                            <td class="px-4 py-2 text-end font-semibold {{ $row['balance'] < 0 ? 'text-red-600' : 'text-chrome-900' }}">{{ $m($row['balance']) }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="9" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No money moved in or out of the float in this period.') }}</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    @elseif ($tab === 'report')
         @php $catTotal = array_sum($report['byCategory']); @endphp
         <div class="mb-4 flex items-end gap-3">
             <div>

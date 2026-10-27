@@ -223,7 +223,8 @@ final class LimoPettyCashTest extends TestCase
         $this->assertSame('Amal', $fresh?->confirmed_by);
     }
 
-    public function test_receipts_short_of_the_amount_become_a_salary_deduction(): void
+    /** A shortfall is only recorded: it is never taken from the driver's salary (2026-10-27). */
+    public function test_receipts_short_of_the_amount_are_recorded_but_never_deducted_from_salary(): void
     {
         $this->asAccountant();
         $advance = $this->issued(amount: 100);
@@ -235,16 +236,21 @@ final class LimoPettyCashTest extends TestCase
             ->call('addLine')
             ->set('lineDate', '2026-09-02')->set('lineCategory', 'Parking')->set('lineAmount', '34')
             ->call('addLine')
-            ->call('openSettle')
+            ->call('openSettle');
+        $page->assertSee('It will not be deducted from')
+            ->assertDontSee('will be deducted from')
             ->call('saveSettle')
             ->assertHasNoErrors();
 
         $fresh = $advance->fresh();
         $this->assertSame(LimoPettyAdvance::STATUS_CLEARED, $fresh?->status);
         $this->assertEqualsWithDelta(84.0, $fresh?->receipts_total, 0.001);
-        // He was given 100 and can show 84 — the 16 comes off his salary.
+        // He was given 100 and can show 84 — the 16 is recorded as short, nothing more.
         $this->assertEqualsWithDelta(16.0, $fresh?->shortfall, 0.001);
         $this->assertEqualsWithDelta(0.0, $fresh?->excess, 0.001);
+
+        Livewire::test(PettyAdvancePage::class, ['id' => $advance->id])
+            ->assertSee('Not deducted from');
     }
 
     public function test_receipts_over_the_amount_are_paid_back_from_the_float(): void
@@ -391,7 +397,8 @@ final class LimoPettyCashTest extends TestCase
             ->assertHasErrors('lineCategory');
     }
 
-    public function test_the_month_report_names_the_deductions_for_payroll(): void
+    /** The month report shows the shortfall as Short and has no salary-deduction list any more. */
+    public function test_the_month_report_shows_the_shortfall_without_a_salary_deduction_list(): void
     {
         $this->asAccountant();
         $advance = $this->issued(amount: 100);
@@ -404,7 +411,9 @@ final class LimoPettyCashTest extends TestCase
             ->set('tab', 'report')
             ->set('month', now()->format('Y-m'))
             ->assertSee('Hassan')
-            ->assertSee(__('Salary deductions this month'))
-            ->assertDontSee(__('No deductions — every driver accounted for his money.'));
+            ->assertSee('Short')
+            ->assertSee('16.00')
+            ->assertDontSee('Salary deductions this month')
+            ->assertDontSee('From salary');
     }
 }

@@ -122,8 +122,9 @@ final class PettyCash
     /**
      * Close the advance against the paper the driver handed in.
      *
-     * Receipts under the amount → the difference is a SALARY DEDUCTION on the
-     * driver. Receipts over it → the difference is REIMBURSED from the float
+     * Receipts under the amount → the difference is recorded as SHORT and
+     * nothing more: it is never deducted from the driver's salary (the owner's
+     * decision, 2026-10-27). Receipts over it → the difference is REIMBURSED from the float
      * (the standing rule, chosen over deciding each time). Every receipt line
      * is also written into the expense ledger, so the expense reports read the
      * same money the settlement did — one truth, not a second book.

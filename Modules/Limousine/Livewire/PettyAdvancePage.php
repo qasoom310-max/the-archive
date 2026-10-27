@@ -167,7 +167,7 @@ final class PettyAdvancePage extends Component
         }
 
         if ($result['shortfall'] > 0.0005) {
-            session()->flash('toast', __(':amount to be deducted from :driver’s salary.', [
+            session()->flash('toast', __(':amount short. Not deducted from :driver’s salary.', [
                 'amount' => \App\Erp\Views\ValueFormat::money($result['shortfall']),
                 'driver' => (string) ($advance->driver->name ?? ''),
             ]));

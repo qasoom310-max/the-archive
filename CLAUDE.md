@@ -2287,6 +2287,8 @@ is untouched. No UI toggle yet — to grant someone else, add their email to the
 migration's `GRANTED` list in a NEW migration, or ask for a Users-form checkbox.
 Tests: `LimoPettyCashTest` (+2).
 
+**Petty cash differences are never taken from a driver's salary (2026-10-27, the owner's call).** Settling an advance still records receipts under the amount as `shortfall` and receipts over it as `excess` (the excess is still paid back from the float). The shortfall is now only a record: the month report's "Salary deductions this month" list is gone (the `PettyCash` component's `report()` no longer returns `deductions`), the By driver column reads "Short" instead of "From salary", and the settle dialog, the toast, the advance page and the list badge all say it is NOT deducted from salary. No payroll code ever read `shortfall`, so nothing else changed. Tests: `LimoPettyCashTest` (2 rewritten).
+
 **Changing an existing customer between Individual and Company (shipped 2026-10-17):** was super-admin only (`CustomerForm`). Now `User::canChangeCustomerType()` = super admin OR `users.can_change_customer_type` (core migration `2026_10_17_100001`, which grants it to Abbas by email `hamdanabbas98@gmail.com` and to the accounts named `ali` / `via` or whose e-mail starts `ali@` / `via@`, in Main and every workspace, and logs who got it). No UI toggle: to grant someone else, add them in a NEW migration. Tests: `CustomerTypeChangeTest` (4).
 
 **Remove a login from every database — `user:remove` (shipped 2026-09-08):**

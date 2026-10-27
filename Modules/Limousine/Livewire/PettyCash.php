@@ -213,8 +213,6 @@ final class PettyCash extends Component
         return [
             'byCategory' => $byCategory,
             'byDriver' => $byDriver,
-            // The list that goes to payroll: what each settlement decided.
-            'deductions' => $cleared->filter(fn (LimoPettyAdvance $a): bool => $a->shortfall > 0.0005)->values(),
             'spent' => round((float) $cleared->sum('receipts_total'), 3),
         ];
     }

@@ -18,7 +18,8 @@ use Illuminate\Support\Carbon;
  * issued → confirmed → cleared.
  *
  * Settlement is where the arithmetic the office used to do by hand happens:
- * receipts under the amount → the difference is a SALARY DEDUCTION; receipts
+ * receipts under the amount → the difference is recorded as SHORT (never
+ * deducted from the driver's salary, the owner's decision 2026-10-27); receipts
  * over it → the difference is REIMBURSED from the float (the standing rule
  * here, chosen over asking every time). Both are snapshotted, because what was
  * decided about a man's pay must not move when a line is edited later.

@@ -102,7 +102,7 @@
                                 <th class="py-1 text-start">{{ __('Driver') }}</th>
                                 <th class="py-1 text-end">{{ __('Given') }}</th>
                                 <th class="py-1 text-end">{{ __('Receipts') }}</th>
-                                <th class="py-1 text-end">{{ __('From salary') }}</th>
+                                <th class="py-1 text-end">{{ __('Short') }}</th>
                                 <th class="py-1 text-end">{{ __('Paid back') }}</th>
                             </tr>
                         </thead>
@@ -122,25 +122,9 @@
             </div>
         </div>
 
-        {{-- The list that goes to payroll: each settlement's decision, with the
-             advance it came from so it can always be argued from the paper. --}}
-        <div class="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]">
-            <h2 class="mb-3 text-sm font-semibold text-chrome-800">{{ __('Salary deductions this month') }}</h2>
-            @if ($report['deductions']->isEmpty())
-                <p class="text-sm text-chrome-400">{{ __('No deductions — every driver accounted for his money.') }}</p>
-            @else
-                <ul class="divide-y divide-chrome-100 text-sm">
-                    @foreach ($report['deductions'] as $a)
-                        <li wire:key="ded-{{ $a->id }}" class="flex flex-wrap items-center justify-between gap-2 py-2">
-                            <span class="font-medium text-chrome-800">{{ $a->driver?->name ?? '—' }}</span>
-                            <span class="text-chrome-500">{{ $a->reference }} · {{ $a->settled_at?->isoFormat('DD-MMM-YYYY') }}</span>
-                            <span class="text-chrome-500">{{ __('Given :given, receipts :receipts', ['given' => \App\Erp\Views\ValueFormat::money($a->amount), 'receipts' => \App\Erp\Views\ValueFormat::money($a->receipts_total)]) }}</span>
-                            <span class="font-bold text-red-600">− {{ \App\Erp\Views\ValueFormat::money($a->shortfall) }}</span>
-                        </li>
-                    @endforeach
-                </ul>
-            @endif
-        </div>
+        {{-- No "salary deductions" list: a driver's petty cash difference is
+             never taken from his pay (the owner's decision, 2026-10-27). The
+             Short column above only records it. --}}
     @else
     @php
         $exportQuery = http_build_query([
@@ -230,7 +214,7 @@
                             <td class="px-4 py-2">
                                 <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst($advance->status)) }}</span>
                                 @if ($advance->isCleared() && $advance->shortfall > 0)
-                                    <span class="ms-1 text-[11px] font-semibold text-red-600">− {{ \App\Erp\Views\ValueFormat::money($advance->shortfall) }} {{ __('salary') }}</span>
+                                    <span class="ms-1 text-[11px] font-semibold text-red-600">− {{ \App\Erp\Views\ValueFormat::money($advance->shortfall) }} {{ __('short') }}</span>
                                 @elseif ($advance->isCleared() && $advance->excess > 0)
                                     <span class="ms-1 text-[11px] font-semibold text-emerald-700">+ {{ \App\Erp\Views\ValueFormat::money($advance->excess) }} {{ __('paid back') }}</span>
                                 @endif

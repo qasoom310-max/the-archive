@@ -3228,5 +3228,9 @@
     "Commission": "العمولة",
     "No outside drivers yet. A driver becomes one when they are set to commission, or when a commission is entered while assigning them a trip.": "لا يوجد سائقون خارجيون بعد. يصبح السائق خارجيًا عند تعيينه بالعمولة، أو عند إدخال عمولة أثناء تعيينه لرحلة.",
     "Search all tabs": "البحث في كل التبويبات",
-    ":count matching trip is on another tab.|:count matching trips are on other tabs.": "توجد رحلة مطابقة واحدة في تبويب آخر.|توجد :count رحلات مطابقة في تبويبات أخرى."
+    ":count matching trip is on another tab.|:count matching trips are on other tabs.": "توجد رحلة مطابقة واحدة في تبويب آخر.|توجد :count رحلات مطابقة في تبويبات أخرى.",
+    "short": "عجز",
+    ":amount short. Not deducted from :driver’s salary.": "عجز بقيمة :amount. لا يُخصم من راتب :driver.",
+    "If settled now, :amount is recorded as short. It is not deducted from the driver’s salary.": "عند التسوية الآن يُسجَّل :amount كعجز، ولا يُخصم من راتب السائق.",
+    ":amount short. It will not be deducted from :driver’s salary.": "عجز بقيمة :amount، ولن يُخصم من راتب :driver."
 }

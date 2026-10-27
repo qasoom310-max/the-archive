@@ -173,7 +173,7 @@
                 @if ($advance->isCleared())
                     <div class="mt-4 rounded-xl bg-chrome-50 p-3 text-xs text-chrome-600">
                         @if ($advance->shortfall > 0)
-                            {{ __(':amount deducted from :driver’s salary.', ['amount' => \App\Erp\Views\ValueFormat::money($advance->shortfall), 'driver' => $advance->driver?->name ?? '—']) }}
+                            {{ __(':amount short. Not deducted from :driver’s salary.', ['amount' => \App\Erp\Views\ValueFormat::money($advance->shortfall), 'driver' => $advance->driver?->name ?? '—']) }}
                         @elseif ($advance->excess > 0)
                             {{ __(':amount paid back to :driver from the float.', ['amount' => \App\Erp\Views\ValueFormat::money($advance->excess), 'driver' => $advance->driver?->name ?? '—']) }}
                         @else
@@ -182,7 +182,7 @@
                         <div class="mt-1 text-chrome-400">{{ __('Settled by :name', ['name' => $advance->settled_by]) }} · {{ $advance->settled_at?->isoFormat('DD-MMM-YYYY') }}</div>
                     </div>
                 @elseif ($difference > 0)
-                    <p class="mt-4 text-xs text-chrome-500">{{ __('If settled now, :amount is deducted from the driver’s salary.', ['amount' => \App\Erp\Views\ValueFormat::money($difference)]) }}</p>
+                    <p class="mt-4 text-xs text-chrome-500">{{ __('If settled now, :amount is recorded as short. It is not deducted from the driver’s salary.', ['amount' => \App\Erp\Views\ValueFormat::money($difference)]) }}</p>
                 @elseif ($difference < 0)
                     <p class="mt-4 text-xs text-chrome-500">{{ __('If settled now, :amount is paid back to the driver from the float.', ['amount' => \App\Erp\Views\ValueFormat::money(abs($difference))]) }}</p>
                 @endif
@@ -200,7 +200,7 @@
                 </p>
                 <p class="mt-2 text-sm font-medium {{ $difference > 0 ? 'text-red-600' : ($difference < 0 ? 'text-emerald-700' : 'text-chrome-700') }}">
                     @if ($difference > 0)
-                        {{ __(':amount will be deducted from :driver’s salary.', ['amount' => \App\Erp\Views\ValueFormat::money($difference), 'driver' => $advance->driver?->name ?? '—']) }}
+                        {{ __(':amount short. It will not be deducted from :driver’s salary.', ['amount' => \App\Erp\Views\ValueFormat::money($difference), 'driver' => $advance->driver?->name ?? '—']) }}
                     @elseif ($difference < 0)
                         {{ __(':amount will be paid back to :driver from the float.', ['amount' => \App\Erp\Views\ValueFormat::money(abs($difference)), 'driver' => $advance->driver?->name ?? '—']) }}
                     @else

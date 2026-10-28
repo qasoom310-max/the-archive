@@ -234,13 +234,37 @@ final class LimoInvoiceDocumentTest extends TestCase
     {
         $invoice = $this->invoiceForTrip();
 
-        // Nothing links to this screen any more — the list carries every action
-        // an invoice is for. It survives as a repair, because retyping a total
-        // overrides a figure the trip or the quote decided.
-        Livewire::test(InvoiceForm::class, ['id' => $invoice->id])->assertForbidden();
+        // Anyone who may read invoices can OPEN one (the bookings list's
+        // "Open invoice" leads here) — but only read it. Retyping a total
+        // overrides a figure the trip or the quote decided: the owner's call.
+        Livewire::test(InvoiceForm::class, ['id' => $invoice->id])
+            ->assertOk()
+            ->assertSee('Only the owner can change an invoice by hand.')
+            ->assertSee('Download PDF')
+            ->assertDontSee('Save invoice')
+            ->call('save')
+            ->assertForbidden();
 
         $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
-        Livewire::test(InvoiceForm::class, ['id' => $invoice->id])->assertOk();
+        Livewire::test(InvoiceForm::class, ['id' => $invoice->id])
+            ->assertOk()
+            ->assertSee('Save invoice');
+    }
+
+    /** View-only staff open the invoice too, without the payment button. */
+    public function test_view_only_staff_can_open_an_invoice_but_not_take_payment(): void
+    {
+        $invoice = $this->invoiceForTrip();
+        $staff = User::factory()->create(['is_admin' => false]);
+        app(\App\Erp\Admin\UserProvisioner::class)->grantApps($staff, ['limousine'], \App\Erp\Admin\StaffRole::Staff);
+        $this->actingAs($staff);
+
+        Livewire::test(InvoiceForm::class, ['id' => $invoice->id])
+            ->assertOk()
+            ->assertSee($invoice->reference)
+            ->assertDontSee('Receive payment');
+
+        $this->assertSame(200, (new LimoInvoiceController())($invoice->id, app(LimoInvoicePdf::class))->getStatusCode());
     }
 
     public function test_raising_a_bill_from_a_quote_stays_open_to_the_office(): void

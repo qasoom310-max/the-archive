@@ -56,7 +56,7 @@ final class LimoFormInactiveRelationTest extends TestCase
 
     public function test_invoice_form_keeps_a_deactivated_customer_visible(): void
     {
-        // InvoiceForm::mount() gates opening an EXISTING invoice on super-admin.
+        // Only the owner gets the editable form (and its customer picker).
         $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
         $customer = LimoCustomer::query()->create(['name' => 'Eslam Zein', 'active' => false]);
         $invoice = LimoInvoice::query()->create(['customer_id' => $customer->id]);

@@ -14,7 +14,8 @@
                     <a href="{{ url('/app/limousine/booking/' . $booking_id) }}" wire:navigate class="text-xs text-chrome-500 hover:underline">{{ __('View booking') }}</a>
                 @endif
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center gap-3">
+                <a href="{{ url('/app/limousine/invoice/' . $invoice->id . '/download') }}" class="o-btn-ghost text-sm" data-invoice-download>{{ __('Download PDF') }}</a>
                 <span class="text-sm text-chrome-500">{{ __('Balance') }}: <span class="font-semibold text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($balance) }}</span></span>
                 {{-- Dispatch the journey this bill is for. Only on an invoice
                      raised from a quotation: that is what holds the legs. --}}
@@ -36,7 +37,39 @@
         <div class="space-y-4 lg:col-span-2">
             <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]">
                 <h2 class="mb-4 text-sm font-semibold text-chrome-800">{{ __('Invoice details') }}</h2>
-                @if ($isEditing)
+                @if ($isEditing && ! $canEdit)
+                    {{-- Read-only for everyone but the owner: an invoice follows
+                         its trip's price, so changing one by hand is the
+                         owner's call (InvoiceForm::guardManualEdit()). --}}
+                    <dl class="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2" data-invoice-readonly>
+                        <div class="sm:col-span-2">
+                            <dt class="text-xs font-medium text-chrome-500">{{ __('Customer') }}</dt>
+                            <dd class="mt-0.5 font-medium text-chrome-800">{{ $customerName }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs font-medium text-chrome-500">{{ __('Issue date') }}</dt>
+                            <dd class="mt-0.5 text-chrome-800">{{ $issue_date !== '' ? \Illuminate\Support\Carbon::parse($issue_date)->isoFormat('DD-MMM-YYYY') : '—' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs font-medium text-chrome-500">{{ __('Due date') }}</dt>
+                            <dd class="mt-0.5 text-chrome-800">{{ $due_date !== '' ? \Illuminate\Support\Carbon::parse($due_date)->isoFormat('DD-MMM-YYYY') : '—' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs font-medium text-chrome-500">{{ __('Subtotal') }}</dt>
+                            <dd class="mt-0.5 text-chrome-800">{{ \App\Erp\Views\ValueFormat::money((float) $subtotal) }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs font-medium text-chrome-500">{{ __('Discount') }}</dt>
+                            <dd class="mt-0.5 text-chrome-800">{{ \App\Erp\Views\ValueFormat::money((float) $discount) }}</dd>
+                        </div>
+                        @if ($notes !== '')
+                            <div class="sm:col-span-2">
+                                <dt class="text-xs font-medium text-chrome-500">{{ __('Notes') }}</dt>
+                                <dd class="mt-0.5 whitespace-pre-line text-chrome-700">{{ $notes }}</dd>
+                            </div>
+                        @endif
+                    </dl>
+                @elseif ($isEditing)
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
                             <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Customer') }} *</label>
@@ -167,7 +200,9 @@
                         <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Balance') }}</dt><dd class="font-semibold text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($balance) }}</dd></div>
                     @endif
                 </dl>
-                @if ($isEditing)
+                @if ($isEditing && ! $canEdit)
+                    <p class="mt-4 text-xs text-chrome-500">{{ __('Only the owner can change an invoice by hand.') }}</p>
+                @elseif ($isEditing)
                     <button wire:click="save" class="o-btn-primary mt-4 w-full justify-center">
                         <span wire:loading.remove wire:target="save">{{ __('Save invoice') }}</span>
                         <span wire:loading wire:target="save">{{ __('Saving…') }}</span>

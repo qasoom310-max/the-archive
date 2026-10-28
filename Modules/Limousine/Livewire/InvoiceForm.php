@@ -93,7 +93,9 @@ final class InvoiceForm extends Component
 
         $this->guardAccess(Permission::Read);
         if ($id !== null) {
-            $this->guardManualEdit();
+            // Anyone who may read invoices may OPEN one (the bookings list's
+            // "Open invoice" leads here). Changing it by hand stays the
+            // owner's: the page is read-only for others and save() refuses.
             $invoice = LimoInvoice::query()->find($id);
             if ($invoice !== null) {
                 $this->id = $invoice->id;
@@ -119,12 +121,10 @@ final class InvoiceForm extends Component
     /**
      * Correcting an existing bill by hand is the owner's job alone.
      *
-     * Nothing links here any more: the invoices list offers Download, Create
-     * trip and Receive payment, which is everything an invoice is FOR. This
-     * screen survives only as a repair — an invoice follows its trip's price
-     * and takes a quote's, so retyping one overrides a figure the system
-     * derived, and that is not an everyday act. mount() alone would not hold
-     * it: Livewire dispatches straight to methods, so save() asks again.
+     * An invoice follows its trip's price and takes a quote's, so retyping one
+     * overrides a figure the system derived, and that is not an everyday act.
+     * Everyone else sees the page read-only (view, payments, download, take
+     * payment). Livewire dispatches straight to methods, so save() asks.
      */
     private function guardManualEdit(): void
     {
@@ -453,11 +453,19 @@ final class InvoiceForm extends Component
             ? LimoQuotation::query()->with('customer:id,name')->find($this->quotation_id)
             : null;
 
+        // Only the owner edits an existing bill; everyone else reads it, so
+        // they are not sent the whole customer list (thousands of names) a
+        // picker needs.
+        $canEdit = $invoice === null || (Auth::user()?->isSuperAdmin() ?? false);
+        $mayWrite = $this->mayAccess(Permission::Write);
+
         return view('limousine::invoice-form', [
             // See BookingForm::render() — an already-selected customer must
             // stay visible even if it was deactivated after this invoice
             // was raised.
-            'customers' => LimoCustomer::activeOrSelected($this->customer_id, ['id', 'name', 'phone']),
+            'customers' => $canEdit ? LimoCustomer::activeOrSelected($this->customer_id, ['id', 'name', 'phone']) : collect(),
+            'customerName' => $invoice !== null ? (string) (LimoCustomer::query()->whereKey($invoice->customer_id)->value('name') ?? '—') : '',
+            'canEdit' => $canEdit,
             'quotes' => $this->id === null ? $this->billableQuotes() : collect(),
             'selectedQuote' => $selectedQuote,
             'previewTotal' => $selectedQuote !== null
@@ -468,8 +476,8 @@ final class InvoiceForm extends Component
             'invoice' => $invoice,
             // The trip action only makes sense on an invoice that came from a
             // quotation and has not been dispatched yet.
-            'canCreateTrip' => $invoice !== null && $invoice->booking_id === null && $invoice->quotation_id !== null,
-            'canCollect' => $invoice !== null && $invoice->balance() > 0,
+            'canCreateTrip' => $mayWrite && $invoice !== null && $invoice->booking_id === null && $invoice->quotation_id !== null,
+            'canCollect' => $mayWrite && $invoice !== null && $invoice->balance() > 0,
             'isEditing' => $this->id !== null,
         ]);
     }

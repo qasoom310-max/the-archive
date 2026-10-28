@@ -3250,5 +3250,7 @@
     "Movement": "الحركة",
     "In": "وارد",
     "Out": "صادر",
-    "No money moved in or out of the float in this period.": "لم تدخل أو تخرج أي مبالغ من العهدة في هذه الفترة."
+    "No money moved in or out of the float in this period.": "لم تدخل أو تخرج أي مبالغ من العهدة في هذه الفترة.",
+    "Download PDF": "تحميل PDF",
+    "Only the owner can change an invoice by hand.": "تعديل الفاتورة يدويًا للمالك فقط."
 }

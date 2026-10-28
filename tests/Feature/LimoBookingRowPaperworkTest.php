@@ -68,7 +68,9 @@ final class LimoBookingRowPaperworkTest extends TestCase
             ->assertSee((string) $invoice->reference);
 
         foreach ($receipts as $id) {
-            $page->assertSeeHtml('href="' . url('/app/limousine/receipt/' . $id) . '"');
+            // An admin who is not the Accountant gets the receipt itself (PDF);
+            // the receipt page is for repairs (owner + Accountant).
+            $page->assertSeeHtml('href="' . url('/app/limousine/receipt/' . $id . '/download') . '"');
         }
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Services;
 
+use App\Erp\Activity\ActivityLogger;
 use App\Erp\Settings\SettingManager;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -177,6 +178,98 @@ final class TripCancellation
 
             return ['outcome' => $outcome, 'amount' => $amount, 'coupon' => $coupon];
         });
+    }
+
+    /**
+     * Undo a cancellation: the trip goes back to the queue and back on the bill.
+     *
+     * A coupon handed out for it is withdrawn, but only while nothing has been
+     * spent from it. Once the customer has used it the credit is gone and the
+     * cancellation can't be taken back. Money already refunded stays refunded,
+     * so the booking simply owes it again.
+     *
+     * @return string|null why it can't be restored, or null when it was
+     */
+    public function restore(LimoLeg $leg): ?string
+    {
+        if ($leg->status !== LimoLeg::STATUS_CANCELLED) {
+            return null;
+        }
+
+        $coupon = LimoCoupon::query()->where('limo_leg_id', $leg->id)->first();
+        if ($coupon !== null && $coupon->used() > 0.001) {
+            return __('Coupon :code for trip :trip has already been used, so the trip can\'t be restored.', [
+                'code' => $coupon->code,
+                'trip' => (string) $leg->reference,
+            ]);
+        }
+
+        $booking = $leg->legable instanceof LimoBooking ? $leg->legable : null;
+
+        DB::transaction(function () use ($leg, $booking, $coupon): void {
+            $coupon?->delete();
+
+            $leg->status = LimoLeg::STATUS_QUEUE;
+            $leg->cancelled_at = null;
+            $leg->cancellation_reason = null;
+            $leg->refund_outcome = null;
+            $leg->refund_amount = 0.0;
+            $leg->save();
+
+            if ($booking !== null) {
+                $booking->syncStatusFromLegs();
+                $booking->recalcTotal();
+                $booking->save();
+                $booking->syncPaymentFromAdvance();
+                $booking->syncInvoice();
+            }
+        });
+
+        app(ActivityLogger::class)->log(
+            'updated',
+            __('Trip :trip', ['trip' => (string) $leg->reference]),
+            'Cancellation undone; trip back in the queue' . ($coupon !== null ? ', coupon ' . $coupon->code . ' withdrawn' : ''),
+        );
+
+        return null;
+    }
+
+    /**
+     * Undo the cancellation of a whole booking: every cancelled trip goes back
+     * to the queue, or none does.
+     *
+     * @return string|null why it can't be restored, or null when it was
+     */
+    public function restoreBooking(LimoBooking $booking): ?string
+    {
+        $legs = $booking->legs()->where('status', LimoLeg::STATUS_CANCELLED)->get();
+
+        // Check everything first, so a refusal never leaves half the trips back.
+        foreach ($legs as $leg) {
+            $coupon = LimoCoupon::query()->where('limo_leg_id', $leg->id)->first();
+            if ($coupon !== null && $coupon->used() > 0.001) {
+                return __('Coupon :code for trip :trip has already been used, so the trip can\'t be restored.', [
+                    'code' => $coupon->code,
+                    'trip' => (string) $leg->reference,
+                ]);
+            }
+        }
+
+        if ($legs->isEmpty()) {
+            // Cancelled with no trips under it: just reopen the booking itself.
+            $booking->setStatus(LimoBooking::STATUS_QUEUE);
+
+            return null;
+        }
+
+        DB::transaction(function () use ($legs, $booking): void {
+            foreach ($legs as $leg) {
+                $leg->setRelation('legable', $booking);
+                $this->restore($leg);
+            }
+        });
+
+        return null;
     }
 
     /**

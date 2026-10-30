@@ -3252,5 +3252,12 @@
     "Out": "صادر",
     "No money moved in or out of the float in this period.": "لم تدخل أو تخرج أي مبالغ من العهدة في هذه الفترة.",
     "Download PDF": "تحميل PDF",
-    "Only the owner can change an invoice by hand.": "تعديل الفاتورة يدويًا للمالك فقط."
+    "Only the owner can change an invoice by hand.": "تعديل الفاتورة يدويًا للمالك فقط.",
+    "Coupon :code for trip :trip has already been used, so the trip can't be restored.": "تم استخدام القسيمة :code للرحلة :trip، لذلك لا يمكن استعادة الرحلة.",
+    "Trip :trip": "الرحلة :trip",
+    "Booking restored to the queue.": "أُعيد الحجز إلى قائمة الانتظار.",
+    "Put this booking back in the queue?": "إعادة هذا الحجز إلى قائمة الانتظار؟",
+    "Restore to queue": "إعادة إلى قائمة الانتظار",
+    "Put this trip back in the queue?": "إعادة هذه الرحلة إلى قائمة الانتظار؟",
+    "Trip :trip is back in the queue.": "عادت الرحلة :trip إلى قائمة الانتظار."
 }

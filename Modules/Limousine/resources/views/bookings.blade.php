@@ -650,6 +650,19 @@
                                         </svg>
                                     </button>
                                 @endif
+
+                                {{-- A trip cancelled by mistake goes back to the queue. --}}
+                                @if ($canAssign && $row['status'] === 'cancelled')
+                                    <button type="button" wire:click="restoreLeg({{ $leg->id }})"
+                                            wire:confirm="{{ __('Put this trip back in the queue?') }}"
+                                            title="{{ __('Restore to queue') }}" aria-label="{{ __('Restore to queue') }}"
+                                            data-restore-leg="{{ $leg->id }}"
+                                            class="inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-primary-700 transition hover:bg-primary-50">
+                                        <svg class="size-4 rtl:-scale-x-100" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"/>
+                                        </svg>
+                                    </button>
+                                @endif
                             </div>
                             @if ($row['status'] === 'cancelled' && $leg->refund_outcome)
                                 {{-- What the customer got back, so a cancelled row

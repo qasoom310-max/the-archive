@@ -1273,6 +1273,21 @@ final class Bookings extends Component
         });
     }
 
+    /** Undo a trip's cancellation: back to the queue and back on the bill. */
+    public function restoreLeg(int $legId): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        $leg = LimoLeg::query()->with('legable')->find($legId);
+        if ($leg === null || $leg->status !== LimoLeg::STATUS_CANCELLED) {
+            return;
+        }
+
+        $refusal = app(TripCancellation::class)->restore($leg);
+
+        session()->flash('booking_status', $refusal ?? __('Trip :trip is back in the queue.', ['trip' => (string) $leg->reference]));
+    }
+
     /** Mark a running trip finished. */
     public function completeLeg(int $legId): void
     {

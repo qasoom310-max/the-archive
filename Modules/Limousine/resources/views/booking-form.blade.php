@@ -46,7 +46,16 @@
                          start, the action at the end, like every other dialog. --}}
                     <button type="button" x-on:click="askingCancel = true" class="text-sm font-medium text-red-600 hover:underline">{{ __('Cancel') }}</button>
                 @endif
+                @if ($status === 'cancelled')
+                    <button type="button" wire:click="restoreBooking"
+                        wire:confirm="{{ __('Put this booking back in the queue?') }}"
+                        wire:loading.attr="disabled" data-restore-booking
+                        class="o-btn-primary text-sm">{{ __('Restore to queue') }}</button>
+                @endif
             </div>
+            @error('restore')
+                <p class="w-full text-sm text-red-600">{{ $message }}</p>
+            @enderror
 
             @if (! in_array($status, ['completed', 'cancelled'], true))
                 <div x-cloak x-show="askingCancel" class="fixed inset-0 z-50 flex items-center justify-center p-4"

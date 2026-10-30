@@ -24,6 +24,7 @@ use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Services\BookingPayments;
 use Modules\Limousine\Services\CouponRedeemer;
 use Modules\Limousine\Services\CustomerDocumentEmails;
+use Modules\Limousine\Services\TripCancellation;
 use Modules\Limousine\Models\LimoReceipt;
 
 /**
@@ -647,6 +648,31 @@ final class BookingForm extends Component
     {
         $this->guardAccess(Permission::Write);
         $this->transition(LimoBooking::STATUS_CANCELLED);
+    }
+
+    /**
+     * Undo a cancellation: every cancelled trip goes back to the queue. Refused
+     * when a coupon issued for one of them has already been spent.
+     */
+    public function restoreBooking(): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        $booking = $this->id !== null ? LimoBooking::query()->find($this->id) : null;
+        if ($booking === null || $booking->status !== LimoBooking::STATUS_CANCELLED) {
+            return;
+        }
+
+        $refusal = app(TripCancellation::class)->restoreBooking($booking);
+        if ($refusal !== null) {
+            $this->addError('restore', $refusal);
+
+            return;
+        }
+
+        // Reload so the trips below show their new status and price.
+        session()->flash('toast', __('Booking restored to the queue.'));
+        $this->redirect(url('/app/limousine/booking/' . $booking->id), navigate: true);
     }
 
     /**

@@ -116,6 +116,103 @@ final class LimoInvoiceDocumentTest extends TestCase
         $this->assertCount(1, $data['lines']);
     }
 
+    /**
+     * Several cars sent out together, which is what dropped trips off a real
+     * bill.
+     *
+     * A Ministry of Defence booking of 18 trips printed 14: three cars at 08:00
+     * on one route at 240 each looked identical to the import-copy check, so it
+     * kept one and threw two away — while the total underneath still counted
+     * all of them. They are three journeys. The legs add up to exactly what is
+     * billed, so every one of them is on the page.
+     */
+    public function test_cars_sent_out_together_are_all_on_the_bill(): void
+    {
+        $booking = LimoBooking::query()->create([
+            'reference' => 'BK/15000', 'customer_id' => $this->customer()->id,
+        ]);
+
+        $trips = [
+            // Three cars, 30-Oct 08:00, same route, same rate.
+            ['26033', '2026-10-30 08:00:00', 240.0],
+            ['26034', '2026-10-30 08:00:00', 240.0],
+            ['26035', '2026-10-30 08:00:00', 240.0],
+            // Two short runs at the same hour.
+            ['26030', '2026-10-29 23:00:00', 20.0],
+            ['26031', '2026-10-29 23:00:00', 20.0],
+            // And one on its own.
+            ['26032', '2026-10-30 08:00:00', 300.0],
+        ];
+
+        foreach ($trips as $i => [$reference, $at, $amount]) {
+            $booking->legs()->create([
+                'sequence' => $i, 'reference' => $reference, 'service_type' => 'chauffeur',
+                'from_location' => 'Hotel', 'to_location' => 'Hotel', 'start_at' => $at,
+                'days' => 1, 'hours' => 1, 'rate' => $amount, 'rate_basis' => 'trip', 'net_amount' => $amount,
+            ]);
+        }
+
+        $booking->recalcTotal();
+        $booking->save();
+
+        $data = app(LimoInvoicePdf::class)->viewData($booking->syncInvoice());
+
+        $this->assertCount(6, $data['lines'], 'every car that was sent out is billed, so every one is printed');
+        // And the lines now add up to the total printed under them.
+        $this->assertEqualsWithDelta(1060.0, array_sum(array_column($data['lines'], 'amount')), 0.001);
+        $this->assertEqualsWithDelta(1060.0, $data['total'], 0.001);
+    }
+
+    /**
+     * Both at once: three real cars plus one row the import copied. Only the
+     * copy goes — and only because removing it is what brings the lines to
+     * the bill. Removing a second would take them below it.
+     */
+    public function test_only_the_import_copy_goes_when_real_look_alikes_are_also_billed(): void
+    {
+        $booking = LimoBooking::query()->create([
+            'reference' => 'BK/15001', 'customer_id' => $this->customer()->id,
+            // Billed for the three cars the old system recorded.
+            'fare' => 720,
+        ]);
+
+        // Four identical rows: three journeys the old system billed, and one
+        // the September import duplicated.
+        foreach (range(0, 3) as $i) {
+            $booking->legs()->create([
+                'sequence' => $i, 'service_type' => 'chauffeur', 'from_location' => 'Hotel',
+                'to_location' => 'Hotel', 'start_at' => '2026-10-30 08:00:00', 'days' => 1, 'hours' => 1,
+                'rate' => 240, 'rate_basis' => 'trip', 'net_amount' => 240,
+            ]);
+        }
+
+        $data = app(LimoInvoicePdf::class)->viewData($booking->syncInvoice());
+
+        $this->assertCount(3, $data['lines']);
+        $this->assertEqualsWithDelta(720.0, array_sum(array_column($data['lines'], 'amount')), 0.001);
+    }
+
+    /** Dropping a copy must not leave a gap in the line numbers. */
+    public function test_lines_stay_numbered_in_order_after_a_copy_is_dropped(): void
+    {
+        $booking = LimoBooking::query()->create([
+            'reference' => 'BK/15002', 'customer_id' => $this->customer()->id, 'fare' => 75,
+        ]);
+
+        foreach ([['Airport', 55.0], ['Airport', 55.0], ['Mall', 20.0]] as $i => [$to, $amount]) {
+            $booking->legs()->create([
+                'sequence' => $i, 'service_type' => 'transfer', 'from_location' => 'Hotel',
+                'to_location' => $to, 'start_at' => '2026-10-01 09:00:00', 'days' => 1,
+                'rate' => $amount, 'rate_basis' => 'trip', 'net_amount' => $amount,
+            ]);
+        }
+
+        $data = app(LimoInvoicePdf::class)->viewData($booking->syncInvoice());
+
+        $this->assertSame([0, 1], array_keys($data['lines']));
+        $this->assertSame('Mall', $data['lines'][1]['to']);
+    }
+
     public function test_an_invoice_raised_from_a_quote_borrows_the_quotes_legs(): void
     {
         $quote = LimoQuotation::query()->create(['customer_id' => $this->customer()->id, 'fare' => 30]);

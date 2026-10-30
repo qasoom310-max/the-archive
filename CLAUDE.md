@@ -2685,10 +2685,31 @@ migration `2026_10_06_950041` and after every `LegacyBookingImporter` import.
 (each with its own booking ref, company ref, pax) plus the usual
 adjustment row when they don't add up. **The single-invoice PDF still prints a
 multi-booking legacy invoice as one line** — the owner rejected the expansion
-there on 2026-09-09 (commit c7321ff). The combined PDF also de-duplicates
-byte-identical imported legs and, for an IMPORTED booking only, falls back to
-the leg's `vehicle` for Car type (the old system had one vehicle field; a live
-booking still prints `vehicle_details` only). Tests: `LimoCombinedInvoiceTest` (+3).
+there on 2026-09-09 (commit c7321ff). The combined PDF also leaves out legs the
+import COPIED (see the next paragraph) and, for an IMPORTED booking only, falls
+back to the leg's `vehicle` for Car type (the old system had one vehicle field;
+a live booking still prints `vehicle_details` only). Tests: `LimoCombinedInvoiceTest` (+3).
+
+**Import copies vs cars sent out together (fixed 2026-10-30):** an 18-trip
+Ministry of Defence booking (INV/01932, 3,570 BD) printed only 14 trips. Both
+invoice PDFs dropped any leg identical to another in service, car, route, start
+time and price — written to hide rows the September import duplicated — but
+three cars at 08:00 on one route at 240 each are three journeys, and the rule
+threw two away. The total stayed right (it is the invoice's own), so the page
+listed less than it charged; the COMBINED PDF was worse, re-printing the lost
+money as an "Adjustment on INV/…" line that disguised the missing trips.
+**`Modules\Limousine\Support\ImportedLegCopies::without($legs, $fare)` is now the
+one rule for both PDFs:** a fare is the sum of its legs, so legs that already
+add up to the fare are all journeys and nothing is removed; only when they add
+up to MORE (an imported booking's fare came from the old system, which never
+counted the copies) are look-alikes removed, one at a time, only until the legs
+reach the fare. **Measured against the booking/quote `fare`, NOT the invoice
+subtotal** — an invoice stops following its booking once money lands, and a
+trip added after that is unbilled, not copied. A fare of 0 removes every
+look-alike, which is the old behaviour. Result is re-indexed so a dropped copy
+never gaps the line numbers. Tests: `LimoInvoiceDocumentTest` (+3, including the
+mixed case: three real cars plus one copy keeps exactly three),
+`LimoCombinedInvoiceTest` (+2).
 
 **Second pass, same day (migration `2026_10_06_950042`), for the rows still bare:**
 - **INV/01327's list was cut off by the old system's own export** ("…, 15225,

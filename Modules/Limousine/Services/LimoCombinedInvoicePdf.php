@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Storage;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoLeg;
+use Modules\Limousine\Support\ImportedLegCopies;
 use Modules\Limousine\Support\LegacyInvoiceBookings;
 
 /**
@@ -168,22 +169,23 @@ final class LimoCombinedInvoicePdf
 
     /**
      * The trips on the bill: a cancelled one is left out (unless its money
-     * was kept), exactly as the fare leaves it out. The import that carried
-     * old bookings over also duplicated a handful of legs byte for byte;
-     * printing one journey twice reads as a double charge.
+     * was kept), exactly as the fare leaves it out. Rows the import COPIED
+     * are left out too, and only those: several cars sent out together look
+     * identical and are each a journey. See {@see ImportedLegCopies}.
+     *
+     * This mattered more here than anywhere. When look-alikes were dropped by
+     * likeness alone, the money they carried resurfaced below as an
+     * "Adjustment" line, so the missing trips were disguised as a correction
+     * rather than showing as journeys.
      *
      * @return \Illuminate\Support\Collection<int, LimoLeg>
      */
     private function distinctLegs(LimoBooking $booking): \Illuminate\Support\Collection
     {
-        return $booking->legs->filter(static fn (LimoLeg $leg): bool => $leg->isBillable())->unique(static fn (LimoLeg $leg): string => implode('|', [
-            $leg->service_type,
-            (string) $leg->vehicle_details,
-            (string) $leg->from_location,
-            (string) $leg->to_location,
-            (string) $leg->start_at,
-            (string) $leg->net_amount,
-        ]))->values();
+        return ImportedLegCopies::without(
+            $booking->legs->filter(static fn (LimoLeg $leg): bool => $leg->isBillable()),
+            round((float) ($booking->fare ?? 0), 3),
+        );
     }
 
     /**

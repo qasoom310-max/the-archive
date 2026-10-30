@@ -9,6 +9,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoLeg;
+use Modules\Limousine\Support\ImportedLegCopies;
 
 /**
  * The customer's bill: what is owed, for which journeys, and what is left.
@@ -56,7 +57,13 @@ final class LimoInvoicePdf
             'quotationReference' => (string) ($invoice->quotation->reference ?? ''),
             // All of $legs comes from the SAME booking or quote (never mixed —
             // see the ??  above), so one reference covers every line.
-            'lines' => $this->lines($legs, (string) ($invoice->booking->reference ?? $invoice->quotation->reference ?? '')),
+            // The parent's fare is the sum of its trips, so it is what tells a
+            // row the import copied from a car that really went out twice.
+            'lines' => $this->lines(
+                $legs,
+                (string) ($invoice->booking->reference ?? $invoice->quotation->reference ?? ''),
+                round((float) ($parent->fare ?? 0), 3),
+            ),
             'subtotal' => round((float) $invoice->subtotal, 3),
             'discount' => round((float) $invoice->discount, 3),
             'total' => $total,
@@ -80,7 +87,7 @@ final class LimoInvoicePdf
      * @param  \Illuminate\Support\Collection<int, LimoLeg>|null  $legs
      * @return list<array{booking: string, service: string, vehicle: string, from: string, to: string, when: string, amount: float}>
      */
-    private function lines(?\Illuminate\Support\Collection $legs, string $bookingReference): array
+    private function lines(?\Illuminate\Support\Collection $legs, string $bookingReference, float $fare): array
     {
         if ($legs === null) {
             return [];
@@ -90,30 +97,10 @@ final class LimoInvoicePdf
         // it is not printed either — the fare it is summed into leaves it out.
         $legs = $legs->filter(static fn (LimoLeg $leg): bool => $leg->isBillable());
 
-        return $this->dedupeLegs($legs)->map(fn (LimoLeg $leg): array => $this->legRow($leg, $bookingReference))->all();
-    }
-
-    /**
-     * The same September import that carried these bookings over duplicated
-     * a handful of their legs (byte-identical rows — same service, route,
-     * time and amount). Printing the same journey twice reads as a double
-     * charge, so collapse exact duplicates before they ever reach the page;
-     * the invoice's own stored subtotal/total (never summed from these rows)
-     * is unaffected either way.
-     *
-     * @param  \Illuminate\Support\Collection<int, LimoLeg>  $legs
-     * @return \Illuminate\Support\Collection<int, LimoLeg>
-     */
-    private function dedupeLegs(\Illuminate\Support\Collection $legs): \Illuminate\Support\Collection
-    {
-        return $legs->unique(static fn (LimoLeg $leg): string => implode('|', [
-            $leg->service_type,
-            (string) $leg->vehicle_details,
-            (string) $leg->from_location,
-            (string) $leg->to_location,
-            (string) $leg->start_at,
-            (string) $leg->net_amount,
-        ]));
+        return ImportedLegCopies::without($legs, $fare)
+            ->map(fn (LimoLeg $leg): array => $this->legRow($leg, $bookingReference))
+            ->values()
+            ->all();
     }
 
     /**

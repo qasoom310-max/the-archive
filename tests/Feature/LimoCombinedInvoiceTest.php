@@ -291,6 +291,60 @@ final class LimoCombinedInvoiceTest extends TestCase
         $this->assertEqualsWithDelta(360.0, $data['total'], 0.001);
     }
 
+    /**
+     * Cars sent out together each get a row — and no "Adjustment" line.
+     *
+     * Dropping look-alike trips by likeness alone used to lose real journeys
+     * here AND print their money as an "Adjustment on INV/…" line, which
+     * disguised the missing trips as a correction. Three cars at one hour on
+     * one route are three journeys; the fare counts all three.
+     */
+    public function test_cars_sent_out_together_each_get_a_row_and_no_adjustment(): void
+    {
+        $customer = $this->customer('Ministry of Defence Singapore');
+        $booking = LimoBooking::query()->create(['customer_id' => $customer->id, 'pax_name' => 'Delegation']);
+
+        foreach (['26033', '26034', '26035'] as $i => $reference) {
+            $booking->legs()->create([
+                'sequence' => $i, 'reference' => $reference, 'service_type' => 'chauffeur',
+                'from_location' => 'Hotel', 'to_location' => 'Hotel', 'start_at' => '2026-10-30 08:00:00',
+                'days' => 1, 'hours' => 15, 'rate' => 240, 'rate_basis' => 'trip', 'net_amount' => 240,
+            ]);
+        }
+
+        $booking->recalcTotal();
+        $booking->save();
+        $invoice = $booking->syncInvoice();
+
+        $data = app(LimoCombinedInvoicePdf::class)->viewData(LimoInvoice::query()->whereKey($invoice->id)->get());
+
+        $this->assertCount(3, $data['rows'], 'three cars went out, three rows, and nothing posing as an adjustment');
+        $this->assertEqualsWithDelta(720.0, array_sum(array_column($data['rows'], 'total')), 0.001);
+    }
+
+    /** A row the import really did copy is still left off, with no adjustment. */
+    public function test_an_imported_copy_is_still_left_off_the_combined_bill(): void
+    {
+        $customer = $this->customer();
+        // The old system billed one journey; the import wrote it twice.
+        $booking = LimoBooking::query()->create(['customer_id' => $customer->id, 'fare' => 55, 'pax_name' => 'Helen']);
+
+        foreach (range(0, 1) as $i) {
+            $booking->legs()->create([
+                'sequence' => $i, 'service_type' => 'transfer', 'from_location' => 'Al Khobar',
+                'to_location' => 'Dammam airport', 'start_at' => '2026-09-01 09:00:00', 'days' => 1,
+                'rate' => 55, 'rate_basis' => 'trip', 'net_amount' => 55,
+            ]);
+        }
+
+        $invoice = $booking->syncInvoice();
+
+        $data = app(LimoCombinedInvoicePdf::class)->viewData(LimoInvoice::query()->whereKey($invoice->id)->get());
+
+        $this->assertCount(1, $data['rows']);
+        $this->assertEqualsWithDelta(55.0, $data['rows'][0]['total'], 0.001);
+    }
+
     public function test_a_charge_with_no_journey_still_gets_a_line(): void
     {
         $customer = $this->customer();

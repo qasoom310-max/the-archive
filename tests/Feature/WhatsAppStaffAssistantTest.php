@@ -427,6 +427,23 @@ final class WhatsAppStaffAssistantTest extends TestCase
         $this->assertStringContainsString('50', $toolResult['collected']);
     }
 
+    /**
+     * Pinned to the hour that broke it: 21:09 UTC is already tomorrow in
+     * Bahrain. The summary named its own zone while trips are stamped on the
+     * app clock, so a sale made "today" was looked for on the next day and the
+     * owner was told 0.00 BD.
+     */
+    public function test_today_means_the_same_day_late_at_night_utc(): void
+    {
+        \Illuminate\Support\Carbon::setTestNow('2026-10-30 21:09:00');
+
+        try {
+            $this->test_the_owner_sees_a_sales_summary();
+        } finally {
+            \Illuminate\Support\Carbon::setTestNow();
+        }
+    }
+
     public function test_a_regular_admin_cannot_see_the_sales_summary(): void
     {
         $manager = User::factory()->create(['is_admin' => true, 'is_super_admin' => false]);

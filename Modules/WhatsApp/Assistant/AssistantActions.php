@@ -262,7 +262,12 @@ final class AssistantActions
             ];
         }
 
-        $now = CarbonImmutable::now('Asia/Bahrain');
+        // The COMPANY's day, which is what the app clock already runs on
+        // (CompanyTimezone::apply) and what every trip is stamped in. Naming a
+        // zone here as well made "today" disagree with the stored pickups for
+        // the hours the two zones sit on different dates — a workspace in
+        // another zone all day, and the test suite every night from 21:00 UTC.
+        $now = CarbonImmutable::now();
         $period = is_scalar($input['period'] ?? null) ? (string) $input['period'] : 'today';
 
         [$from, $to, $label] = match ($period) {

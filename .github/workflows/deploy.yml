@@ -210,6 +210,13 @@ jobs:
       #     only pos_products/ was protected). Add the bucket name here
       #     in lockstep with any new entry in FormImageUploadController.
       #   - storage/logs/, framework caches: per-host runtime data
+      #   - storage/app/private/ and storage/app/public/ AS A WHOLE (added
+      #     2026-10-31): the per-bucket list kept missing new folders — the
+      #     in-app backups (written to storage/app/private/backups/, not the
+      #     storage/app/backups/ listed below) and the limousine service-order
+      #     signatures (storage/app/public/limousine/) were wiped on every
+      #     push. The repo holds nothing under either but a .gitignore, so
+      #     protecting both whole loses nothing and covers any future bucket.
       # --delete prunes remote files that no longer exist locally (clean
       # deploys), but `--exclude` paths are protected on BOTH sides — so
       # uploaded photos and prod-only files survive.
@@ -252,6 +259,8 @@ jobs:
               --exclude='storage/app/imports/' \
               --exclude='storage/app/private/video-chunks/' \
               --exclude='storage/app/private/whatsapp-assistant-chat/' \
+              --exclude='storage/app/private/' \
+              --exclude='storage/app/public/' \
               --exclude='storage/logs/' \
               --exclude='storage/framework/cache/data/' \
               --exclude='storage/framework/sessions/' \

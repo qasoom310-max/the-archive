@@ -300,7 +300,7 @@ final class StaffAssistant
                 return [$fare, null];
 
             case 'find_booking':
-                return [$this->actions->findBooking($str('reference')), null];
+                return [$this->actions->findBooking($str('reference'), $user), null];
 
             case 'get_sales_summary':
                 return [$this->actions->salesSummary($input, $user), null];

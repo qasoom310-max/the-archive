@@ -171,7 +171,14 @@
                                 <div class="text-xs text-chrome-400">{{ $leg->legable?->reference }}</div>
                             </td>
                             <td class="px-4 py-2 text-chrome-600">{{ $leg->start_at?->isoFormat('DD-MMM-YY HH:mm') ?? '—' }}</td>
-                            <td class="px-4 py-2 text-chrome-700">{{ trim(($leg->from_location ?? '') . ' → ' . ($leg->to_location ?? ''), ' →') ?: '—' }}</td>
+                            <td class="px-4 py-2 text-chrome-700">
+                                @if (\Modules\Limousine\Support\TripDetailsLock::hides($leg))
+                                    {{-- Held back until a car and a driver are on it. --}}
+                                    {{ \Modules\Limousine\Support\TripDetailsLock::placeholder() }}
+                                @else
+                                    {{ trim(($leg->from_location ?? '') . ' → ' . ($leg->to_location ?? ''), ' →') ?: '—' }}
+                                @endif
+                            </td>
                             <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $lb }}">{{ __(ucfirst($leg->status)) }}</span></td>
                             <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($leg->net_amount) }}</td>
                         </tr>

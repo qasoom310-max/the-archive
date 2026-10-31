@@ -45,6 +45,43 @@
         </div>
     </form>
 
+    {{-- Who sees a trip's details only after it has a car and a driver
+         (Modules\Limousine\Support\TripDetailsLock). The owner's call: other
+         admins see the list but cannot change it. --}}
+    <form wire:submit="saveLockedStaff" class="mt-6 space-y-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6" data-locked-staff>
+        <div>
+            <h2 class="text-sm font-semibold text-chrome-800">{{ __('Operations staff: details only after the car and driver are assigned') }}</h2>
+            <p class="mt-1 text-xs text-chrome-500">{{ __('The people ticked here see a trip\'s time, car type, customer and countries only. The places, passenger, phone numbers, copy button and service order appear once a car and a driver are assigned — so a trip can\'t be sent to a driver outside the system.') }}</p>
+        </div>
+
+        @if ($staffSaved)
+            <div class="rounded-lg bg-emerald-50 px-4 py-2 text-sm text-emerald-700 ring-1 ring-emerald-100">{{ __('Saved.') }}</div>
+        @endif
+
+        <div class="max-h-72 divide-y divide-chrome-100 overflow-y-auto rounded-lg ring-1 ring-chrome-200">
+            @forelse ($staff as $person)
+                <label class="flex items-center gap-3 px-3 py-2 text-sm {{ $mayLockStaff ? 'cursor-pointer hover:bg-chrome-50' : '' }}">
+                    <input type="checkbox" wire:model="lockedUserIds" value="{{ $person->id }}"
+                           class="size-4 rounded border-chrome-300 text-primary-500" @disabled(! $mayLockStaff)>
+                    <span class="font-medium text-chrome-800">{{ $person->name }}</span>
+                    @if ($person->email)
+                        <span class="text-xs text-chrome-500" dir="ltr">{{ $person->email }}</span>
+                    @endif
+                </label>
+            @empty
+                <p class="px-3 py-2 text-sm text-chrome-500">{{ __('No staff accounts in this database.') }}</p>
+            @endforelse
+        </div>
+
+        @if ($mayLockStaff)
+            <div class="flex justify-end">
+                <button type="submit" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Save staff') }}</button>
+            </div>
+        @else
+            <p class="text-xs text-chrome-500">{{ __('Only the owner can change who is ticked.') }}</p>
+        @endif
+    </form>
+
     {{-- WhatsApp lets a business START a conversation only with a template Meta
          has approved, so these two are created once in WhatsApp Manager
          (category: Utility), named exactly as shown, in the template language

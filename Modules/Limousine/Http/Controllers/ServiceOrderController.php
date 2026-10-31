@@ -10,6 +10,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Services\ServiceOrderPdf;
+use Modules\Limousine\Support\TripDetailsLock;
 
 /**
  * Download a leg's Service Order as a PDF — the sheet that rides along with the
@@ -23,6 +24,10 @@ final class ServiceOrderController
         app(AccessControl::class)->authorize(Auth::user(), 'limousine.booking', Permission::Read);
 
         $model = LimoLeg::query()->with('legable.customer')->findOrFail($leg);
+
+        // The trip sheet is every detail a driver needs: held back, like the
+        // rest of the trip, until a car and a driver are on it.
+        abort_if(TripDetailsLock::hides($model), 403, __('Assign a car and a driver to its trips first — then the details show.'));
 
         return response($pdf->render($model), 200, [
             'Content-Type' => 'application/pdf',

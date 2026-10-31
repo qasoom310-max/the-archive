@@ -2738,6 +2738,23 @@ text are on the settings page); once Meta approves them, Settings → Driver
 details: enter the numbers and switch on. Switching on before approval makes
 every send fail at Meta (the leg is still stamped as notified, so it won't retry).
 
+**Trip details held back until a car and driver are assigned (shipped
+2026-10-31).** The reminders nag but can't stop a trip being copied to a driver
+off the system, so for operations staff the OWNER names, a trip shows only its
+number, time, car type, customer and countries until it has a car AND a driver;
+assigning the two reveals everything (and sends the customer their driver, above).
+Owner's choices: per person (Ali Mak and Abbas to start), and the booking page is
+locked too. A website can't block a screenshot — the details are simply not on
+screen to take one of.
+
+| Concern | Location |
+|---|---|
+| Who | `users.trip_details_locked` (core migration `2026_10_31_100001`, Main + every workspace: Abbas by email `hamdanabbas98@gmail.com`, Ali by a name starting "Ali Mak"; logs who). `User::seesTripDetailsOnlyWhenCrewed()` — never a super admin. Ticked per person by the OWNER on Settings → Driver details (`LimoCrewAlertSettings::saveLockedStaff`, super-admin only, current database; other admins see it read-only) |
+| Rule | `Modules\Limousine\Support\TripDetailsLock` — `hides($leg)` = viewer locked + leg open (`OPEN_STATUSES`) + `! hasCarAndDriver()`; `hidesBooking($booking)` = any open leg short; `place($country)` = "🔒 Saudi Arabia" |
+| Applied | `LimoQueueRows::row()` (pickup/dropoff → countries; contact phone, passenger, notes blank — so the list AND every export), `whatsappText()` → '' (row shows "🔒 ref", no copy), `confirmationLines()` (banner copy), `Bookings::openPreview/openEdit` refuse with a toast (+ render guard), assign + cancel dialogs show countries, `BookingForm` locked mode (`crewLocked`: nothing loaded into public props, `booking-locked.blade.php`, `hydrate()` aborts 403 on any action so a save can't blank the booking), `ServiceOrderController` 403, `customer-summary` route column, WhatsApp assistant `findBooking($ref, $user)` (places dropped + instruction) and its service-order PDF send (forbidden) |
+| Not locked (deliberately) | invoices, receipts, quotations — money documents, so billing isn't blocked. Customer service forwarding a booking by hand is a team rule, not code |
+| Tests | `tests/Feature/LimoTripDetailsLockTest.php` (13) |
+
 **Second pass, same day (migration `2026_10_06_950042`), for the rows still bare:**
 - **INV/01327's list was cut off by the old system's own export** ("…, 15225,
   152" — the cell is truncated in `limo-invoice.csv` too), so "152" matched an

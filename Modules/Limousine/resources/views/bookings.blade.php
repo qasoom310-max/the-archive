@@ -477,16 +477,22 @@
                              just-saved banner — only the reference's own click
                              reverted, per the office's request.) --}}
                         <td class="px-2 py-2 font-medium text-chrome-900">
-                            <button type="button" x-data="{ done: false }"
-                                    x-on:click="
-                                        $store.limoTrip.copy(@js($whatsapp[$leg->id] ?? ''));
-                                        done = true; setTimeout(() => done = false, 1500)
-                                    "
-                                    title="{{ __('Copy trip details for WhatsApp') }}"
-                                    class="text-start font-medium text-primary-700 hover:underline">
-                                <span x-show="! done">{{ $row['reference'] ?: '—' }}</span>
-                                <span x-show="done" x-cloak class="text-emerald-600">✓ {{ __('Copied') }}</span>
-                            </button>
+                            @if (($whatsapp[$leg->id] ?? '') === '' && \Modules\Limousine\Support\TripDetailsLock::hides($leg))
+                                {{-- Nothing to copy until a car and a driver are on it. --}}
+                                <span class="font-medium text-chrome-700" data-copy-locked
+                                      title="{{ __('Assign a car and a driver to copy this trip') }}">🔒 {{ $row['reference'] ?: '—' }}</span>
+                            @else
+                                <button type="button" x-data="{ done: false }"
+                                        x-on:click="
+                                            $store.limoTrip.copy(@js($whatsapp[$leg->id] ?? ''));
+                                            done = true; setTimeout(() => done = false, 1500)
+                                        "
+                                        title="{{ __('Copy trip details for WhatsApp') }}"
+                                        class="text-start font-medium text-primary-700 hover:underline">
+                                    <span x-show="! done">{{ $row['reference'] ?: '—' }}</span>
+                                    <span x-show="done" x-cloak class="text-emerald-600">✓ {{ __('Copied') }}</span>
+                                </button>
+                            @endif
                             <span class="block text-[11px] font-normal text-chrome-600">{{ $row['booking_reference'] }}</span>
                             {{-- On a phone the money rides under the reference, the one
                                  column that is always on screen. Further right, the price,
@@ -909,7 +915,12 @@
                     @if ($assigningLeg->legable?->customer?->name) · {{ $assigningLeg->legable->customer->name }} @endif
                 </p>
                 <p class="mt-0.5 text-xs text-chrome-500">
-                    {{ $assigningLeg->from_location ?? '—' }}{{ $assigningLeg->to_location ? ' → ' . $assigningLeg->to_location : '' }}
+                    {{-- Held back until the crew is named: just the countries. --}}
+                    @if (\Modules\Limousine\Support\TripDetailsLock::hides($assigningLeg))
+                        {{ \Modules\Limousine\Support\TripDetailsLock::place($assigningLeg->from_country) }}{{ $assigningLeg->to_location ? ' → ' . \Modules\Limousine\Support\TripDetailsLock::place($assigningLeg->to_country) : '' }}
+                    @else
+                        {{ $assigningLeg->from_location ?? '—' }}{{ $assigningLeg->to_location ? ' → ' . $assigningLeg->to_location : '' }}
+                    @endif
                     @if ($assigningLeg->start_at) · {{ $assigningLeg->start_at->isoFormat('DD-MMM-YY HH:mm') }} @endif
                 </p>
 
@@ -996,8 +1007,13 @@
                         @endphp
 
                         <p class="text-sm text-chrome-600">
-                            {{ $cancellingLeg->from_location }}
-                            @if ($cancellingLeg->to_location) → {{ $cancellingLeg->to_location }} @endif
+                            @if (\Modules\Limousine\Support\TripDetailsLock::hides($cancellingLeg))
+                                {{ \Modules\Limousine\Support\TripDetailsLock::place($cancellingLeg->from_country) }}
+                                @if ($cancellingLeg->to_location) → {{ \Modules\Limousine\Support\TripDetailsLock::place($cancellingLeg->to_country) }} @endif
+                            @else
+                                {{ $cancellingLeg->from_location }}
+                                @if ($cancellingLeg->to_location) → {{ $cancellingLeg->to_location }} @endif
+                            @endif
                             @if ($cancellingLeg->start_at)
                                 <span class="block text-xs text-chrome-400">{{ $cancellingLeg->start_at->isoFormat('DD-MMM-YY hh:mm A') }}</span>
                             @endif

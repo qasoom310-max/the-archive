@@ -7,12 +7,14 @@ namespace Modules\Limousine\Livewire;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Modules\Limousine\Models\LimoCrewAlertConfiguration;
 use Modules\Limousine\Services\CrewNotices;
+use Modules\Limousine\Support\TripDetailsLock;
 use Modules\WhatsApp\Models\WhatsAppConfiguration;
 
 /**
@@ -21,6 +23,10 @@ use Modules\WhatsApp\Models\WhatsAppConfiguration;
  * the owner's number, and the switch. The switch stays off until both numbers
  * are in, and is meant to be turned on once Meta has approved the two message
  * templates this page lists ({@see CrewNotices}).
+ *
+ * Also who sees a trip's details only once it has a car and a driver
+ * ({@see TripDetailsLock}) — ticked per person, by the owner alone (a super
+ * admin); other admins see the list read-only.
  */
 #[Layout('components.layouts.app')]
 #[Title('Driver details')]
@@ -35,6 +41,17 @@ final class LimoCrewAlertSettings extends Component
 
     public bool $saved = false;
 
+    /**
+     * Ticked staff: their trip details stay hidden until a car and a driver
+     * are assigned. Ids in THIS database — inside a workspace, the account a
+     * person works as is that workspace's copy.
+     *
+     * @var list<int|string>
+     */
+    public array $lockedUserIds = [];
+
+    public bool $staffSaved = false;
+
     public function mount(): void
     {
         $this->authorizeAdmin();
@@ -44,6 +61,10 @@ final class LimoCrewAlertSettings extends Component
         $this->enabled = (bool) $config->enabled;
         $this->operationsNumbers = (string) $config->operations_numbers;
         $this->ownerNumber = (string) $config->owner_number;
+
+        $this->lockedUserIds = Schema::hasColumn('users', 'trip_details_locked')
+            ? User::query()->where('trip_details_locked', true)->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all()
+            : [];
     }
 
     private function authorizeAdmin(): void
@@ -79,19 +100,72 @@ final class LimoCrewAlertSettings extends Component
         $this->saved = true;
     }
 
-    public function updated(): void
+    /**
+     * Who is held to "details after the crew" — the owner's call alone. The
+     * ticked ids come from the browser, so only real, non-owner accounts of
+     * this database are taken from them.
+     */
+    public function saveLockedStaff(): void
     {
+        $this->authorizeAdmin();
+
+        $actor = Auth::user();
+        abort_unless($actor instanceof User && $actor->isSuperAdmin(), 403);
+
+        if (! Schema::hasColumn('users', 'trip_details_locked')) {
+            return;
+        }
+
+        $wanted = array_values(array_unique(array_map('intval', $this->lockedUserIds)));
+        $lockable = $this->lockableStaff()->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all();
+        $locked = array_values(array_intersect($wanted, $lockable));
+
+        DB::transaction(static function () use ($locked, $lockable): void {
+            DB::table('users')->whereIn('id', $lockable)->whereNotIn('id', $locked)->update(['trip_details_locked' => false]);
+            DB::table('users')->whereIn('id', $locked)->update(['trip_details_locked' => true]);
+        });
+
+        $this->lockedUserIds = $locked;
+        $this->staffSaved = true;
+    }
+
+    /**
+     * Everyone in this database but the owners: a super admin always sees
+     * everything ({@see User::seesTripDetailsOnlyWhenCrewed()}).
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, User>
+     */
+    private function lockableStaff(): \Illuminate\Database\Eloquent\Collection
+    {
+        return User::query()
+            ->where(static fn ($q) => $q->where('is_super_admin', false)->orWhereNull('is_super_admin'))
+            ->orderBy('name')
+            ->get(['id', 'name', 'email']);
+    }
+
+    public function updated(string $name): void
+    {
+        if ($name === 'lockedUserIds' || str_starts_with($name, 'lockedUserIds.')) {
+            $this->staffSaved = false;
+
+            return;
+        }
+
         $this->saved = false;
     }
 
     public function render(): View
     {
+        $actor = Auth::user();
+
         return view('limousine::crew-alert-settings', [
             'customerTemplate' => CrewNotices::TEMPLATE_CUSTOMER,
             'reminderTemplate' => CrewNotices::TEMPLATE_REMINDER,
             // Messages go out on THIS database's WhatsApp connection; without
             // one, switching on would send nothing and say nothing.
             'whatsappReady' => Schema::hasTable('whatsapp_configuration') && WhatsAppConfiguration::current()->isConfigured(),
+            'staff' => Schema::hasColumn('users', 'trip_details_locked') ? $this->lockableStaff() : collect(),
+            'mayLockStaff' => $actor instanceof User && $actor->isSuperAdmin(),
         ]);
     }
 }

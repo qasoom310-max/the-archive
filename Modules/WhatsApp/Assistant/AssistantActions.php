@@ -28,6 +28,7 @@ use Modules\Limousine\Services\LimoInvoicePdf;
 use Modules\Limousine\Services\QuotationPdf;
 use Modules\Limousine\Services\ServiceOrderPdf;
 use Modules\Limousine\Services\ServiceOrderPortalClient;
+use Modules\Limousine\Support\TripDetailsLock;
 use Modules\WhatsApp\Models\AssistantPaymentLink;
 use Modules\WhatsApp\Models\Conversation;
 use Throwable;
@@ -218,7 +219,7 @@ final class AssistantActions
     /**
      * @return array<string, mixed>
      */
-    public function findBooking(string $reference): array
+    public function findBooking(string $reference, ?User $user = null): array
     {
         $booking = $this->resolveBooking($reference);
         if ($booking === null) {
@@ -226,6 +227,21 @@ final class AssistantActions
         }
 
         $leg = $booking->legs()->orderBy('sequence')->first();
+
+        // Operations staff the owner named get a trip's places only once it has
+        // a car and a driver — the chat is no way round the bookings list.
+        if ($user !== null && TripDetailsLock::hidesBooking($booking, $user)) {
+            return [
+                'found' => true,
+                'booking' => (string) $booking->reference,
+                'trip_reference' => $leg?->reference,
+                'customer' => (string) ($booking->customer->name ?? ''),
+                'pickup_at' => $booking->pickup_at?->format('Y-m-d H:i'),
+                'status' => $booking->status,
+                'details_hidden' => true,
+                'instruction' => 'The pick-up, drop-off and passenger are hidden from this staff member until a car and a driver are assigned to the trip in the ERP. Tell them to assign the car and driver on the Bookings list; do not guess or reveal the places.',
+            ];
+        }
 
         return [
             'found' => true,
@@ -718,6 +734,12 @@ final class AssistantActions
         $leg = $booking->legs()->orderBy('sequence')->first();
         if (! $leg instanceof LimoLeg) {
             return new ActionOutcome(Replies::bookingNotFound($lang));
+        }
+
+        // The trip sheet is held back, like the trip itself, from operations
+        // staff the owner named until a car and a driver are on it.
+        if (TripDetailsLock::hides($leg, $user)) {
+            return new ActionOutcome(Replies::forbidden($lang));
         }
 
         $pdfs = app(ServiceOrderPdf::class);

@@ -25,6 +25,7 @@ use Modules\Limousine\Services\BookingPayments;
 use Modules\Limousine\Services\CouponRedeemer;
 use Modules\Limousine\Services\CustomerDocumentEmails;
 use Modules\Limousine\Services\TripCancellation;
+use Modules\Limousine\Support\TripDetailsLock;
 use Modules\Limousine\Models\LimoReceipt;
 
 /**
@@ -49,6 +50,25 @@ final class BookingForm extends Component
     /** The record being edited — server-set only; the browser must not repoint it. */
     #[Locked]
     public ?int $id = null;
+
+    /**
+     * This booking's details are held back from the signed-in user until every
+     * trip on it has a car and a driver ({@see TripDetailsLock}). Nothing of it
+     * is loaded then — every public property ships to the browser inside the
+     * page — and the page shows only {@see $lockedTrips}; any action on it is
+     * refused (see hydrate()).
+     */
+    #[Locked]
+    public bool $crewLocked = false;
+
+    /**
+     * What a held-back booking still shows: each trip's number, time, car type
+     * and what it is waiting for.
+     *
+     * @var list<array{reference: string, when: string, car_type: string, missing: string}>
+     */
+    #[Locked]
+    public array $lockedTrips = [];
 
     public string $reference = '';
 
@@ -125,6 +145,15 @@ final class BookingForm extends Component
         $this->guardAccess(Permission::Read);
         if ($id !== null) {
             $booking = LimoBooking::query()->with('legs')->find($id);
+            if ($booking !== null && TripDetailsLock::hidesBooking($booking)) {
+                $this->id = $booking->id;
+                $this->reference = $booking->reference ?? '';
+                $this->status = $booking->status;
+                $this->crewLocked = true;
+                $this->lockedTrips = $this->lockedTripSummaries($booking);
+
+                return;
+            }
             if ($booking !== null) {
                 $this->id = $booking->id;
                 $this->reference = $booking->reference ?? '';
@@ -744,8 +773,56 @@ final class BookingForm extends Component
         $this->payment_status = $booking->payment_status;
     }
 
+    /**
+     * A held-back booking has nothing in this component to act on (it was never
+     * loaded), so every request back to it is refused — saving it would write
+     * blanks over the real booking.
+     */
+    public function hydrate(): void
+    {
+        if ($this->crewLocked) {
+            abort(403, __('Assign a car and a driver to its trips first — then the details show.'));
+        }
+    }
+
+    /**
+     * @return list<array{reference: string, when: string, car_type: string, missing: string}>
+     */
+    private function lockedTripSummaries(LimoBooking $booking): array
+    {
+        $trips = [];
+        foreach ($booking->legs->sortBy('sequence') as $leg) {
+            if ($leg->status === LimoLeg::STATUS_CANCELLED) {
+                continue;
+            }
+
+            $missing = match (true) {
+                $leg->car_id === null && $leg->driver_id === null => __('Car and driver'),
+                $leg->car_id === null => __('Car'),
+                $leg->driver_id === null => __('Driver'),
+                default => '',
+            };
+
+            $trips[] = [
+                'reference' => (string) ($leg->reference ?? ''),
+                'when' => $leg->start_at?->isoFormat('ddd D MMM, HH:mm') ?? '',
+                'car_type' => trim((string) ($leg->vehicle_details ?? '')) !== '' ? (string) $leg->vehicle_details : (string) ($booking->car_type ?? ''),
+                'missing' => $missing,
+            ];
+        }
+
+        return $trips;
+    }
+
     public function render(): View
     {
+        if ($this->crewLocked) {
+            return view('limousine::booking-locked', [
+                'trips' => $this->lockedTrips,
+                'bookingsUrl' => url('/app/limousine/booking') . '?' . http_build_query(['tab' => 'all', 'search' => $this->reference]),
+            ]);
+        }
+
         $grand = $this->grandTotal();
 
         return view('limousine::booking-form', [

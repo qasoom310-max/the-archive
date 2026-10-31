@@ -3276,5 +3276,18 @@
     "Customer waiting — assign car & driver now": "العميل بانتظار التفاصيل — عيّن السيارة والسائق الآن",
     "Assign car & driver before :time": "عيّن السيارة والسائق قبل :time",
     "Driver details sent :time": "أُرسلت تفاصيل السائق :time",
-    "WhatsApp is not connected in this database yet — set it up under Settings → WhatsApp, or nothing will be sent.": "واتساب غير مربوط في قاعدة البيانات هذه بعد — قم بإعداده من الإعدادات ← واتساب، وإلا فلن يتم إرسال أي شيء."
+    "WhatsApp is not connected in this database yet — set it up under Settings → WhatsApp, or nothing will be sent.": "واتساب غير مربوط في قاعدة البيانات هذه بعد — قم بإعداده من الإعدادات ← واتساب، وإلا فلن يتم إرسال أي شيء.",
+    "After a car and driver are assigned": "بعد تعيين السيارة والسائق",
+    "Assign a car and a driver to its trips first — then the details show.": "عيّن سيارة وسائقاً لرحلاته أولاً — بعدها تظهر التفاصيل.",
+    "Assign a car and a driver to copy this trip": "عيّن سيارة وسائقاً لتتمكن من نسخ هذه الرحلة",
+    "Car and driver": "سيارة وسائق",
+    "The details of this booking show once every trip on it has a car and a driver.": "تظهر تفاصيل هذا الحجز عندما يكون لكل رحلة فيه سيارة وسائق.",
+    "Assign them on the Bookings list — the customer is sent their driver automatically as soon as you do.": "عيّنهما من قائمة الحجوزات — وسيتم إرسال تفاصيل السائق للعميل تلقائياً فور ذلك.",
+    "Waiting for": "بانتظار",
+    "Assigned": "تم التعيين",
+    "Operations staff: details only after the car and driver are assigned": "فريق العمليات: التفاصيل فقط بعد تعيين السيارة والسائق",
+    "The people ticked here see a trip's time, car type, customer and countries only. The places, passenger, phone numbers, copy button and service order appear once a car and a driver are assigned — so a trip can't be sent to a driver outside the system.": "الأشخاص المحددون هنا يرون وقت الرحلة ونوع السيارة والعميل والدول فقط. تظهر الأماكن والراكب وأرقام الهواتف وزر النسخ وأمر الخدمة بعد تعيين سيارة وسائق — حتى لا يمكن إرسال رحلة إلى سائق خارج النظام.",
+    "No staff accounts in this database.": "لا توجد حسابات موظفين في قاعدة البيانات هذه.",
+    "Save staff": "حفظ الموظفين",
+    "Only the owner can change who is ticked.": "المالك فقط يمكنه تغيير الأشخاص المحددين."
 }

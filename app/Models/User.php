@@ -30,6 +30,7 @@ use Throwable;
  * @property bool $is_accountant    May confirm payments (with super-admins); not even a regular admin can
  * @property bool $petty_cash_full  Every Limousine petty-cash action (issue, top up, confirm, settle) without the Accountant role
  * @property bool $can_change_customer_type  May switch an existing customer between Individual and Company
+ * @property bool $trip_details_locked  Operations: a limousine trip's details stay hidden until it has a car and a driver
  * @property bool $is_paused        Suspended by an admin — signed out and refused sign-in until unpaused
  * @property \Illuminate\Support\Carbon|null $paused_at
  * @property int|null $home_workspace_id  Locked to this workspace (database); null = unrestricted
@@ -81,6 +82,7 @@ final class User extends Authenticatable
             'is_accountant' => 'boolean',
             'petty_cash_full' => 'boolean',
             'can_change_customer_type' => 'boolean',
+            'trip_details_locked' => 'boolean',
             'is_paused' => 'boolean',
             'paused_at' => 'datetime',
             // Project module: the column is added by that module's migration,
@@ -141,6 +143,18 @@ final class User extends Authenticatable
     public function canChangeCustomerType(): bool
     {
         return $this->isSuperAdmin() || ($this->getAttribute('can_change_customer_type') ?? false) === true;
+    }
+
+    /**
+     * Operations staff the owner named (users.trip_details_locked): a
+     * limousine trip shows them only its time, car type, customer and
+     * countries until a car AND a driver are assigned to it — so a job can't
+     * be handed to a driver off the system. Never a super admin.
+     * Column-guarded like the flags above.
+     */
+    public function seesTripDetailsOnlyWhenCrewed(): bool
+    {
+        return ! $this->isSuperAdmin() && ($this->getAttribute('trip_details_locked') ?? false) === true;
     }
 
     /**

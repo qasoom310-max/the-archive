@@ -31,6 +31,7 @@ use Modules\Limousine\Services\LimoQueueRows;
 use Modules\Limousine\Services\ServiceOrderPortalClient;
 use Modules\Limousine\Services\ServiceOrderSender;
 use Modules\Limousine\Services\TripCancellation;
+use Modules\Limousine\Support\TripDetailsLock;
 use Modules\Rental\Models\Vehicle;
 use Throwable;
 use Modules\Limousine\Services\CustomerDocumentEmails;
@@ -237,7 +238,28 @@ final class Bookings extends Component
     {
         $this->guardAccess(Permission::Read);
 
+        if ($this->heldBack($bookingId)) {
+            return;
+        }
+
         $this->previewingId = $bookingId;
+    }
+
+    /**
+     * Whether this booking's details are held back from the user until its
+     * trips have a car and a driver ({@see TripDetailsLock}) — the preview and
+     * quick-edit dialogs show them all, so they stay shut, with the reason.
+     */
+    private function heldBack(int $bookingId): bool
+    {
+        $booking = LimoBooking::query()->find($bookingId);
+        if ($booking === null || ! TripDetailsLock::hidesBooking($booking)) {
+            return false;
+        }
+
+        session()->flash('toast', __('Assign a car and a driver to its trips first — then the details show.'));
+
+        return true;
     }
 
     public function closePreview(): void
@@ -590,6 +612,10 @@ final class Bookings extends Component
 
         $booking = LimoBooking::query()->find($bookingId);
         if ($booking === null) {
+            return;
+        }
+
+        if ($this->heldBack($bookingId)) {
             return;
         }
 
@@ -1606,6 +1632,10 @@ final class Bookings extends Component
         $previewing = $this->previewingId !== null
             ? LimoBooking::query()->with(['customer:id,name,type,phone,email', 'legs' => fn ($q) => $q->orderBy('sequence')])->find($this->previewingId)
             : null;
+        // Opened before the user was locked, or before a crew was taken off.
+        if ($previewing !== null && TripDetailsLock::hidesBooking($previewing)) {
+            $previewing = null;
+        }
 
         // The booking the "Booking done successfully" banner is about, with its
         // trips, so the banner's 3-dot menu offers the same actions as a row.

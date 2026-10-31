@@ -17,6 +17,7 @@ use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Support\DriverAliases;
 use Modules\Limousine\Support\LiveEntry;
+use Modules\Limousine\Support\TripDetailsLock;
 
 /**
  * The one definition of a queue row.
@@ -428,6 +429,11 @@ final class LimoQueueRows
     {
         $booking = $this->bookingOf($leg);
 
+        // An operations user the owner named sees where, who and the phone
+        // numbers only once the trip has a car and a driver — on screen and in
+        // every export alike, since both are built here. See TripDetailsLock.
+        $hidden = TripDetailsLock::hides($leg);
+
         return [
             'leg_id' => (int) $leg->id,
             'booking_id' => (int) $leg->legable_id,
@@ -447,16 +453,18 @@ final class LimoQueueRows
             // The number to ring, shown under the name (not a printed column).
             // A company is not who gets in the car, so for one it is the
             // passenger's number; for a person it is their own.
-            'contact_phone' => $this->contactPhone($booking),
+            'contact_phone' => $hidden ? '' : $this->contactPhone($booking),
             // Who rides, under a COMPANY's name: the account is not the person
             // the driver meets. Not a printed column, like contact_phone.
-            'passenger' => $this->passenger($booking),
+            'passenger' => $hidden ? '' : $this->passenger($booking),
             // The leg's own price; the money below is the whole booking's.
             'amount' => round((float) $leg->net_amount, 3),
             'received' => $booking?->amountReceived() ?? 0.0,
             'balance' => $booking?->amountOwed() ?? 0.0,
-            'pickup' => (string) ($leg->from_location ?? ''),
-            'dropoff' => (string) ($leg->to_location ?? ''),
+            'pickup' => $hidden ? TripDetailsLock::place($leg->from_country) : (string) ($leg->from_location ?? ''),
+            'dropoff' => $hidden && trim((string) ($leg->to_location ?? '')) !== ''
+                ? TripDetailsLock::place($leg->to_country)
+                : (string) ($leg->to_location ?? ''),
             'vehicle' => (string) ($leg->vehicle ?? ''),
             // What was ASKED for — Sedan, SUV, Vito — which is known from the
             // moment the trip is booked, long before a particular car is free
@@ -468,7 +476,7 @@ final class LimoQueueRows
             // login has been matched, the person is shown in its place.
             'driver' => app(DriverAliases::class)->resolve((string) ($leg->driver ?? ''))['name'],
             'added_by' => (string) ($booking->prepared_by ?? ''),
-            'comments' => (string) ($booking->notes ?? ''),
+            'comments' => $hidden ? '' : (string) ($booking->notes ?? ''),
             'booked_time' => $booking?->created_at?->isoFormat('DD-MMM-YY HH:mm') ?? '',
             // paid / partial / unpaid, read from the money (LimoBooking::paymentState()).
             'payment' => $booking?->paymentState() ?? '',
@@ -514,6 +522,12 @@ final class LimoQueueRows
      */
     public function whatsappText(LimoLeg $leg): string
     {
+        // Nothing to copy for a trip held back from this user: it is exactly
+        // the message that went to drivers before anyone was assigned.
+        if (TripDetailsLock::hides($leg)) {
+            return '';
+        }
+
         $booking = $this->bookingOf($leg);
         $customer = $booking?->customer;
 
@@ -639,6 +653,13 @@ final class LimoQueueRows
         }
 
         $lines[] = __('Type') . ': ' . $this->tripType($leg, $booking);
+
+        // Held back from this user until the trip has a car and a driver.
+        if (TripDetailsLock::hides($leg)) {
+            $lines[] = TripDetailsLock::placeholder();
+
+            return $lines;
+        }
 
         $pax = trim((string) ($booking->pax_name ?? ''));
         if ($pax !== '') {

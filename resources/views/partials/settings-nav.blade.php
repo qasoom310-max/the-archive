@@ -32,6 +32,7 @@
 
     if ($isAdmin && $installedModule('limousine')) {
         $sections[] = ['key' => 'limo_portal', 'label' => 'Service Portal', 'url' => url('/app/settings/limo-portal')];
+        $sections[] = ['key' => 'limo_crew', 'label' => 'Driver details', 'url' => url('/app/settings/limo-crew-alerts')];
     }
 
     // How the website sends car-rental bookings in. Its own secret, separate

@@ -56,6 +56,15 @@ final class LimoQueueRows
     public const TAB_ALL = 'all';
 
     /**
+     * Trips that should have a car and a driver by now and don't — the
+     * customer is promised both 12 hours before pick-up. Still to happen and
+     * picking up within the next day, or picked up in the last one (so a trip
+     * that slipped through is still in front of the office). Relative to now,
+     * not a date range.
+     */
+    public const TAB_NEEDS_CREW = 'needs_crew';
+
+    /**
      * The columns the queue can be ordered by — every column it prints except
      * Sl No., which is only the position in the list it is already in.
      *
@@ -106,6 +115,10 @@ final class LimoQueueRows
 
         if ($tab === self::TAB_UNPAID) {
             $this->onlyUnpaid($query);
+        }
+
+        if ($tab === self::TAB_NEEDS_CREW) {
+            $this->onlyNeedingCrew($query);
         }
 
         // A called-off trip is not happening, so it is not part of a day's
@@ -208,6 +221,33 @@ final class LimoQueueRows
                 // Paid in part or not at all, whatever the flag says.
                 LimoBooking::owingOn($booking);
             });
+    }
+
+    /**
+     * See {@see TAB_NEEDS_CREW}.
+     *
+     * @param  Builder<LimoLeg>  $query
+     */
+    private function onlyNeedingCrew(Builder $query): void
+    {
+        $legs = $this->table(LimoLeg::class);
+        $now = now();
+
+        $query
+            ->whereIn($legs . '.status', LimoLeg::OPEN_STATUSES)
+            ->whereBetween($legs . '.start_at', [$now->copy()->subDay(), $now->copy()->addHours(LimoLeg::CREW_PROMISE_HOURS * 2)])
+            ->where(static function (Builder $q) use ($legs): void {
+                $q->whereNull($legs . '.car_id')->orWhereNull($legs . '.driver_id');
+            });
+    }
+
+    /** How many trips are waiting for a car or a driver — that tab's badge. */
+    public function needsCrewCount(): int
+    {
+        $query = LimoLeg::query()->whereMorphedTo('legable', LimoBooking::class);
+        $this->onlyNeedingCrew($query);
+
+        return $query->count();
     }
 
     /** How many trips are waiting to be paid for — the tab's badge. */

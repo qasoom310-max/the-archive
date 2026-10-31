@@ -60,6 +60,10 @@ use Illuminate\Support\Facades\Storage;
  * @property string|null $cancellation_reason
  * @property string|null $refund_outcome   none|refunded|coupon|forfeited — what the customer got back
  * @property float $refund_amount
+ * @property Carbon|null $crew_notified_at   When the customer was sent the driver and car (automatic WhatsApp)
+ * @property string|null $crew_notified_for  Which "car_id:driver_id" that message named
+ * @property Carbon|null $crew_reminded_at   Last reminder to operations to put a car and driver on it
+ * @property Carbon|null $crew_escalated_at  When the owner was told the 12-hour promise was missed
  */
 final class LimoLeg extends Model
 {
@@ -88,6 +92,15 @@ final class LimoLeg extends Model
     public const STATUS_COMPLETED = 'completed';
 
     public const STATUS_CANCELLED = 'cancelled';
+
+    /** The trip stages still to happen — what can still need a car and a driver. */
+    public const OPEN_STATUSES = [self::STATUS_QUEUE, self::STATUS_CONFIRMED, self::STATUS_ACTIVE];
+
+    /**
+     * Hours before pick-up the customer is promised the driver and car — the
+     * deadline operations works to.
+     */
+    public const CREW_PROMISE_HOURS = 12;
 
     /**
      * What became of the money when a trip was called off — the values stored
@@ -235,6 +248,9 @@ final class LimoLeg extends Model
             'car_id' => 'integer',
             'driver_id' => 'integer',
             'start_at' => 'datetime',
+            'crew_notified_at' => 'datetime',
+            'crew_reminded_at' => 'datetime',
+            'crew_escalated_at' => 'datetime',
             'hours' => 'float',
             'estimated_hours' => 'integer',
             'driver_payment' => 'float',
@@ -294,6 +310,37 @@ final class LimoLeg extends Model
     {
         return $this->status !== self::STATUS_CANCELLED
             || in_array($this->refund_outcome, self::BILLABLE_OUTCOMES, true);
+    }
+
+    /** Whether a car AND a driver are both on this trip. */
+    public function hasCarAndDriver(): bool
+    {
+        return $this->car_id !== null && $this->driver_id !== null;
+    }
+
+    /**
+     * How pressing it is that this trip has no car or no driver:
+     *
+     * - `due`  — inside the 12 hours the customer was promised the details
+     *            (or already past pick-up): the promise is being broken now;
+     * - `soon` — the 12 hours before that: still time, but not much;
+     * - null   — crewed, closed, or more than a day away.
+     */
+    public function crewUrgency(\DateTimeInterface $now): ?string
+    {
+        if (! in_array($this->status, self::OPEN_STATUSES, true)
+            || $this->start_at === null
+            || $this->hasCarAndDriver()) {
+            return null;
+        }
+
+        $hoursLeft = ($this->start_at->getTimestamp() - $now->getTimestamp()) / 3600;
+
+        if ($hoursLeft <= self::CREW_PROMISE_HOURS) {
+            return 'due';
+        }
+
+        return $hoursLeft <= self::CREW_PROMISE_HOURS * 2 ? 'soon' : null;
     }
 
     /**

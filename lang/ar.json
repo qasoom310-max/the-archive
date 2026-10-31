@@ -3259,5 +3259,22 @@
     "Put this booking back in the queue?": "إعادة هذا الحجز إلى قائمة الانتظار؟",
     "Restore to queue": "إعادة إلى قائمة الانتظار",
     "Put this trip back in the queue?": "إعادة هذه الرحلة إلى قائمة الانتظار؟",
-    "Trip :trip is back in the queue.": "عادت الرحلة :trip إلى قائمة الانتظار."
+    "Trip :trip is back in the queue.": "عادت الرحلة :trip إلى قائمة الانتظار.",
+    "Driver details": "تفاصيل السائق",
+    "Customers get their driver and car on WhatsApp 12 hours before pick-up. Until a trip has both, operations are reminded every 10 minutes.": "يستلم العملاء تفاصيل السائق والسيارة عبر واتساب قبل 12 ساعة من موعد الرحلة. وإلى أن يتم تعيينهما للرحلة، يتم تذكير فريق العمليات كل 10 دقائق.",
+    "Operations WhatsApp numbers": "أرقام واتساب فريق العمليات",
+    "One per line. From 12 hours before pick-up, each is reminded every 10 minutes until the trip has a car and a driver.": "رقم في كل سطر. قبل 12 ساعة من موعد الرحلة، يتم تذكير كل رقم كل 10 دقائق حتى يتم تعيين سيارة وسائق للرحلة.",
+    "Number to alert when the 12 hours are missed": "الرقم الذي يتم تنبيهه عند تجاوز مهلة الـ 12 ساعة",
+    "Told once per trip, when it reaches 12 hours before pick-up with no car or driver.": "يتم التنبيه مرة واحدة لكل رحلة، عندما يتبقى 12 ساعة على موعدها دون سيارة أو سائق.",
+    "Send driver details to customers and reminders to operations": "إرسال تفاصيل السائق للعملاء والتذكيرات لفريق العمليات",
+    "Turn this on only after Meta has approved the two message templates below.": "فعّل هذا الخيار فقط بعد موافقة Meta على قالبي الرسائل أدناه.",
+    "Message templates to create in WhatsApp Manager": "قوالب الرسائل المطلوب إنشاؤها في WhatsApp Manager",
+    "Category: Utility. Use exactly these names, in the template language set under Settings → WhatsApp.": "الفئة: Utility. استخدم هذه الأسماء كما هي، وبلغة القوالب المحددة في الإعدادات ← واتساب.",
+    "Add at least one operations WhatsApp number before turning this on.": "أضف رقم واتساب واحداً على الأقل لفريق العمليات قبل تفعيل هذا الخيار.",
+    "Add the number to alert when a trip misses the 12 hours, before turning this on.": "أضف الرقم الذي يتم تنبيهه عند تجاوز رحلة لمهلة الـ 12 ساعة قبل تفعيل هذا الخيار.",
+    "Needs car & driver": "بحاجة إلى سيارة وسائق",
+    "Customer waiting — assign car & driver now": "العميل بانتظار التفاصيل — عيّن السيارة والسائق الآن",
+    "Assign car & driver before :time": "عيّن السيارة والسائق قبل :time",
+    "Driver details sent :time": "أُرسلت تفاصيل السائق :time",
+    "WhatsApp is not connected in this database yet — set it up under Settings → WhatsApp, or nothing will be sent.": "واتساب غير مربوط في قاعدة البيانات هذه بعد — قم بإعداده من الإعدادات ← واتساب، وإلا فلن يتم إرسال أي شيء."
 }

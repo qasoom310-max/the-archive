@@ -67,7 +67,7 @@ final class Bookings extends Component
      *
      * @var list<string>
      */
-    private const VALID_TABS = ['all', 'queue', 'confirmed', 'active', 'completed', 'unpaid', 'cancelled'];
+    private const VALID_TABS = ['all', 'needs_crew', 'queue', 'confirmed', 'active', 'completed', 'unpaid', 'cancelled'];
 
     #[Url]
     public string $from = '';
@@ -1383,7 +1383,12 @@ final class Bookings extends Component
         }
 
         $day = $this->singleDay();
-        if ($day !== null) {
+        if ($tab === LimoQueueRows::TAB_NEEDS_CREW) {
+            // Counted from now, not over a date range — a range left over from
+            // another tab would hide trips its badge just counted.
+            $this->from = '';
+            $this->to = '';
+        } elseif ($day !== null) {
             $this->from = $day->copy()->startOfMonth()->toDateString();
             $this->to = $day->copy()->endOfMonth()->toDateString();
         }
@@ -1649,6 +1654,9 @@ final class Bookings extends Component
             // Each row's booking's invoice and receipts, for the 3-dot menu.
             'paperwork' => $this->paperwork(array_map(static fn (LimoLeg $l): int => (int) $l->legable_id, $legs->items())),
             'unpaidCount' => $rows->unpaidCount($monthFrom, $monthTo),
+            // Counted from now whatever month the other tabs show.
+            'needsCrewCount' => $rows->needsCrewCount(),
+            'now' => Carbon::now(),
             // "October 2026" over the tabs when their counts are one month's.
             'countsMonth' => $month?->isoFormat('MMMM YYYY'),
             'monthHeader' => $this->monthHeader(),

@@ -112,6 +112,24 @@ Schedule::call(function (): void {
     });
 })->daily()->name('expire-customer-discounts')->withoutOverlapping();
 
+// Limousine: the customer is promised their driver and car 12 hours before
+// pick-up. Every five minutes, for every database running Limousine: send the
+// details for trips that have both, and remind operations (every 10 minutes)
+// and tell the owner (once) about trips that don't — see CrewNotices. Each
+// database's own switch (Settings → Driver details) decides whether it sends.
+// The lock expires after 10 minutes, so a crashed run can never block it for
+// a day the way an orphaned default lock would.
+Schedule::call(function (): void {
+    \App\Erp\Tenancy\EachDatabase::run(static function (): void {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('limo_crew_alert_configuration')
+            || ! \Illuminate\Support\Facades\Schema::hasTable('whatsapp_configuration')) {
+            return;
+        }
+
+        app(\Modules\Limousine\Services\CrewNotices::class)->run();
+    });
+})->everyFiveMinutes()->name('limo-crew-notices')->withoutOverlapping(10);
+
 // Automated daily sales + stock PDF report. The cafe trades noon → 6 AM, so
 // this fires at 6:10 AM (in the company timezone) and emails the report for the
 // night that just closed (yesterday 12:00 → today 06:00) to the admin-managed

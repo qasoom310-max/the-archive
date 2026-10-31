@@ -2711,6 +2711,33 @@ never gaps the line numbers. Tests: `LimoInvoiceDocumentTest` (+3, including the
 mixed case: three real cars plus one copy keeps exactly three),
 `LimoCombinedInvoiceTest` (+2).
 
+**Driver details 12 hours before pick-up — automatic WhatsApp + reminders
+(shipped 2026-10-31).** Customer service promises every customer the driver and
+car 12 hours before pick-up. Operations kept arranging trips off the system
+(copying the trip to a driver on WhatsApp), so no car/driver was recorded and
+customers rang the owner at 5:30 am. **Owner's decisions:** the system sends the
+customer the details itself; operations are reminded from 12 h before pick-up
+**every 10 minutes** until the trip has a car AND a driver; the owner is told by
+WhatsApp, once, when the 12-hour mark passes unassigned. (Making Start/Complete
+trip refuse without a crew was explicitly deferred to the future driver app —
+kept in `git stash` "Limousine start/complete needs car+driver - set aside for
+the future driver app". Don't ship it unasked.)
+
+| Concern | Location |
+|---|---|
+| Engine | `Modules\Limousine\Services\CrewNotices::run($now)` — open booking legs (`LimoLeg::OPEN_STATUSES`) with `now < start_at <= now + 12h`. Crewed (`car_id` + `driver_id`) → template **`limo_driver_details`** to the first number in `pax_contact`, else the customer's phone, once per "car:driver" pair (`crew_notified_for`; a changed car/driver re-sends). Not crewed → template **`limo_assign_reminder`** to every operations number when `crew_reminded_at` is ≥ 10 min old (1-min slack), and to the owner once (`crew_escalated_at`) at max(start − 12 h, `created_at` + 60 min) — a booking taken inside the 12 h gets an hour. Nothing after pick-up time; per-leg try/catch. Template language = `WhatsAppConfiguration::template_language` |
+| Schedule | `routes/console.php` `limo-crew-notices`: `everyFiveMinutes()`, `EachDatabase::run`, guarded on `limo_crew_alert_configuration` + `whatsapp_configuration`, `withoutOverlapping(10)` (a crashed run can't lock it for a day). Needs the hPanel `schedule:run` cron like every scheduled task |
+| Settings | `LimoCrewAlertConfiguration` (single row, migration `2026_10_31_950051`, `enabled` **default false**) at `/app/settings/limo-crew-alerts` (`LimoCrewAlertSettings`, admin-only, "Driver details" tab in `partials/settings-nav`). Can't switch on without ≥ 1 operations number and the owner number. The page shows both templates' exact EN + AR text to create in WhatsApp Manager (category Utility). Numbers via `Support\WhatsAppNumber` (8 digits → `973` in front, `00` dropped, > 15 digits refused; `first()` takes the first number out of free text; the settings list splits on lines/commas, never spaces) |
+| Columns | `limo_legs.crew_notified_at` / `crew_notified_for` / `crew_reminded_at` / `crew_escalated_at` (migration `2026_10_31_950050`) |
+| Bookings list | Tab **`needs_crew`** "Needs car & driver" (`LimoQueueRows::TAB_NEEDS_CREW`: open, missing car or driver, `start_at` from now − 1 day to now + 24 h; red badge `needsCrewCount()`; `openTab` clears From/To since it's relative to now). Each row's CAR cell (shown on phones; the driver column isn't) carries `LimoLeg::crewUrgency()`: `due` ≤ 12 h red, `soon` ≤ 24 h amber, plus "✓ Driver details sent" |
+| WhatsApp fix | `WhatsAppService::currentWorkspaceId()` resolves the workspace from the **tenant connection's SQLite file first** (same lookup as `UserManager::currentWorkspaceId()`). A scheduled send inside `withTenant` has no cookie, so it was tagged Main and went out on Main's WhatsApp account. Pinned by the workspace test below (fails without the fix) |
+| Tests | `tests/Feature/LimoCrewNoticesTest.php` (15) |
+
+**Go-live:** someone with the Meta account creates the two templates (names and
+text are on the settings page); once Meta approves them, Settings → Driver
+details: enter the numbers and switch on. Switching on before approval makes
+every send fail at Meta (the leg is still stamped as notified, so it won't retry).
+
 **Second pass, same day (migration `2026_10_06_950042`), for the rows still bare:**
 - **INV/01327's list was cut off by the old system's own export** ("…, 15225,
   152" — the cell is truncated in `limo-invoice.csv` too), so "152" matched an

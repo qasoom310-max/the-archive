@@ -42,6 +42,7 @@ use Modules\Limousine\Livewire\PettyAdvancePage;
 use Modules\Limousine\Livewire\PettyCash;
 use Modules\Limousine\Livewire\InvoiceForm;
 use Modules\Limousine\Livewire\Invoices;
+use Modules\Limousine\Livewire\LimoCrewAlertSettings;
 use Modules\Limousine\Livewire\LimoHome;
 use Modules\Limousine\Livewire\LimoPortalSettings;
 use Modules\Limousine\Livewire\LocationForm;
@@ -83,6 +84,10 @@ Route::middleware('auth')->group(function (): void {
     // Service-order portal connection (admin — the component gates it). Two
     // segments so the core `/app/{module}` wildcard doesn't shadow it.
     Route::get('/app/settings/limo-portal', LimoPortalSettings::class)->name('limousine.portal.settings');
+
+    // Automatic driver-details messages to customers + reminders to
+    // operations (admin — the component gates it).
+    Route::get('/app/settings/limo-crew-alerts', LimoCrewAlertSettings::class)->name('limousine.crew_alerts.settings');
 
     // Service Order — the per-trip sheet. Staff download; the customer gets a
     // signing link by email instead.

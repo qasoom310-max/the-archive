@@ -203,6 +203,9 @@
         // that is not going ahead.
         $tabs = [
             'all' => __('All'),
+            // Trips due within a day (or just past) with no car or no driver:
+            // the customer is promised both 12 hours before pick-up.
+            'needs_crew' => __('Needs car & driver'),
             'queue' => __('Queue'),
             'confirmed' => __('Confirmed'),
             'active' => __('Active'),
@@ -220,6 +223,7 @@
         @foreach ($tabs as $key => $label)
             @php $n = match ($key) {
                 'unpaid' => $unpaidCount,
+                'needs_crew' => $needsCrewCount,
                 // What the All tab lists: every status but cancelled.
                 'all' => (int) $counts->except('cancelled')->sum(),
                 default => (int) $counts->get($key, 0),
@@ -227,7 +231,9 @@
             <button wire:click="openTab('{{ $key }}')"
                 class="-mb-px flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium {{ $tab === $key ? 'border-primary-600 text-primary-700' : 'border-transparent text-chrome-800 hover:text-chrome-900' }}">
                 {{ $label }}
-                <span class="rounded-full bg-chrome-100 px-1.5 text-[11px] text-chrome-700">{{ $n }}</span>
+                {{-- Any trip waiting for a crew is a customer waiting: red, not grey. --}}
+                <span class="rounded-full px-1.5 text-[11px] {{ $key === 'needs_crew' && $n > 0 ? 'bg-red-600 font-semibold text-white' : 'bg-chrome-100 text-chrome-700' }}"
+                      @if ($key === 'needs_crew') data-needs-crew-count @endif>{{ $n }}</span>
             </button>
         @endforeach
     </div>
@@ -570,6 +576,24 @@
                                 @elseif ($type === '')
                                     <span class="text-chrome-400">—</span>
                                 @endif
+                            @endif
+                            {{-- The customer is promised the driver and car 12 hours
+                                 before pick-up. In this cell (not the driver's) so it
+                                 shows on a phone, where the driver column is hidden. --}}
+                            @php $urgency = $leg->crewUrgency($now); @endphp
+                            @if ($urgency === 'due')
+                                <span class="mt-1 block w-fit rounded bg-red-100 px-1.5 py-0.5 text-[11px] font-semibold text-red-700" data-crew-due>
+                                    {{ __('Customer waiting — assign car & driver now') }}
+                                </span>
+                            @elseif ($urgency === 'soon')
+                                <span class="mt-1 block w-fit rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700" data-crew-soon>
+                                    {{ __('Assign car & driver before :time', ['time' => $leg->start_at?->copy()->subHours(\Modules\Limousine\Models\LimoLeg::CREW_PROMISE_HOURS)->format('D H:i')]) }}
+                                </span>
+                            @endif
+                            @if ($leg->crew_notified_at !== null)
+                                <span class="mt-1 block text-[11px] text-emerald-700" data-crew-sent>
+                                    ✓ {{ __('Driver details sent :time', ['time' => $leg->crew_notified_at->format('d-M H:i')]) }}
+                                </span>
                             @endif
                         </td>
                         {{-- Driver is set in the same modal as the car; both are

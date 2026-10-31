@@ -7,6 +7,8 @@ namespace Modules\WhatsApp\Services;
 use Illuminate\Contracts\Bus\Dispatcher;
 use Modules\WhatsApp\Exceptions\WhatsAppException;
 use App\Erp\Tenancy\WorkspaceManager;
+use App\Models\Workspace;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Modules\WhatsApp\Jobs\SendWhatsAppMessage;
 use Modules\WhatsApp\Models\WhatsAppConfiguration;
@@ -135,6 +137,13 @@ final class WhatsAppService
      * the job needs to be told to come back here before it reads the
      * credentials or stamps the message log. Null (= run as-is) when the
      * workspaces feature isn't present.
+     *
+     * The database actually in use comes first: a scheduled task working
+     * inside a workspace (EachDatabase / withTenant) has no request cookie, so
+     * the cookie alone said "Main" — and the message went out on Main's
+     * WhatsApp account, logged in Main. The tenant connection's file names its
+     * workspace (the same lookup the user manager makes); a web request inside
+     * a workspace resolves to the same one either way.
      */
     private function currentWorkspaceId(): ?int
     {
@@ -143,6 +152,17 @@ final class WhatsAppService
         }
 
         try {
+            if (DB::getDefaultConnection() === 'tenant') {
+                $path = config('database.connections.tenant.database');
+                $workspace = is_string($path) && $path !== ''
+                    ? Workspace::query()->where('database', basename($path))->first()
+                    : null;
+
+                if ($workspace !== null) {
+                    return (int) $workspace->id;
+                }
+            }
+
             return (int) app(WorkspaceManager::class)->current()->id;
         } catch (\Throwable) {
             return null;

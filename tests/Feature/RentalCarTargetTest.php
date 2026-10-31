@@ -50,7 +50,9 @@ final class RentalCarTargetTest extends TestCase
 
         $this->orderFor($car, 100, Carbon::now()->startOfMonth()->addDays(2));        // counts
         $this->orderFor($car, 150, Carbon::now()->startOfMonth()->addDays(5));        // counts
-        $this->orderFor($car, 999, Carbon::now()->subMonth());                        // other month — excluded
+        // NoOverflow: on the 31st, subMonth() is "the 31st of last month", which
+        // a 30-day month rolls over to the 1st of THIS month — inside the window.
+        $this->orderFor($car, 999, Carbon::now()->subMonthNoOverflow());              // other month — excluded
         $this->orderFor($car, 80, Carbon::now()->addDays(1), RentalOrder::STATE_CANCELLED); // cancelled — excluded
 
         $this->assertSame(250.0, $car->revenueThisMonth());

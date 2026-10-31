@@ -64,6 +64,8 @@ use Illuminate\Support\Facades\Storage;
  * @property string|null $crew_notified_for  Which "car_id:driver_id" that message named
  * @property Carbon|null $crew_reminded_at   Last reminder to operations to put a car and driver on it
  * @property Carbon|null $crew_escalated_at  When the owner was told the 12-hour promise was missed
+ * @property Carbon|null $push_reminded_at   Last staff-app notification to operations about it
+ * @property Carbon|null $push_escalated_at  When the owner's phone was told the promise was missed
  */
 final class LimoLeg extends Model
 {
@@ -251,6 +253,8 @@ final class LimoLeg extends Model
             'crew_notified_at' => 'datetime',
             'crew_reminded_at' => 'datetime',
             'crew_escalated_at' => 'datetime',
+            'push_reminded_at' => 'datetime',
+            'push_escalated_at' => 'datetime',
             'hours' => 'float',
             'estimated_hours' => 'integer',
             'driver_payment' => 'float',

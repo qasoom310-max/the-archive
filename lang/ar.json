@@ -3289,5 +3289,13 @@
     "The people ticked here see a trip's time, car type, customer and countries only. The places, passenger, phone numbers, copy button and service order appear once a car and a driver are assigned — so a trip can't be sent to a driver outside the system.": "الأشخاص المحددون هنا يرون وقت الرحلة ونوع السيارة والعميل والدول فقط. تظهر الأماكن والراكب وأرقام الهواتف وزر النسخ وأمر الخدمة بعد تعيين سيارة وسائق — حتى لا يمكن إرسال رحلة إلى سائق خارج النظام.",
     "No staff accounts in this database.": "لا توجد حسابات موظفين في قاعدة البيانات هذه.",
     "Save staff": "حفظ الموظفين",
-    "Only the owner can change who is ticked.": "المالك فقط يمكنه تغيير الأشخاص المحددين."
+    "Only the owner can change who is ticked.": "المالك فقط يمكنه تغيير الأشخاص المحددين.",
+    "12-hour promise missed: trip :reference": "تم تجاوز مهلة الـ 12 ساعة: الرحلة :reference",
+    ":when · :customer — still no car or driver.": ":when · :customer — لا توجد سيارة أو سائق حتى الآن.",
+    ":when · :customer — the customer is waiting for the driver details.": ":when · :customer — العميل بانتظار تفاصيل السائق.",
+    "Assign a car and driver: trip :reference": "عيّن سيارة وسائقاً: الرحلة :reference",
+    "Signed in on :device": "تم تسجيل الدخول من :device",
+    "Staff app": "تطبيق الموظفين",
+    "These credentials do not match our records.": "بيانات الدخول هذه غير صحيحة.",
+    "Too many attempts. Try again in :seconds seconds.": "محاولات كثيرة. حاول مرة أخرى بعد :seconds ثانية."
 }

@@ -139,6 +139,37 @@ final class WorkspaceManager
     }
 
     /**
+     * The workspace whose database is in use right now — what a queued job
+     * must be told to come back to. The tenant connection's file comes first:
+     * a scheduled task working inside a workspace (EachDatabase / withTenant)
+     * has no request cookie, and the cookie alone says Main. Otherwise the
+     * cookie's (Main by default). Null when the workspaces feature is absent.
+     */
+    public function activeWorkspaceId(): ?int
+    {
+        if (! Schema::hasTable('workspaces')) {
+            return null;
+        }
+
+        try {
+            if (DB::getDefaultConnection() === 'tenant') {
+                $path = config('database.connections.tenant.database');
+                $workspace = is_string($path) && $path !== ''
+                    ? Workspace::query()->where('database', basename($path))->first()
+                    : null;
+
+                if ($workspace !== null) {
+                    return (int) $workspace->id;
+                }
+            }
+
+            return (int) $this->current()->id;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
      * The workspace selected by the request cookie, defaulting to Main.
      */
     public function current(): Workspace

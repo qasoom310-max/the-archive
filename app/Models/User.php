@@ -14,6 +14,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Sanctum\HasApiTokens;
 use Throwable;
 
 /**
@@ -38,6 +39,9 @@ use Throwable;
  */
 final class User extends Authenticatable
 {
+    /** Sign-in tokens for the staff app (on Main — see PersonalAccessToken). */
+    use HasApiTokens;
+
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory;
     use Notifiable;

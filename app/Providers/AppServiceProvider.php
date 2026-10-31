@@ -9,12 +9,14 @@ use App\Erp\Notifications\NotificationCenter;
 use App\Erp\Settings\CompanyTimezone;
 use App\Erp\Settings\Setting;
 use App\Erp\Settings\SettingManager;
+use App\Models\PersonalAccessToken;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Sanctum\Sanctum;
 use Spatie\Translatable\Translatable;
 use Throwable;
 
@@ -47,6 +49,10 @@ final class AppServiceProvider extends ServiceProvider
         $translatable = $this->app->make(Translatable::class);
         $translatable->fallbackLocale = (string) config('app.fallback_locale', 'en');
         $translatable->fallbackAny = true;
+
+        // The staff app's sign-in tokens live on Main whatever database a
+        // request goes on to work in — see App\Models\PersonalAccessToken.
+        Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
 
         $this->applyConfiguredTimezone();
         $this->registerActivityListeners();

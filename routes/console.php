@@ -130,6 +130,22 @@ Schedule::call(function (): void {
     });
 })->everyFiveMinutes()->name('limo-crew-notices')->withoutOverlapping(10);
 
+// The staff app (Android / iPhone): phone notifications to the ticked
+// operations staff about trips inside the 12 hours still without a car or a
+// driver, every 10 minutes until assigned, and to the owner once when the
+// promise is missed — see AppCrewReminders. Free (Expo push), no Meta, and it
+// only reaches people signed in to the app. Same 10-minute lock expiry as above.
+Schedule::call(function (): void {
+    \App\Erp\Tenancy\EachDatabase::run(static function (): void {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('app_devices')
+            || ! \Illuminate\Support\Facades\Schema::hasColumn('limo_legs', 'push_reminded_at')) {
+            return;
+        }
+
+        app(\Modules\Limousine\Services\AppCrewReminders::class)->run();
+    });
+})->everyFiveMinutes()->name('app-crew-reminders')->withoutOverlapping(10);
+
 // Automated daily sales + stock PDF report. The cafe trades noon → 6 AM, so
 // this fires at 6:10 AM (in the company timezone) and emails the report for the
 // night that just closed (yesterday 12:00 → today 06:00) to the admin-managed

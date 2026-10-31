@@ -29,6 +29,11 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
+// The staff app's public pages that the App Store and Google Play require — its
+// privacy policy and how to have an account deleted. No sign-in, for anyone.
+Route::view('/staff-app/privacy', 'staff-app.privacy')->name('staff-app.privacy');
+Route::view('/staff-app/account-deletion', 'staff-app.account-deletion')->name('staff-app.account-deletion');
+
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', Login::class)->name('login');
 

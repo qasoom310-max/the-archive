@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire;
 
-use App\Erp\Activity\ActivityLogger;
 use App\Erp\Money\Currencies;
 use App\Erp\Security\Permission;
 use App\Erp\Views\ValueFormat;
@@ -31,6 +30,7 @@ use Modules\Limousine\Services\LimoQueueRows;
 use Modules\Limousine\Services\ServiceOrderPortalClient;
 use Modules\Limousine\Services\ServiceOrderSender;
 use Modules\Limousine\Services\TripCancellation;
+use Modules\Limousine\Services\TripCrew;
 use Modules\Limousine\Support\TripDetailsLock;
 use Modules\Rental\Models\Vehicle;
 use Throwable;
@@ -405,145 +405,39 @@ final class Bookings extends Component
             return;
         }
 
-        // Car and driver are set together but resolved independently: an
-        // unknown id from the browser clears that one field rather than being
-        // stored as a dangling reference, and a blank selection un-assigns.
-        $car = $this->assignCar !== '' ? Vehicle::query()->find((int) $this->assignCar) : null;
-        $leg->car_id = $car?->id;
-        $leg->vehicle = $car?->displayName();
+        // The rules are shared with the staff app (TripCrew). Whichever is
+        // missing or wrong is said HERE, with the dialog still open on the
+        // pickers, rather than closing with a note that sends the office off to
+        // another button.
+        $result = app(TripCrew::class)->assign(
+            $leg,
+            $this->assignCar !== '' ? (int) $this->assignCar : null,
+            $this->assignDriver !== '' ? (int) $this->assignDriver : null,
+            $this->assignDriverPay,
+            $this->startAfterAssign,
+        );
 
-        $driver = $this->assignDriver !== '' ? LimoDriver::query()->find((int) $this->assignDriver) : null;
-
-        // The licence is checked HERE as well as hidden from the picker: a
-        // dropped option is a courtesy, not a rule, and a trip must not go out
-        // behind an expired licence because somebody kept a stale page open.
-        if ($driver !== null && ! $driver->canBeDispatched()) {
-            $leg->save();
-            $this->addError('assignDriver', (string) $driver->dispatchBlockReason());
-
+        $fields = ['car' => 'assignCar', 'driver' => 'assignDriver', 'pay' => 'assignDriverPay'];
+        foreach ($result['errors'] as $field => $message) {
+            $this->addError($fields[$field], $message);
+        }
+        if ($result['errors'] !== []) {
             return;
         }
 
-        // The driver's commission for this trip, optional, agreed when the trip
-        // is given to them. An amount for a driver on the company's books makes
-        // them a commission driver on their record (the owner's rule), with this
-        // as their usual amount. No driver, no commission.
-        $pay = trim($this->assignDriverPay);
-        if ($driver !== null && $pay !== '') {
-            if (! is_numeric($pay) || (float) $pay < 0 || (float) $pay > 100000) {
-                $leg->save();
-                $this->addError('assignDriverPay', __('Enter the payment as an amount in BD, or leave it blank.'));
-
-                return;
-            }
-            $leg->driver_payment = round((float) $pay, 3);
-            $this->makeCommissionDriver($driver, (float) $leg->driver_payment);
-        } else {
-            $leg->driver_payment = null;
-        }
-
-        $leg->driver_id = $driver?->id;
-        $leg->driver = $driver?->displayName();
-
-        // Naming a driver IS dispatching the trip — there is nothing left to
-        // decide once a car and a person are against it, so the leg goes Active
-        // here rather than needing a second click on the row.
-        //
-        // Only from queue/confirmed: editing the driver on a leg that already
-        // ran must not drag a completed or cancelled trip back to Active.
-        $dispatchable = in_array($leg->status, [LimoLeg::STATUS_QUEUE, LimoLeg::STATUS_CONFIRMED], true);
-        $started = false;
-
-        // Either the office named a driver (which is itself the act of
-        // dispatching) or they pressed Start trip and were brought here to
-        // finish it. Both mean the same thing: this trip is going out.
-        $goingOut = $driver !== null || $this->startAfterAssign;
-
-        if ($goingOut && $dispatchable) {
-            // A trip needs a car and someone to drive it — both, or it does not
-            // leave. Whichever is missing is said HERE, with the dialog still
-            // open on the two pickers, rather than closing with a note that
-            // sends the office off to another button.
-            if ($car === null) {
-                $leg->save();
-                $this->addError('assignCar', __('Pick the car — a trip cannot go out without one.'));
-
-                return;
-            }
-
-            if ($driver === null) {
-                $leg->save();
-                $this->addError('assignDriver', __('Pick the driver — a trip cannot go out without one.'));
-
-                return;
-            }
-
-            $leg->status = LimoLeg::STATUS_ACTIVE;
-            $started = true;
-        }
-
-        $leg->save();
-
-        if ($started && $leg->legable instanceof LimoBooking) {
-            // The booking summarises its legs, so it follows them up.
-            $leg->legable->syncStatusFromLegs();
-        }
-
         $this->closeAssign();
-        session()->flash('toast', $started ? __('Trip started.') : __('Assignment saved.'));
+        session()->flash('toast', $result['started'] ? __('Trip started.') : __('Assignment saved.'));
     }
 
     /**
-     * Vehicles offerable for assignment: everything free in the Rent A Car
-     * fleet, plus whatever is already on this leg so an existing choice does
-     * not vanish from its own dropdown once the car is marked rented.
+     * Vehicles offerable for assignment — the list the staff app offers too
+     * ({@see TripCrew::carOptions()}).
      *
      * @return list<array{value: int, label: string}>
      */
     public function carOptions(): array
     {
-        $ids = Vehicle::query()->where('active', true)
-            ->where('status', Vehicle::STATUS_AVAILABLE)->pluck('id')->all();
-        if ($this->assignCar !== '') {
-            $ids[] = (int) $this->assignCar;
-        }
-        $ids = array_values(array_unique($ids));
-
-        if ($ids === []) {
-            return [];
-        }
-
-        return Vehicle::query()->whereIn('id', $ids)->orderBy('name')
-            ->get(['id', 'name', 'plate_no', 'color', 'is_outside'])
-            ->map(fn (Vehicle $v): array => [
-                'value' => $v->id,
-                'label' => $v->displayName() . ($v->is_outside ? ' · ' . __('Outside') : ''),
-            ])
-            ->all();
-    }
-
-    /**
-     * A commission given to a company driver moves them onto commission, with
-     * that figure as their usual amount. A commission driver with no usual
-     * amount yet takes this one; one who has an amount keeps it (this trip's
-     * figure is a one-off).
-     */
-    private function makeCommissionDriver(LimoDriver $driver, float $amount): void
-    {
-        if ($driver->isCommissionDriver() && $driver->commission_amount !== null) {
-            return;
-        }
-
-        $wasCompany = ! $driver->isCommissionDriver();
-        $driver->forceFill(['pay_type' => LimoDriver::PAY_TYPE_COMMISSION, 'commission_amount' => $amount])->save();
-
-        app(ActivityLogger::class)->log(
-            'updated',
-            __('Driver').' '.$driver->displayName(),
-            $wasCompany
-                ? __('Now a commission driver (:amount BD), set when assigning a trip.', ['amount' => $this->plainAmount($amount)])
-                : __('Usual commission set to :amount BD when assigning a trip.', ['amount' => $this->plainAmount($amount)]),
-        );
+        return app(TripCrew::class)->carOptions($this->assignCar !== '' ? (int) $this->assignCar : null);
     }
 
     /**
@@ -564,34 +458,14 @@ final class Bookings extends Component
     }
 
     /**
-     * Drivers offerable for assignment: everyone active, plus whoever is
-     * already on this leg so an existing choice cannot vanish from its own
-     * dropdown after being deactivated.
+     * Drivers offerable for assignment — the list the staff app offers too
+     * ({@see TripCrew::driverOptions()}).
      *
      * @return list<array{value: int, label: string}>
      */
     public function driverOptions(): array
     {
-        $query = LimoDriver::query()->where('active', true);
-        if ($this->assignDriver !== '') {
-            $query->orWhere('id', (int) $this->assignDriver);
-        }
-
-        $drivers = $query->orderBy('name')->get();
-
-        // A driver whose licence has run out is not offered. Kept in the list
-        // only if they are already on this trip, so the dialog can say why the
-        // save is refused instead of the name silently vanishing.
-        return $drivers
-            ->filter(fn (LimoDriver $d): bool => $d->canBeDispatched() || (string) $d->id === $this->assignDriver)
-            ->map(fn (LimoDriver $d): array => [
-                'value' => $d->id,
-                'label' => $d->licenceExpired()
-                    ? $d->displayName() . ' · ' . __('licence expired')
-                    : $d->displayName(),
-            ])
-            ->values()
-            ->all();
+        return app(TripCrew::class)->driverOptions($this->assignDriver !== '' ? (int) $this->assignDriver : null);
     }
 
     /**

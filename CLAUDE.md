@@ -2755,6 +2755,26 @@ screen to take one of.
 | Not locked (deliberately) | invoices, receipts, quotations — money documents, so billing isn't blocked. Customer service forwarding a booking by hand is a team rule, not code |
 | Tests | `tests/Feature/LimoTripDetailsLockTest.php` (13) |
 
+**The staff app's API — `/api/app/…` (shipped 2026-10-31).** The owner wanted a
+real Android + iPhone app (it lives in its own repo, `Desktop\wanaan-app`: Expo
+SDK 58, Expo Router, TypeScript — Expo because this Windows machine has no
+Android/iOS toolchain and EAS builds both in the cloud). Milestone 1 is
+operations: sign in, the trips waiting for a crew, assign from the phone, and
+phone notifications instead of WhatsApp (no Meta). Drivers (their logins, "my
+trips", start/end) and the store builds are milestones 2–3.
+
+| Concern | Location |
+|---|---|
+| Tokens | `laravel/sanctum` (^4.3). `App\Models\PersonalAccessToken` pins tokens to **Main** (`Workspace::$landlordConnection`) whatever database a request works in; `config/sanctum.php` expiration 60 days. `User` uses `HasApiTokens` |
+| Routing | `routes/api.php` (registered in `bootstrap/app.php` `withRouting(api:)`), all under `/api/app`, `AppLocale` (answers in the phone's `Accept-Language`: en/ar). `POST /login` (throttle 20/min + the same per-address and per-ACCOUNT limits as the web Login), `POST /logout` (on Main, revokes the token). Data routes add `AppWorkspace` + throttle 240/min |
+| Business database | `App\Http\Middleware\AppWorkspace` — the app twin of SetActiveWorkspace: locked users → home workspace; else `X-Workspace` if `accessibleFor()` the Main login; else admins/Main-access stay on Main, others go to their first business. Rebinds auth to the tenant copy by email (or stays on Main), refuses paused accounts, and **restores connection/path/cache prefix/timezone/Main user in `finally`** so nothing leaks into the next request. Request attributes `app.login` (Main user) / `app.workspace` |
+| Endpoints | `GET /me` (user, workspace, workspaces, `can.view_trips/assign_trips`), `POST|DELETE /devices` (Expo push token, `app_devices` table — core migration `2026_10_31_100002`, per database), `GET /trips?scope=needs_crew|today|upcoming`, `GET /trips/{leg}`, `GET /trips/{leg}/crew-options`, `POST /trips/{leg}/assign` (`Modules\Limousine\Http\Controllers\App\TripController`; limousine.booking Read/Write) |
+| Shape | `Modules\Limousine\Services\AppTrips::present()` — built on `LimoQueueRows::row()`, so the trip-details lock (TripDetailsLock) applies exactly as on screen; detail adds passenger/phones/flight/notes/map pins/`copy_text` (all null/'' while held back) |
+| One assign rule | **`Modules\Limousine\Services\TripCrew`** — `assign()` (car/driver resolution, licence check, commission → makeCommissionDriver, dispatch to Active, booking status sync) + `carOptions()` / `driverOptions()`, extracted from `Bookings::saveAssign` so the web dialog and the app share them. Bookings now delegates (errors mapped back to assignCar/assignDriver/assignDriverPay) |
+| Notifications | `App\Erp\Push\ExpoPush` (`toUsers`, `toUsersInTheirLanguage` — per `users.language`) → queued `App\Jobs\SendExpoPush` (Expo push API, 100 per request, `DeviceNotRegistered` → forget the token in its own workspace via `runFor`; optional `services.expo.access_token`). `Modules\Limousine\Services\AppCrewReminders` — scheduled every 5 min per database (`app-crew-reminders`): ticked operations staff (`trip_details_locked`) every 10 min from 12 h before pick-up until crewed; super admins once at max(start − 12 h, created + 60 min). Own columns `limo_legs.push_reminded_at/push_escalated_at` (migration `2026_10_31_950053`). No switch: only people signed in to the app get anything |
+| Helper | `WorkspaceManager::activeWorkspaceId()` — the tenant connection's file first, then the cookie (for jobs dispatched from scheduled tasks) |
+| Tests | `tests/Feature/StaffAppApiTest.php` (17 — real tokens, not `Sanctum::actingAs`, which can't mock the final token model) |
+
 **Second pass, same day (migration `2026_10_06_950042`), for the rows still bare:**
 - **INV/01327's list was cut off by the old system's own export** ("…, 15225,
   152" — the cell is truncated in `limo-invoice.csv` too), so "152" matched an

@@ -2749,11 +2749,24 @@ screen to take one of.
 
 | Concern | Location |
 |---|---|
-| Who | `users.trip_details_locked` (core migration `2026_10_31_100001`, Main + every workspace: Abbas by email `hamdanabbas98@gmail.com`, Ali by a name starting "Ali Mak"; logs who). `User::seesTripDetailsOnlyWhenCrewed()` — never a super admin. Ticked per person by the OWNER on Settings → Driver details (`LimoCrewAlertSettings::saveLockedStaff`, super-admin only, current database; other admins see it read-only) |
+| Who | `users.trip_details_locked` (core migration `2026_10_31_100001` put it on Abbas by email `hamdanabbas98@gmail.com` and Ali by a name starting "Ali Mak"; **`2026_11_01_100001` took it off them again at the owner's request** — see below). `User::seesTripDetailsOnlyWhenCrewed()` — never a super admin. Switched per person by the OWNER: Settings → Users ⋮ → Lock / Open trip details (`UserManager::toggleTripLock`), or the tick list on Settings → Driver details (`LimoCrewAlertSettings::saveLockedStaff`, other admins read-only). Both go through `App\Erp\Admin\TripStaffSwitches::set()`, which writes **every copy of the account (Main + each workspace, by email)** |
 | Rule | `Modules\Limousine\Support\TripDetailsLock` — `hides($leg)` = viewer locked + leg open (`OPEN_STATUSES`) + `! hasCarAndDriver()`; `hidesBooking($booking)` = any open leg short; `place($country)` = "🔒 Saudi Arabia" |
 | Applied | `LimoQueueRows::row()` (pickup/dropoff → countries; contact phone, passenger, notes blank — so the list AND every export), `whatsappText()` → '' (row shows "🔒 ref", no copy), `confirmationLines()` (banner copy), `Bookings::openPreview/openEdit` refuse with a toast (+ render guard), assign + cancel dialogs show countries, `BookingForm` locked mode (`crewLocked`: nothing loaded into public props, `booking-locked.blade.php`, `hydrate()` aborts 403 on any action so a save can't blank the booking), `ServiceOrderController` 403, `customer-summary` route column, WhatsApp assistant `findBooking($ref, $user)` (places dropped + instruction) and its service-order PDF send (forbidden) |
 | Not locked (deliberately) | invoices, receipts, quotations — money documents, so billing isn't blocked. Customer service forwarding a booking by hand is a team rule, not code |
-| Tests | `tests/Feature/LimoTripDetailsLockTest.php` (13) |
+| Tests | `tests/Feature/LimoTripDetailsLockTest.php` (13), `tests/Feature/TripStaffSwitchesTest.php` (5) |
+
+**Lock opened for Abbas and Ali; switches on Settings → Users (2026-11-01).** The
+owner had Abbas and Ali Mak opened again and wanted to lock anyone from the Users
+screen. The staff-app reminders used to go to whoever was locked, so opening them
+would have silenced their reminders: reminders are now their own switch,
+`users.trip_reminders` (`User::getsTripReminders()`, never while paused). Migration
+`2026_11_01_100001` copied the lock into it before lifting the lock.
+- Settings → Users, owner only, on databases running Limousine (or Main):
+  - row badges "Trip details locked" and "Trip reminders";
+  - ⋮ items "Lock / Open trip details" (never on a super admin) and "Turn on/off trip reminders";
+  - each change is logged (`user_trip_lock` / `user_trip_reminders`).
+- `AppCrewReminders` now reminds `trip_reminders` users, not locked ones. Paused accounts get neither the reminders nor the owner alert.
+- The reviewer demo account has both switches on and is a **Supervisor** (staff is view-only and couldn't assign).
 
 **The staff app's API — `/api/app/…` (shipped 2026-10-31).** The owner wanted a
 real Android + iPhone app (it lives in its own repo, `Desktop\wanaan-app`: Expo
@@ -2773,7 +2786,25 @@ trips", start/end) and the store builds are milestones 2–3.
 | One assign rule | **`Modules\Limousine\Services\TripCrew`** — `assign()` (car/driver resolution, licence check, commission → makeCommissionDriver, dispatch to Active, booking status sync) + `carOptions()` / `driverOptions()`, extracted from `Bookings::saveAssign` so the web dialog and the app share them. Bookings now delegates (errors mapped back to assignCar/assignDriver/assignDriverPay) |
 | Notifications | `App\Erp\Push\ExpoPush` (`toUsers`, `toUsersInTheirLanguage` — per `users.language`) → queued `App\Jobs\SendExpoPush` (Expo push API, 100 per request, `DeviceNotRegistered` → forget the token in its own workspace via `runFor`; optional `services.expo.access_token`). `Modules\Limousine\Services\AppCrewReminders` — scheduled every 5 min per database (`app-crew-reminders`): ticked operations staff (`trip_details_locked`) every 10 min from 12 h before pick-up until crewed; super admins once at max(start − 12 h, created + 60 min). Own columns `limo_legs.push_reminded_at/push_escalated_at` (migration `2026_10_31_950053`). No switch: only people signed in to the app get anything |
 | Helper | `WorkspaceManager::activeWorkspaceId()` — the tenant connection's file first, then the cookie (for jobs dispatched from scheduled tasks) |
-| Tests | `tests/Feature/StaffAppApiTest.php` (17 — real tokens, not `Sanctum::actingAs`, which can't mock the final token model) |
+| Tests | `tests/Feature/StaffAppApiTest.php` (25 — real tokens, not `Sanctum::actingAs`, which can't mock the final token model) |
+
+**Store rules (App Store + Google Play), same day.** What the two stores require of
+the ERP side:
+- **Notification texts carry no personal data** (Apple 4.5.4): trip number and time only, never the customer's name. Don't add one back.
+- **Owner alerts find the owner by Main email**: a business database gets the Main admins as plain `is_admin` copies (`WorkspaceManager::provision` → `seedAdmins`), so `AppCrewReminders::owners()` = tenant super admins **plus** tenant users whose email is a Main super admin's.
+- **Public pages** (`routes/web.php`, standalone bilingual Blade under `resources/views/staff-app/`):
+  - `/staff-app/privacy`;
+  - `/staff-app/support`: company contacts from Settings → Company;
+  - `/staff-app/account-deletion`: a FORM, since Google wants deletion without the app. Throttle 5/10 min, hidden `website` honeypot.
+- **Deletion requests**:
+  - Main table `app_deletion_requests`: model `App\Models\AppDeletionRequest` pinned to Main, core migration `2026_10_31_100003`.
+  - Written by `App\Erp\StaffApp\AccountDeletion` (one open request per person; best-effort email to `company.email` after the response) from the web form (`StaffAppPageController`) and from the app (`POST /api/app/account/deletion-request`, throttle 5/h).
+  - Listed for admins on top of Settings → Users (`App\Livewire\Settings\AppDeletionRequests`). "Mark done" only closes the request; deleting the account stays a manual admin step.
+- **Reviewers' demo**: `php artisan staff-app:review-demo [--password=] [--refresh]` (`Modules\Limousine\Services\AppReviewDemo`).
+  - Provisions the **App Review Demo** business (slug `app-review-demo`, Limousine only) with invented customers, cars, drivers and five `DEMO-10x` trips dated from now.
+  - Login `appreview@wanaan-bh.com`: Supervisor (it must be able to assign), locked to it, `trip_details_locked` + `trip_reminders`.
+  - Scheduled `--refresh` every 4 h re-dates the trips and resets their crew. It is a no-op without the demo and deletes nothing.
+  - In that database `AppCrewReminders` alerts no owner and reminds each trip once per refresh.
 
 **Second pass, same day (migration `2026_10_06_950042`), for the rows still bare:**
 - **INV/01327's list was cut off by the old system's own export** ("…, 15225,

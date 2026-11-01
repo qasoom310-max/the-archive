@@ -33,6 +33,9 @@ use Illuminate\Support\Facades\Route;
 // privacy policy and how to have an account deleted. No sign-in, for anyone.
 Route::view('/staff-app/privacy', 'staff-app.privacy')->name('staff-app.privacy');
 Route::view('/staff-app/account-deletion', 'staff-app.account-deletion')->name('staff-app.account-deletion');
+Route::post('/staff-app/account-deletion', [\App\Http\Controllers\StaffAppPageController::class, 'requestDeletion'])
+    ->middleware('throttle:5,10')->name('staff-app.account-deletion.request');
+Route::view('/staff-app/support', 'staff-app.support')->name('staff-app.support');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', Login::class)->name('login');

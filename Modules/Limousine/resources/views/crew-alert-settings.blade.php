@@ -52,6 +52,7 @@
         <div>
             <h2 class="text-sm font-semibold text-chrome-800">{{ __('Operations staff: details only after the car and driver are assigned') }}</h2>
             <p class="mt-1 text-xs text-chrome-500">{{ __('The people ticked here see a trip\'s time, car type, customer and countries only. The places, passenger, phone numbers, copy button and service order appear once a car and a driver are assigned — so a trip can\'t be sent to a driver outside the system.') }}</p>
+            <p class="mt-1 text-xs text-chrome-500">{{ __('The same switch is on each person under Settings → Users (⋮ → Lock trip details), with their trip reminders.') }}</p>
         </div>
 
         @if ($staffSaved)

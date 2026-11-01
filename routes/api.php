@@ -27,6 +27,7 @@ Route::prefix('app')->middleware(AppLocale::class)->group(function (): void {
 
         Route::middleware([AppWorkspace::class, 'throttle:240,1'])->group(function (): void {
             Route::get('/me', [AuthController::class, 'me']);
+            Route::post('/account/deletion-request', [AuthController::class, 'requestDeletion'])->middleware('throttle:5,60');
 
             Route::post('/devices', [DeviceController::class, 'store']);
             Route::delete('/devices', [DeviceController::class, 'destroy']);

@@ -146,6 +146,11 @@ Schedule::call(function (): void {
     });
 })->everyFiveMinutes()->name('app-crew-reminders')->withoutOverlapping(10);
 
+// The app-store reviewers' made-up business (staff-app:review-demo): its trips
+// dated from now again and put back as they started, so a reviewer always finds
+// trips waiting for a car and driver. A no-op until the demo has been created.
+Schedule::command('staff-app:review-demo --refresh')->cron('0 */4 * * *')->name('staff-app-review-demo')->withoutOverlapping(30);
+
 // Automated daily sales + stock PDF report. The cafe trades noon → 6 AM, so
 // this fires at 6:10 AM (in the company timezone) and emails the report for the
 // night that just closed (yesterday 12:00 → today 06:00) to the admin-managed

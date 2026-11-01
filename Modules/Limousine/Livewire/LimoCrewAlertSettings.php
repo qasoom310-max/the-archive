@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire;
 
+use App\Erp\Admin\TripStaffSwitches;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -117,13 +117,20 @@ final class LimoCrewAlertSettings extends Component
         }
 
         $wanted = array_values(array_unique(array_map('intval', $this->lockedUserIds)));
-        $lockable = $this->lockableStaff()->pluck('id')->map(static fn (mixed $id): int => (int) $id)->all();
-        $locked = array_values(array_intersect($wanted, $lockable));
+        $switches = app(TripStaffSwitches::class);
+        $locked = [];
 
-        DB::transaction(static function () use ($locked, $lockable): void {
-            DB::table('users')->whereIn('id', $lockable)->whereNotIn('id', $locked)->update(['trip_details_locked' => false]);
-            DB::table('users')->whereIn('id', $locked)->update(['trip_details_locked' => true]);
-        });
+        // The same switch as Settings → Users: set on every copy of the
+        // account, so it holds in whichever database the person works.
+        foreach ($this->lockableStaff() as $person) {
+            $on = in_array((int) $person->id, $wanted, true);
+            if ($on) {
+                $locked[] = (int) $person->id;
+            }
+            if (($person->getAttribute('trip_details_locked') ?? false) !== $on) {
+                $switches->set($person, TripStaffSwitches::LOCK, $on);
+            }
+        }
 
         $this->lockedUserIds = $locked;
         $this->staffSaved = true;
@@ -140,7 +147,7 @@ final class LimoCrewAlertSettings extends Component
         return User::query()
             ->where(static fn ($q) => $q->where('is_super_admin', false)->orWhereNull('is_super_admin'))
             ->orderBy('name')
-            ->get(['id', 'name', 'email']);
+            ->get(['id', 'name', 'email', 'trip_details_locked']);
     }
 
     public function updated(string $name): void

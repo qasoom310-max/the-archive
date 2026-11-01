@@ -7,8 +7,10 @@ namespace App\Http\Controllers\Api\App;
 use App\Erp\Activity\ActivityLogger;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
+use App\Erp\StaffApp\AccountDeletion;
 use App\Erp\Tenancy\WorkspaceManager;
 use App\Http\Middleware\AppWorkspace;
+use App\Models\AppDeletionRequest;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Http\JsonResponse;
@@ -104,6 +106,32 @@ final class AuthController
         }
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * "Delete my account", from inside the app (Apple wants it there). The
+     * account is the company's, so this asks: an admin deletes it under
+     * Settings → Users, within the 30 days the privacy policy promises.
+     */
+    public function requestDeletion(Request $request, AccountDeletion $deletion): JsonResponse
+    {
+        $login = $request->attributes->get(AppWorkspace::LOGIN);
+        if (! $login instanceof User) {
+            abort(401);
+        }
+
+        $workspace = $request->attributes->get(AppWorkspace::WORKSPACE);
+        $asked = $deletion->request([
+            'name' => $login->name,
+            'login' => $login->email ?? $login->name,
+            'user_id' => $login->id,
+            'business' => $workspace instanceof Workspace ? (string) $workspace->name : null,
+        ], AppDeletionRequest::SOURCE_APP, $request->ip());
+
+        return response()->json([
+            'requested_at' => $asked->created_at?->toIso8601String(),
+            'message' => __('Your request has been sent. The company will delete your account and tell you within 30 days.'),
+        ]);
     }
 
     /**

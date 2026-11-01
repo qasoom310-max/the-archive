@@ -22,14 +22,20 @@ use Throwable;
  * no car or no driver is everyone's problem.
  *
  * Every few minutes, for each database (routes/console.php):
- * - operations staff — the people the owner ticked under Settings → Driver
- *   details — get a phone notification every {@see REMIND_EVERY_MINUTES}
+ * - operations staff — the people the owner switched "Trip reminders" on for
+ *   under Settings → Users (users.trip_reminders, separate from the trip
+ *   details lock) — get a phone notification every {@see REMIND_EVERY_MINUTES}
  *   minutes until the trip has both, or its pick-up time passes;
  * - the owner (every super admin) is told once that the promise was missed —
  *   for a booking taken inside the 12 hours, only after an hour unsolved.
  *
  * Through Expo's push service: free, both Android and iPhone, no Meta. It only
  * reaches people signed in to the app, so there is no switch to forget.
+ *
+ * The texts carry the trip's reference and time, never the customer's name or
+ * anything else about a person: they show on a locked screen, and Apple's
+ * rules forbid personal data in a notification (App Review 4.5.4). The app
+ * opens the trip from the notification's data, behind the sign-in.
  */
 final class AppCrewReminders
 {
@@ -55,11 +61,15 @@ final class AppCrewReminders
             return $sent;
         }
 
-        $operations = Schema::hasColumn('users', 'trip_details_locked')
-            ? User::query()->where('trip_details_locked', true)->get()
-                ->filter(static fn (User $u): bool => $u->seesTripDetailsOnlyWhenCrewed())->values()
+        // Never a paused account: it can't sign in to act on the reminder.
+        $operations = Schema::hasColumn('users', 'trip_reminders')
+            ? User::query()->where('trip_reminders', true)->get()
+                ->filter(static fn (User $u): bool => $u->getsTripReminders())->values()
             : collect();
-        $owners = User::query()->where('is_super_admin', true)->get();
+        // The reviewers' made-up business: no owner to wake, and each trip
+        // reminds its reviewer once (until the demo is refreshed), not all day.
+        $demo = $this->isReviewDemo();
+        $owners = $demo ? collect() : $this->owners();
 
         if ($operations->isEmpty() && $owners->isEmpty()) {
             return $sent;
@@ -71,7 +81,7 @@ final class AppCrewReminders
             ->where('start_at', '>', $now)
             ->where('start_at', '<=', $now->copy()->addHours(LimoLeg::CREW_PROMISE_HOURS))
             ->where(static fn ($q) => $q->whereNull('car_id')->orWhereNull('driver_id'))
-            ->with('legable.customer')
+            ->with('legable')
             ->orderBy('start_at')
             ->get();
 
@@ -83,8 +93,8 @@ final class AppCrewReminders
 
             // One trip's bad data must not stop the rest.
             try {
-                $sent['reminders'] += $this->remind($leg, $booking, $operations, $now);
-                $sent['alerts'] += $this->alert($leg, $booking, $owners, $now);
+                $sent['reminders'] += $this->remind($leg, $operations, $now, $demo);
+                $sent['alerts'] += $this->alert($leg, $owners, $now);
             } catch (Throwable $e) {
                 Log::warning('Staff-app trip reminder failed', ['leg' => $leg->id, 'error' => $e->getMessage()]);
             }
@@ -96,12 +106,12 @@ final class AppCrewReminders
     /**
      * @param  Collection<int, User>  $operations
      */
-    private function remind(LimoLeg $leg, LimoBooking $booking, Collection $operations, Carbon $now): int
+    private function remind(LimoLeg $leg, Collection $operations, Carbon $now, bool $once = false): int
     {
         // A minute's give, so a run that lands a few seconds early does not
         // push the next reminder out by a whole extra run.
         $since = $now->copy()->subMinutes(self::REMIND_EVERY_MINUTES)->addMinute();
-        if ($operations->isEmpty() || ($leg->push_reminded_at !== null && $leg->push_reminded_at->gt($since))) {
+        if ($operations->isEmpty() || ($leg->push_reminded_at !== null && ($once || $leg->push_reminded_at->gt($since)))) {
             return 0;
         }
 
@@ -109,10 +119,7 @@ final class AppCrewReminders
             $operations,
             fn (): array => [
                 __('Assign a car and driver: trip :reference', ['reference' => (string) $leg->reference]),
-                __(':when · :customer — the customer is waiting for the driver details.', [
-                    'when' => $this->when($leg),
-                    'customer' => (string) ($booking->customer->name ?? ''),
-                ]),
+                __(':when — the customer is waiting for the driver details.', ['when' => $this->when($leg)]),
             ],
             $this->data($leg, 'needs_crew'),
         );
@@ -125,7 +132,7 @@ final class AppCrewReminders
     /**
      * @param  Collection<int, User>  $owners
      */
-    private function alert(LimoLeg $leg, LimoBooking $booking, Collection $owners, Carbon $now): int
+    private function alert(LimoLeg $leg, Collection $owners, Carbon $now): int
     {
         if ($owners->isEmpty() || $leg->push_escalated_at !== null || $leg->start_at === null) {
             return 0;
@@ -141,10 +148,7 @@ final class AppCrewReminders
             $owners,
             fn (): array => [
                 __('12-hour promise missed: trip :reference', ['reference' => (string) $leg->reference]),
-                __(':when · :customer — still no car or driver.', [
-                    'when' => $this->when($leg),
-                    'customer' => (string) ($booking->customer->name ?? ''),
-                ]),
+                __(':when — still no car or driver.', ['when' => $this->when($leg)]),
             ],
             $this->data($leg, 'promise_missed'),
         );
@@ -152,6 +156,35 @@ final class AppCrewReminders
         $leg->forceFill(['push_escalated_at' => $now])->saveQuietly();
 
         return $phones;
+    }
+
+    /**
+     * The owner: every super admin of this database — and whoever here signs
+     * in with a Main super admin's email, since a business database is given
+     * the Main admins as plain admins when it is created.
+     *
+     * @return Collection<int, User>
+     */
+    private function owners(): Collection
+    {
+        $emails = $this->workspaces->withMain(static fn (): array => array_values(array_filter(
+            User::query()->where('is_super_admin', true)->get(['email'])
+                ->map(static fn (User $u): ?string => $u->email)->all(),
+            static fn (?string $email): bool => $email !== null && $email !== '',
+        )));
+
+        return User::query()
+            ->where(static fn ($q) => $q->where('is_super_admin', true)->orWhereIn('email', $emails))
+            ->get()
+            ->reject(static fn (User $u): bool => $u->isPaused())
+            ->values();
+    }
+
+    private function isReviewDemo(): bool
+    {
+        $id = $this->workspaces->activeWorkspaceId();
+
+        return $id !== null && $this->workspaces->find($id)?->slug === AppReviewDemo::SLUG;
     }
 
     /** The pick-up time, in the language the message is being written in. */

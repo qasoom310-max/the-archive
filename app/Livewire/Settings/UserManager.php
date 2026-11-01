@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Settings;
 
 use App\Erp\Admin\StaffRole;
+use App\Erp\Admin\TripStaffSwitches;
 use App\Erp\Admin\UserProvisioner;
 use App\Erp\Business\Features;
 use App\Erp\Enums\ModuleState;
@@ -797,6 +798,56 @@ final class UserManager extends Component
     }
 
     /**
+     * The owner's limousine lock on one person: a trip's details stay hidden
+     * from them until it has a car and a driver. Owner (super admin) only,
+     * never on an owner; set on every copy of the account
+     * ({@see TripStaffSwitches}).
+     */
+    public function toggleTripLock(int $id): void
+    {
+        $this->flipTripSwitch($id, TripStaffSwitches::LOCK);
+    }
+
+    /** The owner's switch for one person's staff-app trip reminders. */
+    public function toggleTripReminders(int $id): void
+    {
+        $this->flipTripSwitch($id, TripStaffSwitches::REMINDERS);
+    }
+
+    /**
+     * @param  TripStaffSwitches::LOCK|TripStaffSwitches::REMINDERS  $switch
+     */
+    private function flipTripSwitch(int $id, string $switch): void
+    {
+        $this->guardAdmin();
+        abort_unless($this->actorIsSuperAdmin(), 403);
+
+        $switches = app(TripStaffSwitches::class);
+        $target = User::query()->find($id);
+        if ($target === null || ! $switches->available()) {
+            return;
+        }
+        if ($switch === TripStaffSwitches::LOCK && $target->isSuperAdmin()) {
+            return;
+        }
+
+        $on = ($target->getAttribute($switch) ?? false) !== true;
+        $switches->set($target, $switch, $on);
+
+        $name = $target->name;
+        app(\App\Erp\Activity\ActivityLogger::class)->log(
+            $switch === TripStaffSwitches::LOCK ? 'user_trip_lock' : 'user_trip_reminders',
+            (string) $target->email,
+            match (true) {
+                $switch === TripStaffSwitches::LOCK && $on => __('Trip details locked for :name until a car and driver are assigned', ['name' => $name]),
+                $switch === TripStaffSwitches::LOCK => __('Trip details opened for :name', ['name' => $name]),
+                $on => __('Trip reminders turned on for :name', ['name' => $name]),
+                default => __('Trip reminders turned off for :name', ['name' => $name]),
+            },
+        );
+    }
+
+    /**
      * The role badge for every row of the list, resolved in ONE extra query.
      * Super admin / Admin / Accountant come straight off the flags; Supervisor
      * is only visible in the ACL (their grants carry Write), so the per-user
@@ -1014,11 +1065,19 @@ final class UserManager extends Component
             $workspaceName = $workspace === null ? (string) __('this database') : $workspace->name;
         }
 
+        // The owner's limousine switches — where this database runs Limousine
+        // (or on Main), once the columns are migrated.
+        $tripSwitches = app(TripStaffSwitches::class)->available()
+            && ($this->onMain() || IrModule::query()->where('name', 'limousine')->where('state', ModuleState::Installed)->exists());
+
         $users = User::query()
             ->orderByDesc('is_super_admin')
             ->orderByDesc('is_admin')
             ->orderBy('name')
-            ->get(['id', 'name', 'email', 'is_admin', 'is_super_admin', 'is_accountant', 'is_paused', 'home_workspace_id']);
+            ->get(array_merge(
+                ['id', 'name', 'email', 'is_admin', 'is_super_admin', 'is_accountant', 'is_paused', 'home_workspace_id'],
+                $tripSwitches ? [TripStaffSwitches::LOCK, TripStaffSwitches::REMINDERS] : [],
+            ));
 
         return view('livewire.settings.user-manager', [
             // NB: keys must NOT clash with the public $apps / $workspaces
@@ -1033,6 +1092,7 @@ final class UserManager extends Component
             'currentUserId' => Auth::id(),
             'adminCount' => User::query()->where('is_admin', true)->count(),
             'actorIsSuperAdmin' => $this->actorIsSuperAdmin(),
+            'tripSwitches' => $tripSwitches,
             'onMain' => $this->onMain(),
             // The role picker: one mutually-exclusive choice. Super admin and
             // Accountant only appear for a super admin (owner-only to assign).

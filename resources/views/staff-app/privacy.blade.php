@@ -51,10 +51,10 @@
         <p>Everything travels over encrypted connections (HTTPS). Access inside the system follows the permissions {{ $company }} gives your account.</p>
 
         <h2>Keeping and deleting data</h2>
-        <p>Your account is kept while you work with {{ $company }}. You can ask for your account and the data linked to it to be deleted at any time — see <a href="{{ route('staff-app.account-deletion') }}">Account deletion</a>. Company records of the work itself (such as which car and driver served a trip) may be kept where the law or the company's accounting requires it.</p>
+        <p>Your account is kept while you work with {{ $company }}. You can ask for your account and the data linked to it to be deleted at any time — in the app (Account → Delete my account) or on the <a href="{{ route('staff-app.account-deletion') }}">Account deletion</a> page. Company records of the work itself (such as which car and driver served a trip) may be kept where the law or the company's accounting requires it.</p>
 
         <h2>Contact</h2>
-        <p>Questions about this policy or your data: <a href="mailto:{{ $email }}">{{ $email }}</a>.</p>
+        <p>Questions about this policy or your data: <a href="mailto:{{ $email }}">{{ $email }}</a>, or see <a href="{{ route('staff-app.support') }}">Support</a>.</p>
     </section>
 
     <section class="ar" lang="ar">
@@ -83,10 +83,10 @@
         <p>تنتقل جميع البيانات عبر اتصال مشفّر (HTTPS)، وتخضع الصلاحيات داخل النظام لما تمنحه الشركة لحسابك.</p>
 
         <h2>الاحتفاظ بالبيانات وحذفها</h2>
-        <p>يبقى حسابك ما دمت تعمل مع الشركة، ويمكنك طلب حذف حسابك والبيانات المرتبطة به في أي وقت — راجع <a href="{{ route('staff-app.account-deletion') }}">حذف الحساب</a>. وقد تحتفظ الشركة بسجلات العمل نفسه (مثل السيارة والسائق اللذين خدما رحلة) حيث يتطلب القانون أو المحاسبة ذلك.</p>
+        <p>يبقى حسابك ما دمت تعمل مع الشركة، ويمكنك طلب حذف حسابك والبيانات المرتبطة به في أي وقت — من التطبيق (الحساب ← حذف حسابي) أو من صفحة <a href="{{ route('staff-app.account-deletion') }}">حذف الحساب</a>. وقد تحتفظ الشركة بسجلات العمل نفسه (مثل السيارة والسائق اللذين خدما رحلة) حيث يتطلب القانون أو المحاسبة ذلك.</p>
 
         <h2>التواصل</h2>
-        <p>للاستفسار عن هذه السياسة أو بياناتك: <a href="mailto:{{ $email }}">{{ $email }}</a>.</p>
+        <p>للاستفسار عن هذه السياسة أو بياناتك: <a href="mailto:{{ $email }}">{{ $email }}</a>، أو راجع <a href="{{ route('staff-app.support') }}">الدعم</a>.</p>
     </section>
 </main>
 </body>

@@ -239,7 +239,11 @@
                     // ON still can't target yourself or the last admin;
                     // turning it OFF has no such risk.
                     $canTogglePauseOn = $canManage && ! $isSelf && ! $isLastAdmin;
-                    $showActionsMenu = $canManage && ($inScope || $canSetAccessHere || $user->is_paused || $canTogglePauseOn);
+                    // The owner's limousine switches: any account (the lock never
+                    // an owner's), set on every copy of it — see TripStaffSwitches.
+                    $canTripReminders = $tripSwitches && $actorIsSuperAdmin;
+                    $canTripLock = $canTripReminders && ! $user->is_super_admin;
+                    $showActionsMenu = $canManage && ($inScope || $canSetAccessHere || $user->is_paused || $canTogglePauseOn || $canTripReminders);
                 @endphp
                 <li wire:key="user-{{ $user->id }}" class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                     <span class="flex min-w-0 items-center gap-2">
@@ -263,6 +267,12 @@
                         @endif
                         @if ($user->is_paused)
                             <span class="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700">{{ __('Paused') }}</span>
+                        @endif
+                        @if ($tripSwitches && $user->trip_details_locked && ! $user->is_super_admin)
+                            <span class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">{{ __('Trip details locked') }}</span>
+                        @endif
+                        @if ($tripSwitches && $user->trip_reminders)
+                            <span class="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">{{ __('Trip reminders') }}</span>
                         @endif
                         <span class="min-w-0 truncate">
                             <span class="font-medium text-chrome-700">{{ $user->name }}</span>
@@ -290,7 +300,7 @@
                                     </svg>
                                 </button>
                                 <div x-cloak x-show="open" x-transition
-                                    class="absolute end-0 z-20 mt-1 w-36 overflow-hidden rounded-lg border border-chrome-200 bg-white py-1 shadow-lg">
+                                    class="absolute end-0 z-20 mt-1 w-52 overflow-hidden rounded-lg border border-chrome-200 bg-white py-1 shadow-lg">
                                     @if ($inScope)
                                         <button type="button" @click="open = false" wire:click="editUser({{ $user->id }})"
                                             class="block w-full px-3 py-1.5 text-start text-xs font-medium text-chrome-700 hover:bg-chrome-50">
@@ -312,6 +322,19 @@
                                             wire:confirm="{{ __('Pause :name? They will be signed out and unable to sign in until unpaused.', ['name' => $user->name]) }}"
                                             class="block w-full px-3 py-1.5 text-start text-xs font-medium text-amber-700 hover:bg-amber-50">
                                             {{ __('Pause') }}
+                                        </button>
+                                    @endif
+                                    @if ($canTripLock)
+                                        <button type="button" @click="open = false" wire:click="toggleTripLock({{ $user->id }})"
+                                            @unless ($user->trip_details_locked) wire:confirm="{{ __('Lock trip details for :name? They will see a trip’s details only once it has a car and a driver.', ['name' => $user->name]) }}" @endunless
+                                            class="block w-full px-3 py-1.5 text-start text-xs font-medium text-chrome-700 hover:bg-chrome-50">
+                                            {{ $user->trip_details_locked ? __('Open trip details') : __('Lock trip details') }}
+                                        </button>
+                                    @endif
+                                    @if ($canTripReminders)
+                                        <button type="button" @click="open = false" wire:click="toggleTripReminders({{ $user->id }})"
+                                            class="block w-full px-3 py-1.5 text-start text-xs font-medium text-chrome-700 hover:bg-chrome-50">
+                                            {{ $user->trip_reminders ? __('Turn off trip reminders') : __('Turn on trip reminders') }}
                                         </button>
                                     @endif
                                     @if ($inScope && ! $isSelf && ! $isLastAdmin)

@@ -32,6 +32,7 @@ use Throwable;
  * @property bool $petty_cash_full  Every Limousine petty-cash action (issue, top up, confirm, settle) without the Accountant role
  * @property bool $can_change_customer_type  May switch an existing customer between Individual and Company
  * @property bool $trip_details_locked  Operations: a limousine trip's details stay hidden until it has a car and a driver
+ * @property bool $trip_reminders  Staff app: reminded about trips inside the 12 hours still without a car or driver
  * @property bool $is_paused        Suspended by an admin — signed out and refused sign-in until unpaused
  * @property \Illuminate\Support\Carbon|null $paused_at
  * @property int|null $home_workspace_id  Locked to this workspace (database); null = unrestricted
@@ -87,6 +88,7 @@ final class User extends Authenticatable
             'petty_cash_full' => 'boolean',
             'can_change_customer_type' => 'boolean',
             'trip_details_locked' => 'boolean',
+            'trip_reminders' => 'boolean',
             'is_paused' => 'boolean',
             'paused_at' => 'datetime',
             // Project module: the column is added by that module's migration,
@@ -159,6 +161,17 @@ final class User extends Authenticatable
     public function seesTripDetailsOnlyWhenCrewed(): bool
     {
         return ! $this->isSuperAdmin() && ($this->getAttribute('trip_details_locked') ?? false) === true;
+    }
+
+    /**
+     * Reminded on the staff app about limousine trips inside the 12 hours
+     * that still have no car or driver (users.trip_reminders — the owner's
+     * switch on Settings → Users, separate from the lock above). Never while
+     * paused. Column-guarded like the flags above.
+     */
+    public function getsTripReminders(): bool
+    {
+        return ! $this->isPaused() && ($this->getAttribute('trip_reminders') ?? false) === true;
     }
 
     /**

@@ -374,6 +374,8 @@
         @if ($userTab)
             <div x-show="tab === '__users'" x-cloak
                 class="rounded-xl bg-white p-6 shadow-sm ring-1 ring-chrome-900/5">
+                {{-- Staff-app account deletion requests, when any are waiting. --}}
+                @livewire(\App\Livewire\Settings\AppDeletionRequests::class)
                 @livewire(\App\Livewire\Settings\UserManager::class)
             </div>
         @endif

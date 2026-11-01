@@ -196,6 +196,58 @@ final class LimoServiceOrderTest extends TestCase
             ->assertDontSee('sig-pad');   // the canvas is gone
     }
 
+    /** The copy to keep opens: the page's own address without its signature was refused. */
+    public function test_the_signed_page_offers_a_pdf_copy_that_opens(): void
+    {
+        Storage::fake('public');
+        $leg = $this->leg();
+        $url = app(ServiceOrderSender::class)->signUrl($leg);
+        $this->post($url, ['signed_name' => 'Helen Friberg', 'signature' => self::PNG]);
+
+        $page = (string) $this->get($url)->assertOk()->getContent();
+        $this->assertSame(1, preg_match('#href="([^"]*/sign/pdf\?[^"]+)"#', $page, $m));
+
+        $res = $this->get(html_entity_decode($m[1]));
+        $res->assertOk();
+        $this->assertStringStartsWith('%PDF', (string) $res->getContent());
+    }
+
+    /**
+     * Wanaan's trips live in a business database, and the customer opens the
+     * link signed out — so the link names the business. Without it the page
+     * looked the trip up on Main: a 404, or another database's trip.
+     */
+    public function test_a_signed_out_customer_signs_a_trip_in_a_business_database(): void
+    {
+        Storage::fake('public');
+        $manager = app(\App\Erp\Tenancy\WorkspaceManager::class);
+        $workspace = $manager->provision('Wanaan', User::factory()->create(['is_admin' => true, 'is_super_admin' => true]), ['limousine']);
+        $path = (string) $workspace->databasePath();
+
+        try {
+            [$url, $legId] = $manager->withTenant($path, function (): array {
+                $leg = $this->leg();
+
+                return [app(ServiceOrderSender::class)->signUrl($leg), $leg->id];
+            });
+            $this->assertStringContainsString('ws=' . $workspace->id, $url);
+
+            auth()->logout();
+            $this->get($url)->assertOk()->assertSee('Bahrain airport GF509');
+            $this->post($url, ['signed_name' => 'Helen Friberg', 'signature' => self::PNG])->assertRedirect();
+
+            $signed = $manager->withTenant($path, static fn (): ?string => LimoLeg::query()->find($legId)?->signed_name);
+            $this->assertSame('Helen Friberg', $signed);
+
+            // Editing the business in the link breaks its signature.
+            $this->get(str_replace('ws=' . $workspace->id, 'ws=999', $url))->assertForbidden();
+        } finally {
+            foreach (glob(storage_path('app/workspaces') . '/*.sqlite') ?: [] as $file) {
+                @unlink($file);
+            }
+        }
+    }
+
     /**
      * Mail::fake() (used by every test below) never renders the body, so a
      * broken email TEMPLATE can pass every one of them and still 500 the

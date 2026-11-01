@@ -14,6 +14,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoReceipt;
 use Modules\Limousine\Services\CustomerDocumentEmails;
@@ -150,6 +151,10 @@ final class ReceiptForm extends Component
             return;
         }
 
+        // Where the receipt sat before this edit: moving it to another invoice
+        // takes the money off that one, which used to stay marked paid.
+        $previousInvoiceId = $receipt->exists ? $receipt->invoice_id : null;
+
         $receipt->invoice_id = $invoice->id;
         $receipt->customer_id = $invoice->customer_id;
         $receipt->date = Carbon::parse($this->date);
@@ -159,6 +164,15 @@ final class ReceiptForm extends Component
         $receipt->save();
 
         $invoice->refresh()->recomputePaid();
+        $this->followBooking($invoice);
+
+        if ($previousInvoiceId !== null && (int) $previousInvoiceId !== (int) $invoice->id) {
+            $previous = LimoInvoice::query()->find($previousInvoiceId);
+            if ($previous !== null) {
+                $previous->recomputePaid();
+                $this->followBooking($previous);
+            }
+        }
 
         if ($receipt->wasRecentlyCreated) {
             app(CustomerDocumentEmails::class)->paymentReceived((int) $receipt->id);
@@ -166,6 +180,20 @@ final class ReceiptForm extends Component
 
         session()->flash('toast', __('Payment recorded.'));
         $this->redirect('/app/limousine/invoice', navigate: true);
+    }
+
+    /**
+     * An invoice's booking works its paid flag out again: an invoice only ever
+     * marks its booking paid, so a corrected or moved receipt used to leave
+     * the booking saying paid with the money gone.
+     */
+    private function followBooking(LimoInvoice $invoice): void
+    {
+        if ($invoice->booking_id === null) {
+            return;
+        }
+
+        LimoBooking::query()->find($invoice->booking_id)?->syncPaymentFromAdvance();
     }
 
     public function render(): View

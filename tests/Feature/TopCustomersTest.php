@@ -176,6 +176,28 @@ final class TopCustomersTest extends TestCase
         $this->assertNull($schedule['rows'][0]['target']);
     }
 
+    /**
+     * Limousine's "Customers to focus on" names its customers. It read the
+     * limo_customers table, dropped when they merged into the shared one, so
+     * the panel was empty for everyone.
+     */
+    public function test_the_limousine_focus_list_names_its_customers(): void
+    {
+        $customer = LimoCustomer::query()->create(['name' => 'Dadabhai', 'type' => 'company']);
+        LimoBooking::query()->create([
+            'customer_id' => $customer->id,
+            'pickup_at' => '2026-09-05 10:00:00',
+            'fare' => 400.0,
+            'amount' => 400.0,
+            'status' => LimoBooking::STATUS_COMPLETED,
+            'payment_status' => LimoBooking::PAYMENT_PAID,
+        ]);
+
+        $top = app(TopCustomers::class)->forApp('limousine', $this->today);
+
+        $this->assertSame('Dadabhai', $top['groups']['company']['rows'][0]['name'] ?? null);
+    }
+
     // ── Where the target came from ───────────────────────────────────────────
 
     public function test_the_monthly_target_falls_back_to_the_cars_own_targets(): void

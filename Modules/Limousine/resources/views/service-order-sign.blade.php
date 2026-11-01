@@ -65,7 +65,7 @@
                 <img src="{{ $signatureUrl }}" alt="{{ __('Customer Signature') }}"
                      class="mx-auto mt-3 max-h-24 rounded border border-chrome-200 bg-white p-2">
             @endif
-            <a href="{{ url()->current() }}/pdf" target="_blank" rel="noopener"
+            <a href="{{ $pdfUrl }}" target="_blank" rel="noopener"
                class="mt-4 inline-block text-sm font-semibold text-primary-700 hover:underline">{{ __('Download a copy (PDF)') }}</a>
         </div>
     @else

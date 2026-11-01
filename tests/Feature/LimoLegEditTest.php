@@ -133,6 +133,77 @@ final class LimoLegEditTest extends TestCase
         $this->assertSame(60.0, $booking->fresh()?->fare);
     }
 
+    /**
+     * A transfer priced per hour or per day keeps its hours and days through
+     * the quick edit — they used to be read off the service type alone, so
+     * fixing a flight number re-priced 5 hours at 12 BD to 0, and 3 days to 1.
+     */
+    public function test_an_hourly_or_daily_transfer_keeps_its_price_through_the_quick_edit(): void
+    {
+        [$booking, $legs] = $this->bookingOfThree();
+        $live = $legs[2];
+        $live->forceFill(['rate_basis' => LimoLeg::BASIS_HOUR, 'rate' => 12, 'hours' => 5, 'line_total' => 60, 'net_amount' => 60])->save();
+
+        Livewire::test(Bookings::class)
+            ->call('openEdit', $booking->id, $live->id)
+            ->assertSet('editLeg.hours', '5')
+            ->assertSee(__('Hours'))
+            ->set('editLeg.from_location', 'Seef Mall')
+            ->call('saveEdit')
+            ->assertHasNoErrors();
+
+        $this->assertSame(60.0, $live->refresh()->net_amount);
+        $this->assertSame(5.0, (float) $live->hours);
+
+        $live->forceFill(['rate_basis' => LimoLeg::BASIS_DAY, 'rate' => 30, 'hours' => null, 'days' => 3, 'line_total' => 90, 'net_amount' => 90])->save();
+
+        Livewire::test(Bookings::class)
+            ->call('openEdit', $booking->id, $live->id)
+            ->set('editLeg.from_location', 'City Centre')
+            ->call('saveEdit')
+            ->assertHasNoErrors();
+
+        $this->assertSame(90.0, $live->refresh()->net_amount);
+        $this->assertSame(3, $live->days);
+
+        // And an hourly price needs its hours, as on the booking page.
+        Livewire::test(Bookings::class)
+            ->call('openEdit', $booking->id, $live->id)
+            ->set('editLeg.rate_basis', LimoLeg::BASIS_HOUR)
+            ->set('editLeg.hours', '')
+            ->call('saveEdit')
+            ->assertHasErrors('editLeg.hours');
+    }
+
+    /** The invoice follows a price changed here, like on every other path. */
+    public function test_the_invoice_follows_a_price_changed_in_the_quick_edit(): void
+    {
+        [$booking, $legs] = $this->bookingOfThree();
+        $invoice = $booking->createInvoice();
+        $this->assertSame(52.0, (float) $invoice->total);
+
+        Livewire::test(Bookings::class)
+            ->call('openEdit', $booking->id, $legs[2]->id)
+            ->set('editLeg.rate', '20')
+            ->call('saveEdit')
+            ->assertHasNoErrors();
+
+        $this->assertSame(60.0, (float) $invoice->refresh()->total);
+    }
+
+    public function test_the_quick_edit_raises_no_invoice_of_its_own(): void
+    {
+        [$booking, $legs] = $this->bookingOfThree();
+
+        Livewire::test(Bookings::class)
+            ->call('openEdit', $booking->id, $legs[2]->id)
+            ->set('editLeg.rate', '20')
+            ->call('saveEdit')
+            ->assertHasNoErrors();
+
+        $this->assertFalse(\Modules\Limousine\Models\LimoInvoice::query()->where('booking_id', $booking->id)->exists());
+    }
+
     /** A trip switched to chauffeur is a car at disposal — it has no drop-off. */
     public function test_a_trip_can_be_switched_to_chauffeur_from_the_dialog(): void
     {

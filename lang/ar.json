@@ -3319,5 +3319,12 @@
     "Trip details opened for :name": "تم فتح تفاصيل الرحلات لـ :name",
     "Trip reminders turned on for :name": "تم تشغيل تذكيرات الرحلات لـ :name",
     "Trip reminders turned off for :name": "تم إيقاف تذكيرات الرحلات لـ :name",
-    "The same switch is on each person under Settings → Users (⋮ → Lock trip details), with their trip reminders.": "المفتاح نفسه موجود لكل شخص في الإعدادات ← المستخدمون (⋮ ← قفل تفاصيل الرحلات)، مع تذكيرات الرحلات الخاصة به."
+    "The same switch is on each person under Settings → Users (⋮ → Lock trip details), with their trip reminders.": "المفتاح نفسه موجود لكل شخص في الإعدادات ← المستخدمون (⋮ ← قفل تفاصيل الرحلات)، مع تذكيرات الرحلات الخاصة به.",
+    "Trip :trip has no car yet — pick it below, save, then start.": "الرحلة :trip بلا سيارة بعد — اخترها أدناه واحفظ ثم ابدأ.",
+    "Trip :trip has no driver yet — assign one with Assign driver on the Bookings list, then start.": "الرحلة :trip بلا سائق بعد — عيّنه من «تعيين السائق» في قائمة الحجوزات ثم ابدأ.",
+    "Trip :trip: coupon :code issued for :amount BD.": "الرحلة :trip: تم إصدار القسيمة :code بقيمة :amount د.ب.",
+    "Trip :trip: a refund of :amount BD is due.": "الرحلة :trip: يستحق استرداد :amount د.ب.",
+    "Trip :trip: no refund — the payment is kept.": "الرحلة :trip: لا استرداد — يُحتفظ بالمبلغ المدفوع.",
+    "Booking cancelled.": "تم إلغاء الحجز.",
+    "Trip :trip is no longer open — nothing was changed.": "الرحلة :trip لم تعد مفتوحة — لم يتغير شيء."
 }

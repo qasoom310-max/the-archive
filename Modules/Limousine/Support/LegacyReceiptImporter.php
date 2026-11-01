@@ -109,11 +109,14 @@ final class LegacyReceiptImporter
         // The old system reused receipt numbers: the same L-RCPT number can be
         // two different payments (other trip, other amount). Only the same
         // number for the same money on the same day and trip is a repeat —
-        // the register itself lists a few receipts twice.
+        // the register itself lists a few receipts twice. A copy imported
+        // before its booking was on file has no booking: it is the same
+        // payment too, or re-running the register once the booking arrived
+        // would receipt the money a second time.
         $sameNumber = LimoReceipt::query()->where('reference', $reference)->get();
         $repeat = $sameNumber->first(fn (LimoReceipt $r): bool => abs((float) $r->amount - $amount) < 0.001
             && $r->date?->toDateString() === $date?->toDateString()
-            && $r->booking_id === $booking?->id);
+            && ($r->booking_id === $booking?->id || $r->booking_id === null));
         if ($repeat !== null) {
             $result['skipped']++;
 

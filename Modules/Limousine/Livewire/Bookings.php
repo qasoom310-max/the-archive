@@ -342,18 +342,28 @@ final class Bookings extends Component
     {
         $this->guardAccess(Permission::Write);
 
-        $allowed = [
-            LimoLeg::STATUS_CONFIRMED,
-            LimoLeg::STATUS_ACTIVE,
-            LimoLeg::STATUS_COMPLETED,
-            LimoLeg::STATUS_CANCELLED,
+        // Cancelling goes through the cancel dialog alone (TripCancellation:
+        // refund, coupon and the bill), never through here.
+        $order = [
+            LimoLeg::STATUS_QUEUE => 0,
+            LimoLeg::STATUS_CONFIRMED => 1,
+            LimoLeg::STATUS_ACTIVE => 2,
+            LimoLeg::STATUS_COMPLETED => 3,
         ];
-        if (! in_array($to, $allowed, true)) {
+        if (! isset($order[$to]) || $to === LimoLeg::STATUS_QUEUE) {
             return;
         }
 
         $leg = LimoLeg::query()->with('legable')->find($legId);
         if ($leg === null || ! $leg->legable instanceof LimoBooking) {
+            return;
+        }
+
+        // Forward only, from where the trip really is now. The list does not
+        // refresh by itself, so a stale row's button must not drag a trip that
+        // was started from the staff app back to Confirmed, or move one that
+        // was completed or cancelled meanwhile.
+        if (! in_array($leg->status, LimoLeg::OPEN_STATUSES, true) || $order[$to] <= $order[$leg->status]) {
             return;
         }
 
@@ -825,13 +835,13 @@ final class Bookings extends Component
         }
 
         $number = fn (string $key): float => (float) (($this->editLeg[$key] ?? '') === '' ? '0' : $this->editLeg[$key]);
-        $chauffeur = ($this->editLeg['service_type'] ?? '') === LimoLeg::TYPE_CHAUFFEUR;
+        [$wantsHours, $wantsDays] = $this->editLegMultipliers();
 
         return LimoLeg::netFor(
             (string) ($this->editLeg['rate_basis'] ?? LimoLeg::BASIS_TRIP),
             $number('rate'),
-            $chauffeur && ($this->editLeg['hours'] ?? '') !== '' ? $number('hours') : null,
-            $chauffeur ? max(1, (int) (($this->editLeg['days'] ?? '') === '' ? '1' : $this->editLeg['days'])) : 1,
+            $wantsHours && ($this->editLeg['hours'] ?? '') !== '' ? $number('hours') : null,
+            $wantsDays ? max(1, (int) (($this->editLeg['days'] ?? '') === '' ? '1' : $this->editLeg['days'])) : 1,
             $number('discount'),
             $number('vat'),
             (int) (LimoLeg::query()->whereKey($this->editingLegId)->value('units') ?? 1),
@@ -862,6 +872,7 @@ final class Bookings extends Component
         }
 
         $chauffeur = ($this->editLeg['service_type'] ?? '') === LimoLeg::TYPE_CHAUFFEUR;
+        [$wantsHours, $wantsDays] = $this->editLegMultipliers();
 
         $this->validate([
             'editLeg.service_type' => ['required', 'in:transfer,chauffeur'],
@@ -870,8 +881,8 @@ final class Bookings extends Component
             'editLeg.to_location' => [$chauffeur ? 'nullable' : 'required', 'string', 'max:255'],
             'editLeg.to_location_url' => ['nullable', 'url', 'max:500'],
             'editLeg.start_at' => ['required', 'date'],
-            'editLeg.hours' => [$chauffeur ? 'required' : 'nullable', 'numeric', 'min:0.5'],
-            'editLeg.days' => [$chauffeur ? 'required' : 'nullable', 'integer', 'min:1'],
+            'editLeg.hours' => [$wantsHours ? 'required' : 'nullable', 'numeric', 'min:0.5'],
+            'editLeg.days' => [$wantsDays ? 'required' : 'nullable', 'integer', 'min:1'],
             'editLeg.rate' => ['required', 'numeric', 'min:0'],
             'editLeg.rate_basis' => ['required', 'in:trip,hour,day'],
             'editLeg.discount' => ['nullable', 'numeric', 'min:0'],
@@ -894,8 +905,8 @@ final class Bookings extends Component
         $rate = $number('rate');
         $discount = $number('discount');
         $vat = $number('vat');
-        $hours = $chauffeur && ($this->editLeg['hours'] ?? '') !== '' ? $number('hours') : null;
-        $days = $chauffeur ? max(1, (int) (($this->editLeg['days'] ?? '') === '' ? '1' : $this->editLeg['days'])) : 1;
+        $hours = $wantsHours && ($this->editLeg['hours'] ?? '') !== '' ? $number('hours') : null;
+        $days = $wantsDays ? max(1, (int) (($this->editLeg['days'] ?? '') === '' ? '1' : $this->editLeg['days'])) : 1;
 
         $leg->fill([
             'service_type' => (string) $this->editLeg['service_type'],
@@ -928,6 +939,31 @@ final class Bookings extends Component
         $booking->recalcTotal();
         $booking->save();
         $booking->syncPaymentFromAdvance();
+
+        // The invoice follows the price, as on every other path that re-prices
+        // a booking (the booking page, cancelling a trip) — but only one the
+        // booking already has: a quick edit does not raise a bill.
+        $invoice = LimoInvoice::query()->where('booking_id', $booking->id)->first();
+        if ($invoice !== null && $invoice->followTotal((float) $booking->fare)) {
+            $booking->syncPaymentFromAdvance();
+        }
+    }
+
+    /**
+     * Which multipliers the trip being edited takes — the full booking form's
+     * rule (HandlesTripLegs): a chauffeur job always has hours and days; any
+     * other trip has hours when priced per hour and days when priced per day.
+     * Reading them off the service type alone priced an hourly transfer at 0
+     * and a daily one at a single day.
+     *
+     * @return array{bool, bool} [hours, days]
+     */
+    private function editLegMultipliers(): array
+    {
+        $chauffeur = ($this->editLeg['service_type'] ?? '') === LimoLeg::TYPE_CHAUFFEUR;
+        $basis = (string) ($this->editLeg['rate_basis'] ?? LimoLeg::BASIS_TRIP);
+
+        return [$chauffeur || $basis === LimoLeg::BASIS_HOUR, $chauffeur || $basis === LimoLeg::BASIS_DAY];
     }
 
     /**
@@ -1148,6 +1184,16 @@ final class Bookings extends Component
         $leg = LimoLeg::query()->with('legable')->find($this->cancellingId);
         if ($leg === null) {
             $this->closeCancel();
+
+            return;
+        }
+
+        // Cancelled once, and never a trip that ran: a dialog left open while
+        // someone else cancelled or completed the trip must not hand out a
+        // second coupon, or take a refund off the advance twice.
+        if (! in_array($leg->status, LimoLeg::OPEN_STATUSES, true)) {
+            $this->closeCancel();
+            session()->flash('booking_status', __('Trip :trip is no longer open — nothing was changed.', ['trip' => (string) $leg->reference]));
 
             return;
         }

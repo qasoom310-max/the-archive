@@ -1183,6 +1183,23 @@
                                             @foreach ($rateBasisOptions as $opt)<option value="{{ $opt['value'] }}">{{ __($opt['label']) }}</option>@endforeach
                                         </select>
                                     </div>
+                                    {{-- A rate per hour needs the hours, a rate per day the days —
+                                         as on the booking page; a chauffeur job asks for both above. --}}
+                                    @unless ($legIsChauffeur)
+                                        @if (($editLeg['rate_basis'] ?? '') === 'hour')
+                                            <div>
+                                                <label class="{{ $lbl }}">{{ __('Hours') }} *</label>
+                                                <input type="number" step="0.5" min="0.5" wire:model.live="editLeg.hours" class="o-input mt-1 w-full">
+                                                @error('editLeg.hours') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                                            </div>
+                                        @elseif (($editLeg['rate_basis'] ?? '') === 'day')
+                                            <div>
+                                                <label class="{{ $lbl }}">{{ __('Number of days') }} *</label>
+                                                <input type="number" min="1" wire:model.live="editLeg.days" class="o-input mt-1 w-full">
+                                                @error('editLeg.days') <p class="{{ $err }}">{{ $message }}</p> @enderror
+                                            </div>
+                                        @endif
+                                    @endunless
                                     <div>
                                         <label class="{{ $lbl }}">{{ __('Discount (BHD)') }}</label>
                                         <input type="number" step="0.001" min="0" wire:model.live="editLeg.discount" class="o-input mt-1 w-full">

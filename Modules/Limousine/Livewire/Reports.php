@@ -63,8 +63,12 @@ final class Reports extends Component
         $unpaid = LimoInvoice::query()->where('status', '!=', LimoInvoice::STATUS_PAID);
         $outstanding = (float) $unpaid->sum('total') - (float) (clone $unpaid)->sum('amount_paid');
 
-        $collected = (float) LimoReceipt::query()->whereBetween('date', [$this->from, $this->to])->sum('amount');
-        $expenses = (float) LimoExpense::query()->whereBetween('date', [$this->from, $this->to])->sum('amount');
+        // Up to the END of the To day: a business database is SQLite, which keeps
+        // a date as "2026-10-31 00:00:00" — text that sorts after "2026-10-31",
+        // so every receipt and expense of the last day used to drop out.
+        $window = [$this->from, $this->to . ' 23:59:59'];
+        $collected = (float) LimoReceipt::query()->whereBetween('date', $window)->sum('amount');
+        $expenses = (float) LimoExpense::query()->whereBetween('date', $window)->sum('amount');
 
         return [
             'bookingsCount' => (clone $bookings)->count(),

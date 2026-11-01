@@ -116,6 +116,14 @@ final class TripCancellation
      */
     public function cancel(LimoLeg $leg, ?string $reason = null, bool $refundAsCoupon = false): array
     {
+        // Read from the database, not the copy in hand: cancelling twice (two
+        // people, a stale screen) would settle the money twice, and a trip
+        // that was driven is not cancelled at all.
+        $current = LimoLeg::query()->whereKey($leg->getKey())->value('status');
+        if (! in_array($current, LimoLeg::OPEN_STATUSES, true)) {
+            return ['outcome' => self::OUTCOME_NONE, 'amount' => 0.0, 'coupon' => null];
+        }
+
         $preview = $this->preview($leg);
         $booking = $leg->legable instanceof LimoBooking ? $leg->legable : null;
 

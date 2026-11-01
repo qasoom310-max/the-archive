@@ -175,6 +175,25 @@ final class LimoLegacyReceiptImportTest extends TestCase
         $this->assertSame(1, LimoReceipt::query()->where('reference', 'L-RCPT12943')->count());
     }
 
+    /**
+     * Imported once while its booking was not on file yet, then the booking
+     * came over: running the register again must not receipt the same
+     * payment twice.
+     */
+    public function test_a_receipt_imported_before_its_booking_arrived_is_not_imported_again(): void
+    {
+        $importer = app(LegacyReceiptImporter::class);
+        $row = $this->row('L-RCPT13001', '09-Sep-2026', '15501', 'Maryam', '30.000', 'Cash');
+
+        $importer->import($this->csv($row));
+        $this->booking(15501, 'Maryam', 30.0);
+        $again = $importer->import($this->csv($row));
+
+        $this->assertSame(0, $again['imported']);
+        $this->assertStringStartsWith('EXISTS', $again['lines'][0]);
+        $this->assertSame(1, LimoReceipt::query()->where('reference', 'L-RCPT13001')->count());
+    }
+
     /** The old system reused numbers: same L-RCPT, different payment, both are real money. */
     public function test_a_reused_receipt_number_for_a_different_payment_is_still_imported(): void
     {

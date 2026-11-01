@@ -92,7 +92,8 @@ final class TripController
             $trip,
             isset($data['car_id']) ? (int) $data['car_id'] : null,
             isset($data['driver_id']) ? (int) $data['driver_id'] : null,
-            isset($data['driver_payment']) ? (string) $data['driver_payment'] : '',
+            // Not sent (the app has no pay field): the pay already agreed stays.
+            isset($data['driver_payment']) ? (string) $data['driver_payment'] : null,
         );
 
         if ($result['errors'] !== []) {

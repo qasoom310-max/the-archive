@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Http\Controllers;
 
-use Illuminate\Contracts\View\View;
+use App\Erp\Tenancy\WorkspaceManager;
+use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Services\ServiceOrderPdf;
+use Modules\Limousine\Services\ServiceOrderSender;
 
 /**
  * The customer's side of a Service Order: open the emailed link, check the trip
@@ -27,19 +31,29 @@ use Modules\Limousine\Services\ServiceOrderPdf;
  *
  * Signing is once-only. A second visit shows the completed order rather than
  * offering a fresh pad, so an existing proof can never be quietly overwritten.
+ *
+ * Everything runs in the business database the link names (`ws`, signed with
+ * the rest — see ServiceOrderSender::signUrl): the customer is signed out, and
+ * a signed-out visitor is otherwise on Main.
  */
 final class ServiceOrderSignController
 {
     /** GET — show the trip and, if unsigned, the signature pad. */
-    public function show(int $leg): View
+    public function show(int $leg, Request $request): Response
     {
-        $model = $this->leg($leg);
-
-        return view('limousine::service-order-sign', $this->viewData($model));
+        // Rendered inside the business: the page reads the trip's relations.
+        return $this->inBusiness($request, fn (): Response => response(
+            view('limousine::service-order-sign', $this->viewData($this->leg($leg), $request))->render(),
+        ));
     }
 
     /** POST — store the drawn signature. */
     public function store(int $leg, Request $request): RedirectResponse
+    {
+        return $this->inBusiness($request, fn (): RedirectResponse => $this->sign($leg, $request));
+    }
+
+    private function sign(int $leg, Request $request): RedirectResponse
     {
         $model = $this->leg($leg);
 
@@ -78,14 +92,34 @@ final class ServiceOrderSignController
     }
 
     /** GET — the signed PDF, so the customer keeps their own copy. */
-    public function pdf(int $leg, ServiceOrderPdf $pdf): \Illuminate\Http\Response
+    public function pdf(int $leg, Request $request, ServiceOrderPdf $pdf): Response
     {
-        $model = $this->leg($leg);
+        return $this->inBusiness($request, function () use ($leg, $pdf): Response {
+            $model = $this->leg($leg);
 
-        return response($pdf->render($model), 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="' . $pdf->filename($model) . '"',
-        ]);
+            return response($pdf->render($model), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="' . $pdf->filename($model) . '"',
+            ]);
+        });
+    }
+
+    /** The business the link names; a link without one stays on Main. */
+    private function business(Request $request): ?int
+    {
+        $ws = $request->query('ws');
+
+        return is_string($ws) && ctype_digit($ws) ? (int) $ws : null;
+    }
+
+    /**
+     * @template T
+     * @param  Closure(): T  $callback
+     * @return T
+     */
+    private function inBusiness(Request $request, Closure $callback): mixed
+    {
+        return app(WorkspaceManager::class)->runFor($this->business($request), $callback);
     }
 
     private function leg(int $leg): LimoLeg
@@ -96,8 +130,17 @@ final class ServiceOrderSignController
     /**
      * @return array<string, mixed>
      */
-    private function viewData(LimoLeg $leg): array
+    private function viewData(LimoLeg $leg, Request $request): array
     {
+        // The copy to keep is behind the same kind of signed link: the page's
+        // own address without its signature was always refused (403).
+        $ws = $this->business($request);
+        $pdfUrl = URL::temporarySignedRoute(
+            'limousine.service_order.customer_pdf',
+            Carbon::now()->addDays(ServiceOrderSender::LINK_DAYS),
+            $ws === null ? ['leg' => $leg->id] : ['leg' => $leg->id, 'ws' => $ws],
+        );
+
         $booking = $leg->legable instanceof LimoBooking ? $leg->legable : null;
 
         $customerName = '';
@@ -121,6 +164,7 @@ final class ServiceOrderSignController
             'dropoff' => (string) ($leg->to_location ?? ''),
             'amount' => (float) $leg->net_amount,
             'signatureUrl' => $leg->signatureUrl(),
+            'pdfUrl' => $pdfUrl,
         ];
     }
 

@@ -170,6 +170,20 @@ final class WorkspaceManager
     }
 
     /**
+     * The BUSINESS database in use right now ({@see activeWorkspaceId()}), or
+     * null on Main — for a link that must bring someone back to it later
+     * (a signed customer link, a payment callback). Main needs no id: a
+     * request with none already lands there.
+     */
+    public function activeTenantId(): ?int
+    {
+        $id = $this->activeWorkspaceId();
+        $workspace = $id !== null ? $this->find($id) : null;
+
+        return $workspace === null || $workspace->is_main ? null : (int) $workspace->id;
+    }
+
+    /**
      * The workspace selected by the request cookie, defaulting to Main.
      */
     public function current(): Workspace

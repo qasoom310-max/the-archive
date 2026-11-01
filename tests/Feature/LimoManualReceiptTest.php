@@ -10,8 +10,10 @@ use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Livewire\Livewire;
 use Modules\Limousine\Livewire\ReceiptForm;
 use Modules\Limousine\Livewire\Receipts;
+use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoInvoice;
+use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Models\LimoReceipt;
 use Tests\TestCase;
 
@@ -232,6 +234,46 @@ final class LimoManualReceiptTest extends TestCase
         // who ReceiptForm itself would let in.
         $this->asAdmin();
         Livewire::test(Receipts::class)->set('tab', 'all')->assertDontSee(__('Edit'));
+    }
+
+    /**
+     * A receipt put on the wrong invoice and moved to the right one takes its
+     * money off the first — which used to stay marked paid, booking and all.
+     */
+    public function test_moving_a_receipt_to_another_invoice_unpays_the_first(): void
+    {
+        $customer = LimoCustomer::query()->create(['name' => 'Helen Friberg']);
+        $booking = LimoBooking::query()->create([
+            'reference' => 'BK/04500', 'customer_id' => $customer->id, 'pickup_at' => now()->addDay(),
+            'status' => LimoBooking::STATUS_CONFIRMED,
+        ]);
+        LimoLeg::query()->create([
+            'legable_type' => LimoBooking::class, 'legable_id' => $booking->id, 'sequence' => 0,
+            'status' => LimoLeg::STATUS_CONFIRMED, 'start_at' => now()->addDay(), 'from_location' => 'Airport',
+            'rate' => 45, 'net_amount' => 45,
+        ]);
+        $booking->recalcTotal();
+        $booking->save();
+        $wrong = $booking->createInvoice();
+        $right = $this->invoice();
+
+        $this->asOwner();
+        $receipt = LimoReceipt::query()->create([
+            'invoice_id' => $wrong->id, 'customer_id' => $wrong->customer_id,
+            'date' => now(), 'amount' => 45, 'method' => 'cash',
+        ]);
+        $wrong->recomputePaid();
+        $this->assertSame(LimoBooking::PAYMENT_PAID, $booking->refresh()->payment_status);
+
+        Livewire::test(ReceiptForm::class, ['id' => $receipt->id])
+            ->set('invoice_id', $right->id)
+            ->set('amount', '45')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame(LimoInvoice::STATUS_PAID, $right->refresh()->status);
+        $this->assertSame(LimoInvoice::STATUS_UNPAID, $wrong->refresh()->status);
+        $this->assertSame(LimoBooking::PAYMENT_UNPAID, $booking->refresh()->payment_status);
     }
 
     public function test_the_invoice_field_is_searchable(): void

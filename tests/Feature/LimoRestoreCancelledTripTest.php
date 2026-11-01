@@ -114,8 +114,13 @@ final class LimoRestoreCancelledTripTest extends TestCase
         $leg = $this->trip(30, '3 days', paid: false);
         $booking = LimoBooking::query()->findOrFail($leg->legable_id);
 
+        // Cancelling reloads the page (the trips below change status and price)…
         Livewire::test(BookingForm::class, ['id' => $booking->id])
             ->call('cancelBooking')
+            ->assertRedirect(url('/app/limousine/booking/' . $booking->id));
+
+        // …which then offers Restore.
+        Livewire::test(BookingForm::class, ['id' => $booking->id])
             ->assertSeeHtml('data-restore-booking')
             ->call('restoreBooking')
             ->assertHasNoErrors();

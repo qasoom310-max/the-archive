@@ -256,7 +256,9 @@ final class LimoPerformance
 
         $rows = DB::table('limo_petty_advances')
             ->whereIn('driver_id', array_keys($ids))
-            ->whereBetween('date', [$start->toDateString(), $start->endOfYear()->toDateString()])
+            // To the end of 31 December: SQLite keeps "YYYY-12-31 00:00:00", which
+            // sorts after "YYYY-12-31" and dropped that day's advances.
+            ->whereBetween('date', [$start->toDateString(), $start->endOfYear()->toDateString() . ' 23:59:59'])
             ->selectRaw('driver_id, COALESCE(SUM(amount), 0) as advanced')
             ->groupBy('driver_id')
             ->get();

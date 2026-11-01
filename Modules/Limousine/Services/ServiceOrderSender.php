@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Limousine\Services;
 
 use App\Erp\Settings\Setting;
+use App\Erp\Tenancy\WorkspaceManager;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
@@ -107,13 +108,23 @@ final class ServiceOrderSender
         return $customer === null || ! $customer->isCompany();
     }
 
-    /** The temporary signed signing URL for this leg. */
+    /**
+     * The temporary signed signing URL for this leg.
+     *
+     * The business database the trip lives in rides along as `ws` — inside
+     * the signature, so it cannot be edited. The customer opens the link
+     * signed out, and a signed-out visitor is otherwise always on Main, where
+     * this trip is not: the page used to answer 404, or show another
+     * database's trip with the same number.
+     */
     public function signUrl(LimoLeg $leg): string
     {
+        $ws = app(WorkspaceManager::class)->activeTenantId();
+
         return URL::temporarySignedRoute(
             'limousine.service_order.sign',
             Carbon::now()->addDays(self::LINK_DAYS),
-            ['leg' => $leg->id],
+            $ws === null ? ['leg' => $leg->id] : ['leg' => $leg->id, 'ws' => $ws],
         );
     }
 

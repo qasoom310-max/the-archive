@@ -53,6 +53,9 @@
                         class="o-btn-primary text-sm">{{ __('Restore to queue') }}</button>
                 @endif
             </div>
+            @error('start')
+                <p class="w-full text-sm text-red-600" data-start-error>{{ $message }}</p>
+            @enderror
             @error('restore')
                 <p class="w-full text-sm text-red-600">{{ $message }}</p>
             @enderror

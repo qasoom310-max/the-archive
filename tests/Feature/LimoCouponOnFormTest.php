@@ -192,6 +192,45 @@ final class LimoCouponOnFormTest extends TestCase
         $this->assertSame(1, $coupon->redemptions()->count());
     }
 
+    /**
+     * Credit is not money handed over: it used to come out as a cash receipt
+     * (and be emailed as a payment), because it lands on the advance too.
+     */
+    public function test_coupon_credit_is_never_receipted_as_cash(): void
+    {
+        $this->coupon(45);
+
+        $this->form($this->customer())
+            ->set('couponCode', 'CPN-0001')
+            ->call('applyCoupon')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame(0, \Modules\Limousine\Models\LimoReceipt::query()->count());
+    }
+
+    public function test_with_cash_and_a_coupon_only_the_cash_is_receipted(): void
+    {
+        LimoCoupon::query()->create([
+            'code' => 'CPN-0002',
+            'leg_reference' => '10001',
+            'amount' => 20,
+            'expires_at' => now()->addMonths(12),
+        ]);
+
+        $this->form($this->customer())
+            ->set('advance', '10')
+            ->set('payment_method', 'cash')
+            ->set('couponCode', 'CPN-0002')
+            ->call('applyCoupon')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $booking = LimoBooking::query()->firstOrFail();
+        $this->assertSame(30.0, $booking->advance);
+        $this->assertSame([10.0], \Modules\Limousine\Models\LimoReceipt::query()->pluck('amount')->map(static fn ($a): float => (float) $a)->all());
+    }
+
     /** A code typed but never applied must not be spent by pressing Save. */
     public function test_an_unapplied_code_is_not_spent(): void
     {

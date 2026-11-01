@@ -387,12 +387,14 @@ final class BookingForm extends Component
         // A coupon carried in from the Refund coupons page is spent HERE, once
         // there is a priced booking for it to come off. Applying it any earlier
         // would be crediting a fare that did not exist yet.
-        $creditNote = $this->spendCarriedCoupon($booking);
+        [$creditNote, $credited] = $this->spendCarriedCoupon($booking);
 
         // The receipt for money taken here — full fare, half of it, whatever
         // was handed over. Issued AFTER the legs priced the job, so the balance
-        // printed on it is the real one.
-        $receipt = $this->receiptForNewMoney($booking, $advanceBefore);
+        // printed on it is the real one. The coupon's credit also lands on the
+        // advance, but it is not money handed over: it used to be receipted —
+        // and emailed — as a cash payment.
+        $receipt = $this->receiptForNewMoney($booking, $advanceBefore + $credited);
         // The amount is left off on purpose: the banner is read over shoulders
         // and copied into chats; the receipt itself carries the figure.
         $receiptNote = $receipt === null ? '' : (string) __('Receipt :reference issued.', [
@@ -454,13 +456,16 @@ final class BookingForm extends Component
      * silently applying somebody's credit, or silently failing to, are both
      * worse than a sentence about it.
      */
-    private function spendCarriedCoupon(LimoBooking $booking): string
+    /**
+     * @return array{string, float} what to say, and how much credit went on
+     */
+    private function spendCarriedCoupon(LimoBooking $booking): array
     {
         // The CHECKED code, not whatever is sitting in the box: a half-typed
         // one that was never applied must not be spent by pressing Save.
         $code = trim((string) ($this->couponAccepted ?? ''));
         if ($code === '') {
-            return '';
+            return ['', 0.0];
         }
 
         $redeemer = app(CouponRedeemer::class);
@@ -472,19 +477,20 @@ final class BookingForm extends Component
         $this->couponAccepted = null;
 
         if ($result['ok'] !== true) {
-            return (string) __('Coupon :code not applied — :why', [
+            return [(string) __('Coupon :code not applied — :why', [
                 'code' => $code,
                 'why' => $redeemer->errorMessage((string) ($result['error'] ?? '')),
-            ]);
+            ]), 0.0];
         }
 
         $this->payment_status = (string) $booking->fresh()->payment_status;
+        $applied = round((float) ($result['applied'] ?? 0), 3);
 
-        return (string) __('Coupon :code applied: :amount off, :left left on it.', [
+        return [(string) __('Coupon :code applied: :amount off, :left left on it.', [
             'code' => $code,
-            'amount' => ValueFormat::money((float) ($result['applied'] ?? 0)),
+            'amount' => ValueFormat::money($applied),
             'left' => ValueFormat::money((float) ($result['remaining'] ?? 0)),
-        ]);
+        ]), $applied];
     }
 
     /**
@@ -637,7 +643,7 @@ final class BookingForm extends Component
     public function confirm(): void
     {
         $this->guardAccess(Permission::Write);
-        $this->transition(LimoBooking::STATUS_CONFIRMED);
+        $this->transition(LimoBooking::STATUS_CONFIRMED, [LimoLeg::STATUS_QUEUE]);
     }
 
     /**
@@ -649,34 +655,84 @@ final class BookingForm extends Component
     {
         $this->guardAccess(Permission::Write);
 
-        $unassigned = [];
-        foreach ($this->legs as $i => $leg) {
-            if (($leg['car_id'] ?? '') === '' || $leg['car_id'] === null) {
-                $unassigned[] = $i;
-            }
+        $booking = $this->id !== null ? LimoBooking::query()->find($this->id) : null;
+        if ($booking === null) {
+            return;
         }
 
-        if ($unassigned !== []) {
-            foreach ($unassigned as $i) {
-                $this->addError("legs.$i.car_id", __('Assign a car before starting the trip.'));
+        // Starting needs a car on every trip that starts. Read from the
+        // database, and only for the trips that will actually start: a
+        // cancelled or finished one holds nothing up (it used to block the
+        // button, with nothing on screen to say why), and a car put on from
+        // the list since this page was opened counts.
+        $starting = [LimoLeg::STATUS_QUEUE, LimoLeg::STATUS_CONFIRMED];
+        $carless = $booking->legs()->whereIn('status', $starting)->whereNull('car_id')
+            ->orderBy('sequence')
+            ->get(['id', 'reference']);
+
+        if ($carless->isNotEmpty()) {
+            foreach ($this->legs as $i => $leg) {
+                if ($carless->contains('id', (int) ($leg['id'] ?? 0))) {
+                    $this->addError("legs.$i.car_id", __('Assign a car before starting the trip.'));
+                }
             }
+            $this->addError('start', __('Trip :trip has no car yet — pick it below, save, then start.', ['trip' => (string) $carless->first()->reference]));
 
             return;
         }
 
-        $this->transition(LimoBooking::STATUS_ACTIVE);
+        $this->transition(LimoBooking::STATUS_ACTIVE, $starting);
     }
 
     public function complete(): void
     {
         $this->guardAccess(Permission::Write);
-        $this->transition(LimoBooking::STATUS_COMPLETED);
+        $this->transition(LimoBooking::STATUS_COMPLETED, LimoLeg::OPEN_STATUSES);
     }
 
+    /**
+     * Cancel every trip still to run, each the way the Bookings list cancels
+     * one (TripCancellation): the refund or coupon rule applied, the trip off
+     * the bill, the invoice following. A trip already driven stays completed.
+     * Setting the statuses directly used to leave the fare, the invoice and
+     * any refund exactly as they were.
+     */
     public function cancelBooking(): void
     {
         $this->guardAccess(Permission::Write);
-        $this->transition(LimoBooking::STATUS_CANCELLED);
+
+        $booking = $this->id !== null ? LimoBooking::query()->find($this->id) : null;
+        if ($booking === null) {
+            return;
+        }
+
+        $cancellation = app(TripCancellation::class);
+        $said = [];
+        $legs = $booking->legs()->whereIn('status', LimoLeg::OPEN_STATUSES)->orderBy('sequence')->get();
+        foreach ($legs as $leg) {
+            // Each trip reads the booking afresh: the one before may have
+            // changed what is paid and owed.
+            $result = $cancellation->cancel($leg);
+            $said[] = match ($result['outcome']) {
+                TripCancellation::OUTCOME_COUPON => __('Trip :trip: coupon :code issued for :amount BD.', [
+                    'trip' => (string) $leg->reference,
+                    'code' => $result['coupon'] !== null ? $result['coupon']->code : '',
+                    'amount' => number_format($result['amount'], 3),
+                ]),
+                TripCancellation::OUTCOME_REFUNDED => __('Trip :trip: a refund of :amount BD is due.', [
+                    'trip' => (string) $leg->reference,
+                    'amount' => number_format($result['amount'], 3),
+                ]),
+                TripCancellation::OUTCOME_FORFEITED => __('Trip :trip: no refund — the payment is kept.', ['trip' => (string) $leg->reference]),
+                default => null,
+            };
+        }
+
+        // This page follows at once, then reloads so the trips below show their
+        // new status and price.
+        $this->withBooking(static function (): void {});
+        session()->flash('toast', trim(__('Booking cancelled.') . ' ' . implode(' ', array_filter($said))));
+        $this->redirect(url('/app/limousine/booking/' . $booking->id), navigate: true);
     }
 
     /**
@@ -708,16 +764,24 @@ final class BookingForm extends Component
      * Move the whole booking, legs and all.
      *
      * Legs are dispatched individually from the queue, but the buttons on this
-     * sheet act on the job as a whole — so the status is pushed DOWN to every
-     * leg rather than set on the parent alone. Without that the booking and its
-     * legs would disagree, and `syncStatusFromLegs()` would immediately undo it.
-     * Cancelled legs are left cancelled.
+     * sheet act on the job as a whole — so the status is pushed DOWN to the
+     * legs rather than set on the parent alone, and the booking then
+     * summarises them. Only legs still behind the new status move: a trip
+     * already driven or cancelled is a record of what happened, and pressing
+     * Confirm or Start on the booking used to drag a completed trip back.
+     *
+     * @param  list<string>  $from  the leg statuses that move
      */
-    private function transition(string $status): void
+    private function transition(string $status, array $from): void
     {
-        $this->withBooking(function (LimoBooking $b) use ($status): void {
-            $b->legs()->where('status', '!=', LimoLeg::STATUS_CANCELLED)->update(['status' => $status]);
-            $b->setStatus($status);
+        $this->withBooking(function (LimoBooking $b) use ($status, $from): void {
+            $b->legs()->whereIn('status', $from)->update(['status' => $status]);
+
+            if ($b->legs()->exists()) {
+                $b->syncStatusFromLegs();
+            } else {
+                $b->setStatus($status);
+            }
         });
     }
 

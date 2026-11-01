@@ -165,13 +165,16 @@ final class ServiceOrderPortalClient
      * Which database this link was raised in, so the paid-callback re-enters it.
      * Main answers null (the callback's `runFor(null)` is a no-op that stays on
      * Main); a tenant answers its id.
+     *
+     * The database IN USE, not the browser's cookie: the WhatsApp assistant
+     * raises links inside the business's database (the webhook's runFor) with
+     * no cookie at all, so the cookie said Main — and the customer's payment
+     * came back to Main, where the booking is not.
      */
     private function workspaceId(): ?int
     {
         try {
-            $workspace = app(WorkspaceManager::class)->current();
-
-            return $workspace->is_main ? null : (int) $workspace->getKey();
+            return app(WorkspaceManager::class)->activeTenantId();
         } catch (Throwable) {
             return null;
         }

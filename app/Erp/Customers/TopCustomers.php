@@ -76,7 +76,10 @@ final class TopCustomers
         ],
         'limousine' => [
             'jobs' => 'limo_bookings',
-            'customers' => 'limo_customers',
+            // Limousine customers live in the shared customer table since the
+            // June merge (LimoCustomer). Pointing at the dropped limo_customers
+            // left this panel empty for everyone.
+            'customers' => 'rental_customers',
             'date' => 'pickup_at',
             'amount' => 'fare',
             // The summary page, not the edit form: this is a call sheet, and

@@ -143,6 +143,34 @@ final class LimoServiceOrderPortalTest extends TestCase
         });
     }
 
+    /**
+     * A link raised inside a business's database with no browser behind it —
+     * the WhatsApp assistant — names that business, so the payment comes back
+     * to it. It used to read the cookie, which says Main.
+     */
+    public function test_a_link_raised_inside_a_business_names_that_business(): void
+    {
+        $manager = app(\App\Erp\Tenancy\WorkspaceManager::class);
+        $workspace = $manager->provision('Wanaan', User::factory()->create(['is_admin' => true, 'is_super_admin' => true]), ['limousine']);
+
+        try {
+            Http::fake([
+                '*/wp-json/wanaan/v1/booking' => Http::response(['url' => 'https://wanaan-bh.com/service-order/t1', 'token' => 't1'], 200),
+            ]);
+
+            $manager->withTenant((string) $workspace->databasePath(), function (): void {
+                $this->enablePortal();
+                $this->assertTrue(app(ServiceOrderPortalClient::class)->push($this->link($this->trip())));
+            });
+
+            Http::assertSent(static fn ($request): bool => (json_decode($request->body(), true)['ws'] ?? null) === $workspace->id);
+        } finally {
+            foreach (glob(storage_path('app/workspaces') . '/*.sqlite') ?: [] as $file) {
+                @unlink($file);
+            }
+        }
+    }
+
     public function test_the_callback_settles_the_booking_and_marks_the_link_paid(): void
     {
         $this->enablePortal();

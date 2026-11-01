@@ -2788,6 +2788,29 @@ trips", start/end) and the store builds are milestones 2–3.
 | Helper | `WorkspaceManager::activeWorkspaceId()` — the tenant connection's file first, then the cookie (for jobs dispatched from scheduled tasks) |
 | Tests | `tests/Feature/StaffAppApiTest.php` (25 — real tokens, not `Sanctum::actingAs`, which can't mock the final token model) |
 
+**Limousine bug hunt fixes (2026-11-01).** Found by the bug-hunt finders and
+verified by reading the code; each has a test. Rules to keep:
+- **`TripCrew::assign($pay = null)`** means "the caller has no pay field" (the staff app). The amount agreed with the SAME driver stays, and the driver's pay type is left alone. A different driver starts with none. `''` still means "no pay".
+- **Quick edit** (`Bookings::saveEditedLeg` / `editLegTotal`) uses `editLegMultipliers()`, the same rule as the full form: hours when chauffeur or per-hour, days when chauffeur or per-day. The dialog shows Hours / Number of days for an hourly or daily transfer. The invoice follows the price, but only an invoice the booking already has (`followTotal`): a quick edit never raises one.
+- **Booking page buttons** (`BookingForm::transition($status, $from)`) move only legs still behind (Confirm: queue; Start: queue+confirmed; Complete: open). A completed or cancelled leg is never rewritten.
+  - Start checks cars in the DATABASE, only on the legs that start, with a visible `start` error. It still needs only the car: car+driver is the stashed, owner-undecided change.
+  - **Cancel** goes through `TripCancellation::cancel()` for every open leg (refund/coupon rule, re-price, invoice), then reloads the page.
+- **Cancelling twice is impossible.** `TripCancellation::cancel()` re-reads the status and returns OUTCOME_NONE for a leg that isn't open. `Bookings::confirmCancel` says "no longer open".
+- **`Bookings::advanceLeg`** goes forward only and never touches a closed leg. It never cancels: cancelling is the dialog's job.
+- **Coupon credit** spent on the booking form also lands on the advance. `receiptForNewMoney` is given `advanceBefore + credited`, so only money handed over is receipted and emailed.
+- **`ReceiptForm`** moving a receipt to another invoice recomputes the OLD invoice too. Both bookings re-run `syncPaymentFromAdvance()`, because an invoice only ever marks its booking paid.
+- **Links that must come back to a business** use `WorkspaceManager::activeTenantId()` (the database in use, null on Main), never the cookie (`current()`). Webhooks, jobs and signed-out customers have no cookie.
+  - Payment links: `ServiceOrderPortalClient::workspaceId`.
+  - Customer signing links: `ServiceOrderSender::signUrl` adds a signed `ws`. `ServiceOrderSignController` runs show/store/pdf in `runFor(ws)`, renders inside it, and signs the PDF-copy link (it used to 403).
+- **SQLite date windows:** a `date` column holds `Y-m-d 00:00:00` in the business databases, so an upper bound must be `$to . ' 23:59:59'`. Fixed in the Reports summary and in `LimoPerformance`'s yearly advances.
+- **`TopCustomers` 'limousine'** reads `rental_customers`; `limo_customers` was dropped in June, which left the panel empty.
+- **`LegacyReceiptImporter`:** an earlier copy with no booking counts as the same payment, so re-running the register can't duplicate it.
+- **Left for the owner:**
+  - the petty-cash import drains the float (live figures must be checked first);
+  - Start car+driver;
+  - permission findings (security is parked);
+  - the rest of the unverified list.
+
 **Store rules (App Store + Google Play), same day.** What the two stores require of
 the ERP side:
 - **Notification texts carry no personal data** (Apple 4.5.4): trip number and time only, never the customer's name. Don't add one back.

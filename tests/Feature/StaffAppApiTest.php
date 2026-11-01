@@ -313,6 +313,27 @@ final class StaffAppApiTest extends TestCase
         $this->assertSame(LimoLeg::STATUS_ACTIVE, $leg->fresh()?->status);
     }
 
+    public function test_the_phone_keeps_the_pay_agreed_with_the_driver(): void
+    {
+        $this->signIn($this->staff());
+        $leg = $this->trip();
+        $driver = $this->driver();
+        $payType = $driver->pay_type;
+        // Agreed in the office: this driver, 15 BD for the trip; no car yet.
+        $leg->forceFill(['driver_id' => $driver->id, 'driver' => $driver->name, 'driver_payment' => 15])->saveQuietly();
+
+        // The phone has no pay field: putting the car on keeps the 15 BD, and
+        // the driver's own record is left alone.
+        $this->postJson('/api/app/trips/' . $leg->id . '/assign', ['car_id' => $this->car()->id, 'driver_id' => $driver->id])->assertOk();
+        $this->assertSame(15.0, $leg->refresh()->driver_payment);
+        $this->assertSame($payType, $driver->refresh()->pay_type);
+
+        // Another driver: the 15 BD was agreed with someone else.
+        $other = $this->driver();
+        $this->postJson('/api/app/trips/' . $leg->id . '/assign', ['car_id' => $leg->car_id, 'driver_id' => $other->id])->assertOk();
+        $this->assertNull($leg->refresh()->driver_payment);
+    }
+
     public function test_a_driver_without_a_car_is_refused_with_the_reason(): void
     {
         $this->signIn($this->staff());

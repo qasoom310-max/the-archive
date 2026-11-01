@@ -27,11 +27,13 @@ final class TripCrew
     }
 
     /**
-     * @param  string  $pay  the driver's commission for this trip, as typed ('' = none)
+     * @param  string|null  $pay  the driver's commission for this trip, as typed ('' = none); null = the
+     *                           caller has no pay field (the staff app): the amount already agreed stays
+     *                           while the driver does
      * @param  bool  $startRequested  "Start trip" was pressed: going out even before a driver is named
      * @return array{errors: array<'car'|'driver'|'pay', string>, started: bool}
      */
-    public function assign(LimoLeg $leg, ?int $carId, ?int $driverId, string $pay = '', bool $startRequested = false): array
+    public function assign(LimoLeg $leg, ?int $carId, ?int $driverId, ?string $pay = '', bool $startRequested = false): array
     {
         $car = $carId !== null ? Vehicle::query()->find($carId) : null;
         $leg->car_id = $car?->id;
@@ -52,8 +54,15 @@ final class TripCrew
         // is given to them. An amount for a driver on the company's books makes
         // them a commission driver on their record (the owner's rule), with this
         // as their usual amount. No driver, no commission.
-        $pay = trim($pay);
-        if ($driver !== null && $pay !== '') {
+        if ($pay === null) {
+            // Not asked (the staff app has no pay field): the amount agreed with
+            // this driver stands — and the driver's record is left as it is. A
+            // different driver starts with none; it was agreed with someone else.
+            if ($driver === null || $driver->id !== $leg->driver_id) {
+                $leg->driver_payment = null;
+            }
+        } elseif ($driver !== null && trim($pay) !== '') {
+            $pay = trim($pay);
             if (! is_numeric($pay) || (float) $pay < 0 || (float) $pay > 100000) {
                 $leg->save();
 

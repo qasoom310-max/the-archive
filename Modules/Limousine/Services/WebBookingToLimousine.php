@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoLeg;
+use Modules\Limousine\Models\LimoReceipt;
 use Modules\Rental\Models\RentalWebBooking;
 use Modules\Rental\Support\CustomerImporter;
 
@@ -93,6 +94,29 @@ final class WebBookingToLimousine
 
             return $booking->refresh();
         });
+    }
+
+    /**
+     * The customer paid on the website AFTER the desk had already made the
+     * booking a limousine trip: the payment follows to the trip — a receipt,
+     * the booking settled — as it would have at conversion. It used to stay on
+     * the website record, and the trip read unpaid. Skipped when the trip is
+     * already settled (the office may have taken it by hand), so it is never
+     * counted twice.
+     */
+    public function receiveLatePayment(RentalWebBooking $web): ?LimoReceipt
+    {
+        if ($web->limo_booking_id === null || ! $web->isPaidOnline()) {
+            return null;
+        }
+
+        $booking = LimoBooking::query()->find($web->limo_booking_id);
+        $amount = round((float) ($web->total ?? 0.0), 3);
+        if ($booking === null || $amount <= 0.0 || $booking->balanceDue() <= 0.0) {
+            return null;
+        }
+
+        return $this->payments->receive($booking, $amount, 'online', __('Paid on the website') . ' — ' . $web->source_reference);
     }
 
     /** "Chauffeur — SUV (4 hours)" → 4. */

@@ -183,6 +183,13 @@ final class OrderImporter
         if ($amount > 0 && $vat > 0) {
             $order->vat_rate = round($vat / $amount * 100, 2);
         }
+        // The rate the old figures imply, as rental:fix-order-figures sets it.
+        // Without one the order's rate stayed 0, and the first save or car
+        // return re-priced it from 0 × days: total 0, balance 0, marked Paid.
+        $units = $order->billableUnits();
+        if ($amount > 0 && $units > 0) {
+            $order->rate = round($amount / $units, 3);
+        }
         $order->save();
 
         if ($order->state === RentalOrder::STATE_ACTIVE) {

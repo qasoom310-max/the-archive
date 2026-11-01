@@ -213,7 +213,7 @@ final class Reports extends Component
     private function summaryData(): array
     {
         $ordersInRange = RentalOrder::query()
-            ->whereBetween('start_date', [$this->from, $this->to]);
+            ->whereBetween('start_date', [$this->from, $this->to . ' 23:59:59']);
 
         $unpaid = RentalInvoice::query()->where('status', '!=', RentalInvoice::STATUS_PAID);
         $outstanding = (float) $unpaid->sum('total') - (float) (clone $unpaid)->sum('amount_paid');
@@ -222,10 +222,10 @@ final class Reports extends Component
             'ordersCount' => (clone $ordersInRange)->count(),
             'ordersRevenue' => (float) (clone $ordersInRange)->sum('total'),
             'activeNow' => RentalOrder::query()->where('state', RentalOrder::STATE_ACTIVE)->count(),
-            'invoiced' => (float) RentalInvoice::query()->whereBetween('issue_date', [$this->from, $this->to])->sum('total'),
-            'collected' => (float) RentalReceipt::query()->whereBetween('date', [$this->from, $this->to])->sum('amount'),
+            'invoiced' => (float) RentalInvoice::query()->whereBetween('issue_date', [$this->from, $this->to . ' 23:59:59'])->sum('total'),
+            'collected' => (float) RentalReceipt::query()->whereBetween('date', [$this->from, $this->to . ' 23:59:59'])->sum('amount'),
             'outstanding' => round($outstanding, 3),
-            'maintenanceSpend' => (float) RentalMaintenance::query()->whereBetween('date', [$this->from, $this->to])->sum('cost'),
+            'maintenanceSpend' => (float) RentalMaintenance::query()->whereBetween('date', [$this->from, $this->to . ' 23:59:59'])->sum('cost'),
         ];
     }
 
@@ -246,12 +246,12 @@ final class Reports extends Component
         } elseif ($this->tab === 'orders') {
             $data['orders'] = RentalOrder::query()
                 ->with(['customer:id,name', 'vehicle:id,name,plate_no,color'])
-                ->whereBetween('start_date', [$this->from, $this->to])
+                ->whereBetween('start_date', [$this->from, $this->to . ' 23:59:59'])
                 ->orderBy('start_date')
                 ->get();
         } elseif ($this->tab === 'vehicles') {
             $rows = RentalOrder::query()
-                ->whereBetween('start_date', [$this->from, $this->to])
+                ->whereBetween('start_date', [$this->from, $this->to . ' 23:59:59'])
                 ->whereNotNull('vehicle_id')
                 ->selectRaw('vehicle_id, COUNT(*) as orders_count, SUM(total) as revenue, SUM(days) as days_out')
                 ->groupBy('vehicle_id')
@@ -272,7 +272,7 @@ final class Reports extends Component
         } elseif ($this->tab === 'customers') {
             $data['customers'] = RentalOrder::query()
                 ->with('customer:id,name,phone')
-                ->whereBetween('start_date', [$this->from, $this->to])
+                ->whereBetween('start_date', [$this->from, $this->to . ' 23:59:59'])
                 ->whereNotNull('customer_id')
                 ->selectRaw('customer_id, COUNT(*) as orders_count, SUM(total) as revenue')
                 ->groupBy('customer_id')

@@ -24,7 +24,7 @@ final class RentalReportExportController
 
         $orders = RentalOrder::query()
             ->with(['customer:id,name', 'vehicle:id,name,plate_no,color'])
-            ->whereBetween('start_date', [$from, $to])
+            ->whereBetween('start_date', [$from, $to . ' 23:59:59'])
             ->orderBy('start_date')
             ->get();
 

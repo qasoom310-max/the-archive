@@ -221,6 +221,29 @@ final class WebBookingServiceTest extends TestCase
         $this->assertSame(1, LimoReceipt::query()->where('booking_id', $booking->id)->count());
     }
 
+    /**
+     * Turned into a trip before the customer paid, then paid on the website:
+     * the money follows to the trip, once — a re-sent "paid" adds nothing.
+     */
+    public function test_a_website_payment_after_conversion_reaches_the_trip_once(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        $this->send($this->limoTrip(['total' => 45.0]));
+        $web = RentalWebBooking::query()->firstOrFail();
+        Livewire::test(WebBookings::class)->call('view', $web->id)->call('createLimoBooking');
+        $booking = LimoBooking::query()->firstOrFail();
+        $this->assertSame(0.0, (float) $booking->advance);
+
+        $paid = $this->limoTrip(['total' => 45.0, 'payment_mode' => 'Tap', 'payment_status' => 'paid']);
+        $this->assertSame(200, $this->send($paid));
+        $this->assertSame(200, $this->send($paid));
+
+        $booking->refresh();
+        $this->assertSame(45.0, (float) $booking->advance);
+        $this->assertSame(LimoBooking::PAYMENT_PAID, $booking->paymentState());
+        $this->assertSame(1, LimoReceipt::query()->where('booking_id', $booking->id)->count());
+    }
+
     public function test_the_trips_customer_is_found_by_phone(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => true]));

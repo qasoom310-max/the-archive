@@ -96,6 +96,7 @@ final class WebBookingController
     private function store(string $reference, array $data): RentalWebBooking
     {
         $booking = RentalWebBooking::query()->firstOrNew(['source_reference' => $reference]);
+        $wasPaid = $booking->exists && $booking->isPaidOnline();
 
         // The line's own details (what the customer filled in on the product
         // page). The fare finder keeps a trip's places and time there, not in
@@ -139,6 +140,13 @@ final class WebBookingController
         }
 
         $booking->save();
+
+        // Paid on the website after the desk had already made it a limousine
+        // trip: the money follows to the trip, once — on the change to paid.
+        if (! $wasPaid && $booking->isPaidOnline() && $booking->limo_booking_id !== null
+            && class_exists(\Modules\Limousine\Services\WebBookingToLimousine::class)) {
+            app(\Modules\Limousine\Services\WebBookingToLimousine::class)->receiveLatePayment($booking);
+        }
 
         return $booking;
     }

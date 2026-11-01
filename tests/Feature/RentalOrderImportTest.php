@@ -56,6 +56,24 @@ final class RentalOrderImportTest extends TestCase
         $this->assertSame(RentalOrder::PAYMENT_PAID, $order->payment_status);
     }
 
+    /**
+     * An imported order carries the rate its figures imply: re-pricing it (a
+     * save, a car return) used to compute 0 × days — total 0, marked Paid.
+     */
+    public function test_an_imported_order_keeps_its_price_when_re_priced(): void
+    {
+        app(OrderImporter::class)->import($this->csv("RO/00103,Qassim,,2026-06-10,2026-06-12,60,10,Active,Partial\n"));
+
+        $order = RentalOrder::query()->firstOrFail();
+        $before = (float) $order->subtotal;
+        $this->assertGreaterThan(0.0, (float) $order->rate);
+
+        $order->recalcTotals();
+
+        $this->assertEqualsWithDelta($before, (float) $order->subtotal, 0.01);
+        $this->assertNotSame(RentalOrder::PAYMENT_PAID, $order->payment_status);
+    }
+
     public function test_a_matching_fleet_vehicle_is_linked_by_name(): void
     {
         $car = Vehicle::query()->create(['name' => 'Toyota Yaris', 'daily_rate' => 10]);

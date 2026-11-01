@@ -110,6 +110,10 @@ final class BookingForm extends Component
     /** Blank, not '0': a typed amount must not land after a zero ("059"). */
     public string $advance = '';
 
+    /** The advance as this page loaded it — see save(). */
+    #[Locked]
+    public string $advanceAtLoad = '';
+
     /** Refund-coupon code being applied against this booking. */
     public string $couponCode = '';
 
@@ -172,6 +176,7 @@ final class BookingForm extends Component
                 $this->prepared_by = $booking->prepared_by ?? '';
                 $this->units = (string) max(1, (int) $booking->num_cars);
                 $this->advance = (float) $booking->advance > 0 ? (string) $booking->advance : '';
+                $this->advanceAtLoad = $this->advance;
                 $this->payment_method = $booking->payment_method ?? 'cash';
                 $this->notes = $booking->notes ?? '';
                 $this->status = $booking->status;
@@ -355,7 +360,14 @@ final class BookingForm extends Component
         // INCREASE is new money, and receipting the rest again would hand the
         // customer a second receipt for a payment they already have one for.
         $advanceBefore = round((float) ($booking->advance ?? 0), 3);
-        $booking->advance = (float) ($this->advance === '' ? '0' : $this->advance);
+        // What the office typed is a CHANGE to the money held since this page
+        // was opened, applied to what is held NOW: writing the typed figure
+        // back used to wipe money recorded meanwhile — an online payment, a
+        // receipt from the list, a coupon spent on an earlier save.
+        $typed = (float) ($this->advance === '' ? '0' : $this->advance);
+        $loaded = (float) ($this->advanceAtLoad === '' ? '0' : $this->advanceAtLoad);
+        $booking->advance = round(max(0.0, $advanceBefore + ($typed - $loaded)), 3);
+        $this->advanceAtLoad = $this->advance;
         $booking->payment_method = $this->trimOrNull($this->payment_method);
         $booking->notes = $this->trimOrNull($this->notes);
         // Header trip basics from the first leg (used by invoicing / the lists).

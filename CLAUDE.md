@@ -2805,6 +2805,13 @@ verified by reading the code; each has a test. Rules to keep:
 - **SQLite date windows:** a `date` column holds `Y-m-d 00:00:00` in the business databases, so an upper bound must be `$to . ' 23:59:59'`. Fixed in the Reports summary and in `LimoPerformance`'s yearly advances.
 - **`TopCustomers` 'limousine'** reads `rental_customers`; `limo_customers` was dropped in June, which left the panel empty.
 - **`LegacyReceiptImporter`:** an earlier copy with no booking counts as the same payment, so re-running the register can't duplicate it.
+- **Booking page saves only what was changed on it** (second batch):
+  - `legCarsAtLoad` (HandlesTripLegs, #[Locked]): a car is written only where the leg's car differs from the one the page loaded with.
+  - `advanceAtLoad` (BookingForm): the typed advance is a CHANGE applied to what is held NOW.
+  - Either way, a car set from the list or the app, an online payment, or an earlier coupon is no longer written over.
+- **Exports:** `TabularRenderer::writeRow()` writes text starting with "=" as text. The library took it for a formula: the download failed, or a crafted note ran as a live formula. Use it for any new spreadsheet writer.
+- **Reports bookings tab + CSV** read route, car type and driver from the trips through the lock (`BookingRouteSummary`); the CSV has a UTF-8 BOM.
+- **Receipts:** a refused email shows in the dialog (it was a 500).
 - **Left for the owner:**
   - the petty-cash import drains the float (live figures must be checked first);
   - Start car+driver;

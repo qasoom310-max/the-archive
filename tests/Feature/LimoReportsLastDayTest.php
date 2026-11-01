@@ -45,4 +45,38 @@ final class LimoReportsLastDayTest extends TestCase
                 && $summary['expenses'] === 12.0
                 && $summary['net'] === 38.0);
     }
+
+    /**
+     * The bookings tab names the route from the trips — the booking-level
+     * fields are empty on everything entered here, so it read "— → —" — and a
+     * held-back trip shows only its countries to someone under the lock.
+     */
+    public function test_the_bookings_tab_names_the_route_from_the_trips(): void
+    {
+        app(ModuleManager::class)->install('limousine');
+        $customer = LimoCustomer::query()->create(['name' => 'Zain']);
+        $booking = \Modules\Limousine\Models\LimoBooking::query()->create([
+            'reference' => 'BK/07001', 'customer_id' => $customer->id, 'pickup_at' => '2026-06-12 09:00:00',
+            'status' => \Modules\Limousine\Models\LimoBooking::STATUS_CONFIRMED, 'fare' => 25,
+        ]);
+        $leg = \Modules\Limousine\Models\LimoLeg::query()->create([
+            'legable_type' => \Modules\Limousine\Models\LimoBooking::class, 'legable_id' => $booking->id, 'sequence' => 0,
+            'status' => \Modules\Limousine\Models\LimoLeg::STATUS_CONFIRMED, 'start_at' => '2026-06-12 09:00:00',
+            'from_location' => 'Seef Mall', 'to_location' => 'Bahrain Airport', 'vehicle_details' => 'Sedan',
+            'rate' => 25, 'net_amount' => 25,
+        ]);
+        $leg->forceFill(['from_country' => 'BH', 'to_country' => 'BH'])->saveQuietly();
+
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        Livewire::test(Reports::class)->set('from', '2026-06-01')->set('to', '2026-06-30')->set('tab', 'bookings')
+            ->assertSee('Seef Mall')
+            ->assertSee('Bahrain Airport');
+
+        $locked = User::factory()->create(['is_admin' => true]);
+        $locked->forceFill(['trip_details_locked' => true])->save();
+        $this->actingAs($locked);
+        Livewire::test(Reports::class)->set('from', '2026-06-01')->set('to', '2026-06-30')->set('tab', 'bookings')
+            ->assertDontSee('Seef Mall')
+            ->assertSee('BK/07001');
+    }
 }

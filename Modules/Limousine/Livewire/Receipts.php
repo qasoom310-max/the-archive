@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
 use Modules\Limousine\Models\LimoReceipt;
 use Modules\Limousine\Services\LimoReceiptPdf;
 use Modules\Limousine\Services\LimoReceiptRows;
+use Throwable;
 
 #[Layout('components.layouts.app')]
 #[Title('Receipts')]
@@ -231,12 +232,20 @@ final class Receipts extends Component
         $pdf = app(LimoReceiptPdf::class);
         $email = trim($this->sendEmail);
 
-        Mail::to($email)->send(new ReceiptMail(
-            receipt: $receipt,
-            companyName: (string) Setting::get('company.name', config('app.name')),
-            pdf: $pdf->render($receipt),
-            filename: $pdf->filename($receipt),
-        ));
+        try {
+            Mail::to($email)->send(new ReceiptMail(
+                receipt: $receipt,
+                companyName: (string) Setting::get('company.name', config('app.name')),
+                pdf: $pdf->render($receipt),
+                filename: $pdf->filename($receipt),
+            ));
+        } catch (Throwable $e) {
+            // Mail leans on something outside the app: a refused message is
+            // said in the dialog, as for quotations, not thrown as a 500.
+            $this->addError('sendEmail', __('Could not send: :reason', ['reason' => $e->getMessage()]));
+
+            return;
+        }
 
         // Learned for next time: the address the office corrected to is the one
         // this customer should be reached at.

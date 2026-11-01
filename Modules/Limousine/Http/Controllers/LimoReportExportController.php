@@ -7,6 +7,7 @@ namespace Modules\Limousine\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Modules\Limousine\Models\LimoBooking;
+use Modules\Limousine\Support\BookingRouteSummary;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -23,7 +24,7 @@ final class LimoReportExportController
         $to = is_string($to) && $to !== '' ? $to : now()->endOfMonth()->format('Y-m-d');
 
         $bookings = LimoBooking::query()
-            ->with(['customer:id,name', 'pickupLocation:id,name', 'dropoffLocation:id,name'])
+            ->with(['customer:id,name', 'pickupLocation:id,name', 'dropoffLocation:id,name', 'legs'])
             ->whereBetween('pickup_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
             ->orderBy('pickup_at')
             ->get();
@@ -36,17 +37,23 @@ final class LimoReportExportController
                 return;
             }
 
+            // Excel reads UTF-8 CSV as mojibake without a BOM — the names are
+            // often Arabic.
+            fwrite($out, "\xEF\xBB\xBF");
             fputcsv($out, ['Reference', 'Customer', 'Pickup', 'Dropoff', 'Pick-up time', 'Car type', 'Driver', 'Fare', 'Status', 'Payment']);
 
             foreach ($bookings as $b) {
+                // From the trips (the booking-level fields are empty on
+                // everything entered in this ERP); held-back places as countries.
+                $route = BookingRouteSummary::of($b);
                 fputcsv($out, [
                     $b->reference,
                     $b->customer?->name,
-                    $b->pickupLocation?->name,
-                    $b->dropoffLocation?->name,
+                    $route['from'],
+                    $route['to'],
                     $b->pickup_at instanceof Carbon ? $b->pickup_at->format('Y-m-d H:i') : '',
-                    $b->car_type,
-                    $b->driver_name,
+                    $route['car_type'],
+                    $route['driver'],
                     $b->fare,
                     $b->status,
                     $b->payment_status,
@@ -54,6 +61,6 @@ final class LimoReportExportController
             }
 
             fclose($out);
-        }, $filename, ['Content-Type' => 'text/csv']);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 }

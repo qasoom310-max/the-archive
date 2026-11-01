@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Http\Controllers;
 
+use App\Erp\Export\TabularRenderer;
 use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -66,11 +67,12 @@ final class LimoQueueExportController
         return response()->streamDownload(function () use ($rows, $headings): void {
             $book = new Spreadsheet();
             $sheet = $book->getActiveSheet();
-            $sheet->fromArray(array_values($headings), null, 'A1');
+            // Cell by cell: text starting with "=" stays text (TabularRenderer).
+            TabularRenderer::writeRow($sheet, array_values($headings), 1);
 
             $line = 2;
             foreach ($rows as $row) {
-                $sheet->fromArray($this->line($row, $headings), null, 'A' . $line);
+                TabularRenderer::writeRow($sheet, $this->line($row, $headings), $line);
                 $line++;
             }
 

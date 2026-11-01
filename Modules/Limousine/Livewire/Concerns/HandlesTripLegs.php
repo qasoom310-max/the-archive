@@ -13,6 +13,7 @@ use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\Locked;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoLeg;
@@ -30,6 +31,17 @@ trait HandlesTripLegs
 {
     /** @var list<array<string, string>> */
     public array $legs = [];
+
+    /**
+     * The car each saved trip had when this page was opened (leg id => car
+     * id, '' for none), so a save writes a car only where it was changed
+     * HERE: one put on from the Bookings list or the staff app while this
+     * page sat open used to be put back to the car the page loaded with.
+     *
+     * @var array<string, string>
+     */
+    #[Locked]
+    public array $legCarsAtLoad = [];
 
     /**
      * @return array<string, string>
@@ -352,6 +364,10 @@ trait HandlesTripLegs
             'vat' => (string) $l->vat,
         ])->all();
 
+        $this->legCarsAtLoad = $parent->legs->mapWithKeys(static fn (LimoLeg $l): array => [
+            (string) $l->id => $l->car_id !== null ? (string) $l->car_id : '',
+        ])->all();
+
         $this->seedLegs();
     }
 
@@ -601,18 +617,22 @@ trait HandlesTripLegs
 
             // The car is only carried through the form where the form actually
             // offers one (quotations). On a booking it is assigned from the
-            // queue, so leaving it out here keeps this from wiping it.
-            if ($carId !== null) {
+            // queue, so leaving it out here keeps this from wiping it — and on
+            // a saved trip it is written only when it was changed on this page.
+            $id = (int) ($leg['id'] ?? 0);
+            $loadedCar = $id > 0 ? ($this->legCarsAtLoad[(string) $id] ?? null) : null;
+            $changedHere = $loadedCar === null || (string) ($leg['car_id'] ?? '') !== $loadedCar;
+            if ($carId !== null && $changedHere) {
                 $attributes['car_id'] = $carId;
                 $attributes['vehicle'] = $carLabels[$carId] ?? null;
             }
 
-            $id = (int) ($leg['id'] ?? 0);
             $row = $id > 0 ? $existing->get($id) : null;
 
             if ($row instanceof LimoLeg) {
                 $row->fill($attributes)->save();
                 $keptIds[] = $row->id;
+                $this->legCarsAtLoad[(string) $row->id] = (string) ($leg['car_id'] ?? '');
 
                 continue;
             }
@@ -627,6 +647,7 @@ trait HandlesTripLegs
             // The form now holds this trip, so saving again updates it
             // instead of adding the same trip a second time.
             $this->legs[$i]['id'] = (string) $created->id;
+            $this->legCarsAtLoad[(string) $created->id] = (string) ($leg['car_id'] ?? '');
         }
 
         // Only legs genuinely taken off the form are removed.

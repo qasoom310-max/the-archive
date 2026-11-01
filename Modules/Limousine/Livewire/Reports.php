@@ -89,7 +89,8 @@ final class Reports extends Component
             $data['summary'] = $this->summaryData();
         } elseif ($this->tab === 'bookings') {
             $data['bookings'] = LimoBooking::query()
-                ->with(['customer:id,name', 'pickupLocation:id,name', 'dropoffLocation:id,name'])
+                // The trips carry the route, car type and driver (BookingRouteSummary).
+                ->with(['customer:id,name', 'pickupLocation:id,name', 'dropoffLocation:id,name', 'legs'])
                 ->whereBetween('pickup_at', [$this->from . ' 00:00:00', $this->to . ' 23:59:59'])
                 ->orderBy('pickup_at')
                 ->get();

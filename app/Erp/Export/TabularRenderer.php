@@ -7,7 +7,10 @@ namespace App\Erp\Export;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Response;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -56,11 +59,11 @@ final class TabularRenderer
         return \response()->streamDownload(function () use ($rows, $headings): void {
             $book = new Spreadsheet();
             $sheet = $book->getActiveSheet();
-            $sheet->fromArray(array_values($headings), null, 'A1');
+            self::writeRow($sheet, array_values($headings), 1);
 
             $line = 2;
             foreach ($rows as $row) {
-                $sheet->fromArray($this->line($row, $headings), null, 'A' . $line);
+                self::writeRow($sheet, $this->line($row, $headings), $line);
                 $line++;
             }
 
@@ -107,6 +110,27 @@ final class TabularRenderer
             'title' => $title,
             'forPdf' => false,
         ]);
+    }
+
+    /**
+     * One spreadsheet row, every cell as what it is. Text that starts with
+     * "=" is written as text: the spreadsheet library otherwise takes it for
+     * a formula, so a note such as "== VIP ==" made the whole download fail,
+     * and a crafted one would run as a live formula on the reader's machine.
+     *
+     * @param  list<string|int|float|null>  $values
+     */
+    public static function writeRow(Worksheet $sheet, array $values, int $row): void
+    {
+        foreach ($values as $i => $value) {
+            $cell = Coordinate::stringFromColumnIndex($i + 1) . $row;
+
+            if (is_string($value) && str_starts_with($value, '=')) {
+                $sheet->setCellValueExplicit($cell, $value, DataType::TYPE_STRING);
+            } else {
+                $sheet->setCellValue($cell, $value);
+            }
+        }
     }
 
     /**

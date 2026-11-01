@@ -54,6 +54,8 @@ final class LimoBookingStatusGuardsTest extends TestCase
             'advance' => $paid ? $total : 0,
             'payment_status' => $paid ? LimoBooking::PAYMENT_PAID : LimoBooking::PAYMENT_UNPAID,
         ]);
+        // What the booking page asks for before it saves.
+        $booking->forceFill(['pax_name' => 'Mr Tan', 'requested_by' => 'Office', 'prepared_by' => 'Office'])->saveQuietly();
 
         foreach ($legs as $i => [$status, $hasCar]) {
             LimoLeg::query()->create([
@@ -67,6 +69,8 @@ final class LimoBookingStatusGuardsTest extends TestCase
                 'to_location' => 'Seef',
                 'car_id' => $hasCar ? $car->id : null,
                 'rate' => $each, 'net_amount' => $each,
+                'estimated_hours' => 2,
+                'vehicle_details' => 'Sedan',
             ]);
         }
         $booking->syncStatusFromLegs();
@@ -154,6 +158,48 @@ final class LimoBookingStatusGuardsTest extends TestCase
         $this->assertSame(TripCancellation::OUTCOME_COUPON, $first['outcome']);
         $this->assertSame(TripCancellation::OUTCOME_NONE, $second['outcome']);
         $this->assertSame(1, LimoCoupon::query()->count());
+    }
+
+    /**
+     * The booking page is open; meanwhile the car is changed from the list or
+     * the staff app. Saving the page (to fix a flight number, say) must not
+     * put the old car back.
+     */
+    public function test_saving_the_page_keeps_a_car_changed_elsewhere_meanwhile(): void
+    {
+        $booking = $this->booking([[LimoLeg::STATUS_CONFIRMED, true]]);
+        $leg = $booking->legs()->sole();
+
+        $page = Livewire::test(BookingForm::class, ['id' => $booking->id]);
+
+        $other = new Vehicle();
+        $other->forceFill(['name' => 'Mercedes V-Class', 'plate_no' => '22222', 'status' => 'available', 'active' => true])->save();
+        $leg->forceFill(['car_id' => $other->id])->saveQuietly();
+
+        $page->set('flight_number', 'GF 509')->call('save')->assertHasNoErrors();
+
+        $this->assertSame($other->id, $leg->refresh()->car_id);
+    }
+
+    /**
+     * Money recorded while the page was open — an online payment — is kept:
+     * what the office types is a change to the money held, not a figure
+     * written over it.
+     */
+    public function test_saving_the_page_keeps_money_recorded_meanwhile(): void
+    {
+        $booking = $this->booking([[LimoLeg::STATUS_CONFIRMED, true]], each: 100.0);
+        $booking->forceFill(['advance' => 30])->save();
+
+        $page = Livewire::test(BookingForm::class, ['id' => $booking->id]);
+
+        // 20 BD paid online meanwhile.
+        $booking->refresh()->forceFill(['advance' => 50])->save();
+
+        // The office takes 10 more in cash on this page: 30 → 40 on screen.
+        $page->set('advance', '40')->call('save')->assertHasNoErrors();
+
+        $this->assertSame(60.0, (float) $booking->refresh()->advance);
     }
 
     public function test_a_stale_list_row_cannot_move_a_trip_back_or_revive_a_closed_one(): void

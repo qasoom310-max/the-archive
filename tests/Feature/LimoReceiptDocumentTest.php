@@ -230,6 +230,23 @@ final class LimoReceiptDocumentTest extends TestCase
         Mail::assertSent(ReceiptMail::class);
     }
 
+    /** A refused email is said in the dialog — it used to be a 500. */
+    public function test_a_mail_server_refusal_is_reported_not_thrown(): void
+    {
+        $receipt = $this->receipt();
+        Mail::shouldReceive('to')->andThrow(new \RuntimeException('550 Mailbox unavailable'));
+
+        Livewire::test(Receipts::class)
+            ->call('openSend', $receipt->id)
+            ->set('sendEmail', 'nobody@example.test')
+            ->call('sendReceipt')
+            ->assertHasErrors('sendEmail')
+            ->assertSet('sendingId', $receipt->id);
+
+        // Not learned as the customer's address: it never went.
+        $this->assertNull($receipt->customer?->fresh()?->email);
+    }
+
     public function test_a_corrected_address_is_remembered_for_next_time(): void
     {
         Mail::fake();

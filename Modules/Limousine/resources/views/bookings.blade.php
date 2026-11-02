@@ -12,6 +12,12 @@
 
 <div class="mx-auto w-full p-4 sm:p-6">
     <x-page-header :title="$pageTitle" :subtitle="__('Trip bookings.')" icon="calendar" accent="indigo">
+        @if ($dayHeader)
+            {{-- How many trips run on the day (cancelled ones left out). --}}
+            <x-slot:badge>
+                <span class="rounded-full bg-indigo-100 px-2.5 py-0.5 text-sm font-semibold text-indigo-700" data-day-count>{{ $dayHeader['count'] === 1 ? __('1 trip') : __(':count trips', ['count' => $dayHeader['count']]) }}</span>
+            </x-slot:badge>
+        @endif
         <x-slot:actions>
             @if ($canManage)
                 <button type="button" onclick="document.getElementById('import-bookings').classList.toggle('hidden')" class="o-btn-ghost">{{ __('Import') }}</button>
@@ -34,11 +40,13 @@
                     aria-label="{{ __('Previous day') }}">
                 <svg class="size-5 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clip-rule="evenodd"/></svg>
                 {{ $dayHeader['previous'] }}
+                <span class="rounded-full bg-indigo-100 px-1.5 text-xs font-semibold" title="{{ __('Trips') }}" data-previous-count>{{ $dayHeader['previousCount'] }}</span>
             </button>
             <button type="button" wire:click="shiftDay(1)"
                     class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-indigo-700 ring-1 ring-indigo-100 transition hover:bg-indigo-50"
                     aria-label="{{ __('Next day') }}">
                 {{ $dayHeader['next'] }}
+                <span class="rounded-full bg-indigo-100 px-1.5 text-xs font-semibold" title="{{ __('Trips') }}" data-next-count>{{ $dayHeader['nextCount'] }}</span>
                 <svg class="size-5 rtl:rotate-180" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M3 10a.75.75 0 0 1 .75-.75h10.638L10.23 5.29a.75.75 0 1 1 1.04-1.08l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 1 1-1.04-1.08l4.158-3.96H3.75A.75.75 0 0 1 3 10Z" clip-rule="evenodd"/></svg>
             </button>
         </div>
@@ -309,12 +317,12 @@
          and actions a job always stays, the rest return as there is room.
            phone  reference (with amount, received and balance under it) ·
                   date · type · customer · amount · pickup · drop off ·
-                  vehicle · added by · payment · actions
+                  vehicle · driver · added by · payment · actions
            sm     + no. · to date
            lg     + received and balance as their own columns (narrower
                   screens show them under the reference — see that cell)
            md     + status
-           lg     everything else (driver, comments,
+           lg     everything else (comments,
                   booked time)
 
          Note the HEADER's width class comes from $vis below while each body
@@ -341,7 +349,8 @@
             'pickup' => '',
             'dropoff' => '',
             'vehicle' => '',
-            'driver' => 'hidden lg:table-cell',
+            // On a phone too (the owner asked): who is driving is checked from the road.
+            'driver' => '',
             'added_by' => '',
             'comments' => 'hidden lg:table-cell',
             'status' => 'hidden md:table-cell',
@@ -604,7 +613,7 @@
                         </td>
                         {{-- Driver is set in the same modal as the car; both are
                              per leg, since each leg is dispatched on its own. --}}
-                        <td class="hidden px-2 py-2 lg:table-cell">
+                        <td class="px-2 py-2">
                             @if ($row['driver'] !== '')
                                 <span class="text-chrome-900">{{ $row['driver'] }}</span>
                             @elseif ($mayEdit)

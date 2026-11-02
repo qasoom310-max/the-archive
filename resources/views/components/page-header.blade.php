@@ -51,7 +51,10 @@
             </span>
         @endif
         <div>
-            <h1 class="text-xl font-bold tracking-tight text-chrome-900">{{ $title }}</h1>
+            <div class="flex flex-wrap items-center gap-2">
+                <h1 class="text-xl font-bold tracking-tight text-chrome-900">{{ $title }}</h1>
+                @isset($badge){{ $badge }}@endisset
+            </div>
             @if ($subtitle)<p class="text-sm text-chrome-500">{{ $subtitle }}</p>@endif
         </div>
     </div>

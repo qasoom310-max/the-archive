@@ -450,6 +450,52 @@ final class LimoQueuePhoneColumnsTest extends TestCase
         \Illuminate\Support\Carbon::setTestNow();
     }
 
+    /** Who is driving is checked from the road, so it shows on a phone. */
+    public function test_the_driver_column_shows_on_a_phone(): void
+    {
+        $this->trip();
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        $heading = $this->cellAround($html, 'Sort by Driver');
+        $this->assertStringNotContainsString('hidden', (string) strtok($heading, '>'), 'The Driver heading is still hidden on a phone.');
+        // The cell carries the same width as its heading (pinned below), and
+        // offers Assign when nobody is set.
+        $this->assertStringContainsString('Assign driver', $html);
+    }
+
+    /**
+     * A day page says how many trips run that day, and each arrow how many run
+     * on the day it leads to, counted as the dashboard cards count them:
+     * cancelled trips and quotations left out.
+     */
+    public function test_a_day_page_shows_the_trips_on_it_and_on_the_days_either_side(): void
+    {
+        \Illuminate\Support\Carbon::setTestNow('2026-09-26 10:00:00');
+        $customer = LimoCustomer::query()->create(['name' => 'Helen Friberg', 'phone' => '33112233']);
+        $booking = LimoBooking::query()->create(['customer_id' => $customer->id, 'status' => LimoBooking::STATUS_QUEUE]);
+        $leg = static fn (string $at, string $status = LimoLeg::STATUS_QUEUE) => LimoLeg::query()->create([
+            'legable_type' => LimoBooking::class, 'legable_id' => $booking->id,
+            'status' => $status, 'start_at' => $at, 'from_location' => 'A', 'to_location' => 'B',
+        ]);
+        $leg('2026-09-25 23:30:00');
+        $leg('2026-09-26 00:00:00');
+        $leg('2026-09-26 23:59:00');
+        $leg('2026-09-26 12:00:00', LimoLeg::STATUS_CANCELLED);
+        $leg('2026-09-27 08:00:00');
+        $leg('2026-09-27 09:00:00');
+        $leg('2026-09-27 10:00:00');
+        $leg('2026-09-28 08:00:00');
+
+        $html = Livewire::test(Bookings::class)->set('from', '2026-09-26')->set('to', '2026-09-26')->html();
+
+        $this->assertMatchesRegularExpression('/data-day-count>\s*2 trips\s*</', $html);
+        $this->assertMatchesRegularExpression('/data-previous-count>\s*1\s*</', $html);
+        $this->assertMatchesRegularExpression('/data-next-count>\s*3\s*</', $html);
+
+        \Illuminate\Support\Carbon::setTestNow();
+    }
+
     /** The serial number shows at every width, phone included. */
     public function test_the_serial_number_shows_on_a_phone(): void
     {

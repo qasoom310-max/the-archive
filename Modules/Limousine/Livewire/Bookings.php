@@ -1387,7 +1387,11 @@ final class Bookings extends Component
      * The page title for a single day, and the names of the days either side
      * for the arrows. Null when the list covers a range (or everything).
      *
-     * @return array{title: string, previous: string, next: string}|null
+     * With the number of trips on the day and on each day either side, counted
+     * the way the dashboard's Yesterday / Today / Tomorrow cards count them
+     * (booking trips by pick-up date, cancelled ones left out), in one query.
+     *
+     * @return array{title: string, previous: string, next: string, count: int, previousCount: int, nextCount: int}|null
      */
     private function dayHeader(): ?array
     {
@@ -1395,6 +1399,19 @@ final class Bookings extends Component
         if ($day === null) {
             return null;
         }
+
+        $counts = LimoLeg::query()
+            ->whereMorphedTo('legable', LimoBooking::class)
+            // A date lower bound and a datetime upper bound: SQLite compares
+            // the stored text, so both ends must be written that way.
+            ->where('start_at', '>=', $day->copy()->subDay()->toDateString())
+            ->where('start_at', '<=', $day->copy()->addDay()->endOfDay()->toDateTimeString())
+            ->where(fn ($q) => $q->where('status', '!=', LimoLeg::STATUS_CANCELLED)->orWhereNull('status'))
+            ->selectRaw('DATE(start_at) as day, COUNT(*) as trips')
+            ->groupByRaw('DATE(start_at)')
+            ->pluck('trips', 'day')
+            ->map(static fn (mixed $n): int => (int) $n);
+        $countOn = static fn (Carbon $d): int => $counts->get($d->toDateString(), 0);
 
         $today = Carbon::today();
         $title = match (true) {
@@ -1408,6 +1425,9 @@ final class Bookings extends Component
             'title' => $title,
             'previous' => $this->dayName($day->copy()->subDay()),
             'next' => $this->dayName($day->copy()->addDay()),
+            'count' => $countOn($day),
+            'previousCount' => $countOn($day->copy()->subDay()),
+            'nextCount' => $countOn($day->copy()->addDay()),
         ];
     }
 

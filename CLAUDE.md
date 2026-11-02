@@ -3014,7 +3014,7 @@ Tabs call `Bookings::openTab()`: on a day page it also widens From–To to the
 whole month, so the tab lists what its count says; elsewhere it only switches
 the tab. A From–To that is exactly one month gets the title "Bookings for
 October 2026" with ‹ › month arrows (`shiftMonth()`) and month counts too
-(`listMonth()`, `monthHeader()`). `LimoQueueRows::unpaidCount($from, $to)`
+(`listMonth()`, `monthHeader()`). **Since 2026-11-02** a day page also shows how many trips run that day (a badge beside the title, `data-day-count`) and on the day each arrow leads to (`data-previous-count` / `data-next-count`), counted like the dashboard cards (booking trips by pick-up date, cancelled left out), in one grouped query in `Bookings::dayHeader()`. The `x-page-header` component gained an optional `badge` slot beside the title for it. `LimoQueueRows::unpaidCount($from, $to)`
 takes the same bounds. Any other range, or none, counts everything as before.
 Test: `LimoBookingsMonthTest` (5).
 
@@ -4945,7 +4945,7 @@ Received/Balance/Vehicle/Driver at `xl`. Per the office's requests, **From
 date, To date, Type, Pickup, Drop off and Vehicle are now always visible**
 (no breakpoint prefix) — a phone shows the same trip facts a laptop does,
 short of Received/Balance/Driver (still `xl`) and Added by/Comments/Booked
-time (still `2xl`). **2026-10-17:** Type is hidden on a phone again (`hidden sm:table-cell`), at the owner's request. **2026-09-17:** Payment and Status swapped places — the
+time (still `2xl`). **2026-10-17:** Type is hidden on a phone again (`hidden sm:table-cell`), at the owner's request. **2026-11-02:** Driver shows on a phone too (with its Assign button when none is set). **2026-09-17:** Payment and Status swapped places — the
 **Payment** column (badge + take-payment button) is now always visible and
 **Status** (badge + advance/cancel icons) joins at `md`.
 

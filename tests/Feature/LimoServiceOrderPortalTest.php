@@ -144,6 +144,23 @@ final class LimoServiceOrderPortalTest extends TestCase
     }
 
     /**
+     * The payment page and the store's order emails name the car the customer
+     * booked, never the plate dispatch happened to assign.
+     */
+    public function test_push_sends_the_booked_car_not_the_assigned_plate(): void
+    {
+        $this->enablePortal();
+        $leg = $this->trip(45.0);
+        $leg->forceFill(['vehicle_details' => 'GMC Yukon', 'vehicle' => 'Ford Expedition · 363899 · White'])->save();
+
+        Http::fake(['*/wp-json/wanaan/v1/booking' => Http::response(['url' => 'https://wanaan-bh.com/service-order/x', 'token' => 'x'], 200)]);
+
+        $this->assertTrue(app(ServiceOrderPortalClient::class)->push($this->link($leg)));
+
+        Http::assertSent(static fn ($request): bool => (json_decode($request->body(), true)['vehicle'] ?? null) === 'GMC Yukon');
+    }
+
+    /**
      * A link raised inside a business's database with no browser behind it —
      * the WhatsApp assistant — names that business, so the payment comes back
      * to it. It used to read the cookie, which says Main.

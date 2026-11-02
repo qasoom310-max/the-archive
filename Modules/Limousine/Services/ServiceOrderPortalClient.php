@@ -147,7 +147,8 @@ final class ServiceOrderPortalClient
             'email' => $email,
             'service_date' => $leg->start_at?->format('Y-m-d') ?? '',
             'service_time' => $leg->start_at?->format('H:i') ?? '',
-            'vehicle' => (string) ($leg->vehicle ?? ''),
+            // The car the customer booked (type, never the assigned plate).
+            'vehicle' => $leg->billedVehicle($booking),
             'flight_number' => $flightNumber,
             'pax_name' => $paxName,
             'pax_contact' => $paxContact,

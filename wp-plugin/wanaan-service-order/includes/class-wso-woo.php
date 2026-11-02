@@ -35,6 +35,11 @@ class WSO_Woo {
 		// Copy our ids from the cart onto the order WooCommerce creates.
 		add_action( 'woocommerce_checkout_create_order', array( __CLASS__, 'tag_order' ), 20, 2 );
 		add_action( 'woocommerce_checkout_order_processed', array( __CLASS__, 'link_order' ), 20 );
+		// Write the trip onto the order line, so the order emails, the admin
+		// order screen and the thank-you page say more than "Limousine Service".
+		add_action( 'woocommerce_checkout_create_order_line_item', array( __CLASS__, 'add_trip_to_line' ), 20, 4 );
+		// The same details under the line on the cart/checkout page.
+		add_filter( 'woocommerce_get_item_data', array( __CLASS__, 'show_trip_in_cart' ), 20, 2 );
 		// Trim + prefill the checkout for a service-order payment.
 		add_filter( 'woocommerce_checkout_fields', array( __CLASS__, 'simplify_checkout_fields' ) );
 		add_filter( 'woocommerce_checkout_get_value', array( __CLASS__, 'prefill_checkout_value' ), 10, 2 );
@@ -150,6 +155,94 @@ class WSO_Woo {
 				break;
 			}
 		}
+	}
+
+	/**
+	 * The trip, as label => value pairs, blanks left out. One list for the
+	 * cart, the order line and therefore every WooCommerce email.
+	 *
+	 * @param object $row
+	 * @return array<string, string>
+	 */
+	public static function trip_details( $row ) {
+		$date = trim( (string) $row->service_date );
+		if ( '' !== $date && false !== strtotime( $date ) ) {
+			$date = date_i18n( 'D j M Y', strtotime( $date ) );
+		}
+
+		$details = array(
+			'Trip no.'          => (string) $row->confirmation_no,
+			'Booking no.'       => (string) $row->booking_no,
+			'Date'              => $date,
+			'Pick-up time'      => (string) $row->service_time,
+			'Pick up'           => (string) $row->pickup,
+			'Drop off'          => (string) $row->dropoff,
+			'Vehicle'           => (string) $row->vehicle,
+			'Flight no.'        => (string) $row->flight_number,
+			'Customer'          => (string) $row->customer_name,
+			'Telephone'         => (string) $row->telephone,
+			'Passenger'         => (string) $row->pax_name,
+			'Passenger contact' => (string) $row->pax_contact,
+			'Remarks'           => (string) $row->remark,
+		);
+
+		return array_filter(
+			array_map( 'trim', $details ),
+			static function ( $value ) {
+				return '' !== $value;
+			}
+		);
+	}
+
+	/**
+	 * Copy the trip onto the order line WooCommerce creates. Visible meta, so it
+	 * prints in the new-order and customer emails without touching templates.
+	 *
+	 * @param WC_Order_Item_Product $item
+	 * @param string                $cart_item_key
+	 * @param array                 $values
+	 * @param WC_Order              $order
+	 */
+	public static function add_trip_to_line( $item, $cart_item_key, $values, $order ) {
+		if ( empty( $values[ self::CART_ROW ] ) ) {
+			return;
+		}
+		$row = WSO_Repository::find( (int) $values[ self::CART_ROW ] );
+		if ( ! $row ) {
+			return;
+		}
+
+		$ref = trim( (string) $row->confirmation_no );
+		if ( '' !== $ref ) {
+			$item->set_name( 'Limousine Service · Trip ' . $ref );
+		}
+
+		foreach ( self::trip_details( $row ) as $label => $value ) {
+			$item->add_meta_data( $label, $value, true );
+		}
+	}
+
+	/**
+	 * @param array $item_data
+	 * @param array $cart_item
+	 * @return array
+	 */
+	public static function show_trip_in_cart( $item_data, $cart_item ) {
+		if ( empty( $cart_item[ self::CART_ROW ] ) ) {
+			return $item_data;
+		}
+		$row = WSO_Repository::find( (int) $cart_item[ self::CART_ROW ] );
+		if ( ! $row ) {
+			return $item_data;
+		}
+
+		foreach ( self::trip_details( $row ) as $label => $value ) {
+			$item_data[] = array(
+				'key'   => $label,
+				'value' => $value,
+			);
+		}
+		return $item_data;
 	}
 
 	/**

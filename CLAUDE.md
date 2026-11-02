@@ -3660,6 +3660,17 @@ constant `WANAAN_SO_VERSION` (currently 1.0.6). Structure:
 **Live since 2026-09-03 on Tap live keys.** The plugin is edited by re-uploading a freshly
 built ZIP in WP admin (there's no CI for `wp-plugin/`).
 
+**The store's order emails show the trip (plugin 1.0.8, 2026-11-02).** The WooCommerce
+"New order" email said only "Limousine Service". `WSO_Woo::trip_details($row)` builds the
+trip (trip no., booking no., date, pick-up time, pick up, drop off, vehicle, flight, customer,
+telephone, passenger + contact, remarks; blanks left out). It is written as visible meta on
+the order line at checkout (`woocommerce_checkout_create_order_line_item`, line renamed
+"Limousine Service · Trip N"), so every WooCommerce email, the admin order and the thank-you
+page print it, and shown under the line on the checkout (`woocommerce_get_item_data`). Only
+orders placed after the upload carry it. Same day, the ERP push sends `vehicle` as
+`LimoLeg::billedVehicle($booking)` (the car booked, never the assigned plate). Test:
+`LimoServiceOrderPortalTest::test_push_sends_the_booked_car_not_the_assigned_plate`.
+
 **WordPress plugin `wanaan-whatsapp-number` (built 2026-10-15, `wp-plugin/`, uploaded as a ZIP like the service-order plugin):**
 one WhatsApp number for the whole of wanaan-bh.com, so the owner stops
 changing it by hand (it flipped 39991869 ↔ 17474949 three times in a week).

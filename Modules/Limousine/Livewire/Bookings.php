@@ -845,7 +845,7 @@ final class Bookings extends Component
             $number('discount'),
             $number('vat'),
             (int) (LimoLeg::query()->whereKey($this->editingLegId)->value('units') ?? 1),
-        );
+        ) + (float) (LimoLeg::query()->whereKey($this->editingLegId)->value('extras_total') ?? 0);
     }
 
     /**
@@ -929,7 +929,8 @@ final class Bookings extends Component
             'vat' => $vat,
             // The units stay what the booking set; this dialog does not change them.
             'line_total' => LimoLeg::grossFor($basis, $rate, $hours, $days, $leg->units),
-            'net_amount' => LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat, $leg->units),
+            // The extras sold with the trip are not edited here and stay on it.
+            'net_amount' => round(LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat, $leg->units) + (float) $leg->extras_total, 3),
         ]);
         $leg->save();
 

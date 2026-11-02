@@ -134,6 +134,11 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/location/new', LocationForm::class)->name('limousine.location.create');
     Route::get('/app/limousine/location/{id}', LocationForm::class)->whereNumber('id')->name('limousine.location.edit');
 
+    // Extras sold with a trip (child seat, Causeway Plus…): the price list.
+    Route::get('/app/limousine/extra', \Modules\Limousine\Livewire\Extras::class)->name('limousine.extra.index');
+    Route::get('/app/limousine/extra/new', \Modules\Limousine\Livewire\ExtraForm::class)->name('limousine.extra.create');
+    Route::get('/app/limousine/extra/{id}', \Modules\Limousine\Livewire\ExtraForm::class)->whereNumber('id')->name('limousine.extra.edit');
+
     // Bookings — trips.
     // Queue downloads. Registered BEFORE the `{id}` route, or "export" would be
     // swallowed as a booking id — the numeric constraint already prevents that,

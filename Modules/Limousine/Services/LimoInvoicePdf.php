@@ -85,7 +85,7 @@ final class LimoInvoicePdf
      * rather than one combined description string.
      *
      * @param  \Illuminate\Support\Collection<int, LimoLeg>|null  $legs
-     * @return list<array{booking: string, service: string, vehicle: string, from: string, to: string, when: string, amount: float}>
+     * @return list<array{booking: string, service: string, vehicle: string, from: string, to: string, when: string, amount: float, extras: list<array{name: string, price: float, qty: int, amount: float}>}>
      */
     private function lines(?\Illuminate\Support\Collection $legs, string $bookingReference, float $fare): array
     {
@@ -104,7 +104,7 @@ final class LimoInvoicePdf
     }
 
     /**
-     * @return array{booking: string, service: string, vehicle: string, from: string, to: string, when: string, amount: float}
+     * @return array{booking: string, service: string, vehicle: string, from: string, to: string, when: string, amount: float, extras: list<array{name: string, price: float, qty: int, amount: float}>}
      */
     private function legRow(LimoLeg $leg, string $bookingReference): array
     {
@@ -118,7 +118,9 @@ final class LimoInvoicePdf
             'from' => (string) ($leg->from_location ?? ''),
             'to' => (string) ($leg->to_location ?? ''),
             'when' => $leg->start_at?->format('j-n-Y') ?? '',
-            'amount' => round((float) $leg->net_amount, 3),
+            // The trip itself; its extras print as their own lines under it.
+            'amount' => round((float) $leg->net_amount - (float) $leg->extras_total, 3),
+            'extras' => $leg->extraLines(),
         ];
     }
 

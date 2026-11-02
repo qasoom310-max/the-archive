@@ -29,7 +29,8 @@
             $vat = (float) (($leg['vat'] ?? '') === '' ? 0 : $leg['vat']);
             $units = $this->legUnits();
             $gross = \Modules\Limousine\Models\LimoLeg::grossFor($basis, $rate, $hours, $days, $units);
-            $net = \Modules\Limousine\Models\LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat, $units);
+            $extrasTotal = $this->legExtrasTotal($i);
+            $net = round(\Modules\Limousine\Models\LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat, $units) + $extrasTotal, 3);
         @endphp
         <div wire:key="leg-{{ $i }}" class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -220,6 +221,68 @@
                     <label class="{{ $lbl }}">{{ __('VAT (BHD)') }}</label>
                     <input type="number" step="0.001" min="0" placeholder="0" wire:model.live="legs.{{ $i }}.vat" class="o-input w-full">
                 </div>
+            </div>
+
+            {{-- Extras sold with the trip (child seat, Causeway Plus…): pick one
+                 from the price list, or "Other" to type a name and price. Each
+                 has its own count, and lands on the bill as its own line. --}}
+            <div class="mt-4 rounded-xl border border-chrome-200 p-3" wire:key="leg-{{ $i }}-extras">
+                <div class="mb-2 flex items-center justify-between gap-2">
+                    <p class="text-sm font-medium text-chrome-700">{{ __('Extras') }}</p>
+                    @if ($extrasTotal > 0)
+                        <span class="text-xs text-chrome-500">{{ __('Extras total') }} <span class="font-semibold text-chrome-700">{{ \App\Erp\Views\ValueFormat::money($extrasTotal) }}</span></span>
+                    @endif
+                </div>
+
+                <div class="space-y-2">
+                    @foreach ($this->legExtras[$i] ?? [] as $j => $extra)
+                        @php
+                            $isOther = ($extra['extra'] ?? '') === 'other';
+                            $rowAmount = (float) (($extra['price'] ?? '') === '' ? 0 : $extra['price']) * max(1, (int) ($extra['qty'] ?? 1));
+                        @endphp
+                        <div wire:key="leg-{{ $i }}-extra-{{ $j }}" class="rounded-lg bg-chrome-50 p-2">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <select wire:model.live="legExtras.{{ $i }}.{{ $j }}.extra" class="o-input min-w-0 flex-1 basis-48">
+                                    <option value="">{{ __('— Select —') }}</option>
+                                    @foreach ($extraOptions as $opt)
+                                        <option value="{{ $opt['value'] }}">{{ $opt['label'] }}</option>
+                                    @endforeach
+                                    <option value="other">{{ __('Other') }}</option>
+                                </select>
+
+                                {{-- How many: − / + around the count. --}}
+                                <div class="flex items-center overflow-hidden rounded-lg border border-chrome-200 bg-white">
+                                    <button type="button" wire:click="stepLegExtra({{ $i }}, {{ $j }}, -1)" class="px-2.5 py-1.5 text-chrome-600 hover:bg-chrome-100" aria-label="{{ __('Fewer') }}">−</button>
+                                    <input type="number" min="1" max="99" wire:model.live.debounce.400ms="legExtras.{{ $i }}.{{ $j }}.qty"
+                                           class="w-12 border-0 p-1 text-center text-sm focus:ring-0" aria-label="{{ __('Count') }}">
+                                    <button type="button" wire:click="stepLegExtra({{ $i }}, {{ $j }}, 1)" class="px-2.5 py-1.5 text-chrome-600 hover:bg-chrome-100" aria-label="{{ __('More') }}">+</button>
+                                </div>
+
+                                <span class="min-w-20 text-end text-sm font-medium text-chrome-700">{{ \App\Erp\Views\ValueFormat::money($rowAmount) }}</span>
+
+                                <button type="button" wire:click="removeLegExtra({{ $i }}, {{ $j }})" class="rounded-md p-1 text-red-600 hover:bg-red-50" aria-label="{{ __('Remove') }}">
+                                    <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                                </button>
+                            </div>
+
+                            @if ($isOther)
+                                <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                    <input type="text" maxlength="100" wire:model.blur="legExtras.{{ $i }}.{{ $j }}.name" class="o-input sm:col-span-2" placeholder="{{ __('What is it?') }}">
+                                    <input type="number" step="0.001" min="0" wire:model.live.debounce.400ms="legExtras.{{ $i }}.{{ $j }}.price" class="o-input" placeholder="{{ __('Price (BHD)') }}">
+                                </div>
+                            @endif
+
+                            @foreach (['extra', 'qty', 'name', 'price'] as $f)
+                                @error('legExtras.'.$i.'.'.$j.'.'.$f) <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            @endforeach
+                        </div>
+                    @endforeach
+                </div>
+
+                <button type="button" wire:click="addLegExtra({{ $i }})" class="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary-700 hover:text-primary-800">
+                    <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
+                    {{ __('Add extra') }}
+                </button>
             </div>
 
             {{-- Chauffeur day-by-day schedule preview (auto-generated). The date

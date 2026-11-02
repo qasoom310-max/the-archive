@@ -78,6 +78,14 @@
                 <td>{{ $row['pax'] }}</td>
                 <td class="num">{{ \App\Erp\Views\ValueFormat::money($row['total']) }}</td>
             </tr>
+            @foreach ($row['extras'] ?? [] as $extra)
+                <tr>
+                    <td></td>
+                    <td></td>
+                    <td colspan="7">+ {{ $extra['name'] }} &times; {{ $extra['qty'] }} ({{ \App\Erp\Views\ValueFormat::money($extra['price']) }} {{ __('each') }})</td>
+                    <td class="num">{{ \App\Erp\Views\ValueFormat::money($extra['amount']) }}</td>
+                </tr>
+            @endforeach
         @empty
             <tr><td colspan="10" style="padding:14px 3px; text-align:center" class="muted">{{ __('Nothing to bill.') }}</td></tr>
         @endforelse

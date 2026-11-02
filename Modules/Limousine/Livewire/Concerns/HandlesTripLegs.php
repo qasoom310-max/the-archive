@@ -16,6 +16,7 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Locked;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
+use Modules\Limousine\Models\LimoExtra;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Models\LimoLocation;
 use Modules\Limousine\Models\LimoQuotation;
@@ -42,6 +43,19 @@ trait HandlesTripLegs
      */
     #[Locked]
     public array $legCarsAtLoad = [];
+
+    /**
+     * The extras on each trip, keyed like `$legs` (leg index => rows). A row
+     * is `extra` (a price-list id, or `other`), `qty`, and the `name` and
+     * `price` it is sold at: filled from the price list when one is picked,
+     * typed by hand for "other".
+     *
+     * @var array<int, list<array<string, string>>>
+     */
+    public array $legExtras = [];
+
+    /** @var array{0: string, 1: \Illuminate\Support\Collection<int, LimoExtra>}|null */
+    private ?array $extraCatalogueCache = null;
 
     /**
      * @return array<string, string>
@@ -79,6 +93,13 @@ trait HandlesTripLegs
      */
     public function updated(string $name): void
     {
+        // Picking an extra from the price list fills its name and price;
+        // "other" clears them for typing.
+        if (preg_match('/^legExtras\.(\d+)\.(\d+)\.extra$/', $name, $ex)) {
+            $this->fillLegExtra((int) $ex[1], (int) $ex[2]);
+
+            return;
+        }
         // A chauffeur job is hours of a car, so switching a leg to chauffeur
         // prices it per hour: left on "per trip" the hours were ignored and an
         // 8-hour job at 20 BD an hour totalled 20. Back to a transfer, a
@@ -316,6 +337,17 @@ trait HandlesTripLegs
     {
         unset($this->legs[$index]);
         $this->legs = array_values($this->legs);
+
+        // The extras follow their trip down a place.
+        $extras = [];
+        foreach ($this->legExtras as $k => $rows) {
+            if ($k < $index) {
+                $extras[$k] = $rows;
+            } elseif ($k > $index) {
+                $extras[$k - 1] = $rows;
+            }
+        }
+        $this->legExtras = $extras;
         if ($this->legs === []) {
             $this->legs = [$this->emptyLeg()];
         }
@@ -363,6 +395,16 @@ trait HandlesTripLegs
             'discount' => (string) $l->discount,
             'vat' => (string) $l->vat,
         ])->all();
+
+        $this->legExtras = [];
+        foreach ($parent->legs->values() as $k => $l) {
+            $this->legExtras[$k] = array_map(static fn (array $e): array => [
+                'extra' => isset($e['extra_id']) ? (string) $e['extra_id'] : 'other',
+                'qty' => (string) max(1, (int) ($e['qty'] ?? 1)),
+                'name' => (string) ($e['name'] ?? ''),
+                'price' => (string) ($e['price'] ?? '0'),
+            ], array_values(array_filter((array) ($l->extras ?? []), 'is_array')));
+        }
 
         $this->legCarsAtLoad = $parent->legs->mapWithKeys(static fn (LimoLeg $l): array => [
             (string) $l->id => $l->car_id !== null ? (string) $l->car_id : '',
@@ -430,6 +472,14 @@ trait HandlesTripLegs
             $rules["legs.$i.discount"] = ['nullable', 'numeric', 'min:0'];
             $rules["legs.$i.vat"] = ['nullable', 'numeric', 'min:0'];
 
+            foreach ($this->legExtras[$i] ?? [] as $j => $extra) {
+                $other = ($extra['extra'] ?? '') === 'other';
+                $rules["legExtras.$i.$j.extra"] = ['required', Rule::in([...$this->extraCatalogue()->keys()->map(static fn (int $id): string => (string) $id)->all(), 'other'])];
+                $rules["legExtras.$i.$j.qty"] = ['required', 'integer', 'min:1', 'max:99'];
+                $rules["legExtras.$i.$j.name"] = [$other ? 'required' : 'nullable', 'string', 'max:100'];
+                $rules["legExtras.$i.$j.price"] = ['required', 'numeric', 'min:0', 'max:100000'];
+            }
+
             $chauffeur = ($leg['service_type'] ?? '') === LimoLeg::TYPE_CHAUFFEUR;
             $basis = $leg['rate_basis'] ?? LimoLeg::BASIS_TRIP;
 
@@ -472,6 +522,9 @@ trait HandlesTripLegs
             'legs.*.exchange_rate.required' => $lookupFailed,
             'legs.*.exchange_rate.numeric' => $lookupFailed,
             'legs.*.exchange_rate.min' => $lookupFailed,
+            'legExtras.*.*.extra.required' => __('Pick an extra, or remove the line.'),
+            'legExtras.*.*.name.required' => __('Say what the extra is.'),
+            'legExtras.*.*.price.required' => __('Give the extra a price.'),
         ];
     }
 
@@ -489,7 +542,8 @@ trait HandlesTripLegs
     public function grandTotal(): float
     {
         $sum = 0.0;
-        foreach ($this->legs as $leg) {
+        foreach ($this->legs as $i => $leg) {
+            $sum += $this->legExtrasTotal($i);
             $sum += LimoLeg::netFor(
                 $leg['rate_basis'] ?? LimoLeg::BASIS_TRIP,
                 (float) ($leg['rate'] ?? 0),
@@ -588,6 +642,8 @@ trait HandlesTripLegs
             $discount = (float) ($leg['discount'] === '' ? '0' : $leg['discount']);
             $vat = (float) ($leg['vat'] === '' ? '0' : $leg['vat']);
             $carId = ($leg['car_id'] ?? '') !== '' ? (int) $leg['car_id'] : null;
+            $extras = $this->legExtrasForSave($i);
+            $extrasTotal = LimoLeg::extrasTotalFor($extras);
 
             $attributes = [
                 'sequence' => $i,
@@ -612,7 +668,10 @@ trait HandlesTripLegs
                 'discount' => $discount,
                 'vat' => $vat,
                 'line_total' => LimoLeg::grossFor($basis, $rate, $hours, $days, $this->legUnits()),
-                'net_amount' => LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat, $this->legUnits()),
+                'extras' => $extras === [] ? null : $extras,
+                'extras_total' => $extrasTotal,
+                // Extras are sold on top of the trip, after its discount and VAT.
+                'net_amount' => round(LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat, $this->legUnits()) + $extrasTotal, 3),
             ];
 
             // The car is only carried through the form where the form actually
@@ -661,6 +720,120 @@ trait HandlesTripLegs
         \Modules\Limousine\Support\InvoiceServiceDates::syncForParent($parent->getMorphClass(), (int) $parent->id);
     }
 
+    /** "+ Add extra" under a trip. */
+    public function addLegExtra(int $i): void
+    {
+        if (! isset($this->legs[$i])) {
+            return;
+        }
+
+        $this->legExtras[$i] ??= [];
+        $this->legExtras[$i][] = ['extra' => '', 'qty' => '1', 'name' => '', 'price' => ''];
+    }
+
+    public function removeLegExtra(int $i, int $j): void
+    {
+        if (! isset($this->legExtras[$i][$j])) {
+            return;
+        }
+
+        unset($this->legExtras[$i][$j]);
+        $this->legExtras[$i] = array_values($this->legExtras[$i]);
+    }
+
+    /** The − / + buttons beside an extra: change its count, 1 to 99. */
+    public function stepLegExtra(int $i, int $j, int $delta): void
+    {
+        if (! isset($this->legExtras[$i][$j])) {
+            return;
+        }
+
+        $qty = (int) ($this->legExtras[$i][$j]['qty'] ?? 1) + ($delta >= 0 ? 1 : -1);
+        $this->legExtras[$i][$j]['qty'] = (string) max(1, min(99, $qty));
+    }
+
+    private function fillLegExtra(int $i, int $j): void
+    {
+        if (! isset($this->legExtras[$i][$j])) {
+            return;
+        }
+
+        $choice = $this->legExtras[$i][$j]['extra'] ?? '';
+        $extra = ctype_digit($choice) ? $this->extraCatalogue()->get((int) $choice) : null;
+
+        $this->legExtras[$i][$j]['name'] = $extra?->billName() ?? '';
+        $this->legExtras[$i][$j]['price'] = $extra !== null ? (string) $extra->price : '';
+    }
+
+    /**
+     * The extras of one trip as they are saved: price-list id (null for
+     * "other"), name, price and count. Rows with nothing picked are dropped.
+     *
+     * @return list<array{extra_id: int|null, name: string, price: float, qty: int}>
+     */
+    private function legExtrasForSave(int $i): array
+    {
+        $rows = [];
+        foreach ($this->legExtras[$i] ?? [] as $row) {
+            $choice = (string) ($row['extra'] ?? '');
+            if ($choice === '') {
+                continue;
+            }
+
+            $extra = ctype_digit($choice) ? $this->extraCatalogue()->get((int) $choice) : null;
+            $name = trim((string) ($row['name'] ?? ''));
+            $price = (string) ($row['price'] ?? '');
+
+            $rows[] = [
+                'extra_id' => $extra?->id,
+                'name' => $name !== '' ? mb_substr($name, 0, 100) : ($extra?->billName() ?? ''),
+                'price' => round($price !== '' ? (float) $price : (float) ($extra->price ?? 0), 3),
+                'qty' => max(1, min(99, (int) ($row['qty'] ?? 1))),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /** What the extras of one trip come to, from the live inputs. */
+    public function legExtrasTotal(int $i): float
+    {
+        return LimoLeg::extrasTotalFor($this->legExtrasForSave($i));
+    }
+
+    /**
+     * The price list: active extras, plus any a trip on this page already has
+     * (so a retired extra still shows on the trip it was sold with).
+     *
+     * @return \Illuminate\Support\Collection<int, LimoExtra>
+     */
+    private function extraCatalogue(): \Illuminate\Support\Collection
+    {
+        $picked = [];
+        foreach ($this->legExtras as $rows) {
+            foreach ($rows as $row) {
+                if (ctype_digit((string) ($row['extra'] ?? ''))) {
+                    $picked[] = (int) $row['extra'];
+                }
+            }
+        }
+
+        sort($picked);
+        $key = implode(',', array_unique($picked));
+
+        // Read once per request (rules, totals and the view all ask).
+        if ($this->extraCatalogueCache === null || $this->extraCatalogueCache[0] !== $key) {
+            $this->extraCatalogueCache = [$key, LimoExtra::query()
+                ->where(static fn ($q) => $q->where('active', true)->orWhereIn('id', $picked === [] ? [0] : $picked))
+                ->orderBy('sequence')
+                ->orderBy('id')
+                ->get()
+                ->keyBy('id')];
+        }
+
+        return $this->extraCatalogueCache[1];
+    }
+
     private function blankToNull(string $value): ?string
     {
         $value = trim($value);
@@ -691,8 +864,14 @@ trait HandlesTripLegs
             'canAddLocation' => $this->mayAddLocation(),
             'grandTotal' => $this->grandTotal(),
             'currencyOptions' => $this->currencyOptions(),
-        ];
-    }
+            'extraOptions' => $this->extraCatalogue()
+                ->map(static fn (LimoExtra $e): array => [
+                    'value' => (string) $e->id,
+                    'label' => $e->name . ' - ' . rtrim(rtrim(number_format($e->price, 3, '.', ''), '0'), '.') . ' BHD',
+                ])
+                ->values()
+                ->all(),
+        ];    }
 
     /**
      * The places offered in a From/To box, per country (the box lists the

@@ -99,6 +99,14 @@
                     <td>{{ $line['to'] }}</td>
                     <td class="num">{{ \App\Erp\Views\ValueFormat::money($line['amount']) }}</td>
                 </tr>
+                @foreach ($line['extras'] ?? [] as $extra)
+                    <tr>
+                        <td></td>
+                        <td></td>
+                        <td colspan="{{ $hasVehicle ? 4 : 3 }}">+ {{ $extra['name'] }} &times; {{ $extra['qty'] }} ({{ \App\Erp\Views\ValueFormat::money($extra['price']) }} {{ __('each') }})</td>
+                        <td class="num">{{ \App\Erp\Views\ValueFormat::money($extra['amount']) }}</td>
+                    </tr>
+                @endforeach
             @empty
                 <tr>
                     <td>{{ $invoice->issue_date?->format('j-n-Y') ?? '' }}</td>

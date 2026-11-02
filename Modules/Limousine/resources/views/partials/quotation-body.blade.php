@@ -112,6 +112,16 @@
                     <td class="num">{{ \App\Erp\Views\ValueFormat::money($line['rate']) }}</td>
                     <td class="num">{{ \App\Erp\Views\ValueFormat::money($line['amount']) }}</td>
                 </tr>
+                @foreach ($line['extras'] ?? [] as $extra)
+                    <tr>
+                        <td></td>
+                        <td colspan="{{ 3 + ($hasVehicle ? 1 : 0) + ($hasHours ? 1 : 0) }}">+ {{ $extra['name'] }}</td>
+                        <td class="num">&mdash;</td>
+                        <td class="num">{{ $extra['qty'] }}</td>
+                        <td class="num">{{ \App\Erp\Views\ValueFormat::money($extra['price']) }}</td>
+                        <td class="num">{{ \App\Erp\Views\ValueFormat::money($extra['amount']) }}</td>
+                    </tr>
+                @endforeach
             @empty
                 <tr>
                     <td>1</td>

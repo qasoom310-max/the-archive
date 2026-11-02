@@ -19,6 +19,7 @@
     "models": [
         "Modules\\Limousine\\Models\\LimoCustomer",
         "Modules\\Limousine\\Models\\LimoLocation",
+        "Modules\\Limousine\\Models\\LimoExtra",
         "Modules\\Limousine\\Models\\LimoDriver",
         "Modules\\Limousine\\Models\\LimoBooking",
         "Modules\\Limousine\\Models\\LimoQuotation",

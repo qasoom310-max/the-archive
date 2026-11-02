@@ -54,8 +54,9 @@ final class QuotationPdf
             'validUntil' => $quote->valid_until?->format('j-M-Y') ?? '',
             // The quote's own header car answers for a leg that names none.
             'lines' => $this->lines($legs, (string) ($quote->car_type ?? '')),
+            // The trips plus the extras sold with them (printed as their own lines).
             'subtotal' => round((float) $legs->sum(
-                static fn (LimoLeg $leg): float => LimoLeg::grossFor($leg->rate_basis, (float) $leg->rate, $leg->hours, $leg->days, $leg->units),
+                static fn (LimoLeg $leg): float => LimoLeg::grossFor($leg->rate_basis, (float) $leg->rate, $leg->hours, $leg->days, $leg->units) + (float) $leg->extras_total,
             ), 3),
             'discount' => round((float) $legs->sum('discount'), 3),
             'vat' => round((float) $legs->sum('vat'), 3),
@@ -147,6 +148,7 @@ final class QuotationPdf
             'daysTrips' => $daysTrips,
             'rate' => round((float) $leg->rate, 3),
             'amount' => LimoLeg::grossFor($leg->rate_basis, (float) $leg->rate, $leg->hours, $leg->days, $leg->units),
+            'extras' => $leg->extraLines(),
         ];
     }
 

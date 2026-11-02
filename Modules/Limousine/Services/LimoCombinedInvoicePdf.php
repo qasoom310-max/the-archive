@@ -87,7 +87,9 @@ final class LimoCombinedInvoicePdf
                         'company_reference' => (string) ($booking->company_reference ?? ''),
                         // A private customer is usually the one travelling.
                         'pax' => $this->pax($booking, $invoice),
-                        'total' => round((float) $leg->net_amount, 3),
+                        // The trip itself; its extras print as their own lines under it.
+                        'total' => round((float) $leg->net_amount - (float) $leg->extras_total, 3),
+                        'extras' => $leg->extraLines(),
                     ];
                 }
             }

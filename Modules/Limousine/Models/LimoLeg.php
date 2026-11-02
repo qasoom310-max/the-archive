@@ -49,6 +49,8 @@ use Illuminate\Support\Facades\Storage;
  * @property float $discount
  * @property float $vat
  * @property float $line_total
+ * @property array<int, mixed>|null $extras  Extras sold with the trip ({extra_id, name, price, qty} each), at the name and price they were sold at
+ * @property float $extras_total  Sum of `extras`; already inside net_amount
  * @property float $net_amount
  * @property string|null $notes
  * @property string|null $signature_path   Customer's drawn signature (public disk)
@@ -146,7 +148,7 @@ final class LimoLeg extends Model
     protected $fillable = [
         'legable_type', 'legable_id', 'sequence', 'reference', 'status', 'service_type',
         'car_id', 'driver_id', 'driver', 'driver_payment', 'from_location', 'from_country', 'from_location_url', 'to_location', 'to_country', 'to_location_url', 'start_at', 'hours', 'estimated_hours', 'days', 'units', 'vehicle',
-        'vehicle_details', 'rate', 'currency', 'quote_rate', 'exchange_rate', 'rate_basis', 'discount', 'vat', 'line_total', 'net_amount', 'notes',
+        'vehicle_details', 'rate', 'currency', 'quote_rate', 'exchange_rate', 'rate_basis', 'discount', 'vat', 'line_total', 'extras', 'extras_total', 'net_amount', 'notes',
         'signature_path', 'signed_at', 'signed_name', 'signed_ip', 'service_order_sent_at',
         'cancelled_at', 'cancellation_reason', 'refund_outcome', 'refund_amount',
     ];
@@ -236,6 +238,7 @@ final class LimoLeg extends Model
         'discount' => 0,
         'vat' => 0,
         'line_total' => 0,
+        'extras_total' => 0,
         'net_amount' => 0,
     ];
 
@@ -266,6 +269,8 @@ final class LimoLeg extends Model
             'discount' => 'float',
             'vat' => 'float',
             'line_total' => 'float',
+            'extras' => 'array',
+            'extras_total' => 'float',
             'net_amount' => 'float',
             'signed_at' => 'datetime',
             'service_order_sent_at' => 'datetime',
@@ -398,6 +403,49 @@ final class LimoLeg extends Model
     public function legable(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    /**
+     * The extras sold with this trip, cleaned up for printing: each with its
+     * name, price, count and amount (price × count).
+     *
+     * @return list<array{name: string, price: float, qty: int, amount: float}>
+     */
+    public function extraLines(): array
+    {
+        $lines = [];
+        foreach ((array) ($this->extras ?? []) as $extra) {
+            if (! is_array($extra)) {
+                continue;
+            }
+            $qty = max(1, (int) ($extra['qty'] ?? 1));
+            $price = round((float) ($extra['price'] ?? 0), 3);
+            $lines[] = [
+                'name' => trim((string) ($extra['name'] ?? '')),
+                'price' => $price,
+                'qty' => $qty,
+                'amount' => round($price * $qty, 3),
+            ];
+        }
+
+        return $lines;
+    }
+
+    /**
+     * What a list of extras comes to: price × count, summed.
+     *
+     * @param  iterable<mixed>  $extras
+     */
+    public static function extrasTotalFor(iterable $extras): float
+    {
+        $sum = 0.0;
+        foreach ($extras as $extra) {
+            if (is_array($extra)) {
+                $sum += (float) ($extra['price'] ?? 0) * max(1, (int) ($extra['qty'] ?? 1));
+            }
+        }
+
+        return round($sum, 3);
     }
 
     /**

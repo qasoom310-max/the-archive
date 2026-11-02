@@ -3345,5 +3345,12 @@
     "Edit extra": "تعديل الإضافة",
     "Lower numbers come first in the list.": "الأرقام الأصغر تظهر أولاً في القائمة.",
     "Sequence": "الترتيب",
-    "Price": "السعر"
+    "Price": "السعر",
+    "Trip no.": "رقم الرحلة",
+    "Driver's phone": "هاتف السائق",
+    "Plate no.": "رقم اللوحة",
+    "Your driver for trip :reference": "سائقك للرحلة :reference",
+    "Your driver is assigned": "تم تعيين سائقك",
+    "Your driver and car for this trip are below. The driver will be waiting at the pick-up point on time.": "تجد أدناه السائق والسيارة لهذه الرحلة. سيكون السائق في انتظارك عند نقطة الانطلاق في الموعد.",
+    "If anything changes, reply to this email or call us.": "إذا تغيّر أي شيء، ردّ على هذه الرسالة أو اتصل بنا."
 }

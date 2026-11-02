@@ -25,5 +25,7 @@ final readonly class CustomerDocument
         public array $attachments,
         /** "Quotation QT/01695" — for the activity log. */
         public string $label,
+        /** False for a note that is not a sale (the driver details), so the terms PDF is left off. */
+        public bool $withTerms = true,
     ) {}
 }

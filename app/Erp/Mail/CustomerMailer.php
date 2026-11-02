@@ -101,7 +101,7 @@ final class CustomerMailer
         }
 
         $attachments = $document->attachments;
-        $terms = $this->termsPdf();
+        $terms = $document->withTerms ? $this->termsPdf() : null;
         if ($terms !== null) {
             $attachments[] = $terms;
         }

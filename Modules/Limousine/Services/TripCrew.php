@@ -22,8 +22,10 @@ use Modules\Rental\Models\Vehicle;
  */
 final class TripCrew
 {
-    public function __construct(private readonly ActivityLogger $activity)
-    {
+    public function __construct(
+        private readonly ActivityLogger $activity,
+        private readonly CustomerDocumentEmails $emails,
+    ) {
     }
 
     /**
@@ -35,6 +37,8 @@ final class TripCrew
      */
     public function assign(LimoLeg $leg, ?int $carId, ?int $driverId, ?string $pay = '', bool $startRequested = false): array
     {
+        $crewBefore = $leg->car_id . ':' . $leg->driver_id;
+
         $car = $carId !== null ? Vehicle::query()->find($carId) : null;
         $leg->car_id = $car?->id;
         $leg->vehicle = $car?->displayName();
@@ -110,6 +114,19 @@ final class TripCrew
         if ($started && $leg->legable instanceof LimoBooking) {
             // The booking summarises its legs, so it follows them up.
             $leg->legable->syncStatusFromLegs();
+        }
+
+        // The customer is emailed their driver and car the moment a trip has
+        // both: once per pair, so a later change of car or driver sends the new
+        // details and re-saving the same two sends nothing. Never for a trip
+        // that is over or already past its pick-up (dispatch typed in after the
+        // fact is record-keeping, not news to the customer).
+        if ($leg->hasCarAndDriver()
+            && $leg->car_id . ':' . $leg->driver_id !== $crewBefore
+            && $leg->legable instanceof LimoBooking
+            && in_array($leg->status, LimoLeg::OPEN_STATUSES, true)
+            && ($leg->start_at === null || $leg->start_at->isFuture())) {
+            $this->emails->driverAssigned((int) $leg->id);
         }
 
         return ['errors' => [], 'started' => $started];

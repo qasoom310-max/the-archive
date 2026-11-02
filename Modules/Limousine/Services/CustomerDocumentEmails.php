@@ -8,10 +8,14 @@ use App\Erp\Mail\CustomerDocument;
 use App\Erp\Mail\CustomerMailer;
 use App\Erp\Money\Currencies;
 use Illuminate\Support\Collection;
+use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
+use Modules\Limousine\Models\LimoDriver;
 use Modules\Limousine\Models\LimoInvoice;
+use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Models\LimoQuotation;
 use Modules\Limousine\Models\LimoReceipt;
+use Modules\Rental\Models\Vehicle;
 
 /**
  * Emails the customer each limousine document as it is made:
@@ -129,6 +133,69 @@ final class CustomerDocumentEmails
                 facts: $facts,
                 attachments: $attachments,
                 label: __('Receipt') . ' ' . $reference,
+            ));
+        }, $now);
+    }
+
+    /**
+     * A car and a driver were put on a trip: tell the customer who is coming,
+     * how to reach them and which car to look for. Sent to the customer's
+     * service email (else their general one), with no attachments.
+     */
+    public function driverAssigned(int $legId, bool $now = false): void
+    {
+        $this->mailer->later(function () use ($legId): void {
+            $leg = LimoLeg::query()->with('legable.customer')->find($legId);
+            $booking = $leg?->legable;
+            if ($leg === null || ! $booking instanceof LimoBooking || ! $leg->hasCarAndDriver()) {
+                return;
+            }
+
+            $car = Vehicle::query()->find($leg->car_id);
+            $driver = LimoDriver::query()->find($leg->driver_id);
+            if ($car === null || $driver === null) {
+                return;
+            }
+
+            $customer = $booking->customer;
+            $passenger = trim((string) $booking->pax_name);
+            $reference = (string) $leg->reference;
+            $carName = trim((string) $car->name);
+            $color = trim((string) $car->color);
+
+            $facts = [[__('Trip no.'), $reference]];
+            if ($leg->start_at !== null) {
+                $facts[] = [__('Pick-up'), $leg->start_at->format('D j M Y, H:i')];
+            }
+            foreach ([[__('Pick up'), $leg->from_location], [__('Drop off'), $leg->to_location]] as [$label, $place]) {
+                if (trim((string) $place) !== '') {
+                    $facts[] = [$label, trim((string) $place)];
+                }
+            }
+            if ($passenger !== '' && $passenger !== trim((string) ($customer->name ?? ''))) {
+                $facts[] = [__('Passenger'), $passenger];
+            }
+            $facts[] = [__('Driver'), trim((string) $driver->name)];
+            if (trim((string) $driver->phone) !== '') {
+                $facts[] = [__("Driver's phone"), trim((string) $driver->phone)];
+            }
+            $facts[] = [__('Car'), $color !== '' ? $carName . ' (' . $color . ')' : $carName];
+            if (trim((string) $car->plate_no) !== '') {
+                $facts[] = [__('Plate no.'), trim((string) $car->plate_no)];
+            }
+
+            $this->mailer->send($customer?->serviceEmail(), new CustomerDocument(
+                subject: $this->mailer->companyName() . ' — ' . __('Your driver for trip :reference', ['reference' => $reference]),
+                heading: __('Your driver is assigned'),
+                customerName: (string) ($customer->name ?? ''),
+                paragraphs: [
+                    __('Your driver and car for this trip are below. The driver will be waiting at the pick-up point on time.'),
+                    __('If anything changes, reply to this email or call us.'),
+                ],
+                facts: $facts,
+                attachments: [],
+                label: __('Trip') . ' ' . $reference,
+                withTerms: false,
             ));
         }, $now);
     }

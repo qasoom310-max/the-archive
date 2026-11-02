@@ -296,31 +296,28 @@ final class DriverRecordTest extends TestCase
         $this->assertNull($driver->fresh()?->commission_amount);
     }
 
-    /** No fixed scale any more — any BD figure the admin types is accepted. */
-    public function test_the_engine_form_saves_a_free_form_commission_amount(): void
+    /** The amount is set from the booking's Assign dialog, never on the driver form. */
+    public function test_the_driver_forms_do_not_offer_a_commission_box(): void
     {
-        Livewire::test(FormView::class, ['model' => Driver::class, 'modelKey' => 'rental.driver'])
-            ->set('form.name', 'Rashid')
-            ->set('form.pay_type', 'commission')
-            ->set('form.commission_amount', '12.750')
+        foreach ([[Driver::class, 'rental.driver'], [LimoDriver::class, 'limousine.driver']] as [$model, $key]) {
+            Livewire::test(FormView::class, ['model' => $model, 'modelKey' => $key])
+                ->assertSee('Pay type')
+                ->assertDontSee('Commission (BD)');
+        }
+    }
+
+    /** Editing a commission driver must keep the amount the booking screen stored. */
+    public function test_editing_a_commission_driver_keeps_their_amount(): void
+    {
+        $driver = LimoDriver::query()->create(['name' => 'Rashid', 'pay_type' => 'commission', 'commission_amount' => 12.75]);
+
+        Livewire::test(FormView::class, ['model' => LimoDriver::class, 'modelKey' => 'limousine.driver', 'recordId' => $driver->id])
+            ->set('form.phone', '33001122')
             ->call('save')
             ->assertHasNoErrors();
 
-        $driver = Driver::query()->where('name', 'Rashid')->sole();
-        $this->assertTrue($driver->isCommissionDriver());
-        $this->assertSame(12.75, $driver->commission_amount);
-    }
-
-    public function test_the_engine_form_refuses_a_non_numeric_commission_amount(): void
-    {
-        Livewire::test(FormView::class, ['model' => Driver::class, 'modelKey' => 'rental.driver'])
-            ->set('form.name', 'Rashid')
-            ->set('form.pay_type', 'commission')
-            ->set('form.commission_amount', 'twelve')
-            ->call('save')
-            ->assertHasErrors(['form.commission_amount']);
-
-        $this->assertSame(0, Driver::query()->where('name', 'Rashid')->count());
+        $this->assertSame('33001122', $driver->fresh()?->phone);
+        $this->assertSame(12.75, $driver->fresh()?->commission_amount);
     }
 
     /** Limousine's own list — the "in limo driver" request — asked for a checkbox, not Yes/No text. */

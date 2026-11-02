@@ -2920,6 +2920,15 @@ amount as their usual one (`Bookings::makeCommissionDriver()`, activity-logged);
 a commission driver with no usual amount takes it, one who has an amount keeps
 it. No amount = nothing kept and nobody converted. Test: `LimoDriverPaymentTest` (7).
 
+**The Commission box left the driver form (2026-11-02, the owner's call).** Both
+driver forms (Limousine `LimoDriver` and Rent A Car `Driver`, one shared record)
+show Pay type only. The amount is set ONLY from the booking's Assign dialog
+(above). `commission_amount` is still a column and a registry field, just not in
+the form arch, and the engine form writes only arch fields, so editing a
+commission driver keeps their amount; switching them to Company still clears it
+(`HasDriverPay`). Tests: `DriverRecordTest::{test_the_driver_forms_do_not_offer_a_commission_box,
+test_editing_a_commission_driver_keeps_their_amount}` (replaced the two form tests).
+
 **Passenger under a company on the bookings list (shipped 2026-10-25).** In the Customer cell, a COMPANY customer's row shows "PAX: <name>" (the booking's `pax_name`) between the company name and the phone, which was already the passenger's number. It is skipped for a private customer and when it only repeats the company name. Row key `passenger` (`LimoQueueRows::passenger()`); like `contact_phone` it is not a heading, so exports are unchanged. Test: `LimoBookingPassengerTest`.
 
 **Bookings search stopped following the screen (fixed 2026-10-24).** The bookings heading loop ended the ETA heading with `@continue` inside its `@if`. Livewire wraps each `@if` in `<!--[if BLOCK]>` / `<!--[if ENDBLOCK]>` markers, and the `@continue` skipped the closing one. Going from a tab with ETA (Queue/Active/Completed) to one without crashed the browser's redraw ("Cannot read properties of null (reading 'before')"). The header was left at 5 columns, and every later search ran on the server but never reached the screen. Now an if/else. **Rule: never `@continue`/`@break` from inside an `@if` in a Livewire view.** Also: when a search finds nothing on the current tab, the empty row says how many matches the other tabs hold, with a "Search all tabs" button (`$elsewhere`). Checked in headless Chrome. Test: `LimoBookingSearchTest` (3, including balanced markers on both tabs).

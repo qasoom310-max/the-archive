@@ -122,7 +122,6 @@ final class LimoDriver extends Model implements DefinesIrModel
                         ['field' => 'nationality', 'label' => 'Nationality', 'widget' => 'text'],
                         ['field' => 'active', 'label' => 'Active', 'widget' => 'checkbox'],
                         ['field' => 'pay_type', 'label' => 'Pay type', 'widget' => 'select', 'required' => true, 'options' => self::PAY_TYPE_OPTIONS],
-                        ['field' => 'commission_amount', 'label' => 'Commission (BD)', 'widget' => 'number', 'placeholder' => '0.000', 'help' => 'Flat commission per trip, in Bahraini Dinar. Only applies to commission drivers — cleared automatically for a company driver.'],
                     ],
                 ]),
             ],

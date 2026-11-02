@@ -51,8 +51,11 @@
         table.items th.num, table.items td.num { text-align: right; }
         table.items td { padding: 9px 6px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
         table.items td.trips { font-size: 9.5px; color: #374151; }
-        table.items .trip + .trip { margin-top: 7px; padding-top: 7px; border-top: 1px dashed #e5e7eb; }
-        table.items .trip b { color: #111827; }
+        /* The trips of one payment: a dashed rule between them, the solid one under the last. */
+        table.items tr.trip-row td { border-bottom: 1px dashed #e5e7eb; padding-bottom: 6px; }
+        table.items tr.trip-row + tr td { padding-top: 6px; }
+        table.items tr { page-break-inside: avoid; }
+        table.items td.trips b { color: #111827; }
         table.items .trip-car { color: #6b7280; }
 
         table.summary { width: 240px; margin-top: 12px; }
@@ -144,22 +147,30 @@
             </tr>
         </thead>
         <tbody>
-            <tr>
-                <td>{{ $date }}</td>
-                <td>{{ $method }}</td>
-                <td class="trips">
-                    @forelse ($trips as $trip)
-                        <div class="trip">
-                            <b>@if ($trip['reference'] !== '')#{{ $trip['reference'] }}@endif{{ $trip['reference'] !== '' && $trip['when'] !== '' ? ' · ' : '' }}{{ $trip['when'] }}</b>
-                            @if ($trip['route'] !== '')<div>{{ $trip['route'] }}</div>@endif
-                            @if ($trip['car'] !== '')<div class="trip-car">{{ $trip['car'] }}</div>@endif
-                        </div>
-                    @empty
-                        —
-                    @endforelse
-                </td>
-                <td class="num">{{ \App\Erp\Views\ValueFormat::money($amount) }}</td>
-            </tr>
+            {{-- One row per trip, so a booking of many trips breaks across
+                 pages. All of them in a single row could not be split: the PDF
+                 pushed the whole row to a later page (leaving the first pages
+                 blank) and cut off whatever did not fit. Date, method and the
+                 amount sit on the first row only. --}}
+            @forelse ($trips as $trip)
+                <tr class="{{ $loop->last ? '' : 'trip-row' }}">
+                    <td>{{ $loop->first ? $date : '' }}</td>
+                    <td>{{ $loop->first ? $method : '' }}</td>
+                    <td class="trips">
+                        <b>@if ($trip['reference'] !== '')#{{ $trip['reference'] }}@endif{{ $trip['reference'] !== '' && $trip['when'] !== '' ? ' · ' : '' }}{{ $trip['when'] }}</b>
+                        @if ($trip['route'] !== '')<div>{{ $trip['route'] }}</div>@endif
+                        @if ($trip['car'] !== '')<div class="trip-car">{{ $trip['car'] }}</div>@endif
+                    </td>
+                    <td class="num">{{ $loop->first ? \App\Erp\Views\ValueFormat::money($amount) : '' }}</td>
+                </tr>
+            @empty
+                <tr>
+                    <td>{{ $date }}</td>
+                    <td>{{ $method }}</td>
+                    <td class="trips">—</td>
+                    <td class="num">{{ \App\Erp\Views\ValueFormat::money($amount) }}</td>
+                </tr>
+            @endforelse
         </tbody>
     </table>
 

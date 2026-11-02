@@ -72,6 +72,34 @@ final class LimoReceiptDocumentTest extends TestCase
         );
     }
 
+    /**
+     * Sixteen cars paid for in one go. All the trips sat in ONE table row,
+     * which the PDF cannot split, so it pushed the row past two blank pages
+     * and cut off the trips that did not fit. One row per trip breaks cleanly.
+     */
+    public function test_a_receipt_for_many_trips_starts_on_the_first_page_and_prints_them_all(): void
+    {
+        $receipt = $this->receipt(3570, 0);
+        foreach (range(1, 16) as $i) {
+            LimoLeg::query()->create([
+                'legable_type' => LimoBooking::class, 'legable_id' => $receipt->booking_id,
+                'service_type' => LimoLeg::TYPE_CHAUFFEUR, 'status' => LimoLeg::STATUS_CONFIRMED,
+                'start_at' => now()->addDays($i)->setTime(8, 0), 'from_location' => 'Bahrain',
+                'hours' => 15, 'rate' => 220, 'net_amount' => 220, 'vehicle_details' => 'SUV',
+            ]);
+        }
+
+        $pdf = app(LimoReceiptPdf::class);
+        $html = view('limousine::receipt-pdf', $pdf->viewData($receipt->fresh() ?? $receipt))->render();
+        $this->assertSame(16, substr_count($html, '<td class="trips">'));
+        // Date, method and amount once, on the first trip's row (and once in the total).
+        $this->assertSame(1, substr_count($html, 'Cash</td>'));
+
+        // Two pages hold it; the old single row made four, two of them blank.
+        $bytes = $pdf->render($receipt->fresh() ?? $receipt);
+        $this->assertLessThanOrEqual(2, preg_match_all('#/Type\s*/Page\b(?!s)#', $bytes));
+    }
+
     public function test_the_document_carries_what_the_customer_needs_to_match_it(): void
     {
         $data = app(LimoReceiptPdf::class)->viewData($this->receipt());

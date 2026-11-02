@@ -3395,6 +3395,8 @@ pre-printed pad had, filled in by hand.
 Tests: `LimoReceiptDocumentTest::{test_the_receipt_records_and_prints_who_raised_it,
 test_an_older_receipt_prints_no_prepared_by_line}`.
 
+**The limousine receipt lists one trip per table row (fixed 2026-11-02).** All of a payment's trips used to sit in ONE row, which DomPDF cannot split across pages: a 16-car Ministry of Defence receipt (RCP/26056) printed two blank pages and cut off its last trips. Date, method and amount now sit on the first trip's row only. **Rule: never put a list that can grow inside a single table cell of a PDF; give each item its own row.** Test: `LimoReceiptDocumentTest::test_a_receipt_for_many_trips_starts_on_the_first_page_and_prints_them_all`.
+
 **The limousine receipt is stamped, not counter-signed (shipped 2026-09-07):**
 
 `limousine::receipt-pdf`'s second signature slot said **"Customer signature"**;

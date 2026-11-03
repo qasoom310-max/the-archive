@@ -503,14 +503,6 @@
                                 </button>
                             @endif
                             <span class="block text-[11px] font-normal text-chrome-600">{{ $row['booking_reference'] }}</span>
-                            {{-- On a phone Received and Balance ride under the reference,
-                                 the one column that is always on screen: their own columns
-                                 only appear from laptop width. The trip's price is not
-                                 repeated here, its column is on screen at every width. --}}
-                            <span class="mt-1 block space-y-px whitespace-nowrap text-[11px] font-normal lg:hidden" data-phone-money="summary">
-                                <span class="block text-emerald-700" data-phone-money="received">{{ __('Received') }} {{ $money($row['received']) }}</span>
-                                <span class="block {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-600' }}" data-phone-money="balance">{{ __('Balance') }} {{ $money($row['balance']) }}</span>
-                            </span>
                         </td>
                         <td class="px-2 py-2 text-chrome-900">{{ $row['from_date'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 text-chrome-900 sm:table-cell">{{ $row['to_date'] ?: '—' }}</td>
@@ -556,8 +548,20 @@
                             title="{{ __('Received against booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['received']) }}</td>
                         <td class="hidden px-2 py-2 text-end lg:table-cell {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-600' }}"
                             title="{{ __('Still owed on booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['balance']) }}</td>
-                        <td class="px-2 py-2 text-chrome-900">{{ $row['pickup'] ?: '—' }}</td>
-                        <td class="px-2 py-2 text-chrome-900">{{ $row['dropoff'] ?: '—' }}</td>
+                        {{-- The country's short code sits above each place (KSA over
+                             "Dammam"), so a cross-border trip reads at a glance. --}}
+                        <td class="px-2 py-2 text-chrome-900">
+                            @if ($row['pickup_country'] !== '')
+                                <span class="block text-[11px] font-semibold uppercase text-chrome-600" data-place-country="pickup">{{ $row['pickup_country'] }}</span>
+                            @endif
+                            {{ $row['pickup'] ?: '—' }}
+                        </td>
+                        <td class="px-2 py-2 text-chrome-900">
+                            @if ($row['dropoff_country'] !== '')
+                                <span class="block text-[11px] font-semibold uppercase text-chrome-600" data-place-country="dropoff">{{ $row['dropoff_country'] }}</span>
+                            @endif
+                            {{ $row['dropoff'] ?: '—' }}
+                        </td>
                         {{-- A car is assigned late, but the KIND of car is agreed when
                              the trip is booked — so an unassigned row said nothing at
                              all about a fact the office already knew. The requested

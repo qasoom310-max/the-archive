@@ -17,6 +17,7 @@ use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Support\DriverAliases;
 use Modules\Limousine\Support\LiveEntry;
+use Modules\Limousine\Support\PlaceCountry;
 use Modules\Limousine\Support\TripDetailsLock;
 
 /**
@@ -42,6 +43,9 @@ use Modules\Limousine\Support\TripDetailsLock;
  */
 final class LimoQueueRows
 {
+    /** Built on first use: it loads the saved places once per list, not per row. */
+    private ?PlaceCountry $places = null;
+
     /**
      * Money still to collect — a tab rather than a status, because being owed
      * for a trip is not a stage the trip is at. A job can be queued, driven or
@@ -465,6 +469,13 @@ final class LimoQueueRows
             'dropoff' => $hidden && trim((string) ($leg->to_location ?? '')) !== ''
                 ? TripDetailsLock::place($leg->to_country)
                 : (string) ($leg->to_location ?? ''),
+            // Country codes the screen shows above each place (KSA over
+            // "Dammam"). Not printed columns. A held-back trip already names
+            // its country in place of the place, so it gets none.
+            'pickup_country' => $hidden ? '' : $this->countryCode($leg->from_country, $leg->from_location),
+            'dropoff_country' => $hidden || trim((string) ($leg->to_location ?? '')) === ''
+                ? ''
+                : $this->countryCode($leg->to_country, $leg->to_location),
             'vehicle' => (string) ($leg->vehicle ?? ''),
             // What was ASKED for — Sedan, SUV, Vito — which is known from the
             // moment the trip is booked, long before a particular car is free
@@ -482,6 +493,23 @@ final class LimoQueueRows
             'payment' => $booking?->paymentState() ?? '',
             'status' => (string) ($leg->status ?? ''),
         ];
+    }
+
+    /**
+     * The short code the office uses for a place's country: KSA for Saudi
+     * Arabia, UAE for the Emirates, the ISO code otherwise (BH, KW, QA, OM).
+     * An older trip has no stored country, so it is read from the place.
+     */
+    private function countryCode(?string $stored, ?string $place): string
+    {
+        $this->places ??= new PlaceCountry();
+        $iso = $this->places->of($stored, $place);
+
+        return match ($iso) {
+            'SA' => 'KSA',
+            'AE' => 'UAE',
+            default => $iso,
+        };
     }
 
     /**

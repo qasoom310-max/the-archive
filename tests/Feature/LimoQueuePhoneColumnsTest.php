@@ -396,25 +396,52 @@ final class LimoQueuePhoneColumnsTest extends TestCase
     }
 
     /**
-     * Received and Balance must be on screen on every phone. As columns they
-     * sat behind the pinned Actions column and a sideways scroll that iOS and
-     * Android show no scrollbar for, so below laptop width they ride under the
-     * reference — the one column that is always visible.
+     * The owner asked for nothing but the trip and booking numbers under the
+     * reference on a phone: Received and Balance keep their own columns, which
+     * appear from laptop width.
      */
-    public function test_received_and_balance_show_under_the_reference_below_laptop_width(): void
+    public function test_nothing_but_the_numbers_sits_under_the_reference(): void
     {
         $this->trip();
 
         $html = Livewire::test(Bookings::class)->html();
 
-        $this->assertMatchesRegularExpression("/class=\"[^\"]*lg:hidden\" data-phone-money=\"summary\"/", $html);
-        $this->assertStringContainsString("data-phone-money=\"received\"", $html);
-        $this->assertStringContainsString("data-phone-money=\"balance\"", $html);
+        $this->assertStringNotContainsString('data-phone-money', $html);
         $this->assertStringContainsString("<td class=\"hidden px-2 py-2 text-end text-emerald-700 lg:table-cell\"", $html);
-        // The price has its own column at every width, so it isn't repeated here.
-        $this->assertSame(1, preg_match('/data-phone-money="summary">(.*?)<\/span>\s*<\/td>/s', $html, $summary));
-        $this->assertStringContainsString(__('Received'), $summary[1]);
-        $this->assertStringNotContainsString(__('Amount'), $summary[1]);
+    }
+
+    /**
+     * Each place carries its country's short code above it: KSA over
+     * "Dammam", BH over "Bahrain airport". An older trip with no stored
+     * country is read from the place's name.
+     */
+    public function test_each_place_shows_its_country_code_above_it(): void
+    {
+        $customer = LimoCustomer::query()->create(['name' => 'Uk Roof tiles', 'phone' => '33445566']);
+        $booking = LimoBooking::query()->create([
+            'reference' => 'BK/16011', 'customer_id' => $customer->id,
+            'pickup_at' => '2026-11-05 10:00:00', 'status' => LimoBooking::STATUS_QUEUE,
+        ]);
+        LimoLeg::query()->create([
+            'legable_type' => LimoBooking::class, 'legable_id' => $booking->id, 'sequence' => 1,
+            'reference' => '26004', 'status' => LimoLeg::STATUS_QUEUE, 'start_at' => '2026-11-05 10:00:00',
+            // An older trip: no stored country, and the place is misspelt.
+            'from_location' => 'Damam', 'to_location' => 'Bahrain airport',
+            'rate' => 50, 'net_amount' => 50,
+        ]);
+        LimoLeg::query()->create([
+            'legable_type' => LimoBooking::class, 'legable_id' => $booking->id, 'sequence' => 2,
+            'reference' => '26005', 'status' => LimoLeg::STATUS_QUEUE, 'start_at' => '2026-11-06 10:00:00',
+            'from_location' => 'Riyadh', 'from_country' => 'SA', 'to_location' => 'Dubai Mall', 'to_country' => 'AE',
+            'rate' => 140, 'net_amount' => 140,
+        ]);
+
+        $html = Livewire::test(Bookings::class)->html();
+
+        preg_match_all('/data-place-country="(pickup|dropoff)">([A-Z]+)</', $html, $codes, PREG_SET_ORDER);
+        $pairs = array_map(static fn (array $m): string => $m[1] . ':' . $m[2], $codes);
+        sort($pairs);
+        $this->assertSame(['dropoff:BH', 'dropoff:UAE', 'pickup:KSA', 'pickup:KSA'], $pairs);
     }
 
     /**

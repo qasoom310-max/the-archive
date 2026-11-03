@@ -21,7 +21,7 @@ final class PlaceCountry
     /** @var array<string, string> word in a place name → ISO-2 */
     private const CITY_WORDS = [
         'riyadh' => 'SA', 'jeddah' => 'SA', 'jedda' => 'SA', 'dammam' => 'SA', 'khobar' => 'SA',
-        'alkhobar' => 'SA', 'dhahran' => 'SA', 'makkah' => 'SA', 'mecca' => 'SA', 'madinah' => 'SA',
+        'damam' => 'SA', 'alkhobar' => 'SA', 'dhahran' => 'SA', 'makkah' => 'SA', 'mecca' => 'SA', 'madinah' => 'SA',
         'medina' => 'SA', 'ahsa' => 'SA', 'hasa' => 'SA', 'hofuf' => 'SA', 'jubail' => 'SA', 'qatif' => 'SA',
         'taif' => 'SA', 'abha' => 'SA', 'tabuk' => 'SA', 'saudi' => 'SA', 'ksa' => 'SA', 'khafji' => 'SA',
         'الرياض' => 'SA', 'جدة' => 'SA', 'الدمام' => 'SA', 'الخبر' => 'SA', 'الظهران' => 'SA', 'السعودية' => 'SA',

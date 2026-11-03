@@ -4961,6 +4961,8 @@ time (still `2xl`). **2026-10-17:** Type is hidden on a phone again (`hidden sm:
 **Payment** column (badge + take-payment button) is now always visible and
 **Status** (badge + advance/cancel icons) joins at `md`.
 
+**Bookings list on a phone: only the numbers under the reference; country codes over places (2026-11-03, the owner's request).** The Received/Balance summary that rode under the trip number below laptop width is gone; those two keep their own `lg:` columns. Each Pickup / Drop off cell shows the place's country code above it (`data-place-country`): KSA for Saudi Arabia, UAE for the Emirates, else the ISO code (BH, KW, QA, OM). Row keys `pickup_country` / `dropoff_country` (`LimoQueueRows::countryCode()`, through `PlaceCountry`, so an older trip with no stored country is read from the place name; "damam" added to its city words). Not printed columns; a held-back (trip-details-locked) row and a trip with no drop-off get none. Test: `LimoQueuePhoneColumnsTest` (2).
+
 **Bookings row Actions collapsed into a 3-dot menu with viewport-aware flip
 (shipped 2026-09-16).** Five separate icon buttons (Open full booking / Edit
 / Service order PDF / Create payment link / Signed-Sent-Resend) made the

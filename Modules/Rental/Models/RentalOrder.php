@@ -319,13 +319,14 @@ final class RentalOrder extends Model implements DefinesIrModel, TakesCouponCred
         $this->delivery_charges = ($this->delivery ? self::DELIVERY_FEE : 0.0)
             + ($this->pickup ? self::PICKUP_FEE : 0.0);
 
-        // VAT applies to the whole taxable supply — the rental net of discount
-        // PLUS the delivery charge and any extra charge (an extra day, a fee…),
-        // all part of the same Bahrain composite supply.
-        $taxable = max(0.0, $this->subtotal - $this->discount) + $this->delivery_charges + max(0.0, $this->extra_charge);
+        // VAT is on the rental only: the rental net of discount plus any extra
+        // charge (an extra day, a fee…). The drop-off / pick-up charge is added
+        // after VAT, untaxed — the owner's decision on 2026-11-03 (it had been
+        // taxed since 2026-06-25 as part of a composite supply).
+        $taxable = max(0.0, $this->subtotal - $this->discount) + max(0.0, $this->extra_charge);
         $this->vat_amount = round($taxable * ($this->vat_rate / 100), 3);
         // Fuel-shortfall charge (amount + flat service fee) is billed at return.
-        $this->total = round($taxable + $this->vat_amount + $this->fuelChargeTotal(), 3);
+        $this->total = round($taxable + $this->vat_amount + $this->delivery_charges + $this->fuelChargeTotal(), 3);
         $this->balance = round(max(0.0, $this->total - $this->advance_amount), 3);
 
         // Payment status follows the money: a full advance pays it, part of it is

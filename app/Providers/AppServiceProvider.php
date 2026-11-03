@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Erp\Activity\ActivityLogger;
 use App\Erp\Notifications\NotificationCenter;
+use App\Erp\Pdf\ShapedPdf;
 use App\Erp\Settings\CompanyTimezone;
 use App\Erp\Settings\Setting;
 use App\Erp\Settings\SettingManager;
@@ -53,6 +54,11 @@ final class AppServiceProvider extends ServiceProvider
         // The staff app's sign-in tokens live on Main whatever database a
         // request goes on to work in — see App\Models\PersonalAccessToken.
         Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
+
+        // Every PDF goes through a wrapper that joins Arabic letters and lays
+        // them out right-to-left, which DomPDF can't do itself. Bound in boot()
+        // so it replaces the package's own binding whichever registers first.
+        $this->app->bind('dompdf.wrapper', fn ($app): ShapedPdf => new ShapedPdf($app['dompdf'], $app['config'], $app['files'], $app['view']));
 
         $this->applyConfiguredTimezone();
         $this->registerActivityListeners();

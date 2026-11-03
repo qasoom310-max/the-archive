@@ -3397,6 +3397,15 @@ test_an_older_receipt_prints_no_prepared_by_line}`.
 
 **The limousine receipt lists one trip per table row (fixed 2026-11-02).** All of a payment's trips used to sit in ONE row, which DomPDF cannot split across pages: a 16-car Ministry of Defence receipt (RCP/26056) printed two blank pages and cut off its last trips. Date, method and amount now sit on the first trip's row only. **Rule: never put a list that can grow inside a single table cell of a PDF; give each item its own row.** Test: `LimoReceiptDocumentTest::test_a_receipt_for_many_trips_starts_on_the_first_page_and_prints_them_all`.
 
+**Arabic prints joined and right-to-left in every PDF (shipped 2026-11-03).** DomPDF neither joins Arabic letters nor does bidi, so an Arabic customer name on the car hire agreement (and every other PDF) printed as loose letters in reverse order. `AppServiceProvider::boot()` rebinds `dompdf.wrapper` to `App\Erp\Pdf\ShapedPdf`, whose `loadHTML()` runs `App\Erp\Pdf\ArabicText::html()` first. That covers every `Pdf::loadView`/`loadHTML` call, and browser print views are not affected.
+- It shapes each Arabic text node (not inside `<style>`/`<script>`/`<head>`) into Presentation Forms-B glyphs, with lam-alef ligatures and the Persian letters; vowel marks are dropped. DejaVu Sans, which every PDF uses, has all of these glyphs.
+- It then writes the node in visual order using a simplified bidi pass, so numbers and Latin keep reading left to right and brackets are mirrored.
+- DomPDF wraps left to right, so an Arabic node longer than `ArabicText::LINE_CHARS` (24) is split on spaces into lines in reading order, joined with `<br>`.
+- Text with no Arabic is untouched. Checked by rendering with DomPDF's GD backend. pdf.js previews mirror a `)` beside Arabic; that is a pdf.js quirk, not the PDF.
+- Tests: `ArabicPdfTextTest` (6).
+
+**Rental VAT no longer applies to the delivery / pick-up charge (2026-11-03, the owner's call).** `RentalOrder::recalcTotals()`: VAT = (rental − discount + extra charge) × rate, then delivery charges are added untaxed. RO/01677 (60 + 10 delivery) goes from VAT 7 to VAT 6, total 76. This reverses f408058 (2026-06-25), which had taxed delivery as part of a composite supply. Rental migration `2026_11_03_900061` re-figures only draft/active orders with nothing received, no invoice, and a VAT that exactly matches the old formula (VAT, total and balance only; logged); everything else is left as it was. Tests: `RentalOrderContractTest` (+2).
+
 **The limousine receipt is stamped, not counter-signed (shipped 2026-09-07):**
 
 `limousine::receipt-pdf`'s second signature slot said **"Customer signature"**;

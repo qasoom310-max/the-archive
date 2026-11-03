@@ -42,17 +42,65 @@ final class RentalOrderContractTest extends TestCase
         $order->rate = 10;          // 5 days × 10 = 50 amount
         $order->discount = 5;        // amount net of discount = 45
         $order->vat_rate = 10;
-        $order->delivery = true;     // flat drop-off fee 5 (also taxable)
+        $order->delivery = true;     // flat drop-off fee 5 (not taxed)
         $order->advance_amount = 20;
         $order->recalcTotals();
 
         $this->assertSame(5, $order->days);
         $this->assertSame(50.0, $order->subtotal);
         $this->assertSame(5.0, $order->delivery_charges); // fixed fee, derived from the flag
-        // Taxable = (50 − 5) + 5 = 50; VAT = 50 × 10% = 5.0
-        $this->assertSame(5.0, $order->vat_amount);
-        $this->assertSame(55.0, $order->total);          // 50 + 5
-        $this->assertSame(35.0, $order->balance);        // 55 − 20
+        // VAT on the rental only: (50 − 5) × 10% = 4.5; delivery added after VAT.
+        $this->assertSame(4.5, $order->vat_amount);
+        $this->assertSame(54.5, $order->total);          // 45 + 4.5 + 5
+        $this->assertSame(34.5, $order->balance);        // 54.5 − 20
+    }
+
+    public function test_the_delivery_charge_is_not_taxed(): void
+    {
+        // RO/01677: 2 days × 30 with a 10 BD delivery. VAT is 6 (on the 60), not 7.
+        $order = new RentalOrder();
+        $order->start_date = Carbon::parse('2026-11-05');
+        $order->end_date = Carbon::parse('2026-11-07');
+        $order->rate_type = 'daily';
+        $order->rate = 30;
+        $order->vat_rate = 10;
+        $order->delivery = true;
+        $order->pickup = true;
+        $order->recalcTotals();
+
+        $this->assertSame(60.0, $order->subtotal);
+        $this->assertSame(10.0, $order->delivery_charges);
+        $this->assertSame(6.0, $order->vat_amount);
+        $this->assertSame(76.0, $order->total);
+    }
+
+    public function test_open_unpaid_orders_priced_the_old_way_lose_the_vat_on_delivery(): void
+    {
+        $make = function (string $ref, string $state, float $advance, float $vat) {
+            $order = new RentalOrder();
+            $order->forceFill([
+                'reference' => $ref, 'state' => $state, 'rate_type' => 'daily', 'rate' => 30,
+                'start_date' => '2026-11-05', 'end_date' => '2026-11-07', 'subtotal' => 60, 'discount' => 0,
+                'extra_charge' => 0, 'delivery_charges' => 10, 'vat_rate' => 10, 'vat_amount' => $vat,
+                'total' => 70 + $vat, 'advance_amount' => $advance, 'balance' => 70 + $vat - $advance,
+            ])->saveQuietly();
+
+            return $order;
+        };
+        $open = $make('RO/01677', RentalOrder::STATE_DRAFT, 0, 7);
+        $paid = $make('RO/01678', RentalOrder::STATE_ACTIVE, 20, 7);       // money taken: left alone
+        $closed = $make('RO/01679', RentalOrder::STATE_CLOSED, 0, 7);      // history: left alone
+        $imported = $make('RA1800', RentalOrder::STATE_ACTIVE, 0, 6.5);    // not the old formula: left alone
+
+        (require base_path('Modules/Rental/database/migrations/2026_11_03_900061_untax_delivery_on_open_orders.php'))->up();
+
+        $open->refresh();
+        $this->assertSame(6.0, $open->vat_amount);
+        $this->assertSame(76.0, $open->total);
+        $this->assertSame(76.0, $open->balance);
+        $this->assertSame(7.0, $paid->refresh()->vat_amount);
+        $this->assertSame(7.0, $closed->refresh()->vat_amount);
+        $this->assertSame(6.5, $imported->refresh()->vat_amount);
     }
 
     public function test_drop_off_and_pick_up_are_each_five_bhd(): void

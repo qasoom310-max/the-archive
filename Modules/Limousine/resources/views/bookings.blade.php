@@ -503,13 +503,11 @@
                                 </button>
                             @endif
                             <span class="block text-[11px] font-normal text-chrome-600">{{ $row['booking_reference'] }}</span>
-                            {{-- On a phone the money rides under the reference, the one
-                                 column that is always on screen. Further right, the price,
-                                 Received and Balance sat under the pinned Actions column
-                                 and behind a sideways scroll phones give no scrollbar for,
-                                 so on every iPhone and Android nobody could see them. --}}
+                            {{-- On a phone Received and Balance ride under the reference,
+                                 the one column that is always on screen: their own columns
+                                 only appear from laptop width. The trip's price is not
+                                 repeated here, its column is on screen at every width. --}}
                             <span class="mt-1 block space-y-px whitespace-nowrap text-[11px] font-normal lg:hidden" data-phone-money="summary">
-                                <span class="block text-chrome-900">{{ __('Amount') }} {{ $money($row['amount']) }}</span>
                                 <span class="block text-emerald-700" data-phone-money="received">{{ __('Received') }} {{ $money($row['received']) }}</span>
                                 <span class="block {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-600' }}" data-phone-money="balance">{{ __('Balance') }} {{ $money($row['balance']) }}</span>
                             </span>

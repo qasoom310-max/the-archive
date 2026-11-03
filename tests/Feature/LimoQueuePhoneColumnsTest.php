@@ -411,6 +411,10 @@ final class LimoQueuePhoneColumnsTest extends TestCase
         $this->assertStringContainsString("data-phone-money=\"received\"", $html);
         $this->assertStringContainsString("data-phone-money=\"balance\"", $html);
         $this->assertStringContainsString("<td class=\"hidden px-2 py-2 text-end text-emerald-700 lg:table-cell\"", $html);
+        // The price has its own column at every width, so it isn't repeated here.
+        $this->assertSame(1, preg_match('/data-phone-money="summary">(.*?)<\/span>\s*<\/td>/s', $html, $summary));
+        $this->assertStringContainsString(__('Received'), $summary[1]);
+        $this->assertStringNotContainsString(__('Amount'), $summary[1]);
     }
 
     /**

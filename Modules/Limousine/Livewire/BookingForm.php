@@ -679,6 +679,7 @@ final class BookingForm extends Component
         // the list since this page was opened counts.
         $starting = [LimoLeg::STATUS_QUEUE, LimoLeg::STATUS_CONFIRMED];
         $carless = $booking->legs()->whereIn('status', $starting)->whereNull('car_id')
+            ->where(static fn ($q) => $q->whereNull('outside_company')->orWhere('outside_company', ''))
             ->orderBy('sequence')
             ->get(['id', 'reference']);
 
@@ -873,8 +874,8 @@ final class BookingForm extends Component
             }
 
             $missing = match (true) {
-                $leg->car_id === null && $leg->driver_id === null => __('Car and driver'),
-                $leg->car_id === null => __('Car'),
+                ! $leg->hasCar() && $leg->driver_id === null => __('Car and driver'),
+                ! $leg->hasCar() => __('Car'),
                 $leg->driver_id === null => __('Driver'),
                 default => '',
             };

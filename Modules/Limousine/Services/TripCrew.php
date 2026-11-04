@@ -33,15 +33,54 @@ final class TripCrew
      *                           caller has no pay field (the staff app): the amount already agreed stays
      *                           while the driver does
      * @param  bool  $startRequested  "Start trip" was pressed: going out even before a driver is named
-     * @return array{errors: array<'car'|'driver'|'pay', string>, started: bool}
+     * @param  array{company: string, car: string, cost: string}|false|null  $outside  another company's car
+     *                           (our driver drives it); false = one of ours (clears any other company's car);
+     *                           null = the caller has no such choice (the staff app): a trip already in
+     *                           another company's car keeps it unless a fleet car is picked
+     * @return array{errors: array<'car'|'driver'|'pay'|'outside_company'|'outside_car'|'outside_cost', string>, started: bool}
      */
-    public function assign(LimoLeg $leg, ?int $carId, ?int $driverId, ?string $pay = '', bool $startRequested = false): array
+    public function assign(LimoLeg $leg, ?int $carId, ?int $driverId, ?string $pay = '', bool $startRequested = false, array|false|null $outside = null): array
     {
-        $crewBefore = $leg->car_id . ':' . $leg->driver_id;
+        $crewBefore = $leg->crewKey();
 
-        $car = $carId !== null ? Vehicle::query()->find($carId) : null;
-        $leg->car_id = $car?->id;
-        $leg->vehicle = $car?->displayName();
+        if (is_array($outside)) {
+            // Another company's car: no fleet car, the company and the car as
+            // typed, and what we pay them for it.
+            $company = trim($outside['company']);
+            $model = trim($outside['car']);
+            $cost = trim($outside['cost']);
+            $errors = [];
+            if ($company === '') {
+                $errors['outside_company'] = __('Type the company whose car it is.');
+            } elseif (mb_strlen($company) > 150) {
+                $errors['outside_company'] = __('Keep the company name under 150 characters.');
+            }
+            if ($model === '') {
+                $errors['outside_car'] = __('Type the car, so the customer knows what to look for.');
+            } elseif (mb_strlen($model) > 150) {
+                $errors['outside_car'] = __('Keep the car under 150 characters.');
+            }
+            if ($cost !== '' && (! is_numeric($cost) || (float) $cost < 0 || (float) $cost > 100000)) {
+                $errors['outside_cost'] = __('Enter the cost as an amount in BD, or leave it blank.');
+            }
+            if ($errors !== []) {
+                return ['errors' => $errors, 'started' => false];
+            }
+
+            $leg->car_id = null;
+            $leg->vehicle = $model;
+            $leg->outside_company = $company;
+            $leg->outside_cost = $cost !== '' ? round((float) $cost, 3) : null;
+        } else {
+            $car = $carId !== null ? Vehicle::query()->find($carId) : null;
+            $keepOutside = $outside === null && $car === null && $leg->hasOutsideCar();
+            if (! $keepOutside) {
+                $leg->car_id = $car?->id;
+                $leg->vehicle = $car?->displayName();
+                $leg->outside_company = null;
+                $leg->outside_cost = null;
+            }
+        }
 
         $driver = $driverId !== null ? LimoDriver::query()->find($driverId) : null;
 
@@ -93,7 +132,7 @@ final class TripCrew
         if ($goingOut && $dispatchable) {
             // A trip needs a car and someone to drive it — both, or it does not
             // leave. Whichever is missing is said, so it can be picked there.
-            if ($car === null) {
+            if (! $leg->hasCar()) {
                 $leg->save();
 
                 return ['errors' => ['car' => __('Pick the car — a trip cannot go out without one.')], 'started' => false];
@@ -122,7 +161,7 @@ final class TripCrew
         // that is over or already past its pick-up (dispatch typed in after the
         // fact is record-keeping, not news to the customer).
         if ($leg->hasCarAndDriver()
-            && $leg->car_id . ':' . $leg->driver_id !== $crewBefore
+            && $leg->crewKey() !== $crewBefore
             && $leg->legable instanceof LimoBooking
             && in_array($leg->status, LimoLeg::OPEN_STATUSES, true)
             && ($leg->start_at === null || $leg->start_at->isFuture())) {

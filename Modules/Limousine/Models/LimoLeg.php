@@ -24,7 +24,9 @@ use Illuminate\Support\Facades\Storage;
  * @property string|null $previous_reference  The number it had before 2026_10_05_950039 closed the old numbers up
  * @property string|null $status     queue|confirmed|active|completed|cancelled; null on quotation legs
  * @property string $service_type
- * @property int|null $car_id
+ * @property int|null $car_id  Our fleet car; null when the trip runs in another company's car
+ * @property string|null $outside_company  The company whose car runs the trip (our driver drives it)
+ * @property float|null $outside_cost  What we pay that company for the car (BD)
  * @property int|null $driver_id  Logical ref to the shared rental_drivers table
  * @property string|null $driver  Driver name at assignment time
  * @property string|null $from_location
@@ -147,7 +149,7 @@ final class LimoLeg extends Model
     /** @var list<string> */
     protected $fillable = [
         'legable_type', 'legable_id', 'sequence', 'reference', 'status', 'service_type',
-        'car_id', 'driver_id', 'driver', 'driver_payment', 'from_location', 'from_country', 'from_location_url', 'to_location', 'to_country', 'to_location_url', 'start_at', 'hours', 'estimated_hours', 'days', 'units', 'vehicle',
+        'car_id', 'outside_company', 'outside_cost', 'driver_id', 'driver', 'driver_payment', 'from_location', 'from_country', 'from_location_url', 'to_location', 'to_country', 'to_location_url', 'start_at', 'hours', 'estimated_hours', 'days', 'units', 'vehicle',
         'vehicle_details', 'rate', 'currency', 'quote_rate', 'exchange_rate', 'rate_basis', 'discount', 'vat', 'line_total', 'extras', 'extras_total', 'net_amount', 'notes',
         'signature_path', 'signed_at', 'signed_name', 'signed_ip', 'service_order_sent_at',
         'cancelled_at', 'cancellation_reason', 'refund_outcome', 'refund_amount',
@@ -251,6 +253,7 @@ final class LimoLeg extends Model
             'legable_id' => 'integer',
             'sequence' => 'integer',
             'car_id' => 'integer',
+            'outside_cost' => 'float',
             'driver_id' => 'integer',
             'start_at' => 'datetime',
             'crew_notified_at' => 'datetime',
@@ -321,10 +324,77 @@ final class LimoLeg extends Model
             || in_array($this->refund_outcome, self::BILLABLE_OUTCOMES, true);
     }
 
+    /** Whether a car is on this trip: one of ours, or another company's. */
+    public function hasCar(): bool
+    {
+        return $this->car_id !== null || $this->hasOutsideCar();
+    }
+
+    /** Whether the trip runs in another company's car (driven by one of ours). */
+    public function hasOutsideCar(): bool
+    {
+        return $this->car_id === null && trim((string) $this->outside_company) !== '';
+    }
+
     /** Whether a car AND a driver are both on this trip. */
     public function hasCarAndDriver(): bool
     {
-        return $this->car_id !== null && $this->driver_id !== null;
+        return $this->hasCar() && $this->driver_id !== null;
+    }
+
+    /**
+     * The car as the customer is told it: model (colour) and plate. Another
+     * company's car is what was typed for it, with no plate on file. Null when
+     * the trip has no car, or its fleet car was deleted.
+     *
+     * @return array{car: string, plate: string}|null
+     */
+    public function carForCustomer(): ?array
+    {
+        if ($this->hasOutsideCar()) {
+            return ['car' => trim((string) $this->vehicle), 'plate' => ''];
+        }
+
+        $car = $this->car_id !== null ? \Modules\Rental\Models\Vehicle::query()->find($this->car_id) : null;
+        if ($car === null) {
+            return null;
+        }
+
+        $name = trim((string) $car->name);
+        $color = trim((string) $car->color);
+
+        return ['car' => $color !== '' ? $name . ' (' . $color . ')' : $name, 'plate' => trim((string) $car->plate_no)];
+    }
+
+    /**
+     * Which car and driver are on the trip, as one string, so "the same two
+     * as before" can be told apart from a change. Another company's car is
+     * named by company and car, since it has no id.
+     */
+    public function crewKey(): string
+    {
+        $car = $this->hasOutsideCar()
+            ? 'outside:' . mb_strtolower(trim((string) $this->outside_company) . '/' . trim((string) $this->vehicle))
+            : (string) $this->car_id;
+
+        return $car . ':' . $this->driver_id;
+    }
+
+    /**
+     * Narrow a query to trips still missing a car or a driver. $prefix is the
+     * table name when the legs are joined ("limo_legs.").
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     * @param  \Illuminate\Database\Eloquent\Builder<TModel>|\Illuminate\Database\Query\Builder  $query
+     */
+    public static function whereMissingCrew(\Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder $query, string $prefix = ''): void
+    {
+        $query->where(static function ($q) use ($prefix): void {
+            $q->where(static function ($car) use ($prefix): void {
+                $car->whereNull($prefix . 'car_id')
+                    ->where(static fn ($c) => $c->whereNull($prefix . 'outside_company')->orWhere($prefix . 'outside_company', ''));
+            })->orWhereNull($prefix . 'driver_id');
+        });
     }
 
     /**

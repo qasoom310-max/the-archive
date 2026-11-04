@@ -32,8 +32,8 @@ final class AppTrips
 
         $missing = match (true) {
             $leg->hasCarAndDriver() => null,
-            $leg->car_id === null && $leg->driver_id === null => 'car_and_driver',
-            $leg->car_id === null => 'car',
+            ! $leg->hasCar() && $leg->driver_id === null => 'car_and_driver',
+            ! $leg->hasCar() => 'car',
             default => 'driver',
         };
 

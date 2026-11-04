@@ -15,7 +15,6 @@ use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Models\LimoQuotation;
 use Modules\Limousine\Models\LimoReceipt;
-use Modules\Rental\Models\Vehicle;
 
 /**
  * Emails the customer each limousine document as it is made:
@@ -144,7 +143,7 @@ final class CustomerDocumentEmails
                 return;
             }
 
-            $car = Vehicle::query()->find($leg->car_id);
+            $car = $leg->carForCustomer();
             $driver = LimoDriver::query()->find($leg->driver_id);
             if ($car === null || $driver === null) {
                 return;
@@ -153,8 +152,6 @@ final class CustomerDocumentEmails
             $customer = $booking->customer;
             $passenger = trim((string) $booking->pax_name);
             $reference = (string) $leg->reference;
-            $carName = trim((string) $car->name);
-            $color = trim((string) $car->color);
 
             $facts = [[__('Trip no.'), $reference]];
             if ($leg->start_at !== null) {
@@ -172,9 +169,9 @@ final class CustomerDocumentEmails
             if (trim((string) $driver->phone) !== '') {
                 $facts[] = [__("Driver's phone"), trim((string) $driver->phone)];
             }
-            $facts[] = [__('Car'), $color !== '' ? $carName . ' (' . $color . ')' : $carName];
-            if (trim((string) $car->plate_no) !== '') {
-                $facts[] = [__('Plate no.'), trim((string) $car->plate_no)];
+            $facts[] = [__('Car'), $car['car']];
+            if ($car['plate'] !== '') {
+                $facts[] = [__('Plate no.'), $car['plate']];
             }
 
             $this->mailer->send($customer?->serviceEmail(), CustomerDocument::fromTemplate(
@@ -185,8 +182,8 @@ final class CustomerDocumentEmails
                     'pickup_time' => $leg->start_at?->format('D j M Y, H:i') ?? '',
                     'driver' => trim((string) $driver->name),
                     'driver_phone' => trim((string) $driver->phone),
-                    'car' => $color !== '' ? $carName . ' (' . $color . ')' : $carName,
-                    'plate' => trim((string) $car->plate_no),
+                    'car' => $car['car'],
+                    'plate' => $car['plate'],
                 ],
                 facts: $facts,
                 attachments: [],

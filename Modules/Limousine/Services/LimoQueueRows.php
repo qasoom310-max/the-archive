@@ -241,9 +241,7 @@ final class LimoQueueRows
         $query
             ->whereIn($legs . '.status', LimoLeg::OPEN_STATUSES)
             ->whereBetween($legs . '.start_at', [$now->copy()->subDay(), $now->copy()->addHours(LimoLeg::CREW_PROMISE_HOURS * 2)])
-            ->where(static function (Builder $q) use ($legs): void {
-                $q->whereNull($legs . '.car_id')->orWhereNull($legs . '.driver_id');
-            });
+            ->where(static fn (Builder $q) => LimoLeg::whereMissingCrew($q, $legs . '.'));
     }
 
     /** How many trips are waiting for a car or a driver — that tab's badge. */
@@ -477,6 +475,9 @@ final class LimoQueueRows
                 ? ''
                 : $this->countryCode($leg->to_country, $leg->to_location),
             'vehicle' => (string) ($leg->vehicle ?? ''),
+            // Another company's car (one of our drivers drives it): the company
+            // shows under the car. Not a printed column.
+            'outside_company' => $leg->hasOutsideCar() ? trim((string) $leg->outside_company) : '',
             // What was ASKED for — Sedan, SUV, Vito — which is known from the
             // moment the trip is booked, long before a particular car is free
             // to run it. The leg's own note wins; `car_type` is where the old

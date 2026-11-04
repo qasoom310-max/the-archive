@@ -11,7 +11,6 @@ use Modules\Limousine\Models\LimoCrewAlertConfiguration;
 use Modules\Limousine\Models\LimoDriver;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Support\WhatsAppNumber;
-use Modules\Rental\Models\Vehicle;
 use Modules\WhatsApp\Models\WhatsAppConfiguration;
 use Modules\WhatsApp\Services\WhatsAppService;
 use Throwable;
@@ -104,12 +103,12 @@ final class CrewNotices
 
     private function tellCustomer(LimoLeg $leg, LimoBooking $booking, Carbon $now, string $language): bool
     {
-        $crew = $leg->car_id . ':' . $leg->driver_id;
+        $crew = $leg->crewKey();
         if ($leg->crew_notified_for === $crew) {
             return false;
         }
 
-        $car = Vehicle::query()->find($leg->car_id);
+        $car = $leg->carForCustomer();
         $driver = LimoDriver::query()->find($leg->driver_id);
         if ($car === null || $driver === null) {
             return false;
@@ -125,9 +124,6 @@ final class CrewNotices
             return false;
         }
 
-        $carName = trim((string) $car->name);
-        $color = trim((string) $car->color);
-
         $this->whatsapp->sendTemplateMessage(
             to: $to,
             template: self::TEMPLATE_CUSTOMER,
@@ -137,8 +133,8 @@ final class CrewNotices
                 $this->pickupTime($leg, $language),
                 (string) $driver->name,
                 (string) $driver->phone,
-                $color !== '' ? $carName . ' (' . $color . ')' : $carName,
-                (string) $car->plate_no,
+                $car['car'],
+                $car['plate'],
             ]),
             languageCode: $language,
         );
@@ -216,8 +212,8 @@ final class CrewNotices
     {
         $arabic = str_starts_with($language, 'ar');
         $missing = match (true) {
-            $leg->car_id === null && $leg->driver_id === null => $arabic ? 'سيارة وسائق' : 'car and driver',
-            $leg->car_id === null => $arabic ? 'سيارة' : 'car',
+            ! $leg->hasCar() && $leg->driver_id === null => $arabic ? 'سيارة وسائق' : 'car and driver',
+            ! $leg->hasCar() => $arabic ? 'سيارة' : 'car',
             default => $arabic ? 'سائق' : 'driver',
         };
 

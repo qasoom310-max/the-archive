@@ -2951,6 +2951,27 @@ commission driver keeps their amount; switching them to Company still clears it
 (`HasDriverPay`). Tests: `DriverRecordTest::{test_the_driver_forms_do_not_offer_a_commission_box,
 test_editing_a_commission_driver_keeps_their_amount}` (replaced the two form tests).
 
+**Another company's car on a trip, driven by our driver (shipped 2026-11-04).** The
+Assign car & driver dialog has an "Our car / Another company's car" switch
+(`Bookings::$assignCarSource`). The other-company option takes the company, the car as typed
+(model, colour, plate) and what we pay them (optional), and the driver is still picked from
+our list (the owner's choice: their car, our driver). Stored on the trip: `car_id` null,
+`limo_legs.outside_company` + `outside_cost` (Limousine migration `2026_11_04_950055`), the car
+text in `vehicle`.
+- **A car is now `LimoLeg::hasCar()`** (= `car_id` OR `hasOutsideCar()`). `hasCarAndDriver()`,
+  `crewKey()` (replaces the hand-built "car_id:driver_id" string; an own-car key is unchanged, so
+  `crew_notified_for` history still matches) and `LimoLeg::whereMissingCrew($query, $prefix)` (the
+  Needs car & driver tab, staff-app reminders, the trip-details lock) all use it. **Never test
+  `car_id === null` for "no car" again.**
+- `LimoLeg::carForCustomer()` gives the car + plate for the driver-details WhatsApp and email
+  (another company's car: the text as typed, no plate line).
+- `TripCrew::assign(..., array|false|null $outside)`: an array sets it, `false` = our car (clears
+  it), `null` = the caller has no such choice (the staff app), so a trip in another company's car
+  keeps it unless a fleet car is picked.
+- The bookings list shows "Other company: X" under the car (row key `outside_company`, not printed).
+- `outside_cost` is recorded only; no report reads it yet.
+Tests: `LimoOutsideCarTest` (8).
+
 **Passenger under a company on the bookings list (shipped 2026-10-25).** In the Customer cell, a COMPANY customer's row shows "PAX: <name>" (the booking's `pax_name`) between the company name and the phone, which was already the passenger's number. It is skipped for a private customer and when it only repeats the company name. Row key `passenger` (`LimoQueueRows::passenger()`); like `contact_phone` it is not a heading, so exports are unchanged. Test: `LimoBookingPassengerTest`.
 
 **Bookings search stopped following the screen (fixed 2026-10-24).** The bookings heading loop ended the ETA heading with `@continue` inside its `@if`. Livewire wraps each `@if` in `<!--[if BLOCK]>` / `<!--[if ENDBLOCK]>` markers, and the `@continue` skipped the closing one. Going from a tab with ETA (Queue/Active/Completed) to one without crashed the browser's redraw ("Cannot read properties of null (reading 'before')"). The header was left at 5 columns, and every later search ran on the server but never reached the screen. Now an if/else. **Rule: never `@continue`/`@break` from inside an `@if` in a Livewire view.** Also: when a search finds nothing on the current tab, the empty row says how many matches the other tabs hold, with a "Search all tabs" button (`$elsewhere`). Checked in headless Chrome. Test: `LimoBookingSearchTest` (3, including balanced markers on both tabs).

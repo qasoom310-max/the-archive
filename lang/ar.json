@@ -3415,5 +3415,17 @@
     "Sent to a company customer after the trip, as their record that it was done.": "تُرسل لعميل شركة بعد الرحلة كسجل لإتمامها.",
     "Car hire agreement": "عقد تأجير السيارة",
     "Sent with the car hire agreement from a rental order.": "تُرسل مع عقد تأجير السيارة من طلب التأجير.",
-    "Customer emails": "رسائل العملاء"
+    "Customer emails": "رسائل العملاء",
+    "Our car": "سيارتنا",
+    "Another company's car": "سيارة شركة أخرى",
+    "Whose car it is": "الشركة المالكة للسيارة",
+    "Car, colour and plate": "السيارة واللون ورقم اللوحة",
+    "e.g. GMC Yukon, black, 45213": "مثال: جي إم سي يوكن، أسود، 45213",
+    "What we pay them (BD)": "المبلغ الذي ندفعه لهم (د.ب)",
+    "Type the company whose car it is.": "اكتب اسم الشركة المالكة للسيارة.",
+    "Keep the company name under 150 characters.": "اجعل اسم الشركة أقل من 150 حرفًا.",
+    "Type the car, so the customer knows what to look for.": "اكتب بيانات السيارة ليعرف العميل ما يبحث عنه.",
+    "Keep the car under 150 characters.": "اجعل بيانات السيارة أقل من 150 حرفًا.",
+    "Enter the cost as an amount in BD, or leave it blank.": "أدخل التكلفة كمبلغ بالدينار، أو اتركها فارغة.",
+    "Other company: :company": "شركة أخرى: :company"
 }

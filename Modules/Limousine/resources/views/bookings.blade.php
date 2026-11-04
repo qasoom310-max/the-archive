@@ -573,6 +573,9 @@
                             @php $type = $row['vehicle_type']; @endphp
                             @if ($row['vehicle'] !== '')
                                 <span class="text-chrome-900">{{ $row['vehicle'] }}</span>
+                                @if (($row['outside_company'] ?? '') !== '')
+                                    <span class="block text-[11px] font-medium text-amber-700" data-outside-company>{{ __('Other company: :company', ['company' => $row['outside_company']]) }}</span>
+                                @endif
                                 @if ($mayEdit)
                                     <button type="button" wire:click="openAssign({{ $leg->id }})"
                                             class="ms-2 text-xs font-medium text-primary-700 hover:underline">{{ __('Change') }}</button>
@@ -945,13 +948,48 @@
                 @endif
 
                 <div class="mt-4 space-y-4">
+                    {{-- Whose car: one of ours from the fleet, or another
+                         company's car that one of our drivers drives. --}}
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Car') }}</label>
-                        <x-searchable-select wire:model="assignCar" class="o-input w-full"
-                            :options="$carOptions"
-                            :empty="__('No cars available')"
-                            :search-placeholder="__('Search plate or model…')" />
-                        @error('assignCar') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        <div class="mb-2 grid grid-cols-2 gap-1 rounded-lg bg-chrome-100 p-1" role="radiogroup" data-car-source>
+                            @foreach (['own' => __('Our car'), 'outside' => __("Another company's car")] as $source => $sourceLabel)
+                                <button type="button" role="radio" aria-checked="{{ $assignCarSource === $source ? 'true' : 'false' }}"
+                                        wire:click="$set('assignCarSource', '{{ $source }}')"
+                                        class="rounded-md px-2 py-1.5 text-sm font-medium transition {{ $assignCarSource === $source ? 'bg-white text-chrome-900 shadow-sm' : 'text-chrome-600 hover:text-chrome-900' }}">
+                                    {{ $sourceLabel }}
+                                </button>
+                            @endforeach
+                        </div>
+
+                        @if ($assignCarSource === 'outside')
+                            <div class="space-y-3 rounded-lg border border-chrome-200 p-3" wire:key="assign-outside" data-outside-car>
+                                <div>
+                                    <label class="mb-1 block text-xs font-medium text-chrome-600">{{ __('Company') }}</label>
+                                    <input type="text" wire:model="assignOutsideCompany" maxlength="150" class="o-input w-full" placeholder="{{ __('Whose car it is') }}">
+                                    @error('assignOutsideCompany') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="mb-1 block text-xs font-medium text-chrome-600">{{ __('Car, colour and plate') }}</label>
+                                    <input type="text" wire:model="assignOutsideCar" maxlength="150" class="o-input w-full" placeholder="{{ __('e.g. GMC Yukon, black, 45213') }}">
+                                    @error('assignOutsideCar') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="mb-1 block text-xs font-medium text-chrome-600">{{ __('What we pay them (BD)') }} <span class="font-normal text-chrome-500">({{ __('optional') }})</span></label>
+                                    <input type="number" step="any" min="0" inputmode="decimal" wire:model="assignOutsideCost" placeholder="0" class="o-input w-full">
+                                    @error('assignOutsideCost') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                            </div>
+                            @error('assignCar') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        @else
+                            <div wire:key="assign-own">
+                                <x-searchable-select wire:model="assignCar" class="o-input w-full"
+                                    :options="$carOptions"
+                                    :empty="__('No cars available')"
+                                    :search-placeholder="__('Search plate or model…')" />
+                                @error('assignCar') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            </div>
+                        @endif
                     </div>
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Driver') }}</label>

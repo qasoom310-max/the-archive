@@ -54,7 +54,7 @@ final class TripDetailsLock
 
         return $booking->legs()
             ->whereIn('status', LimoLeg::OPEN_STATUSES)
-            ->where(static fn ($q) => $q->whereNull('car_id')->orWhereNull('driver_id'))
+            ->where(static fn ($q) => LimoLeg::whereMissingCrew($q))
             ->exists();
     }
 

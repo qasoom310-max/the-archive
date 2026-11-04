@@ -121,6 +121,16 @@ final class Bookings extends Component
     /** The chosen car for that leg. */
     public string $assignCar = '';
 
+    /** Whose car runs the trip: 'own' (our fleet) or 'outside' (another company's, our driver). */
+    public string $assignCarSource = 'own';
+
+    /** Another company's car: the company, the car as typed, what we pay them (BD). */
+    public string $assignOutsideCompany = '';
+
+    public string $assignOutsideCar = '';
+
+    public string $assignOutsideCost = '';
+
     /** The chosen driver for that leg. */
     public string $assignDriver = '';
 
@@ -296,6 +306,10 @@ final class Bookings extends Component
 
         $this->assigningId = $leg->id;
         $this->assignCar = $leg->car_id !== null ? (string) $leg->car_id : '';
+        $this->assignCarSource = $leg->hasOutsideCar() ? 'outside' : 'own';
+        $this->assignOutsideCompany = $leg->hasOutsideCar() ? (string) $leg->outside_company : '';
+        $this->assignOutsideCar = $leg->hasOutsideCar() ? (string) $leg->vehicle : '';
+        $this->assignOutsideCost = $leg->hasOutsideCar() && $leg->outside_cost !== null ? $this->plainAmount((float) $leg->outside_cost) : '';
         $this->assignDriver = $leg->driver_id !== null ? (string) $leg->driver_id : '';
         $this->assignDriverPay = $leg->driver_payment !== null ? $this->plainAmount((float) $leg->driver_payment) : '';
         $this->resetErrorBag();
@@ -322,6 +336,10 @@ final class Bookings extends Component
     {
         $this->assigningId = null;
         $this->assignCar = '';
+        $this->assignCarSource = 'own';
+        $this->assignOutsideCompany = '';
+        $this->assignOutsideCar = '';
+        $this->assignOutsideCost = '';
         $this->assignDriver = '';
         $this->assignDriverPay = '';
         $this->startAfterAssign = false;
@@ -373,7 +391,7 @@ final class Bookings extends Component
         // one the Assign car / Assign driver buttons open. saveAssign() starts
         // the trip the moment both are named, so this button still ends where
         // it said it would, in one place.
-        if ($to === LimoLeg::STATUS_ACTIVE && ($leg->car_id === null || $leg->driver_id === null)) {
+        if ($to === LimoLeg::STATUS_ACTIVE && ! $leg->hasCarAndDriver()) {
             $this->openAssign($legId);
 
             // openAssign refuses a closed trip, so only follow through if it
@@ -419,15 +437,25 @@ final class Bookings extends Component
         // missing or wrong is said HERE, with the dialog still open on the
         // pickers, rather than closing with a note that sends the office off to
         // another button.
+        // Another company's car replaces the fleet pick: no car id, the typed
+        // company and car instead.
+        $outside = $this->assignCarSource === 'outside'
+            ? ['company' => $this->assignOutsideCompany, 'car' => $this->assignOutsideCar, 'cost' => $this->assignOutsideCost]
+            : false;
+
         $result = app(TripCrew::class)->assign(
             $leg,
-            $this->assignCar !== '' ? (int) $this->assignCar : null,
+            $outside === false && $this->assignCar !== '' ? (int) $this->assignCar : null,
             $this->assignDriver !== '' ? (int) $this->assignDriver : null,
             $this->assignDriverPay,
             $this->startAfterAssign,
+            $outside,
         );
 
-        $fields = ['car' => 'assignCar', 'driver' => 'assignDriver', 'pay' => 'assignDriverPay'];
+        $fields = [
+            'car' => 'assignCar', 'driver' => 'assignDriver', 'pay' => 'assignDriverPay',
+            'outside_company' => 'assignOutsideCompany', 'outside_car' => 'assignOutsideCar', 'outside_cost' => 'assignOutsideCost',
+        ];
         foreach ($result['errors'] as $field => $message) {
             $this->addError($fields[$field], $message);
         }

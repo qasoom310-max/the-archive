@@ -80,7 +80,7 @@ final class AppCrewReminders
             ->whereIn('status', LimoLeg::OPEN_STATUSES)
             ->where('start_at', '>', $now)
             ->where('start_at', '<=', $now->copy()->addHours(LimoLeg::CREW_PROMISE_HOURS))
-            ->where(static fn ($q) => $q->whereNull('car_id')->orWhereNull('driver_id'))
+            ->where(static fn ($q) => LimoLeg::whereMissingCrew($q))
             ->with('legable')
             ->orderBy('start_at')
             ->get();

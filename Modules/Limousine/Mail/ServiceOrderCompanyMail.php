@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Mail;
 
+use App\Erp\Mail\CustomerDocument;
+use App\Mail\Concerns\UsesCustomerLayout;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -12,46 +14,50 @@ use Illuminate\Queue\SerializesModels;
 use Modules\Limousine\Models\LimoLeg;
 
 /**
- * Tells a CORPORATE customer their guest has been collected.
- *
- * No signing link: the company was not in the car and cannot sign for a journey
- * it did not take — it needs to know the job was done, not to attest to it. So
- * this is a notice, sent to the company's service address rather than whoever
- * placed the booking.
+ * Tells a company customer the trip is done. No signing button: the company
+ * was not in the car, so it is being informed, not asked to attest. The
+ * wording is the "Service completed (company)" template on Settings →
+ * Customer emails.
  */
 final class ServiceOrderCompanyMail extends Mailable
 {
     use Queueable;
     use SerializesModels;
+    use UsesCustomerLayout;
 
+    /**
+     * @param  array<string, string>  $details
+     */
     public function __construct(
         public LimoLeg $leg,
         public string $companyName,
         public string $customerName,
-        /** @var array<string, string> */
         public array $details = [],
-    ) {}
+    ) {
+        $this->locale('en');
+    }
+
+    public function document(): CustomerDocument
+    {
+        $reference = (string) $this->leg->reference;
+
+        return CustomerDocument::fromTemplate(
+            type: 'service_order_company',
+            customerName: $this->customerName,
+            vars: ['reference' => $reference],
+            facts: array_map(static fn (string $label, string $value): array => [$label, $value], array_keys($this->details), array_values($this->details)),
+            attachments: [],
+            label: 'Service order ' . $reference,
+        );
+    }
 
     public function envelope(): Envelope
     {
-        return new Envelope(
-            subject: $this->companyName . ' — ' . __('Service completed') . ' — ' . (string) $this->leg->reference,
-        );
+        return $this->customerEnvelope($this->document()->subject);
     }
 
     public function content(): Content
     {
-        // markdown, not view — see QuotationMail::content() for why: this
-        // template's <x-mail::message>/<x-mail::table> only resolve through
-        // Laravel's Markdown mail renderer.
-        return new Content(
-            markdown: 'limousine::service-order-company-email',
-            with: [
-                'leg' => $this->leg,
-                'companyName' => $this->companyName,
-                'customerName' => $this->customerName,
-                'details' => $this->details,
-            ],
-        );
+        return $this->customerContent($this->document(), []);
     }
 }

@@ -12,9 +12,9 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
 /**
- * A quotation, invoice or receipt emailed to the customer: the company logo
- * across the top, a short note, a summary box, and the PDFs attached.
- * Built by {@see \App\Erp\Mail\CustomerMailer}.
+ * A quotation, invoice, receipt or trip note emailed to the customer by
+ * {@see \App\Erp\Mail\CustomerMailer}: the company logo across the top, the
+ * database's own wording, a summary box, the PDFs attached.
  */
 final class CustomerDocumentMail extends Mailable
 {

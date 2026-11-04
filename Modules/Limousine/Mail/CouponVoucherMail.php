@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Mail;
 
+use App\Erp\Mail\CustomerDocument;
+use App\Erp\Views\ValueFormat;
+use App\Mail\Concerns\UsesCustomerLayout;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
@@ -13,20 +16,16 @@ use Illuminate\Queue\SerializesModels;
 use Modules\Limousine\Models\LimoCoupon;
 
 /**
- * The customer's refund coupon, with the voucher attached.
- *
- * An attachment rather than a link, unlike the Service Order: there is nothing
- * for the customer to DO here. It is a receipt for money they paid on a trip
- * that did not run, so it wants to be a file they keep — in their mail, on
- * their phone — not a page that expires.
- *
- * The code is in the body as well as the PDF, because most people will quote it
- * off the screen without opening the attachment at all.
+ * The credit coupon, sent to the customer. No button and no link: the code IS
+ * the thing, so it stands out in the body where it can be read without
+ * opening the attachment, and the voucher rides along as a PDF to keep. The
+ * wording is the "Credit coupon" template on Settings → Customer emails.
  */
 final class CouponVoucherMail extends Mailable
 {
     use Queueable;
     use SerializesModels;
+    use UsesCustomerLayout;
 
     public function __construct(
         public LimoCoupon $coupon,
@@ -35,28 +34,40 @@ final class CouponVoucherMail extends Mailable
         /** Raw PDF bytes, attached as the voucher. */
         public string $pdf,
         public string $filename,
-    ) {}
+    ) {
+        $this->locale('en');
+    }
+
+    public function document(): CustomerDocument
+    {
+        $code = (string) $this->coupon->code;
+        $value = ValueFormat::money($this->remaining);
+        $until = $this->coupon->expires_at?->isoFormat('DD-MMM-YYYY') ?? '';
+
+        $lines = ['Value remaining: ' . $value];
+        if ($until !== '') {
+            $lines[] = 'Valid until ' . $until;
+        }
+
+        return CustomerDocument::fromTemplate(
+            type: 'coupon',
+            customerName: (string) ($this->coupon->customer->name ?? ''),
+            vars: ['code' => $code, 'value' => $value, 'valid_until' => $until],
+            facts: [],
+            attachments: [],
+            label: 'Coupon ' . $code,
+            callout: ['title' => $code, 'lines' => $lines],
+        );
+    }
 
     public function envelope(): Envelope
     {
-        return new Envelope(
-            subject: $this->companyName . ' — ' . __('Your credit coupon') . ' ' . (string) $this->coupon->code,
-        );
+        return $this->customerEnvelope($this->document()->subject);
     }
 
     public function content(): Content
     {
-        // markdown, not view — see QuotationMail::content() for why: this
-        // template's <x-mail::message>/<x-mail::panel> only resolve through
-        // Laravel's Markdown mail renderer.
-        return new Content(
-            markdown: 'limousine::coupon-voucher-email',
-            with: [
-                'coupon' => $this->coupon,
-                'companyName' => $this->companyName,
-                'remaining' => $this->remaining,
-            ],
-        );
+        return $this->customerContent($this->document(), [$this->filename]);
     }
 
     /**

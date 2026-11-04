@@ -55,13 +55,13 @@ final class CustomerDocumentEmails
                 $facts[] = [__('Total'), Currencies::format((float) $quote->fare)];
             }
 
-            $this->mailer->send($this->addressOf($quote->customer), new CustomerDocument(
-                subject: $this->mailer->companyName() . ' — ' . __('Quotation') . ' ' . $reference,
-                heading: __('Your quotation :reference', ['reference' => $reference]),
+            $this->mailer->send($this->addressOf($quote->customer), CustomerDocument::fromTemplate(
+                type: 'quotation',
                 customerName: (string) ($quote->customer->name ?? ''),
-                paragraphs: [
-                    __('Thank you for your interest in our services. Please find your quotation attached.'),
-                    __('To confirm the booking, simply reply to this email or call us, and we will take care of the rest.'),
+                vars: [
+                    'reference' => $reference,
+                    'total' => Currencies::format((float) $quote->fare),
+                    'valid_until' => $quote->valid_until?->format('j M Y') ?? '',
                 ],
                 facts: $facts,
                 attachments: [['data' => $pdf->render($quote), 'name' => $pdf->filename($quote)]],
@@ -81,16 +81,9 @@ final class CustomerDocumentEmails
             $receipts = $this->receiptsOf($invoice);
             $paid = (float) $invoice->amount_paid > 0.0005 || $receipts->isNotEmpty();
 
-            $paragraphs = [__('Thank you for choosing us. Please find your invoice attached.')];
-            if ($paid && $invoice->balance() <= 0.0005) {
-                $paragraphs[] = __('This invoice is paid in full — your receipt is attached as well.');
-            } elseif ($paid) {
-                $paragraphs[] = __('We have received part of the payment — your receipt is attached. The remaining balance is shown below.');
-            } else {
-                $paragraphs[] = __('The amount due is shown below. Payment details are printed on the invoice.');
-            }
+            $state = ! $paid ? 'unpaid' : ($invoice->balance() <= 0.0005 ? 'paid' : 'part');
 
-            $this->sendInvoiceEmail($invoice, $receipts, $paragraphs, __('Your invoice :reference', ['reference' => (string) $invoice->reference]));
+            $this->sendInvoiceEmail($invoice, $receipts, $state);
         }, $now);
     }
 
@@ -121,14 +114,14 @@ final class CustomerDocumentEmails
 
             $customer = $receipt->customer ?? $invoice?->customer;
 
-            $this->mailer->send($this->addressOf($customer), new CustomerDocument(
-                subject: $this->mailer->companyName() . ' — ' . __('Receipt') . ' ' . $reference,
-                heading: __('Payment received — thank you'),
+            $this->mailer->send($this->addressOf($customer), CustomerDocument::fromTemplate(
+                type: 'receipt',
                 customerName: (string) ($customer->name ?? ''),
-                paragraphs: [
-                    __('We have received your payment of :amount. Your receipt is attached, together with your invoice.', [
-                        'amount' => Currencies::format((float) $receipt->amount),
-                    ]),
+                vars: [
+                    'reference' => $reference,
+                    'amount' => Currencies::format((float) $receipt->amount),
+                    'invoice' => (string) ($invoice->reference ?? ''),
+                    'balance' => $invoice !== null ? Currencies::format(max(0.0, $invoice->balance())) : '',
                 ],
                 facts: $facts,
                 attachments: $attachments,
@@ -184,13 +177,16 @@ final class CustomerDocumentEmails
                 $facts[] = [__('Plate no.'), trim((string) $car->plate_no)];
             }
 
-            $this->mailer->send($customer?->serviceEmail(), new CustomerDocument(
-                subject: $this->mailer->companyName() . ' — ' . __('Your driver for trip :reference', ['reference' => $reference]),
-                heading: __('Your driver is assigned'),
+            $this->mailer->send($customer?->serviceEmail(), CustomerDocument::fromTemplate(
+                type: 'driver_assigned',
                 customerName: (string) ($customer->name ?? ''),
-                paragraphs: [
-                    __('Your driver and car for this trip are below. The driver will be waiting at the pick-up point on time.'),
-                    __('If anything changes, reply to this email or call us.'),
+                vars: [
+                    'reference' => $reference,
+                    'pickup_time' => $leg->start_at?->format('D j M Y, H:i') ?? '',
+                    'driver' => trim((string) $driver->name),
+                    'driver_phone' => trim((string) $driver->phone),
+                    'car' => $color !== '' ? $carName . ' (' . $color . ')' : $carName,
+                    'plate' => trim((string) $car->plate_no),
                 ],
                 facts: $facts,
                 attachments: [],
@@ -202,9 +198,9 @@ final class CustomerDocumentEmails
 
     /**
      * @param  Collection<int, LimoReceipt>  $receipts
-     * @param  list<string>                  $paragraphs
+     * @param  'paid'|'part'|'unpaid'        $state
      */
-    private function sendInvoiceEmail(LimoInvoice $invoice, Collection $receipts, array $paragraphs, string $heading): void
+    private function sendInvoiceEmail(LimoInvoice $invoice, Collection $receipts, string $state): void
     {
         $invoicePdf = app(LimoInvoicePdf::class);
         $receiptPdf = app(LimoReceiptPdf::class);
@@ -223,11 +219,16 @@ final class CustomerDocumentEmails
         $facts[] = [__('Paid'), Currencies::format((float) $invoice->amount_paid)];
         $facts[] = [__('Balance due'), Currencies::format(max(0.0, $invoice->balance()))];
 
-        $this->mailer->send($this->addressOf($invoice->customer), new CustomerDocument(
-            subject: $this->mailer->companyName() . ' — ' . __('Invoice') . ' ' . $reference,
-            heading: $heading,
+        $this->mailer->send($this->addressOf($invoice->customer), CustomerDocument::fromTemplate(
+            type: 'invoice',
             customerName: (string) ($invoice->customer->name ?? ''),
-            paragraphs: $paragraphs,
+            vars: [
+                'reference' => $reference,
+                'total' => Currencies::format((float) $invoice->total),
+                'paid' => Currencies::format((float) $invoice->amount_paid),
+                'balance' => Currencies::format(max(0.0, $invoice->balance())),
+                'payment_state' => $state,
+            ],
             facts: $facts,
             attachments: $attachments,
             label: __('Invoice') . ' ' . $reference,

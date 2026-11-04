@@ -16,6 +16,11 @@
 
     // Integration tabs are admin-only — the inner pages also `abort 403`, but
     // hiding the pill avoids a misleading entry point for cashiers.
+    // Every email a customer receives: look, signature, wording, sending.
+    if ($isAdmin) {
+        $sections[] = ['key' => 'customer_emails', 'label' => 'Customer emails', 'url' => url('/app/settings/customer-emails')];
+    }
+
     if ($isAdmin && $installedModule('whatsapp')) {
         $sections[] = ['key' => 'whatsapp', 'label' => 'WhatsApp', 'url' => url('/app/settings/whatsapp')];
 

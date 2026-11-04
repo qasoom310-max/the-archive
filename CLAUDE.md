@@ -2634,7 +2634,7 @@ Asked for by the Wanaan owner: the customer gets their paperwork by email from
 
 | Concern | Location |
 |---|---|
-| Settings (per database, General) | `mail.customer_documents` (bool, the switch — OFF by default), `mail.from_address` (From + Reply-To; blank = server default), `company.customer_terms` (`text` type → textarea; Markdown). Core migration `2026_10_13_100002` inserts them everywhere and switches Wanaan on (company name contains "wanaan" or its VAT), with terms taken from wanaan-bh.com: the terms page (car rental + its cancellation policy), the limousine product pages' terms, the FAQ's cross-border rule, and the services on the home page. Also in `SettingSeeder`. The settings page gained a `text` row type (textarea) |
+| Settings (per database; edited on Settings → Customer emails → Sending since 2026-11-04) | `mail.customer_documents` (bool, the switch — OFF by default), `mail.from_address` (From + Reply-To; blank = server default), `company.customer_terms` (`text` type → textarea; Markdown). Core migration `2026_10_13_100002` inserts them everywhere and switches Wanaan on (company name contains "wanaan" or its VAT), with terms taken from wanaan-bh.com: the terms page (car rental + its cancellation policy), the limousine product pages' terms, the FAQ's cross-border rule, and the services on the home page. Also in `SettingSeeder`. The settings page gained a `text` row type (textarea) |
 | Engine | `App\Erp\Mail\CustomerMailer` — `later(Closure, bool $now = false)` runs after the response via `defer()` (Save is never slowed or broken by the mail server), forces the **English** locale, and **re-enters the database it was called from** (the online-payment callback only borrows a workspace inside `runFor`, so a deferred closure would otherwise run on Main). `$now` runs immediately — for the WhatsApp assistant, which is itself already deferred (a `defer()` inside a deferred callback never runs). `send()` skips an empty/invalid address, attaches the terms PDF (`termsPdf()`, view `pdf.customer-terms`, blank terms = none), logs `emailed` (or the failure) to the activity log, never throws. `logo()` converts WebP/AVIF to PNG because Outlook shows nothing for them |
 | Mail | `App\Mail\CustomerDocumentMail` + `emails.customer-document` (table layout, inline CSS, logo embedded with `embedData`, gold rule, summary box, attachment list, dark footer from company phone/website/address). Content is a `CustomerDocument` VO |
 | Limousine | `Modules\Limousine\Services\CustomerDocumentEmails` — `quotationCreated`, `invoiceIssued` (invoice + every receipt on the invoice or its booking; wording says unpaid / part paid / paid in full), `paymentReceived` (receipt + invoice as it stands). Address = customer `email`, else `service_email`. Called from: QuotationForm (new quote; convert → invoice), Quotations (accept), InvoiceForm (issue from quote; collect), Invoices (collect), Bookings (take payment), BookingForm (new booking → invoice; money added on an edit → receipt), ReceiptForm (new), PaymentCallbackController (paid online), AssistantActions (booking, quotation; `now: true`). A converted invoice is emailed only when `wasRecentlyCreated` |
@@ -2648,7 +2648,26 @@ send as itself, so the SMTP login must be `Erp@wanaan-bh.com` (or a mailbox
 allowed to send as it), or every email fails (logged in the activity log).
 The website contradicts itself on limousine cancellations (product pages:
 non-refundable within 24 h; FAQ: a 50 % fee) — the terms use the product pages;
-the owner can edit them in Settings → General.
+the owner can edit them in Settings → Customer emails → Sending.
+
+**Settings → Customer emails: one design, editable wording (shipped 2026-11-04).**
+Every email a customer receives now goes through the one layout,
+`resources/views/emails/customer-document.blade.php`, and an admin edits its look and
+words per database at `/app/settings/customer-emails` (`App\Livewire\Settings\CustomerEmailSettings`,
+admin-only, "Customer emails" pill in `partials/settings-nav`).
+
+| Concern | Location |
+|---|---|
+| Templates | `App\Erp\Mail\EmailTemplates`. `TYPES`: quotation, invoice, receipt, driver_assigned, coupon, service_order, service_order_company, agreement. Each has subject / heading / intro (above the details box) / outro (below), plus `button` (service order) and `extras` (invoice: `status_paid` / `status_part` / `status_unpaid`, fed into `{payment_status}` by `payment_state`). Shared layout: accent, footer_bg, show_logo, greeting, closing, signature, footer, small_print |
+| Storage | ONE settings row `email.templates` (JSON `{layout, types}`). Only values that differ from the default are stored, so blank = default and a changed default still reaches untouched databases |
+| Text rules | `{placeholder}` filled (`COMMON`: customer, company, phone, email, website, address, plus each type's own). An unknown placeholder stays as typed, so it shows in the preview. Blank line = new paragraph. `**bold**` only. Everything is escaped (`EmailTemplates::html()`), colours must be `#rrggbb`. `lines()` drops footer/signature lines left empty or holding only a `·`/`|` separator. It must NEVER strip a trailing comma ("Kind regards,"; a first cut did) |
+| Senders | `CustomerDocument::fromTemplate()` builds the email from a type + vars + facts. Used by `CustomerDocumentEmails` (Limousine) and `RentalDocumentEmails`, and by the six Send-button mailables (`QuotationMail`, `ReceiptMail`, `CouponVoucherMail`, `ServiceOrderMail`, `ServiceOrderCompanyMail`, `RentalAgreementMail`), which use `App\Mail\Concerns\UsesCustomerLayout` and expose `document()`. Their old markdown/blade bodies were deleted. They now send in English (`$this->locale('en')`) from `mail.from_address` with Reply-To, same as the automatic ones |
+| `CustomerDocument` | gained `outro`, `callout` (big dashed box: the coupon code) and `button` (sign link, with the plain URL under it) |
+| Page | Tabs: Design & signature, Sending (the `mail.customer_documents` switch, From address and `company.customer_terms` MOVED here; `SettingsPage::canSee()` hides `mail.*`, `email.*` and the terms from General), then one per email kind (Limousine-only kinds only where Limousine runs, etc.). Live preview in a sandboxed iframe (`srcdoc`) from the unsaved form, "Reset to default" per kind, "Send test" (saves, then mails the previewed email with sample details) |
+| Tests | `tests/Feature/CustomerEmailSettingsTest.php` (12) |
+
+Not editable: the details-box labels ("Invoice no.", "Total"…) and "Attached to this email:".
+Templates are English only, because customer emails are always English.
 
 **A quotation the customer gets WITHOUT a total (shipped 2026-09-30):**
 

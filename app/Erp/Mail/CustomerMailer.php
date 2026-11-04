@@ -134,7 +134,7 @@ final class CustomerMailer
     }
 
     /** The From address set for this database, or null to use the server's default. */
-    private function fromAddress(): ?string
+    public function fromAddress(): ?string
     {
         $from = trim((string) Setting::get('mail.from_address', ''));
 

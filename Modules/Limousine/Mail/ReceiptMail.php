@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Mail;
 
+use App\Erp\Mail\CustomerDocument;
+use App\Erp\Views\ValueFormat;
+use App\Mail\Concerns\UsesCustomerLayout;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
@@ -13,16 +16,14 @@ use Illuminate\Queue\SerializesModels;
 use Modules\Limousine\Models\LimoReceipt;
 
 /**
- * The customer's receipt, attached.
- *
- * An attachment rather than a link, like the coupon voucher: there is nothing
- * for the customer to DO with it. It is proof they paid, so it wants to be a
- * file they keep — in their mail, on their phone — not a page that expires.
+ * A receipt, sent from the receipts list with the PDF attached. The wording
+ * is the "Payment receipt" template on Settings → Customer emails.
  */
 final class ReceiptMail extends Mailable
 {
     use Queueable;
     use SerializesModels;
+    use UsesCustomerLayout;
 
     public function __construct(
         public LimoReceipt $receipt,
@@ -30,24 +31,46 @@ final class ReceiptMail extends Mailable
         /** Raw PDF bytes, attached as the receipt. */
         public string $pdf,
         public string $filename,
-    ) {}
+    ) {
+        $this->locale('en');
+    }
+
+    public function document(): CustomerDocument
+    {
+        $reference = (string) $this->receipt->reference;
+        $amount = ValueFormat::money((float) $this->receipt->amount);
+        $balance = $this->receipt->balance_after !== null && (float) $this->receipt->balance_after > 0
+            ? ValueFormat::money((float) $this->receipt->balance_after)
+            : '';
+
+        $facts = [['Receipt no.', $reference], ['Amount received', $amount]];
+        if ($balance !== '') {
+            $facts[] = ['Balance still to pay', $balance];
+        }
+
+        return CustomerDocument::fromTemplate(
+            type: 'receipt',
+            customerName: (string) ($this->receipt->customer->name ?? ''),
+            vars: [
+                'reference' => $reference,
+                'amount' => $amount,
+                'invoice' => (string) ($this->receipt->invoice->reference ?? ''),
+                'balance' => $balance,
+            ],
+            facts: $facts,
+            attachments: [],
+            label: 'Receipt ' . $reference,
+        );
+    }
 
     public function envelope(): Envelope
     {
-        return new Envelope(
-            subject: $this->companyName . ' — ' . __('Receipt') . ' ' . (string) $this->receipt->reference,
-        );
+        return $this->customerEnvelope($this->document()->subject);
     }
 
     public function content(): Content
     {
-        return new Content(
-            view: 'limousine::receipt-email',
-            with: [
-                'receipt' => $this->receipt,
-                'companyName' => $this->companyName,
-            ],
-        );
+        return $this->customerContent($this->document(), [$this->filename]);
     }
 
     /**

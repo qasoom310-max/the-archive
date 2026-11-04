@@ -47,13 +47,13 @@ final class RentalDocumentEmails
             }
             $facts[] = [__('Total'), Currencies::format((float) $quote->total)];
 
-            $this->mailer->send($quote->customer?->email, new CustomerDocument(
-                subject: $this->mailer->companyName() . ' — ' . __('Quotation') . ' ' . $reference,
-                heading: __('Your quotation :reference', ['reference' => $reference]),
+            $this->mailer->send($quote->customer?->email, CustomerDocument::fromTemplate(
+                type: 'quotation',
                 customerName: (string) ($quote->customer->name ?? ''),
-                paragraphs: [
-                    __('Thank you for your interest in our services. Please find your quotation attached.'),
-                    __('To confirm the booking, simply reply to this email or call us, and we will take care of the rest.'),
+                vars: [
+                    'reference' => $reference,
+                    'total' => Currencies::format((float) $quote->total),
+                    'valid_until' => $quote->valid_until?->format('j M Y') ?? '',
                 ],
                 facts: $facts,
                 attachments: [['data' => $pdf->render($quote), 'name' => $pdf->filename($quote)]],
@@ -80,20 +80,18 @@ final class RentalDocumentEmails
                 $attachments[] = ['data' => $receiptPdf->render($receipt), 'name' => $receiptPdf->filename($receipt)];
             }
 
-            $paragraphs = [__('Thank you for choosing us. Please find your invoice attached.')];
-            if ($receipts->isNotEmpty() && $invoice->balance() <= 0.0005) {
-                $paragraphs[] = __('This invoice is paid in full — your receipt is attached as well.');
-            } elseif ($receipts->isNotEmpty()) {
-                $paragraphs[] = __('We have received part of the payment — your receipt is attached. The remaining balance is shown below.');
-            } else {
-                $paragraphs[] = __('The amount due is shown below. Payment details are printed on the invoice.');
-            }
+            $state = $receipts->isEmpty() ? 'unpaid' : ($invoice->balance() <= 0.0005 ? 'paid' : 'part');
 
-            $this->mailer->send($invoice->customer?->email, new CustomerDocument(
-                subject: $this->mailer->companyName() . ' — ' . __('Invoice') . ' ' . $reference,
-                heading: __('Your invoice :reference', ['reference' => $reference]),
+            $this->mailer->send($invoice->customer?->email, CustomerDocument::fromTemplate(
+                type: 'invoice',
                 customerName: (string) ($invoice->customer->name ?? ''),
-                paragraphs: $paragraphs,
+                vars: [
+                    'reference' => $reference,
+                    'total' => Currencies::format((float) $invoice->total),
+                    'paid' => Currencies::format((float) $invoice->amount_paid),
+                    'balance' => Currencies::format(max(0.0, $invoice->balance())),
+                    'payment_state' => $state,
+                ],
                 facts: [
                     [__('Invoice no.'), $reference],
                     [__('Total'), Currencies::format((float) $invoice->total)],
@@ -133,14 +131,14 @@ final class RentalDocumentEmails
 
             $customer = $receipt->customer ?? $invoice?->customer;
 
-            $this->mailer->send($customer?->email, new CustomerDocument(
-                subject: $this->mailer->companyName() . ' — ' . __('Receipt') . ' ' . $reference,
-                heading: __('Payment received — thank you'),
+            $this->mailer->send($customer?->email, CustomerDocument::fromTemplate(
+                type: 'receipt',
                 customerName: (string) ($customer->name ?? ''),
-                paragraphs: [
-                    __('We have received your payment of :amount. Your receipt is attached, together with your invoice.', [
-                        'amount' => Currencies::format((float) $receipt->amount),
-                    ]),
+                vars: [
+                    'reference' => $reference,
+                    'amount' => Currencies::format((float) $receipt->amount),
+                    'invoice' => (string) ($invoice->reference ?? ''),
+                    'balance' => $invoice !== null ? Currencies::format(max(0.0, $invoice->balance())) : '',
                 ],
                 facts: $facts,
                 attachments: $attachments,

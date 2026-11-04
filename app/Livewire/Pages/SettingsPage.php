@@ -354,6 +354,12 @@ final class SettingsPage extends Component
             return false;
         }
 
+        // Customer emails — the switch, From address, terms and the wording —
+        // all live on their own tab (Settings → Customer emails).
+        if (str_starts_with($key, 'mail.') || str_starts_with($key, 'email.') || $key === 'company.customer_terms') {
+            return false;
+        }
+
         // The limousine coupon rule is switched on the Limousine dashboard by
         // the owner / Supervisor accountant, never as a raw row here.
         if ($key === 'limousine.coupon_rule') {

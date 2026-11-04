@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Mail;
 
+use App\Erp\Mail\CustomerDocument;
+use App\Erp\Views\ValueFormat;
+use App\Mail\Concerns\UsesCustomerLayout;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
@@ -13,19 +16,17 @@ use Illuminate\Queue\SerializesModels;
 use Modules\Limousine\Models\LimoQuotation;
 
 /**
- * The quotation, sent to the customer with the PDF attached.
+ * The quotation, sent from the quotations list with the PDF attached.
  *
  * An attachment rather than a link: a quote is something the customer forwards
- * to whoever approves it, prints, or comes back to next week. A page that
- * expires would be the wrong shape for that.
- *
- * `$withoutTotal` has to reach the BODY as well as the attachment: a PDF with
- * no total, under an e-mail that summarises one, hands the figure over anyway.
+ * to whoever approves it, prints, or comes back to next week. The wording is
+ * the "Quotation" template on Settings → Customer emails.
  */
 final class QuotationMail extends Mailable
 {
     use Queueable;
     use SerializesModels;
+    use UsesCustomerLayout;
 
     public function __construct(
         public LimoQuotation $quote,
@@ -35,30 +36,48 @@ final class QuotationMail extends Mailable
         public string $pdf,
         public string $filename,
         public bool $withoutTotal = false,
-    ) {}
+    ) {
+        // The wording is English (Settings → Customer emails), so the labels are too.
+        $this->locale('en');
+    }
+
+    public function document(): CustomerDocument
+    {
+        $reference = (string) $this->quote->reference;
+        $until = $this->quote->valid_until?->isoFormat('DD-MMM-YYYY') ?? '';
+
+        // The body has to know about a total-free copy as well: an email that
+        // summarises the total under a total-free attachment hands it over anyway.
+        $facts = [['Quotation no.', $reference]];
+        $facts[] = $this->withoutTotal
+            ? ['Rates', 'Per journey, in the attached quotation']
+            : ['Total', ValueFormat::money($this->total)];
+        if ($until !== '') {
+            $facts[] = ['Valid until', $until];
+        }
+
+        return CustomerDocument::fromTemplate(
+            type: 'quotation',
+            customerName: (string) ($this->quote->customer->name ?? ''),
+            vars: [
+                'reference' => $reference,
+                'total' => $this->withoutTotal ? '' : ValueFormat::money($this->total),
+                'valid_until' => $until,
+            ],
+            facts: $facts,
+            attachments: [],
+            label: 'Quotation ' . $reference,
+        );
+    }
 
     public function envelope(): Envelope
     {
-        return new Envelope(
-            subject: $this->companyName . ' — ' . __('Quotation') . ' ' . (string) $this->quote->reference,
-        );
+        return $this->customerEnvelope($this->document()->subject);
     }
 
     public function content(): Content
     {
-        // markdown, not view — the template uses <x-mail::message>/<x-mail::panel>,
-        // which only resolve through Laravel's Markdown mail renderer. Wired as
-        // `view` this 500s in production with "No hint path defined for [mail]"
-        // (Mail::fake() in tests never renders the body, so it went unnoticed).
-        return new Content(
-            markdown: 'limousine::quotation-email',
-            with: [
-                'quote' => $this->quote,
-                'companyName' => $this->companyName,
-                'total' => $this->total,
-                'withoutTotal' => $this->withoutTotal,
-            ],
-        );
+        return $this->customerContent($this->document(), [$this->filename]);
     }
 
     /**

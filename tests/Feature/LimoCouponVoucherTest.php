@@ -232,10 +232,9 @@ final class LimoCouponVoucherTest extends TestCase
 
         // The code and the balance are in the MESSAGE too, not only the file:
         // most people read them off the screen without opening the attachment.
-        $content = $mail->content();
-        $this->assertSame('limousine::coupon-voucher-email', $content->markdown);
-        $this->assertSame($coupon->code, $content->with['coupon']->code);
-        $this->assertSame(63.0, $content->with['remaining']);
+        $html = $mail->render();
+        $this->assertStringContainsString((string) $coupon->code, $html);
+        $this->assertStringContainsString('Value remaining: ' . \App\Erp\Views\ValueFormat::money(63.0), $html);
 
         // And the subject names the coupon, so it is findable in a mailbox.
         $this->assertStringContainsString($coupon->code, $mail->envelope()->subject);

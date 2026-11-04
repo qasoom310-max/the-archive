@@ -3725,6 +3725,22 @@ orders placed after the upload carry it. Same day, the ERP push sends `vehicle` 
 `LimoLeg::billedVehicle($booking)` (the car booked, never the assigned plate). Test:
 `LimoServiceOrderPortalTest::test_push_sends_the_booked_car_not_the_assigned_plate`.
 
+**The trip in proper Arabic (plugin 1.0.9, 2026-11-04).** The checkout and order-received
+pages are English (`/ar/checkout/` redirects to `/checkout/`), so an Arabic phone ran them
+through the browser's translator: "Drop off" became "غلبه النعاس", "Tap" became "مقبض", and
+every line read value-first because WooCommerce's CSS floats `.wc-item-meta-label` LEFT.
+`WSO_Arabic` (`includes/class-wso-arabic.php`) prints the trip itself when the reader is
+Arabic (Polylang `ar`, or the browser's FIRST Accept-Language is `ar`): Arabic labels
+(`LABELS`, Vehicle = العربة), the date in Arabic, `dir="rtl"`, label first, no
+`wc-item-meta-label` class, and `translate="no"` + `notranslate` so the browser leaves it
+alone. Values stay as typed, each in a `<bdi>` forced ltr unless it contains Arabic (`auto`
+would flip a phone number). Also the line name (خدمة الليموزين · رحلة N) and, on the
+checkout, Arabic keys + an RTL inline style for `dl.variation` / block checkout. The
+customer's language is saved on the order (`_wanaan_lang`) so their WooCommerce emails
+follow it; the office's copy (`sent_to_admin`) stays English. Stored meta keys stay English.
+Not fixed (browser translation, outside the plugin): the rest of the page, e.g. "Tap" and the
+site's "AR" switcher. Checked by rendering in headless Chrome; no WP test harness.
+
 **WordPress plugin `wanaan-whatsapp-number` (built 2026-10-15, `wp-plugin/`, uploaded as a ZIP like the service-order plugin):**
 one WhatsApp number for the whole of wanaan-bh.com, so the owner stops
 changing it by hand (it flipped 39991869 ↔ 17474949 three times in a week).

@@ -152,6 +152,8 @@ class WSO_Woo {
 					$order->update_meta_data( self::ORDER_META_TOKEN, (string) $item[ self::CART_TOKEN ] );
 				}
 				$order->set_created_via( 'wanaan-service-order' );
+				// So the customer's emails come in the language they paid in.
+				$order->update_meta_data( WSO_Arabic::ORDER_META_LANG, WSO_Arabic::reader_is_arabic() ? 'ar' : 'en' );
 				break;
 			}
 		}
@@ -236,9 +238,13 @@ class WSO_Woo {
 			return $item_data;
 		}
 
+		$arabic = WSO_Arabic::reader_is_arabic();
 		foreach ( self::trip_details( $row ) as $label => $value ) {
+			if ( $arabic && 'Date' === $label ) {
+				$value = WSO_Arabic::date( $value );
+			}
 			$item_data[] = array(
-				'key'   => $label,
+				'key'   => $arabic ? WSO_Arabic::label( $label ) : $label,
 				'value' => $value,
 			);
 		}

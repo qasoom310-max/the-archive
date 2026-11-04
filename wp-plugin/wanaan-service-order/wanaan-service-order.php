@@ -3,7 +3,7 @@
  * Plugin Name:       Wanaan Service Order
  * Plugin URI:        https://www.wanaan-bh.com
  * Description:        Receives limousine service orders from the Wanaan ERP, shows the customer a private Service Order page with a terms-and-conditions consent, takes payment through WooCommerce + Tap, and reports the paid status back to the ERP.
- * Version:           1.0.8
+ * Version:           1.0.9
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Wanaan
@@ -24,7 +24,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WANAAN_SO_VERSION', '1.0.8' );
+define( 'WANAAN_SO_VERSION', '1.0.9' );
 define( 'WANAAN_SO_FILE', __FILE__ );
 define( 'WANAAN_SO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WANAAN_SO_URL', plugin_dir_url( __FILE__ ) );
@@ -42,6 +42,7 @@ require_once WANAAN_SO_DIR . 'includes/class-wso-callback.php';
 require_once WANAAN_SO_DIR . 'includes/class-wso-rest.php';
 require_once WANAAN_SO_DIR . 'includes/class-wso-page.php';
 require_once WANAAN_SO_DIR . 'includes/class-wso-woo.php';
+require_once WANAAN_SO_DIR . 'includes/class-wso-arabic.php';
 require_once WANAAN_SO_DIR . 'includes/class-wso-admin.php';
 
 register_activation_hook( __FILE__, array( 'WSO_Install', 'activate' ) );
@@ -59,6 +60,7 @@ function wanaan_so_boot() {
 	WSO_Rest::init();      // /wp-json/wanaan/v1/booking receiver
 	WSO_Page::init();      // /service-order/{token} public page + pay handler
 	WSO_Woo::init();       // WooCommerce order creation + payment-complete -> callback
+	WSO_Arabic::init();    // the trip in Arabic for an Arabic reader
 	WSO_Callback::init();  // WP-Cron retry of a failed callback
 	WSO_Admin::init();     // wp-admin list + settings (callback URL)
 }

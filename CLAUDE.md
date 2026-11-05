@@ -3069,7 +3069,11 @@ quick deliveries make one booking; a failed conversion puts the row back to pend
 to the activity log ("Booked on the website — {ref}"). The manual buttons on Web bookings stay
 for what is left. One-time pass: Rental migration `2026_11_05_900062` (deploy's Rental step +
 tenants) does the same for rows already pending: payment links completed, rows with a
-pick-up today or later moved, past ones left. Tests: `WebBookingAutoTransferTest` (6);
+pick-up today or later moved, past ones left. A second pass, `2026_11_05_900063`, also moved
+YESTERDAY's (the owner wanted them on the dashboard's Yesterday card); older days stay. A moved
+trip keeps the customer's pick-up time as its `start_at`, which is what the Yesterday / Today /
+Tomorrow cards count, so it files itself; a trip whose pick-up time could not be read has no
+`start_at` and shows on no day card (only in the queue). Tests: `WebBookingAutoTransferTest` (7);
 `WebBookingServiceTest` / `RentalWebBookingTest` now send unpaid card attempts where they test
 the manual buttons.
 

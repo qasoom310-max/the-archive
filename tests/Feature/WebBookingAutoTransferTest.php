@@ -182,4 +182,31 @@ final class WebBookingAutoTransferTest extends TestCase
         $this->assertTrue((bool) $card->fresh()?->isPending());
         $this->assertSame(1, LimoBooking::query()->count());
     }
+
+    public function test_yesterdays_waiting_trips_move_onto_yesterday(): void
+    {
+        $make = static fn (string $ref, string $pickup): RentalWebBooking => RentalWebBooking::query()->create([
+            'source_reference' => $ref,
+            'first_name' => 'Faisal',
+            'phone' => '+966503838848',
+            'product' => 'O#9 P#14066 Airport Transfer — Sedan',
+            'pickup_location' => 'Bahrain Airport',
+            'pickup_at' => $pickup,
+            'total' => 120.0,
+            'payment_mode' => 'Pay Later',
+            'payment_status' => '',
+            'status' => RentalWebBooking::STATUS_PENDING,
+            'service' => RentalWebBooking::SERVICE_LIMOUSINE,
+        ]);
+
+        $yesterday = $make('5-1', now()->subDay()->setTime(2, 25)->toDateTimeString());
+        $older = $make('6-1', now()->subDays(2)->setTime(23, 0)->toDateTimeString());
+
+        (require base_path('Modules/Rental/database/migrations/2026_11_05_900063_transfer_yesterdays_web_bookings.php'))->up();
+
+        $this->assertTrue((bool) $older->fresh()?->isPending());
+        $booking = LimoBooking::query()->findOrFail($yesterday->fresh()?->limo_booking_id);
+        // On its own day, so the dashboard's Yesterday card counts it.
+        $this->assertSame(now()->subDay()->toDateString(), $booking->legs()->firstOrFail()->start_at?->toDateString());
+    }
 }

@@ -148,6 +148,15 @@ final class WebBookingController
             app(\Modules\Limousine\Services\WebBookingToLimousine::class)->receiveLatePayment($booking);
         }
 
+        // Straight to Limousine → Bookings or Rent A Car → Orders, so the desk
+        // sees it. A failure leaves it on the Web bookings page; the website
+        // still gets its answer.
+        try {
+            app(\Modules\Rental\Services\WebBookingAutoTransfer::class)->handle($booking);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         return $booking;
     }
 

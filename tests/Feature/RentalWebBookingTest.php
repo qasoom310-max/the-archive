@@ -75,7 +75,10 @@ final class RentalWebBookingTest extends TestCase
         $this->assertSame($status, $this->send($payload, $secret, $sign)->getStatusCode());
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
     private function booking(array $overrides = []): array
     {
         return array_merge([
@@ -112,7 +115,9 @@ final class RentalWebBookingTest extends TestCase
         $this->assertSame('Bahrain Airport', $booking->pickup_location);
         $this->assertSame(45.0, $booking->total);
         $this->assertTrue($booking->isPaidOnline());
-        $this->assertTrue($booking->isPending());
+        // A paid car hire goes straight to Rent A Car → Orders.
+        $this->assertFalse($booking->isPending());
+        $this->assertNotNull($booking->rental_order_id);
     }
 
     /**
@@ -228,7 +233,8 @@ final class RentalWebBookingTest extends TestCase
     public function test_the_screen_lists_pending_bookings(): void
     {
         $this->openForBusiness();
-        $this->assertSent($this->booking(), 200);
+        // A card payment not yet through stays on the list.
+        $this->assertSent($this->booking(['payment_status' => '']), 200);
         $this->admin();
 
         Livewire::test(WebBookings::class)

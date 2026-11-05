@@ -30,6 +30,9 @@ final class WebBookingServiceTest extends TestCase
 
     private const SECRET = 'a-shared-secret-for-the-website';
 
+    /** A card payment not through yet: the booking stays on the Web bookings page for the desk. */
+    private const UNPAID_CARD = ['payment_mode' => 'Tap', 'payment_status' => ''];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -57,6 +60,7 @@ final class WebBookingServiceTest extends TestCase
      * The live test order: a fare-finder trip, as plugin 1.0 sent it (no
      * places, no time) plus what 1.1 adds.
      *
+     * @param  array<string, mixed>  $overrides
      * @return array<string, mixed>
      */
     private function limoTrip(array $overrides = []): array
@@ -166,7 +170,7 @@ final class WebBookingServiceTest extends TestCase
     public function test_a_limousine_trip_becomes_a_limousine_booking_in_the_queue(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => true, 'name' => 'Abbas']));
-        $this->send($this->limoTrip([
+        $this->send($this->limoTrip(self::UNPAID_CARD + [
             'item_meta' => [
                 ['label' => 'Pick-up location', 'value' => 'Bahrain International Airport'],
                 ['label' => 'Drop-off location', 'value' => 'Juffair'],
@@ -258,8 +262,8 @@ final class WebBookingServiceTest extends TestCase
     public function test_a_limousine_trip_cannot_become_a_rental_order_or_the_other_way(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => true]));
-        $this->send($this->limoTrip());
-        $this->send($this->limoTrip(['source_reference' => '15000-1', 'product' => 'Toyota Fortuner 2024']));
+        $this->send($this->limoTrip(self::UNPAID_CARD));
+        $this->send($this->limoTrip(self::UNPAID_CARD + ['source_reference' => '15000-1', 'product' => 'Toyota Fortuner 2024']));
         $limo = RentalWebBooking::query()->where('source_reference', '14949-1550')->firstOrFail();
         $rental = RentalWebBooking::query()->where('source_reference', '15000-1')->firstOrFail();
 
@@ -273,7 +277,7 @@ final class WebBookingServiceTest extends TestCase
     public function test_a_person_can_switch_the_service_and_the_website_does_not_switch_it_back(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => true]));
-        $this->send($this->limoTrip());
+        $this->send($this->limoTrip(self::UNPAID_CARD));
         $web = RentalWebBooking::query()->firstOrFail();
 
         Livewire::test(WebBookings::class)->call('view', $web->id)
@@ -290,8 +294,8 @@ final class WebBookingServiceTest extends TestCase
     public function test_the_list_filters_by_service(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => true]));
-        $this->send($this->limoTrip(['first_name' => 'Limo', 'last_name' => 'Rider']));
-        $this->send($this->limoTrip(['source_reference' => '15000-1', 'product' => 'Toyota Fortuner 2024', 'first_name' => 'Car', 'last_name' => 'Hirer']));
+        $this->send($this->limoTrip(self::UNPAID_CARD + ['first_name' => 'Limo', 'last_name' => 'Rider']));
+        $this->send($this->limoTrip(self::UNPAID_CARD + ['source_reference' => '15000-1', 'product' => 'Toyota Fortuner 2024', 'first_name' => 'Car', 'last_name' => 'Hirer']));
 
         Livewire::test(WebBookings::class)->set('service', 'limousine')
             ->assertSee('Limo Rider')->assertDontSee('Car Hirer');
@@ -305,7 +309,7 @@ final class WebBookingServiceTest extends TestCase
     {
         $this->grantEveryone('rental.web_booking');
         $this->actingAs(User::factory()->create(['is_admin' => false]));
-        $this->send($this->limoTrip());
+        $this->send($this->limoTrip(self::UNPAID_CARD));
         $id = RentalWebBooking::query()->value('id');
 
         Livewire::test(WebBookings::class)->call('view', $id)

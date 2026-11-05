@@ -3048,9 +3048,30 @@ the row and presses Create limousine booking; money paid after that follows to t
 `wanaan-service-order`, line "Limousine Service · Trip N", order `created_via` =
 `wanaan-service-order`) ALSO land here, but their trip already exists in Limo bookings, so
 converting one duplicates the trip, and they swell the Pending count. A retried payment also
-leaves an unpaid twin row of the same trip. Candidate fix (owner not yet asked): skip
-`created_via = wanaan-service-order` in the web-booking plugin, or have the ERP mark such rows
-Complete on arrival.
+leaves an unpaid twin row of the same trip. (Superseded the same day; see below.)
+
+**Website bookings move themselves (shipped 2026-11-05).** A customer booked on the site and
+nobody knew, because the row sat on Web bookings. `Modules\Rental\Services\WebBookingAutoTransfer::handle()`
+runs on every delivery (end of `WebBookingController::store()`, try/catch + `report()`, so the
+website still gets 200):
+- **Limousine** → `WebBookingToLimousine::convert()`: a Limousine booking with its trip in the queue,
+  no car or driver, prepared by **"Website"**, and a receipt if paid.
+- **Car hire** → `WebBookingConverter::convert()`: a draft Rent A Car order, with what was paid as
+  the advance.
+- **Payment-link orders** (`RentalWebBooking::isPaymentLink()`: product "Limousine Service" /
+  "Limousine Service · Trip N" = WooCommerce product 14045, or slug `limousine-service`) are
+  marked Complete and NOT converted, since their trip is already in Limo bookings.
+- **An unpaid card attempt** (`payment_mode` matches tap/card/benefit/apple pay…, not paid) waits on
+  the Web bookings page; it moves when the site resends it as paid. "Pay Later" moves at once.
+- A limousine trip in a database without Limousine stays.
+Each move is claimed with an atomic `UPDATE … WHERE pending AND no order/booking` so two
+quick deliveries make one booking; a failed conversion puts the row back to pending. Logged
+to the activity log ("Booked on the website — {ref}"). The manual buttons on Web bookings stay
+for what is left. One-time pass: Rental migration `2026_11_05_900062` (deploy's Rental step +
+tenants) does the same for rows already pending: payment links completed, rows with a
+pick-up today or later moved, past ones left. Tests: `WebBookingAutoTransferTest` (6);
+`WebBookingServiceTest` / `RentalWebBookingTest` now send unpaid card attempts where they test
+the manual buttons.
 
 **A trip's 3-dot menu opens its invoice and receipts (shipped 2026-10-19).**
 On the bookings list each row's menu has "Open invoice INV/…" (the booking's

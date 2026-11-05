@@ -3427,5 +3427,7 @@
     "Type the car, so the customer knows what to look for.": "اكتب بيانات السيارة ليعرف العميل ما يبحث عنه.",
     "Keep the car under 150 characters.": "اجعل بيانات السيارة أقل من 150 حرفًا.",
     "Enter the cost as an amount in BD, or leave it blank.": "أدخل التكلفة كمبلغ بالدينار، أو اتركها فارغة.",
-    "Other company: :company": "شركة أخرى: :company"
+    "Other company: :company": "شركة أخرى: :company",
+    "Limousine booking": "حجز ليموزين",
+    "Booked on the website": "حُجز عبر الموقع الإلكتروني"
 }

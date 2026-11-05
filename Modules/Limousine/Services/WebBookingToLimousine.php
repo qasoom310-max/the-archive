@@ -49,7 +49,8 @@ final class WebBookingToLimousine
             $booking->pax_name = $name;
             $booking->pax_contact = $web->phone;
             $booking->requested_by = $name;
-            $booking->prepared_by = $by !== null ? (string) $by->name : null;
+            // Moved over automatically on arrival: nobody at the desk made it.
+            $booking->prepared_by = $by !== null ? (string) $by->name : 'Website';
             $booking->payment_method = 'online';
             $booking->advance = 0;
             $booking->pickup_at = $web->pickup_at ?? Carbon::now();

@@ -185,6 +185,22 @@ final class RentalWebBooking extends Model implements DefinesIrModel
         return $name !== '' ? $name : '—';
     }
 
+    /**
+     * A payment-link order: the hidden "Limousine Service" product the
+     * service-order plugin puts in the cart ("Limousine Service · Trip 26128"
+     * since plugin 1.0.8). Its trip was made in the ERP first, so it is
+     * already in Limousine → Bookings.
+     */
+    public function isPaymentLink(): bool
+    {
+        $name = $this->productName();
+        $slug = is_array($this->payload) ? (string) ($this->payload['product_slug'] ?? '') : '';
+
+        return $name === 'Limousine Service'
+            || str_starts_with($name, 'Limousine Service · Trip ')
+            || $slug === 'limousine-service';
+    }
+
     public function isPending(): bool
     {
         return $this->status === self::STATUS_PENDING;

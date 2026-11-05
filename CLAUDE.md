@@ -3038,6 +3038,20 @@ the product name (limo / chauffeur / transfer / with driver). Rental migration
 `2026_10_21_900051` re-sorts received rows (not switched by hand, not yet
 converted; rental → limousine only). Tests: `WebBookingServiceTest` (+2).
 
+**How website orders flow (checked 2026-11-05, nothing changed).** The plugin sends EVERY
+WooCommerce order at creation (`woocommerce_checkout_order_processed`), again on processing/
+completed, one row per line, keyed `{order}-{item}` so a resend updates. So a Tap order AND a
+pay-later order both land in Web bookings; "Pending" there means not handled yet, the PAID
+badge means paid online. **Nothing reaches Limousine → Bookings automatically**: someone opens
+the row and presses Create limousine booking; money paid after that follows to the trip
+(`receiveLatePayment`). **Pitfall, not fixed:** payment-link orders (plugin
+`wanaan-service-order`, line "Limousine Service · Trip N", order `created_via` =
+`wanaan-service-order`) ALSO land here, but their trip already exists in Limo bookings, so
+converting one duplicates the trip, and they swell the Pending count. A retried payment also
+leaves an unpaid twin row of the same trip. Candidate fix (owner not yet asked): skip
+`created_via = wanaan-service-order` in the web-booking plugin, or have the ERP mark such rows
+Complete on arrival.
+
 **A trip's 3-dot menu opens its invoice and receipts (shipped 2026-10-19).**
 On the bookings list each row's menu has "Open invoice INV/…" (the booking's
 invoice, newest if several) and one "Open receipt RCPT/… · amount" per receipt

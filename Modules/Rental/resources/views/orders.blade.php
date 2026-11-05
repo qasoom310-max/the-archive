@@ -169,6 +169,9 @@
                         </td>
                         <td class="px-4 py-2">
                             <div class="font-medium text-chrome-800">{{ $order->reference }}</div>
+                            @if (isset($fromWebsite[$order->id]))
+                                <span class="mt-0.5 inline-block rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700" data-from-website>{{ __('Website') }}</span>
+                            @endif
                             @if ($order->createdBy)
                                 <div class="text-xs text-chrome-400">{{ __('by') }} {{ $order->createdBy->name }}</div>
                             @endif

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire;
 
+use App\Erp\Web\WebsiteOrigin;
 use App\Erp\Security\Permission;
 use App\Erp\Views\ValueFormat;
 use App\Livewire\Concerns\GuardsModelAccess;
@@ -903,6 +904,7 @@ final class BookingForm extends Component
         $grand = $this->grandTotal();
 
         return view('limousine::booking-form', [
+            'fromWebsite' => $this->id !== null && WebsiteOrigin::limoBookings([$this->id]) !== [],
             // Active customers, plus whoever is already on this booking even
             // if since deactivated — otherwise editing an old booking whose
             // customer was later archived renders the Customer field blank.

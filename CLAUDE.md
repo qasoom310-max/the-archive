@@ -3073,9 +3073,18 @@ pick-up today or later moved, past ones left. A second pass, `2026_11_05_900063`
 YESTERDAY's (the owner wanted them on the dashboard's Yesterday card); older days stay. A moved
 trip keeps the customer's pick-up time as its `start_at`, which is what the Yesterday / Today /
 Tomorrow cards count, so it files itself; a trip whose pick-up time could not be read has no
-`start_at` and shows on no day card (only in the queue). Tests: `WebBookingAutoTransferTest` (7);
+`start_at` and shows on no day card (only in the queue). Tests: `WebBookingAutoTransferTest` (8);
 `WebBookingServiceTest` / `RentalWebBookingTest` now send unpaid card attempts where they test
 the manual buttons.
+
+**"Website" badge (same day).** A booking/order made from a website order carries a violet
+**Website** badge under its reference on the Limousine bookings list and the Rent A Car orders
+list, and "Booked on the website" beside the status on the booking page / in the order page's
+title (`data-from-website`). Source: `App\Erp\Web\WebsiteOrigin::{limoBookings,rentalOrders}($ids)`,
+which reads the link `rental_web_bookings.limo_booking_id` / `rental_order_id` (one query per
+page, Schema-guarded since Limousine runs without Rental). Nothing is stored on the booking or
+order, so it covers past ones and hand conversions too. NOT shown: exports, PDFs, the dashboard
+cards. Payment-link orders are never linked, so their trips (made in the office) get no badge.
 
 **A trip's 3-dot menu opens its invoice and receipts (shipped 2026-10-19).**
 On the bookings list each row's menu has "Open invoice INV/…" (the booking's

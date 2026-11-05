@@ -19,6 +19,9 @@
                 <span class="text-sm font-semibold text-chrome-800">{{ $reference }}</span>
                 <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ $statusBadge }}">{{ __(ucfirst($status)) }}</span>
                 <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide {{ \Modules\Limousine\Models\LimoBooking::paymentBadgeClass($paymentState) }}" data-payment-state="{{ $paymentState }}">{{ \Modules\Limousine\Models\LimoBooking::paymentLabel($paymentState) }}</span>
+                @if ($fromWebsite)
+                    <span class="rounded bg-violet-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-violet-700" data-from-website>{{ __('Booked on the website') }}</span>
+                @endif
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 @if ($status === 'queue')

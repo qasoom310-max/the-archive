@@ -9,7 +9,12 @@
             <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/></svg>
             <span class="font-medium text-chrome-600">{{ $isEditing ? ($reference ?: __('Order')) : __('New order') }}</span>
         </div>
-        <h1 class="mt-1 text-xl font-bold text-chrome-900">{{ $isEditing ? __('Rental order') : __('New rental order') }}</h1>
+        <h1 class="mt-1 flex flex-wrap items-center gap-2 text-xl font-bold text-chrome-900">
+            {{ $isEditing ? __('Rental order') : __('New rental order') }}
+            @if ($fromWebsite)
+                <span class="rounded bg-violet-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-violet-700" data-from-website>{{ __('Booked on the website') }}</span>
+            @endif
+        </h1>
     </div>
 
     @php

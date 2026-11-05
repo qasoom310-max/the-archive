@@ -5,13 +5,19 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Erp\Modules\ModuleManager;
+use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Http\Request;
+use Livewire\Livewire;
+use Modules\Limousine\Livewire\BookingForm;
+use Modules\Limousine\Livewire\Bookings;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Models\LimoReceipt;
 use Modules\Limousine\Support\PortalSignature;
 use Modules\Rental\Http\Controllers\WebBookingController;
+use Modules\Rental\Livewire\OrderForm;
+use Modules\Rental\Livewire\Orders;
 use Modules\Rental\Models\RentalOrder;
 use Modules\Rental\Models\RentalPortalConfiguration;
 use Modules\Rental\Models\RentalWebBooking;
@@ -109,6 +115,38 @@ final class WebBookingAutoTransferTest extends TestCase
         $this->assertSame($order->id, $web->rental_order_id);
         $this->assertSame(60.0, (float) $order->advance_amount);
         $this->assertSame(0, LimoBooking::query()->count());
+    }
+
+    public function test_website_bookings_and_orders_say_so(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+
+        $this->send($this->trip());
+        $this->send($this->trip([
+            'source_reference' => '15200-1',
+            'product' => 'O#15200 P#11429 Taurus 2024',
+            'product_slug' => 'taurus-2024',
+            'dropoff_datetime' => now()->addDays(4)->format('Y-m-d') . ' 10:00:00',
+        ]));
+
+        // One of each made in the office, which must not carry the badge.
+        $office = LimoBooking::query()->create(['customer_id' => LimoBooking::query()->value('customer_id'), 'status' => LimoBooking::STATUS_QUEUE]);
+        $office->legs()->create([
+            'sequence' => 0, 'service_type' => LimoLeg::TYPE_TRANSFER, 'status' => LimoLeg::STATUS_QUEUE,
+            'from_location' => 'Airport', 'to_location' => 'Seef', 'start_at' => now()->addDay(),
+            'rate' => 20, 'rate_basis' => 'trip', 'net_amount' => 20,
+        ]);
+        $webOrder = RentalOrder::query()->firstOrFail();
+        $officeOrder = RentalOrder::query()->create(['customer_id' => $webOrder->customer_id, 'start_date' => now(), 'end_date' => now()->addDay()]);
+
+        $this->assertSame(1, substr_count(Livewire::test(Bookings::class)->call('openTab', 'all')->html(), 'data-from-website'));
+        $this->assertSame(1, substr_count(Livewire::test(Orders::class)->html(), 'data-from-website'));
+
+        $webBooking = LimoBooking::query()->whereKeyNot($office->id)->firstOrFail();
+        Livewire::test(BookingForm::class, ['id' => $webBooking->id])->assertSee('Booked on the website');
+        Livewire::test(BookingForm::class, ['id' => $office->id])->assertDontSee('Booked on the website');
+        Livewire::test(OrderForm::class, ['id' => $webOrder->id])->assertSee('Booked on the website');
+        Livewire::test(OrderForm::class, ['id' => $officeOrder->id])->assertDontSee('Booked on the website');
     }
 
     public function test_an_unpaid_card_attempt_waits_and_moves_once_paid(): void

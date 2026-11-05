@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire;
 
+use App\Erp\Web\WebsiteOrigin;
 use App\Erp\Money\Currencies;
 use App\Erp\Security\Permission;
 use App\Erp\Views\ValueFormat;
@@ -1652,6 +1653,8 @@ final class Bookings extends Component
             'counts' => $counts,
             // Each row's booking's invoice and receipts, for the 3-dot menu.
             'paperwork' => $this->paperwork(array_map(static fn (LimoLeg $l): int => (int) $l->legable_id, $legs->items())),
+            // Bookings made on the website, for a "Website" badge on the row.
+            'fromWebsite' => WebsiteOrigin::limoBookings(array_map(static fn (LimoLeg $l): int => (int) $l->legable_id, $legs->items())),
             'unpaidCount' => $rows->unpaidCount($monthFrom, $monthTo),
             // Counted from now whatever month the other tabs show.
             'needsCrewCount' => $rows->needsCrewCount(),

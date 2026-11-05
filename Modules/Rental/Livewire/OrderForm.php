@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Web\WebsiteOrigin;
 use App\Erp\Security\Permission;
 use App\Erp\Views\ValueFormat;
 use App\Livewire\Concerns\GuardsModelAccess;
@@ -1024,6 +1025,7 @@ final class OrderForm extends Component
         }
 
         return view('rental::order-form', [
+            'fromWebsite' => $this->id !== null && WebsiteOrigin::rentalOrders([$this->id]) !== [],
             // Each already-selected customer/driver/branch must stay visible
             // even if it was deactivated after this order was raised.
             'customers' => RentalCustomer::activeOrSelected($this->customer_id, ['id', 'name', 'phone']),

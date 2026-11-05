@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Livewire;
 
+use App\Erp\Web\WebsiteOrigin;
 use App\Erp\Activity\ActivityLogger;
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
@@ -205,9 +206,12 @@ final class Orders extends Component
         $unpaidCount = $this->applyOwing(RentalOrder::query())->count();
 
         $user = Auth::user();
+        $orders = $query->paginate(20);
 
         return view('rental::orders', [
-            'orders' => $query->paginate(20),
+            'orders' => $orders,
+            // Orders made on the website, for a "Website" badge on the row.
+            'fromWebsite' => WebsiteOrigin::rentalOrders(array_map(static fn (RentalOrder $o): int => (int) $o->id, $orders->items())),
             'counts' => $counts,
             'unpaidCount' => $unpaidCount,
             'dueCount' => RentalOrder::query()->where('state', RentalOrder::STATE_ACTIVE)->whereDate('end_date', '<=', now())->count(),

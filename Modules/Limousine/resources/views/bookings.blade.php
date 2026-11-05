@@ -503,6 +503,9 @@
                                 </button>
                             @endif
                             <span class="block text-[11px] font-normal text-chrome-600">{{ $row['booking_reference'] }}</span>
+                            @if (isset($fromWebsite[(int) $leg->legable_id]))
+                                <span class="mt-0.5 inline-block rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700" data-from-website>{{ __('Website') }}</span>
+                            @endif
                         </td>
                         <td class="px-2 py-2 text-chrome-900">{{ $row['from_date'] ?: '—' }}</td>
                         <td class="hidden px-2 py-2 text-chrome-900 sm:table-cell">{{ $row['to_date'] ?: '—' }}</td>

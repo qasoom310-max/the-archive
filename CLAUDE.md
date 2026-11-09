@@ -3086,6 +3086,28 @@ page, Schema-guarded since Limousine runs without Rental). Nothing is stored on 
 order, so it covers past ones and hand conversions too. NOT shown: exports, PDFs, the dashboard
 cards. Payment-link orders are never linked, so their trips (made in the office) get no badge.
 
+**Only today's and later website orders move; old ones removed (2026-11-09, the owner).** Old
+website trips were piling into Limousine → Bookings among the real work. The live auto-move
+had no date check, and the website re-sends an order whenever its status changes. So a
+months-old order marked completed on the store landed as a new trip.
+`WebBookingAutoTransfer::isOld()` is the new rule: the pick-up day is before today, or there is
+no pick-up time and the row was first received before today. Such an order returns `TOO_OLD` and
+stays pending on Web bookings, where the manual Create button still works. This reverses the
+"yesterday's trips too" pass (900063); its test now asserts nothing moves.
+
+Rental migration `2026_11_09_900064` deletes the already-moved old trips, plus each one's unpaid
+invoice. It takes a backup first and unlinks the Web bookings row, which stays complete. It
+deletes only bookings left untouched since they were moved:
+- `prepared_by = 'Website'` (never converted by hand);
+- every trip's pick-up before today;
+- no trip active or completed;
+- no car, driver or outside car;
+- no money: advance, receipt, paid invoice, payment link, expense or coupon.
+
+Bookings it keeps are listed with the reason in the server log; removed ones go to the log and
+the activity log. Tests: `WebBookingAutoTransferTest` (+3); `RentalWebBookingTest`'s fixture
+dates now come from `now()`.
+
 **A trip's 3-dot menu opens its invoice and receipts (shipped 2026-10-19).**
 On the bookings list each row's menu has "Open invoice INV/…" (the booking's
 invoice, newest if several) and one "Open receipt RCPT/… · amount" per receipt

@@ -93,8 +93,8 @@ final class RentalWebBookingTest extends TestCase
             'product_quantity' => 1,
             'pickup_location' => 'Bahrain Airport',
             'dropoff_location' => 'Juffair',
-            'pickup_datetime' => '2026-10-03 09:00:00',
-            'dropoff_datetime' => '2026-10-06 09:00:00',
+            'pickup_datetime' => now()->addDays(3)->format('Y-m-d') . ' 09:00:00',
+            'dropoff_datetime' => now()->addDays(6)->format('Y-m-d') . ' 09:00:00',
             'sub_total' => 45.0,
             'total' => 45.0,
             'payment_mode' => 'Tap',
@@ -260,8 +260,8 @@ final class RentalWebBookingTest extends TestCase
 
         $this->assertSame('Qassim Almutairi', $customer->name);
         $this->assertSame($customer->id, $order->customer_id);
-        $this->assertSame('2026-10-03', $order->start_date?->toDateString());
-        $this->assertSame('2026-10-06', $order->end_date?->toDateString());
+        $this->assertSame(now()->addDays(3)->toDateString(), $order->start_date?->toDateString());
+        $this->assertSame(now()->addDays(6)->toDateString(), $order->end_date?->toDateString());
 
         // Money that genuinely changed hands on the website, so the desk does
         // not ask for it a second time.

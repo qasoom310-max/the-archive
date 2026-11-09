@@ -242,9 +242,59 @@ final class WebBookingAutoTransferTest extends TestCase
 
         (require base_path('Modules/Rental/database/migrations/2026_11_05_900063_transfer_yesterdays_web_bookings.php'))->up();
 
+        // Reversed on 2026-11-09: only today's and later trips move now.
         $this->assertTrue((bool) $older->fresh()?->isPending());
-        $booking = LimoBooking::query()->findOrFail($yesterday->fresh()?->limo_booking_id);
-        // On its own day, so the dashboard's Yesterday card counts it.
-        $this->assertSame(now()->subDay()->toDateString(), $booking->legs()->firstOrFail()->start_at?->toDateString());
+        $this->assertTrue((bool) $yesterday->fresh()?->isPending());
+        $this->assertSame(0, LimoBooking::query()->count());
+    }
+
+    public function test_an_old_order_the_website_sends_again_is_not_moved(): void
+    {
+        $this->send($this->trip(['pickup_datetime' => now()->subDays(20)->format('Y-m-d') . ' 10:00:00']));
+
+        $this->assertSame(0, LimoBooking::query()->count());
+        $this->assertTrue(RentalWebBooking::query()->firstOrFail()->isPending());
+    }
+
+    public function test_a_trip_for_today_still_moves_even_after_its_time(): void
+    {
+        $this->send($this->trip(['pickup_datetime' => now()->startOfDay()->format('Y-m-d') . ' 00:30:00']));
+
+        $this->assertSame(1, LimoBooking::query()->count());
+    }
+
+    public function test_old_untouched_website_trips_are_removed_and_worked_ones_kept(): void
+    {
+        $this->send($this->trip(['source_reference' => 'future-1']));
+        $future = LimoBooking::query()->latest('id')->firstOrFail();
+
+        $make = function (string $ref): LimoBooking {
+            $this->send($this->trip(['source_reference' => $ref]));
+            $booking = LimoBooking::query()->latest('id')->firstOrFail();
+            // Moved days ago, for a pick-up that is now over.
+            $booking->legs()->update(['start_at' => now()->subDays(4)->setTime(9, 0)]);
+
+            return $booking;
+        };
+
+        $untouched = $make('old-1');
+        $withDriver = $make('old-2');
+        $withDriver->legs()->update(['driver_id' => 99]);
+        $paid = $make('old-3');
+        $paid->forceFill(['advance' => 20])->save();
+        $byHand = $make('old-4');
+        $byHand->forceFill(['prepared_by' => 'Mariam'])->save();
+
+        (require base_path('Modules/Rental/database/migrations/2026_11_09_900064_remove_old_website_trips.php'))->up();
+
+        $this->assertNull(LimoBooking::query()->find($untouched->id));
+        $this->assertSame(0, LimoLeg::query()->where('legable_id', $untouched->id)->where('legable_type', $untouched->getMorphClass())->count());
+        $web = RentalWebBooking::query()->where('source_reference', 'old-1')->firstOrFail();
+        $this->assertNull($web->limo_booking_id);
+        $this->assertFalse($web->isPending());
+
+        foreach ([$future, $withDriver, $paid, $byHand] as $kept) {
+            $this->assertNotNull(LimoBooking::query()->find($kept->id));
+        }
     }
 }

@@ -27,6 +27,11 @@ use Modules\Rental\Models\RentalWebBooking;
  *    website sends the order again on payment). "Pay later" moves at once.
  *  - A limousine trip in a database that does not run Limousine: it stays on
  *    the Web bookings page rather than becoming a car hire.
+ *  - An old booking: its pick-up day is already over, or it has no pick-up
+ *    time and the ERP first received it before today. The website sends an
+ *    order again whenever its status changes, so a months-old order marked
+ *    completed on the store would otherwise land on the desk as a new trip
+ *    (the owner's call, 2026-11-09: only today and the days ahead move).
  */
 final class WebBookingAutoTransfer
 {
@@ -37,6 +42,8 @@ final class WebBookingAutoTransfer
     public const PAYMENT_LINK = 'payment_link';
 
     public const AWAITING_PAYMENT = 'awaiting_payment';
+
+    public const TOO_OLD = 'too_old';
 
     public const LEFT = 'left';
 
@@ -60,6 +67,10 @@ final class WebBookingAutoTransfer
             $web->save();
 
             return self::PAYMENT_LINK;
+        }
+
+        if (self::isOld($web)) {
+            return self::TOO_OLD;
         }
 
         if (self::awaitingOnlinePayment($web)) {
@@ -118,6 +129,18 @@ final class WebBookingAutoTransfer
     {
         return ! $web->isPaidOnline()
             && preg_match(self::ONLINE_METHODS, (string) $web->payment_mode) === 1;
+    }
+
+    /** Pick-up day before today, or no pick-up time and first received before today. */
+    public static function isOld(RentalWebBooking $web): bool
+    {
+        $today = now()->startOfDay();
+
+        if ($web->pickup_at !== null) {
+            return $web->pickup_at->lt($today);
+        }
+
+        return $web->created_at !== null && $web->created_at->lt($today);
     }
 
     private static function limousineRuns(): bool

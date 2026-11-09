@@ -3430,5 +3430,6 @@
     "Enter the cost as an amount in BD, or leave it blank.": "أدخل التكلفة كمبلغ بالدينار، أو اتركها فارغة.",
     "Other company: :company": "شركة أخرى: :company",
     "Limousine booking": "حجز ليموزين",
-    "Booked on the website": "حُجز عبر الموقع الإلكتروني"
+    "Booked on the website": "حُجز عبر الموقع الإلكتروني",
+    "Old website trips removed": "أُزيلت رحلات الموقع القديمة"
 }

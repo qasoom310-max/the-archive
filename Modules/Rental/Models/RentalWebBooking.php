@@ -49,6 +49,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int|null $rental_order_id
  * @property int|null $limo_booking_id
  * @property \Illuminate\Support\Carbon|null $completed_at
+ * @property \Illuminate\Support\Carbon|null $created_at
  * @property array<string, mixed>|null $payload
  */
 final class RentalWebBooking extends Model implements DefinesIrModel

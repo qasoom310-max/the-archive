@@ -62,15 +62,39 @@ final class LimoLegCountryTest extends TestCase
         $this->assertSame('BH', $leg['to_country']);
     }
 
-    public function test_only_the_gulf_countries_are_offered(): void
+    public function test_the_gulf_countries_and_other_are_offered(): void
     {
         Livewire::test(BookingForm::class)
-            ->assertViewHas('countryOptions', fn (array $options): bool => array_column($options, 'value') === ['BH', 'SA', 'AE', 'KW', 'QA', 'OM'])
+            ->assertViewHas('countryOptions', fn (array $options): bool => array_column($options, 'value') === ['BH', 'SA', 'AE', 'KW', 'QA', 'OM', 'XX'])
+            ->assertSeeHtml('<option value="XX">Other</option>')
             ->set('legs.0.from_location', 'Cairo')
             ->set('legs.0.from_country', 'EG')
             ->set('legs.0.to_location', 'Manama')
             ->call('save')
             ->assertHasErrors('legs.0.from_country');
+    }
+
+    /** A trip outside the Gulf (Amman) is saved under "Other", and its place can be added there. */
+    public function test_a_place_outside_the_gulf_is_saved_under_other(): void
+    {
+        $this->form()
+            ->set('legs.0.from_location', 'Bahrain Airport')
+            ->set('legs.0.to_country', LimoLocation::OTHER_COUNTRY)
+            ->set('legs.0.to_location', 'Amman')
+            ->call('addLegLocation', 0, 'to', 'Amman')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $leg = LimoLeg::query()->sole();
+        $this->assertSame('XX', $leg->to_country);
+        $this->assertSame('Amman', $leg->to_location);
+
+        $place = LimoLocation::query()->where('name', 'Amman')->sole();
+        $this->assertSame('XX', $place->country);
+        $this->assertSame('Other', $place->country_name);
+
+        $reopened = Livewire::test(BookingForm::class, ['id' => LimoBooking::query()->sole()->id])->get('legs')[0];
+        $this->assertSame('XX', $reopened['to_country']);
     }
 
     public function test_the_places_are_offered_per_country(): void

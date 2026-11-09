@@ -28,8 +28,15 @@ final class LimoLocation extends Model implements DefinesIrModel
 
     public const DEFAULT_COUNTRY = 'BH';
 
-    /** The limo desk drives in the Gulf only, so a place is in a GCC country. */
-    public const COUNTRIES = ['BH', 'SA', 'AE', 'KW', 'QA', 'OM'];
+    /**
+     * Anywhere outside the Gulf (a trip to Jordan, say). "XX" is the ISO code
+     * reserved for an unknown country, so it fits the 2-letter column and can
+     * never clash with a real one.
+     */
+    public const OTHER_COUNTRY = 'XX';
+
+    /** The Gulf countries the limo desk drives in, then "Other" for the rest. */
+    public const COUNTRIES = ['BH', 'SA', 'AE', 'KW', 'QA', 'OM', self::OTHER_COUNTRY];
 
     protected $table = 'limo_locations';
 
@@ -46,10 +53,13 @@ final class LimoLocation extends Model implements DefinesIrModel
      */
     public static function countryOptions(): array
     {
-        return array_values(array_map(
+        $options = array_values(array_map(
             static fn (array $c): array => ['value' => $c['code'], 'label' => $c['name']],
             array_filter(self::countries(), static fn (array $c): bool => in_array($c['code'], self::COUNTRIES, true)),
         ));
+        $options[] = ['value' => self::OTHER_COUNTRY, 'label' => 'Other'];
+
+        return $options;
     }
 
     /** The ISO-2 code if it is one of ours, else null. */
@@ -66,7 +76,7 @@ final class LimoLocation extends Model implements DefinesIrModel
 
     public function getCountryNameAttribute(): ?string
     {
-        $name = $this->countryName();
+        $name = $this->getAttribute('country') === self::OTHER_COUNTRY ? 'Other' : $this->countryName();
 
         return $name !== null ? __($name) : null;
     }

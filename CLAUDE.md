@@ -5273,3 +5273,5 @@ form (`data-car-papers`) prints those lines plus an "Open the car to update its 
 `/app/rental/vehicle/{id}`. A car is valid only when BOTH dates are filled in and not before today.
 Uploading a new registration PDF does not change the expiry date, which has to be typed. The
 warning never blocked saving. Test: `RentalCarDocumentsTest::test_the_order_form_names_the_paper_still_at_fault`.
+
+**"Other" country on a limousine trip (2026-11-09).** The From/To country select on the booking and quotation legs ends with **Other** for a place outside the Gulf (e.g. Amman). It is stored as `XX` (`LimoLocation::OTHER_COUNTRY`, the ISO code reserved for "unknown", fits the 2-letter column) and is in `LimoLocation::COUNTRIES`, so validation, the per-country place list, "Add … to Other" and the Locations form all take it. The bookings list shows "Other" above such a place; the trip-details lock shows "🔒 Other". The location import maps a known non-Gulf country (Jordan / JO) to Other; blank or unknown still means Bahrain. BorderOffers treats XX as just another foreign country, which the website never asks about. Test: `LimoLegCountryTest` (+1).

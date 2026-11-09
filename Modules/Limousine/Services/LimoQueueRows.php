@@ -509,6 +509,7 @@ final class LimoQueueRows
         return match ($iso) {
             'SA' => 'KSA',
             'AE' => 'UAE',
+            \Modules\Limousine\Models\LimoLocation::OTHER_COUNTRY => __('Other'),
             default => $iso,
         };
     }

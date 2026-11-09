@@ -93,7 +93,11 @@ final class LocationImporter
         return ['imported' => $imported, 'skipped' => $skipped];
     }
 
-    /** A country cell as a code (SA) or a name (Saudi Arabia); blank, unknown or outside the Gulf = Bahrain. */
+    /**
+     * A country cell as a code (SA) or a name (Saudi Arabia). A recognised
+     * country outside the Gulf (Jordan, JO) is "Other"; blank or unknown is
+     * Bahrain.
+     */
     private function country(string $value): string
     {
         $value = trim($value);
@@ -101,6 +105,14 @@ final class LocationImporter
         foreach (LimoLocation::countryOptions() as $c) {
             if (strcasecmp($c['value'], $value) === 0 || strcasecmp($c['label'], $value) === 0) {
                 return $c['value'];
+            }
+        }
+
+        if ($value !== '') {
+            foreach (LimoLocation::countries() as $c) {
+                if (strcasecmp($c['code'], $value) === 0 || strcasecmp($c['name'], $value) === 0) {
+                    return LimoLocation::OTHER_COUNTRY;
+                }
             }
         }
 

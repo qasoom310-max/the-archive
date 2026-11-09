@@ -7,6 +7,7 @@ namespace Modules\Limousine\Livewire;
 use App\Erp\Security\Permission;
 use App\Erp\Settings\Setting;
 use App\Livewire\Concerns\GuardsModelAccess;
+use App\Livewire\Concerns\SelectsListRows;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
@@ -29,7 +30,14 @@ use Throwable;
 final class Receipts extends Component
 {
     use GuardsModelAccess;
+    use SelectsListRows;
     use WithPagination;
+
+    /** Rows per page on the Confirmed / All tabs. */
+    private const PER_PAGE = 20;
+
+    /** The "To confirm" queue is shown whole, up to this many receipts. */
+    private const QUEUE_LIMIT = 500;
 
     #[Url]
     public string $search = '';
@@ -159,6 +167,9 @@ final class Receipts extends Component
         }
 
         $this->closeConfirm();
+        // A ticked receipt that just left the queue would silently drop out of
+        // the next download; start the ticks afresh.
+        $this->clearSelection();
         session()->flash('toast', trans_choice(
             ':count payment confirmed.|:count payments confirmed.',
             $receipts->count(),
@@ -258,42 +269,48 @@ final class Receipts extends Component
         session()->flash('toast', __('Receipt sent to :email', ['email' => $email]));
     }
 
-    public function updatedTab(): void
+    /**
+     * The ids on what is being looked at, for the header checkbox: the whole
+     * accountant queue on "To confirm" (it is not paginated), else the
+     * current page — same query and order as the list.
+     *
+     * @return list<int>
+     */
+    protected function currentPageIds(): array
     {
-        $this->resetPage();
+        $query = $this->rowsQuery();
+        $query = $this->tab === 'to_confirm'
+            ? $query->limit(self::QUEUE_LIMIT)
+            : $query->forPage($this->getPage(), self::PER_PAGE);
+
+        return $query->pluck('id')->map(static fn ($id): int => (int) $id)->all();
     }
 
-    public function updatedMethod(): void
+    /**
+     * Tick or untick several receipts at once — a bulk payment on the
+     * "To confirm" tab is one row holding many receipts, so its box speaks
+     * for all of them. All ticked → untick all; otherwise tick all.
+     */
+    public function toggleIds(string $csv): void
     {
-        $this->resetPage();
+        $ids = array_values(array_unique(array_map('intval', array_filter(explode(',', $csv), 'is_numeric'))));
+        if ($ids === []) {
+            return;
+        }
+
+        $current = array_map('intval', $this->selected);
+        $allIn = array_diff($ids, $current) === [];
+
+        $this->selected = $allIn
+            ? array_values(array_diff($current, $ids))
+            : array_values(array_unique([...$current, ...$ids]));
+        $this->selectPage = false;
     }
 
-    public function updatedFrom(): void
+    /** @return \Illuminate\Database\Eloquent\Builder<LimoReceipt> */
+    private function rowsQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        $this->resetPage();
-    }
-
-    public function updatedTo(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatedPreparedBy(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatedSearch(): void
-    {
-        $this->resetPage();
-    }
-
-    public function render(): View
-    {
-        // The same source the exports read, via LimoReceiptRows — otherwise a
-        // filter added here (or there) quietly stops matching what the office
-        // sees on screen.
-        $query = app(LimoReceiptRows::class)->query(
+        return app(LimoReceiptRows::class)->query(
             $this->tab,
             $this->method,
             $this->search,
@@ -301,6 +318,50 @@ final class Receipts extends Component
             $this->to,
             $this->preparedBy,
         );
+    }
+
+    public function updatedTab(): void
+    {
+        $this->resetPage();
+        $this->clearSelection();
+    }
+
+    public function updatedMethod(): void
+    {
+        $this->resetPage();
+        $this->clearSelection();
+    }
+
+    public function updatedFrom(): void
+    {
+        $this->resetPage();
+        $this->clearSelection();
+    }
+
+    public function updatedTo(): void
+    {
+        $this->resetPage();
+        $this->clearSelection();
+    }
+
+    public function updatedPreparedBy(): void
+    {
+        $this->resetPage();
+        $this->clearSelection();
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+        $this->clearSelection();
+    }
+
+    public function render(): View
+    {
+        // The same source the exports read, via LimoReceiptRows — otherwise a
+        // filter added here (or there) quietly stops matching what the office
+        // sees on screen.
+        $query = $this->rowsQuery();
 
         // The accountant's desk groups a bulk payment into ONE row: nobody
         // should close a lump sum forty receipts at a time. Grouped in PHP over
@@ -308,11 +369,11 @@ final class Receipts extends Component
         // across two pages would show two half-batches with wrong totals — and
         // a queue the accountant clears daily is small.
         $pending = $this->tab === 'to_confirm'
-            ? (clone $query)->limit(500)->get()->groupBy(fn (LimoReceipt $r): string => $r->batch_id ?? 'r-' . $r->id)->values()
+            ? (clone $query)->limit(self::QUEUE_LIMIT)->get()->groupBy(fn (LimoReceipt $r): string => $r->batch_id ?? 'r-' . $r->id)->values()
             : collect();
 
         return view('limousine::receipts', [
-            'receipts' => $this->tab === 'to_confirm' ? null : $query->paginate(20),
+            'receipts' => $this->tab === 'to_confirm' ? null : $query->paginate(self::PER_PAGE),
             'pending' => $pending,
             'pendingCount' => LimoReceipt::query()->whereNull('confirmed_at')->count(),
             'canConfirm' => $this->mayConfirm(),

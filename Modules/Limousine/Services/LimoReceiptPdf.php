@@ -113,6 +113,28 @@ final class LimoReceiptPdf
             ->output();
     }
 
+    /**
+     * Several receipts as one PDF, one full page each, in the same design
+     * {@see render()} produces. Used when rows are ticked on the receipts
+     * list and "PDF" is pressed.
+     *
+     * @param  \Illuminate\Support\Collection<int, LimoReceipt>  $receipts
+     */
+    public function renderMany(\Illuminate\Support\Collection $receipts): string
+    {
+        return Pdf::loadView('limousine::receipts-batch-pdf', [
+            'receipts' => $receipts->map(fn (LimoReceipt $receipt): array => $this->viewData($receipt))->all(),
+        ])
+            ->setPaper('a4')
+            ->output();
+    }
+
+    /** Filename for a batch download of several ticked receipts. */
+    public function filenameForMany(int $count): string
+    {
+        return 'receipts-' . $count . '-' . now()->format('Ymd-His') . '.pdf';
+    }
+
     public function filename(LimoReceipt $receipt): string
     {
         return 'receipt-' . str_replace(['/', '\\', ' '], '-', (string) $receipt->reference) . '.pdf';

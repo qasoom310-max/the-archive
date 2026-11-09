@@ -2027,6 +2027,7 @@
     "This vehicle is already booked (:ref) for overlapping dates.": "هذه المركبة محجوزة بالفعل (:ref) في تواريخ متداخلة.",
     "Tick only if this car is NOT owned — it won’t count in the fleet, and its revenue is the mark-up over the cost you pay the outside owner.": "ضع علامة فقط إذا كانت السيارة غير مملوكة — لن تُحتسب ضمن الأسطول، وإيرادها هو هامش الربح فوق التكلفة التي تدفعها للمالك الخارجي.",
     "Tick rows to export only those.": "حدّد صفوفًا لتصدير تلك فقط.",
+    "Tick at most :max receipts to download them as PDF.": "حدّد :max إيصالًا كحد أقصى لتنزيلها بصيغة PDF.",
     "Tick the add-ons the register should offer for this product. Only the ticked ones appear in the register.": "حدّد الإضافات التي يعرضها الكاشير لهذا المنتج. تظهر الإضافات المحددة فقط في الكاشير.",
     "Time": "الوقت",
     "Timesheet": "سجل ساعات العمل",

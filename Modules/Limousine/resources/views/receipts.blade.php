@@ -57,42 +57,50 @@
         @endforeach
     </div>
 
-    <div class="mb-4 flex flex-wrap items-end gap-3">
-        <input type="text" wire:model.live.debounce.300ms="search" placeholder="{{ __('Find receipt (reference or customer)…') }}"
-            class="o-input w-full max-w-md text-sm">
-        <select wire:model.live="method" class="o-input text-sm">
-            <option value="">{{ __('All methods') }}</option>
-            <option value="cash">{{ __('Cash') }}</option>
-            <option value="card">{{ __('Card') }}</option>
-            <option value="benefit">{{ __('Benefit') }}</option>
-            <option value="transfer">{{ __('Transfer') }}</option>
-            <option value="online">{{ __('Online (Tap)') }}</option>
-        </select>
-        <div>
-            <label class="mb-1 block text-xs font-medium text-chrome-700">{{ __('Receipt date from') }}</label>
-            <x-date-field wire:model.live="from" class="o-input text-sm" />
+    {{-- Two rows: what to look for (search + method), then when and by whom
+         (dates + creator). `.o-input` is w-full, so each control carries its
+         own width or it would take a whole line. --}}
+    <div class="mb-4 space-y-3">
+        <div class="flex flex-wrap items-center gap-3">
+            <input type="text" wire:model.live.debounce.300ms="search" placeholder="{{ __('Find receipt (reference or customer)…') }}"
+                class="o-input min-w-0 flex-1 text-sm sm:max-w-md">
+            <select wire:model.live="method" class="o-input w-full text-sm sm:w-48">
+                <option value="">{{ __('All methods') }}</option>
+                <option value="cash">{{ __('Cash') }}</option>
+                <option value="card">{{ __('Card') }}</option>
+                <option value="benefit">{{ __('Benefit') }}</option>
+                <option value="transfer">{{ __('Transfer') }}</option>
+                <option value="online">{{ __('Online (Tap)') }}</option>
+            </select>
         </div>
-        <div>
-            <label class="mb-1 block text-xs font-medium text-chrome-700">{{ __('Receipt date to') }}</label>
-            <x-date-field wire:model.live="to" class="o-input text-sm" />
+        <div class="flex flex-wrap items-end gap-3">
+            <div class="w-full sm:w-56">
+                <label class="mb-1 block text-xs font-medium text-chrome-700">{{ __('Receipt date from') }}</label>
+                <x-date-field wire:model.live="from" class="o-input text-sm" />
+            </div>
+            <div class="w-full sm:w-56">
+                <label class="mb-1 block text-xs font-medium text-chrome-700">{{ __('Receipt date to') }}</label>
+                <x-date-field wire:model.live="to" class="o-input text-sm" />
+            </div>
+            <select wire:model.live="preparedBy" class="o-input w-full text-sm sm:w-48">
+                <option value="">{{ __('Everyone') }}</option>
+                @foreach ($preparedByOptions as $name)
+                    <option value="{{ $name }}">{{ $name }}</option>
+                @endforeach
+            </select>
+            @if ($from !== '' || $to !== '' || $preparedBy !== '' || $method !== '' || $search !== '')
+                {{-- One button clears the whole filter, search included. --}}
+                <button wire:click="$set('from', ''); $set('to', ''); $set('preparedBy', ''); $set('method', ''); $set('search', '')"
+                        class="pb-2 text-sm text-chrome-500 hover:underline">{{ __('Clear') }}</button>
+            @endif
         </div>
-        <select wire:model.live="preparedBy" class="o-input text-sm">
-            <option value="">{{ __('Everyone') }}</option>
-            @foreach ($preparedByOptions as $name)
-                <option value="{{ $name }}">{{ $name }}</option>
-            @endforeach
-        </select>
-        @if ($from !== '' || $to !== '' || $preparedBy !== '' || $method !== '' || $search !== '')
-            {{-- One button clears the whole filter, search included. --}}
-            <button wire:click="$set('from', ''); $set('to', ''); $set('preparedBy', ''); $set('method', ''); $set('search', '')"
-                    class="pb-2 text-sm text-chrome-500 hover:underline">{{ __('Clear') }}</button>
-        @endif
     </div>
 
     @php
         $exportQuery = http_build_query([
             'tab' => $tab, 'method' => $method, 'q' => $search,
             'from' => $from, 'to' => $to, 'prepared_by' => $preparedBy,
+            'ids' => $this->selectedIdsParam(),
             'title' => __('Receipts'),
         ]);
     @endphp
@@ -110,6 +118,14 @@
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('PDF') }}</a>
         <a href="{{ url('/app/limousine/receipt/export/print') }}?{{ $exportQuery }}" target="_blank" rel="noopener"
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('Print') }}</a>
+        @if (count($selected) > 0)
+            <span class="ms-1 inline-flex items-center gap-2 rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700 ring-1 ring-primary-200">
+                {{ __(':count selected', ['count' => count($selected)]) }}
+                <button type="button" wire:click="clearSelection" class="font-semibold hover:underline">{{ __('Clear selection') }}</button>
+            </span>
+        @else
+            <span class="ms-1 text-xs text-chrome-400">{{ __('Tick rows to export only those.') }}</span>
+        @endif
     </div>
 
     @if ($tab === 'to_confirm')
@@ -119,14 +135,28 @@
             @if ($pending->isEmpty())
                 <p class="px-4 py-12 text-center text-sm text-chrome-400">{{ __('Nothing waiting to be confirmed.') }}</p>
             @else
+                {{-- Tick the whole queue at once, for a download of everything waiting. --}}
+                <label class="flex items-center gap-3 border-b border-chrome-100 bg-chrome-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-chrome-500">
+                    <input type="checkbox" wire:model.live="selectPage"
+                           class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
+                    {{ __('Select all') }}
+                </label>
                 <ul class="divide-y divide-chrome-100">
                     @foreach ($pending as $group)
                         @php
                             $first = $group->first();
                             $isBatch = $group->count() > 1;
                             $sum = $group->sum('amount');
+                            // A bulk payment is one row holding many receipts: its box
+                            // ticks all of them, and reads ticked only when all are.
+                            $groupIds = $group->pluck('id')->map(static fn ($id): int => (int) $id)->all();
+                            $groupTicked = array_diff($groupIds, array_map('intval', $selected)) === [];
                         @endphp
                         <li wire:key="pend-{{ $first->batch_id ?? $first->id }}" class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
+                            <input type="checkbox" @checked($groupTicked)
+                                   wire:click="toggleIds('{{ implode(',', $groupIds) }}')"
+                                   class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500"
+                                   aria-label="{{ $isBatch ? __('Bulk payment') : $first->reference }}">
                             <div class="min-w-40">
                                 <div class="font-medium text-chrome-800">
                                     {{ $isBatch ? __('Bulk payment') : $first->reference }}
@@ -163,6 +193,11 @@
         <table class="w-full min-w-[720px] divide-y divide-chrome-100 text-sm" id="limo-receipts-table">
             <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
                 <tr>
+                    <th class="w-10 px-4 py-2" data-copy-skip>
+                        <input type="checkbox" wire:model.live="selectPage"
+                               class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500"
+                               aria-label="{{ __('Select all on this page') }}">
+                    </th>
                     <th class="px-4 py-2 text-start">{{ __('Reference') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Customer') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Invoice') }}</th>
@@ -171,7 +206,7 @@
                     <th class="px-4 py-2 text-end">{{ __('Amount') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Confirmed') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Created by') }}</th>
-                    <th class="px-4 py-2 text-end">{{ __('Actions') }}</th>
+                    <th class="px-4 py-2 text-end" data-copy-skip>{{ __('Actions') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-chrome-50">
@@ -182,7 +217,12 @@
                          action (see the Actions cell below), for the rare
                          correction: a payment logged under the wrong method,
                          or against the wrong date. --}}
-                    <tr wire:key="lrcptrow-{{ $receipt->id }}" class="hover:bg-chrome-50">
+                    <tr wire:key="lrcptrow-{{ $receipt->id }}" class="hover:bg-chrome-50" data-row-selected="{{ $this->isSelected($receipt->id) ? 1 : 0 }}">
+                        <td class="px-4 py-2" data-copy-skip>
+                            <input type="checkbox" wire:model.live="selected" value="{{ $receipt->id }}"
+                                   class="rounded border-chrome-300 text-primary-600 focus:ring-primary-500"
+                                   aria-label="{{ $receipt->reference }}">
+                        </td>
                         <td class="px-4 py-2 font-medium text-chrome-800">{{ $receipt->reference }}</td>
                         <td class="px-4 py-2 text-chrome-700">{{ $receipt->customer?->name ?? '—' }}</td>
                         <td class="px-4 py-2 text-chrome-600">{{ $receipt->invoice?->reference ?? '—' }}</td>
@@ -209,7 +249,7 @@
                         <td class="px-4 py-2 text-chrome-600">{{ $receipt->prepared_by ?? '—' }}</td>
                         {{-- The customer's copy. stopPropagation so fetching it
                              doesn't also open the row's edit form. --}}
-                        <td class="whitespace-nowrap px-4 py-2 text-end" onclick="event.stopPropagation()">
+                        <td class="whitespace-nowrap px-4 py-2 text-end" data-copy-skip onclick="event.stopPropagation()">
                             {{-- Correcting a wrong method/date/amount after the
                                  fact — e.g. a payment logged as Cash that was
                                  actually BenefitPay. Same gate as ReceiptForm
@@ -233,7 +273,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="9" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No receipts found.') }}</td></tr>
+                    <tr><td colspan="10" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No receipts found.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>

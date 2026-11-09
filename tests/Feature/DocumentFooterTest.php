@@ -37,6 +37,7 @@ final class DocumentFooterTest extends TestCase
         'Modules/Limousine/resources/views/invoices-batch-pdf.blade.php',
         'Modules/Limousine/resources/views/quotation-pdf.blade.php',
         'Modules/Limousine/resources/views/receipt-pdf.blade.php',
+        'Modules/Limousine/resources/views/receipts-batch-pdf.blade.php',
         'Modules/Limousine/resources/views/service-order-pdf.blade.php',
         'Modules/Limousine/resources/views/statement-pdf.blade.php',
         // Every list Print / PDF in the app renders through this one view.

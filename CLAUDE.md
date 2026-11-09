@@ -3201,6 +3201,21 @@ table so Copy narrows the same way. **Two different selection mechanisms
 narrowing exports is fine** — the export controller only cares about the
 `ids` query param, not how a screen produced it.
 
+**Limousine receipts got the same, PDF = the real receipts (shipped 2026-11-09)** —
+`/app/limousine/receipt` uses `SelectsListRows`; every filter change (and a
+confirmation) clears the ticks. On "To confirm" (an ungrouped queue of up to
+`QUEUE_LIMIT` 500, not paginated) a bulk payment is ONE row, so its box calls
+`Receipts::toggleIds('1,2,3')` to tick/untick all its receipts, and the header
+"Select all" ticks the whole queue. `LimoReceiptRows::query/all(..., $ids)`;
+`LimoReceiptExportController` parses `?ids=`, and **PDF with ticked rows downloads
+the receipt documents themselves** (one → `render()`, several →
+`LimoReceiptPdf::renderMany()` / `receipts-batch-pdf`, capped at
+`MAX_DOCUMENTS` 100 → 422) — like the invoices list. The receipt page was split
+into `partials/receipt-styles` + `partials/receipt-body` so one and many share it;
+the `@page` rule stays in each document (DocumentFooterTest reads it from the
+source). Filters now sit in two rows: search + method, then dates + Everyone.
+Tests: `LimoBespokeExportTest` (+4).
+
 **Maintenance got the same (shipped 2026-09-12)** — Rental `/app/rental/maintenance`
 gained the full `SelectsListRows` treatment. Its scope is the status **tab**
 (All/Pending/Approved/In progress/Done), so `clearSelection()` hangs off

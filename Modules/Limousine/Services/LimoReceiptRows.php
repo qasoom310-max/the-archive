@@ -18,9 +18,13 @@ use Modules\Limousine\Support\LiveEntry;
 final class LimoReceiptRows
 {
     /**
+     * $ids narrows to the ticked rows on the screen; empty = everything the
+     * other filters select.
+     *
+     * @param  list<int>  $ids
      * @return Builder<LimoReceipt>
      */
-    public function query(string $tab = '', string $method = '', string $search = '', string $from = '', string $to = '', string $preparedBy = '', bool $onlyLive = false): Builder
+    public function query(string $tab = '', string $method = '', string $search = '', string $from = '', string $to = '', string $preparedBy = '', bool $onlyLive = false, array $ids = []): Builder
     {
         $query = LimoReceipt::query()->with(['customer:id,name', 'invoice:id,reference'])->orderByDesc('id');
 
@@ -48,6 +52,10 @@ final class LimoReceiptRows
             $query->where('prepared_by', $preparedBy);
         }
 
+        if ($ids !== []) {
+            $query->whereKey($ids);
+        }
+
         $term = trim($search);
         if ($term !== '') {
             $query->where(function ($q) use ($term): void {
@@ -70,11 +78,12 @@ final class LimoReceiptRows
     }
 
     /**
+     * @param  list<int>  $ids
      * @return list<array<string, string>>
      */
-    public function all(string $tab, string $method, string $search, string $from = '', string $to = '', string $preparedBy = '', bool $onlyLive = false): array
+    public function all(string $tab, string $method, string $search, string $from = '', string $to = '', string $preparedBy = '', bool $onlyLive = false, array $ids = []): array
     {
-        return $this->query($tab, $method, $search, $from, $to, $preparedBy, $onlyLive)->get()->map(fn (LimoReceipt $r): array => $this->row($r))->all();
+        return $this->query($tab, $method, $search, $from, $to, $preparedBy, $onlyLive, $ids)->get()->map(fn (LimoReceipt $r): array => $this->row($r))->all();
     }
 
     /**

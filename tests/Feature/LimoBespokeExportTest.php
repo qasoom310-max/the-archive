@@ -269,6 +269,98 @@ final class LimoBespokeExportTest extends TestCase
         $this->assertStringNotContainsString('250.00', $body);
     }
 
+    /** @return array{0: \Modules\Limousine\Models\LimoReceipt, 1: \Modules\Limousine\Models\LimoReceipt} */
+    private function twoReceipts(): array
+    {
+        $customer = $this->customer();
+        $a = $this->trip($customer, 100, '2026-06-01');
+        $b = $this->trip($customer, 150, '2026-06-02');
+        app(BookingPayments::class)->receive($a, 100, 'cash');
+        app(BookingPayments::class)->receive($b, 150, 'cash');
+
+        $receipts = \Modules\Limousine\Models\LimoReceipt::query()->orderBy('id')->get();
+
+        return [$receipts[0], $receipts[1]];
+    }
+
+    public function test_receipt_excel_and_csv_narrow_to_the_ticked_rows(): void
+    {
+        [$first, $second] = $this->twoReceipts();
+
+        $body = $this->streamed(app(LimoReceiptExportController::class)->csv(Request::create('/x', 'GET', [
+            'ids' => (string) $second->id,
+        ])));
+
+        $this->assertStringContainsString((string) $second->reference, $body);
+        $this->assertStringNotContainsString((string) $first->reference, $body);
+
+        // Junk ids are ignored rather than narrowing to nothing.
+        $all = $this->streamed(app(LimoReceiptExportController::class)->csv(Request::create('/x', 'GET', ['ids' => 'abc'])));
+        $this->assertStringContainsString((string) $first->reference, $all);
+    }
+
+    public function test_receipt_pdf_with_ticked_rows_downloads_the_receipt_documents(): void
+    {
+        [$first, $second] = $this->twoReceipts();
+
+        $one = app(LimoReceiptExportController::class)->pdf(Request::create('/x', 'GET', ['ids' => (string) $first->id]));
+        $this->assertSame('application/pdf', $one->headers->get('Content-Type'));
+        $this->assertStringContainsString(
+            'receipt-' . str_replace(['/', '\\', ' '], '-', (string) $first->reference) . '.pdf',
+            (string) $one->headers->get('Content-Disposition'),
+        );
+
+        $both = app(LimoReceiptExportController::class)->pdf(Request::create('/x', 'GET', ['ids' => $first->id . ',' . $second->id]));
+        $this->assertStringStartsWith('%PDF', (string) $both->getContent());
+        $this->assertStringContainsString('receipts-2-', (string) $both->headers->get('Content-Disposition'));
+
+        // Nothing ticked: still the tabular report of the whole tab.
+        $report = app(LimoReceiptExportController::class)->pdf(Request::create('/x', 'GET'));
+        $this->assertStringContainsString('limousine-receipts-', (string) $report->headers->get('Content-Disposition'));
+    }
+
+    public function test_receipt_pdf_refuses_an_oversized_batch(): void
+    {
+        $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+
+        app(LimoReceiptExportController::class)->pdf(Request::create('/x', 'GET', [
+            'ids' => implode(',', range(1, 101)),
+        ]));
+    }
+
+    public function test_the_receipts_screen_ticks_rows_and_a_bulk_payment_as_one(): void
+    {
+        [$first, $second] = $this->twoReceipts();
+        // The second is part of a bulk payment with a third receipt.
+        $third = \Modules\Limousine\Models\LimoReceipt::query()->create([
+            'customer_id' => $second->customer_id, 'amount' => 20, 'method' => 'cash', 'date' => '2026-06-03',
+        ]);
+        $second->forceFill(['batch_id' => 'b-1'])->save();
+        $third->forceFill(['batch_id' => 'b-1'])->save();
+
+        $component = \Livewire\Livewire::test(\Modules\Limousine\Livewire\Receipts::class)
+            ->assertSet('tab', 'to_confirm')
+            ->assertSee('Tick rows to export only those.')
+            ->call('toggleIds', $second->id . ',' . $third->id)
+            ->assertSet('selected', [$second->id, $third->id])
+            ->assertSee('ids=' . $second->id . '%2C' . $third->id, false)
+            ->call('toggleIds', $second->id . ',' . $third->id)
+            ->assertSet('selected', []);
+
+        // The header box ticks the whole queue; changing a filter drops the ticks.
+        $component->set('selectPage', true)
+            ->assertCount('selected', 3)
+            ->set('method', 'card')
+            ->assertSet('selected', []);
+
+        // The table tabs tick single rows.
+        \Livewire\Livewire::test(\Modules\Limousine\Livewire\Receipts::class, ['tab' => 'all'])
+            ->set('tab', 'all')
+            ->set('selected', [(string) $first->id])
+            ->assertSee('data-row-selected="1"', false)
+            ->assertSee('ids=' . $first->id, false);
+    }
+
     // --- Quotation -----------------------------------------------------
 
     public function test_quotation_export_only_the_active_tab(): void

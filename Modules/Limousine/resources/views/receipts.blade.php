@@ -104,12 +104,7 @@
             'title' => __('Receipts'),
         ]);
     @endphp
-    <div class="mb-3 flex flex-wrap items-center gap-2" x-data="listExportCopy">
-        <button type="button" x-on:click="copyTable('limo-receipts-table')"
-                class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
-            <span x-show="! copied">{{ __('Copy') }}</span>
-            <span x-show="copied" x-cloak class="text-emerald-600">{{ __('Copied') }}</span>
-        </button>
+    <div class="mb-3 flex flex-wrap items-center gap-2">
         <a href="{{ url('/app/limousine/receipt/export/csv') }}?{{ $exportQuery }}"
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('CSV') }}</a>
         <a href="{{ url('/app/limousine/receipt/export/excel') }}?{{ $exportQuery }}"
@@ -149,7 +144,7 @@
                             $sum = $group->sum('amount');
                             // A bulk payment is one row holding many receipts: its box
                             // ticks all of them, and reads ticked only when all are.
-                            $groupIds = $group->pluck('id')->map(static fn ($id): int => (int) $id)->all();
+                            $groupIds = $group->pluck('id')->map(static fn ($id): int => (int) $id)->sort()->values()->all();
                             $groupTicked = array_diff($groupIds, array_map('intval', $selected)) === [];
                         @endphp
                         <li wire:key="pend-{{ $first->batch_id ?? $first->id }}" class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
@@ -174,6 +169,16 @@
                             <span class="text-chrome-500">{{ $first->date?->isoFormat('DD-MMM-YYYY') }}</span>
                             <span class="rounded bg-chrome-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-chrome-600">{{ __(ucfirst($first->method)) }}</span>
                             <span class="ms-auto font-semibold text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($sum) }}</span>
+                            {{-- The receipt itself; a bulk payment downloads all of
+                                 its receipts as one PDF, one page each. --}}
+                            <a href="{{ $isBatch
+                                    ? url('/app/limousine/receipt/export/pdf') . '?ids=' . implode(',', $groupIds)
+                                    : url('/app/limousine/receipt/' . $first->id . '/download') }}"
+                               data-receipt-download
+                               class="inline-flex items-center gap-1 rounded-lg border border-chrome-200 px-2.5 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
+                                <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 3a.75.75 0 0 1 .75.75v6.44l1.72-1.72a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 1.06-1.06l1.72 1.72V3.75A.75.75 0 0 1 10 3ZM3.75 14a.75.75 0 0 1 .75.75v.75h11v-.75a.75.75 0 0 1 1.5 0v1.5a.75.75 0 0 1-.75.75h-12.5a.75.75 0 0 1-.75-.75v-1.5A.75.75 0 0 1 3.75 14Z"/></svg>
+                                {{ __('Download') }}
+                            </a>
                             @if ($canConfirm)
                                 <button type="button"
                                         wire:click="{{ $isBatch ? 'openConfirmBatch(\'' . $first->batch_id . '\')' : 'openConfirm(' . $first->id . ')' }}"

@@ -224,11 +224,15 @@
          query string, built above); Copy lifts the rendered table client-side,
          so it needs no endpoint. --}}
     <div class="mb-3 flex flex-wrap items-center gap-2 px-4 pt-3 sm:px-0" x-data="listExportCopy">
-        <button type="button" x-on:click="copyTable('{{ $exportTableId }}')"
-                class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
-            <span x-show="! copied">{{ __('Copy') }}</span>
-            <span x-show="copied" x-cloak class="text-emerald-600">{{ __('Copied') }}</span>
-        </button>
+        {{-- No Copy on Rent A Car / Limousine lists: the owner found it gave
+             no visible result there and asked for it gone (2026-11-09). --}}
+        @unless (str_starts_with($modelKey, 'rental.') || str_starts_with($modelKey, 'limousine.'))
+            <button type="button" x-on:click="copyTable('{{ $exportTableId }}')"
+                    class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
+                <span x-show="! copied">{{ __('Copy') }}</span>
+                <span x-show="copied" x-cloak class="text-emerald-600">{{ __('Copied') }}</span>
+            </button>
+        @endunless
         <a href="{{ route('list.export.csv', $modelKey) }}?{{ $exportQuery }}"
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('CSV') }}</a>
         <a href="{{ route('list.export.excel', $modelKey) }}?{{ $exportQuery }}"

@@ -3214,7 +3214,19 @@ the receipt documents themselves** (one → `render()`, several →
 into `partials/receipt-styles` + `partials/receipt-body` so one and many share it;
 the `@page` rule stays in each document (DocumentFooterTest reads it from the
 source). Filters now sit in two rows: search + method, then dates + Everyone.
-Tests: `LimoBespokeExportTest` (+4).
+Tests: `LimoBespokeExportTest` (+4). Same day: each "To confirm" row has a
+**Download** button (`data-receipt-download`): a single receipt → its
+`/download`, a bulk payment → `export/pdf?ids=` (all its receipts, oldest first).
+
+**No Copy button on Rent A Car / Limousine lists (removed 2026-11-09, the owner's
+request — "it does nothing").** Gone from every bespoke list in both modules
+(bookings, invoices, receipts, quotations, petty cash, orders, maintenance,
+replacements, fleet earnings — the fleet one really did nothing, it called the
+module-scoped `copyTableById` from an `onclick`), and from the engine
+`list-view` when `$modelKey` starts with `rental.` / `limousine.` (customers,
+vehicles, drivers…). Other apps keep it. Kept: the per-trip WhatsApp copy and
+the payment-link URL copy on bookings — those copy a message, not a table.
+Test: `LimoBespokeExportTest::test_each_waiting_receipt_has_its_own_download_and_the_list_has_no_copy`.
 
 **Maintenance got the same (shipped 2026-09-12)** — Rental `/app/rental/maintenance`
 gained the full `SelectsListRows` treatment. Its scope is the status **tab**

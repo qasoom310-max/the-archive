@@ -296,12 +296,7 @@
     {{-- Export bar. CSV / Excel / PDF / Print are server-rendered from the same
          rows as the table (filters ride along in the query string); Copy lifts
          the rendered table client-side, so it needs no endpoint. --}}
-    <div class="mb-3 flex flex-wrap items-center gap-2" x-data="limoQueueCopy">
-        <button type="button" x-on:click="copyTable($el)"
-                class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-700 transition hover:bg-chrome-50">
-            <span x-show="! copied">{{ __('Copy') }}</span>
-            <span x-show="copied" x-cloak class="text-emerald-600">{{ __('Copied') }}</span>
-        </button>
+    <div class="mb-3 flex flex-wrap items-center gap-2">
         <a href="{{ url('/app/limousine/booking/export/csv') }}?{{ $exportQuery }}"
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-700 transition hover:bg-chrome-50">{{ __('CSV') }}</a>
         <a href="{{ url('/app/limousine/booking/export/excel') }}?{{ $exportQuery }}"

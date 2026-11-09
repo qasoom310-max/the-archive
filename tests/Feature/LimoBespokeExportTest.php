@@ -361,6 +361,25 @@ final class LimoBespokeExportTest extends TestCase
             ->assertSee('ids=' . $first->id, false);
     }
 
+    public function test_each_waiting_receipt_has_its_own_download_and_the_list_has_no_copy(): void
+    {
+        [$first, $second] = $this->twoReceipts();
+        $third = \Modules\Limousine\Models\LimoReceipt::query()->create([
+            'customer_id' => $second->customer_id, 'amount' => 20, 'method' => 'cash', 'date' => '2026-06-03',
+        ]);
+        $second->forceFill(['batch_id' => 'b-1'])->save();
+        $third->forceFill(['batch_id' => 'b-1'])->save();
+
+        \Livewire\Livewire::test(\Modules\Limousine\Livewire\Receipts::class)
+            ->assertSet('tab', 'to_confirm')
+            // A single receipt: its own document.
+            ->assertSee('/app/limousine/receipt/' . $first->id . '/download', false)
+            // A bulk payment: all of its receipts in one PDF.
+            ->assertSee('/app/limousine/receipt/export/pdf?ids=' . $second->id . ',' . $third->id, false)
+            ->assertDontSee('>Copy<', false)
+            ->assertDontSee('copyTable', false);
+    }
+
     // --- Quotation -----------------------------------------------------
 
     public function test_quotation_export_only_the_active_tab(): void

@@ -87,12 +87,7 @@
             'ids' => implode(',', $selected),
         ]);
     @endphp
-    <div class="mb-3 flex flex-wrap items-center gap-2" x-data="listExportCopy">
-        <button type="button" x-on:click="copyTable('limo-invoices-table')"
-                class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">
-            <span x-show="! copied">{{ __('Copy') }}</span>
-            <span x-show="copied" x-cloak class="text-emerald-600">{{ __('Copied') }}</span>
-        </button>
+    <div class="mb-3 flex flex-wrap items-center gap-2">
         <a href="{{ url('/app/limousine/invoice/export/csv') }}?{{ $exportQuery }}"
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ __('CSV') }}</a>
         <a href="{{ url('/app/limousine/invoice/export/excel') }}?{{ $exportQuery }}"

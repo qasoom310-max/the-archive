@@ -123,7 +123,6 @@
     <div class="mb-3 flex flex-wrap items-center gap-2">
         <h2 class="text-xs font-bold uppercase tracking-wider text-chrome-500">{{ __('Car by car') }}</h2>
         <span class="h-px flex-1 bg-chrome-200"></span>
-        <button type="button" onclick="copyTableById('fleet-table')" class="rounded-lg bg-chrome-100 px-3 py-1.5 text-xs font-semibold text-chrome-600 transition hover:bg-chrome-200">{{ __('Copy') }}</button>
         @foreach ([['csv', __('CSV')], ['excel', __('Excel')], ['pdf', __('PDF')], ['print', __('Print')]] as [$fmt, $label])
             {{-- url(), not route(): a module's routes only exist while it is
                  installed, so a named-route lookup in a view is fragile here. --}}

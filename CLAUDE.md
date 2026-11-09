@@ -5263,3 +5263,13 @@ would be its own annoyance.
 3. `composer test` green.
 4. Phase status table in §5 updated if a phase milestone was reached.
 
+
+**The order form says which car paper is at fault (2026-11-09).** The red warning under a picked
+car read "registration/insurance has lapsed or is not recorded". So a desk that renewed the
+registration while the insurance had also lapsed saw the same warning and thought its change was
+ignored (Via, on the Ford Taurus 111829). `Vehicle::paperProblems()` now returns one line per bad
+paper ("Insurance expired on 2026-10-30.", "Registration expiry date is not recorded."). The order
+form (`data-car-papers`) prints those lines plus an "Open the car to update its papers" link to
+`/app/rental/vehicle/{id}`. A car is valid only when BOTH dates are filled in and not before today.
+Uploading a new registration PDF does not change the expiry date, which has to be typed. The
+warning never blocked saving. Test: `RentalCarDocumentsTest::test_the_order_form_names_the_paper_still_at_fault`.

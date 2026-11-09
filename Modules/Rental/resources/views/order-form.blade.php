@@ -368,7 +368,12 @@
                         </div>
                         @error('vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         @if ($selectedVehicle && $selectedVehicle->needsRenewal())
-                            <p class="mt-1 text-xs font-medium text-red-600">{{ __('This car’s registration/insurance has lapsed or is not recorded — check its papers before renting.') }}</p>
+                            <div class="mt-1 text-xs font-medium text-red-600" data-car-papers>
+                                @foreach ($selectedVehicle->paperProblems() as $problem)
+                                    <p>{{ $problem }}</p>
+                                @endforeach
+                                <a href="{{ url('/app/rental/vehicle/' . $selectedVehicle->id) }}" target="_blank" class="underline hover:text-red-700">{{ __('Open the car to update its papers') }}</a>
+                            </div>
                         @elseif ($selectedVehicle && $selectedVehicle->expiringSoon())
                             <p class="mt-1 text-xs text-amber-600">{{ __('Papers expire on :date.', ['date' => $selectedVehicle->nextDocExpiry()?->format('Y-m-d')]) }}</p>
                         @endif

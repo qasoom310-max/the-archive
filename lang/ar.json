@@ -3431,5 +3431,8 @@
     "Other company: :company": "شركة أخرى: :company",
     "Limousine booking": "حجز ليموزين",
     "Booked on the website": "حُجز عبر الموقع الإلكتروني",
-    "Old website trips removed": "أُزيلت رحلات الموقع القديمة"
+    "Old website trips removed": "أُزيلت رحلات الموقع القديمة",
+    ":paper expiry date is not recorded.": "لم يُسجَّل تاريخ انتهاء :paper.",
+    ":paper expired on :date.": "انتهى :paper في :date.",
+    "Open the car to update its papers": "افتح السيارة لتحديث أوراقها"
 }

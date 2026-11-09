@@ -86,6 +86,30 @@ final class RentalCarDocumentsTest extends TestCase
             ->assertSee('papers expired');
     }
 
+    /**
+     * Renewing the registration while the insurance has also lapsed left the
+     * same vague warning up, which read as "my change was ignored". The form
+     * now names the paper still at fault, and goes quiet once both are valid.
+     */
+    public function test_the_order_form_names_the_paper_still_at_fault(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+        $car = $this->car('TaurusZ', 300, -5);
+        $expired = Carbon::today()->subDays(5)->format('Y-m-d');
+
+        $form = Livewire::test(OrderForm::class)
+            ->set('vehicle_id', $car->id)
+            ->assertSee('Insurance expired on ' . $expired . '.')
+            ->assertDontSee('Registration expired')
+            ->assertSee('/app/rental/vehicle/' . $car->id);
+
+        $car->update(['insurance_expiry' => Carbon::today()->addYear()]);
+        $form->set('vehicle_id', $car->id)->assertDontSee('data-car-papers', false);
+
+        $blank = $this->car('BlankZ', null, 300);
+        $form->set('vehicle_id', $blank->id)->assertSee('Registration expiry date is not recorded.');
+    }
+
     public function test_a_regular_admin_sees_cars_with_lapsed_papers(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => false]));

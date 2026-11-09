@@ -159,6 +159,32 @@ final class Vehicle extends Model implements DefinesIrModel
             && $this->insurance_expiry->gte($today);
     }
 
+    /**
+     * What exactly is wrong with the papers, one line per paper, so the desk
+     * knows which date to fix. Empty when both are valid. Renewing one paper
+     * while the other has also lapsed used to leave the same vague warning up,
+     * which read as "the system ignored my change".
+     *
+     * @return list<string>
+     */
+    public function paperProblems(): array
+    {
+        $today = Carbon::today();
+        $problems = [];
+
+        foreach (['registration_expiry' => 'Registration', 'insurance_expiry' => 'Insurance'] as $field => $label) {
+            /** @var Carbon|null $date */
+            $date = $this->{$field};
+            if ($date === null) {
+                $problems[] = __(':paper expiry date is not recorded.', ['paper' => __($label)]);
+            } elseif ($date->lt($today)) {
+                $problems[] = __(':paper expired on :date.', ['paper' => __($label), 'date' => $date->format('Y-m-d')]);
+            }
+        }
+
+        return $problems;
+    }
+
     /** A paper is missing or its date has passed — needs renewal before use. */
     public function needsRenewal(): bool
     {

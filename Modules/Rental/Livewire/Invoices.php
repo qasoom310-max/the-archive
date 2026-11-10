@@ -33,6 +33,10 @@ final class Invoices extends Component
     #[Url]
     public string $tab = 'all';
 
+    /** Customer name (or invoice number) typed in the search box. */
+    #[Url(except: '')]
+    public string $search = '';
+
     protected function accessModelKey(): string
     {
         return 'rental.invoice';
@@ -49,6 +53,13 @@ final class Invoices extends Component
         $this->clearSelection();
     }
 
+    public function updatedSearch(): void
+    {
+        // A tick made against one search is not a tick against the next.
+        $this->resetPage();
+        $this->clearSelection();
+    }
+
     /**
      * The ids on the page being looked at, for the header checkbox. Same
      * query and order as the list, so "select all on this page" means what
@@ -58,7 +69,7 @@ final class Invoices extends Component
      */
     protected function currentPageIds(): array
     {
-        return app(RentalInvoiceRows::class)->query($this->tab)
+        return app(RentalInvoiceRows::class)->query($this->tab, $this->search)
             ->forPage($this->getPage(), 20)
             ->pluck('id')
             ->map(static fn ($id): int => (int) $id)
@@ -67,19 +78,12 @@ final class Invoices extends Component
 
     public function render(): View
     {
-        $query = RentalInvoice::query()
-            ->with('customer:id,name')
-            ->orderByDesc('id');
+        $rows = app(RentalInvoiceRows::class);
+        $query = $rows->query($this->tab, $this->search);
 
-        if (in_array($this->tab, [
-            RentalInvoice::STATUS_UNPAID,
-            RentalInvoice::STATUS_PARTIAL,
-            RentalInvoice::STATUS_PAID,
-        ], true)) {
-            $query->where('status', $this->tab);
-        }
-
+        // The tab counts follow the search, so "Unpaid 3" means this customer's.
         $counts = RentalInvoice::query()
+            ->tap(fn ($q) => $rows->search($q, $this->search))
             ->selectRaw('status, COUNT(*) as aggregate')
             ->groupBy('status')
             ->pluck('aggregate', 'status');

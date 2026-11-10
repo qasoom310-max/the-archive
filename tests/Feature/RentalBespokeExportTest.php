@@ -92,6 +92,28 @@ final class RentalBespokeExportTest extends TestCase
         $this->assertStringNotContainsString('20.00', $body);
     }
 
+    /** The search box finds a customer by part of the name; tabs, counts and downloads follow it. */
+    public function test_invoice_search_finds_a_customer_name(): void
+    {
+        $goEasy = RentalCustomer::query()->create(['name' => 'Go Easy Car Rental']);
+        $other = RentalCustomer::query()->create(['name' => 'Fernandes Nunes']);
+        RentalInvoice::query()->create(['customer_id' => $goEasy->id, 'total' => 858, 'status' => RentalInvoice::STATUS_UNPAID]);
+        RentalInvoice::query()->create(['customer_id' => $goEasy->id, 'total' => 300, 'status' => RentalInvoice::STATUS_PAID]);
+        RentalInvoice::query()->create(['customer_id' => $other->id, 'total' => 220, 'status' => RentalInvoice::STATUS_UNPAID]);
+
+        \Livewire\Livewire::test(\Modules\Rental\Livewire\Invoices::class)
+            ->set('search', 'easy')
+            ->assertSee('Go Easy Car Rental')
+            ->assertDontSee('Fernandes Nunes')
+            ->assertViewHas('totalCount', 2)
+            ->assertViewHas('counts', fn ($c): bool => (int) $c->get('unpaid') === 1)
+            ->assertSeeHtml('q=easy');
+
+        $body = $this->streamed(app(RentalInvoiceExportController::class)->csv(Request::create('/x', 'GET', ['q' => 'easy'])));
+        $this->assertStringContainsString('858.00', $body);
+        $this->assertStringNotContainsString('220.00', $body);
+    }
+
     public function test_invoice_export_is_read_gated(): void
     {
         $this->actingAs(User::factory()->create());

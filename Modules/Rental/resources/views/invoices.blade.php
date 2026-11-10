@@ -50,9 +50,15 @@
         @endforeach
     </div>
 
+    <div class="mb-4">
+        <input type="search" wire:model.live.debounce.300ms="search" placeholder="{{ __('Search by customer name…') }}"
+            class="o-input w-full max-w-md text-sm" aria-label="{{ __('Search by customer name…') }}">
+    </div>
+
     @php
         $exportQuery = http_build_query([
             'tab' => $tab,
+            'q' => $search,
             'title' => __('Invoices'),
             // Ticked rows narrow every download to just those.
             'ids' => $this->selectedIdsParam(),

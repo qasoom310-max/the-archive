@@ -39,14 +39,14 @@ final class RentalInvoiceExportController
     {
         $this->authorizeExport('rental.invoice');
 
-        return $this->renderer->csv($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request)), $this->exportFilename('rental-invoices'));
+        return $this->renderer->csv($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request), $this->search($request)), $this->exportFilename('rental-invoices'));
     }
 
     public function excel(Request $request): StreamedResponse
     {
         $this->authorizeExport('rental.invoice');
 
-        return $this->renderer->excel($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request)), $this->exportFilename('rental-invoices'));
+        return $this->renderer->excel($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request), $this->search($request)), $this->exportFilename('rental-invoices'));
     }
 
     public function pdf(Request $request): Response
@@ -58,7 +58,7 @@ final class RentalInvoiceExportController
             return $this->invoiceDocuments($ids);
         }
 
-        return $this->renderer->pdf($this->rows->headings(), $this->rows->all($this->tab($request), $ids), __('Invoices'), $this->exportFilename('rental-invoices'));
+        return $this->renderer->pdf($this->rows->headings(), $this->rows->all($this->tab($request), $ids, $this->search($request)), __('Invoices'), $this->exportFilename('rental-invoices'));
     }
 
     /**
@@ -99,12 +99,20 @@ final class RentalInvoiceExportController
     {
         $this->authorizeExport('rental.invoice');
 
-        return $this->renderer->print($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request)), __('Invoices'));
+        return $this->renderer->print($this->rows->headings(), $this->rows->all($this->tab($request), $this->ids($request), $this->search($request)), __('Invoices'));
     }
 
     private function tab(Request $request): string
     {
         return (string) $request->query('tab', 'all');
+    }
+
+    /** The customer search typed on the screen, so a download matches the list. */
+    private function search(Request $request): string
+    {
+        $q = $request->query('q');
+
+        return is_string($q) ? $q : '';
     }
 
     /**

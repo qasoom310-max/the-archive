@@ -108,9 +108,27 @@ final class LimoLegCountryTest extends TestCase
                 'BH' => ['Bahrain Airport'],
                 'SA' => ['Dammam', 'Riyadh'],
             ])
-            ->assertSeeHtml('id="limo-locations-SA"')
+            ->assertDontSeeHtml('<datalist')
             ->set('legs.0.to_country', 'SA')
-            ->assertSeeHtml('list="limo-locations-SA"');
+            ->assertSeeHtml('data-place-box="SA"');
+    }
+
+    /**
+     * The browser's own suggestions popped up on every key press (a black
+     * bubble on a phone). Ours wait for typing to pause and need two letters.
+     */
+    public function test_place_suggestions_wait_until_typing_pauses(): void
+    {
+        LimoLocation::query()->create(['name' => 'Kuala Lumpur', 'country' => LimoLocation::OTHER_COUNTRY]);
+
+        $html = Livewire::test(BookingForm::class)
+            ->set('legs.0.to_country', LimoLocation::OTHER_COUNTRY)
+            ->html();
+
+        $this->assertStringNotContainsString(' list="', $html);
+        $this->assertStringContainsString('setTimeout(() => this.suggest(), 800)', $html);
+        $this->assertStringContainsString('q.length >= 2', $html);
+        $this->assertStringContainsString('autocomplete="off"', $html);
     }
 
     public function test_the_countries_are_saved_on_the_trip_and_read_back(): void

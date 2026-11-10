@@ -4,14 +4,10 @@
      $countryOptions, $canAddLocation. --}}
 @php $lbl = 'mb-1 block text-sm font-medium text-chrome-700'; @endphp
 
-{{-- One datalist per country, reused by every From/To box set to that
-     country: the selected customer's own repeat places first (see
-     HandlesTripLegs::locationSuggestions()), then the saved list. --}}
-@foreach ($locationsByCountry as $cc => $names)
-    <datalist id="limo-locations-{{ $cc }}">
-        @foreach ($names as $name)<option value="{{ $name }}"></option>@endforeach
-    </datalist>
-@endforeach
+{{-- Each From/To box suggests its country's places from $locationsByCountry
+     (the selected customer's own repeat places first, see
+     HandlesTripLegs::locationSuggestions(), then the saved list) in its own
+     delayed list, see partials/leg-place. --}}
 
 <div class="space-y-4">
     @error('legs') <p class="text-sm text-red-600">{{ $message }}</p> @enderror

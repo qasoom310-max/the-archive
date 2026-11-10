@@ -33,6 +33,42 @@
         </div>
     @endif
 
+    {{-- An invoice with no booking prints "Limousine services" and no trips.
+         Linking it to its booking puts the trips on the invoice PDF and the
+         combined invoice. Only bookings of the same customer, with no invoice
+         and the same amount, are offered. --}}
+    @if ($canLink)
+        <div class="mb-5 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200" data-invoice-link>
+            <h2 class="text-sm font-semibold text-amber-800">{{ __('This invoice has no trips') }}</h2>
+            <p class="mt-1 text-xs text-amber-700">{{ __('It is not linked to a booking, so its PDF shows no journeys. Link it to the booking it bills.') }}</p>
+            <input type="search" wire:model.live.debounce.300ms="linkSearch" placeholder="{{ __('Search by booking or Ref. #…') }}" class="o-input mt-3 w-full sm:w-80">
+            @error('linkSearch') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+            <div class="mt-3 divide-y divide-amber-100 overflow-hidden rounded-lg bg-white ring-1 ring-amber-100">
+                @forelse ($linkable as $candidate)
+                    @php $firstLeg = $candidate->legs->first(); @endphp
+                    <div class="flex flex-wrap items-center justify-between gap-3 px-3 py-2 text-sm">
+                        <div class="min-w-0">
+                            <div class="font-medium text-chrome-800">
+                                {{ $candidate->legs->pluck('reference')->filter()->implode(', ') ?: '—' }}
+                                <span class="text-xs font-normal text-chrome-500">· {{ $candidate->reference }}</span>
+                            </div>
+                            <div class="truncate text-xs text-chrome-500">
+                                {{ $firstLeg?->start_at?->isoFormat('DD-MMM-YY HH:mm') ?? '—' }}
+                                @if ($firstLeg) · {{ $firstLeg->from_location }} → {{ $firstLeg->to_location }} @endif
+                                · {{ \App\Erp\Views\ValueFormat::money((float) $candidate->fare) }}
+                            </div>
+                        </div>
+                        <button type="button" wire:click="linkBooking({{ $candidate->id }})"
+                                wire:confirm="{{ __('Link this invoice to :reference?', ['reference' => $candidate->reference]) }}"
+                                class="o-btn-ghost text-sm" data-link-booking="{{ $candidate->id }}">{{ __('Link') }}</button>
+                    </div>
+                @empty
+                    <p class="px-3 py-3 text-xs text-chrome-500">{{ __('No booking of this customer without an invoice costs the same amount.') }}</p>
+                @endforelse
+            </div>
+        </div>
+    @endif
+
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div class="space-y-4 lg:col-span-2">
             <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]">

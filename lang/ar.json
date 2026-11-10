@@ -3435,5 +3435,14 @@
     "Old website trips removed": "أُزيلت رحلات الموقع القديمة",
     ":paper expiry date is not recorded.": "لم يُسجَّل تاريخ انتهاء :paper.",
     ":paper expired on :date.": "انتهى :paper في :date.",
-    "Open the car to update its papers": "افتح السيارة لتحديث أوراقها"
+    "Open the car to update its papers": "افتح السيارة لتحديث أوراقها",
+    "This invoice has no trips": "هذه الفاتورة بلا رحلات",
+    "Link": "ربط",
+    "Search by booking or Ref. #…": "ابحث برقم الحجز أو رقم المرجع…",
+    "That booking cannot be linked to this invoice.": "لا يمكن ربط هذا الحجز بهذه الفاتورة.",
+    "Linked to booking :reference": "تم الربط بالحجز :reference",
+    "Invoice linked to booking :reference.": "تم ربط الفاتورة بالحجز :reference.",
+    "Link this invoice to :reference?": "ربط هذه الفاتورة بـ :reference؟",
+    "It is not linked to a booking, so its PDF shows no journeys. Link it to the booking it bills.": "هذه الفاتورة غير مربوطة بحجز، لذلك لا تظهر الرحلات في ملف PDF. اربطها بالحجز الذي تحاسب عليه.",
+    "No booking of this customer without an invoice costs the same amount.": "لا يوجد حجز لهذا العميل بلا فاتورة بنفس المبلغ."
 }

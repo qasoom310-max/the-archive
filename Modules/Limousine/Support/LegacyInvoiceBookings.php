@@ -208,7 +208,7 @@ final class LegacyInvoiceBookings
     }
 
     /** Link, and claim the booking's receipts that have no invoice of their own. */
-    private static function link(LimoInvoice $invoice, int $bookingId): void
+    public static function link(LimoInvoice $invoice, int $bookingId): void
     {
         DB::transaction(static function () use ($invoice, $bookingId): void {
             $invoice->booking_id = $bookingId;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire;
 
+use App\Erp\Activity\ActivityLogger;
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
 use App\Livewire\Concerns\ScrollsToFirstError;
@@ -14,12 +15,14 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoQuotation;
 use Modules\Limousine\Services\CustomerDocumentEmails;
 use Modules\Limousine\Models\LimoReceipt;
 use Modules\Limousine\Services\BookingPayments;
+use Modules\Limousine\Support\LegacyInvoiceBookings;
 
 /**
  * Bespoke limousine invoice form: the bill, its running balance + receipts,
@@ -65,6 +68,9 @@ final class InvoiceForm extends Component
 
     #[Locked]
     public ?int $booking_id = null;
+
+    /** Search box of the "Link to a booking" picker on an invoice with no trips. */
+    public string $linkSearch = '';
 
     /**
      * The quotation this new invoice will bill — server-set from the picker.
@@ -441,6 +447,86 @@ final class InvoiceForm extends Component
             : null;
     }
 
+    /**
+     * Bookings an invoice with no trips behind it can be linked to.
+     *
+     * Some invoices reached this system without their booking (the ones raised
+     * here and brought back after the September wipe, mainly), so their PDF
+     * prints "Limousine services" and no journey. Only the same customer's
+     * bookings that have no invoice of their own and cost exactly what the
+     * invoice bills are offered: a linked invoice follows its booking's price
+     * from then on, so a different fare would quietly change the bill.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<LimoBooking>
+     */
+    private function linkableBookingsQuery(LimoInvoice $invoice): \Illuminate\Database\Eloquent\Builder
+    {
+        $total = round((float) $invoice->total, 3);
+
+        return LimoBooking::query()
+            ->where('customer_id', $invoice->customer_id)
+            ->where('status', '!=', LimoBooking::STATUS_CANCELLED)
+            ->doesntHave('invoices')
+            ->whereBetween('fare', [$total - 0.0005, $total + 0.0005]);
+    }
+
+    private function mayLink(?LimoInvoice $invoice): bool
+    {
+        return $invoice !== null
+            && $invoice->booking_id === null
+            && $invoice->quotation_id === null
+            && $this->mayAccess(Permission::Write);
+    }
+
+    /** @return \Illuminate\Support\Collection<int, LimoBooking> */
+    private function linkableBookings(LimoInvoice $invoice): \Illuminate\Support\Collection
+    {
+        $search = trim($this->linkSearch);
+
+        return $this->linkableBookingsQuery($invoice)
+            ->with(['legs' => fn ($q) => $q->orderBy('sequence')])
+            ->when($search !== '', function ($q) use ($search): void {
+                $q->where(function ($w) use ($search): void {
+                    $w->where('reference', 'like', '%' . $search . '%')
+                        ->orWhereHas('legs', fn ($l) => $l->where(fn ($r) => $r->where('reference', 'like', '%' . $search . '%')
+                            ->orWhere('previous_reference', 'like', '%' . $search . '%')));
+                });
+            })
+            ->orderByDesc('id')
+            ->limit(25)
+            ->get();
+    }
+
+    /**
+     * Tie this invoice to its booking, so its trips print on the invoice and
+     * the combined invoice. The booking's unclaimed receipts come with it.
+     * Re-checked against the same rule the picker is drawn from.
+     */
+    public function linkBooking(int $bookingId): void
+    {
+        $invoice = $this->id !== null ? LimoInvoice::query()->find($this->id) : null;
+        abort_unless($this->mayLink($invoice), 403);
+        /** @var LimoInvoice $invoice */
+        $booking = $this->linkableBookingsQuery($invoice)->find($bookingId);
+        if ($booking === null) {
+            $this->addError('linkSearch', __('That booking cannot be linked to this invoice.'));
+
+            return;
+        }
+
+        LegacyInvoiceBookings::link($invoice, (int) $booking->id);
+        $this->booking_id = (int) $booking->id;
+        $this->linkSearch = '';
+
+        app(ActivityLogger::class)->log(
+            'updated',
+            (string) $invoice->reference,
+            __('Linked to booking :reference', ['reference' => (string) $booking->reference]),
+        );
+
+        session()->flash('toast', __('Invoice linked to booking :reference.', ['reference' => (string) $booking->reference]));
+    }
+
     public function render(): View
     {
         $invoice = $this->id !== null ? LimoInvoice::query()->with(['receipts', 'booking', 'quotation'])->find($this->id) : null;
@@ -478,6 +564,8 @@ final class InvoiceForm extends Component
             // quotation and has not been dispatched yet.
             'canCreateTrip' => $mayWrite && $invoice !== null && $invoice->booking_id === null && $invoice->quotation_id !== null,
             'canCollect' => $mayWrite && $invoice !== null && $invoice->balance() > 0,
+            'canLink' => $this->mayLink($invoice),
+            'linkable' => $invoice !== null && $this->mayLink($invoice) ? $this->linkableBookings($invoice) : collect(),
             'isEditing' => $this->id !== null,
         ]);
     }

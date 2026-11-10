@@ -369,7 +369,7 @@ final class LimoCombinedInvoiceTest extends TestCase
         );
 
         $this->assertCount(1, $data['rows']);
-        $this->assertSame('Late payment charge — June 2026', $data['rows'][0]['service']);
+        $this->assertSame('Late payment charge — June 2026 (' . $fee->reference . ')', $data['rows'][0]['service']);
         $this->assertEqualsWithDelta(25.0, $data['total'], 0.001);
     }
 

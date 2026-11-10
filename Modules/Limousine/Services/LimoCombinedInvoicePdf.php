@@ -104,8 +104,11 @@ final class LimoCombinedInvoicePdf
                 $rows[] = [
                     'serial' => $serial,
                     'booking' => '', 'trip' => '',
-                    'service' => $invoice->charge_label ?: __('Limousine services'),
-                    'vehicle' => '', 'from' => '', 'to' => '', 'date' => '',
+                    // Named, so the reader can find the invoice: one with no
+                    // booking behind it is linked from its own page.
+                    'service' => ($invoice->charge_label ?: __('Limousine services')) . ' (' . $invoice->reference . ')',
+                    'vehicle' => '', 'from' => '', 'to' => '',
+                    'date' => $invoice->issue_date?->isoFormat('DD-MMM-YY') ?? '',
                     'company_reference' => '', 'pax' => '',
                     'total' => round((float) $invoice->total, 3),
                 ];

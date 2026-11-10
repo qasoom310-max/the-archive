@@ -76,7 +76,7 @@
         <thead>
             <tr>
                 <th style="width:58px">{{ __('Date') }}</th>
-                <th style="width:60px">{{ __('Booking #') }}</th>
+                <th style="width:60px">{{ __('Ref. #') }}</th>
                 <th style="width:70px">{{ __('Service') }}</th>
                 @if ($hasVehicle)
                     <th style="width:64px">{{ __('Vehicle') }}</th>
@@ -90,7 +90,7 @@
             @forelse ($lines as $line)
                 <tr>
                     <td>{{ $line['when'] }}</td>
-                    <td>{{ $line['booking'] }}</td>
+                    <td>{{ $line['trip'] }}</td>
                     <td>{{ $line['service'] }}</td>
                     @if ($hasVehicle)
                         <td>{{ $line['vehicle'] }}</td>

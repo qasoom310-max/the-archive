@@ -215,6 +215,15 @@ final class LimoCombinedInvoiceTest extends TestCase
         $this->assertStringNotContainsString('12345', $data['rows'][0]['vehicle']);
         $this->assertSame('PO-4471', $data['rows'][0]['company_reference']);
         $this->assertSame($first->booking->reference, $data['rows'][0]['booking']);
+        // The column prints the trip's own number, the one the bookings list
+        // searches by.
+        $trip = (string) $first->booking->legs()->first()?->reference;
+        $this->assertNotSame('', $trip);
+        $this->assertSame($trip, $data['rows'][0]['trip']);
+        $html = view('limousine::combined-invoice-pdf', $data)->render();
+        $this->assertStringContainsString('Ref. #', $html);
+        $this->assertStringContainsString('<td>'.$trip.'</td>', $html);
+        $this->assertStringNotContainsString('Booking #', $html);
         $this->assertSame('Omar Ali', $data['rows'][1]['pax']);
         $this->assertEqualsWithDelta(500.0, $data['total'], 0.001);
     }

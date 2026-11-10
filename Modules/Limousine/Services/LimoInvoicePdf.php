@@ -85,7 +85,7 @@ final class LimoInvoicePdf
      * rather than one combined description string.
      *
      * @param  \Illuminate\Support\Collection<int, LimoLeg>|null  $legs
-     * @return list<array{booking: string, service: string, vehicle: string, from: string, to: string, when: string, amount: float, extras: list<array{name: string, price: float, qty: int, amount: float}>}>
+     * @return list<array{booking: string, trip: string, service: string, vehicle: string, from: string, to: string, when: string, amount: float, extras: list<array{name: string, price: float, qty: int, amount: float}>}>
      */
     private function lines(?\Illuminate\Support\Collection $legs, string $bookingReference, float $fare): array
     {
@@ -104,12 +104,14 @@ final class LimoInvoicePdf
     }
 
     /**
-     * @return array{booking: string, service: string, vehicle: string, from: string, to: string, when: string, amount: float, extras: list<array{name: string, price: float, qty: int, amount: float}>}
+     * @return array{booking: string, trip: string, service: string, vehicle: string, from: string, to: string, when: string, amount: float, extras: list<array{name: string, price: float, qty: int, amount: float}>}
      */
     private function legRow(LimoLeg $leg, string $bookingReference): array
     {
         return [
             'booking' => $bookingReference,
+            // The trip's own number, the one the bookings list shows and searches.
+            'trip' => (string) ($leg->reference ?? ''),
             'service' => __(ucfirst(str_replace('_', ' ', $leg->service_type))),
             // The car TYPE the customer agreed to at booking, not whichever
             // plate the queue later assigned — same choice LimoCombinedInvoicePdf

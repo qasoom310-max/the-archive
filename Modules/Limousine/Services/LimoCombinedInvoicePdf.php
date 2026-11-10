@@ -77,6 +77,7 @@ final class LimoCombinedInvoicePdf
                     $rows[] = [
                         'serial' => $serial,
                         'booking' => (string) ($booking->reference ?? ''),
+                        'trip' => (string) ($leg->reference ?? ''),
                         'service' => $this->service($leg),
                         'vehicle' => $leg->billedVehicle($booking),
                         'from' => (string) ($leg->from_location ?? ''),
@@ -102,7 +103,7 @@ final class LimoCombinedInvoicePdf
                 $serial++;
                 $rows[] = [
                     'serial' => $serial,
-                    'booking' => '',
+                    'booking' => '', 'trip' => '',
                     'service' => $invoice->charge_label ?: __('Limousine services'),
                     'vehicle' => '', 'from' => '', 'to' => '', 'date' => '',
                     'company_reference' => '', 'pax' => '',
@@ -121,6 +122,7 @@ final class LimoCombinedInvoicePdf
                 $rows[] = [
                     'serial' => $serial,
                     'booking' => count($bookings) === 1 ? (string) ($bookings[0]->reference ?? '') : '',
+                    'trip' => '',
                     'service' => $difference < 0
                         ? __('Discount on :reference', ['reference' => $invoice->reference])
                         : __('Adjustment on :reference', ['reference' => $invoice->reference]),

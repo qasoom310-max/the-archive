@@ -53,7 +53,7 @@
     <thead>
         <tr>
             <th style="width:26px">{{ __('Sl') }}</th>
-            <th style="width:62px">{{ __('Booking #') }}</th>
+            <th style="width:62px">{{ __('Ref. #') }}</th>
             <th style="width:74px">{{ __('Service') }}</th>
             <th style="width:76px">{{ __('Car Type') }}</th>
             <th>{{ __('From') }}</th>
@@ -68,7 +68,7 @@
         @forelse ($rows as $row)
             <tr>
                 <td>{{ $row['serial'] }}</td>
-                <td>{{ $row['booking'] }}</td>
+                <td>{{ $row['trip'] }}</td>
                 <td>{{ $row['service'] }}</td>
                 <td>{{ $row['vehicle'] }}</td>
                 <td>{{ $row['from'] }}</td>

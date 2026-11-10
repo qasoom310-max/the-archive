@@ -91,6 +91,15 @@ final class LimoInvoiceDocumentTest extends TestCase
         $this->assertCount(1, $data['lines']);
         $this->assertSame('Airport', $data['lines'][0]['from']);
         $this->assertSame('BK/00021', $data['lines'][0]['booking']);
+        // The column prints the trip's own number, the one the bookings list
+        // searches by, not the booking number.
+        $trip = (string) \Modules\Limousine\Models\LimoLeg::query()->sole()->reference;
+        $this->assertNotSame('', $trip);
+        $this->assertSame($trip, $data['lines'][0]['trip']);
+        $html = view('limousine::invoice-pdf', $data)->render();
+        $this->assertStringContainsString('Ref. #', $html);
+        $this->assertStringContainsString('<td>'.$trip.'</td>', $html);
+        $this->assertStringNotContainsString('Booking #', $html);
         // What they actually want from a part-paid bill.
         $this->assertEqualsWithDelta(25.0, $data['balance'], 0.001);
     }

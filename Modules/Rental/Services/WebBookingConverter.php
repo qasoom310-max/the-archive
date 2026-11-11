@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Services;
 
+use App\Erp\Money\Currencies;
 use Illuminate\Support\Facades\DB;
 use Modules\Rental\Models\RentalCustomer;
 use Modules\Rental\Models\RentalOrder;
@@ -47,7 +48,7 @@ final class WebBookingConverter
 
                 // Money the customer has already handed over on the website.
                 // Not the price of the hire — that is ours to set.
-                'advance_amount' => $booking->isPaidOnline() ? ($booking->total ?? 0.0) : 0.0,
+                'advance_amount' => $booking->paidAmount(),
 
                 'notes' => $this->notes($booking),
             ]);
@@ -142,8 +143,12 @@ final class WebBookingConverter
         }
 
         if ($booking->total !== null) {
-            $lines[] = __('Paid on the website') . ': ' . number_format($booking->total, 3)
+            $lines[] = __('Website total') . ': ' . Currencies::format($booking->total)
                 . ' (' . ($booking->payment_mode ?? '—') . ', ' . ($booking->payment_status ?? '—') . ')';
+        }
+
+        if ($booking->isPaidOnline()) {
+            $lines[] = __('Paid on the website') . ': ' . Currencies::format($booking->paidAmount());
         }
 
         if ($booking->notes !== null) {

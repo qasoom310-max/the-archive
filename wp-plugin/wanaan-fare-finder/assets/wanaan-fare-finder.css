@@ -1,0 +1,706 @@
+/* Wanaan Fare Finder
+ * Every rule is scoped under .wnf-root so nothing here can collide with the
+ * theme, Elementor, or WooCommerce.
+ */
+
+.wnf-root{
+  --wnf-bg:#0d0d0d;
+  --wnf-bg2:#1c1c1c;
+  --wnf-tx:#f2f2f0;
+  --wnf-mu:#9a9a95;
+  --wnf-ac:#f2b01e;
+  --wnf-ln:#333333;
+  --wnf-er:#ff7a63;
+  /* Tells the browser to draw its own controls — date pickers, clocks,
+     scrollbars — for a dark surface. Without this the calendar icon is
+     painted near-black on a near-black field. */
+  color-scheme:dark;
+  max-width:560px;
+  margin:0 auto;
+  font-family:"Archivo","Poppins",system-ui,-apple-system,"Segoe UI",sans-serif;
+  box-sizing:border-box;
+  line-height:1.5;
+}
+.wnf-root.wnf-theme-light{
+  color-scheme:light;
+  --wnf-bg:#ffffff;
+  --wnf-bg2:#f6f4ef;
+  --wnf-tx:#171717;
+  --wnf-mu:#6f6a60;
+  --wnf-ac:#8a6410;
+  --wnf-ln:#e2ddd2;
+  --wnf-er:#b3271b;
+}
+/* Arabic reads in Tajawal. Archivo has no Arabic at all, so without this the
+   browser silently substitutes whatever it can find and the widget stops
+   looking like the rest of the site. */
+.wnf-root[dir="rtl"]{
+  font-family:"Tajawal","Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+
+.wnf-root *{box-sizing:border-box}
+.wnf-root [hidden]{display:none !important}
+
+.wnf-card{
+  background:var(--wnf-bg);
+  color:var(--wnf-tx);
+  border:1px solid var(--wnf-ln);
+  position:relative;
+}
+
+/* ---------- head ---------- */
+.wnf-head{padding:20px 24px 0}
+.wnf-title{
+  font-weight:700;font-size:21px;line-height:1.25;margin:0 0 3px;
+  color:var(--wnf-tx);
+}
+.wnf-sub{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:11.5px;color:var(--wnf-mu);margin:0;
+}
+
+/* ---------- service tabs ---------- */
+.wnf-tabs{display:flex;margin:18px 0 0;border-bottom:1px solid var(--wnf-ln)}
+.wnf-tab{
+  flex:1;background:none;border:0;border-bottom:2px solid transparent;
+  color:var(--wnf-mu);font-family:inherit;font-weight:600;font-size:13.5px;
+  padding:12px 6px;cursor:pointer;
+}
+.wnf-tab[aria-selected="true"]{color:var(--wnf-ac);border-bottom-color:var(--wnf-ac)}
+.wnf-tab:focus-visible{outline:2px solid var(--wnf-ac);outline-offset:-2px}
+
+/* ---------- body ---------- */
+.wnf-body{padding:20px 24px 24px}
+.wnf-field{margin-bottom:16px}
+.wnf-field label{
+  display:block;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--wnf-mu);margin-bottom:7px;
+}
+
+.wnf-field select,
+.wnf-field input{
+  width:100%;
+  background:var(--wnf-bg2);
+  color:var(--wnf-tx);
+  border:1px solid var(--wnf-ln);
+  padding:12px 13px;
+  font-size:15.5px;
+  font-family:inherit;
+  border-radius:0;
+  min-height:46px;
+}
+.wnf-field select{
+  -webkit-appearance:none;appearance:none;cursor:pointer;padding-inline-end:36px;
+  background-image:linear-gradient(45deg,transparent 50%,var(--wnf-ac) 50%),
+                   linear-gradient(135deg,var(--wnf-ac) 50%,transparent 50%);
+  background-position:calc(100% - 18px) 21px,calc(100% - 13px) 21px;
+  background-size:5px 5px,5px 5px;
+  background-repeat:no-repeat;
+}
+.wnf-root[dir="rtl"] .wnf-field select{
+  padding-inline-end:13px;padding-inline-start:36px;
+  background-position:18px 21px,23px 21px;
+}
+.wnf-field select:focus-visible,
+.wnf-field input:focus-visible{outline:2px solid var(--wnf-ac);outline-offset:1px}
+.wnf-field input::placeholder{color:var(--wnf-mu);opacity:.8}
+
+/* Date and time fields: make the browser's own calendar and clock buttons
+   readable on the dark card, and give them a real tap target. */
+.wnf-field input[type="date"],
+.wnf-field input[type="time"]{
+  color:var(--wnf-tx);
+  -webkit-appearance:none;appearance:none;
+}
+/* color-scheme above already makes the browser paint these light on the dark
+   card — do not invert them, that puts a black icon back on a black field.
+   Only the size and hit area are ours. */
+.wnf-field input[type="date"]::-webkit-calendar-picker-indicator,
+.wnf-field input[type="time"]::-webkit-calendar-picker-indicator{
+  opacity:.9;
+  width:20px;height:20px;
+  padding:2px;
+  margin-inline-start:6px;
+  cursor:pointer;
+}
+.wnf-field input[type="date"]::-webkit-calendar-picker-indicator:hover,
+.wnf-field input[type="time"]::-webkit-calendar-picker-indicator:hover{opacity:1}
+.wnf-field input::-webkit-datetime-edit,
+.wnf-field input::-webkit-datetime-edit-fields-wrapper{color:var(--wnf-tx)}
+.wnf-field input::-webkit-datetime-edit-text{color:var(--wnf-mu);padding:0 1px}
+
+/* ---------- pills (direction, one-way/return) ---------- */
+.wnf-pills{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px}
+.wnf-pill{
+  background:var(--wnf-bg2);
+  border:1px solid var(--wnf-ln);
+  color:var(--wnf-mu);
+  font-family:inherit;font-weight:600;font-size:14px;
+  padding:12px 10px;cursor:pointer;text-align:center;min-height:46px;
+}
+.wnf-pill[aria-pressed="true"]{
+  border-color:var(--wnf-ac);color:var(--wnf-ac);
+}
+.wnf-pill:focus-visible{outline:2px solid var(--wnf-ac);outline-offset:1px}
+
+/* ---------- cars ---------- */
+.wnf-cars{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.wnf-car{
+  background:var(--wnf-bg2);
+  border:1px solid var(--wnf-ln);
+  color:var(--wnf-tx);
+  padding:11px 12px;cursor:pointer;text-align:start;font-family:inherit;
+  display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+  min-height:46px;
+}
+.wnf-nm{font-weight:600;font-size:14px}
+.wnf-pr{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;
+  color:var(--wnf-mu);font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.wnf-car[aria-pressed="true"]{border-color:var(--wnf-ac)}
+.wnf-car[aria-pressed="true"] .wnf-pr{color:var(--wnf-ac)}
+.wnf-car:focus-visible{outline:2px solid var(--wnf-ac);outline-offset:1px}
+
+.wnf-hint{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:11px;color:var(--wnf-mu);margin:8px 0 0;line-height:1.55;
+}
+
+.wnf-cap{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:11.5px;color:var(--wnf-mu);margin:10px 0 0;
+}
+
+.wnf-see{
+  display:inline-block;margin-top:6px;background:none;border:0;padding:0;
+  color:var(--wnf-mu);
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;
+  cursor:pointer;text-decoration:underline;text-underline-offset:3px;
+}
+.wnf-see:hover{color:var(--wnf-ac)}
+.wnf-see:focus-visible{outline:2px solid var(--wnf-ac);outline-offset:2px}
+
+/* ---------- the number ---------- */
+.wnf-fare{
+  margin-top:20px;border-top:1px solid var(--wnf-ln);padding-top:18px;
+  display:flex;justify-content:space-between;align-items:flex-end;
+  gap:16px;flex-wrap:wrap;
+}
+.wnf-lab{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--wnf-mu);margin:0 0 4px;
+}
+.wnf-amount{
+  font-weight:800;font-size:clamp(34px,7vw,46px);line-height:1;
+  color:var(--wnf-ac);letter-spacing:-.02em;font-variant-numeric:tabular-nums;
+}
+.wnf-cur{font-size:17px;font-weight:600;margin-inline-start:5px;color:var(--wnf-tx)}
+.wnf-was{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;
+  color:var(--wnf-mu);text-decoration:line-through;margin-top:5px;
+}
+.wnf-perhour{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
+  color:var(--wnf-mu);margin-top:6px;font-variant-numeric:tabular-nums;
+}
+.wnf-extra{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;
+  color:var(--wnf-mu);margin:12px 0 0;padding-inline-start:11px;
+  border-inline-start:2px solid var(--wnf-ln);line-height:1.5;
+}
+.wnf-badge{
+  display:inline-block;background:var(--wnf-ac);color:var(--wnf-bg);
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;
+  letter-spacing:.07em;text-transform:uppercase;padding:3px 8px;font-weight:600;
+}
+
+/* ---------- actions ---------- */
+.wnf-cta{
+  display:block;width:100%;margin-top:18px;
+  background:var(--wnf-ac);color:var(--wnf-bg);
+  border:0;padding:16px;font-family:inherit;font-weight:700;font-size:16px;
+  letter-spacing:.03em;text-align:center;text-decoration:none;cursor:pointer;
+  text-transform:uppercase;
+}
+.wnf-cta:hover,.wnf-cta:focus,.wnf-cta:visited{color:var(--wnf-bg)}
+.wnf-cta:hover{filter:brightness(1.08)}
+.wnf-cta:focus-visible{outline:3px solid var(--wnf-tx);outline-offset:2px}
+.wnf-cta[aria-disabled="true"]{
+  background:var(--wnf-bg2);color:var(--wnf-mu);
+  border:1px solid var(--wnf-ln);cursor:not-allowed;
+}
+.wnf-cta[aria-disabled="true"]:hover{filter:none;color:var(--wnf-mu)}
+
+/* marked only after someone has pressed the button */
+.wnf-field input.wnf-bad,
+.wnf-field select.wnf-bad{
+  border-color:var(--wnf-er);
+  box-shadow:inset 0 0 0 1px var(--wnf-er);
+}
+.wnf-field label.wnf-bad{color:var(--wnf-er)}
+
+.wnf-warn{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:11.5px;line-height:1.55;color:var(--wnf-mu);
+  margin:16px 0 0;padding-inline-start:11px;
+  border-inline-start:2px solid var(--wnf-ln);
+}
+.wnf-warn-lead{color:var(--wnf-ac);border-inline-start-color:var(--wnf-ac)}
+.wnf-warn-bad{color:var(--wnf-er);border-inline-start-color:var(--wnf-er)}
+
+.wnf-alt{
+  display:block;text-align:center;margin-top:11px;color:var(--wnf-mu);
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
+  text-decoration:none;padding:6px 0;
+}
+.wnf-alt:hover,.wnf-alt:focus{color:var(--wnf-ac)}
+
+/* ---------- trip details, below the price on purpose ---------- */
+.wnf-details{
+  margin-top:20px;border-top:1px solid var(--wnf-ln);padding-top:16px;
+}
+.wnf-dhead{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin-bottom:12px}
+.wnf-dtitle{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--wnf-tx);font-weight:600;
+}
+.wnf-dnote{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;
+  color:var(--wnf-mu);
+}
+.wnf-drow{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+.wnf-drow .wnf-field{margin-bottom:0}
+.wnf-drow .wnf-wide{grid-column:1 / -1}
+
+.wnf-note{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;
+  color:var(--wnf-mu);margin:14px 0 0;line-height:1.55;
+}
+
+/* ---------- photo overlay ---------- */
+.wnf-lb{
+  position:absolute;inset:0;background:rgba(0,0,0,.85);
+  display:flex;align-items:center;justify-content:center;padding:20px;z-index:5;
+}
+.wnf-lbin{
+  background:var(--wnf-bg2);border:1px solid var(--wnf-ln);
+  padding:14px;max-width:320px;width:100%;
+}
+.wnf-lbin img{width:100%;height:auto;display:block;background:#fff}
+.wnf-lbnm{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;
+  color:var(--wnf-tx);margin:10px 0 0;text-align:center;
+}
+.wnf-lbx{
+  display:block;width:100%;margin-top:10px;
+  background:var(--wnf-ac);color:var(--wnf-bg);border:0;padding:10px;
+  font-family:inherit;font-weight:700;font-size:12.5px;
+  text-transform:uppercase;cursor:pointer;
+}
+.wnf-lbx:focus-visible{outline:2px solid var(--wnf-tx);outline-offset:2px}
+
+/* ---------- phones ---------- */
+@media (max-width:460px){
+  .wnf-cars{grid-template-columns:1fr}
+  .wnf-drow{grid-template-columns:1fr}
+  .wnf-head{padding:18px 18px 0}
+  .wnf-body{padding:18px 18px 20px}
+}
+@media (prefers-reduced-motion:reduce){
+  .wnf-root *{transition:none !important;animation:none !important}
+}
+
+/* ---------------------------------------------------------------------------
+ * Theme armour.
+ *
+ * Wanaan's theme styles every <button> and <a> globally — solid yellow fill,
+ * rounded corners, uppercase. Those rules beat plain class selectors, so on the
+ * live site every control came out as a yellow block. Everything below raises
+ * specificity with .wnf-root and forces the handful of properties a host theme
+ * most often overrides. Deliberate, not laziness: this widget has to survive
+ * being dropped into a theme nobody controls.
+ * ------------------------------------------------------------------------- */
+.wnf-root button,
+.wnf-root a.wnf-cta,
+.wnf-root select,
+.wnf-root input{
+  background-image:none !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  text-shadow:none !important;
+  letter-spacing:normal;
+  width:auto;
+  min-width:0;
+  transform:none !important;
+}
+.wnf-root .wnf-tab{background:transparent !important;color:var(--wnf-mu) !important}
+.wnf-root .wnf-tab[aria-selected="true"]{color:var(--wnf-ac) !important}
+
+.wnf-root .wnf-pill,
+.wnf-root .wnf-car{
+  background:var(--wnf-bg2) !important;
+  border:1px solid var(--wnf-ln) !important;
+}
+.wnf-root .wnf-pill{color:var(--wnf-mu) !important}
+.wnf-root .wnf-car{color:var(--wnf-tx) !important}
+.wnf-root .wnf-pill[aria-pressed="true"],
+.wnf-root .wnf-car[aria-pressed="true"]{border-color:var(--wnf-ac) !important}
+.wnf-root .wnf-pill[aria-pressed="true"]{color:var(--wnf-ac) !important}
+.wnf-root .wnf-car[aria-pressed="true"] .wnf-pr{color:var(--wnf-ac) !important}
+.wnf-root .wnf-car .wnf-nm{color:var(--wnf-tx) !important;text-transform:none !important}
+.wnf-root .wnf-car .wnf-pr{color:var(--wnf-mu) !important}
+
+.wnf-root .wnf-see{background:none !important;border:0 !important;color:var(--wnf-mu) !important}
+.wnf-root .wnf-see:hover{color:var(--wnf-ac) !important}
+
+.wnf-root a.wnf-cta{
+  background:var(--wnf-ac) !important;
+  color:var(--wnf-bg) !important;
+  border:0 !important;
+}
+.wnf-root a.wnf-cta[aria-disabled="true"]{
+  background:var(--wnf-bg2) !important;
+  color:var(--wnf-mu) !important;
+  border:1px solid var(--wnf-ln) !important;
+}
+.wnf-root a.wnf-alt{background:none !important;color:var(--wnf-mu) !important;text-transform:none !important}
+.wnf-root a.wnf-alt:hover{color:var(--wnf-ac) !important}
+
+.wnf-root .wnf-field select,
+.wnf-root .wnf-field input{
+  background-color:var(--wnf-bg2) !important;
+  color:var(--wnf-tx) !important;
+  border:1px solid var(--wnf-ln) !important;
+}
+.wnf-root .wnf-field input.wnf-bad,
+.wnf-root .wnf-field select.wnf-bad{border-color:var(--wnf-er) !important}
+
+.wnf-root .wnf-lbx{background:var(--wnf-ac) !important;color:var(--wnf-bg) !important;border:0 !important}
+
+/* ---------------------------------------------------------------------------
+ * sticky="1" — the panel follows the customer down the page on a desktop, so
+ * the fare and the booking button are never scrolled away. Below 1025px it
+ * returns to normal flow: a phone has no room beside the content, and hiding
+ * it there would put mobile visitors back to seeing no price at all.
+ * ------------------------------------------------------------------------- */
+@media (min-width:1025px){
+  .wnf-root.wnf-sticky{
+    position:sticky;
+    top:24px;
+    align-self:start;
+  }
+}
+
+/* The armour's background-image:none also wiped the select's own arrow, which
+   is drawn with two gradients. Put it back, at the same weight. */
+.wnf-root .wnf-field select{
+  background-image:
+    linear-gradient(45deg,transparent 50%,var(--wnf-ac) 50%),
+    linear-gradient(135deg,var(--wnf-ac) 50%,transparent 50%) !important;
+  background-position:calc(100% - 18px) 21px,calc(100% - 13px) 21px !important;
+  background-size:5px 5px,5px 5px !important;
+  background-repeat:no-repeat !important;
+}
+.wnf-root[dir="rtl"] .wnf-field select{
+  background-position:18px 21px,23px 21px !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * The crawlable fare table.
+ *
+ * Rendered by the server, kept in the page under the widget. Google reads it,
+ * visitors without JavaScript get every fare, and everyone else gets a plain
+ * price list to scan.
+ *
+ * It sits OUTSIDE the card, on whatever background the page happens to have —
+ * so it carries its own surface rather than borrowing the card's colours. The
+ * first version did borrow them and rendered near-white text on a white page.
+ * ------------------------------------------------------------------------- */
+.wnf-seo{
+  max-width:560px;
+  margin:22px auto 0;
+  background:var(--wnf-bg);
+  border:1px solid var(--wnf-ln);
+  padding:18px 20px 20px;
+  color:var(--wnf-tx);
+  font-family:inherit;
+}
+.wnf-seo-h{
+  font-size:15px;
+  font-weight:700;
+  margin:0 0 12px;
+  color:var(--wnf-tx) !important;
+  letter-spacing:-.01em;
+  line-height:1.3;
+}
+.wnf-seo-scroll{overflow-x:auto}
+.wnf-seo-table{
+  width:100%;
+  border-collapse:collapse;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:12.5px;
+  font-variant-numeric:tabular-nums;
+  background:transparent;
+}
+.wnf-seo-table th,
+.wnf-seo-table td{
+  padding:9px 10px;
+  border-bottom:1px solid var(--wnf-ln);
+  text-align:end;
+  color:var(--wnf-mu) !important;
+  font-weight:400;
+  background:transparent !important;
+  vertical-align:top;
+}
+.wnf-seo-table thead th{
+  font-size:10px;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  white-space:normal;
+  line-height:1.35;
+  min-width:74px;
+}
+.wnf-seo-table tbody th{
+  text-align:start;
+  white-space:normal;
+  color:var(--wnf-tx) !important;
+  font-family:inherit;
+  font-size:13px;
+  font-weight:600;
+  min-width:140px;
+  line-height:1.4;
+}
+.wnf-seo-table tbody td{color:var(--wnf-tx) !important;white-space:nowrap}
+/* The monospace face is there to line the figures up. It has no Arabic to
+   speak of, so in Arabic the table borrows the page's own font and keeps only
+   the tabular figures. */
+.wnf-root[dir="rtl"] .wnf-seo-table,
+.wnf-root[dir="rtl"] .wnf-seo-h3,
+.wnf-root[dir="rtl"] .wnf-seo-note{font-family:inherit}
+
+/* Letter-spacing pulls Arabic letters apart at the joins — the script stops
+   looking like handwriting and starts looking broken. Off, everywhere in
+   Arabic. Uppercase has nothing to act on either. */
+.wnf-root[dir="rtl"] *{letter-spacing:normal !important}
+.wnf-root[dir="rtl"] .wnf-seo-h3{text-transform:none;font-size:13px}
+.wnf-seo-table tbody tr:last-child th,
+.wnf-seo-table tbody tr:last-child td{border-bottom:0}
+.wnf-seo-note{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:11px;
+  color:var(--wnf-mu) !important;
+  margin:12px 0 0;
+  line-height:1.55;
+}
+
+/* ---------------------------------------------------------------------------
+ * Break out of a BOXED Elementor container.
+ *
+ * The airport page puts the widget in a Full Width container: the section runs
+ * the whole viewport and the widget measures 1420 of 1440. Every other service
+ * page was built with the default Boxed container, whose inner wrapper carries
+ * max-width:min(100%,1140px) — so the same widget came out 280px narrower and
+ * looked inset next to the airport one.
+ *
+ * Rather than ask for the same Elementor setting to be changed by hand on the
+ * chauffeur page, then KSA, then city, then the two bus pages, the widget lifts
+ * the cap itself. It lifts it ONLY when that inner wrapper holds nothing but
+ * this widget (:only-child), so a container the page also uses for a heading or
+ * an image keeps its boxed width and is not disturbed. Nothing here uses vw, so
+ * there is no scrollbar-width rounding and no horizontal scroll.
+ *
+ * A page that genuinely wants the boxed width can opt out with
+ * [wanaan_fare_finder full="0"], which drops the wnf-bleed class.
+ * ------------------------------------------------------------------------- */
+@media (min-width:1025px){
+  .e-con-inner:has( > .elementor-widget-shortcode:only-child .wnf-root.wnf-bleed ),
+  .e-con-inner:has( > .elementor-widget-shortcode:only-child .wnf-root.wnf-bleed ) > .elementor-widget-shortcode{
+    max-width:none;
+    width:100%;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Two columns on a desktop: the calculator at two thirds, the price list at
+ * one third beside it. Below 1025px nothing changes — the table returns to its
+ * own full-width block under the card, because a third of a phone screen is
+ * not a table, it is a smear.
+ * ------------------------------------------------------------------------- */
+@media (min-width:1025px){
+  .wnf-root.wnf-split{
+    /* Fill whatever column the page gives it. A capped width left the pair
+       floating in the middle of a wide section with dead space either side. */
+    max-width:none;
+    display:flex;
+    /* One panel, not two boxes with a white channel between them. Stretch so
+       both columns run to the same depth and the divider is full height. */
+    align-items:stretch;
+    gap:0;
+    background:var(--wnf-bg);
+    border:1px solid var(--wnf-ln);
+  }
+  /* The outer border above is now the only frame; the halves drop their own. */
+  .wnf-root.wnf-split .wnf-card,
+  .wnf-root.wnf-split .wnf-seo{border:0}
+  .wnf-root.wnf-split .wnf-app{display:flex}
+  .wnf-root.wnf-split .wnf-card{flex:1 1 auto}
+  .wnf-root.wnf-split .wnf-seo{height:100%}
+  /* The line between the two. inline-end puts it on the reading-end edge of the
+     content column, which is its right in English and its left in Arabic —
+     between the two halves either way, with no second rule. */
+  .wnf-root.wnf-split .wnf-side{border-inline-end:1px solid var(--wnf-ln)}
+  .wnf-root.wnf-split .wnf-app{
+    flex:0 0 66%;
+    max-width:66%;
+    min-width:0;
+  }
+  .wnf-root.wnf-split .wnf-side{
+    flex:1 1 0%;
+    min-width:0;
+    /* Measured so the table below can decide for itself how much it can say. */
+    container-type:inline-size;
+    /* The price list reads first, on the left. In Arabic the flex row runs the
+       other way on its own, so this single rule puts the list on the right
+       there without a second set of styles. */
+    order:-1;
+  }
+  .wnf-root.wnf-split .wnf-seo{
+    max-width:none;
+    margin:0;
+  }
+  .wnf-root.wnf-split .wnf-seo + .wnf-seo{margin-top:18px}
+
+  /* A third of the width is a narrow table. Tighten it rather than let it
+     scroll sideways on a desktop, where a horizontal scrollbar reads as
+     broken. */
+  .wnf-root.wnf-split .wnf-seo-table{font-size:11.5px}
+  .wnf-root.wnf-split .wnf-seo-table th,
+  .wnf-root.wnf-split .wnf-seo-table td{padding:8px 6px}
+  .wnf-root.wnf-split .wnf-seo-table thead th{min-width:0;font-size:9.5px;letter-spacing:.04em}
+  .wnf-root.wnf-split .wnf-seo-table tbody th{min-width:0;font-size:12px}
+  .wnf-root.wnf-split .wnf-seo-table tbody td{white-space:nowrap}
+
+  /* At a third of the width, the car models and a BHD after every figure are
+     what push the table off the edge. Drop both from view — the models stay in
+     the markup for search engines, and the currency is stated once in the
+     heading instead of eight times in the grid. */
+  .wnf-root.wnf-split .wnf-seo-model,
+  .wnf-root.wnf-split .wnf-seo-cur{
+    position:absolute;
+    width:1px;height:1px;
+    padding:0;margin:-1px;
+    overflow:hidden;
+    clip-path:inset(50%);
+    white-space:nowrap;
+  }
+  .wnf-root.wnf-split .wnf-seo:not(.wnf-seo-copy) .wnf-seo-h::after{
+    content:"\0000a0\0000b7\0000a0BHD";
+    color:var(--wnf-mu);
+    font-weight:400;
+  }
+  .wnf-root.wnf-split[dir="rtl"] .wnf-seo:not(.wnf-seo-copy) .wnf-seo-h::after{
+    content:"\0000a0\0000b7\0000a0\00062f.\000628";
+  }
+
+  /* ...and once the column is wide enough to carry them, the models and the
+     currency come back. The table says as much as it has room to say, rather
+     than as much as one fixed guess allowed. */
+  @container (min-width:740px){
+    .wnf-root.wnf-split .wnf-seo-model,
+    .wnf-root.wnf-split .wnf-seo-cur{
+      position:static;
+      width:auto;height:auto;
+      padding:0;margin:0;
+      overflow:visible;
+      clip-path:none;
+    }
+    .wnf-root.wnf-split .wnf-seo-h::after,
+    .wnf-root.wnf-split[dir="rtl"] .wnf-seo:not(.wnf-seo-copy) .wnf-seo-h::after{content:none}
+    .wnf-root.wnf-split .wnf-seo-table{font-size:12.5px}
+    .wnf-root.wnf-split .wnf-seo-table th,
+    .wnf-root.wnf-split .wnf-seo-table td{padding:9px 10px}
+    .wnf-root.wnf-split .wnf-seo-table thead th{font-size:10px;letter-spacing:.06em}
+    .wnf-root.wnf-split .wnf-seo-table tbody th{font-size:13px}
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * The written block. Where a service has real copy this replaces the fare
+ * table: a heading, a few paragraphs with the live fares inside them, and the
+ * questions people actually type into Google.
+ * ------------------------------------------------------------------------- */
+.wnf-seo-copy .wnf-seo-h{
+  font-size:19px;
+  line-height:1.25;
+  margin:0 0 10px;
+  letter-spacing:-.015em;
+}
+.wnf-seo-lead{
+  font-size:14px;
+  line-height:1.65;
+  margin:0 0 4px;
+  color:var(--wnf-tx) !important;
+}
+.wnf-seo-h3{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:10.5px;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+  font-weight:700;
+  color:var(--wnf-ac) !important;
+  margin:22px 0 8px;
+}
+.wnf-seo-p{
+  font-size:13.5px;
+  line-height:1.7;
+  margin:0 0 10px;
+  color:var(--wnf-mu) !important;
+}
+/* The questions open and close, the way the site's own FAQ does. Built on
+   <details>, so it needs no JavaScript and the answers are in the HTML whether
+   or not anyone opens them. */
+.wnf-faq{margin:0}
+.wnf-faq-item{border-bottom:1px solid var(--wnf-ln)}
+.wnf-faq-item:last-child{border-bottom:0}
+.wnf-faq-q{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  padding:13px 0;
+  margin:0;
+  font-size:13.5px;
+  font-weight:600;
+  line-height:1.5;
+  color:var(--wnf-tx) !important;
+  cursor:pointer;
+  list-style:none;
+}
+.wnf-faq-q::-webkit-details-marker{display:none}
+.wnf-faq-q::marker{content:""}
+.wnf-faq-q:hover{color:var(--wnf-ac) !important}
+.wnf-faq-x{
+  flex:0 0 auto;
+  width:7px;height:7px;
+  margin-top:5px;
+  border-right:2px solid var(--wnf-ac);
+  border-bottom:2px solid var(--wnf-ac);
+  transform:rotate(45deg);
+  transition:transform .18s ease;
+}
+.wnf-faq-item[open] .wnf-faq-x{transform:rotate(-135deg);margin-top:8px}
+.wnf-faq-a{margin:0;padding:0 0 14px}
+.wnf-faq-a p{
+  margin:0;
+  font-size:13.5px;
+  line-height:1.7;
+  color:var(--wnf-mu) !important;
+}
+.wnf-seo-copy .wnf-seo-note{
+  margin-top:20px;
+  padding-top:14px;
+  border-top:1px solid var(--wnf-ln);
+}

@@ -84,8 +84,12 @@ final class WebBookingToLimousine
             $booking->syncPaymentFromAdvance();
             $booking->syncInvoice();
 
-            if ($web->isPaidOnline() && $rate > 0.0) {
-                $this->payments->receive($booking->refresh(), $rate, 'online', __('Paid on the website') . ' — ' . $web->source_reference);
+            // What the card was charged: the whole fare, or the part the
+            // customer chose to pay now. The rest stays owing on the booking
+            // and the driver collects it.
+            $paid = $web->paidAmount();
+            if ($paid > 0.0) {
+                $this->payments->receive($booking->refresh(), $paid, 'online', __('Paid on the website') . ' — ' . $web->source_reference);
             }
 
             $web->status = RentalWebBooking::STATUS_COMPLETE;
@@ -112,7 +116,7 @@ final class WebBookingToLimousine
         }
 
         $booking = LimoBooking::query()->find($web->limo_booking_id);
-        $amount = round((float) ($web->total ?? 0.0), 3);
+        $amount = $web->paidAmount();
         if ($booking === null || $amount <= 0.0 || $booking->balanceDue() <= 0.0) {
             return null;
         }
@@ -178,6 +182,11 @@ final class WebBookingToLimousine
         if ($web->total !== null) {
             $lines[] = __('Website total') . ': ' . Currencies::format($web->total)
                 . ' (' . ($web->payment_mode ?? '—') . ', ' . ($web->isPaidOnline() ? __('Paid') : __('Not paid')) . ')';
+        }
+
+        if ($web->isPartPaid()) {
+            $lines[] = __('Paid online') . ': ' . Currencies::format($web->paidAmount())
+                . ' — ' . __('to collect in the car') . ': ' . Currencies::format(round((float) $web->total - $web->paidAmount(), 3));
         }
 
         foreach ($web->details() as $line) {

@@ -97,7 +97,11 @@
                                 {{ __(ucfirst($b->status)) }}
                             </span>
                             @if ($b->isPaidOnline())
-                                <span class="ms-1 rounded bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-emerald-700">{{ __('Paid') }}</span>
+                                @if ($b->isPartPaid())
+                                    <span class="ms-1 rounded bg-sky-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-sky-700" data-part-paid>{{ __('Part paid') }} {{ \App\Erp\Views\ValueFormat::money($b->paidAmount()) }}</span>
+                                @else
+                                    <span class="ms-1 rounded bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold uppercase text-emerald-700">{{ __('Paid') }}</span>
+                                @endif
                             @endif
                         </td>
                         <td class="whitespace-nowrap px-3 py-2 text-end">
@@ -160,6 +164,7 @@
                                 __('To date') => $viewing->dropoff_at?->isoFormat('DD-MMM-YY HH:mm') ?? '—',
                                 __('Payment') => trim(($viewing->payment_mode ?? '—') . ' · ' . ($viewing->payment_status ?? '—')),
                                 __('Total') => $viewing->total !== null ? \App\Erp\Views\ValueFormat::money($viewing->total) : '—',
+                                __('Paid online') => \App\Erp\Views\ValueFormat::money($viewing->paidAmount()),
                             ] as $label => $value)
                                 <div>
                                     <dt class="text-xs font-medium uppercase tracking-wide text-chrome-400">{{ $label }}</dt>

@@ -3444,5 +3444,6 @@
     "Invoice linked to booking :reference.": "تم ربط الفاتورة بالحجز :reference.",
     "Link this invoice to :reference?": "ربط هذه الفاتورة بـ :reference؟",
     "It is not linked to a booking, so its PDF shows no journeys. Link it to the booking it bills.": "هذه الفاتورة غير مربوطة بحجز، لذلك لا تظهر الرحلات في ملف PDF. اربطها بالحجز الذي تحاسب عليه.",
-    "No booking of this customer without an invoice costs the same amount.": "لا يوجد حجز لهذا العميل بلا فاتورة بنفس المبلغ."
+    "No booking of this customer without an invoice costs the same amount.": "لا يوجد حجز لهذا العميل بلا فاتورة بنفس المبلغ.",
+    "to collect in the car": "يُحصَّل في السيارة"
 }

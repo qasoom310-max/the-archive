@@ -119,6 +119,9 @@ final class WebBookingController
             'dropoff_at' => $this->moment($data, 'dropoff_datetime') ?? WebBookingDetails::dropoffAt($lines),
             'subtotal' => isset($data['sub_total']) ? (float) $data['sub_total'] : null,
             'total' => isset($data['total']) ? (float) $data['total'] : null,
+            // 1.2 of the plugin: what the card was charged, when that is only
+            // part of the trip (the rest paid in the car). Absent = the total.
+            'amount_paid' => isset($data['amount_paid']) && is_numeric($data['amount_paid']) ? (float) $data['amount_paid'] : null,
             'payment_mode' => $this->text($data, 'payment_mode'),
             'payment_status' => $this->text($data, 'payment_status'),
             'notes' => $this->text($data, 'booking_notes'),

@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Wanaan Web Booking
  * Description:       Sends WooCommerce car-rental bookings to the Wanaan ERP, signed and once each.
- * Version:           1.1.1
+ * Version:           1.2.0
  * Author:            Wanaan
  * License:           GPL-2.0+
  * Text Domain:       wanaan-web-booking
@@ -139,14 +139,34 @@ function wanaan_wb_map_order( $order ) {
 			'pickup_datetime'            => wanaan_wb_date( $pickup_time ),
 			'dropoff_datetime'           => wanaan_wb_date( $dropoff_time ),
 
-			'sub_total'                  => (float) $item->get_subtotal(),
-			'total'                      => (float) $item->get_total(),
+			// 1.2: the TRIP price and what was actually charged are two figures.
+			// A fare finder booking paid part now carries the part on the line
+			// (the card is charged the line) and the trip price in _wnf_booking.
+			'sub_total'                  => wanaan_wb_trip_price( $item, (float) $item->get_subtotal() ),
+			'total'                      => wanaan_wb_trip_price( $item, (float) $item->get_total() ),
+			'amount_paid'                => (float) $item->get_total(),
 			'payment_mode'               => trim( $order->get_payment_method_title() ),
 			'payment_status'             => $paid,
 		);
 	}
 
 	return $result;
+}
+
+/**
+ * The price of the trip on this line. For a fare finder booking where the
+ * customer paid only part now (the rest in the car), the line holds the part
+ * and the fare finder's own record holds the full price. Anything else: the
+ * line's figure, unchanged.
+ */
+function wanaan_wb_trip_price( $item, $line_amount ) {
+	$booking = json_decode( (string) $item->get_meta( '_wnf_booking' ), true );
+
+	if ( is_array( $booking ) && isset( $booking['pay'], $booking['price'] ) && 'deposit' === $booking['pay'] ) {
+		return (float) $booking['price'];
+	}
+
+	return $line_amount;
 }
 
 /**

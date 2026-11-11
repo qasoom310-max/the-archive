@@ -42,6 +42,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property \Illuminate\Support\Carbon|null $dropoff_at
  * @property float|null $subtotal
  * @property float|null $total
+ * @property float|null $amount_paid  What was actually charged online (part of the trip when the rest is paid in the car); null = the whole total
  * @property string|null $payment_mode
  * @property string|null $payment_status
  * @property string|null $notes
@@ -85,7 +86,7 @@ final class RentalWebBooking extends Model implements DefinesIrModel
     protected $fillable = [
         'source_reference', 'service', 'service_manual', 'first_name', 'last_name', 'phone', 'email', 'address', 'town',
         'product', 'quantity', 'pickup_location', 'dropoff_location', 'pickup_at', 'dropoff_at',
-        'subtotal', 'total', 'payment_mode', 'payment_status', 'notes',
+        'subtotal', 'total', 'amount_paid', 'payment_mode', 'payment_status', 'notes',
         'status', 'rental_order_id', 'limo_booking_id', 'completed_at', 'payload',
     ];
 
@@ -96,6 +97,7 @@ final class RentalWebBooking extends Model implements DefinesIrModel
         'dropoff_at' => 'datetime',
         'subtotal' => 'float',
         'total' => 'float',
+        'amount_paid' => 'float',
         'rental_order_id' => 'integer',
         'limo_booking_id' => 'integer',
         'service_manual' => 'boolean',
@@ -219,6 +221,32 @@ final class RentalWebBooking extends Model implements DefinesIrModel
     public function isPaidOnline(): bool
     {
         return strtolower(trim((string) $this->payment_status)) === 'paid';
+    }
+
+    /**
+     * The money actually received on the website: nothing until it is paid,
+     * then what the card was charged — part of the trip when the customer
+     * chose to pay the rest in the car, else the whole total (older rows carry
+     * no separate figure). Never more than the trip costs.
+     */
+    public function paidAmount(): float
+    {
+        if (! $this->isPaidOnline()) {
+            return 0.0;
+        }
+
+        $total = round((float) ($this->total ?? 0.0), 3);
+        $paid = $this->amount_paid !== null ? round((float) $this->amount_paid, 3) : $total;
+
+        return $total > 0.0 ? min($paid, $total) : $paid;
+    }
+
+    /** True when the customer paid only part online and owes the rest in the car. */
+    public function isPartPaid(): bool
+    {
+        $total = round((float) ($this->total ?? 0.0), 3);
+
+        return $this->isPaidOnline() && $total > 0.0 && $this->paidAmount() < $total - 0.0005;
     }
 
     /**

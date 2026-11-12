@@ -60,6 +60,9 @@ final class RentalQuotationMultiCarTest extends TestCase
             ->assertSet('deposit', '150')
             ->assertSee(__('Add another car'));
 
+        // Every car has its rate beside it, the first one included.
+        $this->assertSame(3, substr_count($form->html(), 'data-car-rate'));
+
         $form->call('save')->assertHasNoErrors();
 
         $quote = RentalQuotation::query()->firstOrFail();

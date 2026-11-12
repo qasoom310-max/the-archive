@@ -52,14 +52,40 @@
                     </div>
 
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Car') }} *</label>
-                        <x-searchable-select wire:model.live="vehicle_id" class="o-input w-full"
-                            :options="collect($vehicles)->map(fn ($v) => [
-                                'value' => $v->id,
-                                'label' => $v->displayName() . ' (' . __(ucfirst($v->status)) . ')',
-                            ])->all()"
-                            :search-placeholder="__('Search plate or model…')" />
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Driver') }}</label>
+                        <x-searchable-select wire:model="driver_id" class="o-input w-full"
+                            :placeholder="__('No driver')"
+                            :options="collect($drivers)->map(fn ($d) => ['value' => $d->id, 'label' => $d->name])->all()"
+                            :search-placeholder="__('Search driver…')" />
+                    </div>
+
+                    {{-- Every car on its own line with its price beside it: the
+                         first one too, so all the lines read the same. --}}
+                    @php
+                        $carOptions = collect($vehicles)->map(fn ($v) => [
+                            'value' => $v->id,
+                            'label' => $v->displayName() . ' (' . __(ucfirst($v->status)) . ')',
+                        ])->all();
+                    @endphp
+                    <div class="sm:col-span-2" data-quote-cars>
+                        <div class="mb-1 flex items-end gap-2 text-sm font-medium text-chrome-700">
+                            <span class="flex-1">{{ $carCount > 1 ? __('Cars') : __('Car') }} *</span>
+                            <span class="w-28 shrink-0">{{ __('Rate (BHD)') }} *</span>
+                            <span class="w-6 shrink-0" aria-hidden="true"></span>
+                        </div>
+
+                        <div class="flex items-start gap-2">
+                            <div class="min-w-0 flex-1">
+                                <x-searchable-select wire:model.live="vehicle_id" class="o-input w-full"
+                                    :options="$carOptions"
+                                    :search-placeholder="__('Search plate or model…')" />
+                            </div>
+                            <input type="number" step="0.001" min="0" wire:model.live.debounce.400ms="rate"
+                                class="o-input w-28 shrink-0" aria-label="{{ __('Rate (BHD)') }}" data-car-rate>
+                            <span class="w-6 shrink-0" aria-hidden="true"></span>
+                        </div>
                         @error('vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        @error('rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
 
                         @foreach ($extraCars as $i => $car)
                             <div wire:key="extra-car-{{ $i }}" class="mt-2" data-extra-car>
@@ -67,16 +93,13 @@
                                     <div class="min-w-0 flex-1">
                                         <x-searchable-select wire:model.live="extraCars.{{ $i }}.vehicle_id" class="o-input w-full"
                                             :placeholder="__('Car :n', ['n' => $i + 2])"
-                                            :options="collect($vehicles)->map(fn ($v) => [
-                                                'value' => $v->id,
-                                                'label' => $v->displayName() . ' (' . __(ucfirst($v->status)) . ')',
-                                            ])->all()"
+                                            :options="$carOptions"
                                             :search-placeholder="__('Search plate or model…')" />
                                     </div>
                                     <input type="number" step="0.001" min="0" wire:model.live.debounce.400ms="extraCars.{{ $i }}.rate"
-                                        class="o-input w-24 shrink-0" placeholder="{{ __('Rate') }}" title="{{ __('Rate (BHD)') }}" aria-label="{{ __('Rate (BHD)') }}">
+                                        class="o-input w-28 shrink-0" aria-label="{{ __('Rate (BHD)') }}" data-car-rate>
                                     <button type="button" wire:click="removeCar({{ $i }})"
-                                        class="mt-2 shrink-0 rounded p-1 text-chrome-400 hover:bg-red-50 hover:text-red-600"
+                                        class="mt-2 w-6 shrink-0 rounded p-1 text-chrome-400 hover:bg-red-50 hover:text-red-600"
                                         title="{{ __('Remove this car') }}" aria-label="{{ __('Remove this car') }}" data-remove-car>
                                         <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
                                     </button>
@@ -97,20 +120,21 @@
                     </div>
 
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Driver') }}</label>
-                        <x-searchable-select wire:model="driver_id" class="o-input w-full"
-                            :placeholder="__('No driver')"
-                            :options="collect($drivers)->map(fn ($d) => ['value' => $d->id, 'label' => $d->name])->all()"
-                            :search-placeholder="__('Search driver…')" />
-                    </div>
-
-                    <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Branch') }}</label>
                         <select wire:model="branch_id" class="o-input w-full">
                             <option value="">{{ __('— Select —') }}</option>
                             @foreach ($branches as $b)
                                 <option value="{{ $b->id }}">{{ $b->name }}</option>
                             @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Rate type') }}</label>
+                        <select wire:model.live="rate_type" class="o-input w-full">
+                            <option value="daily">{{ __('Daily') }}</option>
+                            <option value="weekly">{{ __('Weekly') }}</option>
+                            <option value="monthly">{{ __('Monthly') }}</option>
                         </select>
                     </div>
 
@@ -124,21 +148,6 @@
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Return date') }} *</label>
                         <x-date-field wire:model.live="end_date" class="o-input w-full" />
                         @error('end_date') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    </div>
-
-                    <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Rate type') }}</label>
-                        <select wire:model.live="rate_type" class="o-input w-full">
-                            <option value="daily">{{ __('Daily') }}</option>
-                            <option value="weekly">{{ __('Weekly') }}</option>
-                            <option value="monthly">{{ __('Monthly') }}</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ $carCount > 1 ? __('Rate for the first car (BHD)') : __('Rate (BHD)') }} *</label>
-                        <input type="number" step="0.001" min="0" wire:model.live="rate" class="o-input w-full">
-                        @error('rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
 
                     <div>

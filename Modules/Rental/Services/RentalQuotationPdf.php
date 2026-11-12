@@ -90,15 +90,21 @@ final class RentalQuotationPdf
             }
 
             $carType = trim(trim((string) ($vehicle->make ?? '')) . ' ' . trim((string) ($vehicle->model ?? '')));
+            // Several of one car are several cars of that model, not one
+            // plate, so the line names the model and the count.
+            $label = $car['qty'] > 1
+                ? $car['qty'] . ' × ' . ($carType !== '' ? $carType : (string) $vehicle->name)
+                : trim(trim((string) ($vehicle->plate_no ?? '')) . ' ' . $carType);
             $lines[] = [
                 'service' => __('Rental'),
-                'vehicle' => trim(trim((string) ($vehicle->plate_no ?? '')) . ' ' . $carType),
+                'vehicle' => $label,
+                'qty' => $car['qty'],
                 'from' => $quote->start_date?->format('j-n-Y') ?? '',
                 'to' => $quote->end_date?->format('j-n-Y') ?? '',
                 'units' => $units,
                 'unitLabel' => $this->periodUnitLabel($quote->rate_type),
                 'rate' => $car['rate'],
-                'amount' => round($car['rate'] * $units, 3),
+                'amount' => round($car['rate'] * $car['qty'] * $units, 3),
             ];
         }
 

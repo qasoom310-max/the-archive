@@ -123,7 +123,7 @@
                         </td>
                         <td class="px-4 py-2 font-medium text-chrome-800">{{ $quote->reference }}</td>
                         <td class="px-4 py-2 text-chrome-700">{{ $quote->customer?->name ?? '—' }}</td>
-                        <td class="px-4 py-2 text-chrome-700">{{ $quote->vehicle?->displayName() ?? '—' }}@if ($quote->carCount() > 1) <span class="ms-1 rounded bg-chrome-100 px-1.5 py-0.5 text-[11px] font-semibold text-chrome-600" title="{{ __('Cars') }}">+{{ $quote->carCount() - 1 }}</span>@endif</td>
+                        <td class="px-4 py-2 text-chrome-700">{{ $quote->vehicle?->displayName() ?? '—' }}@if ($quote->carCount() > 1) <span class="ms-1 rounded bg-chrome-100 px-1.5 py-0.5 text-[11px] font-semibold text-chrome-600" title="{{ __('Cars') }}">{{ __(':count cars', ['count' => $quote->carCount()]) }}</span>@endif</td>
                         <td class="px-4 py-2 text-chrome-600">{{ $quote->valid_until?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($quote->total) }}</td>
                         <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ __(ucfirst($quote->status)) }}</span></td>

@@ -74,7 +74,7 @@ final class RentalQuotationRows
         return [
             'reference' => (string) ($quote->reference ?? ''),
             'customer' => (string) ($quote->customer->name ?? ''),
-            'car' => (string) ($quote->vehicle?->displayName() ?? '') . ($quote->carCount() > 1 ? ' +' . ($quote->carCount() - 1) : ''),
+            'car' => (string) ($quote->vehicle?->displayName() ?? '') . ($quote->carCount() > 1 ? ' (' . __(':count cars', ['count' => $quote->carCount()]) . ')' : ''),
             'valid_until' => $quote->valid_until?->isoFormat('DD-MMM-YYYY') ?? '',
             'total' => ValueFormat::money($quote->total),
             'status' => __(ucfirst((string) $quote->status)),

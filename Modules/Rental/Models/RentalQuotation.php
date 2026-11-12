@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $reference
  * @property int|null $customer_id
  * @property int|null $vehicle_id
+ * @property int $quantity
  * @property int|null $driver_id
  * @property int|null $branch_id
  * @property int|null $order_id
@@ -28,7 +29,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $valid_until
  * @property string $rate_type
  * @property float $rate
- * @property list<array{vehicle_id: int, rate: float}>|null $extra_cars
+ * @property list<array{vehicle_id: int, rate: float, qty: int}>|null $extra_cars
  * @property int $days
  * @property float $subtotal
  * @property float $discount
@@ -57,18 +58,19 @@ final class RentalQuotation extends Model implements DefinesIrModel
 
     public const STATUS_CONVERTED = 'converted';
 
-    /** Cars one quotation may price: the first one plus up to nine more. */
-    public const MAX_CARS = 10;
+    /** Cars one quotation may price, every line's count added up. */
+    public const MAX_CARS = 100;
 
     /** @var list<string> */
     protected $fillable = [
-        'reference', 'customer_id', 'vehicle_id', 'driver_id', 'branch_id', 'order_id',
+        'reference', 'customer_id', 'vehicle_id', 'quantity', 'driver_id', 'branch_id', 'order_id',
         'start_date', 'end_date', 'valid_until', 'rate_type', 'rate', 'extra_cars', 'days',
         'subtotal', 'discount', 'deposit', 'total', 'status', 'notes',
     ];
 
     /** @var array<string, mixed> */
     protected $attributes = [
+        'quantity' => 1,
         'rate_type' => 'daily',
         'rate' => 0,
         'days' => 0,
@@ -87,6 +89,7 @@ final class RentalQuotation extends Model implements DefinesIrModel
         return [
             'customer_id' => 'integer',
             'vehicle_id' => 'integer',
+            'quantity' => 'integer',
             'driver_id' => 'integer',
             'branch_id' => 'integer',
             'order_id' => 'integer',
@@ -145,9 +148,10 @@ final class RentalQuotation extends Model implements DefinesIrModel
     }
 
     /**
-     * The cars after the first, cleaned: each with a car and a rate.
+     * The car lines after the first, cleaned: each with a car, its rate per
+     * car and how many of it.
      *
-     * @return list<array{vehicle_id: int, rate: float}>
+     * @return list<array{vehicle_id: int, rate: float, qty: int}>
      */
     public function extraCars(): array
     {
@@ -156,34 +160,43 @@ final class RentalQuotation extends Model implements DefinesIrModel
             if (! is_array($car) || ! is_numeric($car['vehicle_id'] ?? null)) {
                 continue;
             }
-            $out[] = ['vehicle_id' => (int) $car['vehicle_id'], 'rate' => round((float) ($car['rate'] ?? 0), 3)];
+            $out[] = [
+                'vehicle_id' => (int) $car['vehicle_id'],
+                'rate' => round((float) ($car['rate'] ?? 0), 3),
+                'qty' => max(1, (int) ($car['qty'] ?? 1)),
+            ];
         }
 
         return array_slice($out, 0, self::MAX_CARS - 1);
     }
 
     /**
-     * Every car on the quotation, the first one first, each with its rate.
+     * Every car line, the first one first, each with its rate per car and how
+     * many of it.
      *
-     * @return list<array{vehicle_id: int|null, rate: float}>
+     * @return list<array{vehicle_id: int|null, rate: float, qty: int}>
      */
     public function cars(): array
     {
         return [
-            ['vehicle_id' => $this->vehicle_id, 'rate' => round((float) $this->rate, 3)],
+            ['vehicle_id' => $this->vehicle_id, 'rate' => round((float) $this->rate, 3), 'qty' => max(1, (int) $this->quantity)],
             ...$this->extraCars(),
         ];
     }
 
+    /** How many cars in all: every line's count added up. */
     public function carCount(): int
     {
-        return count($this->cars());
+        return (int) array_sum(array_column($this->cars(), 'qty'));
     }
 
-    /** All the cars' rates added together: what one billing period costs. */
+    /** What one billing period costs for every car together. */
     public function ratePerUnit(): float
     {
-        return round(array_sum(array_column($this->cars(), 'rate')), 3);
+        return round(array_sum(array_map(
+            static fn (array $car): float => $car['rate'] * $car['qty'],
+            $this->cars(),
+        )), 3);
     }
 
     public function recalcTotals(): void
@@ -194,8 +207,14 @@ final class RentalQuotation extends Model implements DefinesIrModel
     }
 
     /**
-     * Spawn a draft rental order from this quotation (idempotent — returns the
-     * existing order if already converted).
+     * Spawn draft rental orders from this quotation, one per car, and return
+     * the first (idempotent — returns the existing order if already
+     * converted).
+     *
+     * An order rents one car, so "5 × Ford EcoSport" becomes five orders: the
+     * first carries the car picked on the quotation, the other four have no
+     * car yet, for the desk to assign their plates. The quotation's discount
+     * and deposit stay on the very first order, as typed.
      */
     public function convertToOrder(): RentalOrder
     {
@@ -206,48 +225,43 @@ final class RentalQuotation extends Model implements DefinesIrModel
             }
         }
 
-        $order = new RentalOrder();
-        $order->customer_id = $this->customer_id;
-        $order->vehicle_id = $this->vehicle_id;
-        $order->driver_id = $this->driver_id;
-        $order->branch_id = $this->branch_id;
-        $order->start_date = $this->start_date;
-        $order->end_date = $this->end_date;
-        $order->rate_type = $this->rate_type;
-        $order->rate = $this->rate;
-        $order->discount = $this->discount;
-        $order->deposit = $this->deposit;
-        $order->notes = $this->notes;
-        $order->recalcTotals();
-        $order->save();
+        return \Illuminate\Support\Facades\DB::transaction(function (): RentalOrder {
+            $count = $this->carCount();
+            $n = 0;
+            $first = null;
 
-        // One order per car: an order rents a single car. The quotation's
-        // discount and deposit stay on the first order, as typed.
-        foreach ($this->extraCars() as $i => $car) {
-            $extra = new RentalOrder();
-            $extra->customer_id = $this->customer_id;
-            $extra->vehicle_id = $car['vehicle_id'];
-            $extra->branch_id = $this->branch_id;
-            $extra->start_date = $this->start_date;
-            $extra->end_date = $this->end_date;
-            $extra->rate_type = $this->rate_type;
-            $extra->rate = $car['rate'];
-            $extra->discount = 0;
-            $extra->deposit = 0;
-            $extra->notes = trim(__('From quotation :ref, car :n of :count', [
-                'ref' => (string) $this->reference,
-                'n' => $i + 2,
-                'count' => $this->carCount(),
-            ]) . "\n" . (string) ($this->notes ?? ''));
-            $extra->recalcTotals();
-            $extra->save();
-        }
+            foreach ($this->cars() as $line) {
+                for ($k = 0; $k < $line['qty']; $k++) {
+                    $n++;
+                    $order = new RentalOrder();
+                    $order->customer_id = $this->customer_id;
+                    $order->vehicle_id = $k === 0 ? $line['vehicle_id'] : null;
+                    $order->driver_id = $n === 1 ? $this->driver_id : null;
+                    $order->branch_id = $this->branch_id;
+                    $order->start_date = $this->start_date;
+                    $order->end_date = $this->end_date;
+                    $order->rate_type = $this->rate_type;
+                    $order->rate = $line['rate'];
+                    $order->discount = $n === 1 ? $this->discount : 0;
+                    $order->deposit = $n === 1 ? $this->deposit : 0;
+                    $order->notes = $count === 1 ? $this->notes : trim(__('From quotation :ref, car :n of :count', [
+                        'ref' => (string) $this->reference,
+                        'n' => $n,
+                        'count' => $count,
+                    ]) . "\n" . (string) ($this->notes ?? ''));
+                    $order->recalcTotals();
+                    $order->save();
 
-        $this->order_id = $order->id;
-        $this->status = self::STATUS_CONVERTED;
-        $this->save();
+                    $first ??= $order;
+                }
+            }
 
-        return $order;
+            $this->order_id = $first?->id;
+            $this->status = self::STATUS_CONVERTED;
+            $this->save();
+
+            return $first ?? new RentalOrder();
+        });
     }
 
     /**

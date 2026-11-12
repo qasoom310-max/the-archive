@@ -46,10 +46,14 @@ final class QuotationForm extends Component
 
     public ?int $vehicle_id = null;
 
+    /** How many of the first car. */
+    public string $quantity = '1';
+
     /**
-     * The cars after the first one, each with its own rate.
+     * The car lines after the first one, each with how many of it and its
+     * rate per car.
      *
-     * @var list<array{vehicle_id: int|string|null, rate: string}>
+     * @var list<array{vehicle_id: int|string|null, qty: string, rate: string}>
      */
     public array $extraCars = [];
 
@@ -93,8 +97,9 @@ final class QuotationForm extends Component
                 $this->id = $quote->id;
                 $this->customer_id = $quote->customer_id;
                 $this->vehicle_id = $quote->vehicle_id;
+                $this->quantity = (string) max(1, $quote->quantity);
                 $this->extraCars = array_map(
-                    static fn (array $car): array => ['vehicle_id' => $car['vehicle_id'], 'rate' => (string) $car['rate']],
+                    static fn (array $car): array => ['vehicle_id' => $car['vehicle_id'], 'qty' => (string) $car['qty'], 'rate' => (string) $car['rate']],
                     $quote->extraCars(),
                 );
                 $this->driver_id = $quote->driver_id;
@@ -121,14 +126,20 @@ final class QuotationForm extends Component
     }
 
     /**
-     * @return array<string, list<string>>
+     * @return array<string, list<mixed>>
      */
     protected function rules(): array
     {
         return [
             'customer_id' => ['required', 'integer'],
             'vehicle_id' => ['required', 'integer'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:' . RentalQuotation::MAX_CARS, function (string $attribute, mixed $value, Closure $fail): void {
+                if ($this->totalCars() > RentalQuotation::MAX_CARS) {
+                    $fail(__('A quotation can have up to :max cars.', ['max' => RentalQuotation::MAX_CARS]));
+                }
+            }],
             'extraCars' => ['array', 'max:' . (RentalQuotation::MAX_CARS - 1)],
+            'extraCars.*.qty' => ['required', 'integer', 'min:1', 'max:' . RentalQuotation::MAX_CARS],
             'extraCars.*.vehicle_id' => ['required', 'integer', 'distinct', 'different:vehicle_id'],
             'extraCars.*.rate' => ['required', 'numeric', 'min:0'],
             'driver_id' => ['nullable', 'integer'],
@@ -173,9 +184,20 @@ final class QuotationForm extends Component
         }
     }
 
+    public function updatedQuantity(): void
+    {
+        $this->refreshDeposit();
+    }
+
     /** "extraCars.2.vehicle_id" picked: that car's own rate, and the deposit follows. */
     public function updatedExtraCars(mixed $value, string $key): void
     {
+        if (preg_match('/^\d+\.qty$/', $key) === 1) {
+            $this->refreshDeposit();
+
+            return;
+        }
+
         if (! preg_match('/^(\d+)\.vehicle_id$/', $key, $m)) {
             return;
         }
@@ -190,14 +212,30 @@ final class QuotationForm extends Component
         $this->refreshDeposit();
     }
 
-    /** One more car under the first, up to ten in all. */
+    /** One more car line under the first, while there is room for one more car. */
     public function addCar(): void
     {
-        if (count($this->extraCars) >= RentalQuotation::MAX_CARS - 1) {
+        if ($this->totalCars() >= RentalQuotation::MAX_CARS) {
             return;
         }
 
-        $this->extraCars[] = ['vehicle_id' => null, 'rate' => '0'];
+        $this->extraCars[] = ['vehicle_id' => null, 'qty' => '1', 'rate' => '0'];
+    }
+
+    /** Every line's count added up, a blank or bad count read as 1. */
+    private function totalCars(): int
+    {
+        $total = $this->countOf($this->quantity);
+        foreach ($this->extraCars as $car) {
+            $total += $this->countOf($car['qty'] ?? '1');
+        }
+
+        return $total;
+    }
+
+    private function countOf(mixed $value): int
+    {
+        return is_numeric($value) ? max(1, (int) $value) : 1;
     }
 
     public function removeCar(int $index): void
@@ -221,23 +259,33 @@ final class QuotationForm extends Component
         };
     }
 
-    /** The deposit is every chosen car's own deposit added together. */
+    /** The deposit is every chosen car's own deposit times how many of it, added together. */
     private function refreshDeposit(): void
     {
-        $ids = array_values(array_filter(
-            [$this->vehicle_id, ...array_column($this->extraCars, 'vehicle_id')],
-            static fn (mixed $id): bool => is_numeric($id),
-        ));
+        $lines = [['vehicle_id' => $this->vehicle_id, 'qty' => $this->quantity], ...$this->extraCars];
+        $counts = [];
+        foreach ($lines as $line) {
+            if (is_numeric($line['vehicle_id'] ?? null)) {
+                $id = (int) $line['vehicle_id'];
+                $counts[$id] = ($counts[$id] ?? 0) + $this->countOf($line['qty'] ?? '1');
+            }
+        }
 
-        if ($ids === []) {
+        if ($counts === []) {
             return;
         }
 
-        $this->deposit = (string) round((float) Vehicle::query()->whereKey(array_map('intval', $ids))->sum('deposit'), 3);
+        $deposits = Vehicle::query()->whereKey(array_keys($counts))->pluck('deposit', 'id');
+        $sum = 0.0;
+        foreach ($counts as $id => $n) {
+            $sum += (float) ($deposits[$id] ?? 0) * $n;
+        }
+
+        $this->deposit = (string) round($sum, 3);
     }
 
     /**
-     * @return list<array{vehicle_id: int, rate: float}>
+     * @return list<array{vehicle_id: int, rate: float, qty: int}>
      */
     private function cleanExtraCars(): array
     {
@@ -246,7 +294,11 @@ final class QuotationForm extends Component
             if (! is_numeric($car['vehicle_id'] ?? null)) {
                 continue;
             }
-            $out[] = ['vehicle_id' => (int) $car['vehicle_id'], 'rate' => is_numeric($car['rate']) ? round((float) $car['rate'], 3) : 0.0];
+            $out[] = [
+                'vehicle_id' => (int) $car['vehicle_id'],
+                'rate' => is_numeric($car['rate']) ? round((float) $car['rate'], 3) : 0.0,
+                'qty' => $this->countOf($car['qty'] ?? '1'),
+            ];
         }
 
         return $out;
@@ -265,6 +317,7 @@ final class QuotationForm extends Component
 
         $quote->customer_id = $this->customer_id;
         $quote->vehicle_id = $this->vehicle_id;
+        $quote->quantity = $this->countOf($this->quantity);
         $extra = $this->cleanExtraCars();
         $quote->extra_cars = $extra === [] ? null : $extra;
         $quote->driver_id = $this->driver_id;
@@ -359,6 +412,7 @@ final class QuotationForm extends Component
         $quote->end_date = $this->end_date !== '' ? Carbon::parse($this->end_date) : null;
         $quote->rate_type = $this->rate_type;
         $quote->rate = is_numeric($this->rate) ? (float) $this->rate : 0.0;
+        $quote->quantity = $this->countOf($this->quantity);
         $quote->extra_cars = $this->cleanExtraCars();
         $quote->discount = is_numeric($this->discount) ? (float) $this->discount : 0.0;
         $quote->recalcTotals();
@@ -395,10 +449,14 @@ final class QuotationForm extends Component
     {
         return [
             'extraCars.*.vehicle_id.required' => __('Choose a car, or remove this line.'),
-            'extraCars.*.vehicle_id.distinct' => __('This car is already on the quotation.'),
-            'extraCars.*.vehicle_id.different' => __('This car is already on the quotation.'),
+            'extraCars.*.vehicle_id.distinct' => __('This car is already on the quotation. Raise its count instead.'),
+            'extraCars.*.vehicle_id.different' => __('This car is already on the quotation. Raise its count instead.'),
             'extraCars.*.rate.required' => __('Enter a rate for this car.'),
             'extraCars.max' => __('A quotation can have up to :max cars.', ['max' => RentalQuotation::MAX_CARS]),
+            'quantity.max' => __('A quotation can have up to :max cars.', ['max' => RentalQuotation::MAX_CARS]),
+            'extraCars.*.qty.max' => __('A quotation can have up to :max cars.', ['max' => RentalQuotation::MAX_CARS]),
+            'quantity.min' => __('At least one car.'),
+            'extraCars.*.qty.min' => __('At least one car.'),
         ];
     }
 
@@ -412,7 +470,7 @@ final class QuotationForm extends Component
             // raised.
             'customers' => RentalCustomer::activeOrSelected($this->customer_id, ['id', 'name', 'phone']),
             'vehicles' => $this->vehicleOptions(),
-            'carCount' => 1 + count($this->extraCars),
+            'carCount' => $this->totalCars(),
             'maxCars' => RentalQuotation::MAX_CARS,
             'drivers' => Driver::activeOrSelected($this->driver_id, ['id', 'name']),
             'branches' => Branch::activeOrSelected($this->branch_id, ['id', 'name']),

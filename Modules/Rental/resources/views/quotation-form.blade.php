@@ -70,7 +70,8 @@
                     <div class="sm:col-span-2" data-quote-cars>
                         <div class="mb-1 flex items-end gap-2 text-sm font-medium text-chrome-700">
                             <span class="flex-1">{{ $carCount > 1 ? __('Cars') : __('Car') }} *</span>
-                            <span class="w-28 shrink-0">{{ __('Rate (BHD)') }} *</span>
+                            <span class="w-16 shrink-0">{{ __('Count') }} *</span>
+                            <span class="w-24 shrink-0">{{ __('Rate per car (BHD)') }} *</span>
                             <span class="w-6 shrink-0" aria-hidden="true"></span>
                         </div>
 
@@ -80,11 +81,14 @@
                                     :options="$carOptions"
                                     :search-placeholder="__('Search plate or model…')" />
                             </div>
+                            <input type="number" step="1" min="1" max="{{ $maxCars }}" wire:model.live.debounce.400ms="quantity"
+                                class="o-input w-16 shrink-0" aria-label="{{ __('Count') }}" data-car-count>
                             <input type="number" step="0.001" min="0" wire:model.live.debounce.400ms="rate"
-                                class="o-input w-28 shrink-0" aria-label="{{ __('Rate (BHD)') }}" data-car-rate>
+                                class="o-input w-24 shrink-0" aria-label="{{ __('Rate per car (BHD)') }}" data-car-rate>
                             <span class="w-6 shrink-0" aria-hidden="true"></span>
                         </div>
                         @error('vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        @error('quantity') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         @error('rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
 
                         @foreach ($extraCars as $i => $car)
@@ -96,8 +100,10 @@
                                             :options="$carOptions"
                                             :search-placeholder="__('Search plate or model…')" />
                                     </div>
+                                    <input type="number" step="1" min="1" max="{{ $maxCars }}" wire:model.live.debounce.400ms="extraCars.{{ $i }}.qty"
+                                        class="o-input w-16 shrink-0" aria-label="{{ __('Count') }}" data-car-count>
                                     <input type="number" step="0.001" min="0" wire:model.live.debounce.400ms="extraCars.{{ $i }}.rate"
-                                        class="o-input w-28 shrink-0" aria-label="{{ __('Rate (BHD)') }}" data-car-rate>
+                                        class="o-input w-24 shrink-0" aria-label="{{ __('Rate per car (BHD)') }}" data-car-rate>
                                     <button type="button" wire:click="removeCar({{ $i }})"
                                         class="mt-2 w-6 shrink-0 rounded p-1 text-chrome-400 hover:bg-red-50 hover:text-red-600"
                                         title="{{ __('Remove this car') }}" aria-label="{{ __('Remove this car') }}" data-remove-car>
@@ -105,6 +111,7 @@
                                     </button>
                                 </div>
                                 @error('extraCars.' . $i . '.vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                @error('extraCars.' . $i . '.qty') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                                 @error('extraCars.' . $i . '.rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                             </div>
                         @endforeach

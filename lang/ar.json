@@ -3451,9 +3451,12 @@
     "Car :n": "السيارة :n",
     "Up to :max cars on one quotation.": "حتى :max سيارات في عرض السعر الواحد.",
     "Choose a car, or remove this line.": "اختر سيارة، أو احذف هذا السطر.",
-    "This car is already on the quotation.": "هذه السيارة موجودة في عرض السعر بالفعل.",
     "Enter a rate for this car.": "أدخل سعر هذه السيارة.",
     "A quotation can have up to :max cars.": "يمكن أن يتضمن عرض السعر حتى :max سيارات.",
     "Converted to :count orders, one per car.": "تم التحويل إلى :count طلبات، طلب لكل سيارة.",
-    "From quotation :ref, car :n of :count": "من عرض السعر :ref، السيارة :n من :count"
+    "From quotation :ref, car :n of :count": "من عرض السعر :ref، السيارة :n من :count",
+    "Rate per car (BHD)": "السعر لكل سيارة (د.ب)",
+    ":count cars": ":count سيارات",
+    "This car is already on the quotation. Raise its count instead.": "هذه السيارة موجودة في عرض السعر بالفعل. زِد عددها بدلاً من ذلك.",
+    "At least one car.": "سيارة واحدة على الأقل."
 }

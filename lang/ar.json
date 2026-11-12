@@ -3445,5 +3445,16 @@
     "Link this invoice to :reference?": "ربط هذه الفاتورة بـ :reference؟",
     "It is not linked to a booking, so its PDF shows no journeys. Link it to the booking it bills.": "هذه الفاتورة غير مربوطة بحجز، لذلك لا تظهر الرحلات في ملف PDF. اربطها بالحجز الذي تحاسب عليه.",
     "No booking of this customer without an invoice costs the same amount.": "لا يوجد حجز لهذا العميل بلا فاتورة بنفس المبلغ.",
-    "to collect in the car": "يُحصَّل في السيارة"
+    "to collect in the car": "يُحصَّل في السيارة",
+    "Add another car": "إضافة سيارة أخرى",
+    "Remove this car": "إزالة هذه السيارة",
+    "Car :n": "السيارة :n",
+    "Rate for the first car (BHD)": "سعر السيارة الأولى (د.ب)",
+    "Up to :max cars on one quotation.": "حتى :max سيارات في عرض السعر الواحد.",
+    "Choose a car, or remove this line.": "اختر سيارة، أو احذف هذا السطر.",
+    "This car is already on the quotation.": "هذه السيارة موجودة في عرض السعر بالفعل.",
+    "Enter a rate for this car.": "أدخل سعر هذه السيارة.",
+    "A quotation can have up to :max cars.": "يمكن أن يتضمن عرض السعر حتى :max سيارات.",
+    "Converted to :count orders, one per car.": "تم التحويل إلى :count طلبات، طلب لكل سيارة.",
+    "From quotation :ref, car :n of :count": "من عرض السعر :ref، السيارة :n من :count"
 }

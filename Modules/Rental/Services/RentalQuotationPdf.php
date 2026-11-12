@@ -10,6 +10,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Modules\Rental\Models\RentalOrder;
 use Modules\Rental\Models\RentalQuotation;
+use Modules\Rental\Models\Vehicle;
 
 /**
  * The quotation as the customer receives it — same visual family as the
@@ -18,9 +19,9 @@ use Modules\Rental\Models\RentalQuotation;
  * quotation: No. / Service / Vehicle / Period (From/To) / Days / Rate /
  * Amount, and a Subtotal/Discount/VAT/Total box.
  *
- * A rental quotation prices exactly ONE vehicle for ONE period — unlike the
- * Limousine quotation's per-leg lines — so there is at most a single item
- * row, built straight from the quotation's own columns (it carries no order
+ * A rental quotation prices one to ten cars for ONE period — unlike the
+ * Limousine quotation's per-leg lines — so there is one item row per car,
+ * built straight from the quotation's own columns (it carries no order
  * yet; that only exists once the quote is converted).
  *
  * VAT is NOT a stored column on {@see RentalQuotation} (unlike RentalOrder,
@@ -76,19 +77,32 @@ final class RentalQuotationPdf
             return [];
         }
 
-        $vehicle = $quote->vehicle;
-        $carType = trim(trim((string) ($vehicle->make ?? '')) . ' ' . trim((string) ($vehicle->model ?? '')));
+        // One line per car: the first car, then each one added under it.
+        $ids = array_column($quote->extraCars(), 'vehicle_id');
+        $vehicles = $ids === [] ? collect() : Vehicle::query()->whereKey($ids)->get()->keyBy('id');
+        $units = $quote->billableUnits();
 
-        return [[
-            'service' => __('Rental'),
-            'vehicle' => trim(trim((string) ($vehicle->plate_no ?? '')) . ' ' . $carType),
-            'from' => $quote->start_date?->format('j-n-Y') ?? '',
-            'to' => $quote->end_date?->format('j-n-Y') ?? '',
-            'units' => $quote->billableUnits(),
-            'unitLabel' => $this->periodUnitLabel($quote->rate_type),
-            'rate' => round((float) $quote->rate, 3),
-            'amount' => round((float) $quote->subtotal, 3),
-        ]];
+        $lines = [];
+        foreach ($quote->cars() as $car) {
+            $vehicle = $car['vehicle_id'] === $quote->vehicle_id ? $quote->vehicle : $vehicles->get($car['vehicle_id']);
+            if (! $vehicle instanceof Vehicle) {
+                continue;
+            }
+
+            $carType = trim(trim((string) ($vehicle->make ?? '')) . ' ' . trim((string) ($vehicle->model ?? '')));
+            $lines[] = [
+                'service' => __('Rental'),
+                'vehicle' => trim(trim((string) ($vehicle->plate_no ?? '')) . ' ' . $carType),
+                'from' => $quote->start_date?->format('j-n-Y') ?? '',
+                'to' => $quote->end_date?->format('j-n-Y') ?? '',
+                'units' => $units,
+                'unitLabel' => $this->periodUnitLabel($quote->rate_type),
+                'rate' => $car['rate'],
+                'amount' => round($car['rate'] * $units, 3),
+            ];
+        }
+
+        return $lines;
     }
 
     /** "days" / "weeks" / "months", matching the quotation's billing period. */

@@ -60,6 +60,40 @@
                             ])->all()"
                             :search-placeholder="__('Search plate or model…')" />
                         @error('vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+
+                        @foreach ($extraCars as $i => $car)
+                            <div wire:key="extra-car-{{ $i }}" class="mt-2" data-extra-car>
+                                <div class="flex items-start gap-2">
+                                    <div class="min-w-0 flex-1">
+                                        <x-searchable-select wire:model.live="extraCars.{{ $i }}.vehicle_id" class="o-input w-full"
+                                            :placeholder="__('Car :n', ['n' => $i + 2])"
+                                            :options="collect($vehicles)->map(fn ($v) => [
+                                                'value' => $v->id,
+                                                'label' => $v->displayName() . ' (' . __(ucfirst($v->status)) . ')',
+                                            ])->all()"
+                                            :search-placeholder="__('Search plate or model…')" />
+                                    </div>
+                                    <input type="number" step="0.001" min="0" wire:model.live.debounce.400ms="extraCars.{{ $i }}.rate"
+                                        class="o-input w-24 shrink-0" placeholder="{{ __('Rate') }}" title="{{ __('Rate (BHD)') }}" aria-label="{{ __('Rate (BHD)') }}">
+                                    <button type="button" wire:click="removeCar({{ $i }})"
+                                        class="mt-2 shrink-0 rounded p-1 text-chrome-400 hover:bg-red-50 hover:text-red-600"
+                                        title="{{ __('Remove this car') }}" aria-label="{{ __('Remove this car') }}" data-remove-car>
+                                        <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                                    </button>
+                                </div>
+                                @error('extraCars.' . $i . '.vehicle_id') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                @error('extraCars.' . $i . '.rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            </div>
+                        @endforeach
+
+                        @if ($carCount < $maxCars)
+                            <button type="button" wire:click="addCar" data-add-car
+                                class="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:underline">
+                                <span aria-hidden="true">+</span> {{ __('Add another car') }}
+                            </button>
+                        @else
+                            <span class="mt-1.5 inline-block text-xs text-chrome-500">{{ __('Up to :max cars on one quotation.', ['max' => $maxCars]) }}</span>
+                        @endif
                     </div>
 
                     <div>
@@ -102,7 +136,7 @@
                     </div>
 
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Rate (BHD)') }} *</label>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ $carCount > 1 ? __('Rate for the first car (BHD)') : __('Rate (BHD)') }} *</label>
                         <input type="number" step="0.001" min="0" wire:model.live="rate" class="o-input w-full">
                         @error('rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
@@ -134,6 +168,9 @@
             <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]">
                 <h2 class="mb-3 text-sm font-semibold text-chrome-800">{{ __('Summary') }}</h2>
                 <dl class="space-y-2 text-sm">
+                    @if ($carCount > 1)
+                        <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Cars') }}</dt><dd class="font-medium text-chrome-800">{{ $carCount }}</dd></div>
+                    @endif
                     <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Duration') }}</dt><dd class="font-medium text-chrome-800">{{ $previewDays }} {{ __('days') }}</dd></div>
                     <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Billable units') }}</dt><dd class="font-medium text-chrome-800">{{ $previewUnits }}</dd></div>
                     <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Subtotal') }}</dt><dd class="font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($previewSubtotal) }}</dd></div>

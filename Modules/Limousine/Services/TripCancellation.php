@@ -78,11 +78,17 @@ final class TripCancellation
         $booking = $leg->legable instanceof LimoBooking ? $leg->legable : null;
 
         // What the customer actually put down against this trip. A booking is
-        // paid as a whole, so a leg counts as paid once the booking is settled.
+        // paid as a whole, so a leg counts as paid once the booking is settled
+        // — but never for more than the booking still holds. The paid flag can
+        // outlive the money (a coupon already handed out for an earlier trip,
+        // "Mark paid", a trip added to a settled booking), and believing it
+        // gave the same payment out twice as two coupons.
         $amount = round((float) $leg->net_amount, 3);
-        $paid = $booking !== null
-            && $booking->payment_status === LimoBooking::PAYMENT_PAID
-            && $amount > 0.001;
+        $flagPaid = $booking !== null && $booking->payment_status === LimoBooking::PAYMENT_PAID;
+        if ($flagPaid) {
+            $amount = round(min($amount, $this->stillHeld($booking)), 3);
+        }
+        $paid = $flagPaid && $amount > 0.001;
 
         $hours = null;
         if ($leg->start_at !== null) {
@@ -278,6 +284,34 @@ final class TripCancellation
         });
 
         return null;
+    }
+
+    /**
+     * Money the booking still holds for the customer: what they paid, less
+     * what has already gone back to them as refunds or coupons from this
+     * booking's earlier cancellations.
+     *
+     * A refund lowers the advance, so it is added back first to find what was
+     * paid; money written against the invoice alone is counted too. With
+     * nothing recorded at all the paid flag decides (a booking marked paid by
+     * hand, or brought over that way), and its fare stands for the payment.
+     */
+    private function stillHeld(LimoBooking $booking): float
+    {
+        $refunded = (float) $booking->legs()
+            ->where('status', LimoLeg::STATUS_CANCELLED)
+            ->where('refund_outcome', LimoLeg::REFUND_REFUNDED)
+            ->sum('refund_amount');
+        $credited = (float) LimoCoupon::query()->where('limo_booking_id', $booking->id)->sum('amount');
+
+        $paid = max((float) $booking->advance + $refunded, (float) $booking->invoices()->sum('amount_paid'));
+        if ($paid <= 0.001) {
+            // Nothing ever recorded: the fare still carries every trip but the
+            // refunded ones, and none were refunded here.
+            $paid = (float) $booking->fare;
+        }
+
+        return max(0.0, round($paid - $refunded - $credited, 3));
     }
 
     /**

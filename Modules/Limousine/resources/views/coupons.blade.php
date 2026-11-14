@@ -91,7 +91,15 @@
                     <tr wire:key="cpn-{{ $c->id }}" class="hover:bg-chrome-50">
                         <td class="px-3 py-2 font-semibold text-chrome-900">{{ $c->code }}</td>
                         <td class="px-3 py-2 text-chrome-700">{{ $c->customer?->name ?? '—' }}</td>
-                        <td class="hidden px-3 py-2 text-chrome-500 sm:table-cell">{{ $c->leg_reference ?: '—' }}</td>
+                        <td class="hidden px-3 py-2 text-chrome-500 sm:table-cell">
+                            @if ($c->limo_booking_id)
+                                <a href="{{ url('/app/limousine/booking/' . $c->limo_booking_id) }}" wire:navigate
+                                   class="underline decoration-dotted hover:text-primary-700"
+                                   title="{{ __('Open the booking') }}" data-coupon-booking>{{ $c->leg_reference ?: '—' }}</a>
+                            @else
+                                {{ $c->leg_reference ?: '—' }}
+                            @endif
+                        </td>
                         <td class="px-3 py-2 text-end tabular-nums text-chrome-700">{{ $money($c->amount) }}</td>
                         <td class="hidden px-3 py-2 text-end tabular-nums text-chrome-500 md:table-cell">{{ $money($c->used()) }}</td>
                         <td class="px-3 py-2 text-end tabular-nums font-bold {{ $c->remaining() > 0 && ! $c->isExpired() ? 'text-emerald-700' : 'text-chrome-400' }}">

@@ -279,4 +279,63 @@ final class LimoCancellationTest extends TestCase
             ->call('toggleCouponRule');
         $this->assertTrue($rule->couponRuleOn());
     }
+    /**
+     * The paid flag outlived the money: one 48 BD payment, a coupon for the
+     * first trip, then a second trip on the same still-"paid" booking. The
+     * second cancellation must not hand the same 48 BD out again.
+     */
+    public function test_one_payment_never_becomes_two_coupons(): void
+    {
+        $first = $this->trip(48, "10 hours", paid: true);
+        $booking = LimoBooking::query()->findOrFail($first->legable_id);
+        $cancellation = app(TripCancellation::class);
+
+        $this->assertSame(48.0, $cancellation->cancel($first)["coupon"]?->amount);
+
+        $second = LimoLeg::query()->create([
+            "legable_type" => LimoBooking::class, "legable_id" => $booking->id, "sequence" => 2,
+            "status" => LimoLeg::STATUS_QUEUE, "start_at" => now()->addHours(10),
+            "from_location" => "Airport", "rate" => 48, "net_amount" => 48,
+        ]);
+        $booking->refresh()->forceFill(["payment_status" => LimoBooking::PAYMENT_PAID])->save();
+
+        $preview = $cancellation->preview($second->refresh());
+        $this->assertFalse($preview["paid"]);
+
+        $result = $cancellation->cancel($second);
+        $this->assertNull($result["coupon"]);
+        $this->assertSame(1, LimoCoupon::query()->count());
+        $this->assertEqualsWithDelta(48.0, (float) LimoCoupon::query()->sum("amount"), 0.001);
+    }
+
+    /** Two trips paid for, two cancelled: each gets its own credit, no more. */
+    public function test_two_trips_paid_for_still_give_a_coupon_each(): void
+    {
+        $first = $this->trip(48, "10 hours", paid: true);
+        $booking = LimoBooking::query()->findOrFail($first->legable_id);
+        $second = LimoLeg::query()->create([
+            "legable_type" => LimoBooking::class, "legable_id" => $booking->id, "sequence" => 2,
+            "status" => LimoLeg::STATUS_QUEUE, "start_at" => now()->addHours(10),
+            "from_location" => "Airport", "rate" => 48, "net_amount" => 48,
+        ]);
+        $booking->forceFill(["advance" => 96, "fare" => 96])->save();
+
+        $cancellation = app(TripCancellation::class);
+        $cancellation->cancel($first->refresh());
+        $cancellation->cancel($second->refresh());
+
+        $this->assertSame(2, LimoCoupon::query()->count());
+        $this->assertEqualsWithDelta(96.0, (float) LimoCoupon::query()->sum("amount"), 0.001);
+    }
+
+    /** "Mark paid" on 30 BD taken for a 48 BD trip: the coupon is the 30. */
+    public function test_a_coupon_is_never_more_than_was_paid(): void
+    {
+        $leg = $this->trip(48, "10 hours", paid: true);
+        LimoBooking::query()->whereKey($leg->legable_id)->update(["advance" => 30]);
+
+        $coupon = app(TripCancellation::class)->cancel($leg->refresh())["coupon"];
+
+        $this->assertEqualsWithDelta(30.0, (float) $coupon?->amount, 0.001);
+    }
 }

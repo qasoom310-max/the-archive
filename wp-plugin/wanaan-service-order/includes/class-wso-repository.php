@@ -50,6 +50,8 @@ class WSO_Repository {
 			'erp_booking_id' => isset( $data['erp_booking_id'] ) ? absint( $data['erp_booking_id'] ) : null,
 			'erp_leg_id'     => isset( $data['erp_leg_id'] ) ? absint( $data['erp_leg_id'] ) : null,
 			'ws'             => ( isset( $data['ws'] ) && is_numeric( $data['ws'] ) ) ? (int) $data['ws'] : null,
+			// A Rent A Car order or a limousine trip (older ERPs send none).
+			'service'        => ( isset( $data['service'] ) && 'rental' === $data['service'] ) ? 'rental' : 'limousine',
 			'customer_email' => isset( $data['email'] ) ? sanitize_email( (string) $data['email'] ) : null,
 			'so_date'        => isset( $data['date'] ) ? sanitize_text_field( (string) $data['date'] ) : null,
 			'amount'         => isset( $data['amount'] ) ? number_format( (float) $data['amount'], 3, '.', '' ) : '0.000',

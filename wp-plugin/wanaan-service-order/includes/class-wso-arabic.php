@@ -38,7 +38,16 @@ class WSO_Arabic {
 		'Passenger'         => 'الراكب',
 		'Passenger contact' => 'هاتف الراكب',
 		'Remarks'           => 'ملاحظات',
+		// A Rent A Car order.
+		'Agreement no.'     => 'رقم العقد',
+		'Pick-up date'      => 'تاريخ الاستلام',
+		'Return date'       => 'تاريخ الإرجاع',
+		'Car'               => 'السيارة',
+		'Delivery to'       => 'التوصيل إلى',
 	);
+
+	/** Labels whose value is a date, shown in Arabic for an Arabic reader. */
+	const DATE_KEYS = array( 'Date', 'Pick-up date', 'Return date' );
 
 	const DAYS = array( 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت' );
 
@@ -132,7 +141,7 @@ class WSO_Arabic {
 			if ( '' === $value ) {
 				continue;
 			}
-			if ( 'Date' === $key ) {
+			if ( in_array( $key, self::DATE_KEYS, true ) ) {
 				$value = self::date( $value );
 			}
 			$label = isset( self::LABELS[ $key ] ) ? self::LABELS[ $key ] : wp_strip_all_tags( (string) $meta->display_key );
@@ -164,7 +173,7 @@ class WSO_Arabic {
 			return $name;
 		}
 
-		return str_replace( array( 'Limousine Service', '· Trip ' ), array( 'خدمة الليموزين', '· رحلة ' ), (string) $name );
+		return str_replace( array( 'Limousine Service', '· Trip ', 'Car Rental' ), array( 'خدمة الليموزين', '· رحلة ', 'تأجير سيارة' ), (string) $name );
 	}
 
 	/**

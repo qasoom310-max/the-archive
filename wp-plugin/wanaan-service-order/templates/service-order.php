@@ -11,6 +11,7 @@ defined( 'ABSPATH' ) || exit;
 
 $row    = isset( $GLOBALS['wanaan_so_row'] ) ? $GLOBALS['wanaan_so_row'] : null;
 $notice = isset( $GLOBALS['wanaan_so_notice'] ) ? $GLOBALS['wanaan_so_notice'] : '';
+$is_rental = $row && WSO_Woo::is_rental( $row );
 
 $messages = array(
 	'expired'      => __( 'Your session expired. Please review and submit again.', 'wanaan-service-order' ),
@@ -73,7 +74,7 @@ $detail = function ( $label, $value ) {
 		<div class="wso-card">
 			<div class="wso-head">
 				<h1>Wanaan</h1>
-				<div class="wso-sub"><?php esc_html_e( 'Service Order', 'wanaan-service-order' ); ?></div>
+				<div class="wso-sub"><?php $is_rental ? esc_html_e( 'Car Rental', 'wanaan-service-order' ) : esc_html_e( 'Service Order', 'wanaan-service-order' ); ?></div>
 			</div>
 			<div class="wso-body">
 
@@ -82,7 +83,7 @@ $detail = function ( $label, $value ) {
 				<?php endif; ?>
 
 				<div class="wso-row">
-					<span class="wso-label"><?php esc_html_e( 'Confirmation No', 'wanaan-service-order' ); ?></span>
+					<span class="wso-label"><?php $is_rental ? esc_html_e( 'Agreement No', 'wanaan-service-order' ) : esc_html_e( 'Confirmation No', 'wanaan-service-order' ); ?></span>
 					<span class="wso-value"><?php echo esc_html( $row->confirmation_no ); ?></span>
 				</div>
 				<?php
@@ -96,6 +97,16 @@ $detail = function ( $label, $value ) {
 				$detail( __( 'Telephone', 'wanaan-service-order' ), $row->telephone );
 				?>
 
+				<?php if ( $is_rental ) : ?>
+				<div class="wso-section-title"><?php esc_html_e( 'Car hire', 'wanaan-service-order' ); ?></div>
+				<?php
+				$detail( __( 'Pick-up date', 'wanaan-service-order' ), $row->service_date );
+				$detail( __( 'Pick-up time', 'wanaan-service-order' ), $row->service_time );
+				$detail( __( 'Return date', 'wanaan-service-order' ), $row->dropoff );
+				$detail( __( 'Car', 'wanaan-service-order' ), $row->vehicle );
+				$detail( __( 'Delivery to', 'wanaan-service-order' ), $row->pickup );
+				?>
+				<?php else : ?>
 				<div class="wso-section-title"><?php esc_html_e( 'Trip', 'wanaan-service-order' ); ?></div>
 				<?php
 				$detail( __( 'Service Date', 'wanaan-service-order' ), $row->service_date );
@@ -108,6 +119,7 @@ $detail = function ( $label, $value ) {
 				$detail( __( 'Drop off', 'wanaan-service-order' ), $row->dropoff );
 				$detail( __( 'Remark', 'wanaan-service-order' ), $row->remark );
 				?>
+				<?php endif; ?>
 
 				<div class="wso-amount">
 					<span class="lbl"><?php esc_html_e( 'Amount due', 'wanaan-service-order' ); ?></span>
@@ -133,7 +145,7 @@ $detail = function ( $label, $value ) {
 
 			</div>
 			<div class="wso-foot">
-				Shop 2082, Road 5669, Block 356, Bahrain<br>
+				Shop 4, Building 18, Road 4101, Block 341, Juffair, Bahrain<br>
 				Tel +973 17474949 &middot; <a href="https://www.wanaan-bh.com" target="_blank" rel="noopener">www.wanaan-bh.com</a>
 			</div>
 		</div>

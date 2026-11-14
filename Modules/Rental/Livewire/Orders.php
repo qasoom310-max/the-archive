@@ -15,6 +15,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
+use Modules\Limousine\Models\LimoPaymentLink;
+use Modules\Limousine\Models\LimoPortalConfiguration;
+use Modules\Limousine\Services\ServiceOrderPortalClient;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -194,6 +198,152 @@ final class Orders extends Component
             ->whereIn('state', [RentalOrder::STATE_ACTIVE, RentalOrder::STATE_CLOSED]);
     }
 
+    /* ── Online payment link (Wanaan WordPress portal → Tap) ─────────────── */
+
+    /** The order a payment link is being raised for, or null when shut. */
+    #[Locked]
+    public ?int $paymentOrderId = null;
+
+    /** What the customer is asked to pay on this link. */
+    public string $paymentAmount = '';
+
+    /** The generated public link, shown to copy to the customer. */
+    public string $paymentLinkUrl = '';
+
+    /** The quick shares offered, as a percent of the order total. */
+    public const PAYMENT_SHARES = [25, 50, 100];
+
+    /**
+     * Whether links can be made in this database: the limousine portal is
+     * switched on and its link table knows about rental orders.
+     */
+    public function portalEnabled(): bool
+    {
+        return Schema::hasTable('limo_portal_configuration')
+            && Schema::hasColumn('limo_payment_links', 'rental_order_id')
+            && LimoPortalConfiguration::current()->isConfigured();
+    }
+
+    /** An order that can still be paid online: not cancelled, something owed. */
+    private function payableOrder(?int $id): ?RentalOrder
+    {
+        $order = $id !== null ? RentalOrder::query()->find($id) : null;
+
+        return $order !== null && $order->state !== RentalOrder::STATE_CANCELLED && $order->balance > 0.0005
+            ? $order
+            : null;
+    }
+
+    /** Open the dialog, pre-filled with what is still owed. */
+    public function openPaymentLink(int $orderId): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        $order = $this->payableOrder($orderId);
+        if ($order === null || ! $this->portalEnabled()) {
+            return;
+        }
+
+        $this->resetValidation();
+        $this->paymentOrderId = $order->id;
+        $this->paymentLinkUrl = '';
+        $this->paymentAmount = number_format($order->balance, 3, '.', '');
+    }
+
+    /**
+     * 25% / 50% of the order TOTAL (a second 25% instalment is the same figure
+     * as the first) and "Full" = the balance, each capped at the balance.
+     *
+     * @return list<array{percent: int, amount: float}>
+     */
+    public function paymentShares(): array
+    {
+        $order = $this->payableOrder($this->paymentOrderId);
+        if ($order === null) {
+            return [];
+        }
+
+        return array_values(array_map(static fn (int $percent): array => [
+            'percent' => $percent,
+            'amount' => $percent === 100 ? round($order->balance, 3) : round(min($order->balance, $order->total * $percent / 100), 3),
+        ], self::PAYMENT_SHARES));
+    }
+
+    public function usePaymentShare(int $percent): void
+    {
+        foreach ($this->paymentShares() as $share) {
+            if ($share['percent'] === $percent) {
+                $this->paymentAmount = number_format($share['amount'], 3, '.', '');
+                $this->resetValidation('paymentAmount');
+
+                return;
+            }
+        }
+    }
+
+    public function closePaymentLink(): void
+    {
+        $this->paymentOrderId = null;
+        $this->paymentAmount = '';
+        $this->paymentLinkUrl = '';
+    }
+
+    /**
+     * Raise the link and push it to the portal. A WordPress outage shows as a
+     * message, never a 500, and the half-made link is dropped so a broken URL
+     * is never handed to a customer.
+     */
+    public function createPaymentLink(): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        $order = $this->payableOrder($this->paymentOrderId);
+        if ($order === null || ! $this->portalEnabled()) {
+            $this->closePaymentLink();
+
+            return;
+        }
+
+        // The balance shown at 2 decimals, typed back, is the balance.
+        $typed = trim(str_replace(',', '', $this->paymentAmount));
+        if (is_numeric($typed) && abs((float) $typed - $order->balance) < 0.005) {
+            $this->paymentAmount = number_format($order->balance, 3, '.', '');
+        }
+
+        $this->validate([
+            'paymentAmount' => ['required', 'numeric', 'min:0.001', 'max:' . max(0.001, round($order->balance, 3))],
+        ], [
+            'paymentAmount.max' => __('That is more than the :amount still owed on this order.', [
+                'amount' => \App\Erp\Views\ValueFormat::money($order->balance),
+            ]),
+        ], [
+            'paymentAmount' => __('Amount'),
+        ]);
+
+        $link = LimoPaymentLink::query()->create([
+            'rental_order_id' => $order->id,
+            'amount' => round((float) $this->paymentAmount, 3),
+            'currency' => 'BHD',
+            'created_by_user_id' => Auth::id(),
+        ]);
+
+        if (! app(ServiceOrderPortalClient::class)->push($link)) {
+            $link->delete();
+            $this->bulkMessage = __('Could not create the payment link. Check the portal settings and try again.');
+            $this->closePaymentLink();
+
+            return;
+        }
+
+        app(ActivityLogger::class)->log(
+            'updated',
+            __('Order :ref', ['ref' => (string) $order->reference]),
+            'Payment link for ' . number_format((float) $link->amount, 3, '.', '') . ' BHD',
+        );
+
+        $this->paymentLinkUrl = (string) $link->refresh()->url;
+    }
+
     public function render(): View
     {
         $query = app(RentalOrderRows::class)->query($this->tab, $this->from, $this->to, $this->search);
@@ -219,6 +369,7 @@ final class Orders extends Component
             'canManage' => $user instanceof User && $user->canApproveMaintenance(),
             'canCancel' => $this->mayAccess(Permission::Write),
             'canDelete' => $this->mayAccess(Permission::Unlink),
+            'canPayLink' => $this->mayAccess(Permission::Write) && $this->portalEnabled(),
         ]);
     }
 }

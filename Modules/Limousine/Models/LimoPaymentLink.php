@@ -9,7 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * One payment link ("partition") raised against a booking's trip (leg) and sent
+ * One payment link ("partition") raised against a booking's trip (leg), or
+ * against a Rent A Car order (rental_order_id, no leg or booking), and sent
  * to the customer through the Wanaan WordPress portal. A booking can have many:
  * a deposit, the balance, or one per leg — each settles the booking on its own
  * when Tap confirms it.
@@ -19,8 +20,9 @@ use Illuminate\Support\Carbon;
  * duplicating and a replayed callback can't pay twice.
  *
  * @property int $id
- * @property int $leg_id
- * @property int $booking_id
+ * @property int|null $leg_id
+ * @property int|null $booking_id
+ * @property int|null $rental_order_id
  * @property float $amount
  * @property string $currency
  * @property string|null $token
@@ -49,7 +51,7 @@ final class LimoPaymentLink extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'leg_id', 'booking_id', 'amount', 'currency', 'token', 'url',
+        'leg_id', 'booking_id', 'rental_order_id', 'amount', 'currency', 'token', 'url',
         'status', 'woo_order_id', 'transaction_ref', 'paid_at', 'created_by_user_id',
     ];
 
@@ -67,6 +69,7 @@ final class LimoPaymentLink extends Model
         return [
             'leg_id' => 'integer',
             'booking_id' => 'integer',
+            'rental_order_id' => 'integer',
             'amount' => 'float',
             'woo_order_id' => 'integer',
             'paid_at' => 'datetime',

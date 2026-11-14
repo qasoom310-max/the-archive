@@ -201,6 +201,8 @@ final class RentalWebBooking extends Model implements DefinesIrModel
 
         return $name === 'Limousine Service'
             || str_starts_with($name, 'Limousine Service · Trip ')
+            // A Rent A Car order paid through the same portal (plugin 1.1.0+).
+            || str_starts_with($name, 'Car Rental · ')
             || $slug === 'limousine-service';
     }
 

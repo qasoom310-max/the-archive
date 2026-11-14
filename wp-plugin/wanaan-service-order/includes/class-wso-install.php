@@ -9,7 +9,7 @@ defined( 'ABSPATH' ) || exit;
 class WSO_Install {
 
 	/** Bumped when the table schema changes; drives maybe_upgrade(). */
-	const SCHEMA_VERSION = '2';
+	const SCHEMA_VERSION = '3';
 
 	const SCHEMA_OPTION = 'wanaan_so_schema_version';
 
@@ -62,6 +62,7 @@ class WSO_Install {
 			erp_payment_id BIGINT UNSIGNED NOT NULL,
 			erp_booking_id BIGINT UNSIGNED NULL,
 			erp_leg_id BIGINT UNSIGNED NULL,
+			service VARCHAR(16) NULL,
 			ws INT NULL,
 			token VARCHAR(64) NOT NULL,
 			confirmation_no VARCHAR(64) NULL,

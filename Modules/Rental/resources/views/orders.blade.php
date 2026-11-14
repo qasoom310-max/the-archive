@@ -191,7 +191,19 @@
                         <td class="px-4 py-2 text-end text-chrome-600">{{ \App\Erp\Views\ValueFormat::money($order->balance) }}</td>
                         <td class="px-4 py-2 text-end text-chrome-600">{{ \App\Erp\Views\ValueFormat::money($order->deposit) }}</td>
                         <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ $order->state === 'draft' ? __('Reservation') : __(ucfirst($order->state)) }}</span></td>
-                        <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $order->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($order->payment_status)) }}</span></td>
+                        <td class="px-4 py-2">
+                            <div class="flex items-center gap-1.5">
+                                <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $order->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($order->payment_status)) }}</span>
+                                @if ($canPayLink && $order->state !== 'cancelled' && $order->balance > 0.0005)
+                                    {{-- The row opens the order, so the click must stop here. --}}
+                                    <button type="button" onclick="event.stopPropagation()" wire:click="openPaymentLink({{ $order->id }})"
+                                            class="rounded p-1 text-chrome-400 hover:bg-chrome-100 hover:text-primary-700"
+                                            title="{{ __('Create payment link') }}" aria-label="{{ __('Create payment link') }}" data-pay-link>
+                                        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z"/><path d="M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z"/></svg>
+                                    </button>
+                                @endif
+                            </div>
+                        </td>
                     </tr>
                 @empty
                     <tr><td colspan="13"class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No orders found.') }}</td></tr>
@@ -203,4 +215,63 @@
     <div class="mt-4">
         {{ $orders->links('vendor.pagination.compact') }}
     </div>
+
+    {{-- Online payment link: choose how much, make the link, copy it to the customer. --}}
+    @if ($paymentOrderId !== null)
+        <div class="fixed inset-0 z-40 flex items-center justify-center bg-chrome-900/50 p-4" wire:key="pay-link-modal" data-pay-link-modal>
+            <div class="w-full max-w-md rounded-2xl bg-white shadow-xl">
+                <div class="flex items-center justify-between border-b border-chrome-200 px-5 py-3">
+                    <h3 class="text-sm font-semibold text-chrome-900">{{ __('Payment link') }}</h3>
+                    <button type="button" wire:click="closePaymentLink" class="text-chrome-400 hover:text-chrome-700" aria-label="{{ __('Close') }}">&times;</button>
+                </div>
+
+                <div class="px-5 py-4">
+                    @if ($paymentLinkUrl === '')
+                        @php $shares = $this->paymentShares(); @endphp
+                        @if ($shares !== [])
+                            <div class="mb-3 grid grid-cols-3 gap-2" data-payment-shares>
+                                @foreach ($shares as $share)
+                                    @php $chosen = abs((float) $paymentAmount - $share['amount']) < 0.0005; @endphp
+                                    <button type="button" wire:click="usePaymentShare({{ $share['percent'] }})"
+                                            class="rounded-xl px-2 py-2 text-center ring-1 transition {{ $chosen ? 'bg-primary-400 text-chrome-900 ring-primary-500' : 'bg-white text-chrome-700 ring-chrome-200 hover:bg-chrome-50' }}">
+                                        <span class="block text-sm font-semibold">{{ $share['percent'] === 100 ? __('Full balance') : __('Pay :percent%', ['percent' => $share['percent']]) }}</span>
+                                        <span class="block text-xs" dir="ltr">{{ \App\Erp\Views\ValueFormat::money($share['amount']) }}</span>
+                                    </button>
+                                @endforeach
+                            </div>
+                        @endif
+
+                        <label class="text-sm font-medium text-chrome-700">{{ __('Amount to charge') }} *</label>
+                        <div class="mt-1 flex items-center gap-2">
+                            <input type="number" step="0.001" min="0" wire:model="paymentAmount" class="o-input w-full" dir="ltr">
+                            <span class="text-sm text-chrome-500">{{ __('BHD') }}</span>
+                        </div>
+                        <p class="mt-1 text-[11px] text-chrome-400">{{ __('Pre-filled with the balance. Pick 25% or 50% for a deposit, or type any amount.') }}</p>
+                        @error('paymentAmount') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    @else
+                        <p class="mb-2 text-sm text-emerald-700">{{ __('Link created. Send it to the customer:') }}</p>
+                        <div x-data="{ copied: false }" class="flex items-center gap-2">
+                            <input type="text" value="{{ $paymentLinkUrl }}" readonly onclick="this.select()"
+                                   class="o-input w-full bg-chrome-50 text-xs text-chrome-600" dir="ltr">
+                            <button type="button"
+                                    x-on:click="navigator.clipboard.writeText('{{ $paymentLinkUrl }}'); copied = true; setTimeout(() => copied = false, 1500)"
+                                    class="o-btn-ghost shrink-0 text-sm">
+                                <span x-show="!copied">{{ __('Copy') }}</span>
+                                <span x-show="copied" x-cloak>{{ __('Copied') }}</span>
+                            </button>
+                        </div>
+                    @endif
+                </div>
+
+                <div class="flex items-center justify-end gap-2 border-t border-chrome-200 px-5 py-3">
+                    @if ($paymentLinkUrl === '')
+                        <button type="button" wire:click="createPaymentLink" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Create link') }}</button>
+                        <button type="button" wire:click="closePaymentLink" class="o-btn-ghost text-sm">{{ __('Cancel') }}</button>
+                    @else
+                        <button type="button" wire:click="closePaymentLink" class="o-btn-primary text-sm">{{ __('Done') }}</button>
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

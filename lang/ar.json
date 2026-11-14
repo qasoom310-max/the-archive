@@ -1951,6 +1951,8 @@
     "That driver's licence expired on :date — renew it on their record first.": "انتهت رخصة هذا السائق في :date — جدّدها في سجله أولاً.",
     "That email already belongs to another account. Use a different one.": "هذا البريد الإلكتروني مستخدم بالفعل لحساب آخر. استخدم بريدًا مختلفًا.",
     "That is more than the :amount still owed on this booking.": "هذا أكثر من :amount المتبقية على هذا الحجز.",
+    "That is more than the :amount still owed on this order.": "هذا أكثر من :amount المتبقية على هذا الطلب.",
+    "Order :ref": "الطلب :ref",
     "That signature could not be read. Please sign again.": "تعذّرت قراءة التوقيع. يرجى التوقيع مرة أخرى.",
     "That trip is closed — its car and driver can no longer be changed.": "هذه الرحلة مغلقة — لم يعد بالإمكان تغيير سيارتها أو سائقها.",
     "That trip is closed — open the booking to review it.": "هذه الرحلة مغلقة — افتح الحجز لمراجعتها.",

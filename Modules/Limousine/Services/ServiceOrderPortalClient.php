@@ -7,11 +7,13 @@ namespace Modules\Limousine\Services;
 use App\Erp\Tenancy\WorkspaceManager;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Models\LimoPaymentLink;
 use Modules\Limousine\Models\LimoPortalConfiguration;
 use Modules\Limousine\Support\PortalSignature;
+use Modules\Rental\Models\RentalOrder;
 use Throwable;
 
 /**
@@ -44,12 +46,22 @@ final class ServiceOrderPortalClient
             return false;
         }
 
-        $leg = LimoLeg::query()->with('legable.customer')->find($link->leg_id);
-        if ($leg === null) {
-            return false;
+        if ($link->rental_order_id !== null) {
+            $order = Schema::hasTable('rental_orders')
+                ? RentalOrder::query()->with(['customer', 'vehicle'])->find($link->rental_order_id)
+                : null;
+            if ($order === null) {
+                return false;
+            }
+            $payload = $this->rentalPayload($link, $order);
+        } else {
+            $leg = LimoLeg::query()->with('legable.customer')->find($link->leg_id);
+            if ($leg === null) {
+                return false;
+            }
+            $payload = $this->payload($link, $leg);
         }
 
-        $payload = $this->payload($link, $leg);
         $json = (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         $timestamp = (string) time();
         $secret = (string) $config->shared_secret;
@@ -135,6 +147,7 @@ final class ServiceOrderPortalClient
         $remark = (string) ($leg->notes ?? '');
 
         return [
+            'service' => 'limousine',
             'erp_payment_id' => $link->id,
             'erp_booking_id' => $link->booking_id,
             'erp_leg_id' => $link->leg_id,
@@ -159,6 +172,46 @@ final class ServiceOrderPortalClient
             'amount' => number_format((float) $link->amount, 3, '.', ''),
             'currency' => (string) $link->currency,
             'remark' => $remark !== '' ? $remark : $bookingNotes,
+        ];
+    }
+
+    /**
+     * A Rent A Car order, in the same fields the portal stores. `service` tells
+     * the portal to show it as a car hire ("Agreement no.", pick-up and return
+     * dates) rather than a limousine trip. The return date rides in `dropoff`,
+     * the delivery address (when the car is brought to the customer) in
+     * `pickup`. The office's own notes stay in the ERP.
+     *
+     * @return array<string, mixed>
+     */
+    private function rentalPayload(LimoPaymentLink $link, RentalOrder $order): array
+    {
+        $customer = $order->customer;
+        $phone = $customer !== null ? (string) ($customer->phone ?? '') : '';
+
+        return [
+            'service' => 'rental',
+            'erp_payment_id' => $link->id,
+            'erp_booking_id' => null,
+            'erp_leg_id' => null,
+            'ws' => $this->workspaceId(),
+            'confirmation_no' => (string) ($order->reference ?? ''),
+            'booking_no' => '',
+            'date' => now()->format('Y-m-d'),
+            'customer_name' => $customer !== null ? (string) $customer->name : '',
+            'telephone' => $phone !== '' ? $phone : (string) ($order->phone ?? ''),
+            'email' => $customer !== null ? (string) ($customer->email ?? '') : '',
+            'service_date' => $order->start_date?->format('Y-m-d') ?? '',
+            'service_time' => (string) ($order->hired_time ?? ''),
+            'vehicle' => $order->vehicle !== null ? (string) $order->vehicle->name : '',
+            'flight_number' => '',
+            'pax_name' => '',
+            'pax_contact' => '',
+            'pickup' => $order->delivery ? (string) ($order->delivery_location ?? '') : '',
+            'dropoff' => $order->end_date?->format('Y-m-d') ?? '',
+            'amount' => number_format((float) $link->amount, 3, '.', ''),
+            'currency' => (string) $link->currency,
+            'remark' => '',
         ];
     }
 

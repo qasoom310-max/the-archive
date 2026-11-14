@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Http\Controllers;
 
+use App\Erp\Activity\ActivityLogger;
 use App\Erp\Tenancy\WorkspaceManager;
+use Illuminate\Support\Facades\Schema;
+use Modules\Rental\Models\RentalOrder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
@@ -88,7 +91,11 @@ final class PaymentCallbackController
             }
             $settled = true;
 
-            $booking = LimoBooking::query()->find($fresh->booking_id);
+            if ($fresh->rental_order_id !== null) {
+                $this->settleRentalOrder((int) $fresh->rental_order_id, (float) $fresh->amount, (string) ($data['transaction_ref'] ?? ''));
+            }
+
+            $booking = $fresh->booking_id !== null ? LimoBooking::query()->find($fresh->booking_id) : null;
             if ($booking !== null) {
                 $ref = trim((string) ($data['transaction_ref'] ?? ''));
                 $receipt = app(BookingPayments::class)->receive(
@@ -130,5 +137,36 @@ final class PaymentCallbackController
                 Log::warning('Payment-link paid listener failed', ['payment_link' => $link->id, 'error' => $e->getMessage()]);
             }
         }
+    }
+
+    /**
+     * A Rent A Car order paid online. The money lands on the order's advance,
+     * where the counter puts it, so the balance and the paid / partial status
+     * follow exactly as they would for cash. No receipt is written here: the
+     * advance is what the rental reports count, and a receipt on top would
+     * count the same money twice.
+     */
+    private function settleRentalOrder(int $orderId, float $amount, string $ref): void
+    {
+        if (! Schema::hasTable('rental_orders')) {
+            return;
+        }
+
+        $order = RentalOrder::query()->lockForUpdate()->find($orderId);
+        if ($order === null) {
+            Log::warning('Rental payment link paid for a missing order', ['order' => $orderId, 'amount' => $amount]);
+
+            return;
+        }
+
+        $order->advance_amount = round((float) $order->advance_amount + $amount, 3);
+        $order->recalcTotals();
+        $order->save();
+
+        app(ActivityLogger::class)->log(
+            'updated',
+            __('Order :ref', ['ref' => (string) $order->reference]),
+            'Paid online ' . number_format($amount, 3, '.', '') . ' BHD' . (trim($ref) !== '' ? ' (' . trim($ref) . ')' : ''),
+        );
     }
 }

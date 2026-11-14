@@ -167,9 +167,28 @@ class WSO_Woo {
 	 * @return array<string, string>
 	 */
 	public static function trip_details( $row ) {
-		$date = trim( (string) $row->service_date );
-		if ( '' !== $date && false !== strtotime( $date ) ) {
-			$date = date_i18n( 'D j M Y', strtotime( $date ) );
+		$date = self::nice_date( $row->service_date );
+
+		if ( self::is_rental( $row ) ) {
+			// A car hire from the ERP's Rent A Car: its return date rides in
+			// `dropoff`, the delivery address (if any) in `pickup`.
+			$details = array(
+				'Agreement no.' => (string) $row->confirmation_no,
+				'Pick-up date'  => $date,
+				'Pick-up time'  => (string) $row->service_time,
+				'Return date'   => self::nice_date( $row->dropoff ),
+				'Car'           => (string) $row->vehicle,
+				'Delivery to'   => (string) $row->pickup,
+				'Customer'      => (string) $row->customer_name,
+				'Telephone'     => (string) $row->telephone,
+			);
+
+			return array_filter(
+				array_map( 'trim', $details ),
+				static function ( $value ) {
+					return '' !== $value;
+				}
+			);
 		}
 
 		$details = array(
@@ -197,6 +216,25 @@ class WSO_Woo {
 	}
 
 	/**
+	 * A Rent A Car order rather than a limousine trip (stored by 1.1.0+).
+	 *
+	 * @param object $row
+	 */
+	public static function is_rental( $row ) {
+		return isset( $row->service ) && 'rental' === $row->service;
+	}
+
+	/** "2026-11-05" -> "Thu 5 Nov 2026"; anything else as it is. */
+	private static function nice_date( $value ) {
+		$value = trim( (string) $value );
+		if ( '' !== $value && false !== strtotime( $value ) ) {
+			return date_i18n( 'D j M Y', strtotime( $value ) );
+		}
+
+		return $value;
+	}
+
+	/**
 	 * Copy the trip onto the order line WooCommerce creates. Visible meta, so it
 	 * prints in the new-order and customer emails without touching templates.
 	 *
@@ -216,7 +254,7 @@ class WSO_Woo {
 
 		$ref = trim( (string) $row->confirmation_no );
 		if ( '' !== $ref ) {
-			$item->set_name( 'Limousine Service · Trip ' . $ref );
+			$item->set_name( self::is_rental( $row ) ? 'Car Rental · ' . $ref : 'Limousine Service · Trip ' . $ref );
 		}
 
 		foreach ( self::trip_details( $row ) as $label => $value ) {
@@ -240,7 +278,7 @@ class WSO_Woo {
 
 		$arabic = WSO_Arabic::reader_is_arabic();
 		foreach ( self::trip_details( $row ) as $label => $value ) {
-			if ( $arabic && 'Date' === $label ) {
+			if ( $arabic && in_array( $label, WSO_Arabic::DATE_KEYS, true ) ) {
 				$value = WSO_Arabic::date( $value );
 			}
 			$item_data[] = array(

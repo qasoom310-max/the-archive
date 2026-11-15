@@ -88,6 +88,34 @@ final class RentalPaymentLinkTest extends TestCase
         Livewire::test(Orders::class)->assertSeeHtml('data-pay-link');
     }
 
+    public function test_the_row_menu_has_the_agreement_actions(): void
+    {
+        $order = $this->order();
+
+        Livewire::test(Orders::class)
+            ->assertSeeHtml('data-agreement-pdf')
+            ->assertSeeHtml('/app/rental/order/' . $order->id . '/agreement/pdf')
+            ->assertSeeHtml('data-agreement-print')
+            ->assertSeeHtml('data-email-agreement');
+    }
+
+    public function test_the_agreement_is_emailed_from_the_list_once(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $order = $this->order();
+
+        Livewire::test(Orders::class)
+            ->call('emailAgreement', $order->id)
+            ->assertSet('bulkMessage', 'Agreement emailed to saad@example.com.')
+            ->assertSeeHtml('data-agreement-sent')
+            ->assertDontSeeHtml('data-email-agreement')
+            ->call('emailAgreement', $order->id)
+            ->assertSet('bulkMessage', 'The agreement was already emailed to this customer.');
+
+        \Illuminate\Support\Facades\Mail::assertSent(\Modules\Rental\Mail\RentalAgreementMail::class, 1);
+        $this->assertNotNull($order->refresh()->agreement_emailed_at);
+    }
+
     public function test_a_link_is_made_for_the_balance_and_sent_as_a_car_hire(): void
     {
         $this->enablePortal();

@@ -10,18 +10,15 @@ use App\Erp\Views\ValueFormat;
 use App\Livewire\Concerns\GuardsModelAccess;
 use App\Livewire\Concerns\ScrollsToFirstError;
 use App\Erp\Activity\ActivityLogger;
-use App\Erp\Settings\Setting;
 use App\Models\User;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Modules\Limousine\Services\CouponRedeemer;
-use Modules\Rental\Mail\RentalAgreementMail;
-use Modules\Rental\Services\RentalAgreementPdf;
+use Modules\Rental\Services\RentalAgreementSender;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -787,27 +784,7 @@ final class OrderForm extends Component
             return;
         }
 
-        // Send once only.
-        if ($order->agreement_emailed_at !== null) {
-            session()->flash('toast', __('The agreement was already emailed to this customer.'));
-
-            return;
-        }
-
-        $email = $order->customer?->email;
-        if (! is_string($email) || trim($email) === '') {
-            session()->flash('toast', __('This customer has no email — add one to send the agreement.'));
-
-            return;
-        }
-
-        $pdf = app(RentalAgreementPdf::class)->render($order);
-        Mail::to(trim($email))->send(new RentalAgreementMail($pdf, $order, (string) Setting::get('company.name', 'OpenERP')));
-
-        $order->agreement_emailed_at = Carbon::now();
-        $order->save();
-
-        session()->flash('toast', __('Agreement emailed to :email.', ['email' => trim($email)]));
+        session()->flash('toast', app(RentalAgreementSender::class)->send($order));
     }
 
     /** Only the accountant / super-admin may confirm money was received. */

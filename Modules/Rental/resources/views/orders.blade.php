@@ -222,11 +222,42 @@
                                             </svg>
                                             {{ __('Open order') }}
                                         </a>
+                                        {{-- The agreement, as on the order page. --}}
+                                        <a href="{{ url('/app/rental/order/' . $order->id . '/agreement/pdf') }}" target="_blank" rel="noopener" @click="open = false" class="{{ $item }}" data-agreement-pdf>
+                                            <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
+                                            </svg>
+                                            {{ __('Agreement (PDF)') }}
+                                        </a>
+                                        <a href="{{ url('/app/rental/order/' . $order->id . '/agreement') }}" target="_blank" rel="noopener" @click="open = false" class="{{ $item }}" data-agreement-print>
+                                            <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5Zm-3 0h.008v.008H15V10.5Z"/>
+                                            </svg>
+                                            {{ __('Print agreement') }}
+                                        </a>
                                         @if ($canPayLink && $order->state !== 'cancelled' && $order->balance > 0.0005)
                                             <button type="button" @click="open = false" wire:click="openPaymentLink({{ $order->id }})" class="{{ $item }}" data-pay-link>
                                                 <svg class="{{ $icon }}" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z"/><path d="M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z"/></svg>
                                                 {{ __('Create payment link') }}
                                             </button>
+                                        @endif
+                                        @if ($canCancel && $order->state !== 'cancelled')
+                                            <div class="my-1 border-t border-chrome-100"></div>
+                                            @if ($order->agreement_emailed_at)
+                                                <div class="flex items-center gap-2 px-3 py-1.5 text-xs text-emerald-700" data-agreement-sent>
+                                                    <svg class="size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0l-3.5-3.5a1 1 0 1 1 1.4-1.4l2.8 2.79 6.8-6.79a1 1 0 0 1 1.4 0Z" clip-rule="evenodd"/></svg>
+                                                    {{ __('Agreement sent') }} · {{ $order->agreement_emailed_at->format('Y-m-d') }}
+                                                </div>
+                                            @else
+                                                <button type="button" @click="open = false" wire:click="emailAgreement({{ $order->id }})"
+                                                        wire:confirm="{{ __('Email the agreement PDF to the customer? (sends once)') }}"
+                                                        class="{{ $item }}" data-email-agreement>
+                                                    <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"/>
+                                                    </svg>
+                                                    {{ __('Email agreement') }}
+                                                </button>
+                                            @endif
                                         @endif
                                     </div>
                                 </template>

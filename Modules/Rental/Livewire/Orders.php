@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\WithPagination;
 use Modules\Rental\Models\RentalInvoice;
 use Modules\Rental\Models\RentalOrder;
+use Modules\Rental\Services\RentalAgreementSender;
 use Modules\Rental\Services\RentalOrderRows;
 
 /**
@@ -232,6 +233,19 @@ final class Orders extends Component
         return $order !== null && $order->state !== RentalOrder::STATE_CANCELLED && $order->balance > 0.0005
             ? $order
             : null;
+    }
+
+    /** Email the agreement PDF to the order's customer, once (as on the order page). */
+    public function emailAgreement(int $orderId): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        $order = RentalOrder::query()->find($orderId);
+        if ($order === null || $order->state === RentalOrder::STATE_CANCELLED) {
+            return;
+        }
+
+        $this->bulkMessage = app(RentalAgreementSender::class)->send($order);
     }
 
     /** Open the dialog, pre-filled with what is still owed. */

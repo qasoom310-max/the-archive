@@ -22,8 +22,13 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * "PDF" is the exception: when rows are ticked, it does not export a data
  * table of them — it downloads the actual invoice document(s) those rows
  * represent (one page each, {@see LimoInvoicePdf}), same as the download
- * icon on a single row. Untick everything and it goes back to the plain
- * tabular report of the whole tab, exactly like CSV/Excel/Print still do.
+ * icon on a single row. Untick everything and it is a table of the whole
+ * tab.
+ *
+ * Every table here (CSV, Excel, Print, the unticked PDF) carries the printed
+ * invoice's own columns, one row per trip, so a downloaded sheet reads like
+ * the document: Sl, Ref. #, Service, Car Type, From, To, Service date,
+ * Company ref., Pax name, Total, then the invoice and customer.
  */
 final class LimoInvoiceExportController
 {
@@ -39,14 +44,18 @@ final class LimoInvoiceExportController
     {
         $this->authorizeExport('limousine.invoice');
 
-        return $this->renderer->csv($this->rows->headings(), $this->rowsFor($request), $this->exportFilename('limousine-invoices'));
+        [$headings, $rows] = $this->table($request);
+
+        return $this->renderer->csv($headings, $rows, $this->exportFilename('limousine-invoices'));
     }
 
     public function excel(Request $request): StreamedResponse
     {
         $this->authorizeExport('limousine.invoice');
 
-        return $this->renderer->excel($this->rows->headings(), $this->rowsFor($request), $this->exportFilename('limousine-invoices'));
+        [$headings, $rows] = $this->table($request);
+
+        return $this->renderer->excel($headings, $rows, $this->exportFilename('limousine-invoices'));
     }
 
     public function pdf(Request $request): Response
@@ -58,7 +67,9 @@ final class LimoInvoiceExportController
             return $this->invoiceDocuments($ids);
         }
 
-        return $this->renderer->pdf($this->rows->headings(), $this->rowsFor($request), __('Invoices'), $this->exportFilename('limousine-invoices'));
+        [$headings, $rows] = $this->table($request);
+
+        return $this->renderer->pdf($headings, $rows, __('Invoices'), $this->exportFilename('limousine-invoices'));
     }
 
     /**
@@ -99,29 +110,31 @@ final class LimoInvoiceExportController
     {
         $this->authorizeExport('limousine.invoice');
 
-        return $this->renderer->print($this->rows->headings(), $this->rowsFor($request), __('Invoices'));
+        [$headings, $rows] = $this->table($request);
+
+        return $this->renderer->print($headings, $rows, __('Invoices'));
     }
 
     /**
-     * "Live entry data" is a backup of everything the historical import never
-     * touched, not a filter on top of the current tab/date/ticked rows — so it
-     * ignores all of those and asks for the complete live set.
+     * The sheet: the printed invoice's own columns, one row per trip, so the
+     * Excel reads like the PDF. "Live entry data" stays one row per invoice:
+     * it is a record-level backup, not a document.
      *
-     * @return list<array<string, string>>
+     * @return array{0: array<string, string>, 1: list<array<string, string>>}
      */
-    private function rowsFor(Request $request): array
+    private function table(Request $request): array
     {
         if ($request->boolean('live')) {
-            return $this->rows->all('all', '', '', '', [], true);
+            return [$this->rows->headings(), $this->rows->all('all', '', '', '', [], true)];
         }
 
-        return $this->rows->all(
+        return [$this->rows->lineHeadings(), $this->rows->lines(
             (string) $request->query('tab', 'all'),
             (string) $request->query('from', ''),
             (string) $request->query('to', ''),
             (string) $request->query('q', ''),
             $this->ids($request),
-        );
+        )];
     }
 
     /**

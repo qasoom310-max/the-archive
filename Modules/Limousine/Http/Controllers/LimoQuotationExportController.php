@@ -21,8 +21,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * "PDF" is the exception: when rows are ticked, it does not export a data
  * table of them — it downloads the actual quotation document(s) those rows
  * represent (one page each, {@see QuotationPdf}), same as the download icon
- * on a single row. Untick everything and it goes back to the plain tabular
- * report of the whole tab, exactly like CSV/Excel/Print still do.
+ * on a single row. Untick everything and it is a table of the whole tab.
+ *
+ * Every table here (CSV, Excel, Print, the unticked PDF) carries the printed
+ * quotation's own columns, one row per line, so a downloaded sheet reads
+ * like the document.
  */
 final class LimoQuotationExportController
 {
@@ -38,14 +41,18 @@ final class LimoQuotationExportController
     {
         $this->authorizeExport('limousine.quotation');
 
-        return $this->renderer->csv($this->rows->headings(), $this->rowsFor($request), $this->exportFilename('limousine-quotations'));
+        [$headings, $rows] = $this->table($request);
+
+        return $this->renderer->csv($headings, $rows, $this->exportFilename('limousine-quotations'));
     }
 
     public function excel(Request $request): StreamedResponse
     {
         $this->authorizeExport('limousine.quotation');
 
-        return $this->renderer->excel($this->rows->headings(), $this->rowsFor($request), $this->exportFilename('limousine-quotations'));
+        [$headings, $rows] = $this->table($request);
+
+        return $this->renderer->excel($headings, $rows, $this->exportFilename('limousine-quotations'));
     }
 
     public function pdf(Request $request): Response
@@ -57,7 +64,9 @@ final class LimoQuotationExportController
             return $this->quotationDocuments($ids);
         }
 
-        return $this->renderer->pdf($this->rows->headings(), $this->rowsFor($request), __('Quotations'), $this->exportFilename('limousine-quotations'));
+        [$headings, $rows] = $this->table($request);
+
+        return $this->renderer->pdf($headings, $rows, __('Quotations'), $this->exportFilename('limousine-quotations'));
     }
 
     /**
@@ -98,7 +107,9 @@ final class LimoQuotationExportController
     {
         $this->authorizeExport('limousine.quotation');
 
-        return $this->renderer->print($this->rows->headings(), $this->rowsFor($request), __('Quotations'));
+        [$headings, $rows] = $this->table($request);
+
+        return $this->renderer->print($headings, $rows, __('Quotations'));
     }
 
     /**
@@ -106,15 +117,18 @@ final class LimoQuotationExportController
      * touched, not a filter on top of the current tab or ticked rows — so it
      * ignores both and asks for the complete live set.
      *
-     * @return list<array<string, string>>
+     * Otherwise the sheet is the printed quotation's own lines and columns,
+     * so the Excel reads like the PDF.
+     *
+     * @return array{0: array<string, string>, 1: list<array<string, string>>}
      */
-    private function rowsFor(Request $request): array
+    private function table(Request $request): array
     {
         if ($request->boolean('live')) {
-            return $this->rows->all('all', [], true);
+            return [$this->rows->headings(), $this->rows->all('all', [], true)];
         }
 
-        return $this->rows->all($this->tab($request), $this->ids($request), false, $this->search($request));
+        return [$this->rows->lineHeadings(), $this->rows->lines($this->tab($request), $this->ids($request), $this->search($request))];
     }
 
     private function search(Request $request): string

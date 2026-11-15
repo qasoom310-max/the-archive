@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Services;
 
+use App\Erp\Export\DocumentLines;
 use App\Erp\Views\ValueFormat;
 use Illuminate\Database\Eloquent\Builder;
 use Modules\Limousine\Models\LimoInvoice;
@@ -101,6 +102,87 @@ final class LimoInvoiceRows
             'balance' => ValueFormat::money($invoice->balance()),
             'status' => __(ucfirst((string) $invoice->status)),
         ];
+    }
+
+    /**
+     * The columns of the printed invoice ({@see LimoCombinedInvoicePdf}), plus
+     * the invoice number and customer the document prints in its header.
+     * What the list's Excel / CSV / Print carry.
+     *
+     * @return array<string, string>
+     */
+    public function lineHeadings(): array
+    {
+        return [
+            'serial' => __('Sl'), 'trip' => __('Ref. #'), 'service' => __('Service'), 'vehicle' => __('Car Type'),
+            'from' => __('From'), 'to' => __('To'), 'date' => __('Service date'), 'company_reference' => __('Company ref.'),
+            'pax' => __('Pax name'), 'total' => __('Total'), 'invoice' => __('Invoice'), 'customer' => __('Customer'),
+        ];
+    }
+
+    /**
+     * The same invoices as {@see all()}, written out as the printed invoice's
+     * lines: one row per trip (its extras on their own rows under it), in the
+     * order the trips ran, then Total / Paid / Balance due as at the foot of
+     * the document.
+     *
+     * @param  list<int>  $ids  When given, only these rows (the ticked ones).
+     * @return list<array<string, string>>
+     */
+    public function lines(string $tab, string $from, string $to, string $search, array $ids = []): array
+    {
+        $query = $this->query($tab, $from, $to, $search)
+            // The whole customer, not just its name: a company's trips print
+            // the passenger, a private customer's their own name.
+            ->with(['customer', 'booking.legs'])
+            ->reorder()
+            ->orderByRaw('COALESCE(service_date, issue_date)')
+            ->orderBy('id');
+        if ($ids !== []) {
+            $query->whereKey($ids);
+        }
+
+        $invoices = $query->get();
+        if ($invoices->isEmpty()) {
+            return [];
+        }
+
+        $out = [];
+        foreach (app(LimoCombinedInvoicePdf::class)->rows($invoices) as $row) {
+            $invoice = (string) ($row['invoice'] ?? '');
+            $customer = (string) ($row['customer'] ?? '');
+            $out[] = [
+                'serial' => (string) $row['serial'],
+                'trip' => (string) $row['trip'],
+                'service' => (string) $row['service'],
+                'vehicle' => (string) $row['vehicle'],
+                'from' => (string) $row['from'],
+                'to' => (string) $row['to'],
+                'date' => (string) $row['date'],
+                'company_reference' => (string) $row['company_reference'],
+                'pax' => (string) $row['pax'],
+                'total' => ValueFormat::money($row['total']),
+                'invoice' => $invoice,
+                'customer' => $customer,
+            ];
+            foreach ($row['extras'] ?? [] as $extra) {
+                $out[] = [
+                    'service' => DocumentLines::extraLabel($extra),
+                    'total' => ValueFormat::money($extra['amount']),
+                    'invoice' => $invoice,
+                    'customer' => $customer,
+                ];
+            }
+        }
+
+        $total = round((float) $invoices->sum('total'), 3);
+        $paid = round((float) $invoices->sum('amount_paid'), 3);
+
+        return [...$out, ...DocumentLines::footer([
+            __('Total') => $total,
+            __('Paid') => $paid > 0 ? $paid : null,
+            __('Balance due') => round($total - $paid, 3),
+        ], 'pax', 'total')];
     }
 
     /**

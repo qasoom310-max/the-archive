@@ -3388,6 +3388,14 @@ receipt with no invoice shows no breakdown, Remarks prints the receipt's own
 renders and the download icon serves it). Also added to
 `DocumentFooterTest::DOCUMENTS`.
 
+**Invoice and quotation sheets have the document's columns (shipped 2026-11-15).** The owner compared the invoices list's Excel (Reference, Customer, Issued, Paid, Balance, Status) with the combined invoice PDF (Sl, Ref. #, Service, Car Type, From, To, Service date, Company ref., Pax name, Total) and asked for the PDF's columns in every Excel. Lists whose PDF is a real document now download that document's lines in CSV, Excel, Print and the unticked PDF:
+- Limousine invoices: `LimoInvoiceRows::lineHeadings()` / `lines()`, one row per trip from `LimoCombinedInvoicePdf::rows()` (the combined document's own builder, so legacy multi-booking invoices, import copies, adjustment rows and bills with no trip come out the same), extras as "+ name × qty (price each)" rows, ordered by service date, then Total / Paid / Balance due.
+- Limousine quotations: `LimoQuotationRows::lines()` from `QuotationPdf::linesFor()`, numbered per quotation, then Subtotal / Discount / VAT / Total.
+- Rent A Car invoices: `RentalInvoiceRows::lines()` from `RentalInvoicePdf::linesFor()`, then the totals box summed (charges only when non-zero). An invoice with no order (imported) prints one "Rental services" line for its subtotal, else its total.
+- Rent A Car quotations: `RentalQuotationRows::lines()` from `RentalQuotationPdf::linesFor()`, one row per car line, VAT at the default rate like the PDF.
+
+Each sheet adds Invoice/Quotation and Customer columns at the end (the document prints them in its header). Footer rows come from `App\Erp\Export\DocumentLines::footer()`. "Live entry data" (`?live=1`) stays one row per record, as a backup. Receipts are unchanged: their sheet already holds the receipt's own figures (date, method, amount). Every other list's PDF is already the same table as its Excel. Test: `DocumentLineExportTest` (4).
+
 **Limo invoice PDF redesigned + the toolbar "PDF" now downloads real invoice
 documents when rows are ticked (shipped 2026-09-08):** `invoice-pdf.blade.php`
 was rebuilt to match a reference template the owner supplied — a solid gold

@@ -77,6 +77,19 @@ final class QuotationPdf
     }
 
     /**
+     * The quotation's lines, exactly as its PDF prints them. The quotations
+     * list's Excel / CSV / Print are built from these.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function linesFor(LimoQuotation $quote): array
+    {
+        $quote->loadMissing('legs');
+
+        return $this->lines($quote->legs, (string) ($quote->car_type ?? ''));
+    }
+
+    /**
      * @param Collection<int, LimoLeg> $legs
      * @return list<array<string, mixed>>
      */

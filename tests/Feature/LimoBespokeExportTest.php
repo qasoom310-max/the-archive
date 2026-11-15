@@ -85,8 +85,8 @@ final class LimoBespokeExportTest extends TestCase
             'from' => '2026-06-01', 'to' => '2026-06-30',
         ]));
         $body = $this->streamed($response);
-        $this->assertStringContainsString('10-Jun-2026', $body);
-        $this->assertStringNotContainsString('10-Jul-2026', $body);
+        $this->assertStringContainsString('10-Jun-26', $body);
+        $this->assertStringNotContainsString('10-Jul-26', $body);
     }
 
     public function test_invoice_export_is_read_gated(): void

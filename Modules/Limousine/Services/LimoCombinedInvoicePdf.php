@@ -34,6 +34,56 @@ final class LimoCombinedInvoicePdf
      */
     public function viewData(Collection $invoices, ?string $from = null, ?string $to = null): array
     {
+        [$rows, $tripDays] = $this->build($invoices);
+
+        $total = round((float) $invoices->sum('total'), 3);
+        $paid = round((float) $invoices->sum('amount_paid'), 3);
+
+        // The period is the work's, not the paper's: the window asked for,
+        // else from the first trip to the last.
+        $dates = $invoices->map(static fn (LimoInvoice $i): ?\Illuminate\Support\Carbon => $i->service_date ?? $i->issue_date)
+            ->filter()->sort()->values();
+
+        return [
+            'customer' => $invoices->first()?->customer,
+            'customerVat' => trim((string) ($invoices->first()?->customer->vat_number ?? '')),
+            'rows' => $rows,
+            'references' => $invoices->pluck('reference')->filter()->values()->all(),
+            ...$this->period($this->day($from), $this->day($to), $tripDays, $dates),
+            'total' => $total,
+            'paid' => $paid,
+            'balance' => round($total - $paid, 3),
+            'companyName' => (string) Setting::get('company.name', 'OpenERP'),
+            'companyPhone' => (string) Setting::get('company.phone', ''),
+            'companyEmail' => (string) Setting::get('company.email', ''),
+            'logoPath' => $this->logoPath(),
+            'logoScale' => $this->logoScale(),
+        ];
+    }
+
+    /**
+     * The document's lines on their own: one per trip, plus a line for a bill
+     * with no trips and one for any difference between the trips and the bill.
+     * The invoices list's Excel / CSV / Print are built from these, so a sheet
+     * has exactly the rows and columns the printed invoice has.
+     *
+     * Each line also carries its `invoice` number and `customer`, which the
+     * document prints once in its header instead.
+     *
+     * @param  Collection<int, LimoInvoice>  $invoices
+     * @return list<array<string, mixed>>
+     */
+    public function rows(Collection $invoices): array
+    {
+        return $this->build($invoices)[0];
+    }
+
+    /**
+     * @param  Collection<int, LimoInvoice>  $invoices
+     * @return array{0: list<array<string, mixed>>, 1: list<\Illuminate\Support\Carbon>}
+     */
+    private function build(Collection $invoices): array
+    {
         $invoices->loadMissing(['booking.legs', 'customer']);
 
         // An invoice brought over from the old system that could not be tied
@@ -62,6 +112,7 @@ final class LimoCombinedInvoicePdf
                     static fn (int $id): ?LimoBooking => ($b = $legacy->get($id)) !== null && $b->customer_id === $invoice->customer_id ? $b : null,
                     LegacyInvoiceBookings::ids($invoice->notes),
                 )));
+            $start = count($rows);
             $legCount = 0;
             $legTotal = 0.0;
 
@@ -112,6 +163,7 @@ final class LimoCombinedInvoicePdf
                     'company_reference' => '', 'pax' => '',
                     'total' => round((float) $invoice->total, 3),
                 ];
+                $this->tag($rows, $start, $invoice);
 
                 continue;
             }
@@ -134,31 +186,25 @@ final class LimoCombinedInvoicePdf
                     'total' => $difference,
                 ];
             }
+
+            $this->tag($rows, $start, $invoice);
         }
 
-        $total = round((float) $invoices->sum('total'), 3);
-        $paid = round((float) $invoices->sum('amount_paid'), 3);
+        return [$rows, $tripDays];
+    }
 
-        // The period is the work's, not the paper's: the window asked for,
-        // else from the first trip to the last.
-        $dates = $invoices->map(static fn (LimoInvoice $i): ?\Illuminate\Support\Carbon => $i->service_date ?? $i->issue_date)
-            ->filter()->sort()->values();
-
-        return [
-            'customer' => $invoices->first()?->customer,
-            'customerVat' => trim((string) ($invoices->first()?->customer->vat_number ?? '')),
-            'rows' => $rows,
-            'references' => $invoices->pluck('reference')->filter()->values()->all(),
-            ...$this->period($this->day($from), $this->day($to), $tripDays, $dates),
-            'total' => $total,
-            'paid' => $paid,
-            'balance' => round($total - $paid, 3),
-            'companyName' => (string) Setting::get('company.name', 'OpenERP'),
-            'companyPhone' => (string) Setting::get('company.phone', ''),
-            'companyEmail' => (string) Setting::get('company.email', ''),
-            'logoPath' => $this->logoPath(),
-            'logoScale' => $this->logoScale(),
-        ];
+    /**
+     * Stamp the lines just added for one invoice with that invoice's number
+     * and customer.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     */
+    private function tag(array &$rows, int $start, LimoInvoice $invoice): void
+    {
+        for ($i = $start, $n = count($rows); $i < $n; $i++) {
+            $rows[$i]['invoice'] = (string) ($invoice->reference ?? '');
+            $rows[$i]['customer'] = (string) ($invoice->customer->name ?? '');
+        }
     }
 
     private function pax(LimoBooking $booking, LimoInvoice $invoice): string

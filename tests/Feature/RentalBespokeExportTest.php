@@ -326,8 +326,8 @@ final class RentalBespokeExportTest extends TestCase
     public function test_quotation_csv_narrows_to_the_ticked_rows(): void
     {
         $vehicle = $this->vehicle();
-        $a = RentalQuotation::query()->create(['customer_id' => $this->customer()->id, 'vehicle_id' => $vehicle->id, 'total' => 100]);
-        RentalQuotation::query()->create(['customer_id' => $this->customer()->id, 'vehicle_id' => $vehicle->id, 'total' => 250]);
+        $a = RentalQuotation::query()->create(['customer_id' => $this->customer()->id, 'vehicle_id' => $vehicle->id, 'rate' => 100, 'subtotal' => 100, 'total' => 100]);
+        RentalQuotation::query()->create(['customer_id' => $this->customer()->id, 'vehicle_id' => $vehicle->id, 'rate' => 250, 'subtotal' => 250, 'total' => 250]);
 
         $body = $this->streamed(app(RentalQuotationExportController::class)->csv(Request::create('/x', 'GET', ['ids' => (string) $a->id])));
         $this->assertStringContainsString('100.00', $body);

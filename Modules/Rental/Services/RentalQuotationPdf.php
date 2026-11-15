@@ -69,6 +69,19 @@ final class RentalQuotationPdf
     }
 
     /**
+     * The document's lines, exactly as its PDF prints them. The list's
+     * Excel / CSV / Print are built from these.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function linesFor(RentalQuotation $quote): array
+    {
+        $quote->loadMissing(['vehicle']);
+
+        return $this->lines($quote);
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     private function lines(RentalQuotation $quote): array

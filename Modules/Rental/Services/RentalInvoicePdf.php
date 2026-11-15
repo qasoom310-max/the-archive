@@ -78,6 +78,19 @@ final class RentalInvoicePdf
     }
 
     /**
+     * The document's lines, exactly as its PDF prints them. The list's
+     * Excel / CSV / Print are built from these.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function linesFor(RentalInvoice $invoice): array
+    {
+        $invoice->loadMissing(['order.vehicle']);
+
+        return $this->lines($invoice->order);
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     private function lines(?RentalOrder $order): array

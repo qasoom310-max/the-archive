@@ -141,6 +141,7 @@
                     <th class="px-4 py-2 text-end">{{ __('Deposit') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Status') }}</th>
                     <th class="px-4 py-2 text-start">{{ __('Payment') }}</th>
+                    <th class="sticky end-0 z-10 bg-chrome-50 px-2 py-2 text-end" data-copy-skip>{{ __('Actions') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-chrome-50">
@@ -153,8 +154,8 @@
                             'cancelled' => 'bg-red-100 text-red-700',
                         ][$order->state] ?? 'bg-chrome-200 text-chrome-700';
                     @endphp
-                    <tr wire:key="order-{{ $order->id }}" class="cursor-pointer hover:bg-chrome-50" data-row-selected="{{ $this->isSelected($order->id) ? 1 : 0 }}"
-                        onclick="window.location='{{ url('/app/rental/order/' . $order->id) }}'">
+                    <tr wire:key="order-{{ $order->id }}" class="group cursor-pointer hover:bg-chrome-50" data-row-selected="{{ $this->isSelected($order->id) ? 1 : 0 }}"
+                        onclick="if (! event.target.closest('[data-row-actions]')) window.location='{{ url('/app/rental/order/' . $order->id) }}'">
                         {{-- The whole row opens the order, so the tick must not
                              also navigate away from the list. --}}
                         <td class="px-4 py-2" data-copy-skip onclick="event.stopPropagation()">
@@ -191,22 +192,49 @@
                         <td class="px-4 py-2 text-end text-chrome-600">{{ \App\Erp\Views\ValueFormat::money($order->balance) }}</td>
                         <td class="px-4 py-2 text-end text-chrome-600">{{ \App\Erp\Views\ValueFormat::money($order->deposit) }}</td>
                         <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $sb }}">{{ $order->state === 'draft' ? __('Reservation') : __(ucfirst($order->state)) }}</span></td>
-                        <td class="px-4 py-2">
-                            <div class="flex items-center gap-1.5">
-                                <span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $order->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($order->payment_status)) }}</span>
-                                @if ($canPayLink && $order->state !== 'cancelled' && $order->balance > 0.0005)
-                                    {{-- The row opens the order, so the click must stop here. --}}
-                                    <button type="button" onclick="event.stopPropagation()" wire:click="openPaymentLink({{ $order->id }})"
-                                            class="rounded p-1 text-chrome-400 hover:bg-chrome-100 hover:text-primary-700"
-                                            title="{{ __('Create payment link') }}" aria-label="{{ __('Create payment link') }}" data-pay-link>
-                                        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z"/><path d="M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z"/></svg>
-                                    </button>
-                                @endif
+                        <td class="px-4 py-2"><span class="rounded px-2 py-0.5 text-[11px] font-semibold uppercase {{ $order->payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">{{ __(ucfirst($order->payment_status)) }}</span></td>
+                        {{-- Row actions behind one 3-dot button, the same menu as the
+                             limousine bookings (rowActionsMenu: fixed panel, flips up
+                             near the bottom, teleported so the sticky cell can't clip
+                             it). The row opens the order on click, so it skips clicks
+                             made inside [data-row-actions]. --}}
+                        <td class="sticky end-0 z-10 bg-white px-2 py-2 text-end shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.12)] group-hover:bg-chrome-50" data-copy-skip data-row-actions>
+                            @php
+                                $item = 'flex w-full items-center gap-2 px-3 py-1.5 text-start text-xs font-medium text-chrome-800 hover:bg-chrome-50';
+                                $icon = 'size-4 shrink-0 text-chrome-400';
+                            @endphp
+                            <div x-data="rowActionsMenu" @click.outside="open = false" @keydown.escape.window="open = false" class="relative">
+                                <button type="button" @click="toggle($event.currentTarget)"
+                                        class="inline-flex size-7 items-center justify-center rounded-lg text-chrome-700 transition hover:bg-chrome-100"
+                                        :aria-expanded="open" aria-haspopup="true"
+                                        title="{{ __('Actions') }}" aria-label="{{ __('Actions') }}">
+                                    <svg class="size-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path d="M10 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"/>
+                                    </svg>
+                                </button>
+                                <template x-teleport="body">
+                                    <div x-ref="panel" x-show="open" x-cloak x-transition.opacity.duration.100ms
+                                         :style="(coords.top === null ? 'bottom:' + coords.bottom + 'px;' : 'top:' + coords.top + 'px;') + (coords.rtl ? 'right:' + coords.right + 'px' : 'left:' + coords.left + 'px')"
+                                         class="fixed z-50 max-h-[70vh] w-56 overflow-y-auto overflow-x-hidden rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
+                                        <a href="{{ url('/app/rental/order/' . $order->id) }}" wire:navigate @click="open = false" class="{{ $item }}">
+                                            <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+                                            </svg>
+                                            {{ __('Open order') }}
+                                        </a>
+                                        @if ($canPayLink && $order->state !== 'cancelled' && $order->balance > 0.0005)
+                                            <button type="button" @click="open = false" wire:click="openPaymentLink({{ $order->id }})" class="{{ $item }}" data-pay-link>
+                                                <svg class="{{ $icon }}" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z"/><path d="M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z"/></svg>
+                                                {{ __('Create payment link') }}
+                                            </button>
+                                        @endif
+                                    </div>
+                                </template>
                             </div>
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="13"class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No orders found.') }}</td></tr>
+                    <tr><td colspan="14" class="px-4 py-10 text-center text-sm text-chrome-400">{{ __('No orders found.') }}</td></tr>
                 @endforelse
             </tbody>
         </table>

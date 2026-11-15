@@ -78,7 +78,11 @@ final class RentalPaymentLinkTest extends TestCase
     {
         $this->order();
 
-        Livewire::test(Orders::class)->assertDontSeeHtml('data-pay-link');
+        // Every row has its 3-dot Actions menu; the payment link sits inside it.
+        Livewire::test(Orders::class)
+            ->assertSeeHtml('data-row-actions')
+            ->assertSee('Open order')
+            ->assertDontSeeHtml('data-pay-link');
 
         $this->enablePortal();
         Livewire::test(Orders::class)->assertSeeHtml('data-pay-link');

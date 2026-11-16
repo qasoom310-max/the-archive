@@ -1,0 +1,79 @@
+{
+    "app": "rental",
+    "title": {
+        "en": "Travel authorizations for taking a car to another Gulf country",
+        "ar": "توكيلات السفر بالسيارة إلى دولة خليجية أخرى"
+    },
+    "points": {
+        "en": [
+            "A new page in Rent A Car makes the travel authorization letter and downloads it as a PDF.",
+            "The car and the driver are chosen from the records. Nothing is typed by hand.",
+            "The letter can never run past the car's registration, and the page shows who already holds one for which car.",
+            "Only the owner and the people he allows can print it with the company stamp and signature."
+        ],
+        "ar": [
+            "صفحة جديدة في تأجير السيارات تُنشئ توكيل السفر وتنزّله كملف PDF.",
+            "السيارة والسائق يُختاران من السجلات، ولا شيء يُكتب يدوياً.",
+            "التوكيل لا يمكن أن يتجاوز ملكية السيارة، والصفحة تعرض من لديه توكيل ولأي سيارة.",
+            "فقط المالك ومن يسمح لهم يستطيعون طباعته مع ختم الشركة والتوقيع."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, each authorization was typed into a Word or PDF form by hand: the plate, the car's details, the driver's name and personal number and the dates. It took time, mistakes slipped in, and there was no record of which driver held a letter for which car.",
+            "The new page writes the letter from what is already on file. You choose the car and the driver; the plate, make, model, year and colour come from the car, and the name and personal number come from the driver. The layout follows the traffic directorate's form.",
+            "A letter can only be made when the details are complete. The car must have its plate, make, model, year, colour and a registration expiry date that has not passed. The driver must have a personal number and a name of three parts: first name, father's name and family name. If something is missing the page says exactly what, with a link to the car or the driver to complete it.",
+            "The period is chosen with one press: 1 day, 3 days, 7 days, 15 days, 1 month, 6 months or 1 year, counted from the \"Valid from\" date. If the period would run past the last day of the car's registration, the end date is moved back to that day by itself and the page tells you.",
+            "Every letter made is listed with its number, driver, car, dates and whether it is in force, not started or ended. Choosing a car and a driver who already hold a letter that is still valid shows a notice with its end date, so a second one is not made by mistake.",
+            "Each letter keeps the details as they were on the day it was made. Printing it again later gives the same letter, even if the car or driver record was changed since.",
+            "The download is a PDF only. \"Without stamp\" leaves the signature space empty, to be signed and stamped by hand. \"With stamp\" places the company stamp and the owner's signature on it, and is only offered to the owner and the accounts he has allowed. Every stamped print is recorded in the Activity log. The stamp and signature are stored privately and are never shown to other staff."
+        ],
+        "ar": [
+            "سابقاً كان كل توكيل يُكتب يدوياً في نموذج Word أو PDF: اللوحة وبيانات السيارة واسم السائق ورقمه الشخصي والتواريخ. كان ذلك يأخذ وقتاً وتقع فيه أخطاء، ولم يكن هناك سجل يبيّن أي سائق لديه توكيل لأي سيارة.",
+            "الصفحة الجديدة تكتب التوكيل مما هو مسجَّل فعلاً. تختار السيارة والسائق، فتأتي اللوحة والصنع والنوع وسنة الصنع واللون من السيارة، والاسم والرقم الشخصي من السائق. والشكل مطابق لنموذج الإدارة العامة للمرور.",
+            "لا يُنشأ التوكيل إلا إذا كانت البيانات مكتملة. يجب أن تكون للسيارة لوحة وصنع ونوع وسنة صنع ولون وتاريخ انتهاء ملكية لم يمضِ. ويجب أن يكون للسائق رقم شخصي واسم ثلاثي: الاسم الأول واسم الأب واسم العائلة. إذا نقص شيء تذكره الصفحة بالتحديد مع رابط إلى السيارة أو السائق لإكماله.",
+            "المدة تُختار بضغطة واحدة: يوم واحد، 3 أيام، 7 أيام، 15 يوماً، شهر، 6 أشهر، أو سنة، تُحسب من تاريخ «ساري من». إذا تجاوزت المدة آخر يوم في ملكية السيارة يُرجَع تاريخ الانتهاء تلقائياً إلى ذلك اليوم وتخبرك الصفحة بذلك.",
+            "كل توكيل يُدرج برقمه وسائقه وسيارته وتواريخه وحالته: ساري، لم يبدأ، أو منتهٍ. وعند اختيار سيارة وسائق لديهما توكيل ما زال سارياً يظهر تنبيه بتاريخ انتهائه، فلا يُنشأ توكيل ثانٍ بالخطأ.",
+            "كل توكيل يحتفظ بالبيانات كما كانت يوم إنشائه. طباعته لاحقاً تعطي التوكيل نفسه حتى لو تغيّر سجل السيارة أو السائق بعد ذلك.",
+            "التنزيل بصيغة PDF فقط. «بدون ختم» يترك مكان التوقيع فارغاً ليُوقَّع ويُختم يدوياً. «مع الختم» يضع ختم الشركة وتوقيع المالك، ويظهر فقط للمالك وللحسابات التي سمح لها. وكل طباعة مع الختم تُسجَّل في سجل النشاط. الختم والتوقيع محفوظان بشكل خاص ولا يظهران لبقية الموظفين."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Rent A Car. On its home page press \"Travel authorizations\".",
+            "Under \"New authorization\" choose the Car, then the Driver. Type in the box to search.",
+            "If a red note appears, press its link, complete what is missing on the car or the driver, and come back.",
+            "Check \"Date of the letter\" and \"Valid from\". Both start as today.",
+            "Press how long it runs, for example 7 days. \"Valid until\" shows the last day.",
+            "Press \"Make the authorization\". It appears in the list below with its number.",
+            "In the list press \"Without stamp\" or, if you are allowed, \"With stamp\". The PDF downloads.",
+            "Owner, once: at the bottom of the page upload the stamp and the signature, check the owner name and number, and tick who may print with the stamp."
+        ],
+        "ar": [
+            "افتح تأجير السيارات، ومن صفحته الرئيسية اضغط «توكيلات السفر».",
+            "تحت «توكيل جديد» اختر السيارة ثم السائق. اكتب في المربع للبحث.",
+            "إذا ظهرت ملاحظة حمراء فاضغط رابطها وأكمل الناقص في السيارة أو السائق ثم عُد.",
+            "راجع «تاريخ التوكيل» و«ساري من». كلاهما يبدأ بتاريخ اليوم.",
+            "اضغط المدة، مثل 7 أيام. يظهر آخر يوم في «ساري حتى».",
+            "اضغط «إنشاء التوكيل». يظهر في القائمة أدناه برقمه.",
+            "في القائمة اضغط «بدون ختم» أو، إن كان مسموحاً لك، «مع الختم». يُنزَّل ملف PDF.",
+            "للمالك، مرة واحدة: في أسفل الصفحة ارفع الختم والتوقيع، وراجع اسم المالك ورقمه، وحدّد من يحق له الطباعة مع الختم."
+        ]
+    },
+    "images": [
+        {
+            "after": "page-after.png",
+            "caption": {
+                "en": "The Travel authorizations page: the form, the list of letters made, and the owner's box below.",
+                "ar": "صفحة توكيلات السفر: النموذج، وقائمة التوكيلات الصادرة، ومربع المالك في الأسفل."
+            }
+        },
+        {
+            "after": "letter-after.png",
+            "caption": {
+                "en": "The letter as a PDF, printed without the stamp. The details shown are sample data.",
+                "ar": "التوكيل كملف PDF مطبوع بدون الختم. البيانات المعروضة تجريبية."
+            }
+        }
+    ]
+}

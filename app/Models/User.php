@@ -32,6 +32,7 @@ use Throwable;
  * @property bool $petty_cash_full  Every Limousine petty-cash action (issue, top up, confirm, settle) without the Accountant role
  * @property bool $can_change_customer_type  May switch an existing customer between Individual and Company
  * @property bool $can_backdate_rentals      May give a Rent A Car order a pick-up date in the past
+ * @property bool $can_stamp_travel_permits  May print a travel authorization with the stamp and signature
  * @property bool $reports_access  Opens the owner's reports (Daily Summary, Profit & Expenses, Car income, Payroll) without being an admin
  * @property bool $trip_details_locked  Operations: a limousine trip's details stay hidden until it has a car and a driver
  * @property bool $trip_reminders  Staff app: reminded about trips inside the 12 hours still without a car or driver
@@ -64,6 +65,7 @@ final class User extends Authenticatable
         'petty_cash_full',
         'can_change_customer_type',
         'can_backdate_rentals',
+        'can_stamp_travel_permits',
         'reports_access',
         'is_paused',
         'paused_at',
@@ -92,6 +94,7 @@ final class User extends Authenticatable
             'petty_cash_full' => 'boolean',
             'can_change_customer_type' => 'boolean',
             'can_backdate_rentals' => 'boolean',
+            'can_stamp_travel_permits' => 'boolean',
             'reports_access' => 'boolean',
             'trip_details_locked' => 'boolean',
             'trip_reminders' => 'boolean',
@@ -164,6 +167,17 @@ final class User extends Authenticatable
      * every admin: a backdated hire moves money between months, so the owner
      * keeps it to the people who answer for the figures. Column-guarded.
      */
+    /**
+     * Whether this user may print a travel authorization WITH the company
+     * stamp and the owner's signature. A stamped letter takes a company car
+     * across a border in the owner's name, so it is the super admin plus the
+     * people he names (users.can_stamp_travel_permits). Column-guarded.
+     */
+    public function canStampTravelPermits(): bool
+    {
+        return $this->isSuperAdmin() || ($this->getAttribute('can_stamp_travel_permits') ?? false) === true;
+    }
+
     public function canBackdateRentals(): bool
     {
         return $this->isSuperAdmin()

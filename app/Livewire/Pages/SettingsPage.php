@@ -349,6 +349,12 @@ final class SettingsPage extends Component
             return false;
         }
 
+        // The travel authorization's owner details and the paths of the stamp
+        // and signature are set on that page, by the owner only.
+        if (str_starts_with($key, 'rental.permit.')) {
+            return false;
+        }
+
         // The POS receipt printer is set on the POS app's own Settings tab.
         if (str_starts_with($key, 'pos.printer.')) {
             return false;

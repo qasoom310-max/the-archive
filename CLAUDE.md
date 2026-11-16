@@ -5432,6 +5432,36 @@ wants every year kept until he deletes it, and a way to download before deleting
 - Not built: "pause" (the owner mentioned it without saying what it should do), and uploaded
   files are still NOT in `backups:run` (database only).
 Tests: `RentalVehicleDocumentsTest` (7).
+**Travel authorizations (shipped 2026-11-16).** The letter ("توكيل للسفر بمركبة بحرينية") that
+lets a named driver take a company car to another Gulf country was typed by hand each time.
+`/app/rental/travel-permit` (`Modules\Rental\Livewire\TravelPermits`, linked from the Rent A Car
+home strip; gated on `rental.order` Read to open, Write to make) builds it from the records.
+- `TravelPermitIssuer` holds the rules. Car must have plate, make, model, colour, a year, and a
+  `registration_expiry` not before the start date. Driver must have a CPR and a name of >= 3
+  parts. Periods `1d 3d 7d 15d 1m 6m 1y` counted from `valid_from` (`addMonthNoOverflow` etc.).
+  `window()` CLAMPS the end to `registration_expiry` and sets `shortened`. `issue()` throws a
+  `ValidationException` keyed `vehicle_id` / `driver_id` naming what is missing.
+- `rental_travel_permits` (Rental migration `2026_11_16_900069`, model `TravelPermit`,
+  reference `TA/00001`) stores a SNAPSHOT of the car, the driver and the owner name/number, so
+  a reprint never changes. `TravelPermit::inForce()` powers the "already holds one" notice.
+- PDF only: `TravelPermitController::pdf` + `rental::travel-permit-pdf`. **Layout trick:**
+  ShapedPdf splits any Arabic text node over `ArabicText::LINE_CHARS` (24) onto a new line, so
+  the view's `$rtl()` helper cuts each sentence at word gaps into inline boxes under that
+  length and writes them left-to-right in REVERSE reading order, right-aligned. The long
+  sentence is two explicit lines; left to wrap, its FIRST words drop to line two.
+- **Stamp and signature are never in the repo.** The owner uploads them on the page
+  (`storeArtwork`, super admin only, png/jpg/webp, no SVG) to the private disk
+  (`travel_permit_artwork/`); paths live in settings `rental.permit.stamp|signature`
+  (`rental.permit.*` is hidden from the central Settings page). They enter the PDF as data URIs.
+  `?stamp=1` needs `User::canStampTravelPermits()` (super admin or
+  `users.can_stamp_travel_permits`, core migration `2026_11_16_100002` granting by first name:
+  via, ali, abbas, hasan + Abbas's e-mail), returns 409 while no stamp is uploaded, and logs
+  `travel_permit_stamped`. The owner ticks who may stamp in the same box (`setStamper()`).
+  "What's new" pictures of this feature must NOT show the real stamp: every signed-in user
+  can open that page.
+- Owner name / CR printed on new letters: settings `rental.permit.owner_name|owner_no`
+  (defaults from the owner's sample letter), edited in the owner's box.
+Tests: `RentalTravelPermitTest` (14).
 **Correcting a closed order's return figures (shipped 2026-11-16).** On RO/01677 the desk
 typed the odometer into the fuel-charge box; the closed order owed 121,923 BD for petrol and
 nothing on screen could change it. Now:

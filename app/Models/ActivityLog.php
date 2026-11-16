@@ -75,6 +75,7 @@ final class ActivityLog extends Model
         'production_reversed' => 'Reversed production',
         'return_corrected' => 'Corrected return figures',
         'car_paper_deleted' => 'Deleted a car paper',
+        'travel_permit_stamped' => 'Printed a stamped travel authorization',
         'production_reopened' => 'Reopened production',
     ];
 
@@ -121,6 +122,7 @@ final class ActivityLog extends Model
         'production_reversed' => 'bg-red-100 text-red-700',
         'return_corrected' => 'bg-amber-100 text-amber-800',
         'car_paper_deleted' => 'bg-red-100 text-red-700',
+        'travel_permit_stamped' => 'bg-amber-100 text-amber-800',
         'production_reopened' => 'bg-amber-100 text-amber-700',
     ];
 

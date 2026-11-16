@@ -27,6 +27,7 @@ use Modules\Rental\Http\Controllers\RentalFleetExportController;
 use Modules\Rental\Http\Controllers\RentalSalesExportController;
 use Modules\Rental\Http\Controllers\RentalSalesImportController;
 use Modules\Rental\Http\Controllers\RentalVehicleImportController;
+use Modules\Rental\Http\Controllers\TravelPermitController;
 use Modules\Rental\Http\Controllers\VehicleDocumentController;
 use Modules\Rental\Http\Controllers\WebBookingController;
 use Modules\Rental\Livewire\BranchForm;
@@ -53,6 +54,7 @@ use Modules\Rental\Livewire\Replacements;
 use Modules\Rental\Livewire\Reports;
 use Modules\Rental\Livewire\FleetEarnings;
 use Modules\Rental\Livewire\Sales;
+use Modules\Rental\Livewire\TravelPermits;
 use Modules\Rental\Livewire\VehicleForm;
 use Modules\Rental\Livewire\Vehicles;
 
@@ -175,6 +177,16 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/rental/vehicle', Vehicles::class)->name('rental.vehicle.index');
     Route::get('/app/rental/vehicle/new', VehicleForm::class)->name('rental.vehicle.create');
     Route::get('/app/rental/vehicle/{id}', VehicleForm::class)->whereNumber('id')->name('rental.vehicle.edit');
+    // Travel authorizations: the letter that lets a named driver take a
+    // company car to another Gulf country. PDF only.
+    Route::get('/app/rental/travel-permit', TravelPermits::class)->name('rental.travel_permit.index');
+    Route::get('/app/rental/travel-permit/{permit}/pdf', [TravelPermitController::class, 'pdf'])
+        ->whereNumber('permit')->name('rental.travel_permit.pdf');
+    Route::post('/app/rental/travel-permit/artwork', [TravelPermitController::class, 'storeArtwork'])
+        ->middleware('throttle:20,1')->name('rental.travel_permit.artwork.store');
+    Route::get('/app/rental/travel-permit/artwork/{kind}', [TravelPermitController::class, 'artwork'])
+        ->whereIn('kind', ['stamp', 'signature'])->name('rental.travel_permit.artwork');
+
     // A car's papers by year: add, open one, download a year or all as a ZIP.
     Route::post('/app/rental/vehicle/{vehicle}/documents', [VehicleDocumentController::class, 'store'])
         ->whereNumber('vehicle')->middleware('throttle:30,1')->name('rental.vehicle.documents.store');

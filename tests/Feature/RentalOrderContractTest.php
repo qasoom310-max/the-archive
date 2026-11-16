@@ -29,7 +29,9 @@ final class RentalOrderContractTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        // These tests book fixed calendar dates that are now in the past, and are
+        // about other things, so the user is one who may backdate.
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'can_backdate_rentals' => true]));
         app(ModuleManager::class)->install('rental');
     }
 

@@ -292,9 +292,10 @@ final class OrderForm extends Component
             'additional_driver' => ['nullable', 'string', 'max:255'],
             'additional_driver_license' => ['nullable', 'string', 'max:100'],
             'branch_id' => ['nullable', 'integer'],
-            // Pick-up can't be before today — unless an admin / super-admin is
-            // deliberately backdating a booking.
-            'start_date' => $this->canBackdate()
+            // Pick-up can't be before today — unless someone allowed to is
+            // deliberately backdating, or the order already carries this date
+            // (an order that began last week must still be editable today).
+            'start_date' => $this->canBackdate() || $this->startDateUnchanged()
                 ? ['required', 'date']
                 : ['required', 'date', 'after_or_equal:today'],
             // Return must be a LATER day than pick-up (no same / earlier day).
@@ -321,17 +322,34 @@ final class OrderForm extends Component
     protected function messages(): array
     {
         return [
-            'start_date.after_or_equal' => __('The pick-up date can’t be in the past. Only an admin can backdate a booking.'),
+            'start_date.after_or_equal' => __('The pick-up date can’t be in the past. Only the owner, the accountant or a user given this permission can use a past date.'),
             'end_date.after' => __('The return date must be after the pick-up date.'),
         ];
     }
 
-    /** Admins (and super-admins, a superset) may book a past pick-up date. */
+    /** The super admin, the accountant and users granted it by name. */
     private function canBackdate(): bool
     {
         $user = Auth::user();
 
-        return $user instanceof User && $user->isAdmin();
+        return $user instanceof User && $user->canBackdateRentals();
+    }
+
+    /**
+     * Whether an existing order is being saved with the pick-up date it
+     * already has. Keeping a date is not backdating: without this, nobody but
+     * a backdater could edit an order once its first day had passed.
+     */
+    private function startDateUnchanged(): bool
+    {
+        if ($this->id === null || $this->start_date === '') {
+            return false;
+        }
+
+        $saved = RentalOrder::query()->whereKey($this->id)->value('start_date');
+
+        return $saved !== null
+            && Carbon::parse((string) $saved)->toDateString() === Carbon::parse($this->start_date)->toDateString();
     }
 
     /** Picking a vehicle pre-fills its rate + deposit + branch + current mileage. */

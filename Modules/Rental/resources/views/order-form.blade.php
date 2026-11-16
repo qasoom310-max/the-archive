@@ -480,7 +480,9 @@
                          which is exactly what these two did. A bound attribute
                          that is null is simply left off. --}}
                     @php
-                        $earliestStart = $canBackdate ? null : now()->toDateString();
+                        // The picker stops at today for staff who cannot backdate;
+                        // an order that already began keeps its own date reachable.
+                        $earliestStart = $canBackdate ? null : min(now()->toDateString(), $start_date ?: now()->toDateString());
                         $earliestReturn = $start_date ?: null;
                     @endphp
                     <div>

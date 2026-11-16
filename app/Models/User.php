@@ -31,6 +31,7 @@ use Throwable;
  * @property bool $is_accountant    May confirm payments (with super-admins); not even a regular admin can
  * @property bool $petty_cash_full  Every Limousine petty-cash action (issue, top up, confirm, settle) without the Accountant role
  * @property bool $can_change_customer_type  May switch an existing customer between Individual and Company
+ * @property bool $can_backdate_rentals      May give a Rent A Car order a pick-up date in the past
  * @property bool $reports_access  Opens the owner's reports (Daily Summary, Profit & Expenses, Car income, Payroll) without being an admin
  * @property bool $trip_details_locked  Operations: a limousine trip's details stay hidden until it has a car and a driver
  * @property bool $trip_reminders  Staff app: reminded about trips inside the 12 hours still without a car or driver
@@ -62,6 +63,7 @@ final class User extends Authenticatable
         'is_accountant',
         'petty_cash_full',
         'can_change_customer_type',
+        'can_backdate_rentals',
         'reports_access',
         'is_paused',
         'paused_at',
@@ -89,6 +91,7 @@ final class User extends Authenticatable
             'is_accountant' => 'boolean',
             'petty_cash_full' => 'boolean',
             'can_change_customer_type' => 'boolean',
+            'can_backdate_rentals' => 'boolean',
             'reports_access' => 'boolean',
             'trip_details_locked' => 'boolean',
             'trip_reminders' => 'boolean',
@@ -152,6 +155,20 @@ final class User extends Authenticatable
     public function canChangeCustomerType(): bool
     {
         return $this->isSuperAdmin() || ($this->getAttribute('can_change_customer_type') ?? false) === true;
+    }
+
+    /**
+     * Whether this user may give a Rent A Car order a pick-up date in the
+     * past. The super admin and the accountant always may; anyone else only
+     * when granted by name (users.can_backdate_rentals). Deliberately NOT
+     * every admin: a backdated hire moves money between months, so the owner
+     * keeps it to the people who answer for the figures. Column-guarded.
+     */
+    public function canBackdateRentals(): bool
+    {
+        return $this->isSuperAdmin()
+            || $this->isAccountant()
+            || ($this->getAttribute('can_backdate_rentals') ?? false) === true;
     }
 
     /**

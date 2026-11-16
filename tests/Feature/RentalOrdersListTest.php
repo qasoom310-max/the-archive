@@ -81,7 +81,8 @@ final class RentalOrdersListTest extends TestCase
 
     public function test_saving_a_new_order_stamps_and_lists_the_creator(): void
     {
-        $maker = User::factory()->create(['name' => 'Sara Customer-Service', 'is_admin' => true]);
+        // The order below is booked on a fixed date that is now in the past.
+        $maker = User::factory()->create(['name' => 'Sara Customer-Service', 'is_admin' => true, 'can_backdate_rentals' => true]);
         $this->actingAs($maker);
 
         $customer = RentalCustomer::query()->create(['name' => 'Buyer', 'phone' => '39000002']);

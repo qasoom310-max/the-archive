@@ -42,7 +42,9 @@ final class RentalModuleTest extends TestCase
     {
         parent::setUp();
         app(SettingManager::class)->flush();
-        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        // These tests book fixed calendar dates that are now in the past, and are
+        // about other things, so the user is one who may backdate.
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'can_backdate_rentals' => true]));
     }
 
     private function install(): void

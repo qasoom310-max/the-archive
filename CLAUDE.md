@@ -5382,6 +5382,19 @@ and `UpdatesPageTest` still calls it on every real file, so a bad entry is still
 **Rule: anything the layout runs on every page must fail soft.** Test:
 `UpdatesPageTest::test_a_broken_entry_on_disk_does_not_break_any_page`.
 
+**Who may backdate a rental order (changed 2026-11-16, the owner's call).** A NEW Rent A Car
+order with a past pick-up date was open to every admin (`OrderForm::canBackdate()` =
+`isAdmin()`). It is now `User::canBackdateRentals()`: super admin, accountant, or
+`users.can_backdate_rentals` (core migration `2026_11_16_100001`, which grants it by name to
+the account signed in as "via": username `via` or an e-mail starting `via@`, the same pattern
+as `can_change_customer_type`). There is NO settings screen for the flag; another person is
+granted by a data migration or `tinker`. Plain admins LOST backdating.
+- **Keeping a date is not backdating.** `OrderForm::startDateUnchanged()` lifts the
+  `after_or_equal:today` rule when an existing order is saved with the pick-up date it already
+  has. Without it nobody but a backdater could save ANY edit to an order once its first day
+  had passed (already true for non-admin staff before this change, and it would have reached
+  every admin with it). The date picker's `min` is the earlier of today and the saved date.
+Tests: `RentalOrderDatesTest` (who may, an order that began stays editable, the grant by name).
 **Correcting a closed order's return figures (shipped 2026-11-16).** On RO/01677 the desk
 typed the odometer into the fuel-charge box; the closed order owed 121,923 BD for petrol and
 nothing on screen could change it. Now:

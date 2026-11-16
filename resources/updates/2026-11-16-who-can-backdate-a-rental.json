@@ -1,0 +1,47 @@
+{
+    "app": "rental",
+    "title": {
+        "en": "A past pick-up date on a rental order: owner, accountant and Via only",
+        "ar": "تاريخ استلام سابق في طلب التأجير: للمالك والمحاسب وحساب Via فقط"
+    },
+    "points": {
+        "en": [
+            "Only the owner, the accountant and the Via account can save a new rental order with a pick-up date in the past.",
+            "Other staff, including administrators, can no longer do this.",
+            "An order that has already started can still be edited by staff as long as its pick-up date is not moved."
+        ],
+        "ar": [
+            "فقط المالك والمحاسب وحساب Via يستطيعون حفظ طلب تأجير جديد بتاريخ استلام في الماضي.",
+            "بقية الموظفين، ومنهم المديرون، لم يعودوا يستطيعون ذلك.",
+            "الطلب الذي بدأ فعلاً ما زال يمكن للموظفين تعديله ما دام تاريخ استلامه لم يتغير."
+        ]
+    },
+    "details": {
+        "en": [
+            "A rental order with a pick-up date in the past is counted in an earlier month, so it changes the figures of a month that may already have been reviewed. Before, any administrator could do this.",
+            "Now it is limited to three: the owner, the accountant, and the account signed in as Via. For everyone else the pick-up date cannot be earlier than today, and the form says so if they try.",
+            "One thing was made easier at the same time. Staff who cannot use a past date were also blocked from saving any change to an order once its first day had passed, because the form saw the old pick-up date as \"in the past\". Keeping the date an order already has is now allowed for everyone. Only moving the pick-up date into the past is held back.",
+            "There is no picture with this update: the form looks the same. Only who may use a past date has changed."
+        ],
+        "ar": [
+            "طلب التأجير بتاريخ استلام في الماضي يُحتسب في شهر سابق، فيغيّر أرقام شهر ربما تمت مراجعته. سابقاً كان أي مدير يستطيع ذلك.",
+            "الآن اقتصر الأمر على ثلاثة: المالك، والمحاسب، والحساب المسجَّل باسم Via. أما الباقون فلا يمكن أن يكون تاريخ الاستلام عندهم قبل اليوم، والنموذج يوضح ذلك إن حاولوا.",
+            "وتم تسهيل أمر واحد في الوقت نفسه. الموظفون الذين لا يستطيعون استخدام تاريخ سابق كانوا يُمنعون أيضاً من حفظ أي تعديل على طلب بعد مرور يومه الأول، لأن النموذج كان يعتبر تاريخ الاستلام القديم «في الماضي». الآن يُسمح للجميع بالإبقاء على التاريخ الموجود في الطلب، ويُمنع فقط نقل تاريخ الاستلام إلى الماضي.",
+            "لا توجد صورة مع هذا التحديث: شكل النموذج لم يتغير، والذي تغيّر هو من يحق له استخدام تاريخ سابق."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Owner, accountant or Via: open Rent A Car, Orders, New order. Choose any pick-up date, including one in the past, and save as usual.",
+            "Other staff: choose a pick-up date of today or later. If a rental really started earlier and must be entered, ask the owner, the accountant or Via to enter it.",
+            "To edit an order that has already started, open it, change what is needed and save. Leave the pick-up date as it is.",
+            "To give another person this permission, ask the owner. It is granted per account."
+        ],
+        "ar": [
+            "المالك أو المحاسب أو Via: افتح تأجير السيارات ثم الطلبات ثم طلب جديد. اختر أي تاريخ استلام، حتى لو كان في الماضي، واحفظ كالمعتاد.",
+            "بقية الموظفين: اختر تاريخ استلام اليوم أو بعده. إذا كان الإيجار قد بدأ فعلاً في وقت سابق ويجب إدخاله، اطلب من المالك أو المحاسب أو Via إدخاله.",
+            "لتعديل طلب بدأ فعلاً، افتحه وغيّر المطلوب واحفظ. اترك تاريخ الاستلام كما هو.",
+            "لمنح هذه الصلاحية لشخص آخر اطلب من المالك. الصلاحية تُمنح لكل حساب على حدة."
+        ]
+    }
+}

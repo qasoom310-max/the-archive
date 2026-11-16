@@ -1,0 +1,49 @@
+{
+    "app": "system",
+    "title": {
+        "en": "Fixed: an uploaded document could disappear after the page was reloaded",
+        "ar": "إصلاح: المستند المرفوع كان قد يختفي بعد إعادة تحميل الصفحة"
+    },
+    "points": {
+        "en": [
+            "A document or picture uploaded on a form is now always saved, on cars and on every other form of this kind.",
+            "Before, the upload was silently dropped if any other field on the same form held a value the form did not accept."
+        ],
+        "ar": [
+            "المستند أو الصورة المرفوعة في النموذج أصبحت تُحفظ دائماً، في السيارات وفي كل نموذج آخر من هذا النوع.",
+            "سابقاً كان الرفع يُهمل بصمت إذا كان أي حقل آخر في النموذج نفسه يحمل قيمة لا يقبلها النموذج."
+        ]
+    },
+    "details": {
+        "en": [
+            "On a car's page, a registration card or insurance paper could be uploaded, appear on the screen as saved, and then be gone when the page was opened again. No message was shown.",
+            "The cause: these forms save by themselves as you type, and they refuse to save anything while any field on the form is not valid. Some cars brought over from the old system have a category or fuel type written in a way the form does not list. On those cars nothing could be saved from the form, including the uploaded file.",
+            "An uploaded file is now saved on its own, the moment it is uploaded, whatever the state of the other fields. This applies to every form that has a file or picture box: cars, customers, accounts, employees, products and the rest.",
+            "Files uploaded before this fix on such a car were not attached and need to be uploaded once more. A car with a field the form does not accept still needs that field corrected before other changes on the form will save; the form marks the field in red.",
+            "There is no picture with this update: the form looks the same."
+        ],
+        "ar": [
+            "في صفحة السيارة كان يمكن رفع بطاقة الملكية أو ورقة التأمين، فتظهر على الشاشة كأنها حُفظت، ثم تختفي عند فتح الصفحة من جديد، دون أي رسالة.",
+            "السبب: هذه النماذج تحفظ تلقائياً أثناء الكتابة، وترفض حفظ أي شيء ما دام أي حقل في النموذج غير صحيح. بعض السيارات المنقولة من النظام القديم لها فئة أو نوع وقود مكتوب بطريقة ليست ضمن قائمة النموذج. في هذه السيارات لم يكن يُحفظ أي شيء من النموذج، ومن ضمنه الملف المرفوع.",
+            "الملف المرفوع أصبح يُحفظ وحده لحظة رفعه، مهما كانت حالة الحقول الأخرى. وهذا يشمل كل نموذج فيه مربع ملف أو صورة: السيارات والعملاء والحسابات والموظفين والمنتجات وغيرها.",
+            "الملفات التي رُفعت قبل هذا الإصلاح على مثل هذه السيارات لم تُرفق ويجب رفعها مرة أخرى. والسيارة التي فيها حقل لا يقبله النموذج ما زالت تحتاج إلى تصحيح ذلك الحقل قبل أن تُحفظ بقية التغييرات، والنموذج يُظهر الحقل بالأحمر.",
+            "لا توجد صورة مع هذا التحديث: شكل النموذج لم يتغير."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open the car: Rent A Car, Cars, then the car.",
+            "In Edit car, press Choose File under Registration card or Insurance receipt and pick the PDF.",
+            "Wait until the file name appears as a grey button beside the box. It is saved.",
+            "Reload the page to check: the grey button with the file name is still there. Press it to open the file.",
+            "If a field on the form is marked in red, correct it so the rest of the form can save too."
+        ],
+        "ar": [
+            "افتح السيارة: تأجير السيارات ثم السيارات ثم السيارة.",
+            "في «تعديل السيارة» اضغط «اختيار ملف» تحت بطاقة الملكية أو إيصال التأمين واختر ملف PDF.",
+            "انتظر حتى يظهر اسم الملف كزر رمادي بجانب المربع. بذلك يكون قد حُفظ.",
+            "أعد تحميل الصفحة للتأكد: الزر الرمادي باسم الملف ما زال موجوداً. اضغط عليه لفتح الملف.",
+            "إذا كان أحد حقول النموذج مظللاً بالأحمر فصحّحه لكي تُحفظ بقية النموذج أيضاً."
+        ]
+    }
+}

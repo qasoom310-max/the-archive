@@ -295,7 +295,57 @@ final class FormView extends Component
             return;
         }
 
+        // An uploaded document or picture is saved on its own, before the
+        // rest of the form is tried. Auto-save refuses to commit ANYTHING
+        // while any field is invalid, and says so only beside that field: a
+        // car imported with a category this form does not list never saved an
+        // upload at all. The file was on the server, the page showed it, and
+        // after a reload it was gone, with no message.
+        if (str_starts_with($name, 'imagePaths.') || str_starts_with($name, 'filePaths.')) {
+            $this->persistUpload($name);
+        }
+
         $this->autoSave();
+    }
+
+    /**
+     * Write ONE uploaded file's path to the record, independent of the other
+     * fields. Same gates as save(): Write on the model, and only a field the
+     * arch declares as an image or a file (the buffer's keys come from the
+     * browser, so anything else is ignored).
+     */
+    private function persistUpload(string $name): void
+    {
+        [$buffer, $attribute] = array_pad(explode('.', $name, 2), 2, '');
+        $path = $buffer === 'imagePaths' ? ($this->imagePaths[$attribute] ?? '') : ($this->filePaths[$attribute] ?? '');
+
+        if ($attribute === '' || ! is_string($path) || $path === '') {
+            return;
+        }
+
+        $declared = false;
+        foreach ($this->arch->formFields as $field) {
+            if ($field->field === $attribute && ($buffer === 'imagePaths' ? $field->isImage() : $field->isFile())) {
+                $declared = true;
+
+                break;
+            }
+        }
+        if (! $declared) {
+            return;
+        }
+
+        if (! $this->may(Permission::Write)) {
+            $this->access()->authorize(Auth::user(), $this->modelKey, Permission::Write);
+        }
+
+        $record = $this->resolveRecord();
+        if (! $record->exists) {
+            return;
+        }
+
+        $record->setAttribute($attribute, $path);
+        $record->save();
     }
 
     /**

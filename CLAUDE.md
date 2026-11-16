@@ -5395,6 +5395,17 @@ granted by a data migration or `tinker`. Plain admins LOST backdating.
   had passed (already true for non-admin staff before this change, and it would have reached
   every admin with it). The date picker's `min` is the earlier of today and the saved date.
 Tests: `RentalOrderDatesTest` (who may, an order that began stays editable, the grant by name).
+**Engine: an upload is saved on its own, not with the form (fixed 2026-11-16).** The owner
+uploaded a car's registration and insurance PDFs and found them gone on reload. `FormView`
+auto-save runs `save(silent: true)`, which validates the WHOLE form and swallows the
+`ValidationException`; a car imported with a `category` or `fuel_type` not in the select's
+options fails the `in:` rule, so nothing from that form ever commits, the `filePaths` buffer
+included. The Alpine widget had already shown the file as attached. `FormView::updated()` now
+calls `persistUpload($name)` first for `imagePaths.*` / `filePaths.*`: Write-gated, only a
+field the arch declares as image/file, one `setAttribute` + `save()`. Then auto-save runs as
+before. **Still true and worth knowing: on such a record NO other field saves from the engine
+form until the invalid one is fixed, and the only sign is the inline error under that field.**
+Tests: `RentalCarDocumentsTest` (+2).
 **Correcting a closed order's return figures (shipped 2026-11-16).** On RO/01677 the desk
 typed the odometer into the fuel-charge box; the closed order owed 121,923 BD for petrol and
 nothing on screen could change it. Now:

@@ -175,4 +175,43 @@ final class RentalCarDocumentsTest extends TestCase
         $this->assertNotNull($renewal);
         $this->assertSame('1 expired or expiring soon', $renewal->description);
     }
+
+    /**
+     * An uploaded paper is saved even when another field of the car holds a
+     * value the form does not accept (an imported category or fuel type).
+     * Auto-save used to refuse the whole form in silence, so the upload looked
+     * saved and was gone after a reload.
+     */
+    public function test_an_uploaded_paper_is_kept_even_when_another_field_is_invalid(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        $car = Vehicle::query()->create(['name' => 'FORD EXPEDITION', 'plate_no' => '125818']);
+        \Illuminate\Support\Facades\DB::table('rental_vehicles')->where('id', $car->id)->update(['category' => 'SUV ', 'fuel_type' => 'Petrol']);
+
+        Livewire::test(\App\Livewire\Views\FormView::class, ['model' => Vehicle::class, 'modelKey' => 'rental.vehicle', 'recordId' => $car->id])
+            ->set('filePaths.registration_doc', 'rental_vehicles/reg-2026.pdf')
+            ->set('filePaths.insurance_doc', 'rental_vehicles/ins-2026.pdf')
+            // A key the form does not declare as a file is never written.
+            ->set('filePaths.name', 'rental_vehicles/evil.pdf');
+
+        $car->refresh();
+        $this->assertSame('rental_vehicles/reg-2026.pdf', $car->registration_doc);
+        $this->assertSame('rental_vehicles/ins-2026.pdf', $car->insurance_doc);
+        $this->assertSame('FORD EXPEDITION', $car->name);
+    }
+
+    public function test_an_upload_still_needs_write_access(): void
+    {
+        $car = Vehicle::query()->create(['name' => 'Kia', 'plate_no' => '1']);
+        $this->grantEveryone('rental.vehicle');
+        // Read-only on cars: may open the form, may not attach a paper.
+        \App\Models\Auth\ModelAccess::query()->where('model', 'rental.vehicle')->update(['perm_write' => false, 'perm_create' => false]);
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+
+        Livewire::test(\App\Livewire\Views\FormView::class, ['model' => Vehicle::class, 'modelKey' => 'rental.vehicle', 'recordId' => $car->id])
+            ->set('filePaths.registration_doc', 'rental_vehicles/x.pdf')
+            ->assertForbidden();
+
+        $this->assertNull($car->refresh()->registration_doc);
+    }
 }

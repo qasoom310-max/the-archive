@@ -155,7 +155,7 @@ final class LimoDriverAliasTest extends TestCase
 
         $this->actingAs($this->owner());
 
-        Livewire::test(LimoEarnings::class)
+        Livewire::withQueryParams(['month' => 0])->test(LimoEarnings::class)
             ->assertSee('Hussain Makhlooq')
             ->assertDontSee('kown');
     }
@@ -180,7 +180,7 @@ final class LimoDriverAliasTest extends TestCase
         // Counted apart rather than ranked as a person, and said so on the page.
         $this->actingAs($this->owner());
 
-        Livewire::test(LimoEarnings::class)
+        Livewire::withQueryParams(['month' => 0])->test(LimoEarnings::class)
             ->assertDontSee('admin')
             ->assertSee('1 trips are on an office or system account');
     }
@@ -235,7 +235,7 @@ final class LimoDriverAliasTest extends TestCase
 
         $this->actingAs($this->owner());
 
-        Livewire::test(LimoEarnings::class)->assertSee('Qmakki');
+        Livewire::withQueryParams(['month' => 0])->test(LimoEarnings::class)->assertSee('Qmakki');
     }
 
     /* ── What the match is worth ─────────────────────────────────────────── */

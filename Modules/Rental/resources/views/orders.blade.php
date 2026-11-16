@@ -215,7 +215,7 @@
                                 <template x-teleport="body">
                                     <div x-ref="panel" x-show="open" x-cloak x-transition.opacity.duration.100ms
                                          :style="(coords.top === null ? 'bottom:' + coords.bottom + 'px;' : 'top:' + coords.top + 'px;') + (coords.rtl ? 'right:' + coords.right + 'px' : 'left:' + coords.left + 'px')"
-                                         class="fixed z-50 max-h-[70vh] w-56 overflow-y-auto overflow-x-hidden rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
+                                         class="fixed z-50 max-h-[70vh] w-72 overflow-y-auto overflow-x-hidden rounded-lg border border-chrome-200 bg-white py-1 shadow-pop">
                                         <a href="{{ url('/app/rental/order/' . $order->id) }}" wire:navigate @click="open = false" class="{{ $item }}">
                                             <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
@@ -235,6 +235,30 @@
                                             </svg>
                                             {{ __('Print agreement') }}
                                         </a>
+                                        {{-- The order's invoices (with what is still owed) and their receipts. --}}
+                                        @php $docs = $paperwork[$order->id] ?? ['invoices' => [], 'receipts' => []]; @endphp
+                                        @if ($docs['invoices'] !== [] || $docs['receipts'] !== [])
+                                            <div class="my-1 border-t border-chrome-100"></div>
+                                        @endif
+                                        @foreach (array_slice($docs['invoices'], 0, 3) as $inv)
+                                            <a href="{{ url('/app/rental/invoice/' . $inv['id']) }}" wire:navigate @click="open = false" class="{{ $item }}" data-open-invoice>
+                                                <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14.25h6m-6-4.5h6M7.5 3h9A1.5 1.5 0 0 1 18 4.5v16.5l-3-1.5-3 1.5-3-1.5-3 1.5V4.5A1.5 1.5 0 0 1 7.5 3Z"/></svg>
+                                                <span class="flex min-w-0 flex-col">
+                                                    <span class="truncate">{{ __('Open invoice') }} <span class="text-chrome-400">{{ $inv['reference'] }}</span></span>
+                                                    @if ($inv['balance'] > 0.0005)
+                                                        <span class="text-xs text-red-600">{{ __('Balance') }} {{ \App\Erp\Money\Currencies::format($inv['balance']) }}</span>
+                                                    @else
+                                                        <span class="text-xs text-emerald-700">{{ __('Paid') }}</span>
+                                                    @endif
+                                                </span>
+                                            </a>
+                                        @endforeach
+                                        @foreach (array_slice($docs['receipts'], 0, 5) as $receipt)
+                                            <a href="{{ url('/app/rental/receipt/' . $receipt['id']) }}" wire:navigate @click="open = false" class="{{ $item }}" data-open-receipt>
+                                                <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z"/></svg>
+                                                <span class="min-w-0 truncate">{{ __('Open receipt') }} <span class="text-chrome-400">{{ $receipt['reference'] }} · {{ \App\Erp\Money\Currencies::format($receipt['amount']) }}</span></span>
+                                            </a>
+                                        @endforeach
                                         @if ($canPayLink && $order->state !== 'cancelled' && $order->balance > 0.0005)
                                             <button type="button" @click="open = false" wire:click="openPaymentLink({{ $order->id }})" class="{{ $item }}" data-pay-link>
                                                 <svg class="{{ $icon }}" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z"/><path d="M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z"/></svg>

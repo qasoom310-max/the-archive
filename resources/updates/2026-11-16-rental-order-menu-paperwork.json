@@ -1,0 +1,47 @@
+{
+    "app": "rental",
+    "title": { "en": "Rent A Car orders: invoices and receipts in the 3-dot menu", "ar": "طلبات تأجير السيارات: الفواتير والإيصالات في قائمة النقاط الثلاث" },
+    "points": {
+        "en": [
+            "The 3-dot menu on each order now lists the order's invoices and receipts. Each one opens with one tap.",
+            "Under each invoice you see what is still owed on it, in red, or Paid in green."
+        ],
+        "ar": [
+            "أصبحت قائمة النقاط الثلاث في كل طلب تعرض فواتير الطلب وإيصالاته، وكل منها يُفتح بضغطة واحدة.",
+            "تحت كل فاتورة يظهر المبلغ المتبقي عليها باللون الأحمر، أو مدفوع باللون الأخضر."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the 3-dot menu on an order only had Open order, the agreement and the payment link. To find the order's invoice or receipt you had to open the order, or go to the Invoices or Receipts list and search for it.",
+            "Now the menu lists every invoice raised from the order (up to three, newest first) with the balance still owed under it, and the receipts written against those invoices (up to five). Tap one to open it. You only see them if you are allowed to open invoices and receipts.",
+            "Money taken at the counter that has no receipt, and old invoices brought over from the previous system that are not tied to an order, do not appear here. The menu also now stays inside the screen on a phone."
+        ],
+        "ar": [
+            "سابقاً كانت قائمة النقاط الثلاث في الطلب تحتوي فقط على فتح الطلب والعقد ورابط الدفع. للوصول إلى فاتورة الطلب أو إيصاله كان عليك فتح الطلب، أو الذهاب إلى قائمة الفواتير أو الإيصالات والبحث عنها.",
+            "الآن تعرض القائمة كل فاتورة صادرة من الطلب (حتى ثلاث، الأحدث أولاً) مع المبلغ المتبقي تحتها، والإيصالات المكتوبة على تلك الفواتير (حتى خمسة). اضغط على أي منها لفتحه. تظهر فقط إذا كان مسموحاً لك بفتح الفواتير والإيصالات.",
+            "المبالغ المستلمة في المكتب بدون إيصال، والفواتير القديمة المنقولة من النظام السابق غير المرتبطة بطلب، لا تظهر هنا. كما أصبحت القائمة تبقى داخل الشاشة على الهاتف."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Rent A Car, then Orders.",
+            "Press the 3-dot button at the end of an order's row.",
+            "Under Print agreement, press Open invoice to open the invoice. The line under it shows the balance still owed.",
+            "Press Open receipt to open a receipt."
+        ],
+        "ar": [
+            "افتح تأجير السيارات ثم الطلبات.",
+            "اضغط زر النقاط الثلاث في نهاية سطر الطلب.",
+            "تحت طباعة العقد، اضغط فتح الفاتورة لفتح الفاتورة. السطر تحتها يعرض المبلغ المتبقي.",
+            "اضغط فتح الإيصال لفتح الإيصال."
+        ]
+    },
+    "images": [
+        {
+            "before": "menu-before.png",
+            "after": "menu-after.png",
+            "caption": { "en": "The 3-dot menu on an order, on a phone.", "ar": "قائمة النقاط الثلاث في الطلب، على الهاتف." }
+        }
+    ]
+}

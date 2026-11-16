@@ -99,6 +99,35 @@ final class RentalPaymentLinkTest extends TestCase
             ->assertSeeHtml('data-email-agreement');
     }
 
+    public function test_the_row_menu_lists_the_orders_invoices_and_receipts(): void
+    {
+        $order = $this->order();
+        $invoice = \Modules\Rental\Models\RentalInvoice::query()->create([
+            'customer_id' => $order->customer_id, 'order_id' => $order->id,
+            'issue_date' => '2026-11-20', 'subtotal' => 100, 'total' => 100,
+        ]);
+        $receipt = \Modules\Rental\Models\RentalReceipt::query()->create([
+            'invoice_id' => $invoice->id, 'customer_id' => $order->customer_id,
+            'date' => '2026-11-20', 'amount' => 30, 'method' => 'cash',
+        ]);
+        $invoice->refresh();
+
+        Livewire::test(Orders::class)
+            ->assertSeeHtml('data-open-invoice')
+            ->assertSeeHtml('/app/rental/invoice/' . $invoice->id)
+            ->assertSee((string) $invoice->reference)
+            ->assertSeeHtml('data-open-receipt')
+            ->assertSeeHtml('/app/rental/receipt/' . $receipt->id)
+            ->assertSee((string) $receipt->refresh()->reference);
+
+        // Someone who may not read invoices or receipts gets neither.
+        $this->actingAs(User::factory()->create());
+        $this->grantEveryone('rental.order');
+        Livewire::test(Orders::class)
+            ->assertDontSeeHtml('data-open-invoice')
+            ->assertDontSeeHtml('data-open-receipt');
+    }
+
     public function test_the_agreement_is_emailed_from_the_list_once(): void
     {
         \Illuminate\Support\Facades\Mail::fake();

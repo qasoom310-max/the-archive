@@ -6,6 +6,7 @@ namespace Modules\Rental\Livewire;
 
 use App\Erp\Web\WebsiteOrigin;
 use App\Erp\Activity\ActivityLogger;
+use App\Erp\Security\AccessControl;
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
 use App\Livewire\Concerns\SelectsListRows;
@@ -26,6 +27,7 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\WithPagination;
 use Modules\Rental\Models\RentalInvoice;
 use Modules\Rental\Models\RentalOrder;
+use Modules\Rental\Models\RentalReceipt;
 use Modules\Rental\Services\RentalAgreementSender;
 use Modules\Rental\Services\RentalOrderRows;
 
@@ -358,6 +360,61 @@ final class Orders extends Component
         $this->paymentLinkUrl = (string) $link->refresh()->url;
     }
 
+    /**
+     * The invoices raised from each order on this page (newest first, with
+     * what is still owed on each) and the receipts written against them.
+     * Two queries for the whole page. Each list only for someone who may
+     * open it. Money taken at the counter sits on the order's advance and
+     * has no receipt, and an imported invoice is tied to no order, so
+     * neither shows here.
+     *
+     * @param  list<int>  $orderIds
+     * @return array<int, array{invoices: list<array{id: int, reference: string, balance: float}>, receipts: list<array{id: int, reference: string, amount: float}>}>
+     */
+    private function paperwork(array $orderIds): array
+    {
+        $orderIds = array_values(array_unique($orderIds));
+        if ($orderIds === []) {
+            return [];
+        }
+
+        $user = Auth::user();
+        $acl = app(AccessControl::class);
+        $out = array_fill_keys($orderIds, ['invoices' => [], 'receipts' => []]);
+
+        $invoices = RentalInvoice::query()
+            ->whereIn('order_id', $orderIds)
+            ->orderByDesc('id')
+            ->get(['id', 'reference', 'order_id', 'total', 'amount_paid']);
+        $invoiceOrder = $invoices->pluck('order_id', 'id')->map(static fn ($o): int => (int) $o)->all();
+
+        if ($acl->allows($user, 'rental.invoice', Permission::Read)) {
+            foreach ($invoices as $invoice) {
+                $out[(int) $invoice->order_id]['invoices'][] = [
+                    'id' => (int) $invoice->id,
+                    'reference' => (string) $invoice->reference,
+                    'balance' => max(0.0, round((float) $invoice->total - (float) $invoice->amount_paid, 3)),
+                ];
+            }
+        }
+
+        if ($invoiceOrder !== [] && $acl->allows($user, 'rental.receipt', Permission::Read)) {
+            $receipts = RentalReceipt::query()
+                ->whereIn('invoice_id', array_keys($invoiceOrder))
+                ->orderByDesc('id')
+                ->get(['id', 'reference', 'amount', 'invoice_id']);
+
+            foreach ($receipts as $receipt) {
+                $order = $invoiceOrder[(int) $receipt->invoice_id] ?? null;
+                if ($order !== null) {
+                    $out[$order]['receipts'][] = ['id' => (int) $receipt->id, 'reference' => (string) $receipt->reference, 'amount' => (float) $receipt->amount];
+                }
+            }
+        }
+
+        return $out;
+    }
+
     public function render(): View
     {
         $query = app(RentalOrderRows::class)->query($this->tab, $this->from, $this->to, $this->search);
@@ -376,6 +433,8 @@ final class Orders extends Component
             'orders' => $orders,
             // Orders made on the website, for a "Website" badge on the row.
             'fromWebsite' => WebsiteOrigin::rentalOrders(array_map(static fn (RentalOrder $o): int => (int) $o->id, $orders->items())),
+            // Each row's invoices and receipts, for its 3-dot menu.
+            'paperwork' => $this->paperwork(array_map(static fn (RentalOrder $o): int => (int) $o->id, $orders->items())),
             'counts' => $counts,
             'unpaidCount' => $unpaidCount,
             'dueCount' => RentalOrder::query()->where('state', RentalOrder::STATE_ACTIVE)->whereDate('end_date', '<=', now())->count(),

@@ -810,6 +810,15 @@ document.addEventListener('alpine:init', () => {
             this.$nextTick(() => {
                 const panel = this.$refs.panel;
                 if (! panel) return;
+                // Menus differ in width (w-56, w-64, w-72): re-place it by its
+                // real width so a wide one never runs off a phone's edge.
+                const w = panel.offsetWidth || panelW;
+                const maxW = window.innerWidth - w - margin;
+                this.coords = {
+                    ...this.coords,
+                    left: Math.max(margin, Math.min(r.right - w, maxW)),
+                    right: Math.max(margin, Math.min(window.innerWidth - r.right, maxW)),
+                };
                 if (r.bottom + 4 + panel.offsetHeight > window.innerHeight - margin) {
                     this.coords = { ...this.coords, top: null, bottom: window.innerHeight - r.top + 4 };
                 }

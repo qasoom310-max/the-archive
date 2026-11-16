@@ -123,14 +123,21 @@
     <table class="items">
         <thead>
             <tr>
-                <th style="width:100px">{{ __('Date') }}</th>
-                <th>{{ __('By Cash/Cheque/Credit Card') }}</th>
+                <th style="width:90px">{{ __('Date') }}</th>
+                <th>{{ __('Description') }}</th>
+                <th style="width:165px">{{ __('By Cash/Cheque/Credit Card') }}</th>
                 <th class="num" style="width:110px">{{ __('Amount') }}</th>
             </tr>
         </thead>
         <tbody>
             <tr>
                 <td>{{ $date }}</td>
+                <td>
+                    {{ $description !== '' ? $description : __('Payment') }}
+                    @if ($period !== '')
+                        <div style="white-space:nowrap">{{ __('Rental period') }}: {{ $period }}</div>
+                    @endif
+                </td>
                 <td>{{ $method }}</td>
                 <td class="num">{{ \App\Erp\Views\ValueFormat::money($amount) }}</td>
             </tr>

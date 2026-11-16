@@ -68,6 +68,25 @@ final class RentalReceiptDocumentTest extends TestCase
         ])->fresh();
     }
 
+    public function test_the_receipt_describes_the_car_and_the_rental_period(): void
+    {
+        [$customer, , $invoice] = $this->orderAndInvoice();
+        $receipt = $this->receiptFor($customer, $invoice->id, (float) $invoice->total);
+
+        $data = app(RentalReceiptPdf::class)->viewData($receipt);
+        $this->assertSame('Car rental: Ford Expedition (278003)', $data['description']);
+        $this->assertSame('20-Feb-2026 to 21-Feb-2026 · 1 day', $data['period']);
+
+        $html = view('rental::receipt-pdf', $data)->render();
+        $this->assertStringContainsString('Description', $html);
+        $this->assertStringContainsString('20-Feb-2026 to 21-Feb-2026', $html);
+
+        // A receipt tied to no order says only that it is a payment.
+        $loose = $this->receiptFor($customer, null, 10);
+        $this->assertSame('', app(RentalReceiptPdf::class)->viewData($loose)['description']);
+        $this->assertSame('', app(RentalReceiptPdf::class)->viewData($loose)['period']);
+    }
+
     public function test_the_document_carries_the_customer_cpr_and_agreement(): void
     {
         [$customer, $order, $invoice] = $this->orderAndInvoice();

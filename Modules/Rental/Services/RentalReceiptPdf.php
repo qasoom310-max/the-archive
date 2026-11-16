@@ -31,7 +31,7 @@ final class RentalReceiptPdf
      */
     public function viewData(RentalReceipt $receipt): array
     {
-        $receipt->loadMissing(['customer', 'invoice.order']);
+        $receipt->loadMissing(['customer', 'invoice.order.vehicle']);
         $order = $receipt->invoice?->order;
         $amount = round((float) $receipt->amount, 3);
 
@@ -45,6 +45,8 @@ final class RentalReceiptPdf
             'customerPhone' => (string) ($receipt->customer->phone ?? ''),
             'customerVat' => trim((string) ($receipt->customer->vat_number ?? '')),
             'method' => __(ucfirst((string) $receipt->method)),
+            'description' => $this->description($order),
+            'period' => $this->period($order),
             'amount' => $amount,
             ...$this->breakdown($order, $amount),
             'notes' => (string) ($receipt->notes ?? ''),
@@ -54,6 +56,43 @@ final class RentalReceiptPdf
             'logoPath' => $this->logoPath(),
             'logoScale' => $this->logoScale(),
         ];
+    }
+
+    /**
+     * What the money was for: the car, e.g. "Car rental: Ford Taurus (111629)".
+     * Empty when the receipt is tied to no order (imported, or a stand-alone invoice).
+     */
+    private function description(?RentalOrder $order): string
+    {
+        if ($order === null) {
+            return '';
+        }
+
+        $vehicle = $order->vehicle;
+        $car = trim(trim((string) ($vehicle->make ?? '')) . ' ' . trim((string) ($vehicle->model ?? '')));
+        if ($car === '') {
+            $car = trim((string) ($vehicle->name ?? ''));
+        }
+        $plate = trim((string) ($vehicle->plate_no ?? ''));
+
+        if ($car === '' && $plate === '') {
+            return __('Car rental');
+        }
+
+        return __('Car rental') . ': ' . trim($car . ($plate !== '' ? ' (' . $plate . ')' : ''));
+    }
+
+    /** The rental period, e.g. "16-Nov-2026 to 19-Nov-2026 · 3 days"; empty without both dates. */
+    private function period(?RentalOrder $order): string
+    {
+        if ($order?->start_date === null || $order->end_date === null) {
+            return '';
+        }
+
+        $days = $order->durationDays();
+
+        return __(':from to :to', ['from' => $order->start_date->format('j-M-Y'), 'to' => $order->end_date->format('j-M-Y')])
+            . ' · ' . trans_choice(':count day|:count days', $days, ['count' => $days]);
     }
 
     /**

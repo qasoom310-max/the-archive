@@ -1,0 +1,45 @@
+{
+    "app": "rental",
+    "title": { "en": "Rent A Car receipts show the car and the rental period", "ar": "إيصالات تأجير السيارات تعرض السيارة ومدة التأجير" },
+    "points": {
+        "en": [
+            "The receipt PDF has a new Description column: the car, and under it the rental period with the number of days.",
+            "Nothing changes in how you make a receipt. The details come from the rental agreement."
+        ],
+        "ar": [
+            "أصبح في ملف الإيصال عمود جديد للوصف: السيارة، وتحتها مدة التأجير مع عدد الأيام.",
+            "لا يتغير شيء في طريقة إصدار الإيصال، فالتفاصيل تؤخذ من عقد التأجير."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, a rental receipt showed only the date, how it was paid and the amount. The customer could not see on the receipt which car or which days the money was for.",
+            "Now a Description column sits between Date and the payment method. It shows the car with its plate number, and on the next line the rental period, for example from 16-Nov-2026 to 20-Nov-2026 · 4 days. It is taken from the rental agreement the receipt's invoice belongs to.",
+            "A receipt that is not linked to a rental agreement, such as an old imported one, says only Payment there."
+        ],
+        "ar": [
+            "سابقاً كان إيصال التأجير يعرض فقط التاريخ وطريقة الدفع والمبلغ، ولم يكن العميل يرى في الإيصال أي سيارة أو أي أيام دفع مقابلها.",
+            "الآن يوجد عمود للوصف بين التاريخ وطريقة الدفع، يعرض السيارة مع رقم لوحتها، وفي السطر التالي مدة التأجير، مثلاً من 16-Nov-2026 إلى 20-Nov-2026 · 4 أيام. تؤخذ من عقد التأجير الذي تتبع له فاتورة الإيصال.",
+            "الإيصال غير المرتبط بعقد تأجير، مثل الإيصالات القديمة المنقولة، يظهر فيه فقط الدفع."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Rent A Car, then Receipts.",
+            "Press the download icon on a receipt.",
+            "In the PDF, read the Description column: the car, then the rental period and the number of days."
+        ],
+        "ar": [
+            "افتح تأجير السيارات ثم الإيصالات.",
+            "اضغط أيقونة التنزيل على الإيصال.",
+            "في ملف PDF اقرأ عمود الوصف: السيارة، ثم مدة التأجير وعدد الأيام."
+        ]
+    },
+    "images": [
+        {
+            "before": "receipt-before.png",
+            "after": "receipt-after.png",
+            "caption": { "en": "The top of the receipt PDF.", "ar": "أعلى ملف الإيصال." }
+        }
+    ]
+}

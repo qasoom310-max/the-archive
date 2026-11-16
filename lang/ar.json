@@ -3657,5 +3657,6 @@
     "The bill could not be read just now. Try again, or type the expense in.": "تعذّرت قراءة الفاتورة الآن. حاول مرة أخرى أو اكتب المصروف يدوياً.",
     "The date could not be read, so today is entered.": "تعذّرت قراءة التاريخ، فأُدخل تاريخ اليوم.",
     "The photo is kept with the expense when you save.": "تُحفظ الصورة مع المصروف عند الحفظ.",
-    "View the scanned bill": "عرض الفاتورة الممسوحة"
+    "View the scanned bill": "عرض الفاتورة الممسوحة",
+    ":from to :to": "من :from إلى :to"
 }

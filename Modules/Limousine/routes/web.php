@@ -215,6 +215,12 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/app/limousine/expense/import', LimoExpenseImportController::class)->name('limousine.expense.import');
     Route::get('/app/limousine/expense', Expenses::class)->name('limousine.expense.index');
     Route::get('/app/limousine/expense/new', ExpenseForm::class)->name('limousine.expense.create');
+    // Scan a bill with the phone: upload + read, then a screen to check and save.
+    Route::get('/app/limousine/expense/scan', \Modules\Limousine\Livewire\ExpenseScan::class)->name('limousine.expense.scan');
+    Route::post('/app/limousine/expense/scan', [\Modules\Limousine\Http\Controllers\ExpenseBillController::class, 'scan'])
+        ->middleware('throttle:20,1')->name('limousine.expense.scan.upload');
+    Route::get('/app/limousine/expense/{expense}/bill', [\Modules\Limousine\Http\Controllers\ExpenseBillController::class, 'show'])
+        ->whereNumber('expense')->name('limousine.expense.bill');
     Route::get('/app/limousine/expense/{id}', ExpenseForm::class)->whereNumber('id')->name('limousine.expense.edit');
 
     // Reports (+ CSV export declared before the page so it isn't shadowed).

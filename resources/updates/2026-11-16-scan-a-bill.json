@@ -1,0 +1,80 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Scan a bill with your phone",
+        "ar": "امسح الفاتورة بهاتفك"
+    },
+    "points": {
+        "en": [
+            "Limousine expenses have a new \"Scan a bill\" button: take a photo of the bill and the expense is filled in for you.",
+            "It reads Arabic and English bills: the date, who was paid, the kind of expense, the amount and the VAT (none, 10% or 15%).",
+            "You check the figures first. Nothing is saved until you press \"Save expense\".",
+            "The photo is kept with the expense, so the bill can be opened later."
+        ],
+        "ar": [
+            "في مصروفات الليموزين زر جديد «مسح فاتورة»: التقط صورة للفاتورة فيُملأ المصروف تلقائياً.",
+            "يقرأ الفواتير العربية والإنجليزية: التاريخ، والجهة المدفوع لها، ونوع المصروف، والمبلغ، والضريبة (بدون، 10% أو 15%).",
+            "أنت تراجع الأرقام أولاً. لا يُحفظ شيء حتى تضغط «حفظ المصروف».",
+            "تُحفظ الصورة مع المصروف، فيمكن فتح الفاتورة لاحقاً."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, every bill was typed in by hand: date, category, who was paid, amount and VAT.",
+            "Now you can take a photo of the bill with your phone. The system reads it and fills in the date, who was paid, the category, the amount before VAT and the VAT rate.",
+            "The reading is a suggestion, not a final entry. A screen shows each figure in a box beside the photo, so you can compare and correct before saving. Reading can make mistakes, especially on faded or crumpled bills, so always compare the amount.",
+            "If the bill shows VAT of 10% or 15%, that rate is chosen. If the bill shows only a total, it is entered with no VAT. If the VAT on the bill is some other rate, the full amount paid is entered with no VAT and a yellow note tells you.",
+            "If the date cannot be read, today's date is entered and a yellow note tells you.",
+            "The photo is saved with the expense. Open the expense and press \"View the scanned bill\" to see it.",
+            "The photo is sent to the Claude service to be read, the same service the WhatsApp assistant uses. Scanning works only when the Claude key is saved in WhatsApp, Assistant settings. Without it the page says scanning is not set up.",
+            "Anyone who can add Limousine expenses can scan. On a phone the \"Import\" button is hidden to make room; it is still there on a computer."
+        ],
+        "ar": [
+            "سابقاً كانت كل فاتورة تُكتب يدوياً: التاريخ، والفئة، والجهة المدفوع لها، والمبلغ، والضريبة.",
+            "الآن يمكنك تصوير الفاتورة بهاتفك. يقرأها النظام ويملأ التاريخ، والجهة المدفوع لها، والفئة، والمبلغ قبل الضريبة، ونسبة الضريبة.",
+            "القراءة اقتراح وليست إدخالاً نهائياً. تظهر شاشة فيها كل رقم في خانة بجانب الصورة، لتقارن وتصحّح قبل الحفظ. قد تخطئ القراءة، خصوصاً في الفواتير الباهتة أو المجعّدة، فقارن المبلغ دائماً.",
+            "إذا أظهرت الفاتورة ضريبة 10% أو 15% تُختار تلك النسبة. وإذا أظهرت إجمالياً فقط يُدخل بدون ضريبة. وإذا كانت الضريبة بنسبة أخرى يُدخل المبلغ المدفوع كاملاً بدون ضريبة وتظهر ملاحظة صفراء تخبرك.",
+            "إذا تعذّرت قراءة التاريخ يُدخل تاريخ اليوم وتظهر ملاحظة صفراء تخبرك.",
+            "تُحفظ الصورة مع المصروف. افتح المصروف واضغط «عرض الفاتورة الممسوحة» لرؤيتها.",
+            "تُرسل الصورة إلى خدمة Claude لقراءتها، وهي نفس الخدمة التي يستخدمها مساعد واتساب. يعمل المسح فقط إذا كان مفتاح Claude محفوظاً في واتساب، إعدادات المساعد. بدونه تقول الصفحة إن المسح غير مُفعَّل.",
+            "كل من يستطيع إضافة مصروفات الليموزين يستطيع المسح. على الهاتف أُخفي زر «استيراد» لإفساح المكان؛ وهو موجود على الكمبيوتر."
+        ]
+    },
+    "guide": {
+        "en": [
+            "On your phone open Limousine, then Expenses.",
+            "Press \"Scan a bill\".",
+            "Press \"Take a photo\" and photograph the bill: flat, in good light, the whole bill in the picture. Or press \"Choose a picture\" to use a photo you already have.",
+            "Wait a few seconds while the bill is read.",
+            "Compare each box with the photo: date, category, paid to, amount before VAT and VAT. Correct anything that is wrong and read any yellow note.",
+            "Press \"Save expense\". The expense opens, with a \"View the scanned bill\" button.",
+            "If the photo was bad, press \"Scan another\" and take it again."
+        ],
+        "ar": [
+            "على هاتفك افتح الليموزين ثم المصروفات.",
+            "اضغط «مسح فاتورة».",
+            "اضغط «التقط صورة» وصوّر الفاتورة: مفرودة، في إضاءة جيدة، وكاملة داخل الصورة. أو اضغط «اختر صورة» لاستخدام صورة موجودة لديك.",
+            "انتظر بضع ثوانٍ حتى تُقرأ الفاتورة.",
+            "قارن كل خانة بالصورة: التاريخ، الفئة، المدفوع له، المبلغ قبل الضريبة، والضريبة. صحّح أي خطأ واقرأ أي ملاحظة صفراء.",
+            "اضغط «حفظ المصروف». يُفتح المصروف وفيه زر «عرض الفاتورة الممسوحة».",
+            "إذا كانت الصورة سيئة اضغط «مسح فاتورة أخرى» والتقطها من جديد."
+        ]
+    },
+    "images": [
+        {
+            "before": "list-before.png",
+            "after": "list-after.png",
+            "caption": {
+                "en": "The Expenses page on a phone. After: the new \"Scan a bill\" button.",
+                "ar": "صفحة المصروفات على الهاتف. بعد: زر «مسح فاتورة» الجديد."
+            }
+        },
+        {
+            "after": "scan-page.png",
+            "caption": {
+                "en": "The scan page: take a photo or choose a picture.",
+                "ar": "صفحة المسح: التقط صورة أو اختر صورة."
+            }
+        }
+    ]
+}

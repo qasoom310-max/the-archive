@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $payee
  * @property int|null $booking_id
  * @property string|null $notes
+ * @property string|null $bill_path  the photo this expense was scanned from (private disk)
  */
 final class LimoExpense extends Model implements DefinesIrModel
 {

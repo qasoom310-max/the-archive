@@ -5,8 +5,12 @@
                 {{ __('Total') }}: <span class="font-bold">{{ \App\Erp\Views\ValueFormat::money($total) }}</span>
             </span>
             @if ($canManage)
-                <button type="button" onclick="document.getElementById('import-expenses').classList.toggle('hidden')" class="o-btn-ghost">{{ __('Import') }}</button>
+                <button type="button" onclick="document.getElementById('import-expenses').classList.toggle('hidden')" class="o-btn-ghost hidden sm:inline-flex">{{ __('Import') }}</button>
             @endif
+            <a href="{{ url('/app/limousine/expense/scan') }}" wire:navigate class="o-btn-ghost" data-scan-bill>
+                <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M1 8a2 2 0 0 1 2-2h.93a2 2 0 0 0 1.664-.89l.812-1.22A2 2 0 0 1 8.07 3h3.86a2 2 0 0 1 1.664.89l.812 1.22A2 2 0 0 0 16.07 6H17a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8Zm13.5 3a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM10 14a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clip-rule="evenodd"/></svg>
+                {{ __('Scan a bill') }}
+            </a>
             <a href="{{ url('/app/limousine/expense/new') }}" wire:navigate class="o-btn-primary">
                 <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>
                 {{ __('New') }}

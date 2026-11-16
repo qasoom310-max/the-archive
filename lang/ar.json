@@ -3615,5 +3615,9 @@
     "travel authorizations": "توكيلات سفر",
     "PDF": "PDF",
     "Make the letter for taking a car to another Gulf country": "إنشاء توكيل السفر بالسيارة إلى دولة خليجية أخرى",
-    "Not saved yet. Correct the following and it will save by itself:": "لم يُحفظ بعد. صحّح التالي وسيُحفظ تلقائياً:"
+    "Not saved yet. Correct the following and it will save by itself:": "لم يُحفظ بعد. صحّح التالي وسيُحفظ تلقائياً:",
+    "Make a travel authorization": "إنشاء توكيل سفر",
+    "This trip leaves Bahrain on :date, and this driver's travel authorization for this car ended on :end.": "هذه الرحلة تغادر البحرين في :date، وتوكيل السفر لهذا السائق على هذه السيارة انتهى في :end.",
+    "This trip leaves Bahrain on :date, and this driver's travel authorization for this car only starts on :start.": "هذه الرحلة تغادر البحرين في :date، وتوكيل السفر لهذا السائق على هذه السيارة يبدأ فقط في :start.",
+    "This trip leaves Bahrain, and this driver has no travel authorization for this car.": "هذه الرحلة تغادر البحرين، وهذا السائق ليس لديه توكيل سفر لهذه السيارة."
 }

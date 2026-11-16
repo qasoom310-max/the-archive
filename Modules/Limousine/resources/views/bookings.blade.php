@@ -967,7 +967,7 @@
                             @error('assignCar') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         @else
                             <div wire:key="assign-own">
-                                <x-searchable-select wire:model="assignCar" class="o-input w-full"
+                                <x-searchable-select wire:model.live="assignCar" class="o-input w-full"
                                     :options="$carOptions"
                                     :empty="__('No cars available')"
                                     :search-placeholder="__('Search plate or model…')" />
@@ -977,7 +977,7 @@
                     </div>
                     <div>
                         <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Driver') }}</label>
-                        <x-searchable-select wire:model="assignDriver" class="o-input w-full"
+                        <x-searchable-select wire:model.live="assignDriver" class="o-input w-full"
                             :options="$driverOptions"
                             :empty="__('No drivers available')"
                             :search-placeholder="__('Search driver…')" />
@@ -986,6 +986,18 @@
                         <p class="mt-1 text-xs text-chrome-500">
                             <a href="{{ url('/app/limousine/driver') }}" class="text-primary-700 hover:underline">{{ __('Manage drivers') }}</a>
                         </p>
+                        {{-- A trip that leaves Bahrain: say now if this driver
+                             holds no travel authorization for this car. A
+                             warning only; the assignment can still be saved. --}}
+                        @if ($permitWarning !== null)
+                            <div class="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800" role="alert" data-permit-warning>
+                                <p class="flex items-start gap-1.5 font-semibold">
+                                    <svg class="mt-0.5 size-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
+                                    <span>{{ $permitWarning['message'] }}</span>
+                                </p>
+                                <a href="{{ url('/app/rental/travel-permit') }}" target="_blank" rel="noopener" class="mt-1 inline-block ps-5 font-semibold underline">{{ __('Make a travel authorization') }}</a>
+                            </div>
+                        @endif
                     </div>
 
                     {{-- The driver's commission for this trip, always offered and

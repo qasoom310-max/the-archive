@@ -1,0 +1,60 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "A warning when the driver has no travel authorization for the car",
+        "ar": "تنبيه عندما لا يكون للسائق توكيل سفر للسيارة"
+    },
+    "points": {
+        "en": [
+            "When you assign a car and a driver to a trip that leaves Bahrain, a red warning appears if that driver has no valid travel authorization for that car.",
+            "The warning has a link to make the authorization. The assignment can still be saved."
+        ],
+        "ar": [
+            "عند تعيين سيارة وسائق لرحلة تغادر البحرين يظهر تنبيه أحمر إذا لم يكن لذلك السائق توكيل سفر ساري لتلك السيارة.",
+            "في التنبيه رابط لإنشاء التوكيل. ويمكن حفظ التعيين مع ذلك."
+        ]
+    },
+    "details": {
+        "en": [
+            "A driver taking one of our cars to another country needs a travel authorization in his name for that car. Until now nothing checked this when a trip was dispatched, so it could be discovered only at the border.",
+            "The \"Assign car and driver\" box in the bookings queue now checks as soon as both are chosen. If the trip starts or ends outside Bahrain and the driver holds no authorization for that car covering the day of the trip, a red warning appears under the driver.",
+            "The warning says what is wrong: he has none, or his authorization ended on a given date, or it only starts on a later date. An authorization for a different car, or for a different driver, does not count.",
+            "It is a warning and does not stop you. The assignment still saves, because an authorization may exist on paper from before the system kept them. The same warning is shown again beside the confirmation after saving.",
+            "Nothing is shown for a trip inside Bahrain, for a trip with no country recorded at either end, or when the car belongs to another company."
+        ],
+        "ar": [
+            "السائق الذي يسافر بإحدى سياراتنا إلى دولة أخرى يحتاج إلى توكيل سفر باسمه لتلك السيارة. حتى الآن لم يكن هناك ما يتحقق من ذلك عند إرسال الرحلة، فكان يُكتشف عند الحدود فقط.",
+            "مربع «تعيين السيارة والسائق» في قائمة الحجوزات أصبح يتحقق فور اختيار الاثنين. إذا كانت الرحلة تبدأ أو تنتهي خارج البحرين ولم يكن للسائق توكيل لتلك السيارة يغطي يوم الرحلة، يظهر تنبيه أحمر تحت السائق.",
+            "التنبيه يوضح المشكلة: ليس لديه توكيل، أو انتهى توكيله في تاريخ معيّن، أو يبدأ في تاريخ لاحق. التوكيل لسيارة أخرى أو لسائق آخر لا يُحتسب.",
+            "هو تنبيه ولا يمنعك. التعيين يُحفظ مع ذلك، لأن التوكيل قد يكون موجوداً ورقياً من قبل أن يحفظه النظام. ويظهر التنبيه نفسه مرة أخرى بجانب رسالة التأكيد بعد الحفظ.",
+            "لا يظهر شيء للرحلة داخل البحرين، أو للرحلة التي لم تُسجَّل فيها دولة في أي من الطرفين، أو عندما تكون السيارة تابعة لشركة أخرى."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Bookings.",
+            "On the trip, press the car or driver button, or \"Assign car and driver\" in the 3-dot menu.",
+            "Choose the car and the driver.",
+            "If a red warning appears under the driver, press \"Make a travel authorization\". It opens in a new tab.",
+            "Make the authorization there, then come back and press Save.",
+            "If you are sure the driver has a paper authorization, you can press Save without making a new one."
+        ],
+        "ar": [
+            "افتح الليموزين ثم الحجوزات.",
+            "في الرحلة اضغط زر السيارة أو السائق، أو «تعيين السيارة والسائق» من قائمة النقاط الثلاث.",
+            "اختر السيارة والسائق.",
+            "إذا ظهر تنبيه أحمر تحت السائق فاضغط «إنشاء توكيل سفر». يُفتح في تبويب جديد.",
+            "أنشئ التوكيل هناك ثم عُد واضغط حفظ.",
+            "إذا كنت متأكداً أن لدى السائق توكيلاً ورقياً يمكنك الضغط على حفظ دون إنشاء توكيل جديد."
+        ]
+    },
+    "images": [
+        {
+            "after": "dialog-after.png",
+            "caption": {
+                "en": "The Assign car and driver box on a trip that leaves Bahrain, with the warning under the driver.",
+                "ar": "مربع «تعيين السيارة والسائق» لرحلة تغادر البحرين، مع التنبيه تحت السائق."
+            }
+        }
+    ]
+}

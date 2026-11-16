@@ -5483,6 +5483,17 @@ owner typed a car's registration and insurance expiry and they "did not stay". T
    a record unsaveable. A NEW value off the list is still refused.
 **Rule: whatever goes into a Livewire `$form` array must be a scalar the input can render;
 never a Carbon or an enum.** Tests: `RentalCarDocumentsTest` (+2, both fail on the old code).
+**Limousine: warn when the driver has no travel authorization for the car (shipped
+2026-11-16).** `Modules\Limousine\Support\BorderPermitCheck::warning($leg, $carId, $driverId)`
+returns `{message, expired}` or null. It speaks only when the leg's `from_country` or
+`to_country` is recorded and not `BH`, both ids are given, the table exists, and no
+`rental_travel_permits` row for that car AND that driver covers the day of `start_at`. The
+assign dialog in `Bookings` shows it under the driver (`data-permit-warning`, with a link to
+`/app/rental/travel-permit`); the car and driver pickers became `wire:model.live` so it
+appears as soon as both are chosen. `saveAssign()` repeats it in the toast. **A warning,
+never a block** (paper letters predate the system), and silent for another company's car.
+Not wired into the staff app's own assign screen. A multi-day trip is checked on its first
+day only. Tests: `LimoBorderPermitWarningTest` (6).
 **Correcting a closed order's return figures (shipped 2026-11-16).** On RO/01677 the desk
 typed the odometer into the fuel-charge box; the closed order owed 121,923 BD for petrol and
 nothing on screen could change it. Now:

@@ -32,6 +32,7 @@ use Modules\Limousine\Services\ServiceOrderPortalClient;
 use Modules\Limousine\Services\ServiceOrderSender;
 use Modules\Limousine\Services\TripCancellation;
 use Modules\Limousine\Services\TripCrew;
+use Modules\Limousine\Support\BorderPermitCheck;
 use Modules\Limousine\Support\TripDetailsLock;
 use Modules\Rental\Models\Vehicle;
 use Throwable;
@@ -464,8 +465,30 @@ final class Bookings extends Component
             return;
         }
 
+        // Saved all the same: the warning is advice, not a lock. It is said
+        // again here because the dialog that showed it has just closed.
+        $permit = $outside === false
+            ? app(BorderPermitCheck::class)->warning($leg->refresh(), $leg->car_id, $leg->driver_id)
+            : null;
+
         $this->closeAssign();
-        session()->flash('toast', $result['started'] ? __('Trip started.') : __('Assignment saved.'));
+        session()->flash('toast', ($result['started'] ? __('Trip started.') : __('Assignment saved.'))
+            . ($permit !== null ? ' ' . $permit['message'] : ''));
+    }
+
+    /**
+     * The travel-authorization warning for the car and driver now picked in
+     * the assign dialog, before anything is saved.
+     *
+     * @return array{message: string, expired: bool}|null
+     */
+    private function permitWarning(?LimoLeg $leg): ?array
+    {
+        if ($leg === null || $this->assignCarSource === 'outside' || $this->assignCar === '' || $this->assignDriver === '') {
+            return null;
+        }
+
+        return app(BorderPermitCheck::class)->warning($leg, (int) $this->assignCar, (int) $this->assignDriver);
     }
 
     /**
@@ -1666,9 +1689,10 @@ final class Bookings extends Component
             'carOptions' => $this->assigningId !== null ? $this->carOptions() : [],
             'driverOptions' => $this->assigningId !== null ? $this->driverOptions() : [],
             'commissionDrivers' => $this->assigningId !== null ? $this->commissionDrivers() : [],
-            'assigningLeg' => $this->assigningId !== null
+            'assigningLeg' => $assigningLeg = $this->assigningId !== null
                 ? LimoLeg::query()->with('legable.customer:id,name')->find($this->assigningId)
                 : null,
+            'permitWarning' => $this->permitWarning($assigningLeg),
             'canAssign' => $this->mayAccess(Permission::Write),
             // Importing trips is a manager action, the same gate every other
             // CSV import in the app uses.

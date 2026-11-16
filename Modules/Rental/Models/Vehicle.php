@@ -64,6 +64,7 @@ final class Vehicle extends Model implements DefinesIrModel
     {
         return [
             'rental_orders' => [['vehicle_id'], __('rental orders')],
+            'rental_vehicle_documents' => [['vehicle_id'], __('saved papers')],
             'rental_quotations' => [['vehicle_id'], __('rental quotations')],
             'rental_replacements' => [['original_vehicle_id', 'replacement_vehicle_id'], __('replacements')],
             'rental_maintenance' => [['vehicle_id'], __('maintenance records')],

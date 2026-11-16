@@ -74,6 +74,7 @@ final class ActivityLog extends Model
         'car_replaced' => 'Car replaced',
         'production_reversed' => 'Reversed production',
         'return_corrected' => 'Corrected return figures',
+        'car_paper_deleted' => 'Deleted a car paper',
         'production_reopened' => 'Reopened production',
     ];
 
@@ -119,6 +120,7 @@ final class ActivityLog extends Model
         'car_replaced' => 'bg-orange-100 text-orange-700',
         'production_reversed' => 'bg-red-100 text-red-700',
         'return_corrected' => 'bg-amber-100 text-amber-800',
+        'car_paper_deleted' => 'bg-red-100 text-red-700',
         'production_reopened' => 'bg-amber-100 text-amber-700',
     ];
 

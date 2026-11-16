@@ -137,6 +137,11 @@
         @endif
     @endif
 
+    {{-- Every year's papers, kept until the owner deletes them. --}}
+    @if ($vehicle)
+        @livewire(\Modules\Rental\Livewire\VehicleDocuments::class, ['vehicleId' => $vehicle->id], key('car-papers-' . $vehicle->id))
+    @endif
+
     <livewire:views.form-view
         :model="\Modules\Rental\Models\Vehicle::class"
         model-key="rental.vehicle"

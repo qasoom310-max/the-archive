@@ -27,6 +27,7 @@ use Modules\Rental\Http\Controllers\RentalFleetExportController;
 use Modules\Rental\Http\Controllers\RentalSalesExportController;
 use Modules\Rental\Http\Controllers\RentalSalesImportController;
 use Modules\Rental\Http\Controllers\RentalVehicleImportController;
+use Modules\Rental\Http\Controllers\VehicleDocumentController;
 use Modules\Rental\Http\Controllers\WebBookingController;
 use Modules\Rental\Livewire\BranchForm;
 use Modules\Rental\Livewire\WebBookings;
@@ -174,6 +175,13 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/rental/vehicle', Vehicles::class)->name('rental.vehicle.index');
     Route::get('/app/rental/vehicle/new', VehicleForm::class)->name('rental.vehicle.create');
     Route::get('/app/rental/vehicle/{id}', VehicleForm::class)->whereNumber('id')->name('rental.vehicle.edit');
+    // A car's papers by year: add, open one, download a year or all as a ZIP.
+    Route::post('/app/rental/vehicle/{vehicle}/documents', [VehicleDocumentController::class, 'store'])
+        ->whereNumber('vehicle')->middleware('throttle:30,1')->name('rental.vehicle.documents.store');
+    Route::get('/app/rental/vehicle/{vehicle}/documents.zip', [VehicleDocumentController::class, 'zip'])
+        ->whereNumber('vehicle')->name('rental.vehicle.documents.zip');
+    Route::get('/app/rental/vehicle-document/{document}', [VehicleDocumentController::class, 'show'])
+        ->whereNumber('document')->name('rental.vehicle.documents.show');
 
     // Bookings taken on the website. The slug matches the model key's resource
     // (rental.web_booking), which is what ModuleMenu turns into this URL for

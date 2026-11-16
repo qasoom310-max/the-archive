@@ -5406,6 +5406,32 @@ field the arch declares as image/file, one `setAttribute` + `save()`. Then auto-
 before. **Still true and worth knowing: on such a record NO other field saves from the engine
 form until the invalid one is fixed, and the only sign is the inline error under that field.**
 Tests: `RentalCarDocumentsTest` (+2).
+**A car's papers by year (shipped 2026-11-16).** The car record holds ONE registration card,
+insurance paper, invoice and agreement, so each renewal replaced last year's file. The owner
+wants every year kept until he deletes it, and a way to download before deleting.
+- Table `rental_vehicle_documents` (Rental migration `2026_11_16_900068`): `vehicle_id`
+  (logical ref; the car's delete guard lists the table), `year`, `kind` (registration /
+  insurance / invoice / agreement / other), `title`, `original_name`, `disk`, `path`, `size`,
+  `uploaded_by`. Model `Modules\Rental\Models\VehicleDocument`.
+- **New files go on the PRIVATE disk** (`local`, `rental_vehicle_docs/{car id}/`, already
+  outside the deploy's rsync), never `public/`. They leave only through
+  `VehicleDocumentController` behind `auth` + the `rental.vehicle` ACL: `store` (POST
+  `/app/rental/vehicle/{id}/documents`, Write; direct controller upload, not Livewire temp
+  files), `show` (GET `/app/rental/vehicle-document/{doc}`, Read, inline), `zip` (GET
+  `/app/rental/vehicle/{id}/documents.zip[?year=]`, Read; `ZipArchive`, one folder per year;
+  404 when empty).
+- Box on the car page: `Modules\Rental\Livewire\VehicleDocuments` + `rental::vehicle-documents`
+  (embedded by FQCN in `vehicle-form.blade.php`): year buttons with counts, the year's papers,
+  the add form (Alpine `fetch`, then dispatches `vehicle-document-added`). **Delete is the
+  super admin's alone**, confirmed, logged as `car_paper_deleted`, and scoped to this car's
+  rows. `VehicleDocument::remove()` deletes the file only when it is on the private disk.
+- The migration COPIES each car's existing single-field papers in as rows for the current
+  year with `disk = public` and the same path (no file moved); idempotent. The four single
+  boxes on the car page are unchanged and still overwrite; the archive is the place for
+  history.
+- Not built: "pause" (the owner mentioned it without saying what it should do), and uploaded
+  files are still NOT in `backups:run` (database only).
+Tests: `RentalVehicleDocumentsTest` (7).
 **Correcting a closed order's return figures (shipped 2026-11-16).** On RO/01677 the desk
 typed the odometer into the fuel-charge box; the closed order owed 121,923 BD for petrol and
 nothing on screen could change it. Now:

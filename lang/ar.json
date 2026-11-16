@@ -3540,5 +3540,19 @@
     "The order is re-priced from what you save here, and an invoice already raised from it takes the new total. Money already received is not changed.": "يُعاد احتساب الطلب بناءً على ما تحفظه هنا، والفاتورة الصادرة منه تأخذ الإجمالي الجديد. المبالغ المستلمة لا تتغير.",
     "The refuel cost only. A :fee service fee is added when it is above zero. Type 0 for no fuel charge.": "تكلفة تعبئة الوقود فقط. تُضاف رسوم خدمة :fee عندما تكون أكبر من صفر. اكتب 0 لعدم وجود رسوم وقود.",
     "e.g. the KM was typed in the fuel charge box": "مثال: كُتبت قراءة العداد في مربع رسوم الوقود",
-    "The pick-up date can’t be in the past. Only the owner, the accountant or a user given this permission can use a past date.": "لا يمكن أن يكون تاريخ الاستلام في الماضي. فقط المالك أو المحاسب أو مستخدم مُنح هذه الصلاحية يستطيع استخدام تاريخ سابق."
+    "The pick-up date can’t be in the past. Only the owner, the accountant or a user given this permission can use a past date.": "لا يمكن أن يكون تاريخ الاستلام في الماضي. فقط المالك أو المحاسب أو مستخدم مُنح هذه الصلاحية يستطيع استخدام تاريخ سابق.",
+    "Add a paper": "إضافة ورقة",
+    "Choose the year and the paper first, then the file. It is saved as soon as it is chosen. PDF or photo, up to 8 MB.": "اختر السنة ونوع الورقة أولاً ثم الملف. يُحفظ فور اختياره. PDF أو صورة، حتى 8 ميغابايت.",
+    "Delete this paper for good? Download it first if you still need it.": "حذف هذه الورقة نهائياً؟ نزّلها أولاً إن كنت ما زلت تحتاجها.",
+    "Download :year (ZIP)": "تنزيل :year (ZIP)",
+    "Download all years (ZIP)": "تنزيل كل السنوات (ZIP)",
+    "File": "الملف",
+    "Keep every year's registration, insurance and other papers here. Adding a new year does not replace an older one.": "احتفظ هنا بأوراق الملكية والتأمين وغيرها لكل سنة. إضافة سنة جديدة لا تستبدل سنة أقدم.",
+    "No papers saved for :year yet.": "لا توجد أوراق محفوظة لسنة :year بعد.",
+    "Other paper": "ورقة أخرى",
+    "Paper": "الورقة",
+    "Papers by year": "الأوراق حسب السنة",
+    "Purchase invoice": "فاتورة الشراء",
+    "Registration card": "بطاقة الملكية",
+    "saved papers": "أوراق محفوظة"
 }

@@ -1,0 +1,67 @@
+{
+    "app": "rental",
+    "title": {
+        "en": "A car's papers are kept year by year",
+        "ar": "أوراق السيارة تُحفظ سنة بسنة"
+    },
+    "points": {
+        "en": [
+            "Each car's page has a new box, \"Papers by year\", for registration, insurance and other papers.",
+            "Adding next year's papers does not replace this year's. A paper stays until the owner deletes it.",
+            "One year, or all years, can be downloaded as a single ZIP file."
+        ],
+        "ar": [
+            "في صفحة كل سيارة مربع جديد باسم «الأوراق حسب السنة» للملكية والتأمين وغيرها.",
+            "إضافة أوراق السنة القادمة لا تستبدل أوراق هذه السنة. تبقى الورقة إلى أن يحذفها المالك.",
+            "يمكن تنزيل سنة واحدة، أو كل السنوات، في ملف ZIP واحد."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, a car had room for one registration card and one insurance paper. Uploading the renewal for the next year replaced the old file, so the history of a car's papers was lost at every renewal.",
+            "The car's page now has a box called \"Papers by year\". Each paper is filed under a year and a kind: Registration card, Insurance, Purchase invoice, Agreement or Other paper. The years appear as buttons with the number of papers in each. Pressing a year lists its papers; pressing a paper opens it.",
+            "Nothing is replaced. 2026 stays when 2027 is added. A paper leaves the list only when the owner presses Delete on it, and the system asks first. Every deletion is recorded in the Activity log.",
+            "To take a copy, press \"Download 2026 (ZIP)\" for one year, or \"Download all years (ZIP)\" for everything. The ZIP has one folder per year. Download first if you plan to delete.",
+            "These papers are stored privately. They open only for someone signed in who has access to cars, so a link passed to someone outside does not work.",
+            "The papers each car already had (registration, insurance, invoice, agreement) are listed under this year, so nothing is missing from the new box. The older single boxes on the car page are still there and work as before."
+        ],
+        "ar": [
+            "سابقاً كان للسيارة مكان لبطاقة ملكية واحدة وورقة تأمين واحدة. رفع تجديد السنة التالية كان يستبدل الملف القديم، فيضيع تاريخ أوراق السيارة مع كل تجديد.",
+            "صفحة السيارة فيها الآن مربع باسم «الأوراق حسب السنة». كل ورقة تُحفظ تحت سنة ونوع: بطاقة الملكية، التأمين، فاتورة الشراء، الاتفاقية، أو ورقة أخرى. السنوات تظهر كأزرار مع عدد الأوراق في كل منها. الضغط على السنة يعرض أوراقها، والضغط على الورقة يفتحها.",
+            "لا شيء يُستبدل. تبقى 2026 عند إضافة 2027. الورقة تخرج من القائمة فقط عندما يضغط المالك «حذف» عليها، والنظام يسأل أولاً. وكل حذف يُسجَّل في سجل النشاط.",
+            "لأخذ نسخة اضغط «تنزيل 2026 (ZIP)» لسنة واحدة، أو «تنزيل كل السنوات (ZIP)» لكل شيء. ملف ZIP فيه مجلد لكل سنة. نزّل أولاً إذا كنت تنوي الحذف.",
+            "هذه الأوراق محفوظة بشكل خاص. تُفتح فقط لمن سجّل الدخول ولديه صلاحية على السيارات، فالرابط المُرسل لشخص من الخارج لا يعمل.",
+            "الأوراق التي كانت موجودة لكل سيارة (الملكية، التأمين، الفاتورة، الاتفاقية) مدرجة تحت هذه السنة، فلا ينقص شيء من المربع الجديد. والمربعات المنفردة القديمة في صفحة السيارة ما زالت موجودة وتعمل كما كانت."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Rent A Car, then Cars, and open the car.",
+            "Find the box \"Papers by year\".",
+            "To add a paper: under \"Add a paper\" choose the Year, choose the Paper (for example Insurance), then press Choose File and pick the PDF or photo. It is saved as soon as you pick it.",
+            "To see another year, press its button, for example 2025.",
+            "To open a paper, press its name.",
+            "To download, press \"Download 2026 (ZIP)\" under the list, or \"Download all years (ZIP)\" at the top right of the box.",
+            "To delete (owner only): download it first, press Delete beside the paper, and confirm."
+        ],
+        "ar": [
+            "افتح تأجير السيارات ثم السيارات، وافتح السيارة.",
+            "ابحث عن مربع «الأوراق حسب السنة».",
+            "لإضافة ورقة: تحت «إضافة ورقة» اختر السنة، ثم نوع الورقة (مثل التأمين)، ثم اضغط «اختيار ملف» واختر ملف PDF أو الصورة. تُحفظ فور اختيارها.",
+            "لعرض سنة أخرى اضغط زرها، مثل 2025.",
+            "لفتح ورقة اضغط على اسمها.",
+            "للتنزيل اضغط «تنزيل 2026 (ZIP)» تحت القائمة، أو «تنزيل كل السنوات (ZIP)» في أعلى يمين المربع.",
+            "للحذف (للمالك فقط): نزّل الورقة أولاً، ثم اضغط «حذف» بجانبها وأكّد."
+        ]
+    },
+    "images": [
+        {
+            "before": "car-before.png",
+            "after": "papers-after.png",
+            "caption": {
+                "en": "Before: the car page had only single boxes. After: the \"Papers by year\" box, with 2026 open and 2025 kept beside it.",
+                "ar": "قبل: صفحة السيارة فيها مربعات منفردة فقط. بعد: مربع «الأوراق حسب السنة»، وسنة 2026 مفتوحة وسنة 2025 محفوظة بجانبها."
+            }
+        }
+    ]
+}

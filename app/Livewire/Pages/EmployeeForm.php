@@ -52,7 +52,7 @@ final class EmployeeForm extends Component
     {
         $user = Auth::user();
 
-        abort_unless($user instanceof User && $user->isAdmin(), 403);
+        abort_unless($user instanceof User && $user->seesOwnerReports(), 403);
     }
 
     public function mount(?int $id = null): void

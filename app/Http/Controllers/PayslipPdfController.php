@@ -24,7 +24,7 @@ final class PayslipPdfController extends Controller
     public function __invoke(Request $request, int $id, PayrollCalculator $calculator): Response
     {
         $user = Auth::user();
-        abort_unless($user instanceof User && $user->isAdmin(), 403);
+        abort_unless($user instanceof User && $user->seesOwnerReports(), 403);
 
         $employee = Employee::query()->findOrFail($id);
         $month = (string) $request->query('month', Carbon::now()->format('Y-m'));

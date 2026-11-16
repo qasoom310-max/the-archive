@@ -109,6 +109,6 @@ final class CarIncomeSchedule extends Component
     {
         $user = Auth::user();
 
-        abort_unless($user instanceof User && $user->isSuperAdmin(), 403);
+        abort_unless($user instanceof User && $user->seesCarIncome(), 403);
     }
 }

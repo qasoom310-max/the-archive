@@ -30,7 +30,7 @@ final class Payroll extends Component
     public function mount(): void
     {
         $user = Auth::user();
-        abort_unless($user instanceof User && $user->isAdmin(), 403);
+        abort_unless($user instanceof User && $user->seesOwnerReports(), 403);
 
         if ($this->month === '') {
             $this->month = Carbon::now()->format('Y-m');

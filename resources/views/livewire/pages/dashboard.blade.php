@@ -145,8 +145,9 @@
         </div>
     @endif
 
-    {{-- Owner's reports & team — quick-access tiles --}}
-    @if ($isAdmin)
+    {{-- Owner's reports & team — quick-access tiles. Someone given the reports
+         by name (not an admin) sees only the report tiles. --}}
+    @if ($isAdmin || $seesReports)
         @php
             $ownerTiles = [
                 ['url' => '/fares', 'label' => __('Website fares'), 'sub' => __('Prices the website shows'),
@@ -162,7 +163,7 @@
                 ['url' => '/reports/profit', 'label' => __('Profit & Expenses'), 'sub' => __('Real monthly profit'),
                  'icon' => 'M15.5 2A1.5 1.5 0 0 0 14 3.5v13a1.5 1.5 0 0 0 1.5 1.5h.5a1.5 1.5 0 0 0 1.5-1.5v-13A1.5 1.5 0 0 0 16 2h-.5ZM9.5 6A1.5 1.5 0 0 0 8 7.5v9A1.5 1.5 0 0 0 9.5 18h.5a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 10 6h-.5ZM3.5 10A1.5 1.5 0 0 0 2 11.5v5A1.5 1.5 0 0 0 3.5 18h.5a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 4 10h-.5Z'],
                 // One schedule for both desks; owner only, and only where there are cars.
-                ...(auth()->user()?->isSuperAdmin() && \Illuminate\Support\Facades\Schema::hasTable('rental_vehicles')
+                ...(auth()->user()?->seesCarIncome() && \Illuminate\Support\Facades\Schema::hasTable('rental_vehicles')
                     ? [['url' => '/reports/car-income', 'label' => __('Car income'), 'sub' => __('Rent + limousine, per car'),
                         'icon' => 'M6.5 3c-1.051 0-2.093.04-3.125.117A1.49 1.49 0 0 0 2 4.607V10.5h9V4.606c0-.771-.59-1.43-1.375-1.489A41.568 41.568 0 0 0 6.5 3ZM2 12v2.5A1.5 1.5 0 0 0 3.5 16h.041a3 3 0 0 1 5.918 0h.791a.75.75 0 0 0 .75-.75V12H2ZM6.5 18a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM13.25 5a.75.75 0 0 0-.75.75v8.514a3.001 3.001 0 0 1 4.893 1.44c.37-.275.607-.719.607-1.204v-2.5a.75.75 0 0 0-.13-.42l-2.13-3.124A3 3 0 0 0 13.37 5h-.12ZM14.5 18a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z']]
                     : []),
@@ -177,6 +178,11 @@
                 ['url' => '/hr/payroll', 'label' => __('Payroll'), 'sub' => __('Salaries & overtime'),
                  'icon' => 'M1 5.5A1.5 1.5 0 0 1 2.5 4h15A1.5 1.5 0 0 1 19 5.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 1 14.5v-9ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM4.5 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm13 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z'],
             ];
+            if (! $isAdmin) {
+                $ownerTiles = array_values(array_filter($ownerTiles, static fn (array $t): bool => in_array($t['url'], [
+                    '/reports/daily-summary', '/reports/profit', '/reports/car-income', '/app/limousine/outside-drivers', '/hr/payroll',
+                ], true)));
+            }
         @endphp
         <div class="mb-6 rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
             <h2 class="mb-4 flex items-center gap-2 text-sm font-semibold text-chrome-800">

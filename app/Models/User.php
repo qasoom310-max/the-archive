@@ -31,6 +31,7 @@ use Throwable;
  * @property bool $is_accountant    May confirm payments (with super-admins); not even a regular admin can
  * @property bool $petty_cash_full  Every Limousine petty-cash action (issue, top up, confirm, settle) without the Accountant role
  * @property bool $can_change_customer_type  May switch an existing customer between Individual and Company
+ * @property bool $reports_access  Opens the owner's reports (Daily Summary, Profit & Expenses, Car income, Payroll) without being an admin
  * @property bool $trip_details_locked  Operations: a limousine trip's details stay hidden until it has a car and a driver
  * @property bool $trip_reminders  Staff app: reminded about trips inside the 12 hours still without a car or driver
  * @property bool $is_paused        Suspended by an admin — signed out and refused sign-in until unpaused
@@ -61,6 +62,7 @@ final class User extends Authenticatable
         'is_accountant',
         'petty_cash_full',
         'can_change_customer_type',
+        'reports_access',
         'is_paused',
         'paused_at',
         'home_workspace_id',
@@ -87,6 +89,7 @@ final class User extends Authenticatable
             'is_accountant' => 'boolean',
             'petty_cash_full' => 'boolean',
             'can_change_customer_type' => 'boolean',
+            'reports_access' => 'boolean',
             'trip_details_locked' => 'boolean',
             'trip_reminders' => 'boolean',
             'is_paused' => 'boolean',
@@ -149,6 +152,30 @@ final class User extends Authenticatable
     public function canChangeCustomerType(): bool
     {
         return $this->isSuperAdmin() || ($this->getAttribute('can_change_customer_type') ?? false) === true;
+    }
+
+    /**
+     * Whether this user may open the owner's reports: Daily Summary, Profit &
+     * Expenses, Payroll and the employee records behind it. An admin always
+     * may; anyone else only when granted by name (users.reports_access).
+     */
+    public function seesOwnerReports(): bool
+    {
+        return $this->isAdmin() || $this->hasReportsAccess();
+    }
+
+    /**
+     * Car income (revenue per car) is the owner's; a user granted the reports
+     * by name sees it too. A regular admin does not.
+     */
+    public function seesCarIncome(): bool
+    {
+        return $this->isSuperAdmin() || $this->hasReportsAccess();
+    }
+
+    private function hasReportsAccess(): bool
+    {
+        return ($this->getAttribute('reports_access') ?? false) === true;
     }
 
     /**

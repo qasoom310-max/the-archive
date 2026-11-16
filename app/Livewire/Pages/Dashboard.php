@@ -108,6 +108,8 @@ final class Dashboard extends Component
                 ->count(),
             'modelCount' => IrModel::query()->count(),
             'isAdmin' => $isAdmin,
+            // Someone the owner gave the reports to by name (users.reports_access).
+            'seesReports' => ($u = Auth::user()) instanceof User && $u->seesOwnerReports(),
             'isSuperAdmin' => $this->isSuperAdmin(),
             'dailySales' => $dailySales,
             'stockSummary' => $stockSummary,

@@ -274,6 +274,7 @@
 .wnf-drow{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
 .wnf-drow .wnf-field{margin-bottom:0}
 .wnf-drow .wnf-wide{grid-column:1 / -1}
+.wnf-cities{margin:4px 0 0;font-size:15px;color:var(--wnf-tx,inherit)}
 
 .wnf-note{
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;

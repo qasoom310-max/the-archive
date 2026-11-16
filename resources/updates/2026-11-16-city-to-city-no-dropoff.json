@@ -1,0 +1,38 @@
+{
+    "app": "website",
+    "title": { "en": "Website City to City form: no drop-off box", "ar": "نموذج من مدينة إلى مدينة في الموقع: بدون مربع الوجهة" },
+    "points": {
+        "en": [
+            "On the website's City to City booking form, the drop-off address box is gone. It now says \"Cities within Bahrain\" instead.",
+            "These website bookings reach the office without a drop-off address. The area the customer picked is still shown on the booking."
+        ],
+        "ar": [
+            "في نموذج حجز من مدينة إلى مدينة في الموقع، أُزيل مربع عنوان الوصول، وأصبح يظهر بدلاً منه \"مدن داخل البحرين\".",
+            "تصل هذه الحجوزات من الموقع إلى المكتب بدون عنوان وصول، ويبقى ظاهراً في الحجز المنطقة التي اختارها العميل."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, a customer booking City to City on the website had to type a drop-off address before they could book.",
+            "Now that box is gone and the form simply says \"Cities within Bahrain\" where it was. The customer still picks the area they are going to from the list above it, and that area is shown on the booking that reaches the office.",
+            "If you need the exact address, ask the customer when you confirm the trip. There are no pictures here because this screen is on the website, not in this system."
+        ],
+        "ar": [
+            "سابقاً كان على العميل الذي يحجز من مدينة إلى مدينة في الموقع أن يكتب عنوان الوصول قبل أن يتمكن من الحجز.",
+            "الآن أُزيل هذا المربع، ويظهر مكانه فقط \"مدن داخل البحرين\". ما زال العميل يختار المنطقة التي يذهب إليها من القائمة أعلاه، وتظهر هذه المنطقة في الحجز الذي يصل إلى المكتب.",
+            "إذا احتجت العنوان الدقيق فاسأل العميل عند تأكيد الرحلة. لا توجد صور هنا لأن هذه الشاشة في الموقع وليست في هذا النظام."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open a City to City booking that came from the website.",
+            "Look at the Trip line to see the area the customer chose.",
+            "When you confirm the trip, ask the customer for the exact drop-off address and add it to the booking."
+        ],
+        "ar": [
+            "افتح حجز من مدينة إلى مدينة جاء من الموقع.",
+            "انظر إلى سطر الرحلة لمعرفة المنطقة التي اختارها العميل.",
+            "عند تأكيد الرحلة، اسأل العميل عن عنوان الوصول الدقيق وأضفه إلى الحجز."
+        ]
+    }
+}

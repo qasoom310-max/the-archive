@@ -558,7 +558,9 @@ function wnf_builtin_data() {
 				'ask_ar'  => 'إلى أين أنت ذاهب؟',
 				'note_en' => 'One way, fixed fare, driver included. Need the car to wait for you? That is our chauffeur service.',
 				'note_ar' => 'اتجاه واحد بسعر ثابت شامل السائق. تحتاج السيارة أن تنتظرك؟ تلك هي خدمة الليموزين بالساعة.',
-				'fields'  => array( 'date', 'time', 'pickup', 'dropoff' ),
+				// No drop-off box: the zone picked above already says where to.
+				// 'cities' prints a line in its place instead.
+				'fields'  => array( 'date', 'time', 'pickup', 'cities' ),
 				'slugs'   => array(
 					'sedan'  => 'sedan-car-city-to-city-service',
 					'suv'    => 'suv-car-city-to-city-service',

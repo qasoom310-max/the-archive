@@ -39,6 +39,7 @@
       pickupPh: "Hotel, office or address",
       dropoff: "Drop-off address",
       dropoffPh: "Where are we taking you?",
+      cities: "Cities within Bahrain",
       perHour: "{p} {c} per hour",
       extraHour: "Extra hours are {p} {c} each.",
       saving: "Booking the return saves you {p} {c} against two one-way trips.",
@@ -80,6 +81,7 @@
       pickupPh: "الفندق أو المكتب أو العنوان",
       dropoff: "عنوان الوصول",
       dropoffPh: "إلى أين نأخذك؟",
+      cities: "مدن داخل البحرين",
       perHour: "{p} {c} للساعة",
       extraHour: "الساعة الإضافية {p} {c}.",
       saving: "حجز الذهاب والعودة يوفر عليك {p} {c} مقارنة برحلتين منفصلتين.",
@@ -512,7 +514,7 @@
       body.appendChild(ui.extra);
 
       /* --- trip details: after the price, before the button --- */
-      var detailFields = ["date", "flight", "time", "pickup", "dropoff"].filter(has);
+      var detailFields = ["date", "flight", "time", "pickup", "dropoff", "cities"].filter(has);
       if (detailFields.length) {
         var det = el("div", "wnf-details");
         var dh = el("div", "wnf-dhead");
@@ -537,6 +539,10 @@
           var df = input("text", t.dropoff, "dropoff", t.dropoffPh);
           df.className = "wnf-field wnf-wide";
           row.appendChild(df);
+        }
+        // City to City: a line where the drop-off box would be, nothing to type.
+        if (has("cities")) {
+          row.appendChild(el("p", "wnf-cities wnf-wide", t.cities));
         }
 
         det.appendChild(row);

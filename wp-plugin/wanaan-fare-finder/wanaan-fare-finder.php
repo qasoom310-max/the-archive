@@ -3,7 +3,7 @@
  * Plugin Name:       Wanaan Fare Finder
  * Plugin URI:        https://www.wanaan-bh.com/
  * Description:       Shows an instant fare for every Wanaan transport service. Prices come from the Wanaan ERP, with a local copy so the website never waits on it.
- * Version:           2.9.0
+ * Version:           2.9.1
  * Requires at least: 5.8
  * Requires PHP:      7.2
  * Author:            Wanaan
@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * serving the previous file even though the new one is on the server. Cost us a
  * wasted re-upload on 9 Sep 2026.
  */
-define( 'WNF_VERSION', '2.9.0' );
+define( 'WNF_VERSION', '2.9.1' );
 define( 'WNF_FILE', __FILE__ );
 define( 'WNF_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WNF_URL', plugin_dir_url( __FILE__ ) );

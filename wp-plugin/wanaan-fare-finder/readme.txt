@@ -3,7 +3,7 @@ Contributors: wanaan
 Requires at least: 5.8
 Tested up to: 6.6
 Requires PHP: 7.2
-Stable tag: 2.9.0
+Stable tag: 2.9.1
 License: GPL-2.0-or-later
 
 Shows an instant fare for every Wanaan transport service. Prices come from the
@@ -110,6 +110,9 @@ Each carries service, option, car, direction, trip, price_full, price_paid,
 offer_applied and currency.
 
 == Changelog ==
+
+= 2.9.1 =
+* City to City: the drop-off address box is gone; the form says "Cities within Bahrain" in its place.
 
 = 2.9.0 =
 * Pay part now, or in full. At checkout the customer must choose: pay a part

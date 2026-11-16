@@ -123,6 +123,13 @@ final class RentalOrder extends Model implements DefinesIrModel, TakesCouponCred
     /** Flat service fee added on top of a fuel-shortfall charge at return (BHD). */
     public const FUEL_SERVICE_FEE = 1.0;
 
+    /**
+     * The most a fuel charge can be. A full tank costs a fraction of this, so
+     * a larger figure is a typing slip: on 9 Nov 2026 an odometer reading
+     * typed into this box billed a customer 121,923 BD for petrol.
+     */
+    public const FUEL_CHARGE_MAX = 200.0;
+
     /** Security deposit is held this many days after return before it's settled. */
     public const DEPOSIT_HOLD_DAYS = 14;
 
@@ -648,6 +655,24 @@ final class RentalOrder extends Model implements DefinesIrModel, TakesCouponCred
         $invoice->discount = $this->discount;
         $invoice->total = $this->total;
         // So the receipt can mention the fuel/service charge when asked.
+        $lines = $this->invoiceChargeLines();
+        if ($lines !== []) {
+            $invoice->notes = trim(implode("\n", $lines));
+        }
+        $invoice->save();
+
+        return $invoice;
+    }
+
+    /**
+     * The lines an invoice's note carries about this order's return charges.
+     * One place, so a later correction of the charges can find and replace
+     * exactly what was written.
+     *
+     * @return list<string>
+     */
+    public function invoiceChargeLines(): array
+    {
         $lines = [];
         if ($this->fuelChargeTotal() > 0) {
             $lines[] = __('Includes fuel / service charge: :amount', [
@@ -661,12 +686,8 @@ final class RentalOrder extends Model implements DefinesIrModel, TakesCouponCred
                 'reason' => $note !== '' ? ' — ' . $note : '',
             ]);
         }
-        if ($lines !== []) {
-            $invoice->notes = trim(implode("\n", $lines));
-        }
-        $invoice->save();
 
-        return $invoice;
+        return $lines;
     }
 
     /** Cancel an order; free the vehicle it was holding (rented or reserved). */

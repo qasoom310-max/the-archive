@@ -68,7 +68,15 @@ final class UpdateLog
         $files = glob($this->directory . '/*.json');
         $entries = [];
         foreach ($files === false ? [] : $files as $file) {
-            $entries[] = $this->read($file);
+            // The megaphone in the top bar reads this on EVERY page. A bad
+            // entry must cost one news item, never the whole system: it is
+            // reported and left out. The test suite calls read() on each file
+            // directly, so a bad one still stops at CI.
+            try {
+                $entries[] = $this->read($file);
+            } catch (InvalidArgumentException $e) {
+                report($e);
+            }
         }
 
         // Newest day first; within a day, by file name so the order is stable.

@@ -124,7 +124,18 @@
             @endif
             @if ($savedOrder->returned_at)
                 <div class="rounded-2xl bg-white p-4 text-sm shadow-sm ring-1 ring-chrome-900/5">
-                    <h3 class="mb-2 font-semibold text-chrome-800">{{ __('Return') }} <span class="text-xs font-normal text-chrome-400">{{ $savedOrder->returned_at->format('Y-m-d H:i') }}</span></h3>
+                    <div class="mb-2 flex items-center justify-between gap-2">
+                        <h3 class="font-semibold text-chrome-800">{{ __('Return') }} <span class="text-xs font-normal text-chrome-400">{{ $savedOrder->returned_at->format('Y-m-d H:i') }}</span></h3>
+                        {{-- A closed order's return figures are fixed for everyone
+                             but the owner, who can put a typing slip right. --}}
+                        @if ($isSuperAdmin && $savedOrder->state === RentalOrder::STATE_CLOSED)
+                            <button type="button" wire:click="openReturnCorrection" data-correct-return
+                                class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary-800 ring-1 ring-primary-300 hover:bg-primary-50">
+                                <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="m5.433 13.917 1.262-3.155A4 4 0 0 1 7.58 9.42l6.92-6.918a2.121 2.121 0 0 1 3 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 0 1-.65-.65Z"/><path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0 0 10 3H4.75A2.75 2.75 0 0 0 2 5.75v9.5A2.75 2.75 0 0 0 4.75 18h9.5A2.75 2.75 0 0 0 17 15.25V10a.75.75 0 0 0-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5Z"/></svg>
+                                {{ __('Correct figures') }}
+                            </button>
+                        @endif
+                    </div>
                     <dl class="space-y-1 text-chrome-600">
                         <div class="flex justify-between"><dt>{{ __('KM') }}</dt><dd class="font-medium text-chrome-800">{{ $savedOrder->return_km !== null ? number_format((float) $savedOrder->return_km) : '—' }}</dd></div>
                         <div class="flex justify-between"><dt>{{ __('Fuel') }}</dt><dd class="font-medium text-chrome-800">{{ RentalOrder::fuelLabel($savedOrder->return_fuel) }}</dd></div>
@@ -721,6 +732,61 @@
                     <div class="flex justify-end gap-2 pt-1">
                         <button type="button" wire:click="closeHandover" class="text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</button>
                         <button type="submit" class="o-btn-primary">{{ __('Confirm & start') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
+
+    {{-- Correct a closed order's return figures (owner only) --}}
+    @if ($showCorrection && $savedOrder !== null)
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4" x-data x-on:keydown.escape.window="$wire.closeReturnCorrection()">
+            <div class="absolute inset-0 bg-chrome-900/40" wire:click="closeReturnCorrection"></div>
+            <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-pop ring-1 ring-chrome-900/5" data-return-correction>
+                <h3 class="mb-1 text-sm font-semibold text-chrome-800">{{ __('Correct the return figures') }}</h3>
+                <p class="mb-3 text-xs text-chrome-500">{{ __('The order is re-priced from what you save here, and an invoice already raised from it takes the new total. Money already received is not changed.') }}</p>
+                <form wire:submit.prevent="saveReturnCorrection" class="space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Return KM') }} <span class="text-red-500">*</span></label>
+                            <input type="number" wire:model="fix.return_km" min="{{ $savedOrder->handover_km ?? 0 }}" class="o-input w-full">
+                            @error('fix.return_km') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Return fuel') }}</label>
+                            <select wire:model="fix.return_fuel" class="o-input w-full">
+                                @foreach ($fuelLevels as $f)<option value="{{ $f['value'] }}">{{ __($f['label']) }}</option>@endforeach
+                            </select>
+                            @error('fix.return_fuel') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Fuel charge (BHD)') }}</label>
+                        <input type="number" step="0.001" min="0" wire:model="fix.fuel_charge" class="o-input w-full" placeholder="0.000">
+                        <p class="mt-1 text-xs text-chrome-400">{{ __('The refuel cost only. A :fee service fee is added when it is above zero. Type 0 for no fuel charge.', ['fee' => ValueFormat::money(RentalOrder::FUEL_SERVICE_FEE)]) }}</p>
+                        @error('fix.fuel_charge') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Extra charge (BHD)') }}</label>
+                            <input type="number" step="0.001" min="0" wire:model="fix.extra_charge" class="o-input w-full" placeholder="0.000">
+                            @error('fix.extra_charge') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Extra charge note') }}</label>
+                            <input type="text" wire:model="fix.extra_charge_note" class="o-input w-full">
+                            @error('fix.extra_charge_note') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Reason for the correction') }} <span class="text-red-500">*</span></label>
+                        <input type="text" wire:model="fix.reason" class="o-input w-full" placeholder="{{ __('e.g. the KM was typed in the fuel charge box') }}">
+                        <p class="mt-1 text-xs text-chrome-400">{{ __('Kept in the activity log with the old and new figures and your name.') }}</p>
+                        @error('fix.reason') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="flex justify-end gap-2 pt-1">
+                        <button type="button" wire:click="closeReturnCorrection" class="o-btn-ghost">{{ __('Cancel') }}</button>
+                        <button type="submit" class="o-btn-primary" wire:loading.attr="disabled">{{ __('Save correction') }}</button>
                     </div>
                 </form>
             </div>

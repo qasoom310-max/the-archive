@@ -5373,6 +5373,34 @@ and category rows alike.
   gated; a car made outside that way with no category lands in the "No category" row, which
   tells the owner how to fix it.
 Tests: `CarIncomeTest` (+3), `RentalCarCostTest` (category required).
+**A bad "What's new" entry can no longer break the system (fixed 2026-11-16).** The top bar
+calls `UpdateLog::latestKey()` on every page, and `all()` used to let `read()` throw, so one
+entry naming a picture that was not on disk returned a 500 on EVERY page (seen on the demo
+copy while writing an entry before taking its pictures). `all()` now catches the entry's
+`InvalidArgumentException`, `report()`s it and leaves that one item out. `read()` stays strict
+and `UpdatesPageTest` still calls it on every real file, so a bad entry is still stopped at CI.
+**Rule: anything the layout runs on every page must fail soft.** Test:
+`UpdatesPageTest::test_a_broken_entry_on_disk_does_not_break_any_page`.
+
+**Correcting a closed order's return figures (shipped 2026-11-16).** On RO/01677 the desk
+typed the odometer into the fuel-charge box; the closed order owed 121,923 BD for petrol and
+nothing on screen could change it. Now:
+- Owner only (`isSuperAdmin()`, re-checked in `openReturnCorrection()` and
+  `saveReturnCorrection()`): a "Correct figures" button (`data-correct-return`) on the Return
+  box of a CLOSED order opens a form bound to `OrderForm::$fix` (return KM, fuel, fuel charge,
+  extra charge + note, and a REQUIRED reason, min 5 chars).
+- `Modules\Rental\Services\ReturnCorrection::apply($order, $new, $reason)` does the work in one
+  transaction: sets the fields, `recalcTotals()`; syncs an invoice already raised from the order
+  (`subtotal`/`discount`/`total`, swaps the generated charge lines in `notes` via the new
+  `RentalOrder::invoiceChargeLines()`, which `createInvoice()` now also uses; then
+  `recomputePaid()`); moves the car's `odometer` to the corrected KM ONLY while it still equals
+  the old return KM. It never touches `advance_amount`, receipts or a settled deposit. Returns
+  the list of changes; logs `return_corrected` (label + colour in `ActivityLog`) with old → new
+  figures and the reason. Nothing changed = no log.
+- `RentalOrder::FUEL_CHARGE_MAX = 200.0`: a larger fuel charge is refused in `confirmReturn()`
+  and in the correction, with a message naming the likely slip. Note a wrong existing charge
+  above the cap must be corrected in the same save as any other field (the form validates it).
+Tests: `RentalReturnCorrectionTest` (8).
 **Limousine earnings: drivers by month (shipped 2026-11-16).** `LimoPerformance(year,
 driverMonth = 0)`: 1-12 filters ONLY the drivers table (and its petty-cash "Advanced" window)
 to that month; summary, routes, services and demand stay yearly on purpose. `LimoEarnings::

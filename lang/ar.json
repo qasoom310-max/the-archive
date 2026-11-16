@@ -3525,5 +3525,19 @@
     "Press a category to see the cars inside it.": "اضغط على الفئة لعرض السيارات داخلها.",
     "both desks, our own cars": "القسمان معاً، سياراتنا فقط",
     "both desks, outside cars only": "القسمان معاً، السيارات الخارجية فقط",
-    "Cars: :count": "عدد السيارات: :count"
+    "Cars: :count": "عدد السيارات: :count",
+    "A fuel charge cannot be more than :max. Check the KM was not typed in this box.": "رسوم الوقود لا يمكن أن تزيد عن :max. تأكد أن قراءة العداد لم تُكتب في هذا المربع.",
+    "Correct figures": "تصحيح الأرقام",
+    "Correct the return figures": "تصحيح أرقام الإرجاع",
+    "Extra charge note": "ملاحظة الرسوم الإضافية",
+    "Invoice :ref updated": "تم تحديث الفاتورة :ref",
+    "Kept in the activity log with the old and new figures and your name.": "يُحفظ في سجل النشاط مع الأرقام القديمة والجديدة واسمك.",
+    "Nothing was changed.": "لم يتغير شيء.",
+    "Reason for the correction": "سبب التصحيح",
+    "Return figures corrected.": "تم تصحيح أرقام الإرجاع.",
+    "Save correction": "حفظ التصحيح",
+    "Say why the figures are being corrected.": "اذكر سبب تصحيح الأرقام.",
+    "The order is re-priced from what you save here, and an invoice already raised from it takes the new total. Money already received is not changed.": "يُعاد احتساب الطلب بناءً على ما تحفظه هنا، والفاتورة الصادرة منه تأخذ الإجمالي الجديد. المبالغ المستلمة لا تتغير.",
+    "The refuel cost only. A :fee service fee is added when it is above zero. Type 0 for no fuel charge.": "تكلفة تعبئة الوقود فقط. تُضاف رسوم خدمة :fee عندما تكون أكبر من صفر. اكتب 0 لعدم وجود رسوم وقود.",
+    "e.g. the KM was typed in the fuel charge box": "مثال: كُتبت قراءة العداد في مربع رسوم الوقود"
 }

@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Modules\Limousine\Services\CouponRedeemer;
 use Modules\Rental\Services\RentalAgreementSender;
+use Modules\Rental\Services\ReturnCorrection;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -144,6 +145,12 @@ final class OrderForm extends Component
 
     /** Refuel amount the employee enters for a fuel shortfall (BHD). */
     public string $fuel_charge = '0';
+
+    /** The correct-the-return box (owner only) and what is typed in it. */
+    public bool $showCorrection = false;
+
+    /** @var array{return_km: string, return_fuel: string, fuel_charge: string, extra_charge: string, extra_charge_note: string, reason: string} */
+    public array $fix = ['return_km' => '', 'return_fuel' => 'full', 'fuel_charge' => '', 'extra_charge' => '', 'extra_charge_note' => '', 'reason' => ''];
 
     /** Free-form extra charge added at return (extra day, fee…) and what it's for. */
     public string $extra_charge = '0';
@@ -707,7 +714,7 @@ final class OrderForm extends Component
         $this->validateFocusing([
             'return_km' => ['required', 'integer', 'min:' . $floor],
             'return_fuel' => ['required', 'in:' . $this->fuelValues()],
-            'fuel_charge' => ['nullable', 'numeric', 'min:0'],
+            'fuel_charge' => ['nullable', 'numeric', 'min:0', 'max:' . RentalOrder::FUEL_CHARGE_MAX],
             'extra_charge' => ['nullable', 'numeric', 'min:0'],
             'extra_charge_note' => ['nullable', 'string', 'max:255'],
             'has_damage' => ['boolean'],
@@ -719,6 +726,7 @@ final class OrderForm extends Component
         ], [
             'return_km.min' => __('The return KM can’t be less than the handover KM (:km).', ['km' => $floor]),
             'return_video_url.required' => __('A return video is required to close the rental.'),
+            'fuel_charge.max' => $this->fuelChargeTooHigh(),
         ]);
 
         $this->withOrder(function (RentalOrder $o): void {
@@ -738,6 +746,91 @@ final class OrderForm extends Component
 
         $this->showReturn = false;
         session()->flash('toast', __('Car returned.'));
+    }
+
+    private function fuelChargeTooHigh(): string
+    {
+        return __('A fuel charge cannot be more than :max. Check the KM was not typed in this box.', [
+            'max' => \App\Erp\Money\Currencies::format(RentalOrder::FUEL_CHARGE_MAX),
+        ]);
+    }
+
+    /**
+     * Open the box that corrects a closed order's return figures. Owner only:
+     * it changes what a customer owes on an order that is already closed.
+     */
+    public function openReturnCorrection(): void
+    {
+        abort_unless($this->isSuperAdmin(), 403);
+
+        $order = $this->id !== null ? RentalOrder::query()->find($this->id) : null;
+        if ($order === null || $order->state !== RentalOrder::STATE_CLOSED || $order->returned_at === null) {
+            return;
+        }
+
+        $plain = static fn (float $v): string => rtrim(rtrim(number_format($v, 3, '.', ''), '0'), '.');
+
+        $this->fix = [
+            'return_km' => $order->return_km !== null ? (string) $order->return_km : '',
+            'return_fuel' => (string) ($order->return_fuel ?? 'full'),
+            'fuel_charge' => $plain($order->fuel_charge),
+            'extra_charge' => $plain($order->extra_charge),
+            'extra_charge_note' => (string) ($order->extra_charge_note ?? ''),
+            'reason' => '',
+        ];
+        $this->resetValidation();
+        $this->showCorrection = true;
+    }
+
+    public function closeReturnCorrection(): void
+    {
+        $this->showCorrection = false;
+    }
+
+    /** Save the corrected return figures. Re-checked here: mount is not a gate. */
+    public function saveReturnCorrection(ReturnCorrection $corrector): void
+    {
+        abort_unless($this->isSuperAdmin(), 403);
+
+        $order = $this->id !== null ? RentalOrder::query()->find($this->id) : null;
+        if ($order === null || $order->state !== RentalOrder::STATE_CLOSED || $order->returned_at === null) {
+            $this->showCorrection = false;
+
+            return;
+        }
+
+        $floor = $order->handover_km ?? 0;
+
+        $this->validate([
+            'fix.return_km' => ['required', 'integer', 'min:' . $floor],
+            'fix.return_fuel' => ['required', 'in:' . $this->fuelValues()],
+            'fix.fuel_charge' => ['nullable', 'numeric', 'min:0', 'max:' . RentalOrder::FUEL_CHARGE_MAX],
+            'fix.extra_charge' => ['nullable', 'numeric', 'min:0'],
+            'fix.extra_charge_note' => ['nullable', 'string', 'max:255'],
+            'fix.reason' => ['required', 'string', 'min:5', 'max:255'],
+        ], [
+            'fix.return_km.min' => __('The return KM can’t be less than the handover KM (:km).', ['km' => $floor]),
+            'fix.fuel_charge.max' => $this->fuelChargeTooHigh(),
+            'fix.reason.required' => __('Say why the figures are being corrected.'),
+            'fix.reason.min' => __('Say why the figures are being corrected.'),
+        ], [
+            'fix.return_km' => __('Return KM'),
+            'fix.return_fuel' => __('Return fuel'),
+            'fix.fuel_charge' => __('Fuel charge'),
+            'fix.extra_charge' => __('Extra charge'),
+            'fix.reason' => __('Reason'),
+        ]);
+
+        $changes = $corrector->apply($order, [
+            'return_km' => (int) $this->fix['return_km'],
+            'return_fuel' => (string) $this->fix['return_fuel'],
+            'fuel_charge' => $this->toFloat((string) $this->fix['fuel_charge']),
+            'extra_charge' => $this->toFloat((string) $this->fix['extra_charge']),
+            'extra_charge_note' => $this->trimOrNull((string) $this->fix['extra_charge_note']),
+        ], trim((string) $this->fix['reason']));
+
+        $this->showCorrection = false;
+        session()->flash('toast', $changes === [] ? __('Nothing was changed.') : __('Return figures corrected.'));
     }
 
     public function cancelOrder(): void

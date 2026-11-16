@@ -1,0 +1,76 @@
+{
+    "app": "rental",
+    "title": {
+        "en": "The owner can correct the return figures of a closed order",
+        "ar": "المالك يستطيع تصحيح أرقام الإرجاع في طلب مغلق"
+    },
+    "points": {
+        "en": [
+            "On a closed Rent A Car order, the owner has a \"Correct figures\" button on the Return box.",
+            "It changes the return KM, fuel level, fuel charge and extra charge, and the order and its invoice are re-priced.",
+            "A fuel charge above 200 BD is no longer accepted anywhere, so the KM cannot be typed there by mistake."
+        ],
+        "ar": [
+            "في طلب تأجير مغلق، يظهر للمالك زر «تصحيح الأرقام» في مربع الإرجاع.",
+            "يغيّر عداد الإرجاع ومستوى الوقود ورسوم الوقود والرسوم الإضافية، ويُعاد احتساب الطلب وفاتورته.",
+            "رسوم الوقود التي تزيد عن 200 دينار لم تعد تُقبل في أي مكان، فلا يمكن كتابة قراءة العداد هناك بالخطأ."
+        ]
+    },
+    "details": {
+        "en": [
+            "When a car is returned, the desk types the KM, the fuel level and any fuel charge, and the order closes. Until now those figures could not be changed afterwards by anyone. On one order the KM reading was typed into the fuel charge box, so the order showed a fuel charge of more than 121,000 BD, the customer appeared to owe it, and there was no way to fix it on the screen.",
+            "The owner now has a \"Correct figures\" button on the Return box of a closed order. It opens a small form with the return KM, return fuel, fuel charge, extra charge and its note. A reason must be typed before it will save.",
+            "When the correction is saved, the order's total and balance are worked out again, and the order reads paid, part paid or unpaid according to the new total. If an invoice was already raised from the order, it takes the new total and its paid state is worked out again as well. If the KM was corrected, the car's odometer follows it, unless the car has been rented again since.",
+            "Money already received is never changed by a correction. Receipts stay as they are, and a deposit that was already settled stays settled.",
+            "Every correction is kept in the Activity log: the old figure, the new figure, who changed it and the reason.",
+            "To stop the same slip happening again, a fuel charge above 200 BD is refused, both when the car is returned and in the correction form. A full tank costs far less than that, so a larger figure is a typing mistake.",
+            "Only the owner sees the button. Other staff cannot change a closed order's return figures."
+        ],
+        "ar": [
+            "عند إرجاع السيارة يكتب الموظف قراءة العداد ومستوى الوقود وأي رسوم وقود، ثم يُغلق الطلب. حتى الآن لم يكن أحد يستطيع تغيير هذه الأرقام بعد ذلك. في أحد الطلبات كُتبت قراءة العداد في مربع رسوم الوقود، فأظهر الطلب رسوم وقود تزيد عن 121,000 دينار، وبدا أن العميل مدين بها، ولم تكن هناك طريقة لتصحيحها من الشاشة.",
+            "أصبح للمالك زر «تصحيح الأرقام» في مربع الإرجاع للطلب المغلق. يفتح نموذجاً صغيراً فيه عداد الإرجاع ووقود الإرجاع ورسوم الوقود والرسوم الإضافية وملاحظتها. ولا يُحفظ إلا بعد كتابة السبب.",
+            "عند حفظ التصحيح يُعاد احتساب إجمالي الطلب ورصيده، ويظهر الطلب مدفوعاً أو مدفوعاً جزئياً أو غير مدفوع حسب الإجمالي الجديد. وإذا كانت هناك فاتورة صادرة من الطلب فإنها تأخذ الإجمالي الجديد ويُعاد احتساب حالة دفعها أيضاً. وإذا صُحّح العداد فإن عداد السيارة يتبعه، إلا إذا أُجّرت السيارة مرة أخرى بعد ذلك.",
+            "المبالغ المستلمة لا يغيّرها التصحيح أبداً. سندات القبض تبقى كما هي، والتأمين الذي تمت تسويته يبقى مسوّى.",
+            "كل تصحيح يُحفظ في سجل النشاط: الرقم القديم، الرقم الجديد، من غيّره، والسبب.",
+            "ولمنع تكرار الخطأ نفسه، تُرفض رسوم الوقود التي تزيد عن 200 دينار، سواء عند إرجاع السيارة أو في نموذج التصحيح. تعبئة الخزان كاملاً تكلّف أقل من ذلك بكثير، فأي رقم أكبر هو خطأ في الكتابة.",
+            "الزر يظهر للمالك فقط. بقية الموظفين لا يستطيعون تغيير أرقام الإرجاع في طلب مغلق."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Rent A Car, then Orders, and open the closed order.",
+            "In the Return box on the right, press \"Correct figures\". Only the owner sees it.",
+            "Type the right figures. For no fuel charge, type 0 in Fuel charge.",
+            "Type the reason, for example \"the KM was typed in the fuel charge box\".",
+            "Press \"Save correction\". The order now shows the corrected charge, total and balance.",
+            "If the order has an invoice, open it to see the new total. Nothing else needs to be done.",
+            "To see who corrected what, open the Activity log from the top bar and look for \"Corrected return figures\"."
+        ],
+        "ar": [
+            "افتح تأجير السيارات ثم الطلبات، وافتح الطلب المغلق.",
+            "في مربع الإرجاع على اليمين اضغط «تصحيح الأرقام». يظهر للمالك فقط.",
+            "اكتب الأرقام الصحيحة. لعدم وجود رسوم وقود اكتب 0 في رسوم الوقود.",
+            "اكتب السبب، مثل «كُتبت قراءة العداد في مربع رسوم الوقود».",
+            "اضغط «حفظ التصحيح». يعرض الطلب الآن الرسوم والإجمالي والرصيد بعد التصحيح.",
+            "إذا كانت للطلب فاتورة فافتحها لترى الإجمالي الجديد. لا يلزم عمل شيء آخر.",
+            "لمعرفة من صحّح ماذا، افتح سجل النشاط من الشريط العلوي وابحث عن «تصحيح أرقام الإرجاع»."
+        ]
+    },
+    "images": [
+        {
+            "before": "order-before.png",
+            "after": "order-after.png",
+            "caption": {
+                "en": "A closed order where the KM was typed as the fuel charge. After: the \"Correct figures\" button on the Return box, and the order once corrected.",
+                "ar": "طلب مغلق كُتبت فيه قراءة العداد كرسوم وقود. بعد: زر «تصحيح الأرقام» في مربع الإرجاع، والطلب بعد تصحيحه."
+            }
+        },
+        {
+            "after": "form-after.png",
+            "caption": {
+                "en": "The correction form, with the reason that must be given.",
+                "ar": "نموذج التصحيح، مع السبب الذي يجب ذكره."
+            }
+        }
+    ]
+}

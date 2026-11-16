@@ -116,6 +116,25 @@ final class UpdatesPageTest extends TestCase
             ->assertSee('Several cars on a quotation');
     }
 
+    /**
+     * The top bar reads the news on every page, so a bad entry must never be
+     * able to take the system down: it is left out and the rest still show.
+     */
+    public function test_a_broken_entry_on_disk_does_not_break_any_page(): void
+    {
+        $log = $this->fakeLog([
+            '2026-02-10-good' => $this->entry('rental', 'A good one', 'جيد'),
+            '2026-02-11-bad-app' => $this->entry('spaceship', 'A broken one', 'معطوب'),
+            '2026-02-12-missing-picture' => $this->entry('rental', 'No picture file', 'بدون صورة') + ['images' => [['after' => 'gone.png', 'caption' => ['en' => 'c', 'ar' => 'ت']]]],
+        ]);
+
+        $this->assertSame(['2026-02-10-good'], array_map(static fn ($e): string => $e->key, $log->all()));
+
+        $this->actingAs(User::factory()->create());
+        $this->get('/updates')->assertOk()->assertSee('A good one')->assertDontSee('A broken one');
+        $this->get('/')->assertOk();
+    }
+
     public function test_a_broken_entry_is_refused_with_the_reason(): void
     {
         $dir = $this->tempDir();

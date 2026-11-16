@@ -1,0 +1,17 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Invoice PDFs print each trip's own Ref. #",
+        "ar": "ملفات PDF للفواتير تطبع رقم المرجع لكل رحلة"
+    },
+    "points": {
+        "en": [
+            "The invoice now shows the trip number you see and search by in the bookings list, not the booking number.",
+            "An invoice with no trips can be linked to its booking from the invoice page."
+        ],
+        "ar": [
+            "الفاتورة أصبحت تعرض رقم الرحلة الذي تراه وتبحث به في قائمة الحجوزات، وليس رقم الحجز.",
+            "الفاتورة التي لا تحتوي على رحلات يمكن ربطها بحجزها من صفحة الفاتورة."
+        ]
+    }
+}

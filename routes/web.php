@@ -23,6 +23,8 @@ use App\Livewire\Pages\MonthlyProfit;
 use App\Livewire\Pages\Payroll;
 use App\Livewire\Pages\Playground;
 use App\Livewire\Pages\SettingsPage;
+use App\Livewire\Pages\UpdateDetail;
+use App\Livewire\Pages\Updates;
 use App\Livewire\ProfilePage;
 use App\Livewire\WorkspacesPage;
 use Illuminate\Http\RedirectResponse;
@@ -134,6 +136,17 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/choose/{workspace}', [ChooseWorkspaceController::class, 'enter'])
         ->whereNumber('workspace')->name('workspaces.enter');
 
+    // "What's new" — every change to the system, for everyone signed in
+    // (topbar megaphone icon). Entries are files in resources/updates/.
+    Route::get('/updates', Updates::class)->name('updates');
+    Route::get('/updates/{key}', UpdateDetail::class)
+        ->where('key', '\d{4}-\d{2}-\d{2}-[a-z0-9-]+')->name('updates.show');
+    // Before/after pictures. Served through the app, not from public/, so a
+    // screenshot of the system is never readable without signing in.
+    Route::get('/updates/{key}/image/{file}', \App\Http\Controllers\UpdateImageController::class)
+        ->where('key', '\d{4}-\d{2}-\d{2}-[a-z0-9-]+')
+        ->where('file', '[a-z0-9][a-z0-9-]*\.(png|jpg|jpeg|webp)')
+        ->name('updates.image');
     // Admin-only audit trail (topbar activity icon). Component gates on admin.
     Route::get('/activity', ActivityLog::class)->name('activity');
 

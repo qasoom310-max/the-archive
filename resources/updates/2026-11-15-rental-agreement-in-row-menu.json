@@ -1,0 +1,17 @@
+{
+    "app": "rental",
+    "title": {
+        "en": "Agreement PDF, print and email from the orders list",
+        "ar": "عقد الإيجار: PDF وطباعة وبريد من قائمة الطلبات"
+    },
+    "points": {
+        "en": [
+            "The 3-dot menu on each Rent A Car order now has Agreement (PDF), Print agreement and Email agreement.",
+            "You no longer need to open the order first."
+        ],
+        "ar": [
+            "قائمة النقاط الثلاث في كل طلب تأجير أصبحت تحتوي على: العقد (PDF)، طباعة العقد، وإرسال العقد بالبريد.",
+            "لم تعد بحاجة إلى فتح الطلب أولاً."
+        ]
+    }
+}

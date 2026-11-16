@@ -1,0 +1,15 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "\"Edit booking details\" removed from the bookings menu",
+        "ar": "إزالة «تعديل تفاصيل الحجز» من قائمة الحجوزات"
+    },
+    "points": {
+        "en": [
+            "It did the same job as \"Open full booking\", so only that one remains in the 3-dot menu."
+        ],
+        "ar": [
+            "كان يؤدي نفس وظيفة «فتح الحجز كاملاً»، لذلك بقي هذا الخيار وحده في قائمة النقاط الثلاث."
+        ]
+    }
+}

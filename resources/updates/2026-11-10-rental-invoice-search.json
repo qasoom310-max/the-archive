@@ -1,0 +1,15 @@
+{
+    "app": "rental",
+    "title": {
+        "en": "Search Rent A Car invoices by customer name",
+        "ar": "البحث في فواتير تأجير السيارات باسم العميل"
+    },
+    "points": {
+        "en": [
+            "A search box above the invoices list finds an invoice by part of the customer's name or by the invoice number."
+        ],
+        "ar": [
+            "مربع بحث أعلى قائمة الفواتير يجد الفاتورة بجزء من اسم العميل أو برقم الفاتورة."
+        ]
+    }
+}

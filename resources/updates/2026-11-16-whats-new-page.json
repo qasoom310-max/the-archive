@@ -1,0 +1,83 @@
+{
+    "app": "system",
+    "title": {
+        "en": "A \"What's new\" page for everyone",
+        "ar": "صفحة «ما الجديد» للجميع"
+    },
+    "points": {
+        "en": [
+            "The megaphone icon in the top bar opens a page listing every change made to the system, newest first.",
+            "Each update can be opened for its full explanation, before and after pictures, and a step-by-step guide.",
+            "A red dot on the icon means there is something you have not read yet on this device."
+        ],
+        "ar": [
+            "أيقونة مكبّر الصوت في الشريط العلوي تفتح صفحة تعرض كل تغيير أُجري على النظام، الأحدث أولاً.",
+            "يمكن فتح كل تحديث لقراءة شرحه الكامل، وصور قبل وبعد، ودليل خطوة بخطوة.",
+            "النقطة الحمراء على الأيقونة تعني أن هناك جديداً لم تقرأه بعد على هذا الجهاز."
+        ]
+    },
+    "details": {
+        "en": [
+            "Until now a change to the system was only announced by word of mouth. A button could move or a screen could gain a new option, and the people using it found out by accident, or not at all.",
+            "From today every change is written up here on the day it goes live, in English and Arabic. Whoever makes the change writes the update as part of the same work, so the page can never fall behind the system.",
+            "The list shows a short summary of each update. Opening an update shows the full story: what changed and why, pictures of the screen before and after where the change can be seen, and the steps to use it.",
+            "The page is the same for everyone who can sign in, in every database. It only shows news. Nothing on it can be edited or deleted from the screen.",
+            "This page is new, so its pictures show only how it looks now. For a change to an existing screen you will see two pictures side by side, before and after."
+        ],
+        "ar": [
+            "حتى الآن كان أي تغيير في النظام يُعرف بالكلام فقط. قد ينتقل زر من مكانه أو تُضاف خاصية جديدة إلى شاشة، فيكتشفها المستخدمون بالصدفة أو لا يكتشفونها أبداً.",
+            "من اليوم يُكتب كل تغيير هنا في يوم تفعيله، بالعربية والإنجليزية. من يُجري التغيير يكتب التحديث كجزء من العمل نفسه، فلا تتأخر الصفحة عن النظام أبداً.",
+            "القائمة تعرض ملخصاً قصيراً لكل تحديث. وعند فتح التحديث يظهر الشرح الكامل: ما الذي تغيّر ولماذا، وصور للشاشة قبل التغيير وبعده إن كان التغيير مرئياً، وخطوات الاستخدام.",
+            "الصفحة واحدة لكل من يستطيع تسجيل الدخول، في كل قاعدة بيانات. وهي للأخبار فقط، ولا يمكن تعديل أو حذف أي شيء فيها من الشاشة.",
+            "هذه الصفحة جديدة، لذلك تعرض صورها شكلها الحالي فقط. أما عند تغيير شاشة موجودة فسترى صورتين جنباً إلى جنب: قبل وبعد."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Look at the top bar. The megaphone icon is beside the notification bell.",
+            "A red dot on the megaphone means there is an update you have not opened yet on this device. Press the icon.",
+            "The updates are listed by day, newest first. Type in the search box to find one, for example \"invoice\".",
+            "Press an app name such as Limousine or Rent A Car to see only that app's updates. Press All to see everything again.",
+            "Press \"Full explanation and guide\" under an update to read the whole story, see the pictures and follow the steps.",
+            "Press a picture to open it full size in a new tab."
+        ],
+        "ar": [
+            "انظر إلى الشريط العلوي. أيقونة مكبّر الصوت بجانب جرس الإشعارات.",
+            "النقطة الحمراء على مكبّر الصوت تعني وجود تحديث لم تفتحه بعد على هذا الجهاز. اضغط على الأيقونة.",
+            "التحديثات مرتبة حسب اليوم، الأحدث أولاً. اكتب في مربع البحث للعثور على تحديث، مثل «فاتورة».",
+            "اضغط على اسم تطبيق مثل الليموزين أو تأجير السيارات لعرض تحديثاته فقط. اضغط «الكل» لعرض كل شيء من جديد.",
+            "اضغط «الشرح الكامل والدليل» تحت التحديث لقراءة القصة كاملة ومشاهدة الصور واتباع الخطوات.",
+            "اضغط على الصورة لفتحها بالحجم الكامل في تبويب جديد."
+        ]
+    },
+    "images": [
+        {
+            "after": "topbar-after.png",
+            "caption": {
+                "en": "The megaphone icon in the top bar, with the red dot that shows there is something unread.",
+                "ar": "أيقونة مكبّر الصوت في الشريط العلوي، مع النقطة الحمراء التي تدل على وجود جديد لم يُقرأ."
+            }
+        },
+        {
+            "after": "list-after.png",
+            "caption": {
+                "en": "The list of updates, with the search box and the app buttons.",
+                "ar": "قائمة التحديثات، مع مربع البحث وأزرار التطبيقات."
+            }
+        },
+        {
+            "after": "list-arabic.png",
+            "caption": {
+                "en": "The same page for a user who reads Arabic.",
+                "ar": "الصفحة نفسها لمستخدم يقرأ بالعربية."
+            }
+        },
+        {
+            "after": "detail-after.png",
+            "caption": {
+                "en": "An update opened in full: the explanation, the pictures and the guide.",
+                "ar": "تحديث مفتوح بالكامل: الشرح والصور والدليل."
+            }
+        }
+    ]
+}

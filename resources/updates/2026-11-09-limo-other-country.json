@@ -1,0 +1,15 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "\"Other\" country for trips outside the Gulf",
+        "ar": "دولة «أخرى» للرحلات خارج الخليج"
+    },
+    "points": {
+        "en": [
+            "The From and To country lists on a trip end with \"Other\", for a place such as Amman."
+        ],
+        "ar": [
+            "قائمتا دولة الانطلاق والوصول في الرحلة تنتهيان بخيار «أخرى»، لمكان مثل عمّان."
+        ]
+    }
+}

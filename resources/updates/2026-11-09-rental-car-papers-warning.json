@@ -1,0 +1,17 @@
+{
+    "app": "rental",
+    "title": {
+        "en": "The order form says which car paper has lapsed",
+        "ar": "نموذج الطلب يوضح أي ورقة من أوراق السيارة منتهية"
+    },
+    "points": {
+        "en": [
+            "The warning under a picked car now names the problem: registration or insurance, and its expiry date.",
+            "A link opens the car so its papers can be updated."
+        ],
+        "ar": [
+            "التحذير تحت السيارة المختارة أصبح يسمّي المشكلة: الملكية أو التأمين، مع تاريخ الانتهاء.",
+            "يوجد رابط يفتح صفحة السيارة لتحديث أوراقها."
+        ]
+    }
+}

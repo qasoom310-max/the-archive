@@ -3461,5 +3461,20 @@
     "Rate per car (BHD)": "السعر لكل سيارة (د.ب)",
     ":count cars": ":count سيارات",
     "This car is already on the quotation. Raise its count instead.": "هذه السيارة موجودة في عرض السعر بالفعل. زِد عددها بدلاً من ذلك.",
-    "At least one car.": "سيارة واحدة على الأقل."
+    "At least one car.": "سيارة واحدة على الأقل.",
+    "What's new": "ما الجديد",
+    "Every change made to the system, newest first.": "كل تغيير أُجري على النظام، الأحدث أولاً.",
+    "Search the updates…": "ابحث في التحديثات…",
+    "No updates match.": "لا توجد تحديثات مطابقة.",
+    "Show older updates (:count more)": "عرض تحديثات أقدم (:count أخرى)",
+    "WhatsApp": "واتساب",
+    "Full explanation and guide": "الشرح الكامل والدليل",
+    "with pictures": "مع صور",
+    "All updates": "كل التحديثات",
+    "What changed and why": "ما الذي تغيّر ولماذا",
+    "Before and after": "قبل وبعد",
+    "Before": "قبل",
+    "After": "بعد",
+    "Open the picture full size": "افتح الصورة بالحجم الكامل",
+    "How to use it": "طريقة الاستخدام"
 }

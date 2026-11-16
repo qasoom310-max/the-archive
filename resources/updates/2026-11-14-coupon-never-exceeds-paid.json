@@ -1,0 +1,17 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "A cancelled trip never gives more credit than was paid",
+        "ar": "الرحلة الملغاة لا تمنح رصيداً أكثر مما دُفع"
+    },
+    "points": {
+        "en": [
+            "Cancelling a second trip on the same booking no longer creates a second coupon for money the booking does not hold.",
+            "A coupon made by a cancelled trip now links to its booking."
+        ],
+        "ar": [
+            "إلغاء رحلة ثانية في نفس الحجز لم يعد يُنشئ كوبوناً ثانياً بمبلغ غير موجود في الحجز.",
+            "الكوبون الناتج عن رحلة ملغاة أصبح مرتبطاً بحجزه."
+        ]
+    }
+}

@@ -1,0 +1,17 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Invoice and quotation Excel files match the printed document",
+        "ar": "ملفات Excel للفواتير وعروض الأسعار تطابق المستند المطبوع"
+    },
+    "points": {
+        "en": [
+            "Excel, CSV and Print now carry the same columns as the printed invoice or quotation, one row per trip or line.",
+            "The totals box is at the foot of the file."
+        ],
+        "ar": [
+            "ملفات Excel و CSV والطباعة أصبحت تحمل نفس أعمدة الفاتورة أو عرض السعر المطبوع، صف لكل رحلة أو بند.",
+            "مربع الإجماليات موجود في أسفل الملف."
+        ]
+    }
+}

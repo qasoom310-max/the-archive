@@ -1,0 +1,17 @@
+{
+    "app": "rental",
+    "title": {
+        "en": "Several cars on one Rent A Car quotation",
+        "ar": "عدة سيارات في عرض سعر واحد لتأجير السيارات"
+    },
+    "points": {
+        "en": [
+            "Each car line has a count and its own rate per car, for example 5 x Ford. Up to 100 cars on one quotation.",
+            "Converting the quotation makes one order per car."
+        ],
+        "ar": [
+            "لكل سطر سيارة عدد وسعر خاص للسيارة الواحدة، مثل 5 × فورد. حتى 100 سيارة في عرض السعر الواحد.",
+            "تحويل عرض السعر يُنشئ طلباً واحداً لكل سيارة."
+        ]
+    }
+}

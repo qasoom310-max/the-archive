@@ -1,0 +1,17 @@
+{
+    "app": "rental",
+    "title": {
+        "en": "Payment links on Rent A Car orders",
+        "ar": "روابط الدفع لطلبات تأجير السيارات"
+    },
+    "points": {
+        "en": [
+            "\"Create payment link\" in the 3-dot menu of an order sends the customer a link to pay online, the same as limousine bookings.",
+            "Money paid online is added to the order's advance automatically."
+        ],
+        "ar": [
+            "«إنشاء رابط دفع» في قائمة النقاط الثلاث للطلب يرسل للعميل رابطاً للدفع عبر الإنترنت، كما في حجوزات الليموزين.",
+            "المبلغ المدفوع عبر الإنترنت يُضاف تلقائياً إلى المقدَّم في الطلب."
+        ]
+    }
+}

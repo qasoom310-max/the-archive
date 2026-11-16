@@ -59,6 +59,21 @@ Odoo's "addons" paradigm.
    "WhatsApp"), ISO codes + currency symbols, user-entered data, CLI snippets,
    keyboard shortcuts. Money values go through `App\Erp\Money\Currencies::format()` —
    never raw `number_format()` on amounts.
+10. **Every change that users can see or feel gets a "What's new" entry, in the same
+    commit.** Add one file `resources/updates/YYYY-MM-DD-short-name.json` (format and the
+    allowed `app` values: `resources/updates/README.md`). It carries a short summary
+    (`points`), the **full explanation** (`details`: how it was, what was wrong, how it is
+    now, why), a **step-by-step guide** (`guide`: the exact buttons, written so a new member
+    of staff can follow it alone) and, whenever the change can be seen on screen,
+    **before and after pictures** (`images`, files under `resources/updates/images/<key>/`).
+    Take the "before" picture BEFORE changing the screen. Pictures show DEMO data only,
+    never the live site. It is shown to EVERYONE signed in
+    at `/updates`, so: English AND Arabic with the same number of points; plain words for
+    the person at the desk (what they will see or do differently), no class/file/test
+    names; and NEVER customer names, phone numbers, real amounts, passwords or security
+    details. This applies to every session and every person working on this repository,
+    Claude included. Skip it only for a change no user can notice (a refactor, a test,
+    documentation); say so in the hand-off when you skip.
 
 ---
 
@@ -5191,6 +5206,20 @@ would be its own annoyance.
 
 ## 6. Known Environment Caveats
 
+- **EVERY computer that works on this ERP must be set up for the "What's new" pictures
+  before it makes a change (owner's rule, 2026-11-16).** At the start of a session on any
+  machine, Claude checks and fixes this itself, without being asked:
+  1. `git pull` so the machine has the latest code, this file and `scripts/`.
+  2. If `node_modules/puppeteer-core` is missing, run `npm install` in the project root
+     (it is a devDependency in `package.json`; it downloads no browser).
+  3. Google Chrome must be installed (`scripts/update-shot.mjs` looks in the usual macOS,
+     Windows and Linux places; set `CHROME_PATH` if it is elsewhere). If Chrome is missing,
+     tell the person to install it; do not skip the pictures silently.
+  4. `php`, `composer install` and `npm run build` as for any work here.
+  If a permission prompt blocks `npm install`, ask the person to run
+  `npm install` in the project folder themselves (macOS: open Terminal, `cd` to the
+  project, paste the command). A machine that cannot take pictures must not ship a visible
+  change without them: say so and stop, per §2 rule 10.
 - **PHP version:** project standard is **8.3+**, but the dev host runs **PHP 8.2.12**.
   `composer.json` requires `^8.2` for local compatibility. Laravel 11 supports 8.2, so
   everything works today. Before relying on 8.3-only syntax (e.g. typed class constants,
@@ -5270,6 +5299,42 @@ would be its own annoyance.
 2. `composer analyse` green (PHPStan level 6).
 3. `composer test` green.
 4. Phase status table in §5 updated if a phase milestone was reached.
+5. A "What's new" entry added under `resources/updates/` for any change a user can
+   notice (§2 rule 10).
+
+**"What's new" page (shipped 2026-11-16).** `/updates` (`App\Livewire\Pages\Updates`, route
+`updates`, megaphone icon in the top bar for every signed-in user, no ACL). Entries are files,
+not database rows: `App\Erp\Updates\UpdateLog` reads `resources/updates/*.json` (one file per
+change, `UpdateEntry` DTO, newest first), so the news ships with the code to every workspace
+and two sessions never edit the same file. `UpdateLog::read()` rejects a bad file name, a
+missing language, an unknown app or uneven point counts; `UpdatesPageTest` runs every real
+file through it. The page filters by app (`?app=`) and search (`?search=`, matches either
+language) and shows 30 entries then "Show older updates". The red dot on the icon compares
+the newest entry's key with `localStorage['erp-updates-seen']`, which the page writes on
+open, so "read" is per device, not per user (no column, no migration). The first 12 entries
+cover 9 to 16 November 2026; nothing earlier was backfilled.
+
+**Full story on each update (2026-11-16).** `/updates/{key}` (`UpdateDetail`, route
+`updates.show`) shows an entry's `details` paragraphs, its before/after `images` side by side
+(stacked on a phone, each opens full size) and its numbered `guide`. `details` + `guide` are
+REQUIRED on entries dated `UpdateLog::FULL_STORY_FROM` (2026-11-16) or later; the 11 earlier
+entries are summaries only and show no "Full explanation and guide" link. Pictures live in
+`resources/updates/images/<key>/` and are served by `UpdateImageController`
+(`updates.image`, behind `auth`, only a file the entry names, never from `public/`).
+`UpdateLog::read()` refuses a picture that is missing, has a path in its name, or lacks a
+caption in both languages. Tests: `UpdatesPageTest` (10).
+
+**Screenshot tool for the pictures (2026-11-16).** `scripts/demo-server.sh` builds and serves a
+local DEMO copy (`database/demo.sqlite`, git-ignored; `migrate:fresh --seed` + every module
+installed + `PartnerSeeder`/`PosSeeder`; admins `admin@example.com` and Arabic-reading
+`arabic@example.com`, both `password`) on `http://127.0.0.1:8765`. It uses `php -S` from
+`public/`, NOT `artisan serve`: that command passes its worker only a fixed list of environment
+variables, so `DB_DATABASE` was dropped and the worker read `.env`. `node scripts/update-shot.mjs
+<key> <name> <path> [--selector --click --wait --full --mobile --ar --dark]` signs in with
+`puppeteer-core` (devDependency; drives the installed Google Chrome, downloads no browser) and
+saves `resources/updates/images/<key>/<name>.png` at 2x. It is hard-wired to that local address,
+so it cannot photograph the live site. Limousine and Rent A Car have no demo seeders: create
+the few demo records a picture needs in the demo copy by hand before the "before" picture.
 
 
 **The order form says which car paper is at fault (2026-11-09).** The red warning under a picked

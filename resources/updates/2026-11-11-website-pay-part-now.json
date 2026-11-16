@@ -1,0 +1,17 @@
+{
+    "app": "website",
+    "title": {
+        "en": "Website trips: pay part now or in full",
+        "ar": "رحلات الموقع: ادفع جزءاً الآن أو المبلغ كاملاً"
+    },
+    "points": {
+        "en": [
+            "At checkout the customer chooses to pay 20% now for a trip inside Bahrain, 50% for a trip leaving Bahrain, or the full fare.",
+            "The booking arrives with the full fare and a receipt for what was paid; the rest is collected in the car."
+        ],
+        "ar": [
+            "عند الدفع يختار العميل دفع 20% الآن للرحلة داخل البحرين، أو 50% للرحلة إلى خارج البحرين، أو الأجرة كاملة.",
+            "يصل الحجز بالأجرة كاملة مع سند قبض بالمبلغ المدفوع، والباقي يُحصَّل في السيارة."
+        ]
+    }
+}

@@ -5434,7 +5434,9 @@ wants every year kept until he deletes it, and a way to download before deleting
 Tests: `RentalVehicleDocumentsTest` (7).
 **Travel authorizations (shipped 2026-11-16).** The letter ("توكيل للسفر بمركبة بحرينية") that
 lets a named driver take a company car to another Gulf country was typed by hand each time.
-`/app/rental/travel-permit` (`Modules\Rental\Livewire\TravelPermits`, linked from the Rent A Car
+`/app/rental/travel-permit` (`Modules\Rental\Livewire\TravelPermits`, linked from a card at the
+top of the MAIN dashboard (`data-dashboard-travel-permits`, the owner asked for it there the same
+day; shown when the route exists and the user has `rental.order` Read) and from the Rent A Car
 home strip; gated on `rental.order` Read to open, Write to make) builds it from the records.
 - `TravelPermitIssuer` holds the rules. Car must have plate, make, model, colour, a year, and a
   `registration_expiry` not before the start date. Driver must have a CPR and a name of >= 3

@@ -319,6 +319,16 @@ final class RentalTravelPermitTest extends TestCase
         }
     }
 
+    /** The link sits on the main dashboard, for those who may open the page. */
+    public function test_the_dashboard_links_to_it_for_those_who_may_open_it(): void
+    {
+        $this->actingAs($this->owner());
+        $this->get('/')->assertOk()->assertSee('data-dashboard-travel-permits', false);
+
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+        $this->get('/')->assertOk()->assertDontSee('data-dashboard-travel-permits', false);
+    }
+
     public function test_staff_with_no_access_to_orders_cannot_open_the_page(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => false]));

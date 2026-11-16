@@ -7,6 +7,25 @@
             {{ __('to jump anywhere.') }}</p>
     </div>
 
+    {{-- Travel authorizations — on the dashboard itself, one press from
+         anywhere, because the letter is needed in a hurry at the desk. Shown
+         where Rent A Car is installed, to anyone who may open that page. --}}
+    @if (\Illuminate\Support\Facades\Route::has('rental.travel_permit.index')
+        && app(\App\Erp\Security\AccessControl::class)->allows(auth()->user(), 'rental.order', \App\Erp\Security\Permission::Read))
+        <a href="{{ url('/app/rental/travel-permit') }}" wire:navigate data-dashboard-travel-permits
+           class="group mb-6 flex items-center gap-4 rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5 transition hover:ring-primary-400">
+            <span class="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary-400 text-chrome-900">
+                {{-- Heroicons solid document-check --}}
+                <svg class="size-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M9 1.5H5.625c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5Zm6.61 10.936a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 14.47a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd"/><path d="M12.971 1.816A5.23 5.23 0 0 1 14.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 0 1 3.434 1.279 9.768 9.768 0 0 0-6.963-6.963Z"/></svg>
+            </span>
+            <span class="min-w-0">
+                <span class="block text-sm font-semibold text-chrome-900">{{ __('Travel authorizations') }}</span>
+                <span class="block text-xs text-chrome-500">{{ __('Make the letter for taking a car to another Gulf country') }}</span>
+            </span>
+            <span class="ms-auto shrink-0 rounded-lg bg-primary-400 px-3 py-1.5 text-xs font-semibold text-chrome-900">{{ __('New authorization') }}</span>
+        </a>
+    @endif
+
     {{-- Apps — one big button per installed app the business type allows
          (Rent A Car, Limousine, Point of Sale, …). The fastest path from the
          dashboard into the app you actually use. --}}

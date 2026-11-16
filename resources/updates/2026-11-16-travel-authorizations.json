@@ -6,13 +6,13 @@
     },
     "points": {
         "en": [
-            "A new page in Rent A Car makes the travel authorization letter and downloads it as a PDF.",
+            "A new page, Travel authorizations, makes the letter and downloads it as a PDF. It opens from the main dashboard and from the Rent A Car home page.",
             "The car and the driver are chosen from the records. Nothing is typed by hand.",
             "The letter can never run past the car's registration, and the page shows who already holds one for which car.",
             "Only the owner and the people he allows can print it with the company stamp and signature."
         ],
         "ar": [
-            "صفحة جديدة في تأجير السيارات تُنشئ توكيل السفر وتنزّله كملف PDF.",
+            "صفحة جديدة باسم «توكيلات السفر» تُنشئ التوكيل وتنزّله كملف PDF. تُفتح من لوحة التحكم الرئيسية ومن صفحة تأجير السيارات.",
             "السيارة والسائق يُختاران من السجلات، ولا شيء يُكتب يدوياً.",
             "التوكيل لا يمكن أن يتجاوز ملكية السيارة، والصفحة تعرض من لديه توكيل ولأي سيارة.",
             "فقط المالك ومن يسمح لهم يستطيعون طباعته مع ختم الشركة والتوقيع."
@@ -40,7 +40,7 @@
     },
     "guide": {
         "en": [
-            "Open Rent A Car. On its home page press \"Travel authorizations\".",
+            "On the main dashboard press \"Travel authorizations\" at the top. It is also on the Rent A Car home page.",
             "Under \"New authorization\" choose the Car, then the Driver. Type in the box to search.",
             "If a red note appears, press its link, complete what is missing on the car or the driver, and come back.",
             "Check \"Date of the letter\" and \"Valid from\". Both start as today.",
@@ -50,7 +50,7 @@
             "Owner, once: at the bottom of the page upload the stamp and the signature, check the owner name and number, and tick who may print with the stamp."
         ],
         "ar": [
-            "افتح تأجير السيارات، ومن صفحته الرئيسية اضغط «توكيلات السفر».",
+            "في لوحة التحكم الرئيسية اضغط «توكيلات السفر» في الأعلى. وهي موجودة أيضاً في صفحة تأجير السيارات.",
             "تحت «توكيل جديد» اختر السيارة ثم السائق. اكتب في المربع للبحث.",
             "إذا ظهرت ملاحظة حمراء فاضغط رابطها وأكمل الناقص في السيارة أو السائق ثم عُد.",
             "راجع «تاريخ التوكيل» و«ساري من». كلاهما يبدأ بتاريخ اليوم.",
@@ -61,6 +61,13 @@
         ]
     },
     "images": [
+        {
+            "after": "dashboard-after.png",
+            "caption": {
+                "en": "The Travel authorizations card at the top of the main dashboard.",
+                "ar": "بطاقة «توكيلات السفر» في أعلى لوحة التحكم الرئيسية."
+            }
+        },
         {
             "after": "page-after.png",
             "caption": {

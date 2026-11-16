@@ -1,0 +1,55 @@
+{
+    "app": "limousine",
+    "title": { "en": "Hala Bahrain added to trip extras, with a price you can change", "ar": "إضافة هلا بحرين إلى إضافات الرحلة، بسعر يمكن تغييره" },
+    "points": {
+        "en": [
+            "Hala Bahrain is now in the Extras list on bookings and quotations. It starts at 33 BHD.",
+            "When you pick it, a price box appears so you can type what this trip really costs.",
+            "Any extra in the price list can now be set so its price can be changed on the trip."
+        ],
+        "ar": [
+            "أصبح هلا بحرين ضمن قائمة الإضافات في الحجوزات وعروض الأسعار، بسعر يبدأ من 33 د.ب.",
+            "عند اختياره يظهر مربع للسعر لتكتب السعر الحقيقي لهذه الرحلة.",
+            "يمكن الآن ضبط أي إضافة في قائمة الأسعار بحيث يمكن تغيير سعرها في الرحلة."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the Extras list had Child seat, Causeway Plus and Luggage helper, each at a fixed price. Hala Bahrain was not on the list, and its price is not the same every time, so the only way to add it was to choose Other and type the name and the price by hand on every trip.",
+            "Now Hala Bahrain is on the list at 33 BHD. Picking it fills in 33, and a box under it lets you type a different price for this trip. The bill prints the price you typed.",
+            "The other extras keep their fixed price and show no price box. On the Trip extras price list, an extra has a new switch, Price can be changed on the trip, if another one ever needs to work the same way."
+        ],
+        "ar": [
+            "سابقاً كانت قائمة الإضافات تضم كرسي أطفال وجسر بلس ومساعد للشنط، ولكل منها سعر ثابت. لم يكن هلا بحرين في القائمة، وسعره لا يكون نفسه في كل مرة، فكانت الطريقة الوحيدة لإضافته هي اختيار أخرى وكتابة الاسم والسعر يدوياً في كل رحلة.",
+            "الآن أصبح هلا بحرين في القائمة بسعر 33 د.ب. عند اختياره يُعبّأ السعر 33، ويظهر تحته مربع لتكتب سعراً مختلفاً لهذه الرحلة. تطبع الفاتورة السعر الذي كتبته.",
+            "تبقى الإضافات الأخرى بسعرها الثابت ولا يظهر لها مربع سعر. وفي قائمة أسعار إضافات الرحلات يوجد مفتاح جديد لكل إضافة، يمكن تغيير السعر في الرحلة، إذا احتاجت إضافة أخرى أن تعمل بالطريقة نفسها."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Bookings, and open a booking or press New.",
+            "Under the trip, in the Extras box, press Add extra.",
+            "In the list, choose Hala Bahrain - 33 BHD (price can be changed).",
+            "In the box Price for this trip (BHD), type the price for this trip, or leave 33.",
+            "Use − and + to set how many, then press Save."
+        ],
+        "ar": [
+            "افتح الليموزين ثم الحجوزات، وافتح حجزاً أو اضغط جديد.",
+            "تحت الرحلة، في مربع الإضافات، اضغط أضف إضافة.",
+            "من القائمة اختر هلا بحرين - 33 BHD (يمكن تغيير السعر).",
+            "في مربع السعر لهذه الرحلة (د.ب) اكتب سعر هذه الرحلة، أو اترك 33.",
+            "استخدم − و + لتحديد العدد، ثم اضغط حفظ."
+        ]
+    },
+    "images": [
+        {
+            "before": "price-list-before.png",
+            "after": "price-list-after.png",
+            "caption": { "en": "The Trip extras price list.", "ar": "قائمة أسعار إضافات الرحلات." }
+        },
+        {
+            "after": "trip-extra-after.png",
+            "caption": { "en": "Hala Bahrain on a trip, with its price box.", "ar": "هلا بحرين في رحلة، مع مربع السعر." }
+        }
+    ]
+}

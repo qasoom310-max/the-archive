@@ -867,8 +867,16 @@ trait HandlesTripLegs
             'extraOptions' => $this->extraCatalogue()
                 ->map(static fn (LimoExtra $e): array => [
                     'value' => (string) $e->id,
-                    'label' => $e->name . ' - ' . rtrim(rtrim(number_format($e->price, 3, '.', ''), '0'), '.') . ' BHD',
+                    'label' => $e->name . ' - ' . rtrim(rtrim(number_format($e->price, 3, '.', ''), '0'), '.') . ' BHD'
+                        . ($e->price_editable ? ' (' . __('price can be changed') . ')' : ''),
                 ])
+                ->values()
+                ->all(),
+            // Extras whose price the office types per trip (Hala Bahrain).
+            'editableExtraIds' => $this->extraCatalogue()
+                ->filter(static fn (LimoExtra $e): bool => $e->price_editable)
+                ->keys()
+                ->map(static fn (int $id): string => (string) $id)
                 ->values()
                 ->all(),
         ];    }

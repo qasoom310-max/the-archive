@@ -3629,5 +3629,9 @@
     "No VAT": "بدون ضريبة",
     "VAT 10%": "ضريبة 10%",
     "VAT 15%": "ضريبة 15%",
-    "Type the amount on the bill without VAT. The VAT and the total are worked out for you.": "اكتب مبلغ الفاتورة بدون الضريبة. تُحسب الضريبة والإجمالي تلقائياً."
+    "Type the amount on the bill without VAT. The VAT and the total are worked out for you.": "اكتب مبلغ الفاتورة بدون الضريبة. تُحسب الضريبة والإجمالي تلقائياً.",
+    "price can be changed": "يمكن تغيير السعر",
+    "Price for this trip (BHD)": "السعر لهذه الرحلة (د.ب)",
+    "Price can be changed on the trip": "يمكن تغيير السعر في الرحلة",
+    "The price above is filled in on the trip, and the office can type a different one.": "يُعبّأ السعر أعلاه في الرحلة، ويمكن للمكتب كتابة سعر مختلف."
 }

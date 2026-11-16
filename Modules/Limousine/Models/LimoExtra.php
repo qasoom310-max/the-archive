@@ -20,6 +20,7 @@ use Spatie\Translatable\HasTranslations;
  * @property int $id
  * @property string $name   Translatable JSON envelope
  * @property float $price
+ * @property bool $price_editable  The trip form fills the price and lets the office change it
  * @property bool $active
  * @property int $sequence
  */
@@ -33,17 +34,17 @@ final class LimoExtra extends Model implements DefinesIrModel, TranslatableModel
     public array $translatable = ['name'];
 
     /** @var list<string> */
-    protected $fillable = ['name', 'price', 'active', 'sequence'];
+    protected $fillable = ['name', 'price', 'price_editable', 'active', 'sequence'];
 
     /** @var array<string, mixed> */
-    protected $attributes = ['active' => true, 'price' => 0, 'sequence' => 0];
+    protected $attributes = ['active' => true, 'price' => 0, 'price_editable' => false, 'sequence' => 0];
 
     /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
-        return ['price' => 'float', 'active' => 'boolean', 'sequence' => 'integer'];
+        return ['price' => 'float', 'price_editable' => 'boolean', 'active' => 'boolean', 'sequence' => 'integer'];
     }
 
     /** The name the bill prints: English, which the PDF font can draw. */
@@ -65,6 +66,7 @@ final class LimoExtra extends Model implements DefinesIrModel, TranslatableModel
             fields: [
                 new FieldDefinition('name', 'Name', 'char', required: true, sequence: 10),
                 new FieldDefinition('price', 'Price', 'float', sequence: 20),
+                new FieldDefinition('price_editable', 'Price can be changed on the trip', 'boolean', sequence: 25),
                 new FieldDefinition('active', 'Active', 'boolean', sequence: 30),
                 new FieldDefinition('sequence', 'Sequence', 'integer', sequence: 40),
             ],
@@ -73,6 +75,7 @@ final class LimoExtra extends Model implements DefinesIrModel, TranslatableModel
                     'columns' => [
                         ['field' => 'name', 'label' => 'Name', 'sortable' => true],
                         ['field' => 'price', 'label' => 'Price', 'format' => 'money', 'sortable' => true],
+                        ['field' => 'price_editable', 'label' => 'Price can be changed on the trip', 'format' => 'toggle'],
                         ['field' => 'active', 'label' => 'Active', 'format' => 'toggle'],
                     ],
                     'default_sort' => [['field' => 'name', 'dir' => 'asc']],
@@ -85,6 +88,7 @@ final class LimoExtra extends Model implements DefinesIrModel, TranslatableModel
                     'fields' => [
                         ['field' => 'name', 'label' => 'Name', 'widget' => 'text', 'required' => true, 'translatable' => true],
                         ['field' => 'price', 'label' => 'Price', 'widget' => 'number'],
+                        ['field' => 'price_editable', 'label' => 'Price can be changed on the trip', 'widget' => 'checkbox', 'help' => 'The price above is filled in on the trip, and the office can type a different one.'],
                         ['field' => 'sequence', 'label' => 'Sequence', 'widget' => 'number', 'help' => 'Lower numbers come first in the list.'],
                         ['field' => 'active', 'label' => 'Active', 'widget' => 'checkbox'],
                     ],

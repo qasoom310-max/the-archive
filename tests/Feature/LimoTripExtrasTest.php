@@ -72,11 +72,42 @@ final class LimoTripExtrasTest extends TestCase
     public function test_the_price_list_starts_with_the_three_extras(): void
     {
         $this->assertSame(
-            ['Child seat' => 5.0, 'Causeway Plus' => 30.0, 'Luggage helper' => 10.0],
+            ['Child seat' => 5.0, 'Causeway Plus' => 30.0, 'Luggage helper' => 10.0, 'Hala Bahrain' => 33.0],
             LimoExtra::query()->orderBy('sequence')->get()
                 ->mapWithKeys(static fn (LimoExtra $e): array => [$e->billName() => $e->price])->all(),
         );
         $this->assertSame('كرسي أطفال', $this->childSeat()->getTranslation('name', 'ar'));
+    }
+
+    public function test_hala_bahrain_starts_at_33_and_takes_the_price_typed_for_the_trip(): void
+    {
+        $hala = LimoExtra::query()->where('name->en', 'Hala Bahrain')->sole();
+        $this->assertTrue($hala->price_editable);
+        $this->assertFalse($this->childSeat()->price_editable);
+
+        $component = $this->form()
+            ->call('addLegExtra', 0)
+            ->set('legExtras.0.0.extra', (string) $hala->id)
+            ->assertSet('legExtras.0.0.price', '33')
+            ->assertSeeHtml('data-extra-price')
+            ->assertSee('price can be changed')
+            ->set('legExtras.0.0.price', '41.5');
+
+        $component->call('save')->assertHasNoErrors();
+
+        $leg = LimoLeg::query()->sole();
+        $this->assertSame([
+            ['name' => 'Hala Bahrain', 'price' => 41.5, 'qty' => 1, 'amount' => 41.5],
+        ], $leg->extraLines());
+        $this->assertSame(61.5, $leg->net_amount);
+    }
+
+    public function test_a_fixed_price_extra_shows_no_price_box(): void
+    {
+        $this->form()
+            ->call('addLegExtra', 0)
+            ->set('legExtras.0.0.extra', (string) $this->childSeat()->id)
+            ->assertDontSeeHtml('data-extra-price');
     }
 
     public function test_picking_an_extra_fills_its_price_and_the_count_multiplies_it(): void

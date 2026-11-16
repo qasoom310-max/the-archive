@@ -234,6 +234,7 @@
                     @foreach ($this->legExtras[$i] ?? [] as $j => $extra)
                         @php
                             $isOther = ($extra['extra'] ?? '') === 'other';
+                            $priceEditable = in_array((string) ($extra['extra'] ?? ''), $editableExtraIds ?? [], true);
                             $rowAmount = (float) (($extra['price'] ?? '') === '' ? 0 : $extra['price']) * max(1, (int) ($extra['qty'] ?? 1));
                         @endphp
                         <div wire:key="leg-{{ $i }}-extra-{{ $j }}" class="rounded-lg bg-chrome-50 p-2">
@@ -265,6 +266,14 @@
                                 <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
                                     <input type="text" maxlength="100" wire:model.blur="legExtras.{{ $i }}.{{ $j }}.name" class="o-input sm:col-span-2" placeholder="{{ __('What is it?') }}">
                                     <input type="number" step="0.001" min="0" wire:model.live.debounce.400ms="legExtras.{{ $i }}.{{ $j }}.price" class="o-input" placeholder="{{ __('Price (BHD)') }}">
+                                </div>
+                            @elseif ($priceEditable)
+                                {{-- A starting price (Hala Bahrain): filled in, the office types this trip's own. --}}
+                                <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                    <label class="flex flex-col gap-1 sm:col-start-3">
+                                        <span class="text-xs text-chrome-500">{{ __('Price for this trip (BHD)') }}</span>
+                                        <input type="number" step="0.001" min="0" wire:model.live.debounce.400ms="legExtras.{{ $i }}.{{ $j }}.price" class="o-input" data-extra-price>
+                                    </label>
                                 </div>
                             @endif
 

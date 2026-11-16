@@ -13,6 +13,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Modules\Rental\Models\Vehicle;
 
 /**
  * Car income — one schedule of what every car brought in each month, from
@@ -30,8 +31,14 @@ final class CarIncomeSchedule extends Component
 {
     public const SHOW = ['all', 'rent', 'limo'];
 
+    public const FLEETS = [CarIncome::OWN, CarIncome::OUTSIDE];
+
     #[Url]
     public int $year = 0;
+
+    /** Which schedule: our own cars, or cars rented in from other companies. */
+    #[Url(except: CarIncome::OWN)]
+    public string $fleet = CarIncome::OWN;
 
     /** Which money the month columns print: both desks, or one. */
     #[Url(except: 'all')]
@@ -59,6 +66,13 @@ final class CarIncomeSchedule extends Component
         }
     }
 
+    public function setFleet(string $fleet): void
+    {
+        $this->guardOwner();
+
+        $this->fleet = in_array($fleet, self::FLEETS, true) ? $fleet : CarIncome::OWN;
+    }
+
     public function setShow(string $show): void
     {
         $this->guardOwner();
@@ -74,8 +88,16 @@ final class CarIncomeSchedule extends Component
         // The address bar can carry anything.
         $year = $this->year >= 2000 && $this->year <= (int) $now->year + 1 ? $this->year : (int) $now->year;
 
+        $fleet = in_array($this->fleet, self::FLEETS, true) ? $this->fleet : CarIncome::OWN;
+        // The category names belong to the car model. The class is always
+        // loadable (it is on the autoload path whether or not Rent A Car is
+        // installed), and without its table there are no cars to name anyway.
+        $categories = Vehicle::categoryLabels();
+
         return view('livewire.pages.car-income', [
-            'report' => (new CarIncome($year))->report(),
+            'report' => (new CarIncome($year, $fleet, array_keys($categories)))->report(),
+            'fleetShown' => $fleet,
+            'categories' => $categories,
             'year' => $year,
             'mode' => in_array($this->show, self::SHOW, true) ? $this->show : 'all',
             'years' => range((int) $now->year, (int) $now->year - 4),

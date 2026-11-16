@@ -16,6 +16,11 @@
     }
     $totals = $report['totals'];
     $both = $mode === 'all';
+    $outsideFleet = $fleetShown === \App\Erp\Reports\CarIncome::OUTSIDE;
+    $fleets = [
+        \App\Erp\Reports\CarIncome::OWN => [__('Our cars'), $report['counts']['own']],
+        \App\Erp\Reports\CarIncome::OUTSIDE => [__('Outside cars'), $report['counts']['outside']],
+    ];
     // What a cell prints in the chosen view.
     $pick = static fn (array $cell): float => $mode === 'rent' ? $cell['rent'] : ($mode === 'limo' ? $cell['limo'] : $cell['total']);
     $modes = ['all' => __('Rent + Limousine'), 'rent' => __('Rent A Car'), 'limo' => __('Limousine')];
@@ -50,9 +55,21 @@
         </div>
     </div>
 
+    {{-- Two schedules, never mixed: the cars we own, and the cars rented in
+         from other companies. --}}
+    <div class="mb-5 inline-flex items-center gap-1 rounded-xl bg-white p-1 shadow-sm ring-1 ring-chrome-900/[0.06]" data-car-income-fleets>
+        @foreach ($fleets as $key => [$label, $count])
+            <button type="button" wire:click="setFleet('{{ $key }}')"
+                class="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition {{ $fleetShown === $key ? 'bg-primary-400 text-chrome-900' : 'text-chrome-600 hover:bg-chrome-100' }}">
+                {{ $label }}
+                <span class="rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums {{ $fleetShown === $key ? 'bg-black/10 text-chrome-900' : 'bg-chrome-100 text-chrome-500' }}">{{ $count }}</span>
+            </button>
+        @endforeach
+    </div>
+
     @if (! $report['available'])
         <div class="rounded-2xl bg-white p-10 text-center text-sm text-chrome-500 shadow-sm ring-1 ring-chrome-900/[0.06]">
-            {{ __('No car earned anything in :year.', ['year' => $year]) }}
+            {{ $outsideFleet ? __('No outside car earned anything in :year.', ['year' => $year]) : __('No car earned anything in :year.', ['year' => $year]) }}
         </div>
     @else
         {{-- The year in four figures. --}}
@@ -60,7 +77,7 @@
             <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]">
                 <div class="text-[11px] font-bold uppercase tracking-wide text-chrome-400">{{ __('Total income :year', ['year' => $year]) }}</div>
                 <div class="mt-2 text-2xl font-bold tracking-tight text-chrome-900">{{ $money($totals['total']) }}</div>
-                <div class="mt-1 text-xs font-medium text-chrome-500">{{ __('both desks, every car') }}</div>
+                <div class="mt-1 text-xs font-medium text-chrome-500">{{ $outsideFleet ? __('both desks, outside cars only') : __('both desks, our own cars') }}</div>
             </div>
             <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]">
                 <div class="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-chrome-400">
@@ -96,7 +113,7 @@
         <div class="rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-chrome-100 px-5 py-3">
                 <div class="text-sm font-semibold text-chrome-800">
-                    {{ __('Monthly income per car') }}
+                    {{ $outsideFleet ? __('Monthly income per category') : __('Monthly income per car') }}
                     <span class="font-normal text-chrome-400">· {{ __('figures in :currency', ['currency' => $currency->code]) }}</span>
                 </div>
                 <div class="flex items-center gap-1 rounded-lg bg-chrome-100 p-0.5" data-car-income-show>
@@ -115,7 +132,7 @@
                 <table class="w-full min-w-[78rem] text-sm" data-car-income-table>
                     <thead>
                         <tr class="border-b border-chrome-200">
-                            <th class="sticky left-0 z-10 bg-white px-5 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-chrome-400">{{ __('Car') }}</th>
+                            <th class="sticky left-0 z-10 bg-white px-5 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-chrome-400">{{ $outsideFleet ? __('Category') : __('Car') }}</th>
                             @foreach ($monthNames as $m => $name)
                                 <th class="{{ $th }} {{ $m === $currentMonth ? 'bg-primary-50 text-chrome-700' : '' }}">{{ $name }}</th>
                             @endforeach
@@ -124,6 +141,41 @@
                             <th class="px-5 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-chrome-400">{{ __('Reached') }}</th>
                         </tr>
                     </thead>
+                    @if ($outsideFleet)
+                        {{-- Outside cars are too many to read one by one: the
+                             schedule lists their categories, and pressing one
+                             opens the cars inside it. --}}
+                        @foreach ($report['groups'] as $group)
+                            <tbody x-data="{ open: false }" wire:key="group-{{ $group['category'] === '' ? 'none' : $group['category'] }}"
+                                   data-category="{{ $group['category'] === '' ? 'none' : $group['category'] }}" class="border-b border-chrome-200">
+                                <tr class="cursor-pointer align-top hover:bg-chrome-50" @click="open = ! open" :aria-expanded="open.toString()">
+                                    <td class="sticky left-0 z-10 bg-white px-5 py-2.5">
+                                        <div class="flex items-center gap-2">
+                                            <svg class="size-4 shrink-0 text-chrome-400 transition-transform" :class="open ? 'rotate-90' : ''" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clip-rule="evenodd"/></svg>
+                                            <span class="font-bold {{ $group['category'] === '' ? 'text-amber-700' : 'text-chrome-900' }}">
+                                                {{ $group['category'] === '' ? __('No category') : ($categories[$group['category']] ?? $group['category']) }}
+                                            </span>
+                                        </div>
+                                        <div class="ps-6 text-xs text-chrome-400">
+                                            {{ __('Cars: :count', ['count' => $group['count']]) }}
+                                        </div>
+                                    </td>
+                                    @include('livewire.pages.partials.car-income-cells', ['row' => $group, 'strong' => true] + ['mode' => $mode, 'both' => $both, 'plain' => $plain, 'pick' => $pick, 'bar' => $bar, 'currentMonth' => $currentMonth])
+                                </tr>
+                                @foreach ($group['cars'] as $car)
+                                    <tr x-show="open" x-cloak wire:key="car-{{ $car['id'] }}" data-car="{{ $car['plate'] }}" class="bg-chrome-50/50 align-top">
+                                        <td class="sticky left-0 z-10 bg-chrome-50 py-2 pe-5 ps-11">
+                                            <a href="{{ url('/app/rental/vehicle/' . $car['id']) }}" wire:navigate class="font-medium text-chrome-800 hover:underline">{{ $car['name'] }}</a>
+                                            <div class="text-xs text-chrome-400">
+                                                {{ $car['plate'] }}@if ($car['retired']) · {{ __('retired') }}@endif
+                                            </div>
+                                        </td>
+                                        @include('livewire.pages.partials.car-income-cells', ['row' => $car, 'strong' => false] + ['mode' => $mode, 'both' => $both, 'plain' => $plain, 'pick' => $pick, 'bar' => $bar, 'currentMonth' => $currentMonth])
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        @endforeach
+                    @else
                     <tbody class="divide-y divide-chrome-100">
                         @foreach ($report['cars'] as $car)
                             <tr wire:key="car-{{ $car['id'] }}" data-car="{{ $car['plate'] }}" class="align-top hover:bg-chrome-50">
@@ -133,42 +185,7 @@
                                         {{ $car['plate'] }}@if ($car['retired']) · {{ __('retired') }}@endif
                                     </div>
                                 </td>
-                                @foreach ($car['months'] as $m => $cell)
-                                    <td class="px-2 py-2.5 text-end tabular-nums {{ $m === $currentMonth ? 'bg-primary-50/60' : '' }}">
-                                        <div class="{{ $pick($cell) > 0 ? 'font-medium text-chrome-800' : 'text-chrome-300' }}">{{ $plain($pick($cell)) }}</div>
-                                        @if ($both && $cell['rent'] > 0 && $cell['limo'] > 0)
-                                            <div class="text-[10px] leading-tight text-sky-700">{{ $plain($cell['rent']) }}</div>
-                                            <div class="text-[10px] leading-tight text-violet-700">{{ $plain($cell['limo']) }}</div>
-                                        @elseif ($both && $cell['total'] > 0)
-                                            <div class="text-[10px] leading-tight {{ $cell['rent'] > 0 ? 'text-sky-700' : 'text-violet-700' }}">{{ $cell['rent'] > 0 ? __('rent') : __('limousine') }}</div>
-                                        @endif
-                                    </td>
-                                @endforeach
-                                <td class="border-l border-chrome-200 px-2 py-2.5 text-end tabular-nums">
-                                    <div class="font-bold text-chrome-900">{{ $plain($mode === 'rent' ? $car['rent'] : ($mode === 'limo' ? $car['limo'] : $car['total'])) }}</div>
-                                    @if ($both && $car['rent'] > 0)
-                                        <div class="text-[10px] leading-tight text-sky-700">{{ $plain($car['rent']) }}</div>
-                                    @endif
-                                    @if ($both && $car['limo'] > 0)
-                                        <div class="text-[10px] leading-tight text-violet-700">{{ $plain($car['limo']) }}</div>
-                                    @endif
-                                </td>
-                                <td class="px-2 py-2.5 text-end tabular-nums text-chrome-600">{{ $car['target'] > 0 ? $plain($car['target']) : '—' }}</td>
-                                <td class="px-5 py-2.5">
-                                    @if ($car['percent'] === null)
-                                        <span class="text-xs text-chrome-400">{{ __('No target') }}</span>
-                                    @else
-                                        <div class="flex items-center gap-2">
-                                            <div class="h-1.5 w-24 overflow-hidden rounded-full bg-chrome-100">
-                                                <div class="h-full rounded-full {{ $bar($car['percent']) }}" style="width: {{ min(100, $car['percent']) }}%"></div>
-                                            </div>
-                                            <span class="text-xs font-bold tabular-nums {{ $car['percent'] >= 100 ? 'text-emerald-700' : 'text-chrome-700' }}">{{ $car['percent'] }}%</span>
-                                        </div>
-                                        <div class="mt-0.5 text-[10px] text-chrome-400">
-                                            {{ $car['remaining'] > 0 ? __(':left to go', ['left' => $plain((float) $car['remaining'])]) : __('Target reached') }}
-                                        </div>
-                                    @endif
-                                </td>
+                                @include('livewire.pages.partials.car-income-cells', ['row' => $car, 'strong' => false] + ['mode' => $mode, 'both' => $both, 'plain' => $plain, 'pick' => $pick, 'bar' => $bar, 'currentMonth' => $currentMonth])
                             </tr>
                         @endforeach
 
@@ -189,6 +206,7 @@
                             </tr>
                         @endforeach
                     </tbody>
+                    @endif
                     <tfoot>
                         <tr class="border-t-2 border-chrome-300 bg-chrome-50 align-top font-bold" data-car-income-total>
                             <td class="sticky left-0 z-10 bg-chrome-50 px-5 py-3 text-chrome-900">{{ __('Total') }}</td>
@@ -218,6 +236,13 @@
                     </p>
                 @endif
                 <p>{{ __('A hire counts in the month it starts and a limousine trip in the month it runs. This is work done, whether or not it has been paid yet.') }}</p>
+                @if ($outsideFleet)
+                    <p>{{ __('For an outside car the figure is what we kept: the hire less what the outside owner takes.') }}</p>
+                    <p>{{ __('Press a category to see the cars inside it.') }}</p>
+                    @if (collect($report['groups'])->contains('category', ''))
+                        <p class="text-amber-700">{{ __('Cars under "No category" have none set. Open the car and choose its category in Cost & documents.') }}</p>
+                    @endif
+                @endif
                 @if (collect($report['loose'])->contains('kind', 'limo'))
                     <p class="text-amber-700">{{ __('A limousine trip only counts for a car when the car is assigned to it in the bookings queue. Trips with no car are in their own row and count toward no car\'s target.') }}</p>
                 @endif

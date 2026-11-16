@@ -1,0 +1,80 @@
+{
+    "app": "system",
+    "title": {
+        "en": "Car income: our cars and outside cars are two schedules",
+        "ar": "دخل السيارات: سياراتنا والسيارات الخارجية في جدولين"
+    },
+    "points": {
+        "en": [
+            "Car income now has two schedules: Our cars and Outside cars.",
+            "Outside cars are listed by category. Press a category to see the cars inside it.",
+            "An outside car must have a category: Small car, Sedan, Semi luxury, Luxury, SUV, Semi luxury SUV or Luxury SUV."
+        ],
+        "ar": [
+            "صفحة «دخل السيارات» أصبحت بجدولين: «سياراتنا» و«السيارات الخارجية».",
+            "السيارات الخارجية تُعرض حسب الفئة. اضغط على الفئة لعرض السيارات داخلها.",
+            "السيارة الخارجية يجب أن تكون لها فئة: سيارة صغيرة، سيدان، شبه فاخرة، فاخرة، دفع رباعي، دفع رباعي شبه فاخرة، أو دفع رباعي فاخرة."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the Car income page listed every car in one table: the cars we own and the cars rented in from other companies together. Outside cars are many, earn only the difference between the hire and what their owner takes, and have no target of ours, so they filled the table and pulled down the totals of our own fleet.",
+            "Now there are two schedules, chosen by two buttons at the top. Our cars shows only the cars we own, with their targets, exactly as before. Outside cars shows only the cars rented in from other companies. The four figures at the top follow the schedule you are looking at.",
+            "The Outside cars schedule lists categories, not cars: Small car, Sedan, Semi luxury, Luxury, SUV, Semi luxury SUV and Luxury SUV. Each category row shows how many cars are in it and the income of all of them per month. Pressing the row opens it and shows each car inside with its own months. Pressing again closes it.",
+            "For an outside car the figure is what we kept: the hire less what the outside owner takes.",
+            "To make this work, a car marked as an outside car must now have a category. The car page asks for it under Cost & documents and will not save an outside car without one. Outside cars that already exist and have no category are shown together under \"No category\" until one is chosen. The old category \"Economy\" is now called \"Small car\"; cars already filed under it keep it.",
+            "The rows \"Limousine trips with no car\" and \"Hires with no car\" stay with Our cars, so they are counted once."
+        ],
+        "ar": [
+            "سابقاً كانت صفحة «دخل السيارات» تعرض كل السيارات في جدول واحد: السيارات التي نملكها والسيارات المستأجَرة من شركات أخرى معاً. السيارات الخارجية كثيرة، وتحقق لنا فقط الفرق بين قيمة الإيجار وما يأخذه مالكها، وليس لها هدف عندنا، فكانت تملأ الجدول وتُضعف إجماليات أسطولنا.",
+            "الآن يوجد جدولان يُختار بينهما بزرّين في الأعلى. «سياراتنا» يعرض السيارات التي نملكها فقط مع أهدافها كما كان. و«السيارات الخارجية» يعرض السيارات المستأجَرة من شركات أخرى فقط. والأرقام الأربعة في الأعلى تتبع الجدول المعروض.",
+            "جدول «السيارات الخارجية» يعرض الفئات لا السيارات: سيارة صغيرة، سيدان، شبه فاخرة، فاخرة، دفع رباعي، دفع رباعي شبه فاخرة، دفع رباعي فاخرة. صف كل فئة يعرض عدد سياراتها ودخلها مجتمعةً لكل شهر. الضغط على الصف يفتحه ويعرض كل سيارة داخله بأشهرها، والضغط مرة أخرى يغلقه.",
+            "للسيارة الخارجية الرقم هو ما بقي لنا: قيمة الإيجار ناقص ما يأخذه المالك الخارجي.",
+            "ولكي يعمل هذا، السيارة المحددة كسيارة خارجية يجب أن تكون لها فئة. صفحة السيارة تطلبها ضمن «التكلفة والمستندات» ولا تحفظ سيارة خارجية بدونها. السيارات الخارجية الموجودة سابقاً بدون فئة تظهر معاً تحت «بدون فئة» إلى أن تُختار لها فئة. الفئة القديمة «اقتصادية» أصبح اسمها «سيارة صغيرة»، والسيارات المسجلة تحتها تبقى كما هي.",
+            "صفّا «رحلات ليموزين بدون سيارة» و«إيجارات بدون سيارة» يبقيان مع «سياراتنا» حتى يُحتسبا مرة واحدة."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open the home page and press Car income under Reports & Team.",
+            "At the top, press Our cars or Outside cars. The number beside each is how many cars it holds.",
+            "In Outside cars, read one row per category. Press a category, for example Sedan, to open it and see its cars. Press it again to close it.",
+            "To give an outside car its category: press the car's name, or open Rent A Car, Cars and the car. In Cost & documents, tick \"This is an outside (rented-in) car\", choose the category in the box that appears, and press Save.",
+            "If the schedule shows a \"No category\" row, open it, press each car and choose its category as in the step above.",
+            "Use Rent A Car or Limousine above the table to see one desk only, in either schedule."
+        ],
+        "ar": [
+            "افتح الصفحة الرئيسية واضغط «دخل السيارات» ضمن «التقارير والفريق».",
+            "في الأعلى اضغط «سياراتنا» أو «السيارات الخارجية». الرقم بجانب كل منهما هو عدد السيارات فيه.",
+            "في «السيارات الخارجية» اقرأ صفاً لكل فئة. اضغط على فئة، مثل سيدان، لفتحها وعرض سياراتها. اضغط مرة أخرى لإغلاقها.",
+            "لتحديد فئة سيارة خارجية: اضغط اسم السيارة، أو افتح تأجير السيارات ثم السيارات ثم السيارة. في «التكلفة والمستندات» ضع علامة على «هذه سيارة خارجية (مستأجَرة)»، اختر الفئة في المربع الذي يظهر، ثم اضغط حفظ.",
+            "إذا ظهر في الجدول صف «بدون فئة»، افتحه واضغط على كل سيارة واختر فئتها كما في الخطوة السابقة.",
+            "استخدم «تأجير السيارات» أو «الليموزين» أعلى الجدول لعرض قسم واحد فقط، في أي من الجدولين."
+        ]
+    },
+    "images": [
+        {
+            "before": "schedule-before.png",
+            "after": "own-after.png",
+            "caption": {
+                "en": "Before: our cars and outside cars mixed in one table. After: Our cars on its own, with the two buttons at the top.",
+                "ar": "قبل: سياراتنا والسيارات الخارجية مختلطة في جدول واحد. بعد: «سياراتنا» وحدها، مع الزرّين في الأعلى."
+            }
+        },
+        {
+            "after": "outside-after.png",
+            "caption": {
+                "en": "The Outside cars schedule: one row per category, with Sedan opened to show its cars.",
+                "ar": "جدول «السيارات الخارجية»: صف لكل فئة، مع فتح فئة سيدان لعرض سياراتها."
+            }
+        },
+        {
+            "before": "car-before.png",
+            "after": "car-after.png",
+            "caption": {
+                "en": "The car page, Cost & documents. After: an outside car has a category box.",
+                "ar": "صفحة السيارة، «التكلفة والمستندات». بعد: للسيارة الخارجية مربع لاختيار الفئة."
+            }
+        }
+    ]
+}

@@ -33,13 +33,31 @@ use Illuminate\Support\Facades\Schema;
  */
 final class CarIncome
 {
-    public function __construct(private readonly int $year) {}
+    public const OWN = 'own';
+
+    public const OUTSIDE = 'outside';
+
+    /**
+     * @param string       $fleet         which schedule: our own cars, or cars rented in from
+     *                                    other companies. They are never mixed: an outside car
+     *                                    earns only its mark-up and has no target of ours, so
+     *                                    it would drag every figure of the owned fleet.
+     * @param list<string> $categoryOrder the order the outside categories are listed in
+     */
+    public function __construct(
+        private readonly int $year,
+        private readonly string $fleet = self::OWN,
+        private readonly array $categoryOrder = [],
+    ) {}
 
     /**
      * @return array{
      *     year: int,
      *     available: bool,
+     *     fleet: string,
+     *     counts: array{own: int, outside: int},
      *     cars: list<array<string, mixed>>,
+     *     groups: list<array<string, mixed>>,
      *     loose: list<array<string, mixed>>,
      *     totals: array<string, mixed>,
      *     hasRent: bool,
@@ -70,6 +88,8 @@ final class CarIncome
 
             $cars[] = [
                 'id' => $id,
+                'outside' => (bool) $vehicle->is_outside,
+                'category' => (string) ($vehicle->category ?? ''),
                 'name' => (string) $vehicle->name,
                 'plate' => (string) ($vehicle->plate_no ?? ''),
                 'retired' => ! (bool) $vehicle->active,
@@ -85,10 +105,19 @@ final class CarIncome
 
         usort($cars, static fn (array $a, array $b): int => [$b['total'], $a['name']] <=> [$a['total'], $b['name']]);
 
+        $outside = $this->fleet === self::OUTSIDE;
+        $counts = [
+            'own' => count(array_filter($cars, static fn (array $c): bool => ! $c['outside'])),
+            'outside' => count(array_filter($cars, static fn (array $c): bool => $c['outside'])),
+        ];
+        $cars = array_values(array_filter($cars, static fn (array $c): bool => $c['outside'] === $outside));
+
         // Money that belongs to no car. Shown, never hidden: leaving it out
         // would make this page disagree with every other total in the system.
         $loose = [];
-        foreach (['rent' => $rent[0] ?? [], 'limo' => $limo[0] ?? []] as $kind => $byMonth) {
+        // It is listed with our own cars: a trip or hire that names no car is
+        // the office's to chase, and listing it twice would double the total.
+        foreach ($outside ? [] : ['rent' => $rent[0] ?? [], 'limo' => $limo[0] ?? []] as $kind => $byMonth) {
             $months = $kind === 'rent' ? $this->months($byMonth, []) : $this->months([], $byMonth);
             $total = $this->sum($months);
 
@@ -115,7 +144,10 @@ final class CarIncome
             'year' => $this->year,
             // A year in which nothing earned gets one sentence, not a grid of dashes.
             'available' => $grand['total'] > 0.0,
+            'fleet' => $outside ? self::OUTSIDE : self::OWN,
+            'counts' => $counts,
             'cars' => $cars,
+            'groups' => $outside ? $this->groups($cars) : [],
             'loose' => $loose,
             'totals' => $grand + [
                 'months' => $totalMonths,
@@ -127,6 +159,55 @@ final class CarIncome
             'hasRent' => $grand['rent'] > 0.0,
             'hasLimo' => $grand['limo'] > 0.0,
         ];
+    }
+
+    /**
+     * Outside cars folded into their categories: one row per category with the
+     * cars inside it. Outside cars are too many to read one by one, so the
+     * schedule lists the categories and opens one on demand. A car with no
+     * category is kept, under '' — never dropped.
+     *
+     * @param list<array<string, mixed>> $cars
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function groups(array $cars): array
+    {
+        $byCategory = [];
+        foreach ($cars as $car) {
+            $byCategory[(string) $car['category']][] = $car;
+        }
+
+        // The owner's order first, then anything else by name, then "none".
+        $keys = array_keys($byCategory);
+        $rank = array_flip($this->categoryOrder);
+        usort($keys, static fn (string $a, string $b): int => [$a === '' ? 1 : 0, $rank[$a] ?? PHP_INT_MAX, $a] <=> [$b === '' ? 1 : 0, $rank[$b] ?? PHP_INT_MAX, $b]);
+
+        $groups = [];
+        foreach ($keys as $key) {
+            $members = $byCategory[$key];
+            $months = [];
+            for ($m = 1; $m <= 12; $m++) {
+                $r = round(array_sum(array_map(static fn (array $c): float => $c['months'][$m]['rent'], $members)), 3);
+                $l = round(array_sum(array_map(static fn (array $c): float => $c['months'][$m]['limo'], $members)), 3);
+                $months[$m] = ['rent' => $r, 'limo' => $l, 'total' => round($r + $l, 3)];
+            }
+
+            $sum = $this->sum($months);
+            $target = round(array_sum(array_column($members, 'target')), 3);
+
+            $groups[] = [
+                'category' => $key,
+                'count' => count($members),
+                'cars' => $members,
+                'months' => $months,
+                'target' => $target,
+                'percent' => $target > 0.0 ? (int) round($sum['total'] / $target * 100) : null,
+                'remaining' => $target > 0.0 ? round(max(0.0, $target - $sum['total']), 3) : null,
+            ] + $sum;
+        }
+
+        return $groups;
     }
 
     /**
@@ -171,7 +252,7 @@ final class CarIncome
 
         return DB::table('rental_vehicles')
             ->orderBy('name')
-            ->get(['id', 'name', 'plate_no', 'active', 'monthly_target', 'yearly_target'])
+            ->get(['id', 'name', 'plate_no', 'active', 'is_outside', 'category', 'monthly_target', 'yearly_target'])
             ->all();
     }
 

@@ -55,6 +55,9 @@ final class VehicleForm extends Component
     /** Whether this car is rented in from outside (not company-owned). */
     public bool $isOutsideInput = false;
 
+    /** The car's category; an outside car must have one (it is reported by it). */
+    public string $categoryInput = '';
+
     public function mount(int|string|null $id = null): void
     {
         // A route segment is always a string, and a non-numeric one
@@ -76,6 +79,7 @@ final class VehicleForm extends Component
                 ? rtrim(rtrim(number_format($car->purchase_price, 3, '.', ''), '0'), '.')
                 : '';
             $this->isOutsideInput = $car !== null && $car->is_outside;
+            $this->categoryInput = $car !== null ? (string) ($car->category ?? '') : '';
         }
     }
 
@@ -98,8 +102,21 @@ final class VehicleForm extends Component
             return;
         }
 
+        // Outside cars are read by category on the Car income page, so one
+        // without a category would sit in a "No category" row nobody opens.
+        $this->validate([
+            'categoryInput' => [$this->isOutsideInput ? 'required' : 'nullable', 'in:' . implode(',', array_keys(Vehicle::categoryLabels()))],
+        ], [
+            'categoryInput.required' => __('Choose the category of this outside car.'),
+        ], [
+            'categoryInput' => __('Category'),
+        ]);
+
         $car->purchase_price = $this->purchaseInput === '' ? 0.0 : max(0.0, (float) $this->purchaseInput);
         $car->is_outside = $this->isOutsideInput;
+        if ($this->categoryInput !== '') {
+            $car->category = $this->categoryInput;
+        }
         if ($this->invoicePath !== '') {
             $car->purchase_invoice = $this->invoicePath;
         }

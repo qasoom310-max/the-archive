@@ -290,12 +290,39 @@ final class Vehicle extends Model implements DefinesIrModel
     public static function categoryOptions(): array
     {
         return [
-            ['value' => 'economy', 'label' => 'Economy'],
+            // 'economy' is the stored value from before the owner's list; it
+            // reads "Small car" now, so cars already filed under it keep it.
+            ['value' => 'economy', 'label' => 'Small car'],
             ['value' => 'sedan', 'label' => 'Sedan'],
-            ['value' => 'suv', 'label' => 'SUV'],
+            ['value' => 'semi_luxury', 'label' => 'Semi luxury'],
             ['value' => 'luxury', 'label' => 'Luxury'],
+            ['value' => 'suv', 'label' => 'SUV'],
+            ['value' => 'semi_luxury_suv', 'label' => 'Semi luxury SUV'],
+            ['value' => 'luxury_suv', 'label' => 'Luxury SUV'],
             ['value' => 'van', 'label' => 'Van'],
             ['value' => 'bus', 'label' => 'Bus'],
+        ];
+    }
+
+    /**
+     * The category names as the screen prints them, in the owner's order.
+     * Outside cars are too many to read one by one, so they are filed and
+     * reported by these.
+     *
+     * @return array<string, string>
+     */
+    public static function categoryLabels(): array
+    {
+        return [
+            'economy' => __('Small car'),
+            'sedan' => __('Sedan'),
+            'semi_luxury' => __('Semi luxury'),
+            'luxury' => __('Luxury'),
+            'suv' => __('SUV'),
+            'semi_luxury_suv' => __('Semi luxury SUV'),
+            'luxury_suv' => __('Luxury SUV'),
+            'van' => __('Van'),
+            'bus' => __('Bus'),
         ];
     }
 

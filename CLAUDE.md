@@ -5350,6 +5350,29 @@ Fleet earnings and Limousine earnings are unchanged and still linked from their 
 Tests: `CarIncomeTest` (11). Demo data for pictures: `DemoFleetSeeder` (demo copy only, never
 in the default chain or a deploy).
 
+**Car income: our cars and outside cars are two schedules (shipped 2026-11-16, same day).**
+The owner wanted the cars he owns and the cars rented in from other companies never mixed,
+and the outside ones read by CATEGORY because they are too many. `CarIncome(year, fleet,
+categoryOrder)`: `fleet` = `CarIncome::OWN` (`is_outside` false) or `::OUTSIDE`; `report()`
+adds `fleet`, `counts{own,outside}` and, for outside, `groups` (one per category: `category`,
+`count`, `cars`, `months`, totals, target), ordered by `categoryOrder`, then unknown values,
+then `''` (no category) last. A car with no category is never dropped. Loose rows (money on
+no car) are returned for OWN only, so they are counted once. `CarIncomeSchedule::$fleet`
+(`#[Url]`, `setFleet()` owner-gated, anything unknown = own). The view lists each group as its
+own `<tbody x-data="{ open: false }">` (group row + its cars with `x-show`), and
+`partials/car-income-cells.blade.php` prints the month/Year/Target/Reached cells for car rows
+and category rows alike.
+- **One `category` column, the owner's list.** `Vehicle::categoryOptions()` /
+  `categoryLabels()`: `economy` (now LABELLED "Small car"; the stored value is unchanged so
+  existing cars keep it), `sedan`, `semi_luxury`, `luxury`, `suv`, `semi_luxury_suv`,
+  `luxury_suv`, plus the older `van`, `bus`. No migration; the engine form's select follows via
+  `module:resync rental` (the deploy runs it).
+- **An outside car must have a category.** `VehicleForm::saveCost()` validates
+  `categoryInput` as required when "outside" is ticked (a select appears under the tick in
+  Cost & documents). The engine form's own "Outside car" checkbox auto-saves and is NOT
+  gated; a car made outside that way with no category lands in the "No category" row, which
+  tells the owner how to fix it.
+Tests: `CarIncomeTest` (+3), `RentalCarCostTest` (category required).
 **Limousine earnings: drivers by month (shipped 2026-11-16).** `LimoPerformance(year,
 driverMonth = 0)`: 1-12 filters ONLY the drivers table (and its petty-cash "Advanced" window)
 to that month; summary, routes, services and demand stay yearly on purpose. `LimoEarnings::

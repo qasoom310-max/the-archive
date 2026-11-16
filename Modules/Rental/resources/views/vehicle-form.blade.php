@@ -112,9 +112,25 @@
                     </div>
                 </div>
                 <label class="mt-3 flex items-center gap-2 text-sm text-chrome-700">
-                    <input type="checkbox" wire:model="isOutsideInput" class="rounded border-chrome-300">
+                    <input type="checkbox" wire:model.live="isOutsideInput" class="rounded border-chrome-300">
                     {{ __('This is an outside (rented-in) car — keep it out of the owned-fleet count.') }}
                 </label>
+                {{-- An outside car is reported by its category, so it must have one. --}}
+                @if ($isOutsideInput)
+                    <div class="mt-3 max-w-xs" data-outside-category>
+                        <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-chrome-400">
+                            {{ __('Outside car category') }} <span class="text-red-500">*</span>
+                        </label>
+                        <select wire:model="categoryInput" class="o-input w-full text-sm">
+                            <option value="">{{ __('Choose a category…') }}</option>
+                            @foreach (\Modules\Rental\Models\Vehicle::categoryLabels() as $value => $label)
+                                <option value="{{ $value }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        @error('categoryInput') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        <p class="mt-1 text-[11px] text-chrome-400">{{ __('Outside cars are listed by category on the Car income page.') }}</p>
+                    </div>
+                @endif
                 <p x-show="err" x-text="err" class="mt-2 text-xs text-red-600"></p>
                 <button wire:click="saveCost" class="o-btn-primary mt-3 text-sm">{{ __('Save') }}</button>
             </div>

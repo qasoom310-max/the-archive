@@ -26,11 +26,70 @@ use Modules\Rental\Models\Vehicle;
  */
 final class DemoFleetSeeder extends Seeder
 {
+    /**
+     * Cars rented in from other companies, a few per category, each with hires
+     * that carry what the outside owner takes. Seeded on its own key so a demo
+     * database built before outside cars existed gains them too.
+     */
+    private function outsideCars(): void
+    {
+        if (Vehicle::query()->where('plate_no', '900101')->exists()) {
+            return;
+        }
+
+        $year = (int) Carbon::now()->year;
+        $renter = RentalCustomer::query()->firstOrCreate(['name' => 'Demo Renter Co.'], ['phone' => '30000001']);
+        $plate = 900101;
+
+        foreach ([
+            ['economy', ['Demo Outside Small 1', 'Demo Outside Small 2', 'Demo Outside Small 3']],
+            ['sedan', ['Demo Outside Sedan 1', 'Demo Outside Sedan 2']],
+            ['semi_luxury', ['Demo Outside Semi Luxury 1']],
+            ['luxury', ['Demo Outside Luxury 1', 'Demo Outside Luxury 2']],
+            ['suv', ['Demo Outside SUV 1', 'Demo Outside SUV 2']],
+            ['luxury_suv', ['Demo Outside Luxury SUV 1']],
+            [null, ['Demo Outside Uncategorised']],
+        ] as $g => [$category, $names]) {
+            foreach ($names as $n => $name) {
+                $car = Vehicle::query()->create([
+                    'name' => $name,
+                    'plate_no' => (string) $plate++,
+                    'category' => $category,
+                    'daily_rate' => 25.0,
+                    'active' => true,
+                    'is_outside' => true,
+                ]);
+
+                for ($month = 1; $month <= (int) Carbon::now()->month; $month++) {
+                    if (($month + $g + $n) % 3 === 0) {
+                        continue;
+                    }
+
+                    $total = 300.0 + $g * 140.0 + $n * 60.0 + ($month % 4) * 45.0;
+
+                    RentalOrder::query()->create([
+                        'customer_id' => $renter->id,
+                        'vehicle_id' => $car->id,
+                        'start_date' => sprintf('%d-%02d-05', $year, $month),
+                        'end_date' => sprintf('%d-%02d-12', $year, $month),
+                        'total' => $total,
+                        // What the outside owner takes; the rest is ours.
+                        'outside_cost' => round($total * 0.7, 3),
+                        'state' => RentalOrder::STATE_CLOSED,
+                        'payment_status' => RentalOrder::PAYMENT_PAID,
+                    ]);
+                }
+            }
+        }
+    }
+
     public function run(): void
     {
         if (! Schema::hasTable('rental_vehicles') || ! Schema::hasTable('limo_legs')) {
             return;
         }
+
+        $this->outsideCars();
 
         if (Vehicle::query()->where('plate_no', '900001')->exists()) {
             return; // already seeded

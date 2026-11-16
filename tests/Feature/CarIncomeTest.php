@@ -51,11 +51,11 @@ final class CarIncomeTest extends TestCase
         return User::factory()->create(['is_admin' => true, 'is_super_admin' => true]);
     }
 
-    private function car(string $name, string $plate, float $yearly = 0.0, float $monthly = 0.0, bool $active = true): Vehicle
+    private function car(string $name, string $plate, float $yearly = 0.0, float $monthly = 0.0, bool $active = true, bool $outside = false, ?string $category = null): Vehicle
     {
         return Vehicle::query()->create([
             'name' => $name, 'plate_no' => $plate, 'yearly_target' => $yearly, 'monthly_target' => $monthly,
-            'daily_rate' => 20.0, 'active' => $active, 'is_outside' => false,
+            'daily_rate' => 20.0, 'active' => $active, 'is_outside' => $outside, 'category' => $category,
         ]);
     }
 
@@ -226,6 +226,79 @@ final class CarIncomeTest extends TestCase
             ->assertSee('No car earned anything in 2025.')
             ->call('setYear', 1990)                     // out of range: ignored
             ->assertSet('year', 2025);
+    }
+
+    /**
+     * Two schedules, never mixed: the cars we own, and the cars rented in from
+     * other companies. An outside car earns only its mark-up and has no target
+     * of ours, so in one table it would drag every figure of the owned fleet.
+     */
+    public function test_our_cars_and_outside_cars_are_two_separate_schedules(): void
+    {
+        $ours = $this->car('Our Lexus', '111', yearly: 1000);
+        $theirs = $this->car('Their Kia', '222', outside: true, category: 'sedan');
+        $this->hire($ours, '2026-01-05', 400);
+        $this->hire($theirs, '2026-01-06', 900, outside: 600);   // we keep 300
+        $this->trip(null, '2026-01-09 09:00:00', 50);
+
+        $own = (new CarIncome(2026))->report();
+        $this->assertSame(['Our Lexus'], array_column($own['cars'], 'name'));
+        $this->assertSame(450.0, $own['totals']['total']);         // 400 + the trip on no car
+        $this->assertSame(['own' => 1, 'outside' => 1], $own['counts']);
+        $this->assertSame([], $own['groups']);
+
+        $outside = (new CarIncome(2026, CarIncome::OUTSIDE))->report();
+        $this->assertSame(['Their Kia'], array_column($outside['cars'], 'name'));
+        $this->assertSame(300.0, $outside['totals']['total']);
+        // Money on no car is listed once, with our own cars.
+        $this->assertSame([], $outside['loose']);
+    }
+
+    /** Outside cars are read by category: one row each, the cars inside it. */
+    public function test_outside_cars_are_grouped_by_category_in_the_owners_order(): void
+    {
+        $order = ['economy', 'sedan', 'semi_luxury', 'luxury', 'suv', 'semi_luxury_suv', 'luxury_suv'];
+        $this->hire($this->car('Lux SUV', '1', outside: true, category: 'luxury_suv'), '2026-02-01', 500);
+        $this->hire($this->car('Small A', '2', outside: true, category: 'economy'), '2026-02-01', 100);
+        $this->hire($this->car('Small B', '3', outside: true, category: 'economy'), '2026-03-01', 250);
+        $this->hire($this->car('Unfiled', '4', outside: true), '2026-02-01', 70);
+        $this->car('Idle sedan', '5', outside: true, category: 'sedan');   // earned nothing, still listed
+
+        $groups = (new CarIncome(2026, CarIncome::OUTSIDE, $order))->report()['groups'];
+
+        // The owner's order, and a car with no category last, never dropped.
+        $this->assertSame(['economy', 'sedan', 'luxury_suv', ''], array_column($groups, 'category'));
+
+        $small = $groups[0];
+        $this->assertSame(2, $small['count']);
+        $this->assertSame(['Small B', 'Small A'], array_column($small['cars'], 'name'));
+        $this->assertSame(100.0, $small['months'][2]['rent']);
+        $this->assertSame(250.0, $small['months'][3]['rent']);
+        $this->assertSame(350.0, $small['total']);
+        $this->assertSame(0.0, $groups[1]['total']);
+    }
+
+    public function test_the_page_switches_between_the_two_schedules(): void
+    {
+        $this->hire($this->car('Our Lexus', '111'), '2026-01-05', 400);
+        $this->hire($this->car('Their Kia', '222', outside: true, category: 'semi_luxury_suv'), '2026-01-06', 900, outside: 600);
+        $this->hire($this->car('Their Unfiled', '333', outside: true), '2026-01-06', 80);
+        $this->actingAs($this->owner());
+
+        Livewire::test(CarIncomeSchedule::class)
+            ->assertSee('Our cars')
+            ->assertSee('Outside cars')
+            ->assertSee('Our Lexus')
+            ->assertDontSee('Their Kia')
+            ->call('setFleet', 'outside')
+            ->assertSet('fleet', 'outside')
+            ->assertSee('Semi luxury SUV')
+            ->assertSee('Their Kia')          // inside its category, opened by a press
+            ->assertSee('No category')
+            ->assertSee('Open the car and choose its category')
+            ->assertDontSee('Our Lexus')
+            ->call('setFleet', 'nonsense')
+            ->assertSet('fleet', 'own');
     }
 
     public function test_the_home_page_tile_is_for_the_owner_only(): void

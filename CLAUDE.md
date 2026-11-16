@@ -5494,6 +5494,20 @@ appears as soon as both are chosen. `saveAssign()` repeats it in the toast. **A 
 never a block** (paper letters predate the system), and silent for another company's car.
 Not wired into the staff app's own assign screen. A multi-day trip is checked on its first
 day only. Tests: `LimoBorderPermitWarningTest` (6).
+**VAT on limousine expenses (shipped 2026-11-16).** The office typed bills WITHOUT VAT into the
+one `amount` box. `limo_expenses` gained `net_amount` (typed), `vat_rate` (tinyint 0/10/15 =
+`LimoExpense::VAT_RATES`; 10 is Bahrain, 15 Saudi Arabia) and `vat_amount` (Limousine migration
+`2026_11_16_950058`, which backfills `net_amount = amount`). `LimoExpense::booted()` `saving`
+ALWAYS derives `vat_amount = net * rate / 100` and `amount = net + vat`; neither can be typed
+(the form marks both `readonly`). A writer that sets `amount` alone (`PettyCash`,
+`ExpenseImporter`) is read as "before VAT, no VAT", so its figure stands. `amount` stays the
+total, which is what `Reports` sums, so reported expenses now INCLUDE VAT for any expense given
+a rate. Whether profit should count VAT (it may be reclaimable) is the owner's call and was
+left as is.
+- **Engine: read-only form fields refresh after each save.** `FormView::save()` now reloads
+  every `readonly` field's `$form` value from the saved record (via the shared `formValue()`),
+  so a computed total follows the inputs beside it instead of showing what it held on open.
+Tests: `LimoExpenseVatTest` (7).
 **Correcting a closed order's return figures (shipped 2026-11-16).** On RO/01677 the desk
 typed the odometer into the fuel-charge box; the closed order owed 121,923 BD for petrol and
 nothing on screen could change it. Now:

@@ -1,0 +1,67 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Expenses work out the VAT for you",
+        "ar": "المصروفات تحسب الضريبة تلقائياً"
+    },
+    "points": {
+        "en": [
+            "On a limousine expense you type the amount before VAT and choose No VAT, VAT 10% or VAT 15%.",
+            "The VAT amount and the total are worked out by the system and cannot be typed.",
+            "The expenses list shows three figures for each bill: before VAT, VAT and total."
+        ],
+        "ar": [
+            "في مصروف الليموزين تكتب المبلغ قبل الضريبة وتختار: بدون ضريبة، ضريبة 10%، أو ضريبة 15%.",
+            "مبلغ الضريبة والإجمالي يحسبهما النظام ولا يمكن كتابتهما.",
+            "قائمة المصروفات تعرض لكل فاتورة ثلاثة أرقام: قبل الضريبة، الضريبة، والإجمالي."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, an expense had one amount box. The office typed the bill without VAT, so the expenses recorded were lower than the money actually paid, and the VAT was not recorded anywhere.",
+            "Now the form has \"Amount before VAT\" and a VAT choice with three options: No VAT, VAT 10% (Bahrain) and VAT 15% (Saudi Arabia). The two boxes beside them, \"VAT amount\" and \"Total with VAT\", are filled in by the system. They are grey because they cannot be typed in.",
+            "Example: 100.000 before VAT at 10% gives 10.000 VAT and a total of 110.000. At 15% it gives 15.000 and 115.000.",
+            "The total is the figure the reports add up, so from now on the expenses in Limousine reports include the VAT paid.",
+            "Expenses entered before today are kept exactly as they were: their amount is treated as the amount before VAT, with no VAT. To add the VAT to one of them, open it and choose the rate.",
+            "Expenses created from petty cash and from imports are not changed and carry no VAT unless you open them and choose a rate.",
+            "On a new expense the VAT and total appear after you press Save. On a saved expense they update by themselves as you change the amount or the rate."
+        ],
+        "ar": [
+            "سابقاً كان للمصروف مربع مبلغ واحد. كان الموظف يكتب الفاتورة بدون الضريبة، فتكون المصروفات المسجَّلة أقل من المبلغ المدفوع فعلاً، والضريبة غير مسجَّلة في أي مكان.",
+            "الآن في النموذج «المبلغ قبل الضريبة» واختيار للضريبة بثلاثة خيارات: بدون ضريبة، ضريبة 10% (البحرين)، وضريبة 15% (السعودية). والمربعان بجانبهما، «مبلغ الضريبة» و«الإجمالي مع الضريبة»، يملؤهما النظام. لونهما رمادي لأنه لا يمكن الكتابة فيهما.",
+            "مثال: 100.000 قبل الضريبة بنسبة 10% تعطي ضريبة 10.000 وإجمالي 110.000. وبنسبة 15% تعطي 15.000 و115.000.",
+            "الإجمالي هو الرقم الذي تجمعه التقارير، فمن الآن المصروفات في تقارير الليموزين تشمل الضريبة المدفوعة.",
+            "المصروفات المُدخلة قبل اليوم بقيت كما هي تماماً: مبلغها يُعتبر المبلغ قبل الضريبة، بدون ضريبة. لإضافة الضريبة إلى أحدها افتحه واختر النسبة.",
+            "المصروفات الناتجة عن النثرية وعن الاستيراد لم تتغير ولا تحمل ضريبة إلا إذا فتحتها واخترت نسبة.",
+            "في المصروف الجديد تظهر الضريبة والإجمالي بعد الضغط على حفظ. وفي المصروف المحفوظ يتحدثان تلقائياً عند تغيير المبلغ أو النسبة."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Expenses, and press New.",
+            "Choose the date and the category.",
+            "In \"Amount before VAT\" type the amount on the bill without VAT.",
+            "In \"VAT\" choose No VAT, VAT 10% or VAT 15%.",
+            "Press Save. \"VAT amount\" and \"Total with VAT\" are filled in.",
+            "To correct an older expense, open it and choose its VAT rate. The total changes by itself."
+        ],
+        "ar": [
+            "افتح الليموزين ثم المصروفات واضغط «جديد».",
+            "اختر التاريخ والفئة.",
+            "في «المبلغ قبل الضريبة» اكتب مبلغ الفاتورة بدون الضريبة.",
+            "في «ضريبة القيمة المضافة» اختر: بدون ضريبة، ضريبة 10%، أو ضريبة 15%.",
+            "اضغط حفظ. يُملأ «مبلغ الضريبة» و«الإجمالي مع الضريبة».",
+            "لتصحيح مصروف قديم افتحه واختر نسبة الضريبة، فيتغير الإجمالي تلقائياً."
+        ]
+    },
+    "images": [
+        {
+            "before": "form-before.png",
+            "after": "form-after.png",
+            "caption": {
+                "en": "The expense form. Before: one amount box. After: amount before VAT, the VAT choice, and the VAT and total worked out.",
+                "ar": "نموذج المصروف. قبل: مربع مبلغ واحد. بعد: المبلغ قبل الضريبة، واختيار الضريبة، والضريبة والإجمالي محسوبان."
+            }
+        }
+    ]
+}

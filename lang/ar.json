@@ -3619,5 +3619,15 @@
     "Make a travel authorization": "إنشاء توكيل سفر",
     "This trip leaves Bahrain on :date, and this driver's travel authorization for this car ended on :end.": "هذه الرحلة تغادر البحرين في :date، وتوكيل السفر لهذا السائق على هذه السيارة انتهى في :end.",
     "This trip leaves Bahrain on :date, and this driver's travel authorization for this car only starts on :start.": "هذه الرحلة تغادر البحرين في :date، وتوكيل السفر لهذا السائق على هذه السيارة يبدأ فقط في :start.",
-    "This trip leaves Bahrain, and this driver has no travel authorization for this car.": "هذه الرحلة تغادر البحرين، وهذا السائق ليس لديه توكيل سفر لهذه السيارة."
+    "This trip leaves Bahrain, and this driver has no travel authorization for this car.": "هذه الرحلة تغادر البحرين، وهذا السائق ليس لديه توكيل سفر لهذه السيارة.",
+    "Amount before VAT (BHD)": "المبلغ قبل الضريبة (د.ب)",
+    "Amount before VAT": "المبلغ قبل الضريبة",
+    "Before VAT": "قبل الضريبة",
+    "VAT amount (BHD)": "مبلغ الضريبة (د.ب)",
+    "VAT amount": "مبلغ الضريبة",
+    "Total with VAT (BHD)": "الإجمالي مع الضريبة (د.ب)",
+    "No VAT": "بدون ضريبة",
+    "VAT 10%": "ضريبة 10%",
+    "VAT 15%": "ضريبة 15%",
+    "Type the amount on the bill without VAT. The VAT and the total are worked out for you.": "اكتب مبلغ الفاتورة بدون الضريبة. تُحسب الضريبة والإجمالي تلقائياً."
 }

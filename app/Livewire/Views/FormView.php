@@ -173,22 +173,7 @@ final class FormView extends Component
             // value and a BackedEnum has no __toString — the validator dies
             // with "Object of class X could not be converted to string"
             // the moment the form auto-saves (e.g. AR pill click).
-            if ($value instanceof \BackedEnum) {
-                $value = $value->value;
-            }
-
-            // A date-cast column comes back as a Carbon object, which Livewire
-            // sends to the browser as "2027-05-01T00:00:00.000000Z". A date
-            // box can only show "2027-05-01", so a saved date looked EMPTY
-            // after the page was reopened. Worse, that string is in UTC: in a
-            // timezone ahead of it, midnight is the previous day, and the next
-            // auto-save wrote the date back one day earlier. Hand the browser
-            // the plain local value instead.
-            if ($value instanceof \DateTimeInterface) {
-                $value = $field->widget === 'datetime'
-                    ? $value->format('Y-m-d\TH:i')
-                    : $value->format('Y-m-d');
-            }
+            $value = $this->formValue($value, $field);
 
             $this->form[$field->field] = $value;
         }
@@ -295,6 +280,32 @@ final class FormView extends Component
      * (e.g. `form.name`, `imagePaths.image_path`, `translations.name.ar`),
      * so we filter to the three buffers `save()` actually writes through.
      */
+    /**
+     * A record's value as the browser's input can hold it: a backed enum as
+     * its scalar, a date as plain local text. See the notes inside.
+     */
+    private function formValue(mixed $value, FormFieldDef $field): mixed
+    {
+        if ($value instanceof \BackedEnum) {
+            $value = $value->value;
+        }
+
+        // A date-cast column comes back as a Carbon object, which Livewire
+        // sends to the browser as "2027-05-01T00:00:00.000000Z". A date
+        // box can only show "2027-05-01", so a saved date looked EMPTY
+        // after the page was reopened. Worse, that string is in UTC: in a
+        // timezone ahead of it, midnight is the previous day, and the next
+        // auto-save wrote the date back one day earlier. Hand the browser
+        // the plain local value instead.
+        if ($value instanceof \DateTimeInterface) {
+            $value = $field->widget === 'datetime'
+                ? $value->format('Y-m-d\TH:i')
+                : $value->format('Y-m-d');
+        }
+
+        return $value;
+    }
+
     public function updated(string $name): void
     {
         if ($this->recordId === null) {
@@ -525,6 +536,16 @@ final class FormView extends Component
         }
 
         $record->save();
+
+        // A read-only field is worked out by the record itself (a total, a
+        // VAT amount). Show what the save just produced, not the figure the
+        // box held when the page opened: change the amount and the total
+        // beside it must follow.
+        foreach ($this->arch->formFields as $field) {
+            if ($field->readonly && ! $field->isImage() && ! $field->isFile()) {
+                $this->form[$field->field] = $this->formValue($record->getAttribute($field->field), $field);
+            }
+        }
 
         if ($record instanceof Chatterable) {
             $record->logChange($isNew ? 'Record created.' : 'Record updated.');

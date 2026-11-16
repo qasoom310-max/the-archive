@@ -1,0 +1,55 @@
+{
+    "app": "system",
+    "title": {
+        "en": "Fixed: a saved date looked empty, and a form could refuse to save without saying so",
+        "ar": "إصلاح: التاريخ المحفوظ كان يظهر فارغاً، والنموذج كان قد يرفض الحفظ دون إشعار"
+    },
+    "points": {
+        "en": [
+            "A date saved on a car, such as registration or insurance expiry, now shows in its box when the page is opened again.",
+            "A date no longer moves back by one day when another field on the same form is changed.",
+            "When a form cannot save, a red bar at the top now says so and names the field to correct.",
+            "A value a record already holds no longer blocks saving the rest of the form."
+        ],
+        "ar": [
+            "التاريخ المحفوظ في السيارة، مثل انتهاء الملكية أو التأمين، أصبح يظهر في مربعه عند فتح الصفحة من جديد.",
+            "التاريخ لم يعد يتراجع يوماً واحداً عند تغيير حقل آخر في النموذج نفسه.",
+            "عندما لا يستطيع النموذج الحفظ يظهر شريط أحمر في الأعلى يوضح ذلك ويسمّي الحقل المطلوب تصحيحه.",
+            "القيمة الموجودة أصلاً في السجل لم تعد تمنع حفظ بقية النموذج."
+        ]
+    },
+    "details": {
+        "en": [
+            "Three faults in the forms that save by themselves (cars, customers, products and the like) have been corrected. They are why a registration or insurance date typed on a car seemed not to stay.",
+            "First: a saved date was sent back to the page in a form the date box cannot display, so the box looked empty after reopening the page even though the date had been saved. The box now shows the saved date.",
+            "Second: because of the same fault, and because the office is three hours ahead of the server clock, changing any other field on the form could write each date back one day earlier. A registration ending on the 1st could become the 30th of the month before. Dates now stay exactly as entered. Dates already changed this way are not corrected automatically, so please check the expiry dates of cars you edited recently.",
+            "Third: these forms refuse to save anything while one field is not valid, and they did so without any message. A red bar now appears at the top of the form saying it is not saved and naming the field. The reason also appears under that field.",
+            "Also, a field that already holds an older value the list does not offer, for example a fuel type brought over from the old system, no longer stops the form from saving. Only a new value that is not in the list is refused.",
+            "There is no picture with this update: the forms look the same, except for the red bar when something is wrong."
+        ],
+        "ar": [
+            "تم تصحيح ثلاثة أخطاء في النماذج التي تحفظ تلقائياً (السيارات والعملاء والمنتجات وغيرها). وهي السبب في أن تاريخ الملكية أو التأمين المُدخل في السيارة كان يبدو أنه لا يثبت.",
+            "الأول: التاريخ المحفوظ كان يُرسل إلى الصفحة بصيغة لا يستطيع مربع التاريخ عرضها، فيظهر المربع فارغاً بعد إعادة فتح الصفحة مع أن التاريخ محفوظ. الآن يعرض المربع التاريخ المحفوظ.",
+            "الثاني: بسبب الخطأ نفسه، ولأن المكتب متقدم ثلاث ساعات عن ساعة الخادم، كان تغيير أي حقل آخر في النموذج قد يكتب كل تاريخ بيوم أسبق. فالملكية التي تنتهي في اليوم الأول قد تصبح في الثلاثين من الشهر السابق. الآن تبقى التواريخ كما أُدخلت تماماً. التواريخ التي تغيّرت بهذه الطريقة لا تُصحَّح تلقائياً، فيُرجى مراجعة تواريخ انتهاء السيارات التي عُدّلت مؤخراً.",
+            "الثالث: هذه النماذج ترفض حفظ أي شيء ما دام أحد الحقول غير صحيح، وكانت تفعل ذلك دون أي رسالة. الآن يظهر شريط أحمر في أعلى النموذج يوضح أنه لم يُحفظ ويسمّي الحقل، ويظهر السبب أيضاً تحت ذلك الحقل.",
+            "كذلك، الحقل الذي يحمل قيمة قديمة ليست ضمن القائمة، مثل نوع وقود منقول من النظام القديم، لم يعد يمنع النموذج من الحفظ. تُرفض فقط القيمة الجديدة غير الموجودة في القائمة.",
+            "لا توجد صورة مع هذا التحديث: شكل النماذج لم يتغير، عدا الشريط الأحمر عند وجود خطأ."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open the car: Rent A Car, Cars, then the car.",
+            "In Edit car, choose the Registration expiry and Insurance expiry dates. They save by themselves; \"Saved\" shows at the top right of the form.",
+            "Reload the page. Both dates are shown in their boxes.",
+            "If a red bar appears at the top of the form, read which field it names, correct that field, and the form saves by itself.",
+            "For cars whose dates you entered before today, open each one and check the dates are right. Correct any that are a day early."
+        ],
+        "ar": [
+            "افتح السيارة: تأجير السيارات ثم السيارات ثم السيارة.",
+            "في «تعديل السيارة» اختر تاريخ انتهاء الملكية وتاريخ انتهاء التأمين. يُحفظان تلقائياً وتظهر «تم الحفظ» في أعلى يمين النموذج.",
+            "أعد تحميل الصفحة. يظهر التاريخان في مربعيهما.",
+            "إذا ظهر شريط أحمر في أعلى النموذج فاقرأ اسم الحقل المذكور فيه وصحّحه، فيُحفظ النموذج تلقائياً.",
+            "للسيارات التي أدخلت تواريخها قبل اليوم، افتح كل واحدة وتأكد من صحة التواريخ، وصحّح ما كان منها أسبق بيوم."
+        ]
+    }
+}

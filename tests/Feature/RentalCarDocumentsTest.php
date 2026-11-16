@@ -214,4 +214,64 @@ final class RentalCarDocumentsTest extends TestCase
 
         $this->assertNull($car->refresh()->registration_doc);
     }
+
+    /**
+     * A saved date must come back into its box when the car is reopened, and
+     * must not move when another field is edited afterwards. The office works
+     * three hours ahead of UTC, which is where the day used to slip.
+     */
+    public function test_a_saved_expiry_date_shows_again_and_never_drifts(): void
+    {
+        config(['app.timezone' => 'Asia/Bahrain']);
+        date_default_timezone_set('Asia/Bahrain');
+
+        try {
+            $this->actingAs(User::factory()->create(['is_admin' => true]));
+            $car = Vehicle::query()->create(['name' => 'FORD EXPEDITION', 'plate_no' => '125796', 'color' => 'BLACK']);
+            $form = ['model' => Vehicle::class, 'modelKey' => 'rental.vehicle', 'recordId' => $car->id];
+
+            Livewire::test(\App\Livewire\Views\FormView::class, $form)
+                ->set('form.registration_expiry', '2027-05-01')
+                ->set('form.insurance_expiry', '2027-06-01');
+
+            // Reopened: the boxes hold the plain date a date input can show.
+            $reopened = Livewire::test(\App\Livewire\Views\FormView::class, $form)
+                ->assertSet('form.registration_expiry', '2027-05-01')
+                ->assertSet('form.insurance_expiry', '2027-06-01');
+
+            // Editing something else must leave both dates exactly where they were.
+            $reopened->set('form.color', 'WHITE')->set('form.color', 'BLACK');
+
+            $car->refresh();
+            $this->assertSame('2027-05-01', $car->registration_expiry?->toDateString());
+            $this->assertSame('2027-06-01', $car->insurance_expiry?->toDateString());
+        } finally {
+            config(['app.timezone' => 'UTC']);
+            date_default_timezone_set('UTC');
+        }
+    }
+
+    /**
+     * A value the record already holds is never a reason to refuse a save.
+     * An imported fuel type or category the list does not offer used to block
+     * every edit of that car, with nothing on screen to say so.
+     */
+    public function test_a_value_the_car_already_holds_does_not_block_other_edits(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        $car = Vehicle::query()->create(['name' => 'Kia', 'plate_no' => '7']);
+        \Illuminate\Support\Facades\DB::table('rental_vehicles')->where('id', $car->id)->update(['fuel_type' => 'Petrol', 'category' => 'SUV ']);
+
+        Livewire::test(\App\Livewire\Views\FormView::class, ['model' => Vehicle::class, 'modelKey' => 'rental.vehicle', 'recordId' => $car->id])
+            ->set('form.registration_expiry', '2027-05-01')
+            ->assertHasNoErrors()
+            // A NEW value that is not on the list is still refused, and now says so.
+            ->set('form.fuel_type', 'steam')
+            ->assertHasErrors('form.fuel_type')
+            ->assertSee('Not saved yet');
+
+        $car->refresh();
+        $this->assertSame('2027-05-01', $car->registration_expiry?->toDateString());
+        $this->assertSame('Petrol', $car->fuel_type);
+    }
 }

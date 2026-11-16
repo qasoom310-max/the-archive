@@ -177,6 +177,19 @@ final class FormView extends Component
                 $value = $value->value;
             }
 
+            // A date-cast column comes back as a Carbon object, which Livewire
+            // sends to the browser as "2027-05-01T00:00:00.000000Z". A date
+            // box can only show "2027-05-01", so a saved date looked EMPTY
+            // after the page was reopened. Worse, that string is in UTC: in a
+            // timezone ahead of it, midnight is the previous day, and the next
+            // auto-save wrote the date back one day earlier. Hand the browser
+            // the plain local value instead.
+            if ($value instanceof \DateTimeInterface) {
+                $value = $field->widget === 'datetime'
+                    ? $value->format('Y-m-d\TH:i')
+                    : $value->format('Y-m-d');
+            }
+
             $this->form[$field->field] = $value;
         }
     }
@@ -215,8 +228,10 @@ final class FormView extends Component
         // Flush the just-buffered locale value before the pill swap renders —
         // otherwise an edit made on the EN pill could sit unsaved while the
         // user works on AR. updated() won't fire for this server-side mutation
-        // of $translations, so call autoSave directly.
-        $this->autoSave();
+        // of $translations, so call autoSave directly. Quietly: turning to a
+        // language that has no text yet shows an empty required box, which
+        // is a blank to fill in, not a mistake to announce.
+        $this->autoSave(announce: false);
     }
 
     #[Computed]
@@ -356,18 +371,24 @@ final class FormView extends Component
      * nothing on a brand-new record — the row needs an id first, which
      * comes from the explicit Save button.
      */
-    public function autoSave(): void
+    public function autoSave(bool $announce = true): void
     {
         if ($this->recordId === null) {
             return;
         }
 
         try {
+            $this->resetErrorBag();
             $this->save(silent: true);
-        } catch (\Illuminate\Validation\ValidationException) {
-            // Errors already populated $this->errors → rendered under each
-            // field. Auto-save just refuses to commit. The next keystroke
-            // that fixes the invalid field will fire updated() and retry.
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Auto-save refuses to commit ANYTHING while a field is invalid.
+            // Put the reasons where the user can see them: under each field,
+            // and in the "not saved" bar at the top of the form. Swallowing
+            // the exception without this left the bag empty, so a refused
+            // save looked exactly like a successful one.
+            if ($announce) {
+                $this->setErrorBag($e->validator->errors());
+            }
         }
     }
 
@@ -390,7 +411,14 @@ final class FormView extends Component
             throw \Illuminate\Validation\ValidationException::withMessages($expired);
         }
 
-        $this->validate($this->rules());
+        // Named by their labels: "form.fuel_type" tells the person at the
+        // desk nothing about which box to look at.
+        $labels = [];
+        foreach ($this->arch->formFields as $field) {
+            $labels['form.' . $field->field] = __($field->label);
+        }
+
+        $this->validate($this->rules(), [], $labels);
 
         $record = $this->resolveRecord();
         $isNew = ! $record->exists;
@@ -563,6 +591,30 @@ final class FormView extends Component
         }
     }
 
+    /** @var array<string, string|null>|null what the saved record holds, read once per request */
+    private ?array $storedValues = null;
+
+    /**
+     * What the saved record currently holds in a column, as a string. Null
+     * for a new record or an empty column.
+     */
+    private function storedValue(string $attribute): ?string
+    {
+        if ($this->recordId === null) {
+            return null;
+        }
+
+        if ($this->storedValues === null) {
+            $this->storedValues = [];
+            $row = $this->model::query()->toBase()->where((new $this->model())->getKeyName(), $this->recordId)->first();
+            foreach ((array) $row as $column => $value) {
+                $this->storedValues[(string) $column] = is_scalar($value) && (string) $value !== '' ? (string) $value : null;
+            }
+        }
+
+        return $this->storedValues[$attribute] ?? null;
+    }
+
     /**
      * @return array<string, list<mixed>>
      */
@@ -624,10 +676,19 @@ final class FormView extends Component
                 $opts = $this->effectiveOptions($field);
 
                 if ($opts !== []) {
-                    $set[] = 'in:' . implode(',', array_map(
-                        static fn (array $o): string => $o['value'],
-                        $opts,
-                    ));
+                    $allowed = array_map(static fn (array $o): string => $o['value'], $opts);
+
+                    // The value the record ALREADY holds is always acceptable,
+                    // listed or not. Imported data carries values the list
+                    // never had ("Petrol" for "petrol", a category since
+                    // renamed); refusing them made the whole form unsaveable,
+                    // in silence, over a field nobody had touched.
+                    $kept = $this->storedValue($field->field);
+                    if ($kept !== null && ! in_array($kept, $allowed, true)) {
+                        $allowed[] = $kept;
+                    }
+
+                    $set[] = \Illuminate\Validation\Rule::in($allowed);
                 }
             }
 

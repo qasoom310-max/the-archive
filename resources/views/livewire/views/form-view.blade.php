@@ -3,6 +3,19 @@
 @endphp
 
 <form wire:submit="save" class="rounded-xl bg-white shadow-sm ring-1 ring-chrome-900/5">
+    {{-- This form saves by itself and refuses to save anything while one
+         field is wrong. Say so at the top, loudly, or a refused save looks
+         like a saved one. --}}
+    @if ($record->exists && $errors->any())
+        <div class="rounded-t-xl border-b border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800" data-form-not-saved role="alert">
+            <p class="font-semibold">{{ __('Not saved yet. Correct the following and it will save by itself:') }}</p>
+            <ul class="mt-1 list-disc ps-5 text-xs">
+                @foreach ($errors->all() as $message)
+                    <li>{{ $message }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
     <div class="flex h-12 items-center justify-between border-b border-chrome-200 px-4">
         <div class="flex items-center gap-3">
             <h2 class="text-sm font-semibold text-chrome-800">{{ $title ?: ($record->exists ? 'Edit' : 'New') }}</h2>

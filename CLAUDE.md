@@ -5464,6 +5464,25 @@ home strip; gated on `rental.order` Read to open, Write to make) builds it from 
 - Owner name / CR printed on new letters: settings `rental.permit.owner_name|owner_no`
   (defaults from the owner's sample letter), edited in the owner's box.
 Tests: `RentalTravelPermitTest` (14).
+**Engine FormView: dates, silent refusals and legacy select values (fixed 2026-11-16).** The
+owner typed a car's registration and insurance expiry and they "did not stay". Three faults:
+1. **A date-cast value reached the browser as `2027-05-01T00:00:00.000000Z`.** `mount()` put
+   the Carbon object in `$form`; a native `<input type="date">` cannot show that, so a saved
+   date looked EMPTY on reopen. Worse, it is UTC: in `Asia/Bahrain` midnight serialises to the
+   previous day 21:00Z, and the next auto-save (any other field) wrote the date back **one day
+   earlier, every time**. `mount()` now formats `DateTimeInterface` to `Y-m-d` (`Y-m-d\TH:i`
+   for `datetime`). Dates already drifted on live are NOT repaired. PHPUnit runs in UTC, so
+   this was invisible; the regression test switches the timezone to Bahrain.
+2. **A refused auto-save showed nothing.** `autoSave()` swallowed the `ValidationException`
+   and the error bag stayed empty. It now `setErrorBag()`s the validator's errors (and resets
+   the bag before each try); the form shows a red "Not saved yet…" bar (`data-form-not-saved`)
+   listing them, plus the inline message. `save()` validates with the arch LABELS as attribute
+   names, not `form.fuel_type`.
+3. **A select's stored value is always allowed.** `rules()` adds `storedValue($field)` (the raw
+   DB value, read once per request) to the `in:` list, so legacy/imported values no longer make
+   a record unsaveable. A NEW value off the list is still refused.
+**Rule: whatever goes into a Livewire `$form` array must be a scalar the input can render;
+never a Carbon or an enum.** Tests: `RentalCarDocumentsTest` (+2, both fail on the old code).
 **Correcting a closed order's return figures (shipped 2026-11-16).** On RO/01677 the desk
 typed the odometer into the fuel-charge box; the closed order owed 121,923 BD for petrol and
 nothing on screen could change it. Now:

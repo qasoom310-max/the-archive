@@ -35,6 +35,13 @@ final class LimoEarnings extends Component
     #[Url]
     public int $year = 0;
 
+    /**
+     * Which month the DRIVERS table reads: 1-12, 0 for the whole year, and -1
+     * until one is chosen (then this month, or the whole of a past year).
+     */
+    #[Url(as: 'month', except: -1)]
+    public int $driverMonth = -1;
+
     protected function accessModelKey(): string
     {
         return 'limousine.booking';
@@ -58,13 +65,43 @@ final class LimoEarnings extends Component
 
         if ($year >= 2000 && $year <= (int) Carbon::now()->year + 1) {
             $this->year = $year;
+            // Back to the default for that year, not November of 2023.
+            $this->driverMonth = -1;
         }
+    }
+
+    public function setDriverMonth(int $month): void
+    {
+        $this->guardOwner();
+
+        if ($month >= 0 && $month <= 12) {
+            $this->driverMonth = $month;
+        }
+    }
+
+    /**
+     * The month the drivers table shows. Unchosen, it is the month we are in:
+     * a driver is thanked for the month just worked, not for a career. A past
+     * year has no "this month", so it opens on the whole year.
+     */
+    private function driverMonthShown(): int
+    {
+        if ($this->driverMonth >= 0 && $this->driverMonth <= 12) {
+            return $this->driverMonth;
+        }
+
+        return $this->year === (int) Carbon::now()->year ? (int) Carbon::now()->month : 0;
     }
 
     public function render(): View
     {
+        $month = $this->driverMonthShown();
+
         return view('limousine::earnings', [
-            'report' => (new LimoPerformance($this->year))->report(),
+            'report' => (new LimoPerformance($this->year, $month))->report(),
+            // Not named `driverMonth`: a view variable with a public property's
+            // name loses to the property, and the page would read -1.
+            'shownMonth' => $month,
             'years' => range((int) Carbon::now()->year, (int) Carbon::now()->year - 4),
         ]);
     }

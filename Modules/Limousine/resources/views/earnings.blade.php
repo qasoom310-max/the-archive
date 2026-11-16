@@ -21,6 +21,16 @@
         'cheap' => ['label' => __('Low fares'), 'class' => 'bg-amber-50 text-amber-700 ring-amber-100'],
         'steady' => ['label' => __('Around average'), 'class' => 'bg-chrome-100 text-chrome-500 ring-chrome-200'],
     ];
+    $monthNames = [];
+    for ($m = 1; $m <= 12; $m++) {
+        $monthNames[$m] = \Illuminate\Support\Carbon::create($year, $m, 1)->translatedFormat('M');
+    }
+    $driverPeriod = $shownMonth > 0
+        ? \Illuminate\Support\Carbon::create($year, $shownMonth, 1)->translatedFormat('F Y')
+        : (string) $year;
+    $routeTop = max(1.0, (float) collect($report['routes']['rows'])->max('earned'));
+    $serviceTotal = (float) collect($report['services'])->sum('earned');
+    $serviceBars = ['bg-sky-500', 'bg-violet-500', 'bg-emerald-500', 'bg-amber-500'];
     $peak = 0;
     foreach ($report['demand']['grid'] as $bandRow) {
         foreach ($bandRow as $cell) { $peak = max($peak, $cell['trips']); }
@@ -85,14 +95,31 @@
 
     {{-- Drivers --}}
     <div class="mb-3 flex items-center gap-2">
-        <h2 class="text-xs font-bold uppercase tracking-wider text-chrome-500">{{ __('Drivers') }}</h2>
+        <h2 class="text-xs font-bold uppercase tracking-wider text-chrome-500">{{ __('Drivers') }} · {{ $driverPeriod }}</h2>
         <span class="h-px flex-1 bg-chrome-200"></span>
     </div>
-    <div class="mb-8 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]">
+    <div class="mb-8 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]" data-drivers>
+        {{-- A driver is read by the month: this month by default, any other
+             month or the whole year one press away. dir=ltr keeps January
+             first for everyone. --}}
+        <div class="mb-4 flex flex-wrap items-center gap-1" dir="ltr" data-driver-months>
+            @foreach ($monthNames as $m => $name)
+                <button type="button" wire:click="setDriverMonth({{ $m }})"
+                    class="rounded-lg px-2.5 py-1 text-xs font-semibold transition {{ $shownMonth === $m ? 'bg-primary-400 text-chrome-900' : 'text-chrome-500 hover:bg-chrome-100' }}">
+                    {{ $name }}
+                </button>
+            @endforeach
+            <span class="mx-1 h-4 w-px bg-chrome-200"></span>
+            <button type="button" wire:click="setDriverMonth(0)"
+                class="rounded-lg px-2.5 py-1 text-xs font-semibold transition {{ $shownMonth === 0 ? 'bg-primary-400 text-chrome-900' : 'text-chrome-500 hover:bg-chrome-100' }}">
+                {{ __('Whole year') }}
+            </button>
+        </div>
+
         @if (! $report['drivers']['available'])
             {{-- A statement about the records, not an empty table to puzzle over. --}}
             <p class="py-6 text-center text-sm text-chrome-400">
-                {{ __('No trip in :year names a driver, so there is nobody to rank. Assign a driver on the trip and this fills in.', ['year' => $year]) }}
+                {{ __('No trip in :period names a driver, so there is nobody to rank. Assign a driver on the trip and this fills in.', ['period' => $driverPeriod]) }}
             </p>
         @else
             <div class="overflow-x-auto">
@@ -112,7 +139,14 @@
                         @foreach ($report['drivers']['rows'] as $row)
                             @php $v = $verdicts[$row['verdict']] ?? $verdicts['steady']; @endphp
                             <tr>
-                                <td class="py-2.5 font-semibold text-chrome-900">{{ $row['name'] }}</td>
+                                <td class="py-2.5 font-semibold text-chrome-900">
+                                    <span class="me-2 inline-flex size-5 items-center justify-center rounded-full text-[10px] font-bold {{ $loop->first ? 'bg-primary-400 text-chrome-900' : 'bg-chrome-100 text-chrome-500' }}">{{ $loop->iteration }}</span>{{ $row['name'] }}
+                                    @if ($loop->first && $row['earned'] > 0)
+                                        <span class="ms-2 inline-flex whitespace-nowrap rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-800 ring-1 ring-primary-200" data-top-driver>
+                                            {{ $shownMonth > 0 ? __('Top driver of the month') : __('Top driver of the year') }}
+                                        </span>
+                                    @endif
+                                </td>
                                 <td class="py-2.5 text-end font-bold text-chrome-900">{{ $money($row['earned']) }}</td>
                                 <td class="py-2.5 text-end text-chrome-600">{{ number_format($row['trips']) }}</td>
                                 <td class="py-2.5 text-end text-chrome-600">{{ $money($row['avgFare']) }}</td>
@@ -137,7 +171,7 @@
                 </p>
             @endif
             <p class="mt-1 text-[11px] leading-snug text-chrome-400">
-                {{ __('"Advanced" is petty cash handed out this year. It only appears for a driver held in the driver register, so older trips that name a driver in text alone show a dash.') }}
+                {{ __('"Advanced" is petty cash handed out in the same period. It only appears for a driver held in the driver register, so older trips that name a driver in text alone show a dash.') }}
             </p>
             {{-- The names carried over are the old system's logins. Whoever is
                  looking at a row they do not recognise needs the screen that
@@ -176,14 +210,29 @@
                             <tbody class="divide-y divide-chrome-100">
                                 @foreach ($report['routes']['rows'] as $row)
                                     <tr>
-                                        <td class="py-2.5 font-medium text-chrome-800">{{ $row['label'] }}</td>
-                                        <td class="py-2.5 text-end text-chrome-600">{{ number_format($row['trips']) }}</td>
-                                        <td class="py-2.5 text-end font-bold text-chrome-900">{{ $money($row['earned']) }}</td>
-                                        <td class="py-2.5 text-end text-chrome-600">{{ $money($row['avgFare']) }}</td>
-                                        <td class="py-2.5 text-end font-semibold {{ $row['shift'] === null ? 'text-chrome-300' : ($row['shift'] >= 0 ? 'text-emerald-600' : 'text-red-600') }}">
+                                        <td class="py-2.5">
+                                            <div class="flex items-center gap-2">
+                                                <span class="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-chrome-100 text-[10px] font-bold text-chrome-500">{{ $loop->iteration }}</span>
+                                                <span class="font-medium text-chrome-800">{{ $row['label'] }}</span>
+                                            </div>
+                                            {{-- How this route's money compares with the best one. --}}
+                                            <div class="ms-7 mt-1.5 h-1 overflow-hidden rounded-full bg-chrome-100">
+                                                <div class="h-full rounded-full bg-sky-500" style="width: {{ max(2, (int) round($row['earned'] / $routeTop * 100)) }}%"></div>
+                                            </div>
+                                        </td>
+                                        <td class="py-2.5 text-end tabular-nums text-chrome-600">{{ number_format($row['trips']) }}</td>
+                                        <td class="py-2.5 text-end font-bold tabular-nums text-chrome-900">{{ $money($row['earned']) }}</td>
+                                        <td class="py-2.5 text-end tabular-nums text-chrome-600">{{ $money($row['avgFare']) }}</td>
+                                        <td class="py-2.5 text-end">
                                             {{-- Against the SAME route a year ago, so a
                                                  cheap route is not called a decline. --}}
-                                            {{ $row['shift'] === null ? '—' : ($row['shift'] >= 0 ? '+' : '').$row['shift'].'%' }}
+                                            @if ($row['shift'] === null)
+                                                <span class="text-chrome-300">—</span>
+                                            @else
+                                                <span class="inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ring-1 {{ $row['shift'] >= 0 ? 'bg-emerald-50 text-emerald-700 ring-emerald-100' : 'bg-red-50 text-red-700 ring-red-100' }}">
+                                                    {{ $row['shift'] >= 0 ? '▲' : '▼' }} {{ abs($row['shift']) }}%
+                                                </span>
+                                            @endif
                                         </td>
                                     </tr>
                                 @endforeach
@@ -206,14 +255,22 @@
             </div>
             <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06]">
                 @forelse ($report['services'] as $row)
-                    <div class="{{ ! $loop->last ? 'mb-4 border-b border-chrome-100 pb-4' : '' }}">
+                    @php $share = $serviceTotal > 0 ? (int) round($row['earned'] / $serviceTotal * 100) : 0; @endphp
+                    <div class="{{ ! $loop->last ? 'mb-5 border-b border-chrome-100 pb-5' : '' }}">
                         <div class="flex items-baseline justify-between gap-2">
-                            <span class="text-sm font-medium text-chrome-700">{{ $row['label'] }}</span>
-                            <span class="font-bold text-chrome-900">{{ $money($row['earned']) }}</span>
+                            <span class="flex items-center gap-2 text-sm font-semibold text-chrome-800">
+                                <span class="size-2 rounded-full {{ $serviceBars[$loop->index % count($serviceBars)] }}"></span>{{ $row['label'] }}
+                            </span>
+                            <span class="text-lg font-bold tabular-nums text-chrome-900">{{ $share }}%</span>
                         </div>
-                        <div class="mt-1 text-xs text-chrome-400">
-                            {{ __(':count trips · :avg average', ['count' => number_format($row['trips']), 'avg' => $money($row['avgFare'])]) }}
+                        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-chrome-100">
+                            <div class="h-full rounded-full {{ $serviceBars[$loop->index % count($serviceBars)] }}" style="width: {{ $share }}%"></div>
                         </div>
+                        <dl class="mt-3 grid grid-cols-3 gap-2 text-xs">
+                            <div><dt class="text-chrome-400">{{ __('Collected') }}</dt><dd class="font-semibold tabular-nums text-chrome-800">{{ $money($row['earned']) }}</dd></div>
+                            <div><dt class="text-chrome-400">{{ __('Trips') }}</dt><dd class="font-semibold tabular-nums text-chrome-800">{{ number_format($row['trips']) }}</dd></div>
+                            <div><dt class="text-chrome-400">{{ __('Average fare') }}</dt><dd class="font-semibold tabular-nums text-chrome-800">{{ $money($row['avgFare']) }}</dd></div>
+                        </dl>
                     </div>
                 @empty
                     <p class="py-6 text-center text-sm text-chrome-400">{{ __('No trips in :year.', ['year' => $year]) }}</p>

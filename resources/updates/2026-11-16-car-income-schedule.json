@@ -1,0 +1,65 @@
+{
+    "app": "system",
+    "title": {
+        "en": "Car income: one schedule for Rent A Car and Limousine",
+        "ar": "دخل السيارات: جدول واحد لتأجير السيارات والليموزين"
+    },
+    "points": {
+        "en": [
+            "A new owner page, Car income, shows what every car brought in each month from Rent A Car and Limousine together.",
+            "Each car is measured against its own yearly target, with the amount still to go.",
+            "It is on the home page under Reports & Team, so the income is read once, not on two separate screens."
+        ],
+        "ar": [
+            "صفحة جديدة للمالك باسم «دخل السيارات» تعرض ما حققته كل سيارة في كل شهر من تأجير السيارات والليموزين معاً.",
+            "كل سيارة تُقاس مقابل هدفها السنوي الخاص، مع المبلغ المتبقي لبلوغه.",
+            "الصفحة في الصفحة الرئيسية ضمن «التقارير والفريق»، فيُقرأ الدخل مرة واحدة وليس من شاشتين منفصلتين."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, a car's income was split across two pages. Rent A Car had Fleet earnings and Limousine had its own earnings page. To know whether a car was on track for its yearly target, the two had to be opened and added up by hand, and both pages carried many other figures around the one that mattered.",
+            "Car income is one table. Each row is a car and each column is a month. The dark figure in a cell is the car's income for that month. Under it, the blue figure is what came from Rent A Car and the purple figure is what came from Limousine. The right side of the row shows the car's total for the year, its yearly target, how much of the target is reached and how much is left to go.",
+            "A hire is counted in the month it starts and a limousine trip in the month it runs. The figures are work done, whether or not the customer has paid yet. Cancelled hires, cancelled trips and quotations are not counted.",
+            "A limousine trip only counts for a car when the car was assigned to that trip in the bookings queue. Trips with no car assigned are shown in their own row, \"Limousine trips with no car\", and they do not count toward any car's target. If that row is large, assign cars to trips in the queue and the money moves to the right car.",
+            "A car with no yearly target uses twelve times its monthly target. A car with neither shows \"No target\". The two older pages are unchanged and still there."
+        ],
+        "ar": [
+            "سابقاً كان دخل السيارة موزعاً على صفحتين: «أرباح الأسطول» في تأجير السيارات، وصفحة الأرباح الخاصة بالليموزين. ولمعرفة هل السيارة في طريقها لبلوغ هدفها السنوي كان لا بد من فتح الصفحتين وجمع الأرقام يدوياً، وكلتاهما مليئة بأرقام أخرى حول الرقم المهم.",
+            "«دخل السيارات» جدول واحد. كل صف سيارة وكل عمود شهر. الرقم الداكن في الخانة هو دخل السيارة في ذلك الشهر، وتحته الرقم الأزرق لما جاء من تأجير السيارات والرقم البنفسجي لما جاء من الليموزين. وفي يمين الصف إجمالي السيارة للسنة، وهدفها السنوي، ونسبة ما تحقق من الهدف، والمبلغ المتبقي.",
+            "يُحتسب الإيجار في الشهر الذي يبدأ فيه، ورحلة الليموزين في الشهر الذي تُنفَّذ فيه. الأرقام هي العمل المنجَز، سواء دفع العميل أم لم يدفع بعد. الإيجارات الملغاة والرحلات الملغاة وعروض الأسعار لا تُحتسب.",
+            "رحلة الليموزين تُحتسب للسيارة فقط إذا عُيّنت السيارة لتلك الرحلة في قائمة الحجوزات. الرحلات التي لم تُعيَّن لها سيارة تظهر في صف خاص باسم «رحلات ليموزين بدون سيارة» ولا تُحتسب ضمن هدف أي سيارة. إذا كان هذا الصف كبيراً، عيّن السيارات للرحلات في القائمة فينتقل المبلغ إلى السيارة الصحيحة.",
+            "السيارة التي ليس لها هدف سنوي يُستخدم لها اثنا عشر ضعف هدفها الشهري. والسيارة التي ليس لها أي منهما تظهر «بدون هدف». الصفحتان القديمتان لم تتغيرا وما زالتا موجودتين."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open the home page (press the logo). Under Reports & Team, press Car income. Only the owner sees this tile.",
+            "Read a row from left to right: the car, its twelve months, then Year, Target and Reached.",
+            "The month we are in is highlighted. A dash means the car earned nothing that month.",
+            "Press Rent A Car or Limousine above the table to see one desk only. Press Rent + Limousine to see both again.",
+            "Press a year at the top right to read an earlier year.",
+            "To set or change a car's target, press the car's name. It opens the car's page, where the yearly target is typed.",
+            "Check the row \"Limousine trips with no car\" near the bottom. To move that money to a car, open Limousine, Bookings, and assign the car on each trip."
+        ],
+        "ar": [
+            "افتح الصفحة الرئيسية (اضغط الشعار). ضمن «التقارير والفريق» اضغط «دخل السيارات». هذه الخانة تظهر للمالك فقط.",
+            "اقرأ الصف من اليسار إلى اليمين: السيارة، ثم أشهرها الاثنا عشر، ثم السنة والهدف والمُحقَّق.",
+            "الشهر الحالي مظلَّل. والشرطة تعني أن السيارة لم تحقق شيئاً في ذلك الشهر.",
+            "اضغط «تأجير السيارات» أو «الليموزين» أعلى الجدول لعرض قسم واحد فقط. اضغط «التأجير + الليموزين» لعرض الاثنين من جديد.",
+            "اضغط على سنة في أعلى اليمين لقراءة سنة سابقة.",
+            "لتحديد هدف سيارة أو تغييره اضغط اسم السيارة، فتُفتح صفحة السيارة حيث يُكتب الهدف السنوي.",
+            "راجع صف «رحلات ليموزين بدون سيارة» قرب أسفل الجدول. لنقل ذلك المبلغ إلى سيارة، افتح الليموزين ثم الحجوزات وعيّن السيارة لكل رحلة."
+        ]
+    },
+    "images": [
+        {
+            "before": "fleet-before.png",
+            "after": "schedule-after.png",
+            "caption": {
+                "en": "Before: Fleet earnings, one of the two pages a car's income was spread across. After: the single Car income schedule.",
+                "ar": "قبل: «أرباح الأسطول»، إحدى الصفحتين اللتين كان دخل السيارة موزعاً عليهما. بعد: جدول «دخل السيارات» الواحد."
+            }
+        }
+    ]
+}

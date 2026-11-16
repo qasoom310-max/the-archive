@@ -5324,6 +5324,43 @@ entries are summaries only and show no "Full explanation and guide" link. Pictur
 `UpdateLog::read()` refuses a picture that is missing, has a path in its name, or lacks a
 caption in both languages. Tests: `UpdatesPageTest` (10).
 
+**Car income: one schedule for both desks (shipped 2026-11-16).** The owner sets ONE yearly
+target per car and does not care which desk earns it; he was reading a car's year off two
+pages (Fleet earnings, Limousine earnings) and found both overloaded. `/reports/car-income`
+(`App\Livewire\Pages\CarIncomeSchedule`, route `reports.car_income`, owner only via
+`isSuperAdmin()` on mount, on every action and in `render()`), tile "Car income" in the home
+page's Reports & Team block (owner only, only when `rental_vehicles` exists). Engine
+`App\Erp\Reports\CarIncome(year)->report()`: per car, months 1-12 each `{rent, limo, total}`,
+year totals, target (typed `yearly_target`, else 12 x `monthly_target`), percent, remaining.
+It lives in the CORE and reads plain tables with `Schema::hasTable` guards (no module class
+imports), so a database with one of the two apps still gets its half. Counting rules are
+copied from `FleetPerformance` so the pages agree: a hire in the month it STARTS at
+`total - outside_cost`, not cancelled; a limousine leg in the month it RUNS at `net_amount`,
+booking legs only, booking and leg not cancelled. Work done, not cash collected. Decisions:
+- **Money on no car is its own row** ("Limousine trips with no car", "Hires with no car"),
+  included in the bottom line but NOT in `totals.onCars`, so it never counts toward a target.
+  On imported data most limousine money sits there (legs carry `car_id` only when assigned in
+  the queue); the page says so in amber rather than showing cars as failing silently.
+- `available` is false when the year's total is 0: one sentence, not a grid of dashes.
+- A retired car shows only if it earned in the year.
+- Month cells print plain numbers with the active currency's decimals and no symbol; the
+  table heading names the currency once. The table is `dir="ltr"` (a calendar).
+- `?show=rent|limo` prints one desk; anything else is both.
+Fleet earnings and Limousine earnings are unchanged and still linked from their money bands.
+Tests: `CarIncomeTest` (11). Demo data for pictures: `DemoFleetSeeder` (demo copy only, never
+in the default chain or a deploy).
+
+**Limousine earnings: drivers by month (shipped 2026-11-16).** `LimoPerformance(year,
+driverMonth = 0)`: 1-12 filters ONLY the drivers table (and its petty-cash "Advanced" window)
+to that month; summary, routes, services and demand stay yearly on purpose. `LimoEarnings::
+$driverMonth` (`#[Url(as: 'month')]`, -1 = not chosen → the current month in the current year,
+the whole year in a past one; `setDriverMonth()` owner-gated, 0-12; `setYear()` resets it).
+The view receives it as **`shownMonth`**: a view variable named like a public property loses
+to the property, and the page read -1 (no month highlighted, wrong heading) until renamed.
+First row carries "Top driver of the month/year". Routes got a rank, a bar against the best
+route and an up/down badge; Kind of work shows each kind's share as % and a bar. Same numbers
+as before. Test: `LimoEarningsTest::test_the_drivers_table_reads_one_month_at_a_time`.
+
 **Screenshot tool for the pictures (2026-11-16).** `scripts/demo-server.sh` builds and serves a
 local DEMO copy (`database/demo.sqlite`, git-ignored; `migrate:fresh --seed` + every module
 installed + `PartnerSeeder`/`PosSeeder`; admins `admin@example.com` and Arabic-reading

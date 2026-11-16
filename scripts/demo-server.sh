@@ -28,11 +28,13 @@ if [[ ! -f "$DB_DATABASE" ]]; then
   touch "$DB_DATABASE"
   php artisan migrate:fresh --seed --force --no-interaction
   for m in $MODULES; do php artisan module:install "$m" --no-interaction || true; done
-  for s in PartnerSeeder PosSeeder; do
+  for s in PartnerSeeder PosSeeder DemoFleetSeeder; do
     php artisan db:seed --class="Database\\Seeders\\$s" --force --no-interaction || true
   done
+  # The demo admin is the owner, so owner-only pages can be photographed.
+  php artisan tinker --execute='\App\Models\User::query()->where("email", "admin@example.com")->first()?->forceFill(["is_super_admin" => true])->save();' >/dev/null
   # A second demo admin who reads Arabic, for right-to-left pictures (--ar).
-  php artisan tinker --execute='\App\Models\User::query()->updateOrCreate(["email" => "arabic@example.com"], ["name" => "مدير تجريبي", "password" => bcrypt("password"), "is_admin" => true, "language" => "ar"]);' >/dev/null
+  php artisan tinker --execute='\App\Models\User::query()->updateOrCreate(["email" => "arabic@example.com"], ["name" => "مدير تجريبي", "password" => bcrypt("password"), "is_admin" => true, "language" => "ar"])->forceFill(["is_admin" => true, "is_super_admin" => true])->save();' >/dev/null
 fi
 
 [[ -f public/build/manifest.json ]] || npm run build

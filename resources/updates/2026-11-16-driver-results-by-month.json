@@ -1,0 +1,61 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Limousine earnings: drivers by month, clearer routes and kind of work",
+        "ar": "أرباح الليموزين: السائقون حسب الشهر، ومسارات وأنواع عمل أوضح"
+    },
+    "points": {
+        "en": [
+            "The Drivers table now shows one month at a time and opens on the current month, with the top driver of the month marked.",
+            "Routes are numbered, with a bar showing each route's money against the best route, and a clear up or down badge against last year.",
+            "Kind of work shows each kind's share of the money as a percentage and a bar."
+        ],
+        "ar": [
+            "جدول السائقين أصبح يعرض شهراً واحداً في كل مرة ويُفتح على الشهر الحالي، مع تمييز أفضل سائق في الشهر.",
+            "المسارات مرقَّمة، مع شريط يقارن دخل كل مسار بأفضل مسار، وشارة واضحة للارتفاع أو الانخفاض عن السنة الماضية.",
+            "«نوع العمل» يعرض حصة كل نوع من الدخل كنسبة مئوية وشريط."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the Drivers table added up the whole year. A driver who had a strong month could not be seen, because his month was buried in eleven others, and the list looked the same every time it was opened.",
+            "Now the table reads one month. It opens on the month we are in. Month buttons above the table switch to any other month, and Whole year brings back the yearly view. The first driver in the list is marked \"Top driver of the month\". The Advanced column follows the same month.",
+            "Only the Drivers table follows the month. The four figures at the top, Routes, Kind of work and the busy-hours grid still read the whole year, because one month is too little to judge a route or an hour.",
+            "Routes and Kind of work show the same numbers as before, laid out so they can be compared at a glance. Nothing in how the money is counted has changed."
+        ],
+        "ar": [
+            "سابقاً كان جدول السائقين يجمع السنة كاملة. السائق الذي كان شهره قوياً لم يكن يظهر، لأن شهره مدفون بين أحد عشر شهراً آخر، وكانت القائمة تبدو نفسها في كل مرة تُفتح.",
+            "الآن يقرأ الجدول شهراً واحداً ويُفتح على الشهر الحالي. أزرار الأشهر أعلى الجدول تنقلك إلى أي شهر آخر، وزر «السنة كاملة» يعيد العرض السنوي. السائق الأول في القائمة يُميَّز بعبارة «أفضل سائق في الشهر». وعمود السُّلف يتبع الشهر نفسه.",
+            "جدول السائقين وحده يتبع الشهر. الأرقام الأربعة في الأعلى والمسارات ونوع العمل وجدول ساعات الذروة ما زالت تقرأ السنة كاملة، لأن شهراً واحداً لا يكفي للحكم على مسار أو ساعة.",
+            "المسارات ونوع العمل تعرض الأرقام نفسها كما كانت، لكن بترتيب يسهّل المقارنة بنظرة واحدة. لم يتغير شيء في طريقة احتساب المبالغ."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Limousine earnings. Only the owner sees this page.",
+            "The Drivers table shows the current month. The heading above it names the month.",
+            "Press another month, for example Oct, to see who led that month.",
+            "Press Whole year to see the yearly totals as before.",
+            "In Routes, the bar under a route shows how its money compares with the best route. The badge on the right is the average fare against the same route last year: green and up, or red and down.",
+            "In Kind of work, the percentage is that kind's share of the money collected this year."
+        ],
+        "ar": [
+            "افتح الليموزين ثم «أرباح الليموزين». هذه الصفحة تظهر للمالك فقط.",
+            "جدول السائقين يعرض الشهر الحالي، والعنوان فوقه يذكر اسم الشهر.",
+            "اضغط شهراً آخر، مثل أكتوبر، لمعرفة من تصدّر ذلك الشهر.",
+            "اضغط «السنة كاملة» لعرض إجماليات السنة كما كانت.",
+            "في المسارات، الشريط تحت المسار يوضح دخله مقارنةً بأفضل مسار. والشارة على اليمين هي متوسط الأجرة مقارنةً بالمسار نفسه في السنة الماضية: أخضر للارتفاع أو أحمر للانخفاض.",
+            "في «نوع العمل»، النسبة المئوية هي حصة ذلك النوع من الدخل المحصَّل هذه السنة."
+        ]
+    },
+    "images": [
+        {
+            "before": "page-before.png",
+            "after": "page-after.png",
+            "caption": {
+                "en": "The Limousine earnings page. Before: drivers for the whole year. After: drivers for one month, with the new Routes and Kind of work layout below.",
+                "ar": "صفحة أرباح الليموزين. قبل: السائقون للسنة كاملة. بعد: السائقون لشهر واحد، مع الشكل الجديد للمسارات ونوع العمل في الأسفل."
+            }
+        }
+    ]
+}

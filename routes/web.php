@@ -14,6 +14,7 @@ use App\Livewire\Auth\ResetPassword;
 use App\Livewire\Pages\ActivityLog;
 use App\Livewire\Pages\AppFeatureSettings;
 use App\Livewire\Pages\DailySummary;
+use App\Livewire\Pages\CarIncomeSchedule;
 use App\Livewire\Pages\Dashboard;
 use App\Livewire\Pages\EmployeeForm;
 use App\Livewire\Pages\EmployeePayroll;
@@ -92,6 +93,10 @@ Route::middleware('auth')->group(function (): void {
 
     // Owner's monthly P&L: sales − COGS − expenses, with recurring-bill tracking.
     Route::get('/reports/profit', MonthlyProfit::class)->name('reports.profit');
+
+    // One schedule of what each car earned per month from Rent A Car and
+    // Limousine together, against its yearly target (owner-gated in the component).
+    Route::get('/reports/car-income', CarIncomeSchedule::class)->name('reports.car_income');
 
     // HR / payroll (each page is admin-gated in its component). More specific
     // suffix routes are declared before the bare /{id} so they aren't swallowed.

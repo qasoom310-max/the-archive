@@ -305,6 +305,42 @@ final class LimoEarningsTest extends TestCase
 
     // ── The page ─────────────────────────────────────────────────────────────
 
+    /**
+     * A driver is thanked for a month, not a career: the drivers table opens on
+     * the month we are in, and any other month or the whole year is one press
+     * away. Routes and the rest keep reading the whole year.
+     */
+    public function test_the_drivers_table_reads_one_month_at_a_time(): void
+    {
+        $this->trip('2026-06-10 09:00:00', 100, leg: ['driver' => 'Ramesh']);
+        $this->trip('2026-06-11 09:00:00', 40, leg: ['driver' => 'Sohail']);
+        $this->trip('2026-03-05 09:00:00', 900, leg: ['driver' => 'Sohail']);
+
+        $june = (new LimoPerformance(2026, 6))->report();
+        $this->assertSame(['Ramesh', 'Sohail'], array_column($june['drivers']['rows'], 'name'));
+        $this->assertSame(40.0, $june['drivers']['rows'][1]['earned']);
+        // Only the drivers follow the month: the year's takings are untouched.
+        $this->assertSame(1040.0, $june['summary']['earned']);
+
+        $year = (new LimoPerformance(2026))->report();
+        $this->assertSame(['Sohail', 'Ramesh'], array_column($year['drivers']['rows'], 'name'));
+
+        $this->actingAs($this->owner());
+        Livewire::test(LimoEarnings::class)
+            // "Today" is 30 June 2026, so the page opens on June.
+            ->assertSee('Top driver of the month')
+            ->assertSeeInOrder(['Ramesh', 'Sohail'])
+            ->call('setDriverMonth', 0)
+            ->assertSee('Top driver of the year')
+            ->assertSeeInOrder(['Sohail', 'Ramesh'])
+            ->call('setDriverMonth', 2)
+            ->assertSee('names a driver, so there is nobody to rank')
+            ->call('setDriverMonth', 13)   // not a month: ignored
+            ->assertSet('driverMonth', 2)
+            ->call('setYear', 2025)        // another year starts from its own default
+            ->assertSet('driverMonth', -1);
+    }
+
     public function test_the_page_is_owner_only(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => false]));

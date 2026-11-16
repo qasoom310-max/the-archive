@@ -41,7 +41,13 @@ final class LimoPerformance
         'night' => [22, 6],
     ];
 
-    public function __construct(private readonly int $year) {}
+    /**
+     * @param int $driverMonth 1-12 reads the DRIVERS table for that month alone;
+     *                         0 reads it for the whole year. Only the drivers
+     *                         follow it: a driver is thanked for a month, while
+     *                         routes and demand need a year to mean anything.
+     */
+    public function __construct(private readonly int $year, private readonly int $driverMonth = 0) {}
 
     /**
      * @return array{
@@ -65,7 +71,9 @@ final class LimoPerformance
         return [
             'year' => $this->year,
             'summary' => $this->summary($trips, $lastYear),
-            'drivers' => $this->drivers($trips),
+            'drivers' => $this->drivers($this->driverMonth > 0
+                ? array_values(array_filter($trips, fn (array $t): bool => (int) $t['at']->format('n') === $this->driverMonth))
+                : $trips),
             'routes' => $this->routes($trips, $lastYear),
             'services' => $this->services($trips),
             'demand' => $this->demand($trips),
@@ -252,13 +260,15 @@ final class LimoPerformance
             return [];
         }
 
-        $start = CarbonImmutable::create($this->year, 1, 1);
+        // The same window the drivers table covers: one month, or the year.
+        $start = CarbonImmutable::create($this->year, $this->driverMonth > 0 ? $this->driverMonth : 1, 1);
+        $end = $this->driverMonth > 0 ? $start->endOfMonth() : $start->endOfYear();
 
         $rows = DB::table('limo_petty_advances')
             ->whereIn('driver_id', array_keys($ids))
-            // To the end of 31 December: SQLite keeps "YYYY-12-31 00:00:00", which
+            // To the end of the last day: SQLite keeps "YYYY-12-31 00:00:00", which
             // sorts after "YYYY-12-31" and dropped that day's advances.
-            ->whereBetween('date', [$start->toDateString(), $start->endOfYear()->toDateString() . ' 23:59:59'])
+            ->whereBetween('date', [$start->toDateString(), $end->toDateString() . ' 23:59:59'])
             ->selectRaw('driver_id, COALESCE(SUM(amount), 0) as advanced')
             ->groupBy('driver_id')
             ->get();

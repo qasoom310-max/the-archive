@@ -26,17 +26,24 @@ use Modules\Rental\Support\CustomerImporter;
  *
  * Money the customer already paid on the website is taken through
  * {@see BookingPayments::receive()}, so it gets a receipt and settles the
- * booking the same way a payment at the desk would.
+ * booking the same way a payment at the desk would, and the customer is
+ * emailed the receipt with the invoice (what is still owed is on both), to the
+ * address they typed at checkout. {@see BalanceReminders} reminds them of the
+ * rest about an hour before the trip.
  */
 final class WebBookingToLimousine
 {
-    public function __construct(private readonly BookingPayments $payments)
-    {
+    public function __construct(
+        private readonly BookingPayments $payments,
+        private readonly CustomerDocumentEmails $emails,
+    ) {
     }
 
     public function convert(RentalWebBooking $web, ?User $by = null): LimoBooking
     {
-        return DB::transaction(function () use ($web, $by): LimoBooking {
+        $receipt = null;
+
+        $booking = DB::transaction(function () use ($web, $by, &$receipt): LimoBooking {
             $customer = $this->customerFor($web);
             $name = $web->customerName() === '—' ? (string) $customer->name : $web->customerName();
             $trip = $web->productName() === '—' ? null : $web->productName();
@@ -89,7 +96,7 @@ final class WebBookingToLimousine
             // and the driver collects it.
             $paid = $web->paidAmount();
             if ($paid > 0.0) {
-                $this->payments->receive($booking->refresh(), $paid, 'online', __('Paid on the website') . ' — ' . $web->source_reference);
+                $receipt = $this->payments->receive($booking->refresh(), $paid, 'online', __('Paid on the website') . ' — ' . $web->source_reference);
             }
 
             $web->status = RentalWebBooking::STATUS_COMPLETE;
@@ -99,6 +106,13 @@ final class WebBookingToLimousine
 
             return $booking->refresh();
         });
+
+        // After the commit, so a rolled-back conversion never mails anything.
+        if ($receipt instanceof LimoReceipt) {
+            $this->emails->paymentReceived((int) $receipt->id, to: $web->email);
+        }
+
+        return $booking;
     }
 
     /**
@@ -121,7 +135,12 @@ final class WebBookingToLimousine
             return null;
         }
 
-        return $this->payments->receive($booking, $amount, 'online', __('Paid on the website') . ' — ' . $web->source_reference);
+        $receipt = $this->payments->receive($booking, $amount, 'online', __('Paid on the website') . ' — ' . $web->source_reference);
+        if ($receipt instanceof LimoReceipt) {
+            $this->emails->paymentReceived((int) $receipt->id, to: $web->email);
+        }
+
+        return $receipt;
     }
 
     /** "Chauffeur — SUV (4 hours)" → 4. */
@@ -157,6 +176,13 @@ final class WebBookingToLimousine
                 });
 
             if ($match instanceof LimoCustomer && ($found = LimoCustomer::query()->find($match->id)) instanceof LimoCustomer) {
+                // A blank email is filled from checkout; one on file is never replaced.
+                $typed = trim((string) $web->email);
+                if (trim((string) $found->email) === '' && filter_var($typed, FILTER_VALIDATE_EMAIL) !== false) {
+                    $found->email = $typed;
+                    $found->save();
+                }
+
                 return $found;
             }
         }

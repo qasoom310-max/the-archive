@@ -53,6 +53,7 @@ use Illuminate\Support\Carbon;
  * @property string $payment_status
  * @property string|null $notes
  * @property Carbon|null $imported_at
+ * @property Carbon|null $balance_reminded_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read LimoCustomer|null $customer
@@ -126,6 +127,7 @@ final class LimoBooking extends Model implements DefinesIrModel, TakesCouponCred
             'discount' => 'float',
             'advance' => 'float',
             'imported_at' => 'datetime',
+            'balance_reminded_at' => 'datetime',
         ];
     }
 

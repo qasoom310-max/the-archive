@@ -86,9 +86,13 @@ final class CustomerDocumentEmails
         }, $now);
     }
 
-    public function paymentReceived(int $receiptId, bool $now = false): void
+    /**
+     * $to sends to that address instead of the customer's own (a website
+     * booking: the email the customer typed at checkout).
+     */
+    public function paymentReceived(int $receiptId, bool $now = false, ?string $to = null): void
     {
-        $this->mailer->later(function () use ($receiptId): void {
+        $this->mailer->later(function () use ($receiptId, $to): void {
             $receipt = LimoReceipt::query()->with(['customer', 'invoice'])->find($receiptId);
             if ($receipt === null) {
                 return;
@@ -113,7 +117,7 @@ final class CustomerDocumentEmails
 
             $customer = $receipt->customer ?? $invoice?->customer;
 
-            $this->mailer->send($this->addressOf($customer), CustomerDocument::fromTemplate(
+            $this->mailer->send($to !== null && trim($to) !== '' ? $to : $this->addressOf($customer), CustomerDocument::fromTemplate(
                 type: 'receipt',
                 customerName: (string) ($customer->name ?? ''),
                 vars: [
@@ -188,6 +192,64 @@ final class CustomerDocumentEmails
                 facts: $facts,
                 attachments: [],
                 label: __('Trip') . ' ' . $reference,
+                withTerms: false,
+            ));
+        }, $now);
+    }
+
+    /**
+     * About an hour before a trip: the booking still owes money, so remind the
+     * customer how much is left. No attachments, no terms. $to as above.
+     */
+    public function balanceReminder(int $legId, ?string $to = null, bool $now = false): void
+    {
+        $this->mailer->later(function () use ($legId, $to): void {
+            $leg = LimoLeg::query()->with('legable.customer')->find($legId);
+            $booking = $leg?->legable;
+            if ($leg === null || ! $booking instanceof LimoBooking) {
+                return;
+            }
+
+            $owed = $booking->amountOwed();
+            if ($owed <= 0.0005) {
+                return;
+            }
+
+            $customer = $booking->customer;
+            $reference = (string) $leg->reference;
+            $total = Currencies::format($booking->netAmount());
+            $paid = Currencies::format($booking->amountReceived());
+            $balance = Currencies::format($owed);
+
+            $facts = [[__('Trip no.'), $reference]];
+            if ($leg->start_at !== null) {
+                $facts[] = [__('Pick-up'), $leg->start_at->format('D j M Y, H:i')];
+            }
+            foreach ([[__('Pick up'), $leg->from_location], [__('Drop off'), $leg->to_location]] as [$label, $place]) {
+                if (trim((string) $place) !== '') {
+                    $facts[] = [$label, trim((string) $place)];
+                }
+            }
+            $facts[] = [__('Total'), $total];
+            $facts[] = [__('Paid'), $paid];
+            $facts[] = [__('Balance due'), $balance];
+
+            $address = $to !== null && trim($to) !== '' ? $to : $this->addressOf($customer);
+
+            $this->mailer->send($address, CustomerDocument::fromTemplate(
+                type: 'balance_reminder',
+                customerName: (string) ($customer->name ?? ''),
+                vars: [
+                    'reference' => $reference,
+                    'booking' => (string) $booking->reference,
+                    'pickup_time' => $leg->start_at?->format('D j M Y, H:i') ?? '',
+                    'total' => $total,
+                    'paid' => $paid,
+                    'balance' => $balance,
+                ],
+                facts: $facts,
+                attachments: [],
+                label: __('Balance reminder') . ' ' . $reference,
                 withTerms: false,
             ));
         }, $now);

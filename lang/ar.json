@@ -3713,5 +3713,7 @@
     "Throw this scan away without saving it?": "هل تريد تجاهل هذا المسح دون حفظه؟",
     "press a name to see only their trips": "اضغط على اسم لعرض رحلاته فقط",
     "Show everyone": "عرض الجميع",
-    "Nobody of this kind owes anything here.": "لا أحد من هذا النوع عليه مبالغ هنا."
+    "Nobody of this kind owes anything here.": "لا أحد من هذا النوع عليه مبالغ هنا.",
+    "Balance reminder": "تذكير بالرصيد المتبقي",
+    "Sent about an hour before a trip booked on the website, when the customer paid part online and the rest is still owed.": "تُرسل قبل نحو ساعة من رحلة محجوزة عبر الموقع، عندما يدفع العميل جزءاً من المبلغ عبر الإنترنت ويبقى عليه الباقي."
 }

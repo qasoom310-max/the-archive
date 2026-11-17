@@ -88,6 +88,16 @@ final class EmailTemplates
             'intro' => 'Your driver and car for this trip are below. The driver will be waiting at the pick-up point on time.',
             'outro' => 'If anything changes, reply to this email or call us.',
         ],
+        'balance_reminder' => [
+            'label' => 'Balance reminder',
+            'description' => 'Sent about an hour before a trip booked on the website, when the customer paid part online and the rest is still owed.',
+            'apps' => ['limousine'],
+            'placeholders' => ['reference', 'booking', 'pickup_time', 'total', 'paid', 'balance'],
+            'subject' => '{company} — Balance due for your trip {reference}',
+            'heading' => 'Your trip starts in about an hour',
+            'intro' => 'Thank you for your payment of {paid}. A balance of **{balance}** is still to be paid for this trip. Please settle it before the trip starts, or pay the driver when you are picked up.',
+            'outro' => 'If you have already paid, please ignore this email. For any question, reply to this email or call us.',
+        ],
         'coupon' => [
             'label' => 'Credit coupon',
             'description' => 'Sent with a credit coupon when a paid trip is cancelled.',

@@ -313,6 +313,11 @@ final class CustomerEmailSettings extends Component
                 [['Trip no.', '25512'], ['Pick-up', 'Thu 5 Nov 2026, 08:30'], ['Pick up', 'Bahrain International Airport'], ['Drop off', 'Four Seasons Hotel, Bahrain Bay'], ['Driver', 'Habib Rahman'], ["Driver's phone", '+973 3999 1830'], ['Car', 'GMC Yukon (Black)'], ['Plate no.', '363899']],
                 null, null,
             ],
+            'balance_reminder' => [
+                ['reference' => '25512', 'booking' => 'BK/15329', 'pickup_time' => 'Thu 5 Nov 2026, 08:30', 'total' => '40.00 BD', 'paid' => '8.00 BD', 'balance' => '32.00 BD'],
+                [['Trip no.', '25512'], ['Pick-up', 'Thu 5 Nov 2026, 08:30'], ['Pick up', 'Bahrain International Airport'], ['Drop off', 'Four Seasons Hotel, Bahrain Bay'], ['Total', '40.00 BD'], ['Paid', '8.00 BD'], ['Balance due', '32.00 BD']],
+                null, null,
+            ],
             'coupon' => [
                 ['code' => 'WAN-7K2Q9', 'value' => '45.00 BD', 'valid_until' => '05-May-2027'],
                 [],

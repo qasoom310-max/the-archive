@@ -1,0 +1,44 @@
+{
+    "app": "limousine",
+    "title": { "en": "Website trips paid in part: the customer gets a receipt, and a reminder before the trip", "ar": "رحلات الموقع المدفوعة جزئياً: يصل للعميل إيصال، وتذكير قبل الرحلة" },
+    "points": {
+        "en": [
+            "When a customer pays for a limousine trip on the website, they are now emailed the receipt and the invoice, showing what is still owed.",
+            "If part of the trip is still unpaid, they get a second email about an hour before pick-up with the balance to pay."
+        ],
+        "ar": [
+            "عندما يدفع العميل لرحلة ليموزين عبر الموقع، يصله الآن بالبريد الإلكتروني الإيصال والفاتورة مع المبلغ المتبقي.",
+            "وإذا بقي جزء من الرحلة غير مدفوع، تصله رسالة ثانية قبل موعد الاستلام بنحو ساعة بالمبلغ المتبقي."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, a trip paid on the website became a booking with its receipt, but nothing was emailed to the customer. A customer who paid only part online had no reminder of what was left to pay.",
+            "Now the customer is emailed the receipt with the invoice as soon as the booking is made, to the email address they typed on the website. If they paid only part, about an hour before pick-up they get a reminder with the trip details, what they paid and the balance due. The reminder is sent once, and not at all if the rest is paid first, the trip is cancelled, or the booking was made less than an hour before the trip.",
+            "These emails go out only when customer emails are switched on (Settings, Customer emails, Sending). The wording of the reminder can be changed there, under Balance reminder."
+        ],
+        "ar": [
+            "سابقاً كانت الرحلة المدفوعة عبر الموقع تتحول إلى حجز مع إيصاله، لكن لم يكن يُرسل للعميل أي بريد. والعميل الذي دفع جزءاً فقط لم يكن يصله تذكير بالمبلغ المتبقي.",
+            "الآن يصل للعميل الإيصال مع الفاتورة فور إنشاء الحجز، على البريد الإلكتروني الذي كتبه في الموقع. وإذا دفع جزءاً فقط، يصله قبل موعد الاستلام بنحو ساعة تذكير فيه تفاصيل الرحلة وما دفعه والمبلغ المتبقي. يُرسل التذكير مرة واحدة، ولا يُرسل إذا دُفع الباقي قبله أو أُلغيت الرحلة أو أُنشئ الحجز قبل الرحلة بأقل من ساعة.",
+            "تُرسل هذه الرسائل فقط عندما تكون رسائل العملاء مفعّلة (الإعدادات، رسائل العملاء، الإرسال). ويمكن تغيير نص التذكير هناك تحت تذكير بالرصيد المتبقي."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Nothing to do for each booking: the emails go out by themselves.",
+            "To check they are on, open Settings, then Customer emails, then Sending, and make sure customer emails are switched on.",
+            "To change the reminder's wording, open Settings, then Customer emails, then Balance reminder. Edit the text, check the preview on the right, and press Save."
+        ],
+        "ar": [
+            "لا شيء تفعله لكل حجز: الرسائل تُرسل تلقائياً.",
+            "للتأكد من تفعيلها افتح الإعدادات ثم رسائل العملاء ثم الإرسال، وتأكد من أن رسائل العملاء مفعّلة.",
+            "لتغيير نص التذكير افتح الإعدادات ثم رسائل العملاء ثم تذكير بالرصيد المتبقي. عدّل النص وراجع المعاينة على اليمين ثم اضغط حفظ."
+        ]
+    },
+    "images": [
+        {
+            "after": "reminder-after.png",
+            "caption": { "en": "The reminder email on Settings, Customer emails, with its preview.", "ar": "رسالة التذكير في الإعدادات، رسائل العملاء، مع معاينتها." }
+        }
+    ]
+}

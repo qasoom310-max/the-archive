@@ -130,6 +130,20 @@ Schedule::call(function (): void {
     });
 })->everyFiveMinutes()->name('limo-crew-notices')->withoutOverlapping(10);
 
+// A limousine trip booked on the website and paid only in part: about an hour
+// before pick-up the customer is emailed what is still owed — see
+// BalanceReminders. Once per booking; obeys the customer-email switch.
+Schedule::call(function (): void {
+    \App\Erp\Tenancy\EachDatabase::run(static function (): void {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('limo_bookings')
+            || ! \Illuminate\Support\Facades\Schema::hasColumn('limo_bookings', 'balance_reminded_at')) {
+            return;
+        }
+
+        app(\Modules\Limousine\Services\BalanceReminders::class)->run();
+    });
+})->everyFiveMinutes()->name('limo-balance-reminders')->withoutOverlapping(10);
+
 // The staff app (Android / iPhone): phone notifications to the ticked
 // operations staff about trips inside the 12 hours still without a car or a
 // driver, every 10 minutes until assigned, and to the owner once when the

@@ -18,7 +18,7 @@ use RuntimeException;
  * same way. Effort `low`: this is reading a receipt, not reasoning about one.
  *
  * The bill is somebody else's text. Nothing printed on it is treated as an
- * instruction: the only thing that can come back is the eight fields below.
+ * instruction: the only thing that can come back is the nine fields below.
  */
 final class ClaudeBillReader implements BillReader
 {
@@ -45,6 +45,12 @@ final class ClaudeBillReader implements BillReader
                         . 'date: the bill date as YYYY-MM-DD. '
                         . 'payee: the shop or supplier name, in the language it is printed in. '
                         . 'net_amount: the amount BEFORE VAT. vat_amount: the VAT. total: the amount paid, including VAT. '
+                        . 'Give the amounts exactly as printed, in the currency of the bill; never convert them. '
+                        . 'currency: the currency the amounts are printed in. Use what the bill itself shows: a currency name, code or symbol '
+                        . '(BD / BHD / د.ب / دينار بحريني = BHD; SR / SAR / ر.س / ريال سعودي / ﷼ = SAR; KD / KWD / د.ك = KWD; AED / Dhs / د.إ / درهم = AED; '
+                        . 'OMR / RO / ر.ع = OMR; QAR / QR / ر.ق = QAR; $ / USD = USD), and when no currency is printed, the country of the '
+                        . 'shop (address, phone code +966 / +965 / +971 / +968 / +974 / +973, a Saudi, Kuwaiti, Emirati, Omani or Qatari tax number). '
+                        . 'Use UNKNOWN when neither tells you. '
                         . 'category: the closest of the allowed values (fuel for petrol or diesel, wash for car wash or cleaning, parking, tolls, '
                         . 'insurance, spare_parts for car parts, maintenance for garage or repair work, food, office for office supplies, fees for '
                         . 'government or bank fees, other when none fits). '
@@ -66,9 +72,10 @@ final class ClaudeBillReader implements BillReader
                             'net_amount' => ['type' => 'number'],
                             'vat_amount' => ['type' => 'number'],
                             'total' => ['type' => 'number'],
+                            'currency' => ['type' => 'string', 'enum' => [...array_keys(LimoExpense::BILL_CURRENCIES), 'UNKNOWN']],
                             'description' => ['type' => 'string'],
                         ],
-                        'required' => ['readable', 'date', 'payee', 'category', 'net_amount', 'vat_amount', 'total', 'description'],
+                        'required' => ['readable', 'date', 'payee', 'category', 'net_amount', 'vat_amount', 'total', 'currency', 'description'],
                         'additionalProperties' => false,
                     ],
                 ],
@@ -98,6 +105,7 @@ final class ClaudeBillReader implements BillReader
                     'net_amount' => (float) ($data['net_amount'] ?? 0),
                     'vat_amount' => (float) ($data['vat_amount'] ?? 0),
                     'total' => (float) ($data['total'] ?? 0),
+                    'currency' => (string) ($data['currency'] ?? ''),
                     'description' => (string) ($data['description'] ?? ''),
                 ];
             }

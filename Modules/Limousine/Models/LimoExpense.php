@@ -26,6 +26,9 @@ use Illuminate\Support\Carbon;
  * @property int|null $booking_id
  * @property string|null $notes
  * @property string|null $bill_path  the photo this expense was scanned from (private disk)
+ * @property string $bill_currency    the currency printed on the bill; 'BHD' means nothing was converted
+ * @property float|null $bill_amount  the amount before VAT in that currency (null for BHD)
+ * @property float|null $bill_rate    BHD value of 1 unit of that currency, as used for the conversion
  */
 final class LimoExpense extends Model implements DefinesIrModel
 {
@@ -43,6 +46,22 @@ final class LimoExpense extends Model implements DefinesIrModel
     public const VAT_RATES = [0, 10, 15];
 
     /**
+     * The currencies a scanned bill can be in, with the BHD value of one unit
+     * used when the live rate cannot be fetched. These are the long-standing
+     * dollar pegs (the Kuwaiti dinar floats a little, so its figure is only
+     * close). The rate actually used is always shown and can be corrected.
+     */
+    public const BILL_CURRENCIES = [
+        'BHD' => 1.0,
+        'SAR' => 0.10027,
+        'KWD' => 1.225,
+        'AED' => 0.10238,
+        'OMR' => 0.9779,
+        'QAR' => 0.1033,
+        'USD' => 0.376,
+    ];
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -54,6 +73,8 @@ final class LimoExpense extends Model implements DefinesIrModel
             'vat_rate' => 'integer',
             'vat_amount' => 'float',
             'booking_id' => 'integer',
+            'bill_amount' => 'float',
+            'bill_rate' => 'float',
         ];
     }
 

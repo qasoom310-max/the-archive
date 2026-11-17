@@ -3658,5 +3658,13 @@
     "The date could not be read, so today is entered.": "تعذّرت قراءة التاريخ، فأُدخل تاريخ اليوم.",
     "The photo is kept with the expense when you save.": "تُحفظ الصورة مع المصروف عند الحفظ.",
     "View the scanned bill": "عرض الفاتورة الممسوحة",
-    ":from to :to": "من :from إلى :to"
+    ":from to :to": "من :from إلى :to",
+    "1 :currency in BHD": "قيمة 1 :currency بالدينار البحريني",
+    "Currency": "العملة",
+    "Exchange rate": "سعر الصرف",
+    "Saved in BHD": "يُحفظ بالدينار البحريني",
+    "The bill was :amount before VAT, converted at 1 :currency = :rate BHD.": "كانت الفاتورة :amount قبل الضريبة، وحُوّلت بسعر 1 :currency = :rate دينار بحريني.",
+    "The currency could not be read, so BHD is chosen. Change it if the bill is in another currency.": "تعذّرت قراءة العملة، فاختير الدينار البحريني. غيّرها إذا كانت الفاتورة بعملة أخرى.",
+    "This bill is in :currency. Check the currency and the rate before saving.": "هذه الفاتورة بعملة :currency. راجع العملة وسعر الصرف قبل الحفظ.",
+    "Total on the bill": "الإجمالي في الفاتورة"
 }

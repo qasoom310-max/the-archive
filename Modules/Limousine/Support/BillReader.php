@@ -23,8 +23,9 @@ interface BillReader
      *     net_amount: float,
      *     vat_amount: float,
      *     total: float,
+     *     currency: string,
      *     description: string,
-     * } figures exactly as printed; 0 or '' where the bill does not show one
+     * } figures exactly as printed, in the bill's own currency; 0 or '' where the bill does not show one. `currency` is an ISO code, or '' when the bill does not say
      */
     public function read(string $apiKey, string $model, string $image, string $mime): array;
 }

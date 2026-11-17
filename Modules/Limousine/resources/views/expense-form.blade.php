@@ -10,6 +10,17 @@
         </a>
     @endif
 
+    {{-- A bill in another currency: what the paper said, beside the BHD figures below. --}}
+    @if ($expense && $expense->bill_currency !== 'BHD' && $expense->bill_amount !== null)
+        <p class="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900" data-expense-bill-currency>
+            {{ __('The bill was :amount before VAT, converted at 1 :currency = :rate BHD.', [
+                'amount' => \App\Erp\Money\Currencies::format($expense->bill_amount, $expense->bill_currency),
+                'currency' => $expense->bill_currency,
+                'rate' => rtrim(rtrim(number_format((float) $expense->bill_rate, 6, '.', ''), '0'), '.'),
+            ]) }}
+        </p>
+    @endif
+
     <livewire:views.form-view
         :model="\Modules\Limousine\Models\LimoExpense::class"
         model-key="limousine.expense"

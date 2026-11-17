@@ -5,7 +5,7 @@
 --}}
 @php
     $lbl = 'mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500';
-    $money = static fn (float $v): string => \App\Erp\Views\ValueFormat::money($v);
+    $money = static fn (float $v, ?string $code = null): string => \App\Erp\Money\Currencies::format($v, $code);
 @endphp
 
 <div class="mx-auto max-w-3xl p-4 sm:p-6"
@@ -102,9 +102,25 @@
                         <input type="text" wire:model="payee" class="o-input w-full">
                         @error('payee') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
+                    <div class="grid grid-cols-2 gap-3" data-scan-currency>
+                        <div>
+                            <label class="{{ $lbl }}">{{ __('Currency') }}</label>
+                            <select wire:model.live="currency" class="o-input w-full">
+                                @foreach ($currencies as $code)<option value="{{ $code }}">{{ $code }}</option>@endforeach
+                            </select>
+                            @error('currency') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        @if ($foreign)
+                            <div>
+                                <label class="{{ $lbl }}">{{ __('1 :currency in BHD', ['currency' => $shownCurrency]) }}</label>
+                                <input type="number" step="any" min="0" inputmode="decimal" wire:model.live.debounce.300ms="exchange_rate" class="o-input w-full">
+                                @error('exchange_rate') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                            </div>
+                        @endif
+                    </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="{{ $lbl }}">{{ __('Amount before VAT') }} <span class="text-red-500">*</span></label>
+                            <label class="{{ $lbl }}">{{ __('Amount before VAT') }}@if ($foreign) ({{ $shownCurrency }})@endif <span class="text-red-500">*</span></label>
                             <input type="number" step="any" min="0" inputmode="decimal" wire:model.live.debounce.300ms="net_amount" class="o-input w-full">
                             @error('net_amount') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
@@ -117,8 +133,13 @@
                         </div>
                     </div>
                     <dl class="rounded-lg bg-chrome-50 px-3 py-2 text-sm" data-scan-totals>
-                        <div class="flex justify-between"><dt class="text-chrome-500">{{ __('VAT amount') }}</dt><dd class="tabular-nums text-chrome-700">{{ $money($vatAmount) }}</dd></div>
-                        <div class="mt-1 flex justify-between font-bold"><dt class="text-chrome-800">{{ __('Total') }}</dt><dd class="tabular-nums text-chrome-900">{{ $money($total) }}</dd></div>
+                        @if ($foreign)
+                            <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Total on the bill') }}</dt><dd class="tabular-nums text-chrome-700" dir="ltr">{{ $money($total, $shownCurrency) }}</dd></div>
+                            <p class="mb-1 mt-2 border-t border-chrome-200 pt-2 text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Saved in BHD') }}</p>
+                            <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Amount before VAT') }}</dt><dd class="tabular-nums text-chrome-700" dir="ltr">{{ $money($bhdNet, 'BHD') }}</dd></div>
+                        @endif
+                        <div class="flex justify-between"><dt class="text-chrome-500">{{ __('VAT amount') }}</dt><dd class="tabular-nums text-chrome-700" dir="ltr">{{ $money($bhdVat, 'BHD') }}</dd></div>
+                        <div class="mt-1 flex justify-between font-bold"><dt class="text-chrome-800">{{ __('Total') }}</dt><dd class="tabular-nums text-chrome-900" dir="ltr">{{ $money($bhdTotal, 'BHD') }}</dd></div>
                     </dl>
                     <div>
                         <label class="{{ $lbl }}">{{ __('Notes') }}</label>

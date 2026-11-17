@@ -1,0 +1,71 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Scanned bills in riyals, dirhams and other currencies",
+        "ar": "الفواتير الممسوحة بالريال والدرهم وعملات أخرى"
+    },
+    "points": {
+        "en": [
+            "Scanning a bill now reads which currency it is in: BHD, Saudi riyal, Kuwaiti dinar, UAE dirham, Omani rial, Qatari riyal or US dollar.",
+            "The amount is shown in the bill's own currency and converted to BHD for you at today's rate.",
+            "You can change the currency and the rate before saving.",
+            "The expense is saved in BHD and remembers the original amount and the rate used."
+        ],
+        "ar": [
+            "مسح الفاتورة يقرأ الآن عملتها: دينار بحريني، ريال سعودي، دينار كويتي، درهم إماراتي، ريال عُماني، ريال قطري أو دولار أمريكي.",
+            "يظهر المبلغ بعملة الفاتورة نفسها ويُحوَّل إلى الدينار البحريني بسعر اليوم.",
+            "يمكنك تغيير العملة وسعر الصرف قبل الحفظ.",
+            "يُحفظ المصروف بالدينار البحريني ويحتفظ بالمبلغ الأصلي وسعر الصرف المستخدم."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, a scanned bill was always treated as BHD. A Saudi bill of 230 riyals was entered as 230 BHD, about ten times too much.",
+            "Now the scan looks for the currency printed on the bill. When no currency is printed it uses the country of the shop, from the address, the phone code or the tax number.",
+            "The check screen has two new boxes: \"Currency\" and, for a bill that is not in BHD, the value of one unit in BHD. The rate is today's rate, looked up automatically. If the lookup does not answer, a standard rate is filled in instead. Either way you can type a different rate.",
+            "The amount box holds the amount in the bill's currency, so it matches the paper. The grey box under it shows the total on the bill and what will be saved in BHD: amount before VAT, VAT and total.",
+            "A yellow note tells you when the bill is in another currency. If the currency could not be read, BHD is chosen and a yellow note tells you to check it.",
+            "After saving, the expense is in BHD like every other expense, so the reports add up. A line on the expense shows the original amount, the currency and the rate that was used.",
+            "This is for scanned bills. An expense typed in by hand with the New button is still entered in BHD."
+        ],
+        "ar": [
+            "سابقاً كانت الفاتورة الممسوحة تُعامل دائماً كدينار بحريني. ففاتورة سعودية بمبلغ 230 ريالاً كانت تُدخل 230 ديناراً، أي نحو عشرة أضعاف.",
+            "الآن يبحث المسح عن العملة المطبوعة على الفاتورة. وإذا لم تُطبع عملة يعتمد على بلد المحل، من العنوان أو مفتاح الهاتف أو الرقم الضريبي.",
+            "في شاشة المراجعة خانتان جديدتان: «العملة»، وللفاتورة التي ليست بالدينار البحريني قيمة الوحدة الواحدة بالدينار. السعر هو سعر اليوم ويُجلب تلقائياً. وإذا لم يتوفر يُملأ سعر قياسي بدلاً منه. وفي الحالتين يمكنك كتابة سعر آخر.",
+            "خانة المبلغ تحمل المبلغ بعملة الفاتورة ليطابق الورقة. والمربع الرمادي تحتها يعرض إجمالي الفاتورة وما سيُحفظ بالدينار البحريني: المبلغ قبل الضريبة، والضريبة، والإجمالي.",
+            "تظهر ملاحظة صفراء عندما تكون الفاتورة بعملة أخرى. وإذا تعذّرت قراءة العملة يُختار الدينار البحريني وتظهر ملاحظة صفراء تطلب منك المراجعة.",
+            "بعد الحفظ يكون المصروف بالدينار البحريني مثل كل المصروفات، فتبقى التقارير صحيحة. ويظهر في المصروف سطر فيه المبلغ الأصلي والعملة وسعر الصرف المستخدم.",
+            "هذا خاص بالفواتير الممسوحة. المصروف المكتوب يدوياً من زر «جديد» ما زال يُدخل بالدينار البحريني."
+        ]
+    },
+    "guide": {
+        "en": [
+            "On your phone open Limousine, then Expenses, and press \"Scan a bill\".",
+            "Take a photo of the bill and wait a few seconds.",
+            "Look at \"Currency\". If it is wrong, choose the right one.",
+            "For a bill that is not in BHD, look at the rate box beside it. Change it if you paid at a different rate.",
+            "Check that the amount matches the bill, in the bill's currency.",
+            "Read the grey box: it shows what will be saved in BHD.",
+            "Press \"Save expense\"."
+        ],
+        "ar": [
+            "على هاتفك افتح الليموزين ثم المصروفات واضغط «مسح فاتورة».",
+            "صوّر الفاتورة وانتظر بضع ثوانٍ.",
+            "انظر إلى «العملة». إذا كانت خاطئة فاختر الصحيحة.",
+            "للفاتورة التي ليست بالدينار البحريني انظر إلى خانة السعر بجانبها. غيّرها إذا دفعت بسعر مختلف.",
+            "تأكد أن المبلغ يطابق الفاتورة، بعملة الفاتورة.",
+            "اقرأ المربع الرمادي: يعرض ما سيُحفظ بالدينار البحريني.",
+            "اضغط «حفظ المصروف»."
+        ]
+    },
+    "images": [
+        {
+            "before": "check-before.png",
+            "after": "check-after.png",
+            "caption": {
+                "en": "The check screen for a Saudi bill. Before: 200 was taken as BHD. After: the currency, the rate and the BHD figures.",
+                "ar": "شاشة المراجعة لفاتورة سعودية. قبل: اعتُبر المبلغ 200 ديناراً. بعد: العملة وسعر الصرف والأرقام بالدينار البحريني."
+            }
+        }
+    ]
+}

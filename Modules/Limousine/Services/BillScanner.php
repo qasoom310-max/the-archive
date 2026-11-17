@@ -15,7 +15,8 @@ use Modules\WhatsApp\Models\AssistantConfiguration;
  *
  * The reader reports what is printed; this class decides what that means for
  * an expense here: which of our three VAT rates the bill carries, what the
- * amount before VAT is when the bill prints only a total, and whether the
+ * amount before VAT is when the bill prints only a total, which currency
+ * the bill is in, and whether the
  * date and category are ones the form accepts. It never saves anything. The
  * result is a suggestion that somebody confirms on screen.
  */
@@ -47,7 +48,7 @@ final class BillScanner
 
     /**
      * @return array{
-     *     readable: bool, date: string, payee: string, category: string, net_amount: float,
+     *     readable: bool, date: string, payee: string, category: string, currency: string, net_amount: float,
      *     vat_rate: int, vat_amount: float, total: float, notes: string, check: list<string>
      * } `check` lists what the reader of the screen should look at twice
      */
@@ -62,9 +63,9 @@ final class BillScanner
     }
 
     /**
-     * @param array{readable: bool, date: string, payee: string, category: string, net_amount: float, vat_amount: float, total: float, description: string} $read
+     * @param array{readable: bool, date: string, payee: string, category: string, net_amount: float, vat_amount: float, total: float, currency: string, description: string} $read
      *
-     * @return array{readable: bool, date: string, payee: string, category: string, net_amount: float, vat_rate: int, vat_amount: float, total: float, notes: string, check: list<string>}
+     * @return array{readable: bool, date: string, payee: string, category: string, currency: string, net_amount: float, vat_rate: int, vat_amount: float, total: float, notes: string, check: list<string>}
      */
     public function draft(array $read): array
     {
@@ -127,11 +128,22 @@ final class BillScanner
             $check[] = __('The amount could not be read. Type it in.');
         }
 
+        // The amounts stay in the bill's own currency here; the screen
+        // converts them to BHD at a rate the person can see and correct.
+        $currency = strtoupper(trim($read['currency']));
+        if (! array_key_exists($currency, LimoExpense::BILL_CURRENCIES)) {
+            $currency = 'BHD';
+            $check[] = __('The currency could not be read, so BHD is chosen. Change it if the bill is in another currency.');
+        } elseif ($currency !== 'BHD') {
+            $check[] = __('This bill is in :currency. Check the currency and the rate before saving.', ['currency' => $currency]);
+        }
+
         return [
             'readable' => $read['readable'],
             'date' => $date,
             'payee' => mb_substr(trim($read['payee']), 0, 190),
             'category' => $category,
+            'currency' => $currency,
             'net_amount' => $net,
             'vat_rate' => $rate,
             'vat_amount' => round($net * $rate / 100, 3),

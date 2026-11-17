@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -49,7 +50,7 @@ final class LimoExpenseScanTest extends TestCase
      */
     private function readerReturning(array $read): void
     {
-        $answer = $read + ['readable' => true, 'date' => now()->toDateString(), 'payee' => 'Demo Station', 'category' => 'fuel', 'net_amount' => 0.0, 'vat_amount' => 0.0, 'total' => 0.0, 'description' => ''];
+        $answer = $read + ['readable' => true, 'date' => now()->toDateString(), 'payee' => 'Demo Station', 'category' => 'fuel', 'net_amount' => 0.0, 'vat_amount' => 0.0, 'total' => 0.0, 'currency' => 'BHD', 'description' => ''];
 
         app()->instance(BillReader::class, new class ($answer) implements BillReader {
             /** @param array<string, mixed> $answer */
@@ -71,6 +72,7 @@ final class LimoExpenseScanTest extends TestCase
                     'net_amount' => (float) $this->answer['net_amount'],
                     'vat_amount' => (float) $this->answer['vat_amount'],
                     'total' => (float) $this->answer['total'],
+                    'currency' => (string) $this->answer['currency'],
                     'description' => (string) $this->answer['description'],
                 ];
             }
@@ -80,7 +82,7 @@ final class LimoExpenseScanTest extends TestCase
     /** @return array<string, mixed> */
     private function draft(array $read): array
     {
-        return (new BillScanner())->draft($read + ['readable' => true, 'date' => now()->toDateString(), 'payee' => '', 'category' => 'fuel', 'net_amount' => 0.0, 'vat_amount' => 0.0, 'total' => 0.0, 'description' => '']);
+        return (new BillScanner())->draft($read + ['readable' => true, 'date' => now()->toDateString(), 'payee' => '', 'category' => 'fuel', 'net_amount' => 0.0, 'vat_amount' => 0.0, 'total' => 0.0, 'currency' => 'BHD', 'description' => '']);
     }
 
     public function test_the_vat_rate_is_recognised_from_the_figures_on_the_bill(): void
@@ -149,6 +151,80 @@ final class LimoExpenseScanTest extends TestCase
         $this->get('/app/limousine/expense/' . $expense->id . '/bill')->assertOk();
         $this->get('/app/limousine/expense/' . $expense->id)->assertOk()->assertSee('View the scanned bill');
         $this->assertNull(Cache::get(ExpenseBillController::cacheKey($token)));
+    }
+
+    /** A Saudi bill: typed and shown in riyals, saved in BHD at the rate on screen. */
+    public function test_a_bill_in_another_currency_is_converted_to_bhd(): void
+    {
+        Http::fake(['open.er-api.com/*' => Http::response(['result' => 'success', 'rates' => ['BHD' => 0.1]])]);
+        $this->readerReturning(['net_amount' => 200.0, 'vat_amount' => 30.0, 'total' => 230.0, 'currency' => 'SAR']);
+
+        $token = $this->post('/app/limousine/expense/scan', ['file' => UploadedFile::fake()->image('bill.jpg')])->json('token');
+
+        Livewire::test(ExpenseScan::class)
+            ->call('review', $token)
+            ->assertSet('currency', 'SAR')
+            ->assertSet('net_amount', '200')
+            ->assertSet('vat_rate', '15')
+            ->assertSet('exchange_rate', '0.1')
+            ->assertSee('This bill is in SAR')
+            ->assertViewHas('bhdTotal', 23.0)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $expense = LimoExpense::query()->sole();
+        $this->assertSame([20.0, 15, 3.0, 23.0], [$expense->net_amount, $expense->vat_rate, $expense->vat_amount, $expense->amount]);
+        $this->assertSame(['SAR', 200.0, 0.1], [$expense->bill_currency, $expense->bill_amount, $expense->bill_rate]);
+
+        $this->get('/app/limousine/expense/' . $expense->id)->assertOk()->assertSee('1 SAR = 0.1 BHD');
+    }
+
+    public function test_the_currency_and_the_rate_can_be_corrected_before_saving(): void
+    {
+        // The rate lookup is down: the standard rate is used instead of blocking.
+        Http::fake(['open.er-api.com/*' => Http::response([], 500)]);
+        $this->readerReturning(['total' => 50.0, 'currency' => 'UNKNOWN']);
+
+        $token = $this->post('/app/limousine/expense/scan', ['file' => UploadedFile::fake()->image('bill.jpg')])->json('token');
+
+        $page = Livewire::test(ExpenseScan::class)
+            ->call('review', $token)
+            // Not readable from the bill: BHD, no conversion, and a note saying so.
+            ->assertSet('currency', 'BHD')
+            ->assertSet('exchange_rate', '1')
+            ->assertSee('The currency could not be read')
+            ->set('currency', 'AED')
+            ->assertSet('exchange_rate', '0.10238')
+            ->set('exchange_rate', '0')
+            ->call('save')
+            ->assertHasErrors('exchange_rate');
+
+        $this->assertSame(0, LimoExpense::query()->count());
+
+        $page->set('exchange_rate', '0.1')->call('save')->assertHasNoErrors();
+
+        $expense = LimoExpense::query()->sole();
+        $this->assertSame([5.0, 5.0, 'AED', 50.0, 0.1], [$expense->net_amount, $expense->amount, $expense->bill_currency, $expense->bill_amount, $expense->bill_rate]);
+    }
+
+    /** A BHD bill is saved as typed: no lookup, nothing remembered about a currency. */
+    public function test_a_bhd_bill_is_not_converted(): void
+    {
+        Http::fake();
+        $this->readerReturning(['total' => 12.5]);
+
+        $token = $this->post('/app/limousine/expense/scan', ['file' => UploadedFile::fake()->image('bill.jpg')])->json('token');
+
+        Livewire::test(ExpenseScan::class)
+            ->call('review', $token)
+            // A stale rate left in the box must not touch a BHD amount.
+            ->set('exchange_rate', '7')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        Http::assertNothingSent();
+        $expense = LimoExpense::query()->sole();
+        $this->assertSame([12.5, 'BHD', null, null], [$expense->refresh()->amount, $expense->bill_currency, $expense->bill_amount, $expense->bill_rate]);
     }
 
     public function test_a_photo_that_is_not_a_bill_or_a_failed_reading_saves_nothing(): void

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Limousine\Livewire;
 
+use App\Erp\Money\ExchangeRateService;
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\GuardsModelAccess;
 use Illuminate\Contracts\View\View;
@@ -49,6 +50,13 @@ final class ExpenseScan extends Component
 
     public string $payee = '';
 
+    /** The currency the bill is in. The expense itself is always saved in BHD. */
+    public string $currency = 'BHD';
+
+    /** BHD value of one unit of the bill's currency; 1 for a BHD bill. */
+    public string $exchange_rate = '1';
+
+    /** The amount before VAT, in the bill's currency. */
     public string $net_amount = '';
 
     public string $vat_rate = '0';
@@ -65,6 +73,13 @@ final class ExpenseScan extends Component
         $this->guardAccess(Permission::Create);
 
         request()->attributes->set('breadcrumb_terminal_label', __('Scan a bill'));
+
+        // A scan can be reopened by its address while it is still parked
+        // (the same owner-only check as review() applies).
+        $token = request()->query('scan');
+        if (is_string($token) && $token !== '' && $this->scan($token) !== null) {
+            $this->review($token);
+        }
     }
 
     /** Load the reading the upload just produced. */
@@ -86,6 +101,8 @@ final class ExpenseScan extends Component
         $this->check = array_values($draft['check']);
         $this->date = (string) $draft['date'];
         $this->category = (string) $draft['category'];
+        $this->currency = $this->knownCurrency((string) $draft['currency']);
+        $this->exchange_rate = $this->rateFor($this->currency);
         $this->payee = (string) $draft['payee'];
         $this->net_amount = $plain((float) $draft['net_amount']);
         $this->vat_rate = (string) $draft['vat_rate'];
@@ -102,10 +119,53 @@ final class ExpenseScan extends Component
             Cache::forget(ExpenseBillController::cacheKey($this->token));
         }
 
-        $this->reset(['token', 'check', 'date', 'payee', 'net_amount', 'notes']);
+        $this->reset(['token', 'check', 'date', 'payee', 'net_amount', 'notes', 'currency', 'exchange_rate']);
         $this->category = 'other';
         $this->vat_rate = '0';
         $this->resetValidation();
+    }
+
+    /** Choosing another currency looks up its rate; the rate box stays editable. */
+    public function updatedCurrency(): void
+    {
+        $this->currency = $this->knownCurrency($this->currency);
+        $this->exchange_rate = $this->rateFor($this->currency);
+        $this->resetValidation('exchange_rate');
+    }
+
+    private function knownCurrency(string $code): string
+    {
+        $code = strtoupper(trim($code));
+
+        return array_key_exists($code, LimoExpense::BILL_CURRENCIES) ? $code : 'BHD';
+    }
+
+    /**
+     * BHD value of one unit: today's rate when it can be fetched, otherwise
+     * the standard figure, so a lookup that fails never blocks an expense.
+     */
+    private function rateFor(string $currency): string
+    {
+        if ($currency === 'BHD') {
+            return '1';
+        }
+
+        $rate = app(ExchangeRateService::class)->rate($currency, 'BHD');
+        if ($rate === null || $rate <= 0.0) {
+            $rate = LimoExpense::BILL_CURRENCIES[$currency];
+        }
+
+        return rtrim(rtrim(number_format($rate, 6, '.', ''), '0'), '.');
+    }
+
+    /** The rate in force for the maths: always 1 for BHD, whatever the box says. */
+    private function rate(): float
+    {
+        if ($this->knownCurrency($this->currency) === 'BHD') {
+            return 1.0;
+        }
+
+        return is_numeric($this->exchange_rate) ? max(0.0, (float) $this->exchange_rate) : 0.0;
     }
 
     public function save(): void
@@ -123,24 +183,34 @@ final class ExpenseScan extends Component
             'date' => ['required', 'date'],
             'category' => ['required', 'in:' . implode(',', array_column(LimoExpense::categoryOptions(), 'value'))],
             'payee' => ['nullable', 'string', 'max:190'],
+            'currency' => ['required', 'in:' . implode(',', array_keys(LimoExpense::BILL_CURRENCIES))],
+            'exchange_rate' => ['required', 'numeric', 'gt:0', 'lt:1000'],
             'net_amount' => ['required', 'numeric', 'gt:0'],
             'vat_rate' => ['required', 'in:' . implode(',', LimoExpense::VAT_RATES)],
             'notes' => ['nullable', 'string', 'max:1000'],
         ], [], [
             'date' => __('Date'), 'category' => __('Category'), 'payee' => __('Paid to'),
             'net_amount' => __('Amount before VAT'), 'vat_rate' => __('VAT'), 'notes' => __('Notes'),
+            'currency' => __('Currency'), 'exchange_rate' => __('Exchange rate'),
         ]);
 
         $expense = new LimoExpense([
             'date' => $this->date,
             'category' => $this->category,
             'payee' => trim($this->payee) !== '' ? trim($this->payee) : null,
-            'net_amount' => (float) $this->net_amount,
+            // Always BHD: the bill's amount at the rate shown on screen.
+            'net_amount' => round((float) $this->net_amount * $this->rate(), 3),
             'vat_rate' => (int) $this->vat_rate,
             'notes' => trim($this->notes) !== '' ? trim($this->notes) : null,
         ]);
         // From the server's own record of the upload, not from the page.
         $expense->setAttribute('bill_path', $scan['path']);
+        if ($this->currency !== 'BHD') {
+            // What the paper said, kept beside the BHD figures.
+            $expense->setAttribute('bill_currency', $this->currency);
+            $expense->setAttribute('bill_amount', round((float) $this->net_amount, 3));
+            $expense->setAttribute('bill_rate', $this->rate());
+        }
         $expense->save();
 
         Cache::forget(ExpenseBillController::cacheKey($this->token));
@@ -177,8 +247,16 @@ final class ExpenseScan extends Component
             'reviewing' => $this->token !== '',
             'categories' => LimoExpense::categoryOptions(),
             'vatOptions' => LimoExpense::vatOptions(),
+            'currencies' => array_keys(LimoExpense::BILL_CURRENCIES),
+            'foreign' => $this->knownCurrency($this->currency) !== 'BHD',
+            'shownCurrency' => $this->knownCurrency($this->currency),
+            // In the bill's currency…
             'vatAmount' => round($net * $rate / 100, 3),
             'total' => round($net + $net * $rate / 100, 3),
+            // …and what will be saved, in BHD.
+            'bhdNet' => $bhd = round($net * $this->rate(), 3),
+            'bhdVat' => round($bhd * $rate / 100, 3),
+            'bhdTotal' => round($bhd + round($bhd * $rate / 100, 3), 3),
         ]);
     }
 }

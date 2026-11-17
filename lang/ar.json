@@ -3715,5 +3715,10 @@
     "Show everyone": "عرض الجميع",
     "Nobody of this kind owes anything here.": "لا أحد من هذا النوع عليه مبالغ هنا.",
     "Balance reminder": "تذكير بالرصيد المتبقي",
-    "Sent about an hour before a trip booked on the website, when the customer paid part online and the rest is still owed.": "تُرسل قبل نحو ساعة من رحلة محجوزة عبر الموقع، عندما يدفع العميل جزءاً من المبلغ عبر الإنترنت ويبقى عليه الباقي."
+    "Sent about an hour before a trip booked on the website, when the customer paid part online and the rest is still owed.": "تُرسل قبل نحو ساعة من رحلة محجوزة عبر الموقع، عندما يدفع العميل جزءاً من المبلغ عبر الإنترنت ويبقى عليه الباقي.",
+    "Most used pick-up places": "أكثر أماكن الاستلام استخداماً",
+    "Counted from the bookings. Cancelled trips are left out.": "محسوبة من الحجوزات. الرحلات الملغاة غير محسوبة.",
+    "On the list": "في القائمة",
+    "Not on the list": "ليس في القائمة",
+    ":name was added to the locations.": "تمت إضافة :name إلى المواقع."
 }

@@ -5662,3 +5662,12 @@ each entry is `{id, name, trips, balance}`, a booking's balance counted once.
 (`?customer=`), in force on the Unpaid tab only, cleared by `openTab()`; a
 picked name that left the list falls back to the whole box. The exports read
 `kind` / `customer` too. Test: `tests/Feature/LimoUnpaidByCustomerKindTest.php` (6).
+
+**Limousine Locations — "Most used pick-up places" box (shipped 2026-11-17).**
+`Modules\Limousine\Support\PickupPlaces::top(10)` counts `limo_legs.from_location`
+over booking trips that are not cancelled, merged case-insensitively per country
+(`PlaceCountry::of`), each flagged with the matching `limo_locations` id or null.
+`Locations` shows the box above the engine list; a place not on file has an Add
+button → `addPlace($key)` (Create on `limousine.location`, key re-checked against
+`top()` so only a place trips used can be added; hidden from a `TripDetailsLock`
+user). Different spellings are NOT merged. Test: `LimoTopPickupPlacesTest` (6).

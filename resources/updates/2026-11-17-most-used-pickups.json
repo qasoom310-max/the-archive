@@ -1,0 +1,66 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Limousine locations: the most used pick-up places, counted from the bookings",
+        "ar": "مواقع الليموزين: أكثر أماكن الاستلام استخداماً، محسوبة من الحجوزات"
+    },
+    "points": {
+        "en": [
+            "The Locations page now has a box at the top: the ten places trips are picked up from most, with the number of trips for each.",
+            "A place that is already saved says \"On the list\". Press its name to open it.",
+            "A place that staff keep typing by hand has an Add button. Press it to save the place to the locations."
+        ],
+        "ar": [
+            "صفحة المواقع فيها الآن مربع في الأعلى: أكثر عشرة أماكن تبدأ منها الرحلات، مع عدد الرحلات لكل مكان.",
+            "المكان المحفوظ مسبقاً مكتوب بجانبه «في القائمة». اضغط على اسمه لفتحه.",
+            "المكان الذي يكتبه الموظفون يدوياً كل مرة بجانبه زر «إضافة». اضغطه لحفظ المكان في المواقع."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the Locations page was only the list of saved places in alphabetical order. It did not say which places are really used, and a busy place that was never saved did not appear at all.",
+            "Now the system reads the pick-up place of every trip in the bookings and counts them. The ten busiest are shown first on the page, the busiest at number 1.",
+            "The same place typed in capital or small letters is counted as one place. The same name in two countries is counted as two places. Cancelled trips are not counted.",
+            "A place spelled in two different ways, for example \"Airport\" and \"Bahrain Airport\", is still counted as two places. The system does not guess that they are the same.",
+            "The Add button saves the place with the country its trips were in. Nothing is added by itself: a place is saved only when someone presses Add."
+        ],
+        "ar": [
+            "في السابق كانت صفحة المواقع قائمة بالأماكن المحفوظة بالترتيب الأبجدي فقط. لم تكن تبيّن أي الأماكن مستخدمة فعلاً، والمكان الكثير الاستخدام غير المحفوظ لم يكن يظهر أبداً.",
+            "الآن يقرأ النظام مكان الاستلام في كل رحلة من الحجوزات ويعدّها. تظهر أكثر عشرة أماكن أولاً في الصفحة، والأكثر في الرقم 1.",
+            "المكان نفسه المكتوب بحروف كبيرة أو صغيرة يُحسب مكاناً واحداً. والاسم نفسه في بلدين يُحسب مكانين. الرحلات الملغاة لا تُحسب.",
+            "المكان المكتوب بطريقتين مختلفتين، مثل «Airport» و«Bahrain Airport»، يُحسب مكانين. النظام لا يخمّن أنهما واحد.",
+            "زر «إضافة» يحفظ المكان مع البلد الذي كانت فيه رحلاته. لا شيء يُضاف تلقائياً: المكان يُحفظ فقط عندما يضغط أحد «إضافة»."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Locations.",
+            "Read the box \"Most used pick-up places\" at the top. Number 1 is the busiest.",
+            "If a place has an Add button, press it to save the place. It then says \"On the list\".",
+            "Press the name of a saved place to open it and add its area or notes."
+        ],
+        "ar": [
+            "افتح الليموزين، ثم المواقع.",
+            "اقرأ مربع «أكثر أماكن الاستلام استخداماً» في الأعلى. الرقم 1 هو الأكثر.",
+            "إذا كان بجانب المكان زر «إضافة»، اضغطه لحفظ المكان. بعدها يُكتب بجانبه «في القائمة».",
+            "اضغط على اسم مكان محفوظ لفتحه وإضافة المنطقة أو الملاحظات."
+        ]
+    },
+    "images": [
+        {
+            "before": "locations-before.png",
+            "after": "locations-after.png",
+            "caption": {
+                "en": "The Locations page. After: the busiest pick-up places above the list.",
+                "ar": "صفحة المواقع. بعد: أكثر أماكن الاستلام فوق القائمة."
+            }
+        },
+        {
+            "after": "locations-phone.png",
+            "caption": {
+                "en": "The same box on a phone.",
+                "ar": "المربع نفسه على الهاتف."
+            }
+        }
+    ]
+}

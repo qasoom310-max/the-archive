@@ -263,14 +263,13 @@ final class LimoQueuePhoneColumnsTest extends TestCase
 
         $html = Livewire::test(Bookings::class)->html();
 
-        // Both sort from the Added by heading, which shows on a phone.
+        // Both sort from the Added by heading.
         $heading = $this->cellAround($html, 'Sort by Booked time');
-        $this->assertStringNotContainsString('hidden', strtok($heading, '>'), 'The Booked time heading is still hidden on a phone.');
         $this->assertStringContainsString('Sort by Added by', $heading);
         $this->assertSame(1, substr_count($html, 'Sort by Booked time'));
 
         // And the value sits inside the Added by cell, not a cell of its own.
-        $this->assertMatchesRegularExpression('/<td class="px-2 py-2 text-chrome-900">\s*<div>[^<]*<\/div>\s*<div class="[^"]*" data-booked-time>/', $html);
+        $this->assertMatchesRegularExpression('/<td class="[^"]*" data-added-by-cell>\s*<div>[^<]*<\/div>\s*<div class="[^"]*" data-booked-time>/', $html);
         $this->assertDoesNotMatchRegularExpression('/<td[^>]*data-booked-time/', $html);
 
         // The time reads on its own line under the date.
@@ -280,23 +279,24 @@ final class LimoQueuePhoneColumnsTest extends TestCase
         $this->assertSame(array_search('comments', $keys, true) + 1, array_search('booked_time', $keys, true));
     }
 
-    public function test_added_by_reads_on_a_phone(): void
+    /**
+     * On a phone, who took the booking and when read under the trip number
+     * (the owner's call, 2026-11-17); from sm up it is its own column again.
+     */
+    public function test_added_by_reads_under_the_number_on_a_phone_and_as_a_column_on_a_laptop(): void
     {
         $this->trip();
         LimoBooking::query()->firstOrFail()->forceFill(['prepared_by' => 'qassim'])->saveQuietly();
 
         $html = Livewire::test(Bookings::class)->html();
 
+        // The column: off on a phone, on from sm.
         $heading = $this->cellAround($html, 'Sort by Added by');
-        $this->assertStringNotContainsString('hidden', $heading, 'The Added by heading is still hidden on a phone.');
+        $this->assertStringContainsString('hidden sm:table-cell', $heading);
+        $this->assertMatchesRegularExpression('/<td class="hidden [^"]*sm:table-cell" data-added-by-cell>\s*<div>\s*qassim\s*<\/div>/', $html);
 
-        // The value sits in the same column and has its own class, so being
-        // told about the heading alone would not mean it is readable.
-        $this->assertMatchesRegularExpression(
-            '/<td class="px-2 py-2 text-chrome-900">\s*<div>\s*qassim\s*<\/div>/',
-            $html,
-            'The Added by value is still hidden on a phone.',
-        );
+        // Under the number: only below sm.
+        $this->assertMatchesRegularExpression('/<div class="[^"]*sm:hidden" data-added-by-phone>\s*<div class="[^"]*">\s*qassim\s*<\/div>\s*(<!--.*?-->\s*)*<div class="whitespace-nowrap">\d{2}-[A-Za-z]{3}-\d{2}<\/div>\s*(<!--.*?-->\s*)*<div>\d{2}:\d{2}<\/div>/', $html);
     }
 
     /**

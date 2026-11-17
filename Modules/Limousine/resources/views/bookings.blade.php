@@ -346,7 +346,8 @@
             'vehicle' => '',
             // On a phone too (the owner asked): who is driving is checked from the road.
             'driver' => '',
-            'added_by' => '',
+            // On a phone it reads under the trip number instead (the owner's call).
+            'added_by' => 'hidden sm:table-cell',
             'comments' => 'hidden lg:table-cell',
             'status' => 'hidden md:table-cell',
             'payment' => '',
@@ -498,6 +499,18 @@
                                 </button>
                             @endif
                             <span class="block text-[11px] font-normal text-chrome-600">{{ $row['booking_reference'] }}</span>
+                            {{-- Phone only: who took the booking and when, under the number
+                                 (the Added by column is off below sm). --}}
+                            <div class="mt-0.5 text-[11px] font-normal leading-tight text-chrome-500 sm:hidden" data-added-by-phone>
+                                <div class="text-chrome-700">{{ $row['added_by'] ?: '—' }}</div>
+                                @php [$phoneDate, $phoneClock] = array_pad(explode(' ', (string) $row['booked_time'], 2), 2, ''); @endphp
+                                @if ($phoneDate !== '')
+                                    <div class="whitespace-nowrap">{{ $phoneDate }}</div>
+                                @endif
+                                @if ($phoneClock !== '')
+                                    <div>{{ $phoneClock }}</div>
+                                @endif
+                            </div>
                             @if (isset($fromWebsite[(int) $leg->legable_id]))
                                 <span class="mt-0.5 inline-block rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700" data-from-website>{{ __('Website') }}</span>
                             @endif
@@ -628,7 +641,7 @@
                                 <span class="text-chrome-400">—</span>
                             @endif
                         </td>
-                        <td class="px-2 py-2 text-chrome-900">
+                        <td class="hidden px-2 py-2 text-chrome-900 sm:table-cell" data-added-by-cell>
                             <div>{{ $row['added_by'] ?: '—' }}</div>
                             {{-- "27-Jan-26 21:08" read as the date, then the time under it. --}}
                             @php [$bookedDate, $bookedClock] = array_pad(explode(' ', (string) $row['booked_time'], 2), 2, ''); @endphp

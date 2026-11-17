@@ -1,0 +1,41 @@
+{
+    "app": "limousine",
+    "title": { "en": "Bookings on a phone: who added the trip shows under its number", "ar": "الحجوزات على الهاتف: من أضاف الرحلة يظهر تحت رقمها" },
+    "points": {
+        "en": [
+            "On a phone, the name of who added the booking and when now shows under the trip number.",
+            "On a laptop or computer nothing changes: Added by is still its own column."
+        ],
+        "ar": [
+            "على الهاتف أصبح اسم من أضاف الحجز ووقت إضافته يظهر تحت رقم الرحلة.",
+            "على الحاسوب لا يتغير شيء، فما زال عمود أضيف بواسطة في مكانه."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, on a phone, Added by and the booked time were a column far to the right of the bookings list, so you had to scroll sideways to see who took a booking.",
+            "Now, on a phone, they sit under the trip number: the name, then the date and time the booking was added. On a laptop or computer the Added by column stays where it was."
+        ],
+        "ar": [
+            "سابقاً على الهاتف كان عمود أضيف بواسطة ووقت الحجز في أقصى يمين قائمة الحجوزات، فكان عليك التمرير جانباً لمعرفة من أخذ الحجز.",
+            "الآن على الهاتف يظهران تحت رقم الرحلة: الاسم، ثم تاريخ ووقت إضافة الحجز. وعلى الحاسوب يبقى عمود أضيف بواسطة في مكانه."
+        ]
+    },
+    "guide": {
+        "en": [
+            "On your phone, open Limousine, then Bookings.",
+            "Look under the trip number on any row: the first line is the booking number, then the name of who added it, then the date and time."
+        ],
+        "ar": [
+            "على هاتفك افتح الليموزين ثم الحجوزات.",
+            "انظر تحت رقم الرحلة في أي سطر: السطر الأول رقم الحجز، ثم اسم من أضافه، ثم التاريخ والوقت."
+        ]
+    },
+    "images": [
+        {
+            "before": "list-before.png",
+            "after": "list-after.png",
+            "caption": { "en": "The bookings list on a phone.", "ar": "قائمة الحجوزات على الهاتف." }
+        }
+    ]
+}

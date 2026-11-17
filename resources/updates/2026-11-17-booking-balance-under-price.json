@@ -1,0 +1,43 @@
+{
+    "app": "limousine",
+    "title": { "en": "Bookings on a phone: what is still owed shows under the price", "ar": "الحجوزات على الهاتف: المبلغ المتبقي يظهر تحت السعر" },
+    "points": {
+        "en": [
+            "On a phone, a trip whose booking still owes money shows Balance and the amount in orange under its price.",
+            "A booking that is paid in full shows nothing extra. On a laptop or computer nothing changes: Balance is still its own column."
+        ],
+        "ar": [
+            "على الهاتف، الرحلة التي ما زال على حجزها مبلغ متبقٍ يظهر تحت سعرها كلمة الرصيد والمبلغ باللون البرتقالي.",
+            "الحجز المدفوع بالكامل لا يظهر تحته شيء. وعلى الحاسوب لا يتغير شيء، فما زال عمود الرصيد في مكانه."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, on a phone, the bookings list showed only the price of each trip. The Balance column is hidden on a phone screen, so you could not see which trips still had money to collect without opening each booking.",
+            "Now, on a phone, the amount still owed reads in orange under the price. It is the balance of the whole booking, the same figure as the Balance column on a laptop, so a booking with two trips shows the same balance under both. A booking with nothing left to pay shows no extra line."
+        ],
+        "ar": [
+            "سابقاً على الهاتف كانت قائمة الحجوزات تعرض سعر كل رحلة فقط. وعمود الرصيد مخفي على شاشة الهاتف، فلم يكن ممكناً معرفة الرحلات التي ما زال عليها مبلغ للتحصيل إلا بفتح كل حجز.",
+            "الآن على الهاتف يظهر المبلغ المتبقي باللون البرتقالي تحت السعر. وهو رصيد الحجز كله، نفس الرقم الذي يظهر في عمود الرصيد على الحاسوب، فالحجز الذي فيه رحلتان يظهر نفس الرصيد تحت الرحلتين. والحجز الذي لم يبقَ عليه شيء لا يظهر تحته سطر إضافي."
+        ]
+    },
+    "guide": {
+        "en": [
+            "On your phone, open Limousine, then Bookings.",
+            "Look under the price in the Amount column. An orange line reading Balance and an amount means that much is still to be collected for the booking.",
+            "To take the payment, press the green money icon in the Payment column of that row."
+        ],
+        "ar": [
+            "على هاتفك افتح الليموزين ثم الحجوزات.",
+            "انظر تحت السعر في عمود المبلغ. السطر البرتقالي الذي يقول الرصيد ومعه مبلغ يعني أن هذا المبلغ ما زال يجب تحصيله عن الحجز.",
+            "لأخذ الدفعة اضغط أيقونة المال الخضراء في عمود الدفع في نفس السطر."
+        ]
+    },
+    "images": [
+        {
+            "before": "list-before.png",
+            "after": "list-after.png",
+            "caption": { "en": "The bookings list on a phone, Amount column.", "ar": "قائمة الحجوزات على الهاتف، عمود المبلغ." }
+        }
+    ]
+}

@@ -535,6 +535,24 @@ final class LimoQueuePhoneColumnsTest extends TestCase
         $this->assertMatchesRegularExpression('/<td class="px-2 py-2 text-chrome-600" data-sl-no>1<\/td>/', $html);
     }
 
+    /**
+     * Below laptop width the Balance column is hidden, so what is still owed
+     * reads under the trip's price (the owner's call, 2026-11-17). A paid
+     * booking shows nothing there.
+     */
+    public function test_the_balance_reads_under_the_price_until_its_column_shows(): void
+    {
+        $this->trip();
+        LimoBooking::query()->firstOrFail()->forceFill(['fare' => 14, 'advance' => 4])->saveQuietly();
+
+        $html = Livewire::test(Bookings::class)->html();
+        $this->assertMatchesRegularExpression('/<span class="[^"]*lg:hidden" data-amount-balance\s+title="[^"]*">Balance [^<]*10\.00/', $html);
+        $this->assertLessThan(mb_strpos($html, 'data-amount-balance'), mb_strpos($html, 'Price of this trip'));
+
+        LimoBooking::query()->firstOrFail()->forceFill(['advance' => 14])->saveQuietly();
+        $this->assertStringNotContainsString('data-amount-balance', Livewire::test(Bookings::class)->html());
+    }
+
     /** The number to ring sits under the name: the customer's own for a person. */
     public function test_a_persons_phone_shows_under_their_name(): void
     {

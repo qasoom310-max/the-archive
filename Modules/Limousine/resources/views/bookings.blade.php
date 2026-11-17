@@ -436,7 +436,7 @@
     {{-- 17 data columns can never fit a phone, so rather than force a sideways
          scroll the table sheds columns as the screen narrows: what identifies
          and actions a job always stays, the rest return as there is room.
-           phone  reference (with amount, received and balance under it) ·
+           phone  reference (with added by under it) · balance under the amount ·
                   date · type · customer · amount · pickup · drop off ·
                   vehicle · driver · added by · payment · actions
            sm     + no. · to date
@@ -675,7 +675,15 @@
                              own column list uses — so the screen and the exports
                              read the same way round. --}}
                         <td class="px-2 py-2 text-end font-medium text-chrome-900"
-                            title="{{ __('Price of this trip') }}">{{ $money($row['amount']) }}</td>
+                            title="{{ __('Price of this trip') }}">{{ $money($row['amount']) }}
+                            {{-- Below lg the Balance column is hidden, so what is still
+                                 owed reads under the price (the owner's call). It is the
+                                 whole booking's balance, as in that column. --}}
+                            @if ($row['balance'] > 0)
+                                <span class="mt-0.5 block whitespace-nowrap text-[11px] font-semibold text-amber-700 lg:hidden" data-amount-balance
+                                      title="{{ __('Still owed on booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ __('Balance') }} {{ $money($row['balance']) }}</span>
+                            @endif
+                        </td>
                         {{-- Received and Balance are the whole BOOKING's: the customer
                              settles the job, not a leg of it, so a booking of three trips
                              shows one balance repeated down its rows rather than a third

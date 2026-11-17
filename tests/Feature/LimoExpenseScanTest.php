@@ -283,4 +283,30 @@ final class LimoExpenseScanTest extends TestCase
         $this->postJson('/app/limousine/expense/scan', ['file' => UploadedFile::fake()->image('bill.jpg')])->assertStatus(409);
         $this->assertSame([], Storage::disk(BillScanner::DISK)->allFiles());
     }
+
+    /** A pile of bills on a phone: save one, land back on the camera, save the next. */
+    public function test_save_and_scan_next_saves_and_returns_to_the_camera(): void
+    {
+        $this->readerReturning(['net_amount' => 20.0, 'vat_amount' => 2.0, 'total' => 22.0]);
+        $upload = fn (): string => (string) $this->post('/app/limousine/expense/scan', ['file' => UploadedFile::fake()->image('bill.jpg', 600, 800)])
+            ->assertOk()->json('token');
+        $first = $upload();
+
+        $page = Livewire::test(ExpenseScan::class)
+            ->call('review', $first)
+            ->assertSee('RF/L/EXP123')            // the number it will get, before saving
+            ->call('saveAndNext')
+            ->assertHasNoErrors()
+            ->assertNoRedirect()
+            ->assertSet('token', '')
+            ->assertSee('Saved as RF/L/EXP123')
+            ->assertSee('Take a photo');
+
+        $this->assertSame(1, LimoExpense::query()->count());
+        // The photo stays with the expense; "next" must not throw it away.
+        Storage::disk(BillScanner::DISK)->assertExists((string) LimoExpense::query()->firstOrFail()->bill_path);
+
+        $page->call('review', $upload())->call('saveAndNext')->assertSee('Saved as RF/L/EXP124');
+        $this->assertSame(2, LimoExpense::query()->count());
+    }
 }

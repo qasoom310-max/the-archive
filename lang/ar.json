@@ -3705,5 +3705,10 @@
     "The month's target is its share of the year, following how the fleet's sales fell last year.": "هدف الشهر هو حصته من هدف السنة، بحسب توزيع مبيعات الأسطول في السنة الماضية.",
     "The month's target is the year split into 12 equal months, because last year's sales are not complete enough to follow.": "هدف الشهر هو هدف السنة مقسوماً على 12 شهراً بالتساوي، لأن مبيعات السنة الماضية غير مكتملة للاعتماد عليها.",
     "This month (:month)": "هذا الشهر (:month)",
-    "This year (:year)": "هذه السنة (:year)"
+    "This year (:year)": "هذه السنة (:year)",
+    "Given when you save.": "يُعطى عند الحفظ.",
+    "Saved as :ref. Take the next photo.": "تم الحفظ برقم :ref. التقط الصورة التالية.",
+    "Save and scan next": "حفظ ومسح التالي",
+    "Save and open it": "حفظ وفتحه",
+    "Throw this scan away without saving it?": "هل تريد تجاهل هذا المسح دون حفظه؟"
 }

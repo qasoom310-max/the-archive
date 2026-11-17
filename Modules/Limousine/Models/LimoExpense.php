@@ -92,24 +92,37 @@ final class LimoExpense extends Model implements DefinesIrModel
      * That figure is then taken as the amount before VAT with no VAT, which
      * leaves the total exactly what was written.
      */
-    /** New expenses are numbered Rf/Exp123, Rf/Exp124… (the owner's format). */
-    public const REFERENCE_PREFIX = 'Rf/Exp';
+    /**
+     * New expenses are numbered RF/L/EXP123, RF/L/EXP124… (the owner's
+     * format). The L is for Limousine: another app's expenses get their own
+     * letter and their own series.
+     */
+    public const REFERENCE_PREFIX = 'RF/L/EXP';
+
+    /** The short-lived earlier spelling. Still counted, so no number repeats. */
+    private const EARLIER_PREFIXES = ['Rf/Exp'];
 
     /** The first number when no expense carries the new format yet. */
     public const REFERENCE_START = 123;
 
     /**
-     * The next reference: one more than the highest Rf/Exp number on file,
+     * The next reference: one more than the highest RF/L/EXP number on file,
      * never below REFERENCE_START. Older EXP/00001-style references are left
      * as they are and do not count.
      */
     public static function nextReference(): string
     {
         $highest = self::REFERENCE_START - 1;
-        foreach (self::query()->where('reference', 'like', self::REFERENCE_PREFIX . '%')->pluck('reference') as $reference) {
-            $digits = substr((string) $reference, strlen(self::REFERENCE_PREFIX));
-            if (ctype_digit($digits)) {
-                $highest = max($highest, (int) $digits);
+        foreach ([self::REFERENCE_PREFIX, ...self::EARLIER_PREFIXES] as $prefix) {
+            foreach (self::query()->where('reference', 'like', $prefix . '%')->pluck('reference') as $reference) {
+                // LIKE ignores case on some databases; the prefix must match exactly.
+                if (! str_starts_with((string) $reference, $prefix)) {
+                    continue;
+                }
+                $digits = substr((string) $reference, strlen($prefix));
+                if (ctype_digit($digits)) {
+                    $highest = max($highest, (int) $digits);
+                }
             }
         }
 

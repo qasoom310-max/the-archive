@@ -391,4 +391,13 @@
             </div>
         @endforeach
     </div>
+
+    {{-- On a phone the Save button at the top is a long scroll back from the
+         last box, so a new record gets a second one here. Same submit. --}}
+    @if (! $record->exists)
+        <div class="border-t border-chrome-100 p-4 sm:hidden" data-form-save-bottom>
+            <button type="submit" wire:loading.attr="disabled" wire:target="save"
+                    class="o-btn-primary w-full justify-center py-3 disabled:cursor-not-allowed disabled:opacity-60">{{ __('Save') }}</button>
+        </div>
+    @endif
 </form>

@@ -5636,3 +5636,14 @@ takes the rounding so the months add up exactly. `rental_vehicles.monthly_target
 car with no typed year (flat, no raise). A typed 0 is stored and means "no target".
 Not changed: the app-level targets in Settings (`targets.rental.*`), and yearly
 PACE is still by days elapsed, not by month share. Tests: `RentalCarTargetTest` (+7).
+
+**Limousine expense numbers are RF/L/EXP123 and show inside the expense (2026-11-17, supersedes Rf/Exp).**
+`LimoExpense::REFERENCE_PREFIX = 'RF/L/EXP'` (L = Limousine; the owner wants `RF/R/EXP` for a future Rent A Car
+expenses series). `nextReference()` still counts the earlier `Rf/Exp` spelling so no number repeats; Limousine
+migration `2026_11_17_950061` renamed existing `Rf/Exp<digits>` rows, `EXP/00001` ones untouched. The reference
+box sits above the engine form (`expense-form.blade.php`, `data-expense-reference`) and in the scan review; on a
+new record it is the NEXT number, shown as "Given when you save" (not reserved). `ExpenseScan::saveAndNext()`
+saves and returns to the camera (`$savedReference` confirms inline); `save()`/`saveAndNext()` share `store()`;
+`clear()` resets without touching the photo, `discard()` deletes it. Scan actions are `sticky bottom-0` on phones.
+Engine-wide phone changes made with it: `form-view` shows a second Save at the bottom of a NEW record (`sm:hidden`),
+and the layout's save toast sits at the bottom below `sm`. Tests: `LimoExpenseReferenceTest`, `LimoExpenseScanTest` (+1).

@@ -30,7 +30,11 @@ final class ExpenseForm extends Component
     public function render(): View
     {
         return view('limousine::expense-form', [
-            'expense' => $this->id !== null ? LimoExpense::query()->find($this->id) : null,
+            'expense' => $expense = $this->id !== null ? LimoExpense::query()->find($this->id) : null,
+            // Shown on a new expense so the number can be written on the paper
+            // bill before saving. It is the next one in line, not a promise:
+            // two people saving at once each get their own.
+            'nextReference' => $expense === null ? LimoExpense::nextReference() : null,
         ]);
     }
 }

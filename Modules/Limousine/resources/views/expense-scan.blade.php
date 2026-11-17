@@ -67,6 +67,13 @@
             <p x-show="error" x-cloak x-text="error" class="mt-4 text-sm font-medium text-red-600" role="alert"></p>
             @error('scan') <p class="mt-4 text-sm font-medium text-red-600">{{ $message }}</p> @enderror
 
+            {{-- Under the buttons, where the thumb already is on a phone. --}}
+            @if ($savedReference !== '')
+                <p class="mx-auto mt-4 max-w-md rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800" role="status" data-scan-saved>
+                    {{ __('Saved as :ref. Take the next photo.', ['ref' => $savedReference]) }}
+                </p>
+            @endif
+
             <ul class="mx-auto mt-6 max-w-md space-y-1 text-start text-xs text-chrome-400">
                 <li>{{ __('Lay the bill flat, in good light, with the whole bill in the picture.') }}</li>
                 <li>{{ __('Nothing is saved until you check the figures and press Save.') }}</li>
@@ -77,6 +84,12 @@
             <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
                 <h1 class="text-base font-bold text-chrome-900">{{ __('Check what was read') }}</h1>
                 <p class="mb-3 text-xs text-chrome-500">{{ __('Compare each box with the bill and correct anything that is wrong.') }}</p>
+
+                <p class="mb-3 flex flex-wrap items-baseline gap-x-2 rounded-lg bg-chrome-50 px-3 py-2" data-scan-reference>
+                    <span class="text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Reference') }}</span>
+                    <span class="text-base font-bold text-chrome-900" dir="ltr">{{ $nextReference }}</span>
+                    <span class="text-xs text-chrome-400">{{ __('Given when you save.') }}</span>
+                </p>
 
                 @if ($check !== [])
                     <div class="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800" data-scan-check>
@@ -150,9 +163,14 @@
 
                 @error('scan') <p class="mt-3 text-sm font-medium text-red-600">{{ $message }}</p> @enderror
 
-                <div class="mt-4 flex flex-wrap gap-2">
-                    <button type="button" wire:click="save" wire:loading.attr="disabled" class="o-btn-primary flex-1 justify-center py-2.5">{{ __('Save expense') }}</button>
-                    <button type="button" wire:click="discard" @click="preview = ''" class="o-btn-ghost">{{ __('Scan another') }}</button>
+                {{-- Stays at the bottom of a phone screen while the boxes scroll,
+                     so saving never needs a scroll back up or down. --}}
+                <div class="sticky bottom-0 z-10 -mx-5 -mb-5 mt-4 space-y-2 rounded-b-2xl border-t border-chrome-100 bg-white p-3 md:static md:mx-0 md:mb-0 md:border-0 md:p-0" data-scan-actions>
+                    <button type="button" wire:click="saveAndNext" wire:loading.attr="disabled" wire:target="save,saveAndNext" class="o-btn-primary w-full justify-center py-3">{{ __('Save and scan next') }}</button>
+                    <div class="flex gap-2">
+                        <button type="button" wire:click="save" wire:loading.attr="disabled" wire:target="save,saveAndNext" class="o-btn-ghost flex-1 justify-center py-2.5 ring-1 ring-chrome-200">{{ __('Save and open it') }}</button>
+                        <button type="button" wire:click="discard" wire:confirm="{{ __('Throw this scan away without saving it?') }}" @click="preview = ''" class="o-btn-ghost">{{ __('Discard') }}</button>
+                    </div>
                 </div>
             </div>
 

@@ -44,6 +44,10 @@ final class ExpenseScan extends Component
     #[Locked]
     public array $check = [];
 
+    /** The expense "Save and scan next" just saved, to confirm it on the next screen. */
+    #[Locked]
+    public string $savedReference = '';
+
     public string $date = '';
 
     public string $category = 'other';
@@ -98,6 +102,7 @@ final class ExpenseScan extends Component
         $plain = static fn (float $v): string => $v > 0.0 ? rtrim(rtrim(number_format($v, 3, '.', ''), '0'), '.') : '';
 
         $this->token = $token;
+        $this->savedReference = '';
         $this->check = array_values($draft['check']);
         $this->date = (string) $draft['date'];
         $this->category = (string) $draft['category'];
@@ -119,6 +124,12 @@ final class ExpenseScan extends Component
             Cache::forget(ExpenseBillController::cacheKey($this->token));
         }
 
+        $this->clear();
+    }
+
+    /** Back to the first screen, ready for a photo. Touches nothing on disk. */
+    private function clear(): void
+    {
         $this->reset(['token', 'check', 'date', 'payee', 'net_amount', 'notes', 'currency', 'exchange_rate']);
         $this->category = 'other';
         $this->vat_rate = '0';
@@ -170,13 +181,40 @@ final class ExpenseScan extends Component
 
     public function save(): void
     {
+        $expense = $this->store();
+        if ($expense === null) {
+            return;
+        }
+
+        session()->flash('toast', __('Expense :ref saved from the scanned bill.', ['ref' => (string) $expense->reference]));
+        $this->redirect(url('/app/limousine/expense/' . $expense->id), navigate: true);
+    }
+
+    /**
+     * Save this bill and go straight back to the camera for the next one, for
+     * working through a pile of bills on a phone without leaving the page.
+     */
+    public function saveAndNext(): void
+    {
+        $expense = $this->store();
+        if ($expense === null) {
+            return;
+        }
+
+        $this->clear();
+        $this->savedReference = (string) $expense->reference;
+    }
+
+    /** Check the boxes and write the expense. Null when something stopped it. */
+    private function store(): ?LimoExpense
+    {
         $this->guardAccess(Permission::Create);
 
         $scan = $this->token !== '' ? $this->scan($this->token) : null;
         if ($scan === null) {
             $this->addError('scan', __('That scan has expired. Take the photo again.'));
 
-            return;
+            return null;
         }
 
         $this->validate([
@@ -215,8 +253,7 @@ final class ExpenseScan extends Component
 
         Cache::forget(ExpenseBillController::cacheKey($this->token));
 
-        session()->flash('toast', __('Expense :ref saved from the scanned bill.', ['ref' => (string) $expense->refresh()->reference]));
-        $this->redirect(url('/app/limousine/expense/' . $expense->id), navigate: true);
+        return $expense->refresh();
     }
 
     /**
@@ -245,6 +282,8 @@ final class ExpenseScan extends Component
         return view('limousine::expense-scan', [
             'available' => BillScanner::isAvailable(),
             'reviewing' => $this->token !== '',
+            // The number this bill will get, to write on the paper.
+            'nextReference' => $this->token !== '' ? LimoExpense::nextReference() : '',
             'categories' => LimoExpense::categoryOptions(),
             'vatOptions' => LimoExpense::vatOptions(),
             'currencies' => array_keys(LimoExpense::BILL_CURRENCIES),

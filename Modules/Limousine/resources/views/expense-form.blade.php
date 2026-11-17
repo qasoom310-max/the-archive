@@ -1,6 +1,15 @@
 <div class="mx-auto max-w-3xl p-4 sm:p-6">
     <x-form-breadcrumb :parent="__('Expenses')" :parent-url="url('/app/limousine/expense')" :current="$expense?->reference ?? __('New expense')" />
 
+    {{-- The reference, inside the expense as well as in the list. --}}
+    <div class="mb-3 flex flex-wrap items-baseline gap-x-2 rounded-lg bg-white px-3 py-2 shadow-sm ring-1 ring-chrome-900/5" data-expense-reference>
+        <span class="text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Reference') }}</span>
+        <span class="text-base font-bold text-chrome-900" dir="ltr">{{ $expense?->reference ?? $nextReference }}</span>
+        @if ($expense === null)
+            <span class="text-xs text-chrome-400">{{ __('Given when you save.') }}</span>
+        @endif
+    </div>
+
     {{-- An expense scanned from a bill keeps the photo: one press to compare. --}}
     @if ($expense?->getAttribute('bill_path'))
         <a href="{{ url('/app/limousine/expense/' . $expense->id . '/bill') }}" target="_blank" rel="noopener" data-expense-bill

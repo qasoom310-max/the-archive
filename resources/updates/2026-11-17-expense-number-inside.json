@@ -1,0 +1,82 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Limousine expenses: the number shows inside, is called RF/L/EXP, and scanning has \"Save and scan next\"",
+        "ar": "مصروفات الليموزين: الرقم يظهر داخل المصروف، واسمه RF/L/EXP، وفي المسح زر «حفظ ومسح التالي»"
+    },
+    "points": {
+        "en": [
+            "The reference number now shows inside the expense, not only in the list. A new expense shows the number it will get.",
+            "Expense numbers are now written RF/L/EXP123. The L is for Limousine.",
+            "When you scan a bill there is a new button, \"Save and scan next\", that saves and goes straight back to the camera.",
+            "On a phone the scan buttons stay at the bottom of the screen, a new expense has a second Save button at the bottom, and the green \"saved\" message appears at the bottom."
+        ],
+        "ar": [
+            "رقم المرجع يظهر الآن داخل المصروف، وليس في القائمة فقط. والمصروف الجديد يعرض الرقم الذي سيأخذه.",
+            "أرقام المصروفات تُكتب الآن RF/L/EXP123. حرف L يرمز إلى الليموزين.",
+            "عند مسح فاتورة يوجد زر جديد «حفظ ومسح التالي» يحفظ ويعود مباشرة إلى الكاميرا.",
+            "على الهاتف تبقى أزرار المسح في أسفل الشاشة، وللمصروف الجديد زر حفظ ثانٍ في الأسفل، ورسالة «تم الحفظ» الخضراء تظهر في الأسفل."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the reference number of an expense was only in the list. While you were typing or scanning the expense you could not see it, so you could not write it on the paper bill.",
+            "Now a box at the top of the expense shows the reference. On a new expense, and on a scanned bill you are checking, it shows the next number in line with the words \"Given when you save\". If two people save at the same moment, each still gets their own number, so check the number after saving.",
+            "The number is now written RF/L/EXP followed by the number, for example RF/L/EXP123. The expenses that were numbered Rf/Exp earlier were renamed to RF/L/EXP with the same number. The old EXP/00001 numbers were not changed.",
+            "Scanning many bills used to mean: save, go back to Expenses, press Scan a bill again. Now \"Save and scan next\" saves the bill and returns to the camera, with a green line saying which number was saved.",
+            "On a phone the three scan buttons stay fixed at the bottom of the screen while you scroll the boxes. \"Scan another\", which threw the scan away, is now called \"Discard\" and asks first.",
+            "Also on a phone, in every app: a new record has a Save button at the bottom as well as the top, and the green confirmation message shows at the bottom of the screen."
+        ],
+        "ar": [
+            "في السابق كان رقم مرجع المصروف يظهر في القائمة فقط. أثناء كتابة المصروف أو مسحه لم يكن ظاهراً، فلا يمكن كتابته على الفاتورة الورقية.",
+            "الآن يوجد مربع في أعلى المصروف يعرض المرجع. في المصروف الجديد، وفي الفاتورة الممسوحة أثناء مراجعتها، يعرض الرقم التالي مع عبارة «يُعطى عند الحفظ». إذا حفظ شخصان في اللحظة نفسها يأخذ كل منهما رقمه الخاص، لذلك تأكد من الرقم بعد الحفظ.",
+            "الرقم يُكتب الآن RF/L/EXP يليه الرقم، مثل RF/L/EXP123. المصروفات التي أخذت أرقام Rf/Exp سابقاً أُعيدت تسميتها إلى RF/L/EXP بنفس الرقم. أرقام EXP/00001 القديمة لم تتغير.",
+            "مسح عدة فواتير كان يتطلب: حفظ، ثم العودة إلى المصروفات، ثم الضغط على مسح فاتورة مرة أخرى. الآن «حفظ ومسح التالي» يحفظ الفاتورة ويعود إلى الكاميرا، مع سطر أخضر يذكر الرقم الذي تم حفظه.",
+            "على الهاتف تبقى أزرار المسح الثلاثة ثابتة في أسفل الشاشة أثناء التمرير. زر «مسح آخر» الذي كان يتجاهل المسح أصبح اسمه «تجاهل» ويسأل أولاً.",
+            "وعلى الهاتف أيضاً، في كل التطبيقات: للسجل الجديد زر حفظ في الأسفل كما في الأعلى، ورسالة التأكيد الخضراء تظهر في أسفل الشاشة."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Expenses.",
+            "Press New. The box at the top shows the reference this expense will get.",
+            "To scan several bills: press \"Scan a bill\", then \"Take a photo\".",
+            "Check the boxes against the bill. The reference is shown above the date.",
+            "Press \"Save and scan next\". A green line says \"Saved as RF/L/EXP…\". Take the next photo.",
+            "On the last bill, press \"Save and open it\" to see the saved expense, or \"Discard\" to throw a bad scan away."
+        ],
+        "ar": [
+            "افتح الليموزين، ثم المصروفات.",
+            "اضغط جديد. المربع في الأعلى يعرض المرجع الذي سيأخذه هذا المصروف.",
+            "لمسح عدة فواتير: اضغط «مسح فاتورة»، ثم «التقط صورة».",
+            "طابق الخانات مع الفاتورة. المرجع يظهر فوق التاريخ.",
+            "اضغط «حفظ ومسح التالي». يظهر سطر أخضر «تم الحفظ برقم RF/L/EXP…». التقط الصورة التالية.",
+            "في آخر فاتورة اضغط «حفظ وفتحه» لرؤية المصروف المحفوظ، أو «تجاهل» لإلغاء مسح غير جيد."
+        ]
+    },
+    "images": [
+        {
+            "before": "scan-before.png",
+            "after": "scan-after.png",
+            "caption": {
+                "en": "Checking a scanned bill on a phone. After: the reference at the top and the three buttons fixed at the bottom.",
+                "ar": "مراجعة فاتورة ممسوحة على الهاتف. بعد: المرجع في الأعلى والأزرار الثلاثة ثابتة في الأسفل."
+            }
+        },
+        {
+            "before": "new-before.png",
+            "after": "new-after.png",
+            "caption": {
+                "en": "A new expense. After: the reference box above the form.",
+                "ar": "مصروف جديد. بعد: مربع المرجع فوق النموذج."
+            }
+        },
+        {
+            "after": "new-phone.png",
+            "caption": {
+                "en": "A new expense on a phone.",
+                "ar": "مصروف جديد على الهاتف."
+            }
+        }
+    ]
+}

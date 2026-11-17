@@ -1,0 +1,51 @@
+{
+    "app": "limousine",
+    "title": { "en": "Bookings on a phone: pull down to see one driver's trips", "ar": "الحجوزات على الهاتف: اسحب للأسفل لعرض رحلات سائق واحد" },
+    "points": {
+        "en": [
+            "On the Yesterday, Today and Tomorrow pages, a small handle sits at the top of the list on a phone. Pull it down to see one button per driver.",
+            "Tap a driver to see only their trips that day. No driver shows the trips nobody has yet."
+        ],
+        "ar": [
+            "في صفحات أمس واليوم وغداً يظهر على الهاتف مقبض صغير أعلى القائمة. اسحبه للأسفل لترى زراً لكل سائق.",
+            "اضغط على سائق لترى رحلاته في ذلك اليوم فقط. وزر بدون سائق يعرض الرحلات التي لم يُحدد لها سائق بعد."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, to see one driver's trips for the day on a phone you had to scroll through the whole list and read the Driver column row by row.",
+            "Now a handle sits at the top of the list and stays there while you scroll. Pull it down, or tap it, and you see a button for every driver who has trips that day, with how many each has. No driver comes first, in red: those trips still need a driver. Tap a button to show only those trips, or All to see everything again.",
+            "The handle shows on phones only. On a laptop you see which driver is picked, with a link to show all drivers again. Printing or downloading the list gives the trips of the driver you picked."
+        ],
+        "ar": [
+            "سابقاً لمعرفة رحلات سائق واحد في اليوم على الهاتف كان عليك التمرير في القائمة كلها وقراءة عمود السائق سطراً سطراً.",
+            "الآن يوجد مقبض أعلى القائمة يبقى ظاهراً أثناء التمرير. اسحبه للأسفل أو اضغط عليه فترى زراً لكل سائق لديه رحلات في ذلك اليوم مع عدد رحلاته. يأتي زر بدون سائق أولاً باللون الأحمر، وهي الرحلات التي ما زالت تحتاج إلى سائق. اضغط على زر لعرض تلك الرحلات فقط، أو الكل لعرض كل الرحلات مرة أخرى.",
+            "يظهر المقبض على الهاتف فقط. وعلى الحاسوب ترى السائق المختار مع رابط لعرض كل السائقين مرة أخرى. وطباعة القائمة أو تنزيلها تعطي رحلات السائق الذي اخترته."
+        ]
+    },
+    "guide": {
+        "en": [
+            "On your phone, open the home page and press Yesterday, Today or Tomorrow.",
+            "At the top of the list, pull the small grey handle down, or tap it.",
+            "Tap a driver's name to see only their trips. Tap No driver to see the trips that still need a driver.",
+            "To see every trip again, pull the handle down and tap All."
+        ],
+        "ar": [
+            "على هاتفك افتح الصفحة الرئيسية واضغط أمس أو اليوم أو غداً.",
+            "أعلى القائمة اسحب المقبض الرمادي الصغير للأسفل، أو اضغط عليه.",
+            "اضغط على اسم السائق لترى رحلاته فقط. واضغط بدون سائق لترى الرحلات التي ما زالت تحتاج إلى سائق.",
+            "لعرض كل الرحلات مرة أخرى اسحب المقبض للأسفل واضغط الكل."
+        ]
+    },
+    "images": [
+        {
+            "before": "list-before.png",
+            "after": "notch-after.png",
+            "caption": { "en": "Today's bookings on a phone, with the handle pulled down.", "ar": "حجوزات اليوم على الهاتف بعد سحب المقبض للأسفل." }
+        },
+        {
+            "after": "list-after.png",
+            "caption": { "en": "After tapping a driver: only that driver's trips.", "ar": "بعد الضغط على سائق: رحلات ذلك السائق فقط." }
+        }
+    ]
+}

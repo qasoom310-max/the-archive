@@ -83,6 +83,14 @@ final class Bookings extends Component
     public string $search = '';
 
     /**
+     * One driver's trips on a day page (the pull-down driver tabs on a phone):
+     * `none` = no driver yet, `d12` = driver 12, `n:Name` = a name typed on an
+     * old trip. Ignored on any page that is not a single day.
+     */
+    #[Url(except: '')]
+    public string $driver = '';
+
+    /**
      * Which column the list is ordered by, and which way.
      *
      * In the URL beside the filters, because a sorted queue is a view of the
@@ -1393,6 +1401,8 @@ final class Bookings extends Component
         }
 
         $this->tab = $tab;
+        // A tab leaves the day page, and its driver tabs with it.
+        $this->driver = '';
         $this->resetPage();
     }
 
@@ -1580,6 +1590,24 @@ final class Bookings extends Component
         $this->resetPage();
     }
 
+    /** Pick a driver tab ('' = every driver). */
+    public function setDriver(string $key): void
+    {
+        $this->driver = mb_substr(trim($key), 0, 120);
+        $this->resetPage();
+    }
+
+    public function updatedDriver(): void
+    {
+        $this->resetPage();
+    }
+
+    /** The driver tab in force: only a single day has driver tabs. */
+    private function driverFilter(): string
+    {
+        return $this->singleDay() !== null ? $this->driver : '';
+    }
+
     public function updatedSearch(): void
     {
         // Typing while on a deep page would otherwise leave the user on a page
@@ -1598,7 +1626,8 @@ final class Bookings extends Component
         // printed sheet can never disagree with the screen.
         $rows = app(LimoQueueRows::class);
         $perPage = in_array($this->perPage, self::PER_PAGE_OPTIONS, true) ? $this->perPage : self::PER_PAGE_DEFAULT;
-        $legs = $rows->paginate($this->tab, $this->from, $this->to, $this->search, $perPage, $this->sort, $this->dir);
+        $driver = $this->driverFilter();
+        $legs = $rows->paginate($this->tab, $this->from, $this->to, $this->search, $perPage, $this->sort, $this->dir, $driver);
 
         // A search that finds nothing on this tab may still find trips on the
         // others (the list opens on Queue, and most trips are Completed); say
@@ -1655,6 +1684,9 @@ final class Bookings extends Component
             'elsewhere' => $elsewhere,
             'savedTrips' => $savedTrips,
             'dayHeader' => $this->dayHeader(),
+            // The day's drivers, for the pull-down driver tabs (phone).
+            'dayDrivers' => $this->singleDay() !== null ? $rows->drivers($this->tab, $this->from, $this->to, $this->search) : [],
+            'activeDriver' => $driver,
             'legs' => $legs,
             // Flattened through the shared builder so the table prints exactly
             // what the exports do, keyed by leg id.
@@ -1672,6 +1704,7 @@ final class Bookings extends Component
             'exportQuery' => http_build_query([
                 'tab' => $this->tab, 'from' => $this->from, 'to' => $this->to,
                 'search' => $this->search, 'sort' => $this->sort, 'dir' => $this->dir,
+                'driver' => $driver,
             ]),
             'counts' => $counts,
             // Each row's booking's invoice and receipts, for the 3-dot menu.

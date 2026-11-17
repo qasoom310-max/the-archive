@@ -307,6 +307,62 @@
            class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-700 transition hover:bg-chrome-50">{{ __('Print') }}</a>
     </div>
 
+    {{-- Driver tabs on a day page (Yesterday / Today / Tomorrow). On a phone a
+         notch sits at the top of the list and stays there while scrolling:
+         pull it down (or tap it) for one tab per driver who has trips that
+         day, plus "No driver" for the trips nobody has yet. Laptops have the
+         Driver column to sort by, so they only see which driver is picked. --}}
+    @if ($dayHeader && ($dayDrivers !== [] || $activeDriver !== ''))
+        @php
+            $activeLabel = $activeDriver === ''
+                ? __('All drivers')
+                : (collect($dayDrivers)->firstWhere('key', $activeDriver)['label'] ?? __('No trips'));
+            $dayTotal = array_sum(array_column($dayDrivers, 'count'));
+        @endphp
+
+        @if ($activeDriver !== '')
+            <div class="mb-3 hidden items-center gap-2 text-sm sm:flex" data-driver-active>
+                <span class="text-chrome-600">{{ __('Driver') }}:</span>
+                <span class="rounded-full bg-indigo-600 px-2.5 py-0.5 font-semibold text-white">{{ $activeLabel }}</span>
+                <button type="button" wire:click="setDriver('')" class="text-xs font-medium text-indigo-700 hover:underline">{{ __('Show all drivers') }}</button>
+            </div>
+        @endif
+
+        <div class="sticky top-0 z-30 -mx-4 mb-3 border-b border-chrome-200 bg-white/95 px-4 shadow-sm backdrop-blur sm:hidden"
+             x-data="{ open: false, y: null }"
+             x-on:touchstart.passive="y = $event.touches[0].clientY"
+             x-on:touchmove.passive="if (y !== null) { const d = $event.touches[0].clientY - y; if (d > 30) { open = true; y = null } else if (d < -30) { open = false; y = null } }"
+             x-on:touchend.passive="y = null"
+             x-on:keydown.escape.window="open = false"
+             data-driver-notch>
+            <div x-show="open" x-transition.opacity.duration.150ms x-cloak class="flex flex-wrap gap-1.5 pt-3" data-driver-tabs>
+                <button type="button" wire:click="setDriver('')" x-on:click="open = false"
+                        @class(['rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition',
+                                'bg-indigo-600 text-white ring-indigo-600' => $activeDriver === '',
+                                'bg-white text-chrome-700 ring-chrome-200' => $activeDriver !== ''])>
+                    {{ __('All') }} <span class="ms-0.5 opacity-75">{{ $dayTotal }}</span>
+                </button>
+                @foreach ($dayDrivers as $d)
+                    <button type="button" wire:click="setDriver({{ \Illuminate\Support\Js::from($d['key']) }})" x-on:click="open = false"
+                            data-driver-tab="{{ $d['key'] }}"
+                            @class(['rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition',
+                                    'bg-indigo-600 text-white ring-indigo-600' => $activeDriver === $d['key'],
+                                    'bg-red-50 text-red-700 ring-red-200' => $activeDriver !== $d['key'] && $d['key'] === \Modules\Limousine\Services\LimoQueueRows::DRIVER_NONE,
+                                    'bg-white text-chrome-700 ring-chrome-200' => $activeDriver !== $d['key'] && $d['key'] !== \Modules\Limousine\Services\LimoQueueRows::DRIVER_NONE])>
+                        {{ $d['label'] }} <span class="ms-0.5 opacity-75">{{ $d['count'] }}</span>
+                    </button>
+                @endforeach
+            </div>
+            <button type="button" x-on:click="open = ! open" x-bind:aria-expanded="open"
+                    class="flex w-full flex-col items-center gap-1 py-2" aria-label="{{ __('Drivers') }}">
+                <span class="h-1.5 w-10 rounded-full bg-chrome-300"></span>
+                <span class="text-xs font-medium text-chrome-600">
+                    {{ __('Drivers') }} · <span class="font-semibold text-indigo-700">{{ $activeLabel }}</span>
+                </span>
+            </button>
+        </div>
+    @endif
+
     {{-- 17 data columns can never fit a phone, so rather than force a sideways
          scroll the table sheds columns as the screen narrows: what identifies
          and actions a job always stays, the rest return as there is room.

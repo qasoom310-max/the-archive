@@ -145,7 +145,10 @@ final class LimoQueueExportController
         $sort = (string) $request->query('sort', '');
         $dir = (string) $request->query('dir', 'desc');
 
-        return [$this->rows->all($tab, $from, $to, $search, $sort, $dir), $this->rows->headings()];
+        // …and the driver tab of a day page, so a driver's sheet prints as shown.
+        $driver = (string) $request->query('driver', '');
+
+        return [$this->rows->all($tab, $from, $to, $search, $sort, $dir, false, $driver), $this->rows->headings()];
     }
 
     /**

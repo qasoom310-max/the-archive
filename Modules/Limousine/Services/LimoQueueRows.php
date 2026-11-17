@@ -53,6 +53,9 @@ final class LimoQueueRows
      */
     public const TAB_UNPAID = 'unpaid';
 
+    /** The driver-tab key for trips with no driver yet. */
+    public const DRIVER_NONE = 'none';
+
     /**
      * A whole day, whatever stage its trips reached — what the schedule
      * cards on the app home open, and the "All" tab on the bookings list.
@@ -86,7 +89,7 @@ final class LimoQueueRows
      *
      * @return Builder<LimoLeg>
      */
-    public function query(string $tab = 'all', string $from = '', string $to = '', string $search = '', string $sort = '', string $dir = 'desc', bool $onlyLive = false): Builder
+    public function query(string $tab = 'all', string $from = '', string $to = '', string $search = '', string $sort = '', string $dir = 'desc', bool $onlyLive = false, string $driver = ''): Builder
     {
         $query = LimoLeg::query()
             ->whereMorphedTo('legable', LimoBooking::class)
@@ -201,7 +204,93 @@ final class LimoQueueRows
             });
         }
 
+        if ($driver !== '') {
+            $this->onlyDriver($query, $driver);
+        }
+
         return $query;
+    }
+
+    /**
+     * One driver's trips, by the key {@see drivers()} hands out: `none` = no
+     * driver yet, `d12` = driver record 12, `n:Habib` = a name typed on an old
+     * trip with no record behind it. An unknown key matches nothing rather than
+     * quietly showing every trip.
+     *
+     * @param  Builder<LimoLeg>  $query
+     */
+    private function onlyDriver(Builder $query, string $driver): void
+    {
+        $legs = $this->table(LimoLeg::class);
+
+        if ($driver === self::DRIVER_NONE) {
+            $query->whereNull($legs . '.driver_id')
+                ->where(fn (Builder $q) => $q->whereNull($legs . '.driver')->orWhere($legs . '.driver', ''));
+        } elseif (preg_match('/^d(\d+)$/', $driver, $m) === 1) {
+            $query->where($legs . '.driver_id', (int) $m[1]);
+        } elseif (str_starts_with($driver, 'n:') && trim(substr($driver, 2)) !== '') {
+            $query->whereNull($legs . '.driver_id')->where($legs . '.driver', trim(substr($driver, 2)));
+        } else {
+            $query->whereRaw('1 = 0');
+        }
+    }
+
+    /**
+     * The drivers on the trips a list shows, each with how many trips they
+     * have, for the driver tabs of a day page. Trips with no driver come first
+     * (`none`), then the busiest driver. Read with one query of two columns.
+     *
+     * @return list<array{key: string, label: string, count: int}>
+     */
+    public function drivers(string $tab, string $from, string $to, string $search = ''): array
+    {
+        $legs = $this->table(LimoLeg::class);
+        $pairs = $this->query($tab, $from, $to, $search)
+            ->reorder()
+            ->toBase()
+            ->select([$legs . '.driver_id', $legs . '.driver'])
+            ->get();
+
+        $counts = [];
+        $typed = [];
+        foreach ($pairs as $pair) {
+            $id = $pair->driver_id !== null ? (int) $pair->driver_id : null;
+            $text = trim((string) ($pair->driver ?? ''));
+            if ($id !== null) {
+                $key = 'd' . $id;
+            } elseif ($text !== '') {
+                $key = 'n:' . $text;
+                $typed[$key] = $text;
+            } else {
+                $key = self::DRIVER_NONE;
+            }
+            $counts[$key] = ($counts[$key] ?? 0) + 1;
+        }
+
+        $ids = [];
+        foreach (array_keys($counts) as $key) {
+            if (preg_match('/^d(\d+)$/', (string) $key, $m) === 1) {
+                $ids[] = (int) $m[1];
+            }
+        }
+        $names = $ids === [] ? collect() : \Modules\Limousine\Models\LimoDriver::query()->whereIn('id', $ids)->pluck('name', 'id');
+        $aliases = app(DriverAliases::class);
+
+        $list = [];
+        foreach ($counts as $key => $count) {
+            $key = (string) $key;
+            $label = match (true) {
+                $key === self::DRIVER_NONE => __('No driver'),
+                isset($typed[$key]) => $aliases->resolve($typed[$key])['name'],
+                default => (string) ($names[(int) substr($key, 1)] ?? __('Driver removed')),
+            };
+            $list[] = ['key' => $key, 'label' => $label, 'count' => $count];
+        }
+
+        usort($list, static fn (array $a, array $b): int => [$a['key'] !== self::DRIVER_NONE, -$a['count'], mb_strtolower($a['label'])]
+            <=> [$b['key'] !== self::DRIVER_NONE, -$b['count'], mb_strtolower($b['label'])]);
+
+        return $list;
     }
 
     /**
@@ -390,9 +479,9 @@ final class LimoQueueRows
     /**
      * @return LengthAwarePaginator<int, LimoLeg>
      */
-    public function paginate(string $tab, string $from, string $to, string $search = '', int $perPage = 20, string $sort = '', string $dir = 'desc'): LengthAwarePaginator
+    public function paginate(string $tab, string $from, string $to, string $search = '', int $perPage = 20, string $sort = '', string $dir = 'desc', string $driver = ''): LengthAwarePaginator
     {
-        return $this->query($tab, $from, $to, $search, $sort, $dir)->paginate($perPage);
+        return $this->query($tab, $from, $to, $search, $sort, $dir, false, $driver)->paginate($perPage);
     }
 
     /**
@@ -800,12 +889,12 @@ final class LimoQueueRows
      *
      * @return list<QueueRow>
      */
-    public function all(string $tab, string $from, string $to, string $search = '', string $sort = '', string $dir = 'desc', bool $onlyLive = false): array
+    public function all(string $tab, string $from, string $to, string $search = '', string $sort = '', string $dir = 'desc', bool $onlyLive = false, string $driver = ''): array
     {
         $rows = [];
         // `chunk` needs a total order to page through safely, which every sort
         // has: applySort always trails sequence and id.
-        $this->query($tab, $from, $to, $search, $sort, $dir, $onlyLive)->chunk(200, function ($legs) use (&$rows): void {
+        $this->query($tab, $from, $to, $search, $sort, $dir, $onlyLive, $driver)->chunk(200, function ($legs) use (&$rows): void {
             foreach ($legs as $leg) {
                 $rows[] = $this->row($leg);
             }

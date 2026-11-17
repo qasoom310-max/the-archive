@@ -3687,5 +3687,9 @@
     "Paid in another country. A cost, not part of the Bahrain return.": "مدفوعة في بلد آخر. تُعتبر تكلفة وليست جزءاً من إقرار البحرين.",
     "This report covers Limousine expenses only. It does not include VAT on sales, or purchases recorded in other apps.": "هذا التقرير يشمل مصروفات الليموزين فقط. لا يشمل ضريبة المبيعات ولا المشتريات المسجّلة في تطبيقات أخرى.",
     "VAT paid on expenses, for the quarterly VAT return. All figures in BHD.": "الضريبة المدفوعة على المصروفات، للإقرار الضريبي الربع سنوي. كل الأرقام بالدينار البحريني.",
-    "VAT report": "تقرير الضريبة"
+    "VAT report": "تقرير الضريبة",
+    "All drivers": "كل السائقين",
+    "Driver removed": "سائق محذوف",
+    "Show all drivers": "عرض كل السائقين",
+    "No trips": "لا توجد رحلات"
 }

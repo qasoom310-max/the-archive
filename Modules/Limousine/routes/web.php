@@ -215,6 +215,9 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/app/limousine/expense/import', LimoExpenseImportController::class)->name('limousine.expense.import');
     Route::get('/app/limousine/expense', Expenses::class)->name('limousine.expense.index');
     Route::get('/app/limousine/expense/new', ExpenseForm::class)->name('limousine.expense.create');
+    // The quarterly VAT report on expenses (BHD; Bahrain VAT apart from foreign VAT).
+    Route::get('/app/limousine/expense/vat-report', \Modules\Limousine\Livewire\ExpenseVat::class)->name('limousine.expense.vat');
+    Route::get('/app/limousine/expense/vat-report/export', \Modules\Limousine\Http\Controllers\ExpenseVatExportController::class)->name('limousine.expense.vat.export');
     // Scan a bill with the phone: upload + read, then a screen to check and save.
     Route::get('/app/limousine/expense/scan', \Modules\Limousine\Livewire\ExpenseScan::class)->name('limousine.expense.scan');
     Route::post('/app/limousine/expense/scan', [\Modules\Limousine\Http\Controllers\ExpenseBillController::class, 'scan'])

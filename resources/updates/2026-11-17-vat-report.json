@@ -1,0 +1,78 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Quarterly VAT report for expenses",
+        "ar": "تقرير الضريبة الربع سنوي للمصروفات"
+    },
+    "points": {
+        "en": [
+            "Limousine expenses have a new \"VAT report\" page for the VAT return, one quarter at a time.",
+            "Every figure is in BHD.",
+            "Bahrain VAT (10%), the part to claim, is totalled apart from VAT paid in other countries, which is not claimed.",
+            "The report can be printed or downloaded for Excel."
+        ],
+        "ar": [
+            "في مصروفات الليموزين صفحة جديدة «تقرير الضريبة» للإقرار الضريبي، لكل ربع سنة على حدة.",
+            "كل الأرقام بالدينار البحريني.",
+            "ضريبة البحرين (10%)، وهي الجزء القابل للاسترداد، تُجمع منفصلة عن الضريبة المدفوعة في بلدان أخرى التي لا تُسترد.",
+            "يمكن طباعة التقرير أو تنزيله لإكسل."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the only VAT figure was the \"VAT\" column on the expenses list. It added Bahrain VAT and Saudi VAT together, and there was no way to see one quarter.",
+            "Now the VAT report shows one quarter: January to March, April to June, July to September or October to December. It opens on the current quarter.",
+            "The green box, \"Bahrain VAT to claim\", is the VAT on bills at 10%. This is the figure for the Bahrain VAT return.",
+            "\"Foreign VAT (not claimed)\" is the VAT on bills at 15%, paid in Saudi Arabia. It was paid to another country, so it is a cost and is not added to the Bahrain claim.",
+            "\"Bills with no VAT\" shows how many bills carried no VAT and their total.",
+            "Under the boxes are two lists, one for Bahrain VAT bills and one for foreign VAT bills. Each line has the date, the expense number, who was paid, the category, the amount before VAT, the VAT and the total. A bill paid in another currency also shows the original amount and the rate used.",
+            "A yellow line counts the Bahrain VAT bills that have no supplier name or no photo of the bill, because a claim needs the supplier's tax invoice.",
+            "The report covers Limousine expenses only. It does not include the VAT on your sales, or purchases recorded in other apps. Ask your accountant to confirm the figures before filing."
+        ],
+        "ar": [
+            "سابقاً كان رقم الضريبة الوحيد هو عمود «الضريبة» في قائمة المصروفات. كان يجمع ضريبة البحرين وضريبة السعودية معاً، ولم تكن هناك طريقة لرؤية ربع سنة واحد.",
+            "الآن يعرض تقرير الضريبة ربعاً واحداً: يناير إلى مارس، أبريل إلى يونيو، يوليو إلى سبتمبر، أو أكتوبر إلى ديسمبر. ويُفتح على الربع الحالي.",
+            "المربع الأخضر «ضريبة البحرين القابلة للاسترداد» هو الضريبة على الفواتير بنسبة 10%. هذا هو الرقم الخاص بإقرار ضريبة البحرين.",
+            "«ضريبة أجنبية (لا تُسترد)» هي الضريبة على الفواتير بنسبة 15% المدفوعة في السعودية. دُفعت لبلد آخر، فهي تكلفة ولا تُضاف إلى مطالبة البحرين.",
+            "«فواتير بدون ضريبة» يعرض عدد الفواتير التي لا تحمل ضريبة ومجموعها.",
+            "تحت المربعات قائمتان، واحدة لفواتير ضريبة البحرين وأخرى لفواتير الضريبة الأجنبية. في كل سطر التاريخ، ورقم المصروف، والجهة المدفوع لها، والفئة، والمبلغ قبل الضريبة، والضريبة، والإجمالي. والفاتورة المدفوعة بعملة أخرى تعرض أيضاً المبلغ الأصلي وسعر الصرف المستخدم.",
+            "سطر أصفر يعدّ فواتير ضريبة البحرين التي ليس لها اسم مورّد أو صورة فاتورة، لأن المطالبة تحتاج الفاتورة الضريبية من المورّد.",
+            "التقرير يشمل مصروفات الليموزين فقط. لا يشمل ضريبة مبيعاتك ولا المشتريات المسجّلة في تطبيقات أخرى. اطلب من المحاسب تأكيد الأرقام قبل تقديم الإقرار."
+        ]
+    },
+    "guide": {
+        "en": [
+            "On a computer open Limousine, then Expenses.",
+            "Press \"VAT report\" at the top.",
+            "Choose the year, then press the quarter you want.",
+            "Read the green box: this is the Bahrain VAT to claim for that quarter.",
+            "Check the list of Bahrain VAT bills. Press an expense number to open it, or \"View\" to see the photo of the bill.",
+            "Press \"Print\" to print the report, or \"Excel (CSV)\" to download it for your accountant."
+        ],
+        "ar": [
+            "على الكمبيوتر افتح الليموزين ثم المصروفات.",
+            "اضغط «تقرير الضريبة» في الأعلى.",
+            "اختر السنة ثم اضغط الربع المطلوب.",
+            "اقرأ المربع الأخضر: هذه ضريبة البحرين القابلة للاسترداد لذلك الربع.",
+            "راجع قائمة فواتير ضريبة البحرين. اضغط رقم المصروف لفتحه، أو «عرض» لرؤية صورة الفاتورة.",
+            "اضغط «طباعة» لطباعة التقرير، أو «إكسل (CSV)» لتنزيله للمحاسب."
+        ]
+    },
+    "images": [
+        {
+            "before": "list-before.png",
+            "after": "list-after.png",
+            "caption": {
+                "en": "The Expenses page. After: the new \"VAT report\" button at the top.",
+                "ar": "صفحة المصروفات. بعد: زر «تقرير الضريبة» الجديد في الأعلى."
+            }
+        },
+        {
+            "after": "report.png",
+            "caption": {
+                "en": "The VAT report for one quarter: Bahrain VAT to claim, foreign VAT, and the bills.",
+                "ar": "تقرير الضريبة لربع واحد: ضريبة البحرين القابلة للاسترداد، والضريبة الأجنبية، والفواتير."
+            }
+        }
+    ]
+}

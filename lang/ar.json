@@ -3691,5 +3691,19 @@
     "All drivers": "كل السائقين",
     "Driver removed": "سائق محذوف",
     "Show all drivers": "عرض كل السائقين",
-    "No trips": "لا توجد رحلات"
+    "No trips": "لا توجد رحلات",
+    "No car has a target set yet — set one on the car page.": "لا توجد سيارة لها هدف بعد — حدّد هدفاً من صفحة السيارة.",
+    "Raised automatically: the :year target of :from was reached, so this year is 10% higher.": "تم الرفع تلقائياً: تحقق هدف سنة :year البالغ :from، لذلك هدف هذه السنة أعلى بنسبة 10%.",
+    "Sales target": "هدف المبيعات",
+    "Same as :year: that target of :from was not reached, so it was not raised.": "نفس هدف سنة :year: لم يتحقق ذلك الهدف البالغ :from، لذلك لم يُرفع.",
+    "Set one target for the year. A car that reaches it starts the next year 10% higher; one that misses keeps the same target.": "حدّد هدفاً واحداً للسنة. السيارة التي تحققه تبدأ السنة التالية بهدف أعلى بنسبة 10%، والتي لا تحققه تبقى على نفس الهدف.",
+    "Target for :year (BHD)": "هدف سنة :year (د.ب)",
+    "Target for :year removed": "تم حذف هدف سنة :year",
+    "Target for :year set to :amount": "تم تحديد هدف سنة :year بمبلغ :amount",
+    "Target for the year": "هدف السنة",
+    "Target saved.": "تم حفظ الهدف.",
+    "The month's target is its share of the year, following how the fleet's sales fell last year.": "هدف الشهر هو حصته من هدف السنة، بحسب توزيع مبيعات الأسطول في السنة الماضية.",
+    "The month's target is the year split into 12 equal months, because last year's sales are not complete enough to follow.": "هدف الشهر هو هدف السنة مقسوماً على 12 شهراً بالتساوي، لأن مبيعات السنة الماضية غير مكتملة للاعتماد عليها.",
+    "This month (:month)": "هذا الشهر (:month)",
+    "This year (:year)": "هذه السنة (:year)"
 }

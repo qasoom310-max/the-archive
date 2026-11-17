@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Modules\Rental\Livewire;
 
 use App\Erp\Security\Permission;
+use App\Erp\Targets\CarTargets;
+use Carbon\CarbonImmutable;
 use App\Livewire\Concerns\GuardsModelAccess;
 use App\Erp\Activity\ActivityLogger;
 use App\Models\User;
@@ -32,16 +34,9 @@ final class VehicleForm extends Component
     #[Locked]
     public ?int $id = null;
 
-    /** Inline monthly-target editor value (BHD). */
-    public string $targetInput = '';
-
     /**
-     * Inline YEARLY-target editor value (BHD).
-     *
-     * Kept separate from twelve monthly ones: a car is off the road for
-     * service, and the trade has seasons, so a year is not twelve identical
-     * months. Blank means "not set" and the fleet report falls back to 12x the
-     * monthly figure, saying on screen that it has done so.
+     * This year's sales target for the car (BHD). The only figure anybody
+     * types: next year's and every month's are worked out from it.
      */
     public string $yearlyTargetInput = '';
 
@@ -69,11 +64,9 @@ final class VehicleForm extends Component
 
         if ($id !== null) {
             $car = Vehicle::query()->find($id);
-            $this->targetInput = $car !== null && $car->monthly_target > 0
-                ? rtrim(rtrim(number_format($car->monthly_target, 3, '.', ''), '0'), '.')
-                : '';
-            $this->yearlyTargetInput = $car !== null && $car->yearly_target > 0
-                ? rtrim(rtrim(number_format($car->yearly_target, 3, '.', ''), '0'), '.')
+            $yearly = $car !== null ? app(CarTargets::class)->yearly($car->id, (int) now()->year) : 0.0;
+            $this->yearlyTargetInput = $yearly > 0
+                ? rtrim(rtrim(number_format($yearly, 3, '.', ''), '0'), '.')
                 : '';
             $this->purchaseInput = $car !== null && $car->purchase_price > 0
                 ? rtrim(rtrim(number_format($car->purchase_price, 3, '.', ''), '0'), '.')
@@ -132,7 +125,10 @@ final class VehicleForm extends Component
         session()->flash('toast', __('Cost & documents saved.'));
     }
 
-    /** Set / clear this car's monthly sales target. Manager-gated. */
+    /**
+     * Set / clear this car's target for the current year. Typing a figure
+     * makes it the new starting point for the yearly +10%. Manager-gated.
+     */
     public function saveTarget(): void
     {
         $this->guardAccess(Permission::Write);
@@ -148,20 +144,32 @@ final class VehicleForm extends Component
             return;
         }
 
-        $value = $this->targetInput === '' ? 0.0 : max(0.0, (float) $this->targetInput);
-        $yearly = $this->yearlyTargetInput === '' ? 0.0 : max(0.0, (float) $this->yearlyTargetInput);
-        $car->monthly_target = $value;
-        $car->yearly_target = $yearly;
-        $car->save();
+        $this->validate(
+            ['yearlyTargetInput' => ['nullable', 'numeric', 'min:0', 'max:99999999']],
+            [],
+            ['yearlyTargetInput' => __('Target for the year')],
+        );
 
-        app(ActivityLogger::class)->logFor($car, 'updated', __('Targets set to :amount a month, :yearly a year', [
-            'amount' => \App\Erp\Views\ValueFormat::money($value),
-            'yearly' => $yearly > 0.0
-                ? \App\Erp\Views\ValueFormat::money($yearly)
-                : __('12 × the monthly'),
-        ]));
+        $year = (int) now()->year;
+        $yearly = $this->yearlyTargetInput === '' ? 0.0 : (float) $this->yearlyTargetInput;
 
-        session()->flash('toast', __('Targets saved.'));
+        $targets = app(CarTargets::class);
+
+        // Saving the figure the system worked out changes nothing, and must not
+        // turn "raised automatically" into "typed by hand".
+        if (abs($targets->yearly($car->id, $year) - $yearly) < 0.0005) {
+            session()->flash('toast', __('Target saved.'));
+
+            return;
+        }
+
+        $targets->set($car->id, $year, $yearly);
+
+        app(ActivityLogger::class)->logFor($car, 'updated', $yearly > 0.0
+            ? __('Target for :year set to :amount', ['year' => $year, 'amount' => \App\Erp\Views\ValueFormat::money($yearly)])
+            : __('Target for :year removed', ['year' => $year]));
+
+        session()->flash('toast', __('Target saved.'));
     }
 
     /**
@@ -202,13 +210,32 @@ final class VehicleForm extends Component
         $user = Auth::user();
         $vehicle = $this->id !== null ? Vehicle::query()->find($this->id) : null;
 
-        $earnedThisMonth = $vehicle !== null && $vehicle->monthly_target > 0 ? $vehicle->revenueThisMonth() : 0.0;
+        $now = CarbonImmutable::now();
+        $year = (int) $now->year;
+        $month = (int) $now->month;
+        $targets = app(CarTargets::class);
+        $target = null;
+
+        if ($vehicle !== null) {
+            $resolved = $targets->resolve($vehicle->id, $year);
+
+            if ($resolved['amount'] > 0.0) {
+                $target = $resolved + [
+                    'year' => $year,
+                    'month' => $targets->monthly($vehicle->id, $year, $month),
+                    'monthLabel' => $now->isoFormat('MMMM'),
+                    'equalMonths' => $targets->shares($year)['equal'],
+                    'earnedMonth' => $targets->earnedInMonth($vehicle->id, $year, $month),
+                    'earnedYear' => $targets->earnedInYear($vehicle->id, $year),
+                ];
+            }
+        }
 
         return view('rental::vehicle-form', [
             'vehicle' => $vehicle,
             'canManage' => $user instanceof User && $user->canApproveMaintenance(),
             'canSeeCost' => $user instanceof User && ($user->isAccountant() || $user->canApproveMaintenance()),
-            'earnedThisMonth' => $earnedThisMonth,
+            'target' => $target,
         ]);
     }
 }

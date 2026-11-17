@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Support;
 
+use App\Erp\Targets\CarTargets;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -47,7 +48,12 @@ final class FleetPerformance
      *                      cost - is that month's, and a car is judged against
      *                      its MONTHLY target rather than its yearly one.
      */
-    public function __construct(private readonly int $year, private readonly int $month = 0) {}
+    private readonly CarTargets $targets;
+
+    public function __construct(private readonly int $year, private readonly int $month = 0)
+    {
+        $this->targets = new CarTargets();
+    }
 
     /**
      * @return array{
@@ -76,7 +82,7 @@ final class FleetPerformance
         $vehicles = Vehicle::query()
             ->owned()
             ->orderBy('name')
-            ->get(['id', 'name', 'plate_no', 'color', 'monthly_target', 'yearly_target', 'daily_rate', 'active']);
+            ->get(['id', 'name', 'plate_no', 'color', 'daily_rate', 'active']);
 
         // The matrix always shows all twelve months, so earnings are read for
         // the whole year; the rest is read for the chosen period only.
@@ -146,13 +152,12 @@ final class FleetPerformance
         $limoEarned = $limo[$id] ?? 0.0;
         $total = round($earned + $limoEarned, 3);
 
-        $monthlyTarget = (float) $vehicle->monthly_target;
-        $typedYearly = (float) $vehicle->yearly_target;
-        // Twelve monthly targets is a fallback, not a plan - the page says so
-        // rather than passing it off as a figure somebody chose.
-        $yearlyTarget = $typedYearly > 0.0 ? $typedYearly : round($monthlyTarget * 12, 3);
-        // A month is judged against the car's monthly target, a year against
-        // its yearly one - never a year's target squeezed into one month.
+        // One target for the year; a month is judged against its own share
+        // of it. The "Monthly" line shows the chosen month, or this month
+        // when the whole year is on screen.
+        $yearlyTarget = $this->targets->yearly($id, $this->year);
+        $shownMonth = $month > 0 ? $month : (int) CarbonImmutable::now()->month;
+        $monthlyTarget = $this->targets->monthly($id, $this->year, $shownMonth);
         $target = $month > 0 ? $monthlyTarget : $yearlyTarget;
 
         // A retired car was not available all year, and we do not record when
@@ -180,7 +185,6 @@ final class FleetPerformance
             'total' => $total,
             'monthlyTarget' => $monthlyTarget,
             'yearlyTarget' => $yearlyTarget,
-            'yearlyDerived' => $typedYearly <= 0.0 && $monthlyTarget > 0.0,
             'target' => $target,
             'rentedDays' => $rentedDays,
             'availableDays' => $available,
@@ -217,7 +221,6 @@ final class FleetPerformance
             'total' => $earned,
             'monthlyTarget' => 0.0,
             'yearlyTarget' => 0.0,
-            'yearlyDerived' => false,
             'target' => 0.0,
             'rentedDays' => 0,
             'availableDays' => 0,

@@ -5616,3 +5616,23 @@ The duplicate itself was removed by data migration `2026_11_14_950056` (owner's 
 **Scanned bills in other currencies (shipped 2026-11-17).** The reader also returns `currency` (one of `LimoExpense::BILL_CURRENCIES`: BHD, SAR, KWD, AED, OMR, QAR, USD, or UNKNOWN → BHD with a `check` note), and amounts stay in the bill's own currency until the review screen. `ExpenseScan` has `currency` + `exchange_rate` (BHD value of 1 unit): the live rate from `App\Erp\Money\ExchangeRateService`, falling back to the standard figure in `BILL_CURRENCIES` when the lookup fails, always editable; BHD forces rate 1. The expense is ALWAYS saved in BHD (`net_amount` = bill amount × rate); `limo_expenses.bill_currency` / `bill_amount` / `bill_rate` (migration `2026_11_17_950060`) remember the paper, shown as a line on the expense. A parked scan can be reopened at `/app/limousine/expense/scan?scan=<token>` (owner-only, same check as `review()`). The typed "New" expense form is still BHD only. Test: `LimoExpenseScanTest` (12).
 
 **Quarterly VAT report on Limousine expenses (shipped 2026-11-17).** `/app/limousine/expense/vat-report` (`Modules\Limousine\Livewire\ExpenseVat`, Read on `limousine.expense`; `#[Url] year, quarter`, clamped) + CSV at `/vat-report/export` (`ExpenseVatExportController`); "VAT report" button on the Expenses page (hidden on phones). Data: `Modules\Limousine\Support\ExpenseVatReport(year, quarter)->report()`, BHD only. **The RATE decides the side: 10% = Bahrain VAT (the claim), any other rate (15%) = foreign VAT, listed and totalled apart and never added to the claim** (the owner's decision, 2026-11-17: foreign VAT is a cost). No-VAT bills are only counted and totalled. `missing` counts Bahrain VAT bills with no payee or no `bill_path`. Covers Limousine expenses only: no sales (output) VAT, no other apps. The expenses LIST still has one "VAT" column summing both rates. Test: `LimoExpenseVatReportTest` (4).
+
+
+**Car sales target: one yearly figure, the rest worked out (shipped 2026-11-17).**
+Owner's rule: a car has ONE target, for the year. `App\Erp\Targets\CarTargets` is
+the only place it is decided; every report reads it (car page, Rental Reports →
+Targets, `CarIncome`, `FleetPerformance`, `SalesReport`, `RevenueSchedule`,
+`RevenueTargets::fleet`). Typed years live in `rental_vehicle_targets`
+(vehicle_id, year, amount; Rental migration `2026_11_17_900070`, which copied each
+car's old figure in as the current year). Untyped years are derived, never stored:
+on 1 January a car that REACHED last year's target gets it +10% (`RAISE`), one that
+missed keeps it; a year still running raises nothing. "Reached" = hires net of the
+outside owner + limousine legs on the car + `rental_revenue_history`, cancelled
+excluded. Monthly targets = the year × the OWNED fleet's month shares last year
+(fleet, not the one car, by the owner's choice); any month with no fleet sales last
+year ⇒ twelve equal months (`shares()['equal']`, said on the car page). December
+takes the rounding so the months add up exactly. `rental_vehicles.monthly_target` /
+`yearly_target` are kept but no longer written; `CarTargets` reads them only for a
+car with no typed year (flat, no raise). A typed 0 is stored and means "no target".
+Not changed: the app-level targets in Settings (`targets.rental.*`), and yearly
+PACE is still by days elapsed, not by month share. Tests: `RentalCarTargetTest` (+7).

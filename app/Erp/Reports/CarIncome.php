@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Erp\Reports;
 
+use App\Erp\Targets\CarTargets;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -70,6 +71,7 @@ final class CarIncome
         $limo = $this->limousine();
 
         $cars = [];
+        $targets = new CarTargets();
 
         foreach ($this->vehicles() as $vehicle) {
             $id = (int) $vehicle->id;
@@ -81,10 +83,7 @@ final class CarIncome
                 continue;
             }
 
-            $typed = (float) $vehicle->yearly_target;
-            $monthly = (float) $vehicle->monthly_target;
-            // Twelve monthly targets stand in only when no yearly one was set.
-            $target = $typed > 0.0 ? $typed : round($monthly * 12, 3);
+            $target = $targets->yearly($id, $this->year);
 
             $cars[] = [
                 'id' => $id,
@@ -252,7 +251,7 @@ final class CarIncome
 
         return DB::table('rental_vehicles')
             ->orderBy('name')
-            ->get(['id', 'name', 'plate_no', 'active', 'is_outside', 'category', 'monthly_target', 'yearly_target'])
+            ->get(['id', 'name', 'plate_no', 'active', 'is_outside', 'category'])
             ->all();
     }
 

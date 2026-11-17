@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Rental\Support;
 
+use App\Erp\Targets\CarTargets;
 use Illuminate\Support\Carbon;
 use Modules\Rental\Models\RentalOrder;
 use Modules\Rental\Models\RentalRevenueHistory;
@@ -66,7 +67,7 @@ final class SalesReport
 
     /**
      * One display row per car (active cars plus any plate with history this year):
-     * plate, name, expected annual (target × 12), the 12 months, and the total.
+     * plate, name, the year's target, the 12 months, and the total.
      *
      * @return list<array{plate: string, name: string, expected: float, months: array<int, float>, total: float}>
      */
@@ -77,15 +78,16 @@ final class SalesReport
         $vehicles = Vehicle::query()
             ->where('active', true)
             ->orderBy('name')
-            ->get(['id', 'name', 'plate_no', 'monthly_target']);
+            ->get(['id', 'name', 'plate_no']);
 
+        $targets = new CarTargets();
         $rows = [];
         $seenPlates = [];
 
         foreach ($vehicles as $vehicle) {
             $plate = $vehicle->plate_no ?? '—';
             $seenPlates[$plate] = true;
-            $rows[] = $this->row($plate, $vehicle->name, (float) $vehicle->monthly_target * 12, $matrix[$plate] ?? []);
+            $rows[] = $this->row($plate, $vehicle->name, $targets->yearly((int) $vehicle->id, $this->year), $matrix[$plate] ?? []);
         }
 
         // Plates that only exist in imported history (cars sold / not in the fleet).

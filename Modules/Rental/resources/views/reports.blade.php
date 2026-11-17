@@ -199,7 +199,8 @@
             $monthly = $targets['monthly'];
             $prevMonthly = $targets['prevMonthly'];
             $fleetTarget = (float) $targets['fleetTarget'];
-            $peak = max($fleetTarget, max($monthly), max($prevMonthly), 1);
+            $monthlyTargets = $targets['monthlyTargets'];
+            $peak = max(max($monthlyTargets), max($monthly), max($prevMonthly), 1);
             $scale = $peak * 1.15; // headroom so the target line isn't at the very top
             $hasPrev = array_sum($prevMonthly) > 0;
             // Polyline points for last year's line over a 0..12 × 0..100 viewBox.
@@ -215,7 +216,7 @@
                     <span class="flex items-center gap-1.5"><span class="inline-block size-2.5 rounded-sm bg-emerald-500"></span>{{ __('Hit target') }}</span>
                     <span class="flex items-center gap-1.5"><span class="inline-block size-2.5 rounded-sm bg-amber-400"></span>{{ __('Below target') }}</span>
                     @if ($fleetTarget > 0)
-                        <span class="flex items-center gap-1.5"><span class="inline-block h-0 w-4 border-t-2 border-dashed border-chrome-400"></span>{{ __('Target') }} {{ \App\Erp\Views\ValueFormat::money($fleetTarget) }}</span>
+                        <span class="flex items-center gap-1.5"><span class="inline-block h-0 w-4 border-t-2 border-dashed border-chrome-400"></span>{{ __('Target for the year') }} {{ \App\Erp\Views\ValueFormat::money($fleetTarget) }}</span>
                     @endif
                     @if ($hasPrev)
                         <span class="flex items-center gap-1.5"><span class="inline-block h-0 w-4 border-t-2 border-sky-400"></span>{{ __(':year', ['year' => $targets['year'] - 1]) }}</span>
@@ -223,10 +224,6 @@
                 </div>
             </div>
             <div class="relative h-44">
-                {{-- Monthly fleet target reference line --}}
-                @if ($fleetTarget > 0)
-                    <div class="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-dashed border-chrome-400/70" style="bottom: {{ $fleetTarget / $scale * 100 }}%"></div>
-                @endif
                 {{-- Last year overlaid as a line (same fleet, prior year). --}}
                 @if ($hasPrev)
                     <svg class="pointer-events-none absolute inset-0 z-20 h-full w-full" viewBox="0 0 12 100" preserveAspectRatio="none" aria-hidden="true">
@@ -238,12 +235,17 @@
                         @php
                             $val = (float) ($monthly[$num] ?? 0.0);
                             $hgt = $val > 0 ? max(2, $val / $scale * 100) : 0;
-                            $hit = $fleetTarget > 0 && $val >= $fleetTarget;
+                            $goal = (float) ($monthlyTargets[$num] ?? 0.0);
+                            $hit = $goal > 0 && $val >= $goal;
                             $isSel = ! $targets['wholeYear'] && $targets['month'] === $num;
                         @endphp
                         <button type="button" wire:click="$set('targetMonth', {{ $num }})"
                             class="group relative flex h-full flex-1 flex-col justify-end rounded-t hover:bg-chrome-50"
-                            title="{{ __($abbr) }} {{ $targets['year'] }} — {{ \App\Erp\Views\ValueFormat::money($val) }}">
+                            title="{{ __($abbr) }} {{ $targets['year'] }} — {{ \App\Erp\Views\ValueFormat::money($val) }}{{ $goal > 0 ? ' / '.\App\Erp\Views\ValueFormat::money($goal) : '' }}">
+                            {{-- This month's own target: each month carries a different share of the year. --}}
+                            @if ($goal > 0)
+                                <span class="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-dashed border-chrome-400/80" style="bottom: {{ $goal / $scale * 100 }}%"></span>
+                            @endif
                             <span class="mb-1 text-center text-[10px] font-medium text-chrome-400 opacity-0 transition group-hover:opacity-100">{{ \App\Erp\Views\ValueFormat::money($val) }}</span>
                             <div class="w-full rounded-t {{ $hit ? 'bg-emerald-500' : ($val > 0 ? 'bg-amber-400' : 'bg-chrome-100') }} {{ $isSel ? 'ring-2 ring-primary-500 ring-offset-1' : '' }}"
                                 style="height: {{ $hgt }}%"></div>
@@ -263,7 +265,7 @@
                 <span class="font-semibold text-chrome-800">{{ $targets['achievedCount'] }} / {{ $targets['targetCount'] }}</span>
                 <span class="text-chrome-500">{{ __('cars hit their target for :period', ['period' => $periodLabel]) }}</span>
             @else
-                <span class="text-chrome-500">{{ __('No car has a monthly target set yet — set one on the car page.') }}</span>
+                <span class="text-chrome-500">{{ __('No car has a target set yet — set one on the car page.') }}</span>
             @endif
         </div>
         <div class="overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">

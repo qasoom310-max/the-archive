@@ -26,52 +26,78 @@
             @endif
         </div>
 
-        {{-- Monthly sales target: set it inline, and track this month's earnings. --}}
-        @if ($vehicle->monthly_target > 0 || $canManage)
-            <div class="mb-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/[0.06]">
-                <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <h3 class="text-sm font-semibold text-chrome-800">{{ __('Sales targets') }}</h3>
+        {{-- One target for the year. Next year's and each month's are worked out. --}}
+        @if ($target !== null || $canManage)
+            @php $money = static fn (float $v): string => \App\Erp\Views\ValueFormat::money($v); @endphp
+            <div class="mb-5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/[0.06]" data-car-target>
+                <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <h3 class="text-sm font-semibold text-chrome-800">{{ __('Sales target') }}</h3>
+                        <p class="mt-1 max-w-md text-xs leading-snug text-chrome-400">
+                            {{ __('Set one target for the year. A car that reaches it starts the next year 10% higher; one that misses keeps the same target.') }}
+                        </p>
+                    </div>
                     @if ($canManage)
-                        <div class="flex items-end gap-2">
-                            <div>
-                                <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Monthly (BHD)') }}</label>
-                                <input type="number" min="0" step="0.001" wire:model="targetInput" placeholder="0.000" class="o-input w-32 text-sm">
+                        <div>
+                            <div class="flex items-end gap-2">
+                                <div>
+                                    <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Target for :year (BHD)', ['year' => now()->year]) }}</label>
+                                    <input type="number" min="0" step="0.001" wire:model="yearlyTargetInput" placeholder="0.000" class="o-input w-40 text-sm">
+                                </div>
+                                <button wire:click="saveTarget" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Save') }}</button>
                             </div>
-                            <div>
-                                {{-- A year is not twelve identical months: the car is off
-                                     the road for service and the trade has seasons. Blank
-                                     falls back to 12 × the monthly, and says so. --}}
-                                <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Yearly (BHD)') }}</label>
-                                <input type="number" min="0" step="0.001" wire:model="yearlyTargetInput" placeholder="{{ __('12 × monthly') }}" class="o-input w-32 text-sm">
-                            </div>
-                            <button wire:click="saveTarget" class="o-btn-primary text-sm">{{ __('Save') }}</button>
+                            @error('yearlyTargetInput') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
                     @endif
                 </div>
 
-                @if ($vehicle->monthly_target > 0)
-                    @php
-                        $target = (float) $vehicle->monthly_target;
-                        $pct = $target > 0 ? min(100, (int) round($earnedThisMonth / $target * 100)) : 0;
-                        $hit = $earnedThisMonth >= $target;
-                        $bar = $hit ? 'bg-emerald-500' : ($pct >= 60 ? 'bg-sky-500' : 'bg-amber-500');
-                    @endphp
-                    <div class="mb-1.5 flex items-end justify-between gap-2">
-                        <p class="text-xs text-chrome-400">{{ __('Earnings this month vs target') }}</p>
-                        <div class="text-end">
-                            <span class="text-lg font-bold {{ $hit ? 'text-emerald-600' : 'text-chrome-800' }}">{{ \App\Erp\Views\ValueFormat::money($earnedThisMonth) }}</span>
-                            <span class="text-sm text-chrome-400">/ {{ \App\Erp\Views\ValueFormat::money($target) }}</span>
-                        </div>
+                @if ($target !== null)
+                    @if ($target['source'] === 'raised')
+                        <p class="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                            {{ __('Raised automatically: the :year target of :from was reached, so this year is 10% higher.', ['year' => $target['fromYear'], 'from' => $money((float) $target['from'])]) }}
+                        </p>
+                    @elseif ($target['source'] === 'kept')
+                        <p class="mb-3 rounded-lg bg-chrome-50 px-3 py-2 text-xs text-chrome-600">
+                            {{ __('Same as :year: that target of :from was not reached, so it was not raised.', ['year' => $target['fromYear'], 'from' => $money((float) $target['from'])]) }}
+                        </p>
+                    @endif
+
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        @foreach ([
+                            ['label' => __('This year (:year)', ['year' => $target['year']]), 'earned' => $target['earnedYear'], 'goal' => $target['amount']],
+                            ['label' => __('This month (:month)', ['month' => $target['monthLabel']]), 'earned' => $target['earnedMonth'], 'goal' => $target['month']],
+                        ] as $box)
+                            @php
+                                $pct = $box['goal'] > 0 ? min(100, (int) round($box['earned'] / $box['goal'] * 100)) : 0;
+                                $hit = $box['goal'] > 0 && $box['earned'] >= $box['goal'];
+                                $bar = $hit ? 'bg-emerald-500' : ($pct >= 60 ? 'bg-sky-500' : 'bg-amber-500');
+                            @endphp
+                            <div>
+                                <div class="mb-1.5 flex items-end justify-between gap-2">
+                                    <p class="text-xs text-chrome-400">{{ $box['label'] }}</p>
+                                    <div class="text-end">
+                                        <span class="text-lg font-bold {{ $hit ? 'text-emerald-600' : 'text-chrome-800' }}">{{ $money($box['earned']) }}</span>
+                                        <span class="text-sm text-chrome-400">/ {{ $money($box['goal']) }}</span>
+                                    </div>
+                                </div>
+                                <div class="h-2.5 w-full overflow-hidden rounded-full bg-chrome-100">
+                                    <div class="h-full rounded-full {{ $bar }}" style="width: {{ $pct }}%"></div>
+                                </div>
+                                <p class="mt-1.5 text-xs {{ $hit ? 'text-emerald-600' : 'text-chrome-500' }}">
+                                    @if ($hit)
+                                        {{ __('Target reached 🎉') }}
+                                    @else
+                                        {{ __(':pct% — :amount to go', ['pct' => $pct, 'amount' => $money(max(0, $box['goal'] - $box['earned']))]) }}
+                                    @endif
+                                </p>
+                            </div>
+                        @endforeach
                     </div>
-                    <div class="h-2.5 w-full overflow-hidden rounded-full bg-chrome-100">
-                        <div class="h-full rounded-full {{ $bar }}" style="width: {{ $pct }}%"></div>
-                    </div>
-                    <p class="mt-1.5 text-xs {{ $hit ? 'text-emerald-600' : 'text-chrome-500' }}">
-                        @if ($hit)
-                            {{ __('Target reached 🎉') }}
-                        @else
-                            {{ __(':pct% — :amount to go', ['pct' => $pct, 'amount' => \App\Erp\Views\ValueFormat::money(max(0, $target - $earnedThisMonth))]) }}
-                        @endif
+
+                    <p class="mt-3 text-[11px] leading-snug text-chrome-400">
+                        {{ $target['equalMonths']
+                            ? __('The month\'s target is the year split into 12 equal months, because last year\'s sales are not complete enough to follow.')
+                            : __('The month\'s target is its share of the year, following how the fleet\'s sales fell last year.') }}
                     </p>
                 @else
                     <p class="text-xs text-chrome-400">{{ __('No target set yet.') }}</p>

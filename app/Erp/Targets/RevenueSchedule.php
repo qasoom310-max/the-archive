@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Schema;
  * A target box says "12,450 of 20,000" and stops there, which tells the owner
  * the score without telling them anything they can act on. This breaks the same
  * figure down by the thing that earned it: for Rent A Car that is the CAR,
- * because every car already carries its own monthly target, so the schedule and
+ * because every car already carries its own target, so the schedule and
  * the target are answering the same question at two levels. Limousine has no
  * vehicle register, so it groups by the type of car booked.
  *
@@ -44,11 +44,11 @@ final class RevenueSchedule
     }
 
     /**
-     * Rent A Car: one row per car, against that car's own monthly target.
+     * Rent A Car: one row per car, against that car's own target.
      *
-     * $targetFactor scales the per-car MONTHLY target to the window - 1 for a
-     * month, 12 for a year - so a car's row is judged over the same stretch as
-     * the box it sits under.
+     * $targetFactor says which stretch the row is judged over, the same as the
+     * box it sits under: 1 is the month the window starts in (that month's
+     * share of the car's yearly target), anything more is the whole year.
      *
      * @return array{rows: list<array{label: string, amount: float, jobs: int, target: float|null, pct: int|null, share: int}>, others: float, othersCount: int, total: float, dimension: string}
      */
@@ -70,14 +70,19 @@ final class RevenueSchedule
             ->get();
 
         $cars = Schema::hasTable('rental_vehicles')
-            ? DB::table('rental_vehicles')->get(['id', 'name', 'plate_no', 'monthly_target'])->keyBy('id')
+            ? DB::table('rental_vehicles')->get(['id', 'name', 'plate_no'])->keyBy('id')
             : collect();
 
         $mapped = [];
+        $targets = new CarTargets();
 
         foreach ($rows as $row) {
             $car = $row->vehicle_id === null ? null : ($cars[$row->vehicle_id] ?? null);
-            $target = $car === null ? null : round((float) $car->monthly_target * $targetFactor, 3);
+            $target = match (true) {
+                $car === null => null,
+                $targetFactor > 1.0 => $targets->yearly((int) $car->id, (int) $from->year),
+                default => $targets->monthly((int) $car->id, (int) $from->year, (int) $from->month),
+            };
 
             $mapped[] = [
                 // A car with no name still has a plate, and a job booked

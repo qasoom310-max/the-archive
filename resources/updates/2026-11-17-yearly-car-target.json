@@ -1,0 +1,82 @@
+{
+    "app": "rental",
+    "title": {
+        "en": "Car sales target: one figure for the year, and the system does the rest",
+        "ar": "هدف مبيعات السيارة: رقم واحد للسنة، والنظام يكمل الباقي"
+    },
+    "points": {
+        "en": [
+            "A car now has one sales target: the target for the year. The separate monthly box is gone.",
+            "Every new year the target moves by itself: a car that reached its target starts the new year 10% higher, a car that missed keeps the same target.",
+            "The monthly targets are worked out for you, following how the fleet's sales fell last year, so busy months carry more of the target.",
+            "The car page shows two bars, this year and this month, and says when a target was raised automatically."
+        ],
+        "ar": [
+            "أصبح للسيارة هدف مبيعات واحد: هدف السنة. خانة الهدف الشهري المنفصلة أُزيلت.",
+            "في كل سنة جديدة يتغير الهدف تلقائياً: السيارة التي حققت هدفها تبدأ السنة الجديدة بهدف أعلى بنسبة 10%، والتي لم تحققه تبقى على نفس الهدف.",
+            "الأهداف الشهرية يحسبها النظام بحسب توزيع مبيعات الأسطول في السنة الماضية، فالأشهر المزدحمة تحمل حصة أكبر من الهدف.",
+            "صفحة السيارة تعرض شريطين، لهذه السنة ولهذا الشهر، وتوضح متى رُفع الهدف تلقائياً."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, each car had two boxes: a monthly target and a yearly target. They had to be typed separately and kept in step by hand, and every January somebody had to remember to set the new year.",
+            "Now there is one box: the target for this year. On 1 January the system looks at what the car brought in over the year that just ended (its hires, its limousine trips and any figures brought from the old system). If that reached the target, the new year's target is the old one plus 10%. If it did not, the target stays the same. This repeats every year for as long as the car is active.",
+            "If a manager types a new figure for a year, that figure is used, and the 10% rule continues from it.",
+            "The monthly target is no longer typed. The year is shared over the twelve months the way all our own cars together sold last year. If last year's sales are missing for one or more months, the year is split into twelve equal months instead, and the car page says so.",
+            "Targets that were already set were kept: each car's yearly figure became its target for this year, and a car that only had a monthly figure got twelve times it.",
+            "The Targets report, Car income, the fleet scorecard and the Sales page all read the same target now. On the Targets report the dashed line is drawn per month, because each month has its own target."
+        ],
+        "ar": [
+            "في السابق كان لكل سيارة خانتان: هدف شهري وهدف سنوي. كان يجب إدخالهما منفصلين ومطابقتهما يدوياً، وفي كل يناير كان على أحدهم أن يتذكر تحديد هدف السنة الجديدة.",
+            "الآن توجد خانة واحدة: هدف هذه السنة. في 1 يناير ينظر النظام إلى ما حققته السيارة في السنة المنتهية (التأجير، ورحلات الليموزين، وأي أرقام منقولة من النظام القديم). إذا بلغ ذلك الهدف، يصبح هدف السنة الجديدة هو الهدف السابق زائد 10%. وإذا لم يبلغه، يبقى الهدف كما هو. ويتكرر ذلك كل سنة ما دامت السيارة نشطة.",
+            "إذا أدخل المدير رقماً جديداً لسنة معينة، يُعتمد ذلك الرقم، وتستمر قاعدة 10% انطلاقاً منه.",
+            "الهدف الشهري لم يعد يُدخل يدوياً. تُوزَّع السنة على الاثني عشر شهراً بحسب مبيعات جميع سياراتنا معاً في السنة الماضية. وإذا كانت مبيعات السنة الماضية ناقصة لشهر أو أكثر، تُقسم السنة على اثني عشر شهراً بالتساوي، وتوضح صفحة السيارة ذلك.",
+            "الأهداف المحددة سابقاً بقيت كما هي: الرقم السنوي لكل سيارة أصبح هدفها لهذه السنة، والسيارة التي كان لها رقم شهري فقط أخذت اثني عشر ضعفه.",
+            "تقرير الأهداف، ودخل السيارات، وبطاقة أداء الأسطول، وصفحة المبيعات تقرأ الآن نفس الهدف. في تقرير الأهداف يُرسم الخط المتقطع لكل شهر على حدة، لأن لكل شهر هدفه."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Rent A Car, then Cars, and open a car.",
+            "In the \"Sales target\" box, type the target for this year in \"Target for (year) (BHD)\" and press Save. Only a manager sees this box.",
+            "Read the two bars under it: \"This year\" is what the car has brought in against the year's target, \"This month\" is this month against its share.",
+            "A green line saying \"Raised automatically\" means last year's target was reached and this year is 10% higher. A grey line saying \"Same as (year)\" means it was not reached.",
+            "To change a target at any time, type the new figure and press Save. To remove it, clear the box and press Save.",
+            "To see all cars together, open Rent A Car, then Reports, then the Targets tab, and choose the year and the month."
+        ],
+        "ar": [
+            "افتح تأجير السيارات، ثم السيارات، وافتح سيارة.",
+            "في مربع «هدف المبيعات»، أدخل هدف هذه السنة في خانة «هدف سنة (السنة) (د.ب)» واضغط حفظ. هذه الخانة تظهر للمدير فقط.",
+            "اقرأ الشريطين تحتها: «هذه السنة» هو ما حققته السيارة مقابل هدف السنة، و«هذا الشهر» هو هذا الشهر مقابل حصته.",
+            "السطر الأخضر «تم الرفع تلقائياً» يعني أن هدف السنة الماضية تحقق وأن هدف هذه السنة أعلى بنسبة 10%. والسطر الرمادي «نفس هدف سنة (السنة)» يعني أنه لم يتحقق.",
+            "لتغيير الهدف في أي وقت، أدخل الرقم الجديد واضغط حفظ. ولحذفه، امسح الخانة واضغط حفظ.",
+            "لرؤية كل السيارات معاً، افتح تأجير السيارات، ثم التقارير، ثم تبويب الأهداف، واختر السنة والشهر."
+        ]
+    },
+    "images": [
+        {
+            "before": "before-car.png",
+            "after": "after-car.png",
+            "caption": {
+                "en": "The car page. Before: a monthly and a yearly box. After: one target for the year, with the year and the month under it.",
+                "ar": "صفحة السيارة. قبل: خانة شهرية وخانة سنوية. بعد: هدف واحد للسنة، وتحته السنة والشهر."
+            }
+        },
+        {
+            "before": "before-report.png",
+            "after": "after-report.png",
+            "caption": {
+                "en": "The Targets report. Before: one flat target line. After: each month has its own target.",
+                "ar": "تقرير الأهداف. قبل: خط هدف واحد ثابت. بعد: لكل شهر هدفه."
+            }
+        },
+        {
+            "after": "after-car-phone.png",
+            "caption": {
+                "en": "The same box on a phone.",
+                "ar": "نفس المربع على الهاتف."
+            }
+        }
+    ]
+}

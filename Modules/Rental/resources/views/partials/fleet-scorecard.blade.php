@@ -72,15 +72,9 @@
                 <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Yearly') }}</dt><dd class="font-semibold text-chrome-800">{{ $money($row['yearlyTarget']) }}</dd></div>
                 <div class="flex justify-between"><dt class="text-chrome-500">{{ $report['month'] > 0 ? __('Month so far') : __('Year so far') }}</dt><dd class="font-semibold text-chrome-800">{{ $row['attainment'] === null ? '—' : $row['attainment'].'%' }}</dd></div>
             </dl>
-            @if ($row['yearlyDerived'] && $report['month'] === 0)
-                {{-- Say so rather than passing 12 x monthly off as a plan. --}}
-                <p class="mt-2 text-[11px] leading-snug text-chrome-400">
-                    {{ __('No yearly target set, so this is 12 × the monthly one. Set a real one on the car page.') }}
-                </p>
-            @endif
         @else
             <p class="mt-2 text-sm text-chrome-400">
-                {{ $report['month'] > 0 ? __('No monthly target set for this car.') : __('No target set for this car.') }}
+                {{ __('No target set for this car.') }}
             </p>
         @endif
         @if ($row['id'] !== null)

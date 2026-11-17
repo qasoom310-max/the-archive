@@ -75,7 +75,7 @@ final class RevenueTargets
         $year = $this->work($app, $now->startOfYear(), $now->endOfYear());
         $all = $this->work($app);
 
-        $fleet = $this->fleet($app);
+        $fleet = $this->fleet($app, $now);
         $typedMonthly = $this->monthly($app);
         $typedYearly = $this->yearly($app);
 
@@ -357,29 +357,28 @@ final class RevenueTargets
      *
      * @return array{total: float, cars: int, fleet: int}|null
      */
-    public function fleet(string $app): ?array
+    public function fleet(string $app, ?CarbonImmutable $now = null): ?array
     {
         if ($app !== 'rental' || ! Schema::hasTable('rental_vehicles')) {
             return null;
         }
 
+        $now ??= CarbonImmutable::now();
+
         // Owned and active only: a car rented in from outside earns for its
         // owner, and a retired car should not still be carrying a target.
-        $row = DB::table('rental_vehicles')
-            ->where('active', true)
-            ->where('is_outside', false)
-            ->selectRaw('COALESCE(SUM(monthly_target), 0) as total, COUNT(*) as fleet, '
-                .'COALESCE(SUM(CASE WHEN monthly_target > 0 THEN 1 ELSE 0 END), 0) as cars')
-            ->first();
+        // Each car's month is its share of its yearly target.
+        $targets = new CarTargets();
+        $coverage = $targets->coverage((int) $now->year);
 
-        if ($row === null || (int) $row->fleet === 0) {
+        if ($coverage['fleet'] === 0) {
             return null;
         }
 
         return [
-            'total' => round((float) $row->total, 3),
-            'cars' => (int) $row->cars,
-            'fleet' => (int) $row->fleet,
+            'total' => $targets->fleetMonthly((int) $now->year, (int) $now->month),
+            'cars' => $coverage['cars'],
+            'fleet' => $coverage['fleet'],
         ];
     }
 

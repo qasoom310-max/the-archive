@@ -257,11 +257,9 @@ final class FleetEarningsTest extends TestCase
         $derived = $this->rowFor('222222');
 
         $this->assertEqualsWithDelta(9000.0, $typed['yearlyTarget'], 0.001);
-        $this->assertFalse($typed['yearlyDerived']);
 
-        // Falls back to twelve monthly ones, and says on screen that it did.
+        // A car that only ever had a monthly figure keeps twelve of them.
         $this->assertEqualsWithDelta(12000.0, $derived['yearlyTarget'], 0.001);
-        $this->assertTrue($derived['yearlyDerived']);
     }
 
     public function test_pace_is_measured_against_the_part_of_the_year_that_has_gone(): void
@@ -506,11 +504,11 @@ final class FleetEarningsTest extends TestCase
         $this->assertEqualsWithDelta(300.0, $row['months'][5], 0.001);
     }
 
-    public function test_a_month_is_judged_against_the_monthly_target(): void
+    public function test_a_month_is_judged_against_its_share_of_the_yearly_target(): void
     {
-        // Never a year's target squeezed into one month: 500 against a 1,000
-        // monthly target is 50%, whatever the yearly target says.
-        $car = $this->car('Sunny', '111111', 1000.0, 36000.0);
+        // Never a year's target squeezed into one month: with no last year to
+        // follow, March carries a twelfth of 12,000, and 500 against it is 50%.
+        $car = $this->car('Sunny', '111111', 0.0, 12000.0);
         $this->hire($car, '2026-03-01', '2026-03-10', 500);
 
         $row = collect((new FleetPerformance(2026, 3))->report()['rows'])->firstWhere('plate', '111111');

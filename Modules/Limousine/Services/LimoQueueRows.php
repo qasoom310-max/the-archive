@@ -72,6 +72,11 @@ final class LimoQueueRows
      */
     public const TAB_NEEDS_CREW = 'needs_crew';
 
+    /** The two kinds of customer the Unpaid list can be narrowed to. */
+    public const KIND_COMPANY = 'company';
+
+    public const KIND_INDIVIDUAL = 'individual';
+
     /**
      * The columns the queue can be ordered by — every column it prints except
      * Sl No., which is only the position in the list it is already in.
@@ -89,7 +94,7 @@ final class LimoQueueRows
      *
      * @return Builder<LimoLeg>
      */
-    public function query(string $tab = 'all', string $from = '', string $to = '', string $search = '', string $sort = '', string $dir = 'desc', bool $onlyLive = false, string $driver = ''): Builder
+    public function query(string $tab = 'all', string $from = '', string $to = '', string $search = '', string $sort = '', string $dir = 'desc', bool $onlyLive = false, string $driver = '', string $customerKind = '', int $customerId = 0): Builder
     {
         $query = LimoLeg::query()
             ->whereMorphedTo('legable', LimoBooking::class)
@@ -208,7 +213,92 @@ final class LimoQueueRows
             $this->onlyDriver($query, $driver);
         }
 
+        if ($customerKind !== '' || $customerId > 0) {
+            $this->onlyCustomer($query, $customerKind, $customerId);
+        }
+
         return $query;
+    }
+
+    /**
+     * One kind of customer (companies, or everyone else), or one customer.
+     *
+     * A customer is a company or it is not: a booking with no customer on it,
+     * or one whose customer has no kind recorded, counts with the individuals,
+     * so the two kinds always add up to the whole list. An unknown kind matches
+     * nothing rather than quietly showing every trip.
+     *
+     * @param  Builder<LimoLeg>  $query
+     */
+    private function onlyCustomer(Builder $query, string $kind, int $customerId): void
+    {
+        if (! in_array($kind, ['', self::KIND_COMPANY, self::KIND_INDIVIDUAL], true)) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $query->whereHasMorph('legable', LimoBooking::class, function (Builder $booking) use ($kind, $customerId): void {
+            if ($customerId > 0) {
+                $booking->where('customer_id', $customerId);
+            }
+            if ($kind === self::KIND_COMPANY) {
+                $booking->whereHas('customer', fn (Builder $c) => $c->where('type', LimoCustomer::TYPE_COMPANY));
+            } elseif ($kind === self::KIND_INDIVIDUAL) {
+                $booking->whereDoesntHave('customer', fn (Builder $c) => $c->where('type', LimoCustomer::TYPE_COMPANY));
+            }
+        });
+    }
+
+    /**
+     * Who owes money on the Unpaid list, split into companies and individuals.
+     *
+     * Read from the same query as the list (same dates, same search), so the
+     * number on a box is the number of customers whose trips are listed under
+     * it. A booking is counted once however many trips it has: `balance` is
+     * what the customer still owes across their bookings, `trips` how many
+     * rows of the list are theirs.
+     *
+     * @return array<string, list<array{id: int, name: string, trips: int, balance: float}>>
+     */
+    public function unpaidCustomers(string $from = '', string $to = '', string $search = ''): array
+    {
+        $legs = $this->table(LimoLeg::class);
+        $tripsPerBooking = [];
+        foreach ($this->query(self::TAB_UNPAID, $from, $to, $search)->reorder()->toBase()->pluck($legs . '.legable_id') as $bookingId) {
+            $tripsPerBooking[(int) $bookingId] = ($tripsPerBooking[(int) $bookingId] ?? 0) + 1;
+        }
+
+        $kinds = [self::KIND_COMPANY => [], self::KIND_INDIVIDUAL => []];
+        foreach (array_chunk(array_keys($tripsPerBooking), 500) as $ids) {
+            $bookings = LimoBooking::withInvoicesPaidOn(LimoBooking::query()->whereIn('id', $ids))
+                ->with('customer:id,name,type')
+                ->get();
+
+            foreach ($bookings as $booking) {
+                $customer = $booking->customer;
+                $kind = $customer !== null && $customer->isCompany() ? self::KIND_COMPANY : self::KIND_INDIVIDUAL;
+                $id = $customer !== null ? (int) $customer->id : 0;
+
+                $kinds[$kind][$id] ??= [
+                    'id' => $id,
+                    'name' => $customer !== null ? (string) $customer->name : __('No customer'),
+                    'trips' => 0,
+                    'balance' => 0.0,
+                ];
+                $kinds[$kind][$id]['trips'] += $tripsPerBooking[(int) $booking->id] ?? 0;
+                $kinds[$kind][$id]['balance'] = round($kinds[$kind][$id]['balance'] + $booking->amountOwed(), 3);
+            }
+        }
+
+        // Whoever owes the most first: that is who to ring first.
+        foreach ($kinds as $kind => $list) {
+            $list = array_values($list);
+            usort($list, static fn (array $a, array $b): int => [-$a['balance'], mb_strtolower($a['name'])] <=> [-$b['balance'], mb_strtolower($b['name'])]);
+            $kinds[$kind] = $list;
+        }
+
+        return $kinds;
     }
 
     /**
@@ -479,9 +569,9 @@ final class LimoQueueRows
     /**
      * @return LengthAwarePaginator<int, LimoLeg>
      */
-    public function paginate(string $tab, string $from, string $to, string $search = '', int $perPage = 20, string $sort = '', string $dir = 'desc', string $driver = ''): LengthAwarePaginator
+    public function paginate(string $tab, string $from, string $to, string $search = '', int $perPage = 20, string $sort = '', string $dir = 'desc', string $driver = '', string $customerKind = '', int $customerId = 0): LengthAwarePaginator
     {
-        return $this->query($tab, $from, $to, $search, $sort, $dir, false, $driver)->paginate($perPage);
+        return $this->query($tab, $from, $to, $search, $sort, $dir, false, $driver, $customerKind, $customerId)->paginate($perPage);
     }
 
     /**
@@ -889,12 +979,12 @@ final class LimoQueueRows
      *
      * @return list<QueueRow>
      */
-    public function all(string $tab, string $from, string $to, string $search = '', string $sort = '', string $dir = 'desc', bool $onlyLive = false, string $driver = ''): array
+    public function all(string $tab, string $from, string $to, string $search = '', string $sort = '', string $dir = 'desc', bool $onlyLive = false, string $driver = '', string $customerKind = '', int $customerId = 0): array
     {
         $rows = [];
         // `chunk` needs a total order to page through safely, which every sort
         // has: applySort always trails sequence and id.
-        $this->query($tab, $from, $to, $search, $sort, $dir, $onlyLive, $driver)->chunk(200, function ($legs) use (&$rows): void {
+        $this->query($tab, $from, $to, $search, $sort, $dir, $onlyLive, $driver, $customerKind, $customerId)->chunk(200, function ($legs) use (&$rows): void {
             foreach ($legs as $leg) {
                 $rows[] = $this->row($leg);
             }

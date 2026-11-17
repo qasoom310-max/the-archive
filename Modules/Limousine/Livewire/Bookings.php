@@ -91,6 +91,17 @@ final class Bookings extends Component
     public string $driver = '';
 
     /**
+     * The Companies / Individuals box pressed on the Unpaid tab: `company`,
+     * `individual`, or '' for everyone. Ignored on every other tab.
+     */
+    #[Url(as: 'kind', except: '')]
+    public string $customerKind = '';
+
+    /** One customer picked from the names under a box (0 = all of that kind). */
+    #[Url(as: 'customer', except: 0)]
+    public int $customerId = 0;
+
+    /**
      * Which column the list is ordered by, and which way.
      *
      * In the URL beside the filters, because a sorted queue is a view of the
@@ -1403,6 +1414,9 @@ final class Bookings extends Component
         $this->tab = $tab;
         // A tab leaves the day page, and its driver tabs with it.
         $this->driver = '';
+        // …and the Unpaid tab's customer boxes.
+        $this->customerKind = '';
+        $this->customerId = 0;
         $this->resetPage();
     }
 
@@ -1608,6 +1622,44 @@ final class Bookings extends Component
         return $this->singleDay() !== null ? $this->driver : '';
     }
 
+    /**
+     * Press a box on the Unpaid tab: Companies or Individuals. Pressing the one
+     * already open closes it and shows everyone again.
+     */
+    public function setCustomerKind(string $kind): void
+    {
+        if (! in_array($kind, [LimoQueueRows::KIND_COMPANY, LimoQueueRows::KIND_INDIVIDUAL], true)) {
+            $kind = '';
+        }
+
+        $this->customerKind = $this->customerKind === $kind ? '' : $kind;
+        $this->customerId = 0;
+        $this->resetPage();
+    }
+
+    /** Press a name under a box: that customer's trips only. Again = all of them. */
+    public function setUnpaidCustomer(int $customerId): void
+    {
+        $customerId = max(0, $customerId);
+        $this->customerId = $this->customerId === $customerId ? 0 : $customerId;
+        $this->resetPage();
+    }
+
+    /** The box in force: only the Unpaid tab has them. */
+    private function customerKindFilter(): string
+    {
+        return $this->tab === LimoQueueRows::TAB_UNPAID
+            && in_array($this->customerKind, [LimoQueueRows::KIND_COMPANY, LimoQueueRows::KIND_INDIVIDUAL], true)
+            ? $this->customerKind
+            : '';
+    }
+
+    /** The one customer in force: only under an open box. */
+    private function customerIdFilter(): int
+    {
+        return $this->customerKindFilter() !== '' ? max(0, $this->customerId) : 0;
+    }
+
     public function updatedSearch(): void
     {
         // Typing while on a deep page would otherwise leave the user on a page
@@ -1627,7 +1679,20 @@ final class Bookings extends Component
         $rows = app(LimoQueueRows::class);
         $perPage = in_array($this->perPage, self::PER_PAGE_OPTIONS, true) ? $this->perPage : self::PER_PAGE_DEFAULT;
         $driver = $this->driverFilter();
-        $legs = $rows->paginate($this->tab, $this->from, $this->to, $this->search, $perPage, $this->sort, $this->dir, $driver);
+        $kind = $this->customerKindFilter();
+        // Who owes, split into companies and individuals, for the two boxes
+        // on the Unpaid tab. Same dates and search as the list under them.
+        $unpaidCustomers = $this->tab === LimoQueueRows::TAB_UNPAID
+            ? $rows->unpaidCustomers($this->from, $this->to, $this->search)
+            : [];
+        // A name picked earlier may have left the list (paid, or the dates
+        // changed): show the whole box again rather than an empty page with
+        // nothing lit up to explain it.
+        $customerId = $this->customerIdFilter();
+        if ($customerId > 0 && ! in_array($customerId, array_column($unpaidCustomers[$kind] ?? [], 'id'), true)) {
+            $customerId = 0;
+        }
+        $legs = $rows->paginate($this->tab, $this->from, $this->to, $this->search, $perPage, $this->sort, $this->dir, $driver, $kind, $customerId);
 
         // A search that finds nothing on this tab may still find trips on the
         // others (the list opens on Queue, and most trips are Completed); say
@@ -1705,7 +1770,11 @@ final class Bookings extends Component
                 'tab' => $this->tab, 'from' => $this->from, 'to' => $this->to,
                 'search' => $this->search, 'sort' => $this->sort, 'dir' => $this->dir,
                 'driver' => $driver,
+                'kind' => $kind, 'customer' => $customerId ?: '',
             ]),
+            'unpaidCustomers' => $unpaidCustomers,
+            'activeKind' => $kind,
+            'activeCustomer' => $customerId,
             'counts' => $counts,
             // Each row's booking's invoice and receipts, for the 3-dot menu.
             'paperwork' => $this->paperwork(array_map(static fn (LimoLeg $l): int => (int) $l->legable_id, $legs->items())),

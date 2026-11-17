@@ -148,7 +148,13 @@ final class LimoQueueExportController
         // …and the driver tab of a day page, so a driver's sheet prints as shown.
         $driver = (string) $request->query('driver', '');
 
-        return [$this->rows->all($tab, $from, $to, $search, $sort, $dir, false, $driver), $this->rows->headings()];
+        // …and the Companies / Individuals box of the Unpaid tab, with the one
+        // customer picked under it. Only that tab has them.
+        $unpaid = $tab === LimoQueueRows::TAB_UNPAID;
+        $kind = $unpaid ? (string) $request->query('kind', '') : '';
+        $customer = $unpaid ? max(0, (int) $request->query('customer', 0)) : 0;
+
+        return [$this->rows->all($tab, $from, $to, $search, $sort, $dir, false, $driver, $kind, $customer), $this->rows->headings()];
     }
 
     /**

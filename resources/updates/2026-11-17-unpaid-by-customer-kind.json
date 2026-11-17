@@ -1,0 +1,77 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Limousine unpaid list: two boxes, Companies and Individuals, with the names under them",
+        "ar": "قائمة غير المدفوع في الليموزين: مربعان، الشركات والأفراد، والأسماء تحتهما"
+    },
+    "points": {
+        "en": [
+            "The Unpaid tab of Bookings now has two boxes: Companies and Individuals. Each shows how many customers of that kind still owe money.",
+            "Press a box to see the names under it, and the list below shows only their trips.",
+            "Press a name to see only that customer's trips. Beside each name is how many trips and how much they owe."
+        ],
+        "ar": [
+            "تبويب «غير مدفوع» في الحجوزات فيه الآن مربعان: الشركات والأفراد. كل مربع يعرض عدد العملاء من هذا النوع الذين عليهم مبالغ.",
+            "اضغط على مربع لترى الأسماء تحته، والقائمة في الأسفل تعرض رحلاتهم فقط.",
+            "اضغط على اسم لترى رحلات هذا العميل فقط. بجانب كل اسم عدد الرحلات والمبلغ المستحق عليه."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the Unpaid tab was one long list of trips. To know who owed money you had to read down the Customer column, and companies and private customers were mixed together.",
+            "Now two boxes sit above the list. The big number is customers, not trips: a company with ten unpaid trips counts once. Under the number is the count of trips and the total still owed.",
+            "Pressing a box opens the names of that kind, the one who owes the most first. The list below, and the CSV, Excel, PDF and Print buttons, follow the box you pressed.",
+            "A customer saved as a company is under Companies. Everyone else is under Individuals, so the two boxes together always cover the whole list.",
+            "The boxes follow the dates and the search you set, the same as the list. Press the same box again, or \"Show everyone\", to go back to the full list."
+        ],
+        "ar": [
+            "في السابق كان تبويب «غير مدفوع» قائمة طويلة واحدة من الرحلات. لمعرفة من عليه مبالغ كان يجب قراءة عمود العميل، والشركات والأفراد مختلطون معاً.",
+            "الآن يوجد مربعان فوق القائمة. الرقم الكبير هو عدد العملاء وليس الرحلات: الشركة التي لها عشر رحلات غير مدفوعة تُحسب مرة واحدة. تحت الرقم عدد الرحلات وإجمالي المبلغ المستحق.",
+            "الضغط على مربع يفتح أسماء هذا النوع، والأكثر مديونية أولاً. القائمة في الأسفل وأزرار CSV و Excel و PDF والطباعة تتبع المربع الذي ضغطته.",
+            "العميل المسجل كشركة يظهر تحت الشركات. والباقون تحت الأفراد، فالمربعان معاً يغطيان القائمة كلها دائماً.",
+            "المربعان يتبعان التواريخ والبحث مثل القائمة. اضغط المربع نفسه مرة أخرى، أو «عرض الجميع»، للعودة إلى القائمة الكاملة."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Bookings.",
+            "Press the Unpaid tab.",
+            "Read the two boxes: how many companies and how many individuals owe money.",
+            "Press Companies or Individuals. The names appear under the boxes and the list shows only their trips.",
+            "Press a name to see that customer's trips only. Press it again to see the whole box.",
+            "Press \"Show everyone\" to go back to the full unpaid list."
+        ],
+        "ar": [
+            "افتح الليموزين، ثم الحجوزات.",
+            "اضغط تبويب «غير مدفوع».",
+            "اقرأ المربعين: كم شركة وكم فرداً عليهم مبالغ.",
+            "اضغط الشركات أو الأفراد. تظهر الأسماء تحت المربعين والقائمة تعرض رحلاتهم فقط.",
+            "اضغط على اسم لترى رحلات هذا العميل فقط. اضغطه مرة أخرى لترى المربع كله.",
+            "اضغط «عرض الجميع» للعودة إلى قائمة غير المدفوع الكاملة."
+        ]
+    },
+    "images": [
+        {
+            "before": "unpaid-before.png",
+            "after": "unpaid-after.png",
+            "caption": {
+                "en": "The Unpaid tab. After: the two boxes above the list.",
+                "ar": "تبويب غير مدفوع. بعد: المربعان فوق القائمة."
+            }
+        },
+        {
+            "after": "unpaid-names.png",
+            "caption": {
+                "en": "Individuals pressed: the names under the boxes, and the list shows their trips.",
+                "ar": "بعد الضغط على الأفراد: الأسماء تحت المربعين والقائمة تعرض رحلاتهم."
+            }
+        },
+        {
+            "after": "unpaid-phone.png",
+            "caption": {
+                "en": "Companies pressed, on a phone.",
+                "ar": "بعد الضغط على الشركات، على الهاتف."
+            }
+        }
+    ]
+}

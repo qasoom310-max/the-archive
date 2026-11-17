@@ -5647,3 +5647,14 @@ saves and returns to the camera (`$savedReference` confirms inline); `save()`/`s
 `clear()` resets without touching the photo, `discard()` deletes it. Scan actions are `sticky bottom-0` on phones.
 Engine-wide phone changes made with it: `form-view` shows a second Save at the bottom of a NEW record (`sm:hidden`),
 and the layout's save toast sits at the bottom below `sm`. Tests: `LimoExpenseReferenceTest`, `LimoExpenseScanTest` (+1).
+
+**Limousine Unpaid tab — Companies / Individuals boxes (shipped 2026-11-17).**
+`LimoQueueRows::unpaidCustomers(from, to, search)` splits who owes on the Unpaid
+list into `company` / `individual` (a booking with no customer, or a customer
+that is not a company, counts as individual, so the two always cover the list);
+each entry is `{id, name, trips, balance}`, a booking's balance counted once.
+`query()` / `paginate()` / `all()` take trailing `$customerKind`, `$customerId`.
+`Bookings` holds them as `$customerKind` (`?kind=`) and `$customerId`
+(`?customer=`), in force on the Unpaid tab only, cleared by `openTab()`; a
+picked name that left the list falls back to the whole box. The exports read
+`kind` / `customer` too. Test: `tests/Feature/LimoUnpaidByCustomerKindTest.php` (6).

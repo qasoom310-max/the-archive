@@ -246,6 +246,76 @@
         @endforeach
     </div>
 
+    {{-- Who owes, on the Unpaid tab: one box for companies, one for
+         individuals. A box shows how many customers of that kind owe money;
+         pressing it lists their names under it and narrows the list below to
+         their trips. Pressing a name narrows it to that one customer. --}}
+    @if ($tab === 'unpaid' && $unpaidCustomers !== [])
+        @php
+            $kindBoxes = [
+                'company' => __('Companies'),
+                'individual' => __('Individuals'),
+            ];
+        @endphp
+        <div class="mb-4" data-unpaid-kinds>
+            <div class="grid grid-cols-2 gap-3 sm:max-w-xl">
+                @foreach ($kindBoxes as $kindKey => $kindLabel)
+                    @php
+                        $kindList = $unpaidCustomers[$kindKey] ?? [];
+                        $kindOwed = array_sum(array_column($kindList, 'balance'));
+                        $kindTrips = array_sum(array_column($kindList, 'trips'));
+                    @endphp
+                    <button type="button" wire:click="setCustomerKind('{{ $kindKey }}')"
+                            aria-pressed="{{ $activeKind === $kindKey ? 'true' : 'false' }}"
+                            data-unpaid-kind="{{ $kindKey }}"
+                            @class(['rounded-xl border p-3 text-start transition',
+                                    'border-primary-500 bg-primary-50 ring-2 ring-primary-400' => $activeKind === $kindKey,
+                                    'border-chrome-200 bg-white hover:border-chrome-300 hover:bg-chrome-50' => $activeKind !== $kindKey])>
+                        <div class="flex items-baseline justify-between gap-2">
+                            <span class="text-sm font-medium text-chrome-700">{{ $kindLabel }}</span>
+                            <span class="text-2xl font-bold tracking-tight text-chrome-900" data-unpaid-kind-count>{{ count($kindList) }}</span>
+                        </div>
+                        <div class="mt-1 text-xs text-chrome-500">
+                            {{ __(':count trips', ['count' => $kindTrips]) }}
+                            · <span class="font-semibold text-red-600">{{ \App\Erp\Views\ValueFormat::money($kindOwed) }}</span>
+                        </div>
+                    </button>
+                @endforeach
+            </div>
+
+            @if ($activeKind !== '')
+                @php $names = $unpaidCustomers[$activeKind] ?? []; @endphp
+                <div class="mt-3 rounded-xl border border-chrome-200 bg-white p-3" data-unpaid-names>
+                    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <span class="text-xs font-medium text-chrome-700">
+                            {{ $kindBoxes[$activeKind] }} — {{ __('press a name to see only their trips') }}
+                        </span>
+                        <button type="button" wire:click="setCustomerKind('')" class="text-xs font-medium text-primary-700 hover:underline">{{ __('Show everyone') }}</button>
+                    </div>
+                    @if ($names === [])
+                        <p class="text-sm text-chrome-500">{{ __('Nobody of this kind owes anything here.') }}</p>
+                    @else
+                        <div class="flex max-h-56 flex-wrap gap-1.5 overflow-y-auto">
+                            @foreach ($names as $who)
+                                @php $picked = $who['id'] > 0 && $activeCustomer === $who['id']; @endphp
+                                <button type="button"
+                                        @if ($who['id'] > 0) wire:click="setUnpaidCustomer({{ $who['id'] }})" @else disabled @endif
+                                        data-unpaid-name="{{ $who['id'] }}"
+                                        @class(['rounded-lg px-2.5 py-1.5 text-start text-xs ring-1 transition',
+                                                'bg-primary-400 font-semibold text-chrome-900 ring-primary-500' => $picked,
+                                                'bg-white text-chrome-800 ring-chrome-200 hover:bg-chrome-50' => ! $picked])>
+                                    <span class="font-medium">{{ $who['name'] }}</span>
+                                    <span class="ms-1 text-chrome-500">{{ $who['trips'] }}</span>
+                                    <span class="ms-1 font-semibold {{ $picked ? 'text-chrome-900' : 'text-red-600' }}">{{ \App\Erp\Views\ValueFormat::money($who['balance']) }}</span>
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            @endif
+        </div>
+    @endif
+
     <div class="mb-4 flex flex-wrap items-end gap-3">
         <div class="min-w-[16rem] flex-1">
             <label class="mb-1 block text-xs font-medium text-chrome-700">{{ __('Search') }}</label>

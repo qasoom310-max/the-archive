@@ -1,0 +1,45 @@
+{
+    "app": "limousine",
+    "title": { "en": "Limousine expenses are numbered Rf/Exp123, Rf/Exp124…", "ar": "ترقيم مصروفات الليموزين أصبح Rf/Exp123 ثم Rf/Exp124…" },
+    "points": {
+        "en": [
+            "A new expense now gets a number like Rf/Exp123. The first one is Rf/Exp123 and each next one goes up by one.",
+            "Expenses you already have keep their old number."
+        ],
+        "ar": [
+            "أصبح كل مصروف جديد يأخذ رقماً مثل Rf/Exp123. أول مصروف Rf/Exp123 وكل مصروف بعده يزيد واحداً.",
+            "المصروفات الموجودة تبقى بأرقامها القديمة."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, a new expense was numbered like EXP/00001.",
+            "Now a new expense is numbered Rf/Exp followed by a number, starting at Rf/Exp123. Each new expense takes the next number after the highest Rf/Exp number already saved. This applies to expenses added by hand, from a scanned bill and from petty cash. An expense brought in by Import keeps the reference written in the file.",
+            "Old expenses are not renumbered, so anything already printed or written down still matches."
+        ],
+        "ar": [
+            "سابقاً كان المصروف الجديد يأخذ رقماً مثل EXP/00001.",
+            "الآن يأخذ المصروف الجديد الرقم Rf/Exp يليه رقم، بدءاً من Rf/Exp123. كل مصروف جديد يأخذ الرقم التالي لأعلى رقم Rf/Exp محفوظ. ينطبق هذا على المصروفات المضافة يدوياً ومن مسح الفاتورة ومن العهدة النقدية. والمصروف المستورد عبر الاستيراد يحتفظ بالرقم المكتوب في الملف.",
+            "المصروفات القديمة لا يتغير رقمها، فكل ما طُبع أو كُتب سابقاً يبقى مطابقاً."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Expenses.",
+            "Press New, fill in the expense and save.",
+            "In the list, the new expense shows a reference like Rf/Exp123."
+        ],
+        "ar": [
+            "افتح الليموزين ثم المصروفات.",
+            "اضغط جديد، واملأ بيانات المصروف واحفظه.",
+            "في القائمة يظهر للمصروف الجديد رقم مثل Rf/Exp123."
+        ]
+    },
+    "images": [
+        {
+            "before": "list-before.png",
+            "after": "list-after.png",
+            "caption": { "en": "The expenses list after adding a new expense.", "ar": "قائمة المصروفات بعد إضافة مصروف جديد." }
+        }
+    ]
+}

@@ -92,8 +92,41 @@ final class LimoExpense extends Model implements DefinesIrModel
      * That figure is then taken as the amount before VAT with no VAT, which
      * leaves the total exactly what was written.
      */
+    /** New expenses are numbered Rf/Exp123, Rf/Exp124… (the owner's format). */
+    public const REFERENCE_PREFIX = 'Rf/Exp';
+
+    /** The first number when no expense carries the new format yet. */
+    public const REFERENCE_START = 123;
+
+    /**
+     * The next reference: one more than the highest Rf/Exp number on file,
+     * never below REFERENCE_START. Older EXP/00001-style references are left
+     * as they are and do not count.
+     */
+    public static function nextReference(): string
+    {
+        $highest = self::REFERENCE_START - 1;
+        foreach (self::query()->where('reference', 'like', self::REFERENCE_PREFIX . '%')->pluck('reference') as $reference) {
+            $digits = substr((string) $reference, strlen(self::REFERENCE_PREFIX));
+            if (ctype_digit($digits)) {
+                $highest = max($highest, (int) $digits);
+            }
+        }
+
+        return self::REFERENCE_PREFIX . ($highest + 1);
+    }
+
     protected static function booted(): void
     {
+        // Numbered before the row is written, so HasReference (which only
+        // fills a blank reference) leaves it alone. A reference given by an
+        // import is kept.
+        static::creating(static function (LimoExpense $expense): void {
+            if (trim((string) $expense->reference) === '') {
+                $expense->reference = self::nextReference();
+            }
+        });
+
         static::saving(static function (LimoExpense $expense): void {
             $rate = (int) $expense->vat_rate;
             if (! in_array($rate, self::VAT_RATES, true)) {

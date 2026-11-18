@@ -63,6 +63,9 @@
                     @foreach ([['Orders', '/app/rental/order'], ['Quotations', '/app/rental/quotation'], ['Invoices', '/app/rental/invoice'], ['Receipts', '/app/rental/receipt'], ['Replacements', '/app/rental/replacement'], ['Maintenance', '/app/rental/maintenance'], ['Web bookings', '/app/rental/web_booking'], ['Travel authorizations', '/app/rental/travel-permit'], ['Sales', '/app/rental/sales'], ['Reports', '/app/rental/reports']] as [$lbl, $href])
                         <a href="{{ url($href) }}" wire:navigate class="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90 ring-1 ring-white/10 transition hover:bg-white/20">{{ __($lbl) }}</a>
                     @endforeach
+                    @if ($canSeeRefunds)
+                        <a href="{{ url('/app/rental/refunds') }}" wire:navigate data-refunds-link class="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90 ring-1 ring-white/10 transition hover:bg-white/20">{{ __('Deposit refunds') }}</a>
+                    @endif
                 </div>
             </div>
         </div>
@@ -159,6 +162,7 @@
                         </li>
                     @endforeach
                 </ul>
+                <a href="{{ url('/app/rental/refunds') }}" wire:navigate class="block border-t border-emerald-200/70 px-4 py-2 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100/50">{{ __('See the deposits coming up next') }} →</a>
         </div>
     @endif
 

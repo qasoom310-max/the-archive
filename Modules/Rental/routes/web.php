@@ -35,6 +35,7 @@ use Modules\Rental\Livewire\WebBookings;
 use Modules\Rental\Livewire\WebBookingSettings;
 use Modules\Rental\Livewire\Branches;
 use Modules\Rental\Livewire\CustomerForm;
+use Modules\Rental\Livewire\DepositRefunds;
 use Modules\Rental\Livewire\Customers;
 use Modules\Rental\Livewire\DriverForm;
 use Modules\Rental\Livewire\Drivers;
@@ -71,6 +72,9 @@ Route::post('/rental/web-booking', WebBookingController::class)
 Route::middleware('auth')->group(function (): void {
     // App landing — the operations dashboard (fleet availability KPIs).
     Route::get('/app/rental', RentalHome::class)->name('rental.home');
+
+    // Deposits still held, soonest to go back first (accountant / super-admin).
+    Route::get('/app/rental/refunds', DepositRefunds::class)->name('rental.refunds');
 
     // Orders — bespoke list (status tabs + date search) and contract form.
     Route::get('/app/rental/order/export/csv', [RentalOrderExportController::class, 'csv'])->name('rental.order.export.csv');

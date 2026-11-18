@@ -1,0 +1,77 @@
+{
+    "app": "rental",
+    "title": {
+        "en": "Rent A Car: a Deposit refunds page with every deposit still held and when it goes back",
+        "ar": "تأجير السيارات: صفحة استرداد التأمينات، فيها كل تأمين ما زال عندنا ومتى يُرجع"
+    },
+    "points": {
+        "en": [
+            "There is a new page, Deposit refunds. It lists every deposit the office still holds, the soonest to go back first.",
+            "It has three groups: due now, coming up (the car is back and the hold is running), and car still out.",
+            "Each row shows the date the deposit goes back and how many days are left. Press a row to open the order and refund it.",
+            "A row warns you if the traffic fines were not checked yet, or if the return had damage or extra charges."
+        ],
+        "ar": [
+            "توجد صفحة جديدة: استرداد التأمينات. فيها كل تأمين ما زال عند المكتب، والأقرب موعداً أولاً.",
+            "فيها ثلاث مجموعات: مستحق الآن، قادم (السيارة رجعت ومدة الحجز جارية)، والسيارة لم ترجع بعد.",
+            "كل سطر يبيّن تاريخ إرجاع التأمين وعدد الأيام الباقية. اضغط السطر لفتح الطلب وإرجاع التأمين.",
+            "السطر ينبّهك إذا لم تُفحص المخالفات المرورية بعد، أو إذا كان في الإرجاع ضرر أو رسوم إضافية."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the Rent A Car home page showed only the deposits whose hold had already ended. A deposit that was still inside its hold, or on a car that was still out, was not listed anywhere. To find one you had to remember the order and search for it.",
+            "Now one page shows all of them, with the total money in each group at the top, so you can see how much will have to be paid back and when.",
+            "The rules did not change. A deposit is held for 14 days after the car is returned. Refunding before that is still for a super-admin only; an accountant sees the row as Locked.",
+            "For a car that is still out, the date is only a guess: the day the car is due back plus 14 days. It moves if the car comes back early or late.",
+            "The page only lists. The refund itself is still done inside the order, where the amount, the reason and the photos are recorded."
+        ],
+        "ar": [
+            "في السابق كانت الصفحة الرئيسية لتأجير السيارات تعرض فقط التأمينات التي انتهت مدة حجزها. التأمين الذي ما زال داخل مدة الحجز، أو على سيارة لم ترجع، لم يكن يظهر في أي مكان. وللوصول إليه كان عليك أن تتذكر الطلب وتبحث عنه.",
+            "الآن صفحة واحدة تعرضها كلها، مع مجموع المبالغ في كل مجموعة في الأعلى، فترى كم يجب أن يُدفع ومتى.",
+            "القواعد لم تتغير. التأمين يُحجز 14 يوماً بعد إرجاع السيارة. الإرجاع قبل ذلك ما زال للمدير العام فقط، والمحاسب يرى السطر «مقفل».",
+            "للسيارة التي لم ترجع بعد، التاريخ تقديري فقط: يوم الإرجاع المتوقع زائد 14 يوماً. ويتغير إذا رجعت السيارة مبكراً أو متأخراً.",
+            "الصفحة للعرض فقط. الإرجاع نفسه ما زال يتم داخل الطلب، حيث يُسجَّل المبلغ والسبب والصور."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Rent A Car. In the dark box at the top, press Deposit refunds.",
+            "Read the three boxes at the top: how many deposits and how much money in each group. Press a box to jump to its list.",
+            "To refund a deposit early, find it under Coming up or Car still out and press the row. The order opens.",
+            "In the order, press Settle early, choose refund in full, cut part, or keep it all, and confirm.",
+            "If the row says the traffic fines were not checked yet, check them first. After an early refund there is no deposit left to cut a fine from."
+        ],
+        "ar": [
+            "افتح تأجير السيارات. في المربع الداكن في الأعلى اضغط «استرداد التأمينات».",
+            "اقرأ المربعات الثلاثة في الأعلى: عدد التأمينات والمبلغ في كل مجموعة. اضغط مربعاً للانتقال إلى قائمته.",
+            "لإرجاع تأمين مبكراً، ابحث عنه تحت «قادم» أو «السيارة لم ترجع بعد» واضغط السطر. يُفتح الطلب.",
+            "داخل الطلب اضغط «تسوية مبكرة»، واختر إرجاع كامل، أو خصم جزء، أو الاحتفاظ بالكل، ثم أكّد.",
+            "إذا كُتب في السطر أن المخالفات المرورية لم تُفحص بعد، افحصها أولاً. بعد الإرجاع المبكر لا يبقى تأمين تُخصم منه المخالفة."
+        ]
+    },
+    "images": [
+        {
+            "before": "home-before.png",
+            "after": "home-after.png",
+            "caption": {
+                "en": "The Rent A Car home page. After: the Deposit refunds button in the top box.",
+                "ar": "الصفحة الرئيسية لتأجير السيارات. بعد: زر «استرداد التأمينات» في المربع العلوي."
+            }
+        },
+        {
+            "after": "page-after.png",
+            "caption": {
+                "en": "The new Deposit refunds page.",
+                "ar": "صفحة استرداد التأمينات الجديدة."
+            }
+        },
+        {
+            "after": "page-phone.png",
+            "caption": {
+                "en": "The same page on a phone.",
+                "ar": "الصفحة نفسها على الهاتف."
+            }
+        }
+    ]
+}

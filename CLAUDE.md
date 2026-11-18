@@ -5671,3 +5671,15 @@ over booking trips that are not cancelled, merged case-insensitively per country
 button → `addPlace($key)` (Create on `limousine.location`, key re-checked against
 `top()` so only a place trips used can be added; hidden from a `TripDetailsLock`
 user). Different spellings are NOT merged. Test: `LimoTopPickupPlacesTest` (6).
+
+**Rent A Car — Deposit refunds page (shipped 2026-11-18).** `/app/rental/refunds`
+(`rental.refunds`, `Modules\Rental\Livewire\DepositRefunds`): every HELD deposit
+in three groups, soonest first — **Due now** (returned, hold ended; same
+date rule as the home box), **Coming up** (returned, inside the 14-day hold) and
+**Car still out** (active order, date = `end_date` + hold, a guess). Read on
+`rental.order` AND `canConfirmPayments()`, else 403. The page only LISTS: a row
+opens its order, where the existing settle modal lives and where the
+super-admin-only early-settle rule is enforced — do not duplicate that rule
+here. Rows flag `finesCheckPending()` and damage / extra / fuel charges. Linked
+from the home hero pills and the "Deposits to refund" box. Tests:
+`tests/Feature/RentalDepositRefundsPageTest.php` (6).

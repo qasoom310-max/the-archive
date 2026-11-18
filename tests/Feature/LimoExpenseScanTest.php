@@ -362,4 +362,22 @@ final class LimoExpenseScanTest extends TestCase
         $page->set('driver', ExpenseScan::NO_DRIVER)->call('saveAndNext')->assertHasNoErrors();
         $this->assertNull(LimoExpense::query()->firstOrFail()->driver_id);
     }
+
+    /** Drivers are many: the list offers them as one dropdown, never a button each. */
+    public function test_the_expenses_list_filters_by_driver_from_one_dropdown(): void
+    {
+        $ali = \Modules\Limousine\Models\LimoDriver::query()->create(['name' => 'Ali Driver']);
+        \Modules\Limousine\Models\LimoDriver::query()->create(['name' => 'Sami Driver']);
+        LimoExpense::query()->create(['date' => now(), 'net_amount' => 5, 'payee' => 'Ali Fuel Stop', 'driver_id' => $ali->id]);
+        LimoExpense::query()->create(['date' => now(), 'net_amount' => 7, 'payee' => 'Office Paper Shop']);
+
+        \Livewire\Livewire::test(\App\Livewire\Views\ListView::class, ['model' => LimoExpense::class, 'modelKey' => 'limousine.expense'])
+            ->assertSeeHtml('data-dynamic-select="driver"')
+            ->assertDontSeeHtml("applyDynamicFilter('driver', '" . $ali->id . "')")
+            ->call('applyDynamicFilter', 'driver', (string) $ali->id)
+            ->assertSee('Ali Fuel Stop')
+            ->assertDontSee('Office Paper Shop')
+            ->call('applyDynamicFilter', 'driver', '')
+            ->assertSee('Office Paper Shop');
+    }
 }

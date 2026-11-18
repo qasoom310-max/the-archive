@@ -1,0 +1,49 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Limousine expenses: the driver filter is now one dropdown",
+        "ar": "مصروفات الليموزين: فلتر السائق أصبح قائمة منسدلة واحدة"
+    },
+    "points": {
+        "en": [
+            "The Expenses list no longer shows a button for every driver across the top.",
+            "There is one Driver box instead. Open it and choose a driver to see only that driver's bills."
+        ],
+        "ar": [
+            "قائمة المصروفات لم تعد تعرض زراً لكل سائق في الأعلى.",
+            "يوجد بدلاً منها حقل واحد «السائق». افتحه واختر سائقاً لعرض فواتيره فقط."
+        ]
+    },
+    "details": {
+        "en": [
+            "Earlier today the Expenses list got a row with one button for each driver. With many drivers that row filled the top of the page and pushed the expenses down.",
+            "Now it is a single box that says All. Choosing a driver shows that driver's bills, and choosing All shows everything again. Nothing else on the page changed."
+        ],
+        "ar": [
+            "في وقت سابق اليوم أُضيف لقائمة المصروفات صف فيه زر لكل سائق. مع كثرة السائقين ملأ هذا الصف أعلى الصفحة ودفع المصروفات إلى الأسفل.",
+            "الآن هو حقل واحد مكتوب فيه «الكل». اختيار سائق يعرض فواتيره، واختيار «الكل» يعرض كل شيء من جديد. لم يتغير شيء آخر في الصفحة."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Expenses.",
+            "Press the Driver box above the list and choose a driver.",
+            "To see all expenses again, choose All in the same box."
+        ],
+        "ar": [
+            "افتح الليموزين، ثم المصروفات.",
+            "اضغط حقل «السائق» فوق القائمة واختر سائقاً.",
+            "لعرض كل المصروفات من جديد، اختر «الكل» في الحقل نفسه."
+        ]
+    },
+    "images": [
+        {
+            "before": "list-before.png",
+            "after": "list-after.png",
+            "caption": {
+                "en": "The Expenses list. After: one Driver box instead of a button for each driver.",
+                "ar": "قائمة المصروفات. بعد: حقل واحد «السائق» بدلاً من زر لكل سائق."
+            }
+        }
+    ]
+}

@@ -115,7 +115,20 @@
          the active chip clears the group (visual "All" behaviour). --}}
     @foreach ($dynamicFilterDefs as $def)
         @php $options = $dynamicFilterOptions[$def->name] ?? []; @endphp
-        @if (count($options) > 0)
+        @if (count($options) > 0 && $def->as === 'select')
+            {{-- A long list (drivers) is one dropdown, not a chip per row. --}}
+            <div class="flex flex-wrap items-center gap-2 border-b border-chrome-100 px-3 py-2 sm:px-4" data-dynamic-select="{{ $def->name }}">
+                <label for="df-{{ $def->name }}" class="text-xs font-semibold uppercase tracking-wide text-chrome-400">{{ __($def->label) }}</label>
+                <select id="df-{{ $def->name }}" wire:key="df-{{ $def->name }}"
+                        wire:change="applyDynamicFilter('{{ $def->name }}', $event.target.value)"
+                        class="o-input w-full max-w-xs py-1.5 text-sm">
+                    <option value="" @selected(! isset($activeDynamicFilters[$def->name]))>{{ __('All') }}</option>
+                    @foreach ($options as $opt)
+                        <option value="{{ $opt['value'] }}" @selected(isset($activeDynamicFilters[$def->name]) && (string) $activeDynamicFilters[$def->name] === $opt['value'])>{{ $opt['label'] }}</option>
+                    @endforeach
+                </select>
+            </div>
+        @elseif (count($options) > 0)
             <div class="flex flex-wrap items-center gap-1.5 border-b border-chrome-100 px-3 py-2 sm:px-4">
                 <span class="me-1 text-xs font-semibold uppercase tracking-wide text-chrome-400">{{ __($def->label) }}</span>
                 <button type="button" wire:click="applyDynamicFilter('{{ $def->name }}', '')"

@@ -25,6 +25,9 @@ namespace App\Erp\Views;
  *     ],
  *   ]
  *
+ * Add `'as' => 'select'` to draw one dropdown instead of a chip per row
+ * (the right shape when the list is long, such as drivers).
+ *
  * The engine looks up rows from `model`, picks the `value` and `label`
  * columns (defaults: `id` / `name`), and renders one chip per result
  * above the static-filter chip row. Picking a chip applies
@@ -47,5 +50,7 @@ final readonly class DynamicFilterDef
         public string $label,
         public string $field,
         public array $optionsFrom,
+        /** 'chips' (one button per choice) or 'select' (one dropdown, for long lists such as drivers). */
+        public string $as = 'chips',
     ) {}
 }

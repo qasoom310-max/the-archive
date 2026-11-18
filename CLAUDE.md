@@ -5708,7 +5708,7 @@ works but has no button. Not a `DefinesIrModel`. Tests: `LimoBulkInvoiceTest` (9
 **Limousine expenses carry a driver (shipped 2026-11-18).** `limo_expenses.driver_id`
 (nullable logical ref to the shared drivers table, migration `2026_11_18_950064`;
 `LimoExpense::driver()` + `driver_name` accessor). Engine arch: a Driver list column
-(`sort_field: driver_id`, `eager: ['driver']`), a `filters_dynamic` driver chip row,
+(`sort_field: driver_id`, `eager: ['driver']`), a `filters_dynamic` driver DROPDOWN (`'as' => 'select'`, a new engine option on `DynamicFilterDef`: use it for any long list; the owner rejected a chip per driver),
 and a Driver `optionsFrom` select on the form (arch change, deploy resyncs).
 `ExpenseScan` asks "Whose bills are these?" BEFORE the camera: `$driver` is a
 driver id, `NO_DRIVER` ('none', an office bill) or '' (nothing chosen, no camera,

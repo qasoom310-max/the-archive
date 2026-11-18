@@ -252,9 +252,10 @@ final class LimoExpense extends Model implements DefinesIrModel
                     'per_page' => 20,
                     'searchable' => ['reference', 'payee'],
                     'eager' => ['driver'],
-                    // One chip per driver: "whose bills are these".
+                    // "Whose bills are these": one dropdown, since drivers are many.
                     'filters_dynamic' => [
                         [
+                            'as' => 'select',
                             'name' => 'driver',
                             'label' => 'Driver',
                             'field' => 'driver_id',

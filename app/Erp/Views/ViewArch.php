@@ -126,6 +126,7 @@ final readonly class ViewArch
                 label: self::str($entry, 'label') ?? ucfirst(str_replace('_', ' ', $name)),
                 field: $field,
                 optionsFrom: $optionsFrom,
+                as: ($entry['as'] ?? null) === 'select' ? 'select' : 'chips',
             );
         }
 

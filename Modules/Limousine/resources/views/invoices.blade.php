@@ -41,7 +41,20 @@
                 <span class="rounded-full bg-chrome-100 px-1.5 text-[11px] text-chrome-500">{{ $n }}</span>
             </button>
         @endforeach
+        {{-- The saved bulk invoices: several bills sent as one document. --}}
+        <button wire:click="$set('tab', 'bulk')" data-bulk-tab
+            class="-mb-px flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium {{ $onBulkTab ? 'border-primary-600 text-primary-700' : 'border-transparent text-chrome-500 hover:text-chrome-800' }}">
+            {{ __('Bulk invoices') }}
+            <span class="rounded-full bg-chrome-100 px-1.5 text-[11px] text-chrome-500">{{ $bulkCount }}</span>
+        </button>
     </div>
+
+    @if ($notice !== '')
+        <div class="mb-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200" data-bulk-notice>{{ $notice }}</div>
+    @endif
+    @error('bulk')
+        <div class="mb-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700 ring-1 ring-red-200" data-bulk-error>{{ $message }}</div>
+    @enderror
 
     {{-- Search and a date window: how "this month's invoices for Dadabhai"
          is actually asked for. --}}
@@ -51,6 +64,7 @@
             <input type="search" wire:model.live.debounce.300ms="search" class="o-input w-full text-sm"
                    placeholder="{{ __('Invoice, customer, booking…') }}">
         </div>
+        @unless ($onBulkTab)
         <div>
             <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Service from') }}</label>
             <x-date-field wire:model.live="from" class="o-input text-sm" />
@@ -59,7 +73,19 @@
             <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Service to') }}</label>
             <x-date-field wire:model.live="to" class="o-input text-sm" />
         </div>
+        @endunless
     </div>
+
+    @if ($onBulkTab)
+        @include('limousine::partials.bulk-invoices')
+    @else
+
+    @if ($shownBulk)
+        <div class="mb-4 flex flex-wrap items-center gap-3 rounded-2xl bg-chrome-100 px-4 py-2.5 text-sm" data-bulk-filter>
+            <span class="font-semibold text-chrome-800">{{ __('Showing the invoices in :reference', ['reference' => $shownBulk->reference]) }}</span>
+            <button type="button" wire:click="clearBulkFilter" class="ms-auto text-xs font-semibold text-primary-700 hover:underline">{{ __('Show all invoices') }}</button>
+        </div>
+    @endif
 
     {{-- One document for a month of work, instead of forty downloads. The
          selection survives paging and re-filtering, so a quarter can be
@@ -72,8 +98,12 @@
             </span>
             @if ($mixedCustomers)
                 <span class="text-red-700">{{ __('Pick invoices for one customer — a combined invoice is addressed to one company.') }}</span>
+            @elseif ($pickedBulked > 0)
+                <span class="text-red-700">{{ __('Already in a bulk invoice: :count of the ticked invoices. An invoice can be in one bulk invoice only.', ['count' => $pickedBulked]) }}</span>
+                <button type="button" wire:click="untickBulked" class="o-btn-ghost text-sm">{{ __('Untick them') }}</button>
             @elseif ($combinedUrl)
-                <a href="{{ $combinedUrl }}" class="o-btn-primary text-sm">{{ __('Combined invoice') }}</a>
+                {{-- Saved, so it can be followed and paid as one. --}}
+                <button type="button" wire:click="createBulk" wire:loading.attr="disabled" data-make-bulk class="o-btn-primary text-sm">{{ __('Make bulk invoice') }}</button>
             @endif
             <button type="button" wire:click="clearSelection" class="ms-auto text-xs text-chrome-500 hover:underline">{{ __('Clear selection') }}</button>
         </div>
@@ -132,7 +162,12 @@
                             <input type="checkbox" value="{{ $invoice->id }}" wire:model.live="selected"
                                    class="size-4 rounded border-chrome-300 text-primary-600 focus:ring-primary-500">
                         </td>
-                        <td class="px-4 py-2 font-medium text-chrome-800">{{ $invoice->reference }}</td>
+                        <td class="px-4 py-2 font-medium text-chrome-800">
+                            {{ $invoice->reference }}
+                            @if ($invoice->bulkInvoice)
+                                <span class="ms-1 rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700" title="{{ __('In bulk invoice :reference', ['reference' => $invoice->bulkInvoice->reference]) }}" data-in-bulk>{{ $invoice->bulkInvoice->reference }}</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-2 text-chrome-700">{{ $invoice->customer?->name ?? '—' }}</td>
                         <td class="px-4 py-2 text-chrome-600">{{ $invoice->issue_date?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
                         <td class="px-4 py-2 text-chrome-600">{{ $invoice->service_date?->isoFormat('DD-MMM-YYYY') ?? '—' }}</td>
@@ -177,6 +212,8 @@
 
     <div class="mt-4">{{ $invoices->links('vendor.pagination.compact') }}</div>
 
+    @endif
+
     {{-- Receive payment. Goes through the same service the bookings queue
          uses, so both doors write one receipt and one truth. --}}
     @if ($collecting)
@@ -214,6 +251,48 @@
                 <div class="mt-5 flex justify-end gap-2">
                     <button type="button" wire:click="closeCollect" class="o-btn-ghost text-sm">{{ __('Close') }}</button>
                     <button type="button" wire:click="saveCollect" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Receive payment') }}</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- One payment for a whole bulk invoice, shared over its invoices. --}}
+    @if ($payingBulk)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-chrome-900/50 p-4"
+             x-on:keydown.escape.window="$wire.closeBulkPay()">
+            <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl sm:p-6" x-on:click.outside="$wire.closeBulkPay()" data-bulk-pay>
+                <h2 class="text-sm font-semibold text-chrome-800">{{ __('Receive payment') }}</h2>
+                <p class="mt-1 text-xs text-chrome-500">
+                    {{ $payingBulk->reference }} · {{ $payingBulk->customer?->name }} · {{ __('Balance') }}:
+                    <span class="font-semibold">{{ \App\Erp\Views\ValueFormat::money($payingBulkBalance) }}</span>
+                </p>
+                <p class="mt-2 rounded-lg bg-chrome-50 px-3 py-2 text-xs text-chrome-600">{{ __('The money is shared over the invoices in it, the oldest first. Each invoice gets its own receipt.') }}</p>
+
+                <div class="mt-4 space-y-4">
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Amount') }}</label>
+                        <input type="number" step="0.001" min="0" wire:model="collectAmount" class="o-input w-full">
+                        @error('collectAmount') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Method') }}</label>
+                        <select wire:model="collectMethod" class="o-input w-full">
+                            <option value="cash">{{ __('Cash') }}</option>
+                            <option value="card">{{ __('Card') }}</option>
+                            <option value="benefit">{{ __('Benefit') }}</option>
+                            <option value="transfer">{{ __('Transfer') }}</option>
+                            <option value="online">{{ __('Online (Tap)') }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-chrome-700">{{ __('Note') }}</label>
+                        <input type="text" wire:model="collectNote" class="o-input w-full">
+                    </div>
+                </div>
+
+                <div class="mt-5 flex justify-end gap-2">
+                    <button type="button" wire:click="closeBulkPay" class="o-btn-ghost text-sm">{{ __('Close') }}</button>
+                    <button type="button" wire:click="saveBulkPay" wire:loading.attr="disabled" class="o-btn-primary text-sm">{{ __('Receive payment') }}</button>
                 </div>
             </div>
         </div>

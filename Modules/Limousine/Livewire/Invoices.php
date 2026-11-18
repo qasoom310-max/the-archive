@@ -15,10 +15,12 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Modules\Limousine\Models\LimoBulkInvoice;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoReceipt;
 use Modules\Limousine\Services\BookingPayments;
+use Modules\Limousine\Services\BulkInvoices;
 use Modules\Limousine\Services\CustomerDocumentEmails;
 
 /**
@@ -62,6 +64,17 @@ final class Invoices extends Component
      */
     public array $selected = [];
 
+    /** Show only the invoices of this bulk invoice (opened from its row). */
+    #[Url(as: 'bulk', except: 0)]
+    public int $bulkFilter = 0;
+
+    /** What the last bulk-invoice action did, said on the page. */
+    public string $notice = '';
+
+    /** Payment dialog for a whole bulk invoice, or null. */
+    #[Locked]
+    public ?int $payingBulkId = null;
+
     protected function accessModelKey(): string
     {
         return 'limousine.invoice';
@@ -74,6 +87,8 @@ final class Invoices extends Component
 
     public function updatedTab(): void
     {
+        $this->bulkFilter = 0;
+        $this->notice = '';
         $this->resetPage();
     }
 
@@ -111,7 +126,143 @@ final class Invoices extends Component
     private function baseQuery(): \Illuminate\Database\Eloquent\Builder
     {
         // One definition of the list, shared with its exports.
-        return app(\Modules\Limousine\Services\LimoInvoiceRows::class)->query($this->tab, $this->from, $this->to, $this->search);
+        return app(\Modules\Limousine\Services\LimoInvoiceRows::class)
+            ->query($this->tab, $this->from, $this->to, $this->search)
+            ->when($this->bulkFilter > 0, fn ($q) => $q->where('bulk_invoice_id', $this->bulkFilter));
+    }
+
+    /**
+     * Save the ticked invoices as one bulk invoice.
+     *
+     * The service refuses a mix of customers and any invoice that is already
+     * in a bulk invoice; its message lands under the `bulk` error.
+     */
+    public function createBulk(BulkInvoices $bulks): void
+    {
+        $this->guardAccess(Permission::Write);
+        $this->resetErrorBag('bulk');
+
+        $bulk = $bulks->create($this->selected, $this->from, $this->to, (int) Auth::id());
+        app(\App\Erp\Activity\ActivityLogger::class)->log('bulk_invoice_created', (string) $bulk->reference);
+
+        $this->selected = [];
+        $this->tab = 'bulk';
+        $this->bulkFilter = 0;
+        $this->resetPage();
+        $this->notice = __(':reference is saved. Download it here and send it to the customer.', ['reference' => (string) $bulk->reference]);
+    }
+
+    /** Drop from the selection whatever is already in a bulk invoice. */
+    public function untickBulked(): void
+    {
+        $free = LimoInvoice::query()->whereIn('id', $this->selected)->whereNull('bulk_invoice_id')->pluck('id');
+
+        $this->selected = $free->map(fn ($id): int => (int) $id)->all();
+        $this->resetErrorBag('bulk');
+    }
+
+    /** Open the invoices of one bulk invoice in the main list. */
+    public function showBulk(int $id): void
+    {
+        $this->tab = 'all';
+        $this->search = '';
+        $this->from = '';
+        $this->to = '';
+        $this->bulkFilter = $id;
+        $this->notice = '';
+        $this->resetPage();
+    }
+
+    public function clearBulkFilter(): void
+    {
+        $this->bulkFilter = 0;
+        $this->resetPage();
+    }
+
+    public function openBulkPay(int $id, BulkInvoices $bulks): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        $bulk = LimoBulkInvoice::query()->find($id);
+        if ($bulk === null || $bulk->isCancelled()) {
+            return;
+        }
+
+        $this->payingBulkId = $bulk->id;
+        $this->collectAmount = (string) $bulks->payableBalance($bulk);
+        $this->collectMethod = 'cash';
+        $this->collectNote = '';
+        $this->resetErrorBag();
+    }
+
+    public function closeBulkPay(): void
+    {
+        $this->payingBulkId = null;
+    }
+
+    /** One payment for the whole bulk invoice, shared over its invoices. */
+    public function saveBulkPay(BulkInvoices $bulks): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        $bulk = $this->payingBulkId !== null ? LimoBulkInvoice::query()->find($this->payingBulkId) : null;
+        if ($bulk === null) {
+            return;
+        }
+
+        $this->validate([
+            'collectAmount' => ['required', 'numeric', 'min:0.001'],
+            'collectMethod' => ['required', 'in:' . implode(',', array_column(LimoReceipt::methodOptions(), 'value'))],
+            'collectNote' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        try {
+            $result = $bulks->pay($bulk, (float) $this->collectAmount, $this->collectMethod, $this->collectNote !== '' ? $this->collectNote : null);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->addError('collectAmount', (string) ($e->validator->errors()->first('bulk') ?: $e->getMessage()));
+
+            return;
+        }
+
+        app(\App\Erp\Activity\ActivityLogger::class)->log('bulk_invoice_paid', (string) $bulk->reference);
+
+        $this->payingBulkId = null;
+        $this->notice = __('Payment recorded on :reference: :count receipts.', [
+            'reference' => (string) $bulk->reference,
+            'count' => $result['receipts'],
+        ]);
+    }
+
+    /** Mark it as sent to the customer today, or take the mark off. */
+    public function toggleBulkSent(int $id): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        $bulk = LimoBulkInvoice::query()->find($id);
+        if ($bulk === null || $bulk->isCancelled()) {
+            return;
+        }
+
+        $bulk->sent_at = $bulk->sent_at === null ? now() : null;
+        $bulk->save();
+    }
+
+    /** Cancel a bulk invoice and free its invoices (managers only). */
+    public function cancelBulk(int $id, BulkInvoices $bulks): void
+    {
+        $this->guardAccess(Permission::Write);
+        $user = Auth::user();
+        abort_unless($user instanceof User && $user->canApproveMaintenance(), 403);
+
+        $bulk = LimoBulkInvoice::query()->find($id);
+        if ($bulk === null || $bulk->isCancelled()) {
+            return;
+        }
+
+        $bulks->cancel($bulk, (int) $user->getKey());
+        app(\App\Erp\Activity\ActivityLogger::class)->log('bulk_invoice_cancelled', (string) $bulk->reference);
+
+        $this->notice = __(':reference is cancelled. Its invoices are free again.', ['reference' => (string) $bulk->reference]);
     }
 
     /** Payment dialog: the invoice being collected against, or null. */
@@ -233,14 +384,39 @@ final class Invoices extends Component
         // companies is not a document. Said plainly rather than silently
         // dropping the odd ones out.
         $picked = $this->selected !== []
-            ? LimoInvoice::query()->whereIn('id', $this->selected)->get(['id', 'customer_id'])
+            ? LimoInvoice::query()->whereIn('id', $this->selected)->get(['id', 'customer_id', 'bulk_invoice_id'])
             : collect();
+        $pickedBulked = $picked->filter(static fn (LimoInvoice $i): bool => $i->bulk_invoice_id !== null)->count();
+
+        // The Bulk invoices tab lists the saved bulk invoices instead.
+        $onBulkTab = $this->tab === 'bulk';
+        $term = trim($this->search);
+        $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $term) . '%';
+        $bulks = $onBulkTab
+            ? LimoBulkInvoice::query()
+                ->with(['customer:id,name', 'invoices:id,bulk_invoice_id,reference,total,amount_paid'])
+                ->when($term !== '', fn ($q) => $q->where(fn ($w) => $w
+                    ->where('reference', 'like', $like)
+                    ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', $like))
+                    ->orWhereHas('invoices', fn ($i) => $i->where('reference', 'like', $like))))
+                ->orderByDesc('id')
+                ->paginate(20)
+            : null;
+        $payingBulk = $this->payingBulkId !== null ? LimoBulkInvoice::query()->with('invoices')->find($this->payingBulkId) : null;
+        $shownBulk = $this->bulkFilter > 0 ? LimoBulkInvoice::query()->find($this->bulkFilter) : null;
         $customerIds = $picked->pluck('customer_id')->unique()->values();
         $user = Auth::user();
 
         return view('limousine::invoices', [
             'canManage' => $user instanceof User && $user->canApproveMaintenance(),
-            'invoices' => $query->paginate(20),
+            'invoices' => $onBulkTab ? null : $query->with('bulkInvoice:id,reference')->paginate(20),
+            'onBulkTab' => $onBulkTab,
+            'bulks' => $bulks,
+            'bulkCount' => LimoBulkInvoice::query()->whereNull('cancelled_at')->count(),
+            'payingBulk' => $payingBulk,
+            'payingBulkBalance' => $payingBulk !== null ? app(BulkInvoices::class)->payableBalance($payingBulk) : 0.0,
+            'shownBulk' => $shownBulk,
+            'pickedBulked' => $pickedBulked,
             'collecting' => $collecting,
             'selectedCount' => $picked->count(),
             'mixedCustomers' => $customerIds->count() > 1,

@@ -1,0 +1,97 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Limousine invoices: bulk invoices are now saved, followed and paid as one",
+        "ar": "فواتير الليموزين: الفواتير المجمّعة تُحفظ الآن وتُتابع وتُدفع كفاتورة واحدة"
+    },
+    "points": {
+        "en": [
+            "The Invoices page has a new tab, Bulk invoices. Every bulk invoice you make is saved there with its own number, for example BINV/00001.",
+            "To make one, tick the invoices of one customer and press Make bulk invoice. This replaces the old Combined invoice button.",
+            "You can receive one payment on the whole bulk invoice. The system shares it over the invoices inside it.",
+            "An invoice can be in one bulk invoice only. The system refuses to put it in a second one.",
+            "Each bulk invoice shows its total, what was paid, what is left, and whether it was sent to the customer."
+        ],
+        "ar": [
+            "صفحة الفواتير فيها تبويب جديد: الفواتير المجمّعة. كل فاتورة مجمّعة تنشئها تُحفظ هناك برقمها الخاص، مثل BINV/00001.",
+            "لإنشاء واحدة، حدّد فواتير عميل واحد واضغط «إنشاء فاتورة مجمّعة». هذا الزر يحل محل زر «فاتورة مجمّعة» القديم.",
+            "يمكنك استلام دفعة واحدة على الفاتورة المجمّعة كلها. النظام يوزّعها على الفواتير التي بداخلها.",
+            "الفاتورة تكون في فاتورة مجمّعة واحدة فقط. النظام يرفض وضعها في فاتورة ثانية.",
+            "كل فاتورة مجمّعة تعرض مجموعها، وما دُفع، وما بقي، وهل أُرسلت للعميل."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, you ticked several invoices and pressed Combined invoice. The system made a PDF and that was all. Nothing was saved, so nobody could see later which invoices were sent together, to whom, or whether that bill was paid. The same invoice could also be sent twice in two different bills.",
+            "Now pressing Make bulk invoice saves a record first. The record has its own number, the customer, the date and the list of invoices in it. You download the PDF from that record, and the PDF carries the bulk invoice number.",
+            "The amounts on a bulk invoice are always read from the invoices inside it. If one of those invoices is paid by itself from the main list, the bulk invoice shows it too.",
+            "When you receive a payment on a bulk invoice, the money goes to the oldest invoice in it first, then the next. Each invoice still gets its own receipt, and the receipt note says which bulk invoice it came from. You cannot receive more than what is left.",
+            "An invoice that is in a bulk invoice shows that number beside its own in the main list. If you tick it again, the system tells you and offers to untick it.",
+            "A manager can cancel a bulk invoice made by mistake. It stays in the list as Cancelled, its invoices are free again, and no invoice or payment is changed."
+        ],
+        "ar": [
+            "في السابق كنت تحدّد عدة فواتير وتضغط «فاتورة مجمّعة». النظام ينشئ ملف PDF فقط. لم يُحفظ شيء، فلم يكن أحد يعرف لاحقاً أي الفواتير أُرسلت معاً، ولمن، وهل دُفعت. وكان ممكناً إرسال الفاتورة نفسها مرتين في فاتورتين مختلفتين.",
+            "الآن الضغط على «إنشاء فاتورة مجمّعة» يحفظ سجلاً أولاً. السجل له رقمه الخاص، والعميل، والتاريخ، وقائمة الفواتير التي فيه. تنزّل ملف PDF من هذا السجل، والملف يحمل رقم الفاتورة المجمّعة.",
+            "مبالغ الفاتورة المجمّعة تُقرأ دائماً من الفواتير التي بداخلها. إذا دُفعت إحدى هذه الفواتير وحدها من القائمة الرئيسية، يظهر ذلك في الفاتورة المجمّعة أيضاً.",
+            "عند استلام دفعة على فاتورة مجمّعة، يذهب المبلغ إلى أقدم فاتورة فيها أولاً، ثم التي بعدها. كل فاتورة تأخذ إيصالها الخاص، وملاحظة الإيصال تذكر رقم الفاتورة المجمّعة. لا يمكن استلام أكثر من المتبقي.",
+            "الفاتورة الموجودة في فاتورة مجمّعة يظهر بجانب رقمها رقم الفاتورة المجمّعة في القائمة الرئيسية. إذا حدّدتها مرة أخرى، يخبرك النظام ويعرض إزالة التحديد عنها.",
+            "المدير يستطيع إلغاء فاتورة مجمّعة أُنشئت بالخطأ. تبقى في القائمة بحالة «ملغى»، وتصبح فواتيرها متاحة من جديد، ولا تتغير أي فاتورة أو دفعة."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Invoices. Stay on the All tab.",
+            "Search for the customer and pick the dates if you want one month. Tick the invoices, or press All at the top of the first column.",
+            "Press Make bulk invoice. The page moves to the Bulk invoices tab and shows the new one at the top.",
+            "Press the download button on its row to get the PDF, and send it to the customer. Then press Mark as sent.",
+            "When the customer pays, press the payment button on the same row, type the amount and the method, and press Receive payment.",
+            "To see which invoices are inside, press the number of invoices on the row."
+        ],
+        "ar": [
+            "افتح الليموزين، ثم الفواتير. ابقَ في تبويب «الكل».",
+            "ابحث عن العميل واختر التواريخ إذا أردت شهراً واحداً. حدّد الفواتير، أو اضغط «الكل» أعلى العمود الأول.",
+            "اضغط «إنشاء فاتورة مجمّعة». تنتقل الصفحة إلى تبويب «الفواتير المجمّعة» وتظهر الجديدة في الأعلى.",
+            "اضغط زر التنزيل في سطرها للحصول على ملف PDF، وأرسله للعميل. ثم اضغط «تحديد كمُرسَلة».",
+            "عندما يدفع العميل، اضغط زر الدفع في السطر نفسه، واكتب المبلغ وطريقة الدفع، ثم اضغط «استلام دفعة».",
+            "لمعرفة الفواتير التي بداخلها، اضغط عدد الفواتير في السطر."
+        ]
+    },
+    "images": [
+        {
+            "before": "invoices-before.png",
+            "after": "bulk-tab.png",
+            "caption": {
+                "en": "The Invoices page. After: the Bulk invoices tab with the saved bulk invoices.",
+                "ar": "صفحة الفواتير. بعد: تبويب «الفواتير المجمّعة» وفيه الفواتير المحفوظة."
+            }
+        },
+        {
+            "after": "make-after.png",
+            "caption": {
+                "en": "Tick the invoices of one customer, then press Make bulk invoice.",
+                "ar": "حدّد فواتير عميل واحد، ثم اضغط «إنشاء فاتورة مجمّعة»."
+            }
+        },
+        {
+            "after": "invoices-after.png",
+            "caption": {
+                "en": "An invoice that is in a bulk invoice shows that number beside its own.",
+                "ar": "الفاتورة الموجودة في فاتورة مجمّعة يظهر بجانب رقمها رقم الفاتورة المجمّعة."
+            }
+        },
+        {
+            "after": "bulk-pay.png",
+            "caption": {
+                "en": "One payment for the whole bulk invoice.",
+                "ar": "دفعة واحدة للفاتورة المجمّعة كلها."
+            }
+        },
+        {
+            "after": "bulk-phone.png",
+            "caption": {
+                "en": "The Bulk invoices tab on a phone.",
+                "ar": "تبويب «الفواتير المجمّعة» على الهاتف."
+            }
+        }
+    ]
+}

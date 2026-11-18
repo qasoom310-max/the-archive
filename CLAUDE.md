@@ -5683,3 +5683,24 @@ super-admin-only early-settle rule is enforced — do not duplicate that rule
 here. Rows flag `finesCheckPending()` and damage / extra / fuel charges. Linked
 from the home hero pills and the "Deposits to refund" box. Tests:
 `tests/Feature/RentalDepositRefundsPageTest.php` (6).
+
+**Limousine bulk invoices — saved, followed, paid as one (shipped 2026-11-18).**
+The Invoices list's "Combined invoice" button (a PDF with no record) became
+**Make bulk invoice**: it saves a `LimoBulkInvoice` (`limo_bulk_invoices`,
+`BINV/00001`, customer, issue date, period, `sent_at`, `cancelled_at`) and the
+invoices point at it through **`limo_invoices.bulk_invoice_id`** — one column,
+so an invoice is in ONE bulk invoice at most (migration `2026_11_18_950063`).
+`Modules\Limousine\Services\BulkInvoices`: `create()` refuses mixed customers
+and already-claimed invoices and claims with `whereNull` + a count check inside
+a transaction (race-safe); `pay()` spreads one payment over ITS invoices only,
+oldest first, via `AccountPayment::planOver()` / `apply()` (the same receipts
+and batch id as an account payment; the receipt note starts with the BINV
+number; more than the payable balance is refused); `cancel()` frees the
+invoices and keeps the row as Cancelled. A bulk invoice stores NO money: total /
+paid / balance / status are read from its invoices. UI: `Invoices` tab `bulk`
+(`partials/bulk-invoices.blade.php`), `?bulk=<id>` filters the main list to one
+bulk invoice, rows carry a BINV badge, Mark as sent toggle, cancel is
+`canApproveMaintenance()` only. PDF: `LimoBulkInvoiceController`
+(`/app/limousine/invoice/bulk/{bulk}/download`) reuses the combined document
+with `bulkReference` + `issuedOn`. The old `/invoice/combined?ids=` route still
+works but has no button. Not a `DefinesIrModel`. Tests: `LimoBulkInvoiceTest` (9).

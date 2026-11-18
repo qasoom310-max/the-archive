@@ -62,10 +62,28 @@ final class AccountPayment
      */
     public function plan(LimoCustomer $customer, float $amount): array
     {
+        return $this->planOver($this->settleable($customer), $amount);
+    }
+
+    /**
+     * The same spread over a given set of bills, in the order given.
+     *
+     * A bulk invoice is paid this way: the money goes over ITS invoices only,
+     * not everything the customer owes.
+     *
+     * @param  iterable<int, LimoInvoice>  $invoices
+     * @return list<array{invoice: LimoInvoice, amount: float, settles: bool}>
+     */
+    public function planOver(iterable $invoices, float $amount): array
+    {
         $remaining = round($amount, 3);
         $plan = [];
 
-        foreach ($this->settleable($customer) as $invoice) {
+        foreach ($invoices as $invoice) {
+            if ($invoice->isAwaitingTrip() || $invoice->balance() <= 0.0005) {
+                continue;
+            }
+
             if ($remaining <= 0.0005) {
                 break;
             }
@@ -95,8 +113,17 @@ final class AccountPayment
      */
     public function settle(LimoCustomer $customer, float $amount, string $method = 'cash', ?string $note = null): array
     {
-        $plan = $this->plan($customer, $amount);
+        return $this->apply($this->plan($customer, $amount), $amount, $method, $note);
+    }
 
+    /**
+     * Take the money a plan describes.
+     *
+     * @param  list<array{invoice: LimoInvoice, amount: float, settles: bool}>  $plan
+     * @return array{allocated: float, receipts: int, unallocated: float}
+     */
+    public function apply(array $plan, float $amount, string $method = 'cash', ?string $note = null): array
+    {
         // One lump, one confirmation: the slices share a batch id, and the
         // accountant's desk shows the batch rather than each receipt.
         $batchId = count($plan) > 1 ? 'PMB-' . strtolower((string) \Illuminate\Support\Str::ulid()) : null;

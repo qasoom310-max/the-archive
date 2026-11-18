@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Modules\Limousine\Http\Controllers\CouponVoucherController;
+use Modules\Limousine\Http\Controllers\LimoBulkInvoiceController;
 use Modules\Limousine\Http\Controllers\LimoCombinedInvoiceController;
 use Modules\Limousine\Http\Controllers\LimoBookingImportController;
 use Modules\Limousine\Http\Controllers\LimoExpenseImportController;
@@ -183,6 +184,9 @@ Route::middleware('auth')->group(function (): void {
     // Before the {id} form route, so "combined" is never read as an invoice id.
     Route::get('/app/limousine/invoice/combined', LimoCombinedInvoiceController::class)
         ->name('limousine.invoice.combined');
+    // A saved bulk invoice, as the one document the customer is sent.
+    Route::get('/app/limousine/invoice/bulk/{bulk}/download', LimoBulkInvoiceController::class)
+        ->whereNumber('bulk')->name('limousine.invoice.bulk.download');
     // Before the {id} form route, so "download" is never read as an invoice id.
     Route::get('/app/limousine/invoice/{invoice}/download', LimoInvoiceController::class)
         ->whereNumber('invoice')->name('limousine.invoice.download');

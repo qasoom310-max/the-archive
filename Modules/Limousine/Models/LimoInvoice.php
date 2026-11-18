@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $customer_id
  * @property int|null $booking_id
  * @property int|null $quotation_id
+ * @property int|null $bulk_invoice_id  The bulk invoice this bill was sent in, if any (at most one)
  * @property Carbon|null $issue_date
  * @property Carbon|null $due_date
  * @property Carbon|null $service_date  First trip's date (InvoiceServiceDates); null for a bill with no trip
@@ -80,6 +81,7 @@ final class LimoInvoice extends Model implements DefinesIrModel
             'customer_id' => 'integer',
             'booking_id' => 'integer',
             'quotation_id' => 'integer',
+            'bulk_invoice_id' => 'integer',
             'issue_date' => 'date',
             'due_date' => 'date',
             'service_date' => 'date',
@@ -125,6 +127,14 @@ final class LimoInvoice extends Model implements DefinesIrModel
     public function customer(): BelongsTo
     {
         return $this->belongsTo(LimoCustomer::class, 'customer_id');
+    }
+
+    /**
+     * @return BelongsTo<LimoBulkInvoice, $this>
+     */
+    public function bulkInvoice(): BelongsTo
+    {
+        return $this->belongsTo(LimoBulkInvoice::class, 'bulk_invoice_id');
     }
 
     /**

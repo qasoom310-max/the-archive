@@ -184,9 +184,17 @@
                 @if ($savedOrder->depositPending())
                     @if ($canConfirmPayment)
                         @if ($savedOrder->depositHoldElapsed())
-                            <button wire:click="settleDeposit" class="o-btn-primary text-sm">{{ __('Settle deposit') }}</button>
+                            <div class="text-end" data-deposit-settle>
+                                <button wire:click="settleDeposit" class="o-btn-primary text-sm">{{ __('Refund or cut deposit') }}</button>
+                                <p class="mt-1 text-[11px] text-chrome-400">{{ __('Opens the choices. Nothing changes until you press Confirm.') }}</p>
+                            </div>
                         @elseif ($isSuperAdmin)
-                            <button wire:click="settleDeposit" wire:confirm="{{ __('Settle this deposit before the 14-day hold ends?') }}" class="o-btn-primary text-sm">{{ __('Settle early') }}</button>
+                            {{-- No "are you sure" here: it read as "refund it now"
+                                 and got cancelled. The window is the confirmation. --}}
+                            <div class="text-end" data-deposit-settle>
+                                <button wire:click="settleDeposit" class="o-btn-primary text-sm">{{ __('Refund or cut deposit') }}</button>
+                                <p class="mt-1 text-[11px] text-chrome-400">{{ __('Opens the choices. Nothing changes until you press Confirm.') }}</p>
+                            </div>
                         @else
                             <span class="inline-flex items-center gap-1 text-[11px] font-medium text-chrome-500">
                                 <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd"/></svg>
@@ -912,6 +920,14 @@
                             <a href="{{ $savedOrder->damage_video_url }}" target="_blank" rel="noopener" class="text-xs font-medium text-primary-700 hover:underline">{{ __('Damage video') }} ↗</a>
                         @endif
                     </div>
+                @endif
+
+                @if ($savedOrder && ! $savedOrder->depositHoldElapsed())
+                    <p class="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800" data-deposit-early>
+                        {{ $savedOrder->depositHoldUntil()
+                            ? __('The 14-day hold ends on :date. You are settling this deposit early.', ['date' => $savedOrder->depositHoldUntil()->format('Y-m-d')])
+                            : __('The car is not back yet. You are settling this deposit early.') }}
+                    </p>
                 @endif
 
                 <form wire:submit.prevent="confirmDeposit" class="space-y-3">

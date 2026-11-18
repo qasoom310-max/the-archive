@@ -3778,5 +3778,9 @@
     "Finished, next driver": "انتهيت، السائق التالي",
     "Change driver": "تغيير السائق",
     "Choose the driver these bills belong to, or choose \"Office bill, no driver\".": "اختر السائق صاحب هذه الفواتير، أو اختر «فاتورة مكتب، بدون سائق».",
-    "The driver who handed this bill in. Leave empty for an office bill.": "السائق الذي سلّم هذه الفاتورة. اتركه فارغاً لفاتورة المكتب."
+    "The driver who handed this bill in. Leave empty for an office bill.": "السائق الذي سلّم هذه الفاتورة. اتركه فارغاً لفاتورة المكتب.",
+    "Refund or cut deposit": "إرجاع التأمين أو الخصم منه",
+    "Opens the choices. Nothing changes until you press Confirm.": "يفتح الخيارات. لا يتغير شيء حتى تضغط «تأكيد».",
+    "The 14-day hold ends on :date. You are settling this deposit early.": "مدة الحجز (14 يوماً) تنتهي في :date. أنت تسوّي هذا التأمين مبكراً.",
+    "The car is not back yet. You are settling this deposit early.": "السيارة لم ترجع بعد. أنت تسوّي هذا التأمين مبكراً."
 }

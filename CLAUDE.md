@@ -5718,3 +5718,11 @@ against real drivers in `mount()`/`updatedDriver()`, kept across
 `savedTotal` (locked) count the run for the chosen driver; `changeDriver()`
 ("Finished, next driver") resets them. Old expenses have no driver. Tests:
 `LimoExpenseScanTest` (+2; every older scan test sets `driver` to `none`).
+
+**Rental deposit button renamed, browser prompt removed (2026-11-18).** The order's
+"Settle deposit" / "Settle early" buttons are both **"Refund or cut deposit"**
+(`data-deposit-settle`) with a line saying it only opens the choices. The early
+button's `wire:confirm` is GONE on purpose: the owner read "Settle this deposit
+before the 14-day hold ends?" as "refund now", pressed Cancel and never found
+"Deduct an amount". The modal now carries the early warning itself
+(`data-deposit-early`). Rules unchanged. Test: `RentalDepositSettlementTest` (+1).

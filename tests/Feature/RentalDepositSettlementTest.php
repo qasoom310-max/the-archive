@@ -268,4 +268,22 @@ final class RentalDepositSettlementTest extends TestCase
             ->assertSee('From the return — basis for any deduction')
             ->assertSee('Cracked mirror');
     }
+
+    /**
+     * The button names what it opens, and opens it at once. A browser "are you
+     * sure" in front of the window read as "refund it now" and got cancelled.
+     */
+    public function test_the_deposit_button_says_it_can_cut_and_opens_the_choices_directly(): void
+    {
+        $order = $this->closedOrder(50, 3);
+        $this->actingAs(User::factory()->create(['is_super_admin' => true]));
+
+        Livewire::test(OrderForm::class, ['id' => $order->id])
+            ->assertSee('Refund or cut deposit')
+            ->assertDontSee('Settle this deposit before the 14-day hold ends?')
+            ->call('settleDeposit')
+            ->assertSet('showDeposit', true)
+            ->assertSee('Deduct an amount')
+            ->assertSee('You are settling this deposit early.');
+    }
 }

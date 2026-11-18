@@ -1,0 +1,62 @@
+{
+    "app": "rental",
+    "title": {
+        "en": "Rent A Car deposit: the button now says Refund or cut deposit and opens the choices at once",
+        "ar": "تأمين تأجير السيارات: الزر أصبح «إرجاع التأمين أو الخصم منه» ويفتح الخيارات مباشرة"
+    },
+    "points": {
+        "en": [
+            "On a rental order, the deposit button is now called Refund or cut deposit. Before it was Settle deposit or Settle early.",
+            "Pressing it opens the three choices straight away: refund in full, deduct an amount, or keep it all.",
+            "The question the browser asked before opening is removed. Nothing changes until you press Confirm inside the window."
+        ],
+        "ar": [
+            "في طلب التأجير، زر التأمين أصبح اسمه «إرجاع التأمين أو الخصم منه». كان اسمه «تسوية التأمين» أو «تسوية مبكرة».",
+            "الضغط عليه يفتح الخيارات الثلاثة مباشرة: إرجاع كامل، خصم مبلغ، أو الاحتفاظ بالكل.",
+            "السؤال الذي كان يظهر من المتصفح قبل الفتح أُزيل. لا يتغير شيء حتى تضغط «تأكيد» داخل النافذة."
+        ]
+    },
+    "details": {
+        "en": [
+            "The choice to cut part of a deposit was always inside the window, but it was hard to reach. The button did not say that cutting was possible. And when the 14 days had not passed, the browser first asked \"Settle this deposit before the 14-day hold ends?\". That sounded like the deposit would be refunded at once, so people pressed Cancel and never saw the choices.",
+            "Now the button says what it does, with a line under it: it only opens the choices. When the 14 days have not passed, the window itself says so in a yellow line with the date the hold ends.",
+            "The rules are the same. An accountant can settle after the 14 days. Only a super-admin can settle before."
+        ],
+        "ar": [
+            "خيار خصم جزء من التأمين كان موجوداً دائماً داخل النافذة، لكن الوصول إليه كان صعباً. الزر لم يكن يذكر أن الخصم ممكن. وعندما لم تمر 14 يوماً، كان المتصفح يسأل أولاً «تسوية هذا التأمين قبل انتهاء مدة 14 يوماً؟». بدا ذلك كأن التأمين سيُرجع فوراً، فكان الموظف يضغط «إلغاء» ولا يرى الخيارات.",
+            "الآن الزر يقول ما يفعله، وتحته سطر: هو يفتح الخيارات فقط. وعندما لم تمر 14 يوماً، النافذة نفسها تذكر ذلك في سطر أصفر مع تاريخ انتهاء الحجز.",
+            "القواعد كما هي. المحاسب يسوّي بعد 14 يوماً. والمدير العام فقط يسوّي قبل ذلك."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open the rental order and find the Security deposit box.",
+            "Press Refund or cut deposit.",
+            "To cut part of it, choose Deduct an amount, type the amount to cut and the reason. The window shows how much will be refunded.",
+            "Add photos if you have them, then press Confirm."
+        ],
+        "ar": [
+            "افتح طلب التأجير وابحث عن مربع «التأمين».",
+            "اضغط «إرجاع التأمين أو الخصم منه».",
+            "لخصم جزء منه، اختر «خصم مبلغ»، واكتب المبلغ المخصوم والسبب. النافذة تعرض المبلغ الذي سيُرجع.",
+            "أضف الصور إن وُجدت، ثم اضغط «تأكيد»."
+        ]
+    },
+    "images": [
+        {
+            "before": "deposit-before.png",
+            "after": "deposit-after.png",
+            "caption": {
+                "en": "The Security deposit box on an order. After: the button says Refund or cut deposit.",
+                "ar": "مربع التأمين في الطلب. بعد: الزر مكتوب عليه «إرجاع التأمين أو الخصم منه»."
+            }
+        },
+        {
+            "after": "window-after.png",
+            "caption": {
+                "en": "The window it opens, with Deduct an amount.",
+                "ar": "النافذة التي يفتحها، وفيها «خصم مبلغ»."
+            }
+        }
+    ]
+}

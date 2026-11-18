@@ -5704,3 +5704,17 @@ bulk invoice, rows carry a BINV badge, Mark as sent toggle, cancel is
 (`/app/limousine/invoice/bulk/{bulk}/download`) reuses the combined document
 with `bulkReference` + `issuedOn`. The old `/invoice/combined?ids=` route still
 works but has no button. Not a `DefinesIrModel`. Tests: `LimoBulkInvoiceTest` (9).
+
+**Limousine expenses carry a driver (shipped 2026-11-18).** `limo_expenses.driver_id`
+(nullable logical ref to the shared drivers table, migration `2026_11_18_950064`;
+`LimoExpense::driver()` + `driver_name` accessor). Engine arch: a Driver list column
+(`sort_field: driver_id`, `eager: ['driver']`), a `filters_dynamic` driver chip row,
+and a Driver `optionsFrom` select on the form (arch change, deploy resyncs).
+`ExpenseScan` asks "Whose bills are these?" BEFORE the camera: `$driver` is a
+driver id, `NO_DRIVER` ('none', an office bill) or '' (nothing chosen, no camera,
+`store()` refuses with a `driver` error). It is `#[Url(as: 'driver')]`, checked
+against real drivers in `mount()`/`updatedDriver()`, kept across
+`saveAndNext()`, and also editable on the review screen. `savedCount` /
+`savedTotal` (locked) count the run for the chosen driver; `changeDriver()`
+("Finished, next driver") resets them. Old expenses have no driver. Tests:
+`LimoExpenseScanTest` (+2; every older scan test sets `driver` to `none`).

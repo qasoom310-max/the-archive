@@ -130,7 +130,7 @@ final class LimoExpenseScanTest extends TestCase
         $this->assertSame(0, LimoExpense::query()->count());
 
         $page = Livewire::test(ExpenseScan::class)
-            ->call('review', $token)
+            ->set('driver', 'none')->call('review', $token)
             ->assertSet('net_amount', '20')
             ->assertSet('vat_rate', '10')
             ->assertSet('payee', 'Demo Station')
@@ -162,7 +162,7 @@ final class LimoExpenseScanTest extends TestCase
         $token = $this->post('/app/limousine/expense/scan', ['file' => UploadedFile::fake()->image('bill.jpg')])->json('token');
 
         Livewire::test(ExpenseScan::class)
-            ->call('review', $token)
+            ->set('driver', 'none')->call('review', $token)
             ->assertSet('currency', 'SAR')
             ->assertSet('net_amount', '200')
             ->assertSet('vat_rate', '15')
@@ -188,7 +188,7 @@ final class LimoExpenseScanTest extends TestCase
         $token = $this->post('/app/limousine/expense/scan', ['file' => UploadedFile::fake()->image('bill.jpg')])->json('token');
 
         $page = Livewire::test(ExpenseScan::class)
-            ->call('review', $token)
+            ->set('driver', 'none')->call('review', $token)
             // Not readable from the bill: BHD, no conversion, and a note saying so.
             ->assertSet('currency', 'BHD')
             ->assertSet('exchange_rate', '1')
@@ -216,7 +216,7 @@ final class LimoExpenseScanTest extends TestCase
         $token = $this->post('/app/limousine/expense/scan', ['file' => UploadedFile::fake()->image('bill.jpg')])->json('token');
 
         Livewire::test(ExpenseScan::class)
-            ->call('review', $token)
+            ->set('driver', 'none')->call('review', $token)
             // A stale rate left in the box must not touch a BHD amount.
             ->set('exchange_rate', '7')
             ->call('save')
@@ -247,7 +247,7 @@ final class LimoExpenseScanTest extends TestCase
         $token = $this->post('/app/limousine/expense/scan', ['file' => UploadedFile::fake()->image('bill.jpg')])->json('token');
         $this->assertCount(1, Storage::disk(BillScanner::DISK)->allFiles());
 
-        Livewire::test(ExpenseScan::class)->call('review', $token)->call('discard')->assertSet('token', '');
+        Livewire::test(ExpenseScan::class)->set('driver', 'none')->call('review', $token)->call('discard')->assertSet('token', '');
 
         $this->assertSame([], Storage::disk(BillScanner::DISK)->allFiles());
     }
@@ -259,8 +259,8 @@ final class LimoExpenseScanTest extends TestCase
 
         $this->actingAs(User::factory()->create(['is_admin' => true]));
 
-        Livewire::test(ExpenseScan::class)->call('review', $token)->assertHasErrors('scan')->assertSet('token', '');
-        Livewire::test(ExpenseScan::class)->call('review', 'not-a-token')->assertHasErrors('scan');
+        Livewire::test(ExpenseScan::class)->set('driver', 'none')->call('review', $token)->assertHasErrors('scan')->assertSet('token', '');
+        Livewire::test(ExpenseScan::class)->set('driver', 'none')->call('review', 'not-a-token')->assertHasErrors('scan');
     }
 
     public function test_only_people_who_may_add_expenses_can_scan(): void
@@ -293,7 +293,7 @@ final class LimoExpenseScanTest extends TestCase
         $first = $upload();
 
         $page = Livewire::test(ExpenseScan::class)
-            ->call('review', $first)
+            ->set('driver', 'none')->call('review', $first)
             ->assertSee('RF/L/EXP123')            // the number it will get, before saving
             ->call('saveAndNext')
             ->assertHasNoErrors()
@@ -306,7 +306,60 @@ final class LimoExpenseScanTest extends TestCase
         // The photo stays with the expense; "next" must not throw it away.
         Storage::disk(BillScanner::DISK)->assertExists((string) LimoExpense::query()->firstOrFail()->bill_path);
 
-        $page->call('review', $upload())->call('saveAndNext')->assertSee('Saved as RF/L/EXP124');
+        $page->set('driver', 'none')->call('review', $upload())->call('saveAndNext')->assertSee('Saved as RF/L/EXP124');
         $this->assertSame(2, LimoExpense::query()->count());
+    }
+
+    /** One driver's pile: choose the driver once, every bill is saved under them. */
+    public function test_a_run_of_bills_is_saved_under_the_chosen_driver(): void
+    {
+        $this->readerReturning(['net_amount' => 20.0, 'vat_amount' => 2.0, 'total' => 22.0]);
+        $upload = fn (): string => (string) $this->post('/app/limousine/expense/scan', ['file' => UploadedFile::fake()->image('bill.jpg', 600, 800)])
+            ->assertOk()->json('token');
+        $ali = \Modules\Limousine\Models\LimoDriver::query()->create(['name' => 'Ali Driver']);
+        $sami = \Modules\Limousine\Models\LimoDriver::query()->create(['name' => 'Sami Driver']);
+
+        $page = Livewire::test(ExpenseScan::class)
+            // Nothing chosen yet: the question, not the camera.
+            ->assertSee('Whose bills are these?')
+            ->assertDontSeeHtml('capture="environment"')
+            ->set('driver', (string) $ali->id)
+            ->assertSeeHtml('capture="environment"')
+            ->assertSee('Ali Driver')
+            ->call('review', $upload())->call('saveAndNext')
+            ->call('review', $upload())->call('saveAndNext')
+            ->assertSet('driver', (string) $ali->id)
+            ->assertSet('savedCount', 2)
+            ->assertSet('savedTotal', 44.0);
+
+        $this->assertSame([$ali->id, $ali->id], LimoExpense::query()->orderBy('id')->pluck('driver_id')->all());
+
+        // Finished with Ali: the next driver starts a new count.
+        $page->call('changeDriver')
+            ->assertSet('driver', '')
+            ->assertSee('Whose bills are these?')
+            ->set('driver', (string) $sami->id)
+            ->assertSet('savedCount', 0)
+            ->call('review', $upload())->call('saveAndNext');
+
+        $this->assertSame($sami->id, LimoExpense::query()->latest('id')->value('driver_id'));
+        $this->assertSame('Sami Driver', LimoExpense::query()->latest('id')->firstOrFail()->driver_name);
+    }
+
+    public function test_a_bill_is_not_saved_until_it_is_said_whose_it_is(): void
+    {
+        $this->readerReturning(['net_amount' => 20.0, 'vat_amount' => 2.0, 'total' => 22.0]);
+        $token = (string) $this->post('/app/limousine/expense/scan', ['file' => UploadedFile::fake()->image('bill.jpg', 600, 800)])->json('token');
+
+        $page = Livewire::test(ExpenseScan::class)->call('review', $token);
+
+        // Nothing chosen, and a driver that does not exist, are both refused.
+        $page->call('saveAndNext')->assertHasErrors('driver');
+        $page->set('driver', '99999')->call('saveAndNext')->assertHasErrors('driver');
+        $this->assertSame(0, LimoExpense::query()->count());
+
+        // An office bill is a real answer: saved with no driver.
+        $page->set('driver', ExpenseScan::NO_DRIVER)->call('saveAndNext')->assertHasNoErrors();
+        $this->assertNull(LimoExpense::query()->firstOrFail()->driver_id);
     }
 }

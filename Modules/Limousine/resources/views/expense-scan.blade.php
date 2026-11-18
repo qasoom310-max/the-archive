@@ -51,6 +51,27 @@
             <h1 class="text-lg font-bold text-chrome-900">{{ __('Scan a bill') }}</h1>
             <p class="mx-auto mt-1 max-w-md text-sm text-chrome-500">{{ __('Take a photo of the bill. The date, supplier, amount and VAT are read for you to check. Arabic and English bills both work.') }}</p>
 
+            {{-- First: whose bills are these. Chosen once, kept for the whole pile. --}}
+            @if (! $driverChosen)
+                <div class="mx-auto mt-5 max-w-md rounded-xl bg-primary-400/15 p-4 text-start ring-1 ring-primary-600/20" data-scan-driver-pick>
+                    <label class="{{ $lbl }}">{{ __('Whose bills are these?') }} <span class="text-red-500">*</span></label>
+                    <select wire:model.live="driver" class="o-input w-full">
+                        <option value="">{{ __('Choose the driver…') }}</option>
+                        @foreach ($drivers as $d)<option value="{{ $d->id }}">{{ $d->name }}</option>@endforeach
+                        <option value="none">{{ __('Office bill, no driver') }}</option>
+                    </select>
+                    <p class="mt-2 text-xs text-chrome-500">{{ __('Choose once. Every bill you scan after that is saved under this driver until you change it.') }}</p>
+                </div>
+            @else
+                <div class="mx-auto mt-5 flex max-w-md flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-chrome-50 px-4 py-3 text-start" data-scan-driver>
+                    <div class="min-w-0 flex-1">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Bills of') }}</div>
+                        <div class="truncate text-base font-bold text-chrome-900">{{ $driverName }}</div>
+                        <div class="text-xs text-chrome-500" data-scan-run>{{ __(':count saved · :total', ['count' => $savedCount, 'total' => $money($savedTotal, 'BHD')]) }}</div>
+                    </div>
+                    <button type="button" wire:click="changeDriver" class="o-btn-ghost text-sm ring-1 ring-chrome-200" data-scan-next-driver>{{ $savedCount > 0 ? __('Finished, next driver') : __('Change driver') }}</button>
+                </div>
+
             <div class="mt-5 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
                 <label class="o-btn-primary w-full cursor-pointer justify-center py-3 sm:w-auto" :class="busy ? 'pointer-events-none opacity-50' : ''">
                     <svg class="size-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M1 8a2 2 0 0 1 2-2h.93a2 2 0 0 0 1.664-.89l.812-1.22A2 2 0 0 1 8.07 3h3.86a2 2 0 0 1 1.664.89l.812 1.22A2 2 0 0 0 16.07 6H17a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8Zm13.5 3a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM10 14a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clip-rule="evenodd"/></svg>
@@ -62,6 +83,8 @@
                     <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="send($event)">
                 </label>
             </div>
+
+            @endif
 
             <p x-show="busy" x-cloak class="mt-4 text-sm font-medium text-chrome-600">{{ __('Reading the bill… this takes a few seconds.') }}</p>
             <p x-show="error" x-cloak x-text="error" class="mt-4 text-sm font-medium text-red-600" role="alert"></p>
@@ -98,6 +121,15 @@
                 @endif
 
                 <div class="space-y-3">
+                    <div data-scan-review-driver>
+                        <label class="{{ $lbl }}">{{ __('Driver') }} <span class="text-red-500">*</span></label>
+                        <select wire:model="driver" class="o-input w-full">
+                            <option value="">{{ __('Choose the driver…') }}</option>
+                            @foreach ($drivers as $d)<option value="{{ $d->id }}">{{ $d->name }}</option>@endforeach
+                            <option value="none">{{ __('Office bill, no driver') }}</option>
+                        </select>
+                        @error('driver') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
                     <div>
                         <label class="{{ $lbl }}">{{ __('Date') }} <span class="text-red-500">*</span></label>
                         <x-date-field wire:model="date" class="o-input w-full" />

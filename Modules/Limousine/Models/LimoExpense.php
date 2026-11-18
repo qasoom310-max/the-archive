@@ -24,6 +24,9 @@ use Illuminate\Support\Carbon;
  * @property float $vat_amount  worked out from the two above
  * @property string|null $payee
  * @property int|null $booking_id
+ * @property int|null $driver_id  the driver whose bill this is; null for an office bill
+ * @property-read LimoDriver|null $driver
+ * @property-read string $driver_name
  * @property string|null $notes
  * @property string|null $bill_path  the photo this expense was scanned from (private disk)
  * @property string $bill_currency    the currency printed on the bill; 'BHD' means nothing was converted
@@ -37,7 +40,7 @@ final class LimoExpense extends Model implements DefinesIrModel
     protected $table = 'limo_expenses';
 
     /** @var list<string> */
-    protected $fillable = ['reference', 'date', 'category', 'amount', 'net_amount', 'vat_rate', 'vat_amount', 'payee', 'booking_id', 'notes'];
+    protected $fillable = ['reference', 'date', 'category', 'amount', 'net_amount', 'vat_rate', 'vat_amount', 'payee', 'booking_id', 'driver_id', 'notes'];
 
     /** @var array<string, mixed> */
     protected $attributes = ['category' => 'fuel', 'amount' => 0, 'net_amount' => 0, 'vat_rate' => 0, 'vat_amount' => 0];
@@ -73,9 +76,24 @@ final class LimoExpense extends Model implements DefinesIrModel
             'vat_rate' => 'integer',
             'vat_amount' => 'float',
             'booking_id' => 'integer',
+            'driver_id' => 'integer',
             'bill_amount' => 'float',
             'bill_rate' => 'float',
         ];
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<LimoDriver, $this>
+     */
+    public function driver(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(LimoDriver::class, 'driver_id');
+    }
+
+    /** The driver's name for the list; empty for an office bill. */
+    public function getDriverNameAttribute(): string
+    {
+        return (string) ($this->driver->name ?? '');
     }
 
     public function referencePrefix(): string
@@ -214,6 +232,7 @@ final class LimoExpense extends Model implements DefinesIrModel
                 new FieldDefinition('vat_amount', 'VAT amount', 'float', readonly: true, sequence: 38),
                 new FieldDefinition('amount', 'Total', 'float', readonly: true, sequence: 40),
                 new FieldDefinition('payee', 'Paid to', 'char', sequence: 50),
+                new FieldDefinition('driver_id', 'Driver', 'many2one', relation: 'limousine.driver', sequence: 55),
                 new FieldDefinition('notes', 'Notes', 'text', sequence: 60),
             ],
             views: [
@@ -223,6 +242,8 @@ final class LimoExpense extends Model implements DefinesIrModel
                         ['field' => 'date', 'label' => 'Date', 'format' => 'date', 'sortable' => true],
                         ['field' => 'category', 'label' => 'Category', 'format' => 'badge', 'sortable' => true],
                         ['field' => 'payee', 'label' => 'Paid to'],
+                        // An accessor through the driver; sorts by the id behind it.
+                        ['field' => 'driver_name', 'label' => 'Driver', 'sort_field' => 'driver_id'],
                         ['field' => 'net_amount', 'label' => 'Before VAT', 'format' => 'money', 'align' => 'right', 'sortable' => true, 'sum' => true],
                         ['field' => 'vat_amount', 'label' => 'VAT', 'format' => 'money', 'align' => 'right', 'sortable' => true, 'sum' => true],
                         ['field' => 'amount', 'label' => 'Total', 'format' => 'money', 'align' => 'right', 'sortable' => true, 'sum' => true],
@@ -230,6 +251,16 @@ final class LimoExpense extends Model implements DefinesIrModel
                     'default_sort' => [['field' => 'id', 'dir' => 'desc']],
                     'per_page' => 20,
                     'searchable' => ['reference', 'payee'],
+                    'eager' => ['driver'],
+                    // One chip per driver: "whose bills are these".
+                    'filters_dynamic' => [
+                        [
+                            'name' => 'driver',
+                            'label' => 'Driver',
+                            'field' => 'driver_id',
+                            'optionsFrom' => ['model' => LimoDriver::class, 'value' => 'id', 'label' => 'name', 'orderBy' => 'name'],
+                        ],
+                    ],
                     'open' => '/app/limousine/expense/{id}',
                 ]),
                 new ViewDefinition('Expense', 'form', [
@@ -242,6 +273,11 @@ final class LimoExpense extends Model implements DefinesIrModel
                         ['field' => 'vat_amount', 'label' => 'VAT amount (BHD)', 'widget' => 'number', 'readonly' => true],
                         ['field' => 'amount', 'label' => 'Total with VAT (BHD)', 'widget' => 'number', 'readonly' => true],
                         ['field' => 'payee', 'label' => 'Paid to', 'widget' => 'text'],
+                        [
+                            'field' => 'driver_id', 'label' => 'Driver', 'widget' => 'select',
+                            'help' => 'The driver who handed this bill in. Leave empty for an office bill.',
+                            'optionsFrom' => ['model' => LimoDriver::class, 'value' => 'id', 'label' => 'name', 'orderBy' => 'name'],
+                        ],
                         ['field' => 'notes', 'label' => 'Notes', 'widget' => 'textarea'],
                     ],
                 ]),

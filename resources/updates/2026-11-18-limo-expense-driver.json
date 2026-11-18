@@ -1,0 +1,82 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Limousine expenses: every bill now says which driver it belongs to",
+        "ar": "مصروفات الليموزين: كل فاتورة تبيّن الآن لأي سائق تعود"
+    },
+    "points": {
+        "en": [
+            "Scan a bill now starts with one question: whose bills are these? Choose the driver once.",
+            "Every bill you scan after that is saved under that driver, one after another, until you press Finished, next driver.",
+            "The page counts the bills saved for the driver and adds up their total.",
+            "The Expenses list has a new Driver column, and a row of driver names at the top to show one driver's bills only.",
+            "For a bill that is not a driver's, choose Office bill, no driver."
+        ],
+        "ar": [
+            "«تصوير فاتورة» يبدأ الآن بسؤال واحد: لمن هذه الفواتير؟ اختر السائق مرة واحدة.",
+            "كل فاتورة تصوّرها بعد ذلك تُحفظ باسم هذا السائق، واحدة بعد الأخرى، حتى تضغط «انتهيت، السائق التالي».",
+            "الصفحة تعدّ الفواتير المحفوظة للسائق وتجمع مبلغها.",
+            "قائمة المصروفات فيها عمود جديد «السائق»، وصف بأسماء السائقين في الأعلى لعرض فواتير سائق واحد فقط.",
+            "للفاتورة التي ليست لسائق، اختر «فاتورة مكتب، بدون سائق»."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, an expense had a date, a category, who was paid and the amount. It did not say which driver paid the bill and handed it in. When several drivers brought their bills, nobody could tell later whose was whose.",
+            "Now the driver is saved on the expense. On the scan page you choose the driver first, and the camera button appears only after that. The driver stays chosen while you scan the whole pile with Save and scan next.",
+            "The driver is also shown on the check screen of each bill, so you can correct it for one bill without starting again.",
+            "A bill cannot be saved until you say whose it is. If it is the office's own bill, choose Office bill, no driver. This is so no bill is left without an answer by mistake.",
+            "On the typed New expense form, and when you open an old expense, there is a Driver box too. Expenses saved before today have no driver. You can open one and choose its driver."
+        ],
+        "ar": [
+            "في السابق كان للمصروف تاريخ وفئة واسم المدفوع له والمبلغ. لم يكن يبيّن أي سائق دفع الفاتورة وسلّمها. وعندما يحضر عدة سائقين فواتيرهم، لم يكن أحد يعرف لاحقاً أي فاتورة لأي سائق.",
+            "الآن يُحفظ السائق مع المصروف. في صفحة التصوير تختار السائق أولاً، وزر الكاميرا يظهر بعد ذلك فقط. يبقى السائق مختاراً وأنت تصوّر كل الفواتير بزر «حفظ وتصوير التالي».",
+            "السائق يظهر أيضاً في شاشة مراجعة كل فاتورة، فتستطيع تصحيحه لفاتورة واحدة دون البدء من جديد.",
+            "لا تُحفظ الفاتورة حتى تحدد لمن هي. إذا كانت فاتورة المكتب نفسه، اختر «فاتورة مكتب، بدون سائق». الهدف ألا تبقى فاتورة بدون جواب بالخطأ.",
+            "في نموذج «جديد» المكتوب باليد، وعند فتح مصروف قديم، يوجد حقل «السائق» أيضاً. المصروفات المحفوظة قبل اليوم ليس لها سائق. يمكنك فتح أي منها واختيار سائقها."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Expenses, then press Scan a bill.",
+            "Under Whose bills are these?, choose the driver.",
+            "Press Take a photo and take the picture of the first bill. Check the figures, then press Save and scan next.",
+            "Repeat for each bill of this driver. The page shows how many are saved and their total.",
+            "When the pile is finished, press Finished, next driver and choose the next driver.",
+            "To see one driver's bills later, open Expenses and press the driver's name at the top of the list."
+        ],
+        "ar": [
+            "افتح الليموزين، ثم المصروفات، ثم اضغط «تصوير فاتورة».",
+            "تحت «لمن هذه الفواتير؟» اختر السائق.",
+            "اضغط «التقط صورة» وصوّر الفاتورة الأولى. راجع الأرقام، ثم اضغط «حفظ وتصوير التالي».",
+            "كرّر ذلك لكل فاتورة لهذا السائق. الصفحة تعرض عدد الفواتير المحفوظة ومجموعها.",
+            "عند الانتهاء من فواتيره، اضغط «انتهيت، السائق التالي» واختر السائق التالي.",
+            "لرؤية فواتير سائق واحد لاحقاً، افتح المصروفات واضغط اسم السائق أعلى القائمة."
+        ]
+    },
+    "images": [
+        {
+            "before": "scan-before.png",
+            "after": "scan-pick.png",
+            "caption": {
+                "en": "Scan a bill on a phone. After: it asks whose bills these are first.",
+                "ar": "تصوير فاتورة على الهاتف. بعد: يسأل أولاً لمن هذه الفواتير."
+            }
+        },
+        {
+            "after": "scan-driver.png",
+            "caption": {
+                "en": "With the driver chosen: the camera, and the count of bills saved for this driver.",
+                "ar": "بعد اختيار السائق: الكاميرا، وعدد الفواتير المحفوظة لهذا السائق."
+            }
+        },
+        {
+            "before": "list-before.png",
+            "after": "list-after.png",
+            "caption": {
+                "en": "The Expenses list. After: the Driver column and the driver names at the top.",
+                "ar": "قائمة المصروفات. بعد: عمود «السائق» وأسماء السائقين في الأعلى."
+            }
+        }
+    ]
+}

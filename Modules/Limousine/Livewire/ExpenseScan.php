@@ -14,8 +14,10 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Modules\Limousine\Http\Controllers\ExpenseBillController;
+use Modules\Limousine\Models\LimoDriver;
 use Modules\Limousine\Models\LimoExpense;
 use Modules\Limousine\Services\BillScanner;
 
@@ -48,6 +50,24 @@ final class ExpenseScan extends Component
     #[Locked]
     public string $savedReference = '';
 
+    /** No driver: an office bill. */
+    public const NO_DRIVER = 'none';
+
+    /**
+     * Whose bills are being scanned: a driver's id, NO_DRIVER for office
+     * bills, or empty while nothing is chosen yet. Chosen once, then kept for
+     * every bill until it is changed, so a driver's pile goes in one run.
+     */
+    #[Url(as: 'driver', except: '')]
+    public string $driver = '';
+
+    /** Bills saved for this driver in this run, and what they add up to (BHD). */
+    #[Locked]
+    public int $savedCount = 0;
+
+    #[Locked]
+    public float $savedTotal = 0.0;
+
     public string $date = '';
 
     public string $category = 'other';
@@ -77,6 +97,12 @@ final class ExpenseScan extends Component
         $this->guardAccess(Permission::Create);
 
         request()->attributes->set('breadcrumb_terminal_label', __('Scan a bill'));
+
+        // The driver rides in the address, so a refresh keeps the run going.
+        // Anything that is not a real driver is dropped.
+        if ($this->driver !== self::NO_DRIVER && $this->driverId() === null) {
+            $this->driver = '';
+        }
 
         // A scan can be reopened by its address while it is still parked
         // (the same owner-only check as review() applies).
@@ -134,6 +160,36 @@ final class ExpenseScan extends Component
         $this->category = 'other';
         $this->vat_rate = '0';
         $this->resetValidation();
+    }
+
+    /** A new choice starts a new run: the count belongs to one driver. */
+    public function updatedDriver(): void
+    {
+        if ($this->driverId() === null && $this->driver !== self::NO_DRIVER) {
+            $this->driver = '';
+        }
+
+        $this->savedCount = 0;
+        $this->savedTotal = 0.0;
+        $this->savedReference = '';
+        $this->resetValidation('driver');
+    }
+
+    /** Finished with this driver: back to choosing whose bills come next. */
+    public function changeDriver(): void
+    {
+        $this->driver = '';
+        $this->updatedDriver();
+    }
+
+    /** The chosen driver's id, only if that driver exists. */
+    private function driverId(): ?int
+    {
+        if ($this->driver === '' || ! ctype_digit($this->driver)) {
+            return null;
+        }
+
+        return LimoDriver::query()->whereKey((int) $this->driver)->exists() ? (int) $this->driver : null;
     }
 
     /** Choosing another currency looks up its rate; the rate box stays editable. */
@@ -217,6 +273,13 @@ final class ExpenseScan extends Component
             return null;
         }
 
+        // Whose bill it is has to be said, even if the answer is "nobody's".
+        if ($this->driver !== self::NO_DRIVER && $this->driverId() === null) {
+            $this->addError('driver', __('Choose the driver these bills belong to, or choose "Office bill, no driver".'));
+
+            return null;
+        }
+
         $this->validate([
             'date' => ['required', 'date'],
             'category' => ['required', 'in:' . implode(',', array_column(LimoExpense::categoryOptions(), 'value'))],
@@ -240,6 +303,7 @@ final class ExpenseScan extends Component
             'net_amount' => round((float) $this->net_amount * $this->rate(), 3),
             'vat_rate' => (int) $this->vat_rate,
             'notes' => trim($this->notes) !== '' ? trim($this->notes) : null,
+            'driver_id' => $this->driverId(),
         ]);
         // From the server's own record of the upload, not from the page.
         $expense->setAttribute('bill_path', $scan['path']);
@@ -252,6 +316,9 @@ final class ExpenseScan extends Component
         $expense->save();
 
         Cache::forget(ExpenseBillController::cacheKey($this->token));
+
+        $this->savedCount++;
+        $this->savedTotal = round($this->savedTotal + (float) $expense->amount, 3);
 
         return $expense->refresh();
     }
@@ -281,6 +348,11 @@ final class ExpenseScan extends Component
 
         return view('limousine::expense-scan', [
             'available' => BillScanner::isAvailable(),
+            'drivers' => LimoDriver::query()->where('active', true)->orWhere('id', (int) $this->driver)->orderBy('name')->get(['id', 'name']),
+            'driverChosen' => $this->driver === self::NO_DRIVER || $this->driverId() !== null,
+            'driverName' => $this->driver === self::NO_DRIVER
+                ? __('Office bill, no driver')
+                : (string) (LimoDriver::query()->whereKey((int) $this->driver)->value('name') ?? ''),
             'reviewing' => $this->token !== '',
             // The number this bill will get, to write on the paper.
             'nextReference' => $this->token !== '' ? LimoExpense::nextReference() : '',

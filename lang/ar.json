@@ -3768,5 +3768,15 @@
     "Already in another bulk invoice: :list": "موجودة مسبقاً في فاتورة مجمّعة أخرى: :list",
     "One of these invoices was just put in another bulk invoice. Refresh and try again.": "إحدى هذه الفواتير وُضعت للتو في فاتورة مجمّعة أخرى. حدّث الصفحة وحاول مرة أخرى.",
     "This bulk invoice was cancelled.": "هذه الفاتورة المجمّعة ملغاة.",
-    "That is more than what is left to pay on this bulk invoice.": "المبلغ أكبر من المتبقي على هذه الفاتورة المجمّعة."
+    "That is more than what is left to pay on this bulk invoice.": "المبلغ أكبر من المتبقي على هذه الفاتورة المجمّعة.",
+    "Whose bills are these?": "لمن هذه الفواتير؟",
+    "Choose the driver…": "اختر السائق…",
+    "Office bill, no driver": "فاتورة مكتب، بدون سائق",
+    "Choose once. Every bill you scan after that is saved under this driver until you change it.": "اختر مرة واحدة. كل فاتورة تصوّرها بعد ذلك تُحفظ باسم هذا السائق حتى تغيّره.",
+    "Bills of": "فواتير",
+    ":count saved · :total": "تم حفظ :count · :total",
+    "Finished, next driver": "انتهيت، السائق التالي",
+    "Change driver": "تغيير السائق",
+    "Choose the driver these bills belong to, or choose \"Office bill, no driver\".": "اختر السائق صاحب هذه الفواتير، أو اختر «فاتورة مكتب، بدون سائق».",
+    "The driver who handed this bill in. Leave empty for an office bill.": "السائق الذي سلّم هذه الفاتورة. اتركه فارغاً لفاتورة المكتب."
 }

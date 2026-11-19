@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\App\AuthController;
 use App\Http\Controllers\Api\App\DeviceController;
+use App\Http\Controllers\Api\Office\OfficeReadController;
 use App\Http\Middleware\AppLocale;
 use App\Http\Middleware\AppWorkspace;
+use App\Http\Middleware\OfficeApi;
 use Illuminate\Support\Facades\Route;
 use Modules\Limousine\Http\Controllers\App\TripController;
 
@@ -38,4 +40,19 @@ Route::prefix('app')->middleware(AppLocale::class)->group(function (): void {
             Route::post('/trips/{leg}/assign', [TripController::class, 'assign'])->whereNumber('leg');
         });
     });
+});
+
+/*
+| The AI office (a separate app): /api/office/v1/…
+|
+| READ ONLY. An office key (php artisan office:key …), never a staff login; one
+| business database per request, named in X-Workspace and listed on the key;
+| GET only, and that database is locked to query_only while the request runs
+| (OfficeApi). The rate limit runs first, while the cache is still Main's.
+*/
+Route::prefix('office/v1')->middleware(['throttle:120,1', OfficeApi::class])->group(function (): void {
+    Route::get('/workspace', [OfficeReadController::class, 'workspace']);
+    Route::get('/staff', [OfficeReadController::class, 'staff']);
+    Route::get('/activity', [OfficeReadController::class, 'activity']);
+    Route::get('/accounting/journal-entries', [OfficeReadController::class, 'journalEntries']);
 });

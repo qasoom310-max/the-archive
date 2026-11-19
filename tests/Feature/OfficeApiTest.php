@@ -20,6 +20,13 @@ use Modules\Accounting\Enums\JournalEntryState;
 use Modules\Accounting\Models\Account;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Accounting\Models\JournalItem;
+use Modules\Limousine\Models\LimoBooking;
+use Modules\Limousine\Models\LimoCustomer;
+use Modules\Limousine\Models\LimoInvoice;
+use Modules\Limousine\Models\LimoLeg;
+use Modules\Rental\Models\RentalCustomer;
+use Modules\Rental\Models\RentalOrder;
+use Modules\Rental\Models\Vehicle;
 use Tests\TestCase;
 
 /**
@@ -247,6 +254,88 @@ final class OfficeApiTest extends TestCase
         $this->getJson('/api/office/v1/accounting/journal-entries?from=19-11-2026', $this->headers($key, $main))->assertStatus(422);
         $this->getJson('/api/office/v1/accounting/journal-entries?state=deleted', $this->headers($key, $main))->assertStatus(422);
         $this->getJson('/api/office/v1/accounting/journal-entries?limit=5000', $this->headers($key, $main))->assertStatus(422);
+    }
+
+    // ── Sections: limousine and rent a car ──────────────────────────
+
+    public function test_the_limousine_manager_reads_trips_invoices_and_expenses_without_private_details(): void
+    {
+        app(ModuleManager::class)->install('limousine');
+        $main = $this->main();
+        $customer = LimoCustomer::query()->create(['name' => 'Ministry Travel Desk', 'phone' => '39998877', 'email' => 'desk@example.test', 'cpr' => '880101234']);
+        $booking = LimoBooking::query()->create(['reference' => 'BK/1001', 'customer_id' => $customer->id, 'pickup_at' => '2026-11-18 18:00:00', 'status' => LimoBooking::STATUS_CONFIRMED]);
+        $booking->forceFill(['pax_contact' => '33445566'])->saveQuietly();
+        LimoLeg::query()->create(['legable_type' => LimoBooking::class, 'legable_id' => $booking->id, 'sequence' => 0, 'reference' => '30777', 'status' => LimoLeg::STATUS_COMPLETED, 'start_at' => '2026-11-18 18:00:00', 'from_location' => 'Seef', 'to_location' => 'Bahrain Airport', 'rate' => 12, 'net_amount' => 12]);
+        LimoLeg::query()->create(['legable_type' => LimoBooking::class, 'legable_id' => $booking->id, 'sequence' => 1, 'reference' => '30778', 'status' => LimoLeg::STATUS_CANCELLED, 'start_at' => '2026-11-10 09:00:00', 'from_location' => 'Airport', 'to_location' => 'Seef', 'rate' => 12, 'net_amount' => 12]);
+        LimoInvoice::query()->create(['reference' => 'INV/0042', 'customer_id' => $customer->id, 'booking_id' => $booking->id, 'issue_date' => '2026-11-01', 'due_date' => '2026-11-09', 'total' => 100, 'amount_paid' => 40, 'status' => LimoInvoice::STATUS_PARTIAL]);
+        $key = $this->key([$main]);
+
+        $trips = $this->getJson('/api/office/v1/limousine/trips?from=2026-11-15&to=2026-11-19', $this->headers($key, $main))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.reference', '30777')
+            ->assertJsonPath('data.0.booking', 'BK/1001')
+            ->assertJsonPath('data.0.customer', 'Ministry Travel Desk')
+            ->assertJsonPath('data.0.status', 'completed');
+        $this->getJson('/api/office/v1/limousine/trips?status=cancelled', $this->headers($key, $main))->assertJsonCount(1, 'data');
+        $this->getJson('/api/office/v1/limousine/trips?status=lost', $this->headers($key, $main))->assertStatus(422);
+
+        $invoices = $this->getJson('/api/office/v1/limousine/invoices', $this->headers($key, $main))
+            ->assertOk()
+            ->assertJsonPath('data.0.balance', 60)
+            ->assertJsonPath('data.0.days_overdue', 10);
+        $this->getJson('/api/office/v1/limousine/expenses', $this->headers($key, $main))->assertOk()->assertJsonCount(0, 'data');
+
+        foreach ([$trips, $invoices] as $response) {
+            foreach (['39998877', 'desk@example.test', '880101234', '33445566'] as $private) {
+                $this->assertStringNotContainsString($private, (string) $response->getContent());
+            }
+        }
+    }
+
+    public function test_the_rent_a_car_manager_reads_rentals_overlapping_the_period_and_the_fleet_without_private_details(): void
+    {
+        app(ModuleManager::class)->install('rental');
+        $main = $this->main();
+        $car = Vehicle::query()->create(['name' => 'Yaris', 'plate_no' => '123456', 'daily_rate' => 10]);
+        $car->forceFill(['insurance_expiry' => '2026-12-01', 'next_maintenance_date' => '2026-11-25'])->save();
+        $order = fn (string $name, string $start, string $end, string $state) => RentalOrder::query()->create([
+            'customer_id' => RentalCustomer::query()->create(['name' => $name, 'phone' => '36665544', 'cpr' => '900101111'])->id,
+            'vehicle_id' => $car->id, 'start_date' => $start, 'end_date' => $end,
+            'rate_type' => 'daily', 'rate' => 10, 'deposit' => 50, 'state' => $state,
+        ]);
+        $order('Before', '2026-10-01', '2026-10-05', RentalOrder::STATE_CLOSED);
+        $order('Running across', '2026-11-10', '2026-11-25', RentalOrder::STATE_ACTIVE);
+        $order('Inside', '2026-11-16', '2026-11-17', RentalOrder::STATE_CLOSED);
+        $key = $this->key([$main]);
+
+        $rentals = $this->getJson('/api/office/v1/rental/orders?from=2026-11-15&to=2026-11-19', $this->headers($key, $main))
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.customer', 'Running across')
+            ->assertJsonPath('data.0.car', 'Yaris 123456')
+            ->assertJsonPath('data.0.deposit', 50);
+        $this->getJson('/api/office/v1/rental/orders?state=active', $this->headers($key, $main))->assertJsonCount(1, 'data');
+        $this->getJson('/api/office/v1/rental/orders?state=lost', $this->headers($key, $main))->assertStatus(422);
+
+        $this->getJson('/api/office/v1/rental/fleet', $this->headers($key, $main))
+            ->assertOk()
+            ->assertJsonPath('data.0.plate', '123456')
+            ->assertJsonPath('data.0.insurance_expiry', '2026-12-01')
+            ->assertJsonPath('data.0.next_service_date', '2026-11-25');
+
+        foreach (['36665544', '900101111'] as $private) {
+            $this->assertStringNotContainsString($private, (string) $rentals->getContent());
+        }
+    }
+
+    public function test_a_section_that_is_not_installed_says_so(): void
+    {
+        $main = $this->main();
+        $key = $this->key([$main]);
+
+        $this->getJson('/api/office/v1/limousine/trips', $this->headers($key, $main))->assertNotFound()->assertJsonPath('error', 'Limousine is not installed in this workspace.');
+        $this->getJson('/api/office/v1/rental/fleet', $this->headers($key, $main))->assertNotFound();
     }
 
     // ── Keys from the command line ──────────────────────────────────

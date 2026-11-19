@@ -7,6 +7,7 @@ namespace Modules\Limousine\Services;
 use App\Erp\Settings\Setting;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
+use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Support\ImportedLegCopies;
@@ -41,6 +42,14 @@ final class LimoInvoicePdf
         $legs?->each(static fn (LimoLeg $leg): LimoLeg => $leg->setRelation('legable', $parent));
         $paid = round((float) $invoice->amount_paid, 3);
         $total = round((float) $invoice->total, 3);
+        // The parent's fare is the sum of its trips (plus meet & greet, taken
+        // off here), so it is what tells a row the import copied from a car
+        // that really went out twice.
+        $lines = $this->lines(
+            $legs,
+            (string) ($invoice->booking->reference ?? $invoice->quotation->reference ?? ''),
+            $parent instanceof LimoBooking ? $parent->legsFare() : round((float) ($parent->fare ?? 0), 3),
+        );
 
         return [
             'invoice' => $invoice,
@@ -57,13 +66,7 @@ final class LimoInvoicePdf
             'quotationReference' => (string) ($invoice->quotation->reference ?? ''),
             // All of $legs comes from the SAME booking or quote (never mixed —
             // see the ??  above), so one reference covers every line.
-            // The parent's fare is the sum of its trips, so it is what tells a
-            // row the import copied from a car that really went out twice.
-            'lines' => $this->lines(
-                $legs,
-                (string) ($invoice->booking->reference ?? $invoice->quotation->reference ?? ''),
-                round((float) ($parent->fare ?? 0), 3),
-            ),
+            'lines' => [...$lines, ...$this->meetGreetLines($parent, $lines)],
             'subtotal' => round((float) $invoice->subtotal, 3),
             'discount' => round((float) $invoice->discount, 3),
             'total' => $total,
@@ -124,6 +127,32 @@ final class LimoInvoicePdf
             'amount' => round((float) $leg->net_amount - (float) $leg->extras_total, 3),
             'extras' => $leg->extraLines(),
         ];
+    }
+
+    /**
+     * Meet & greet, once per booking, as its own line after the trips. None
+     * when the booking has no trip on the bill (it is not charged then).
+     *
+     * @param  list<array<string, mixed>>  $tripLines
+     * @return list<array{booking: string, trip: string, service: string, vehicle: string, from: string, to: string, when: string, amount: float, extras: list<array{name: string, price: float, qty: int, amount: float}>}>
+     */
+    private function meetGreetLines(mixed $parent, array $tripLines): array
+    {
+        if (! $parent instanceof LimoBooking || $tripLines === [] || $parent->meetGreetCharge() <= 0.0) {
+            return [];
+        }
+
+        return [[
+            'booking' => (string) ($parent->reference ?? ''),
+            'trip' => '',
+            'service' => (string) __('Meet & greet'),
+            'vehicle' => '',
+            'from' => trim((string) $parent->meet_greet_name),
+            'to' => '',
+            'when' => '',
+            'amount' => $parent->meetGreetCharge(),
+            'extras' => [],
+        ]];
     }
 
     /** Rendered PDF bytes. */

@@ -774,6 +774,11 @@ final class LimoQueueRows
                 : ($pax !== '' ? $pax : $paxContact));
         }
 
+        // Meet & greet: the driver (or whoever meets them) holds this name.
+        if ($booking?->meet_greet) {
+            $lines[] = __('Meet & greet') . ': ' . trim((string) ($booking->meet_greet_name ?? ''));
+        }
+
         $lines[] = '';
         $lines[] = __('Pick up') . ': ' . ($leg->from_location ?? '');
         if (($leg->from_location_url ?? '') !== '') {

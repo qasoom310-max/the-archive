@@ -87,6 +87,14 @@ final class BookingForm extends Component
 
     public string $email = '';
 
+    /** Meet & greet: someone waits for the passenger holding a name. */
+    public bool $meet_greet = false;
+
+    public string $meet_greet_name = '';
+
+    /** Starts at LimoBooking::MEET_GREET_PRICE when ticked; the office may change it. */
+    public string $meet_greet_price = '';
+
     public string $requested_by = '';
 
     /**
@@ -169,6 +177,9 @@ final class BookingForm extends Component
                 $this->pax_contact = $booking->pax_contact ?? '';
                 $this->flight_number = $booking->flight_number ?? '';
                 $this->email = $booking->email ?? '';
+                $this->meet_greet = (bool) $booking->meet_greet;
+                $this->meet_greet_name = (string) ($booking->meet_greet_name ?? '');
+                $this->meet_greet_price = $booking->meet_greet_price !== null ? (string) $booking->meet_greet_price : '';
                 $this->requested_by = $booking->requested_by ?? '';
                 // Keep whoever actually raised this booking. Re-stamping it with
                 // the current viewer would quietly rewrite the sign-off every
@@ -257,6 +268,23 @@ final class BookingForm extends Component
      * The company reference does not auto-fill (a per-job PO number), and
      * prepared-by is our own staff member, stamped from the account.
      */
+    /**
+     * Ticking meet & greet fills the price (5 BHD) and the name (the
+     * passenger) when they are empty; both can be changed after.
+     */
+    public function updatedMeetGreet(): void
+    {
+        if (! $this->meet_greet) {
+            return;
+        }
+        if (trim($this->meet_greet_price) === '') {
+            $this->meet_greet_price = (string) LimoBooking::MEET_GREET_PRICE;
+        }
+        if (trim($this->meet_greet_name) === '') {
+            $this->meet_greet_name = trim($this->pax_name);
+        }
+    }
+
     public function updatedCustomerId(): void
     {
         if ($this->customer_id === null) {
@@ -295,6 +323,14 @@ final class BookingForm extends Component
     }
 
     /** Every leg is priced for this many units (see HandlesTripLegs::legUnits()). */
+    /** Meet & greet, charged once on the booking. */
+    public function jobCharges(): float
+    {
+        return $this->meet_greet && is_numeric($this->meet_greet_price)
+            ? round(max(0.0, (float) $this->meet_greet_price), 3)
+            : 0.0;
+    }
+
     public function legUnits(): int
     {
         return max(1, min(100, (int) $this->units));
@@ -313,6 +349,9 @@ final class BookingForm extends Component
             'pax_contact' => ['nullable', 'string', 'max:100'],
             'flight_number' => ['nullable', 'string', 'max:100'],
             'email' => ['nullable', 'email', 'max:255'],
+            'meet_greet' => ['boolean'],
+            'meet_greet_name' => ['nullable', 'required_if:meet_greet,true', 'string', 'max:255'],
+            'meet_greet_price' => ['nullable', 'required_if:meet_greet,true', 'numeric', 'min:0', 'max:10000'],
             'requested_by' => ['required', 'string', 'max:255'],
             'prepared_by' => ['required', 'string', 'max:255'],
             'units' => ['required', 'integer', 'min:1', 'max:100'],
@@ -353,6 +392,10 @@ final class BookingForm extends Component
         $booking->pax_contact = $this->trimOrNull($this->pax_contact);
         $booking->flight_number = $this->trimOrNull($this->flight_number);
         $booking->email = $this->trimOrNull($this->email);
+        // Set before the legs price the job: recalcTotal adds it to the fare.
+        $booking->meet_greet = $this->meet_greet;
+        $booking->meet_greet_name = $this->meet_greet ? $this->trimOrNull($this->meet_greet_name) : null;
+        $booking->meet_greet_price = $this->meet_greet ? round((float) $this->meet_greet_price, 3) : null;
         $booking->requested_by = $this->trimOrNull($this->requested_by);
         $booking->prepared_by = $this->trimOrNull($this->prepared_by);
         $booking->num_cars = $this->legUnits();

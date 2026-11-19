@@ -3782,5 +3782,11 @@
     "Refund or cut deposit": "إرجاع التأمين أو الخصم منه",
     "Opens the choices. Nothing changes until you press Confirm.": "يفتح الخيارات. لا يتغير شيء حتى تضغط «تأكيد».",
     "The 14-day hold ends on :date. You are settling this deposit early.": "مدة الحجز (14 يوماً) تنتهي في :date. أنت تسوّي هذا التأمين مبكراً.",
-    "The car is not back yet. You are settling this deposit early.": "السيارة لم ترجع بعد. أنت تسوّي هذا التأمين مبكراً."
+    "The car is not back yet. You are settling this deposit early.": "السيارة لم ترجع بعد. أنت تسوّي هذا التأمين مبكراً.",
+    "Meet & greet": "خدمة الاستقبال",
+    "Name to meet": "اسم الشخص المراد استقباله",
+    "Meet & greet price (BHD)": "سعر الاستقبال (دينار)",
+    "Type the name to meet.": "اكتب اسم الشخص المراد استقباله.",
+    "Type the price (0 or more).": "اكتب السعر (صفر أو أكثر).",
+    "Added to the booking total. You can change it.": "يُضاف إلى إجمالي الحجز، ويمكنك تغييره."
 }

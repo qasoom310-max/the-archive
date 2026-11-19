@@ -538,10 +538,19 @@ trait HandlesTripLegs
         return 1;
     }
 
-    /** Grand total = sum of leg nets, recomputed from the live inputs. */
+    /**
+     * Charges on the whole job rather than on a trip (meet & greet on a
+     * booking). None unless the host form adds some.
+     */
+    public function jobCharges(): float
+    {
+        return 0.0;
+    }
+
+    /** Grand total = sum of leg nets (plus job charges), recomputed from the live inputs. */
     public function grandTotal(): float
     {
-        $sum = 0.0;
+        $sum = $this->legs === [] ? 0.0 : $this->jobCharges();
         foreach ($this->legs as $i => $leg) {
             $sum += $this->legExtrasTotal($i);
             $sum += LimoLeg::netFor(

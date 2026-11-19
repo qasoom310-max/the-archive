@@ -54,6 +54,9 @@ use Illuminate\Support\Carbon;
  * @property string|null $notes
  * @property Carbon|null $imported_at
  * @property Carbon|null $balance_reminded_at
+ * @property bool $meet_greet
+ * @property string|null $meet_greet_name
+ * @property float|null $meet_greet_price
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read LimoCustomer|null $customer
@@ -96,6 +99,7 @@ final class LimoBooking extends Model implements DefinesIrModel, TakesCouponCred
         'num_cars', 'car_details', 'fare', 'amount', 'discount', 'advance',
         'rate_type', 'payment_method', 'requested_by', 'prepared_by',
         'status', 'payment_status', 'notes',
+        'meet_greet', 'meet_greet_name', 'meet_greet_price',
     ];
 
     /** @var array<string, mixed> */
@@ -128,6 +132,8 @@ final class LimoBooking extends Model implements DefinesIrModel, TakesCouponCred
             'advance' => 'float',
             'imported_at' => 'datetime',
             'balance_reminded_at' => 'datetime',
+            'meet_greet' => 'boolean',
+            'meet_greet_price' => 'float',
         ];
     }
 
@@ -156,18 +162,40 @@ final class LimoBooking extends Model implements DefinesIrModel, TakesCouponCred
      */
     public function recalcTotal(): void
     {
-        $total = round((float) $this->legs()
+        $billable = $this->legs()
             ->where(function (Builder $q): void {
                 $q->where('status', '!=', LimoLeg::STATUS_CANCELLED)
                     // A leg with no status yet is still to run, and SQL will not
                     // match NULL against '!=' on its own.
                     ->orWhereNull('status')
                     ->orWhereIn('refund_outcome', LimoLeg::BILLABLE_OUTCOMES);
-            })
-            ->sum('net_amount'), 3);
+            });
+
+        // Meet & greet is charged once per booking, and only while there is a
+        // trip on the bill: a booking whose every trip was cancelled is not met.
+        $total = round((float) (clone $billable)->sum('net_amount')
+            + ((clone $billable)->exists() ? $this->meetGreetCharge() : 0.0), 3);
 
         $this->fare = $total;
         $this->amount = $total;
+    }
+
+    /** What meet & greet costs when ticked, until the office changes it. */
+    public const MEET_GREET_PRICE = 5.0;
+
+    /** The meet & greet price on this booking, or 0 when it is not ticked. */
+    public function meetGreetCharge(): float
+    {
+        return $this->meet_greet ? round(max(0.0, (float) $this->meet_greet_price), 3) : 0.0;
+    }
+
+    /**
+     * The part of the fare its trips add up to, without meet & greet. What
+     * {@see \Modules\Limousine\Support\ImportedLegCopies} measures trips against.
+     */
+    public function legsFare(): float
+    {
+        return round(max(0.0, (float) $this->fare - $this->meetGreetCharge()), 3);
     }
 
     /* ── Credit (see TakesCouponCredit) ─────────────────────────────────── */

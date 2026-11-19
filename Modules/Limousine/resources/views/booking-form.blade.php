@@ -128,6 +128,29 @@
                 <label class="{{ $lbl }}">{{ __('Flight number') }}</label>
                 <input type="text" wire:model="flight_number" class="o-input w-full">
             </div>
+            {{-- Meet & greet: someone waits for the passenger holding a name. The
+                 price is added to the booking's total, so the invoice follows. --}}
+            <div class="sm:col-span-2" data-meet-greet>
+                <label class="inline-flex items-center gap-2 text-sm font-medium text-chrome-800">
+                    <input type="checkbox" wire:model.live="meet_greet" class="rounded border-chrome-300 text-primary-600">
+                    {{ __('Meet & greet') }}
+                </label>
+                @if ($meet_greet)
+                    <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2" data-meet-greet-fields>
+                        <div>
+                            <label class="{{ $lbl }}">{{ __('Name to meet') }} *</label>
+                            <input type="text" wire:model="meet_greet_name" class="o-input w-full">
+                            @error('meet_greet_name') <p class="mt-1 text-xs text-red-600">{{ __('Type the name to meet.') }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="{{ $lbl }}">{{ __('Meet & greet price (BHD)') }} *</label>
+                            <input type="number" step="any" min="0" wire:model.blur="meet_greet_price" class="o-input w-full" dir="ltr">
+                            @error('meet_greet_price') <p class="mt-1 text-xs text-red-600">{{ __('Type the price (0 or more).') }}</p> @enderror
+                            <p class="mt-1 text-xs text-chrome-500">{{ __('Added to the booking total. You can change it.') }}</p>
+                        </div>
+                    </div>
+                @endif
+            </div>
             <div>
                 <label class="{{ $lbl }}">{{ __('Email') }}</label>
                 <input type="email" wire:model="email" class="o-input w-full">
@@ -218,6 +241,9 @@
         </div>
 
         <dl class="mt-4 space-y-2 border-t border-chrome-100 pt-4 text-sm">
+            @if ($this->jobCharges() > 0)
+                <div class="flex justify-between" data-meet-greet-total><dt class="text-chrome-500">{{ __('Meet & greet') }}</dt><dd class="text-chrome-600">{{ \App\Erp\Views\ValueFormat::money($this->jobCharges()) }}</dd></div>
+            @endif
             <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Grand total') }} <span class="text-chrome-400">· {{ count($legs) }} {{ __('leg(s)') }}</span></dt><dd class="text-lg font-bold text-chrome-900">{{ \App\Erp\Views\ValueFormat::money($grandTotal) }}</dd></div>
             <div class="flex justify-between"><dt class="text-chrome-500">{{ __('Advance') }}</dt><dd class="text-chrome-600">− {{ \App\Erp\Views\ValueFormat::money((float) ($advance === '' ? '0' : $advance)) }}</dd></div>
             @if ($couponCredit > 0)

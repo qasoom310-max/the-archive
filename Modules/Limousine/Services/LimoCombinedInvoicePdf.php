@@ -117,6 +117,7 @@ final class LimoCombinedInvoicePdf
             $legTotal = 0.0;
 
             foreach ($bookings as $booking) {
+                $printedTrip = false;
                 foreach ($this->distinctLegs($booking) as $leg) {
                     $serial++;
                     $legCount++;
@@ -142,6 +143,27 @@ final class LimoCombinedInvoicePdf
                         // The trip itself; its extras print as their own lines under it.
                         'total' => round((float) $leg->net_amount - (float) $leg->extras_total, 3),
                         'extras' => $leg->extraLines(),
+                    ];
+                    $printedTrip = true;
+                }
+
+                // Meet & greet, once per booking, under its trips: charged only
+                // while the booking has a trip on the bill.
+                if ($printedTrip && $booking->meetGreetCharge() > 0.0) {
+                    $serial++;
+                    $legTotal = round($legTotal + $booking->meetGreetCharge(), 3);
+                    $rows[] = [
+                        'serial' => $serial,
+                        'booking' => (string) ($booking->reference ?? ''),
+                        'trip' => '',
+                        'service' => (string) __('Meet & greet'),
+                        'vehicle' => '',
+                        'from' => trim((string) $booking->meet_greet_name),
+                        'to' => '', 'date' => '',
+                        'company_reference' => (string) ($booking->company_reference ?? ''),
+                        'pax' => $this->pax($booking, $invoice),
+                        'total' => $booking->meetGreetCharge(),
+                        'extras' => [],
                     ];
                 }
             }
@@ -237,7 +259,7 @@ final class LimoCombinedInvoicePdf
     {
         return ImportedLegCopies::without(
             $booking->legs->filter(static fn (LimoLeg $leg): bool => $leg->isBillable()),
-            round((float) ($booking->fare ?? 0), 3),
+            $booking->legsFare(),
         );
     }
 

@@ -3788,5 +3788,8 @@
     "Meet & greet price (BHD)": "سعر الاستقبال (دينار)",
     "Type the name to meet.": "اكتب اسم الشخص المراد استقباله.",
     "Type the price (0 or more).": "اكتب السعر (صفر أو أكثر).",
-    "Added to the booking total. You can change it.": "يُضاف إلى إجمالي الحجز، ويمكنك تغييره."
+    "Added to the booking total. You can change it.": "يُضاف إلى إجمالي الحجز، ويمكنك تغييره.",
+    "Ends at :time": "ينتهي الساعة :time",
+    "Each day ends at :time": "ينتهي كل يوم الساعة :time",
+    "(next day)": "(اليوم التالي)"
 }

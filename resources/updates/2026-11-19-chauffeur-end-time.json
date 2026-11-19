@@ -1,0 +1,43 @@
+{
+    "app": "limousine",
+    "title": { "en": "Chauffeur trips show when the day ends", "ar": "رحلات السائق الخاص تظهر وقت انتهاء اليوم" },
+    "points": {
+        "en": [
+            "Under Hours per day, a chauffeur trip now shows when it ends: the start time plus the hours, for example 9:15 plus 4 hours ends at 1:15 PM."
+        ],
+        "ar": [
+            "تحت حقل الساعات في اليوم، تظهر رحلة السائق الخاص الآن وقت انتهائها: وقت البدء مع الساعات، فمثلاً 9:15 مع 4 ساعات تنتهي الساعة 1:15 مساءً."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the office had to work out in their head when a chauffeur job finished, by adding the hours to the start time.",
+            "Now a small line under Hours per day says it as you type: \"Ends at 1:15 PM\". On a job of several days it says \"Each day ends at …\", and when the hours run past midnight it adds \"(next day)\". The trip text copied from the trip number on the bookings list already says when the job starts and ends."
+        ],
+        "ar": [
+            "سابقاً كان على المكتب أن يحسب في ذهنه وقت انتهاء رحلة السائق الخاص بإضافة الساعات إلى وقت البدء.",
+            "الآن يظهر سطر صغير تحت حقل الساعات في اليوم أثناء الكتابة: «ينتهي الساعة 1:15 م». وفي الرحلة التي تمتد عدة أيام يظهر «ينتهي كل يوم الساعة …»، وإذا تجاوزت الساعات منتصف الليل يضيف «(اليوم التالي)». ونص الرحلة المنسوخ من رقم الرحلة في قائمة الحجوزات يذكر أصلاً وقت البدء والانتهاء."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Bookings, then New booking (or open an existing booking).",
+            "On the trip, choose Chauffeur.",
+            "Pick the start date and time, then type the hours per day.",
+            "Read the end time under Hours per day."
+        ],
+        "ar": [
+            "افتح الليموزين ثم الحجوزات ثم حجز جديد (أو افتح حجزاً موجوداً).",
+            "في الرحلة اختر السائق الخاص.",
+            "اختر تاريخ ووقت البدء، ثم اكتب عدد الساعات في اليوم.",
+            "اقرأ وقت الانتهاء تحت حقل الساعات في اليوم."
+        ]
+    },
+    "images": [
+        {
+            "before": "form-before.png",
+            "after": "form-after.png",
+            "caption": { "en": "A chauffeur trip starting at 9:15 for 4 hours.", "ar": "رحلة سائق خاص تبدأ الساعة 9:15 لمدة 4 ساعات." }
+        }
+    ]
+}

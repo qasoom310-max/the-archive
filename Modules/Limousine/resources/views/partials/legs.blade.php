@@ -77,6 +77,19 @@
                         <label class="{{ $lbl }}">{{ __('Hours per day') }} *</label>
                         <input type="number" step="0.5" min="0" wire:model.live="legs.{{ $i }}.hours" class="o-input w-full" placeholder="{{ __('e.g. 8') }}">
                         @error('legs.'.$i.'.hours') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        {{-- When the car is free again: start time + hours per
+                             day (09:15 + 4 = 1:15 PM), the same every day of a
+                             several-day job. --}}
+                        @php
+                            $dayStart = $hours > 0 ? $this->legStart($leg) : null;
+                            $dayEnd = $dayStart?->copy()->addMinutes((int) round($hours * 60));
+                        @endphp
+                        @if ($dayStart !== null && $dayEnd !== null)
+                            @php $endTime = $dayEnd->isoFormat('h:mm A') . ($dayEnd->isSameDay($dayStart) ? '' : ' ' . __('(next day)')); @endphp
+                            <p class="mt-1 text-xs text-chrome-500" data-chauffeur-end>
+                                {{ $days > 1 ? __('Each day ends at :time', ['time' => $endTime]) : __('Ends at :time', ['time' => $endTime]) }}
+                            </p>
+                        @endif
                     </div>
                     <div wire:key="leg-{{ $i }}-chauffeur-days">
                         <label class="{{ $lbl }}">{{ __('Number of days') }} *</label>

@@ -329,6 +329,37 @@ final class OfficeApiTest extends TestCase
         }
     }
 
+    public function test_the_accounts_manager_reads_money_in_and_out_and_payroll_only_as_a_monthly_total(): void
+    {
+        app(ModuleManager::class)->install('limousine');
+        $main = $this->main();
+        $customer = LimoCustomer::query()->create(['name' => 'Hotel Desk']);
+        DB::table('limo_receipts')->insert(['reference' => 'RCP/0001', 'customer_id' => $customer->id, 'date' => '2026-11-10', 'amount' => 120.5, 'method' => 'cash', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('limo_receipts')->insert(['reference' => 'RCP/0002', 'customer_id' => $customer->id, 'date' => '2026-09-01', 'amount' => 99, 'method' => 'cash', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('limo_expenses')->insert(['reference' => 'EXP/0001', 'date' => '2026-11-11', 'category' => 'fuel', 'amount' => 15, 'payee' => 'Bapco', 'created_at' => now(), 'updated_at' => now()]);
+        $employee = DB::table('employees')->insertGetId(['name' => 'Salary Secret Person', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('payslips')->insert(['employee_id' => $employee, 'period' => '2026-11', 'basic' => 731, 'net' => 731.25, 'paid_on' => '2026-11-15', 'created_at' => now(), 'updated_at' => now()]);
+        $key = $this->key([$main]);
+
+        $this->getJson('/api/office/v1/money/in?from=2026-11-01&to=2026-11-19', $this->headers($key, $main))
+            ->assertOk()
+            ->assertJsonPath('count', 1)
+            ->assertJsonPath('total', 120.5)
+            ->assertJsonPath('data.0.customer', 'Hotel Desk');
+
+        $out = $this->getJson('/api/office/v1/money/out?from=2026-11-01&to=2026-11-19', $this->headers($key, $main))
+            ->assertOk()
+            ->assertJsonPath('count', 2)
+            ->assertJsonPath('data.0.source', 'limousine expense')
+            ->assertJsonPath('data.0.note', 'no bill attached')
+            ->assertJsonPath('data.1.source', 'payroll')
+            ->assertJsonPath('data.1.payee', '1 staff');
+        $this->assertStringNotContainsString('Salary Secret Person', (string) $out->getContent());
+
+        $this->getJson('/api/office/v1/money/out', $this->headers($key, $main))->assertStatus(422);
+        $this->getJson('/api/office/v1/money/in?from=2026-01-01&to=2026-11-19', $this->headers($key, $main))->assertStatus(422);
+    }
+
     public function test_a_section_that_is_not_installed_says_so(): void
     {
         $main = $this->main();

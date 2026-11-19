@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\App\AuthController;
 use App\Http\Controllers\Api\App\DeviceController;
 use App\Http\Controllers\Api\Office\OfficeLimousineController;
+use App\Http\Controllers\Api\Office\OfficeMoneyController;
 use App\Http\Controllers\Api\Office\OfficeReadController;
 use App\Http\Controllers\Api\Office\OfficeRentalController;
 use App\Http\Middleware\AppLocale;
@@ -62,4 +63,6 @@ Route::prefix('office/v1')->middleware(['throttle:120,1', OfficeApi::class])->gr
     Route::get('/limousine/expenses', [OfficeLimousineController::class, 'expenses']);
     Route::get('/rental/orders', [OfficeRentalController::class, 'orders']);
     Route::get('/rental/fleet', [OfficeRentalController::class, 'fleet']);
+    Route::get('/money/in', [OfficeMoneyController::class, 'in']);
+    Route::get('/money/out', [OfficeMoneyController::class, 'out']);
 });

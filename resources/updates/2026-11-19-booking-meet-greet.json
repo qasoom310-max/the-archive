@@ -4,21 +4,21 @@
     "points": {
         "en": [
             "A booking now has a Meet & greet tick box. Ticking it opens a box for the name to meet and a price, which starts at 5 BHD and can be changed.",
-            "The price is added to the booking total once, and the invoice shows it as its own line."
+            "The price is added to the booking total once, and the invoice shows it as its own line. The receipt lists it under the trips."
         ],
         "ar": [
             "أصبح في الحجز مربع اختيار لخدمة الاستقبال. عند تحديده يظهر حقل لاسم الشخص المراد استقباله وحقل للسعر يبدأ بـ 5 دينار ويمكن تغييره.",
-            "يُضاف السعر إلى إجمالي الحجز مرة واحدة، وتظهره الفاتورة في سطر مستقل."
+            "يُضاف السعر إلى إجمالي الحجز مرة واحدة، وتظهره الفاتورة في سطر مستقل، ويذكره الإيصال تحت الرحلات."
         ]
     },
     "details": {
         "en": [
             "Before, there was no place on a booking to record meet & greet. The office had to write it in the comments and add its price to a trip by hand, so the invoice did not say what the extra money was for.",
-            "Now the booking has a Meet & greet tick box under Flight number. When you tick it, the name to meet is filled with the passenger's name and the price with 5 BHD. You can change both. The price is added to the booking total once, however many trips the booking has, so the invoice and the balance follow it. The invoice prints Meet & greet as its own line with the name. The trip text copied for the driver says Meet & greet and the name. If every trip of the booking is cancelled, meet & greet is not charged."
+            "Now the booking has a Meet & greet tick box under Flight number. When you tick it, the name to meet is filled with the passenger's name and the price with 5 BHD. You can change both. The price is added to the booking total once, however many trips the booking has, so the invoice and the balance follow it. The invoice prints Meet & greet as its own line with the name, and the receipt lists it with the name under the trips. The trip text copied for the driver says Meet & greet and the name. If every trip of the booking is cancelled, meet & greet is not charged."
         ],
         "ar": [
             "سابقاً لم يكن في الحجز مكان لتسجيل خدمة الاستقبال. كان المكتب يكتبها في الملاحظات ويضيف سعرها إلى رحلة يدوياً، فلا توضح الفاتورة سبب المبلغ الإضافي.",
-            "الآن يوجد في الحجز مربع اختيار لخدمة الاستقبال تحت رقم الرحلة الجوية. عند تحديده يُملأ اسم الشخص المراد استقباله باسم الراكب، ويُملأ السعر بـ 5 دينار، ويمكنك تغيير الاثنين. يُضاف السعر إلى إجمالي الحجز مرة واحدة مهما كان عدد رحلات الحجز، فتتبعه الفاتورة والرصيد. وتطبع الفاتورة خدمة الاستقبال في سطر مستقل مع الاسم. ونص الرحلة المنسوخ للسائق يذكر خدمة الاستقبال والاسم. وإذا أُلغيت كل رحلات الحجز فلا تُحسب خدمة الاستقبال."
+            "الآن يوجد في الحجز مربع اختيار لخدمة الاستقبال تحت رقم الرحلة الجوية. عند تحديده يُملأ اسم الشخص المراد استقباله باسم الراكب، ويُملأ السعر بـ 5 دينار، ويمكنك تغيير الاثنين. يُضاف السعر إلى إجمالي الحجز مرة واحدة مهما كان عدد رحلات الحجز، فتتبعه الفاتورة والرصيد. وتطبع الفاتورة خدمة الاستقبال في سطر مستقل مع الاسم، ويذكرها الإيصال مع الاسم تحت الرحلات. ونص الرحلة المنسوخ للسائق يذكر خدمة الاستقبال والاسم. وإذا أُلغيت كل رحلات الحجز فلا تُحسب خدمة الاستقبال."
         ]
     },
     "guide": {

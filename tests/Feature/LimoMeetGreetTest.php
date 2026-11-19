@@ -13,9 +13,11 @@ use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoLeg;
+use Modules\Limousine\Models\LimoReceipt;
 use Modules\Limousine\Services\LimoCombinedInvoicePdf;
 use Modules\Limousine\Services\LimoInvoicePdf;
 use Modules\Limousine\Services\LimoQueueRows;
+use Modules\Limousine\Services\LimoReceiptPdf;
 use Modules\Limousine\Services\TripCancellation;
 use Tests\TestCase;
 
@@ -112,6 +114,25 @@ final class LimoMeetGreetTest extends TestCase
         $rows = app(LimoCombinedInvoicePdf::class)->rows(LimoInvoice::query()->get());
         $this->assertSame(['20', '5'], array_map(static fn (array $r): string => (string) $r['total'], $rows));
         $this->assertSame('Meet & greet', $rows[1]['service']);
+    }
+
+    public function test_the_receipt_lists_it_under_the_trips(): void
+    {
+        $this->form()->set('meet_greet', true)->set('meet_greet_name', 'Mr Helen')->call('save')->assertHasNoErrors();
+        $booking = LimoBooking::query()->sole();
+        $receipt = LimoReceipt::query()->create([
+            'customer_id' => $booking->customer_id, 'booking_id' => $booking->id,
+            'date' => now(), 'amount' => 25, 'method' => 'cash',
+        ]);
+
+        $trips = app(LimoReceiptPdf::class)->viewData($receipt)['trips'];
+        $this->assertCount(2, $trips);
+        $this->assertSame('Meet & greet: Mr Helen', $trips[1]['route']);
+        $this->assertStringContainsString('%PDF', app(LimoReceiptPdf::class)->render($receipt));
+
+        // Unticked, the receipt lists the trip alone.
+        $booking->forceFill(['meet_greet' => false])->save();
+        $this->assertCount(1, app(LimoReceiptPdf::class)->viewData($receipt->refresh())['trips']);
     }
 
     public function test_the_driver_copy_says_meet_and_greet(): void

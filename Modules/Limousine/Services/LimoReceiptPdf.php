@@ -79,7 +79,7 @@ final class LimoReceiptPdf
             return [];
         }
 
-        return $booking->legs()->orderBy('sequence')->get()
+        $trips = $booking->legs()->orderBy('sequence')->get()
             ->filter(static fn (LimoLeg $leg): bool => $leg->isBillable())
             ->map(static function (LimoLeg $leg) use ($booking): array {
                 $chauffeur = $leg->service_type === LimoLeg::TYPE_CHAUFFEUR;
@@ -103,6 +103,20 @@ final class LimoReceiptPdf
             })
             ->values()
             ->all();
+
+        // Meet & greet is part of what was paid for, so it is listed under
+        // the trips, once, when the booking is charged for it.
+        if ($trips !== [] && $booking->meetGreetCharge() > 0.0) {
+            $name = trim((string) $booking->meet_greet_name);
+            $trips[] = [
+                'reference' => '',
+                'when' => '',
+                'route' => __('Meet & greet') . ($name !== '' ? ': ' . $name : ''),
+                'car' => '',
+            ];
+        }
+
+        return $trips;
     }
 
     /** Rendered PDF bytes. */

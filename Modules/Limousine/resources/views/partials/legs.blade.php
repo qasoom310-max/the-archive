@@ -242,8 +242,9 @@
 
                 {{-- The price agreed with the customer. In the ERP's own colour
                      (primary follows each user's accent, yellow by default) so it
-                     stands out as the figure that wins. --}}
-                <div class="rounded-xl border-2 border-primary-400 bg-primary-50 p-3 sm:col-span-2" data-final-deal>
+                     stands out as the figure that wins. Chauffeur trips only. --}}
+                @if ($isChauffeur)
+                <div wire:key="leg-{{ $i }}-final-deal" class="rounded-xl border-2 border-primary-400 bg-primary-50 p-3 sm:col-span-2" data-final-deal>
                     <label for="leg-{{ $i }}-final" class="mb-1 block text-sm font-semibold text-primary-700">{{ __('Final deal (BHD)') }}</label>
                     <input id="leg-{{ $i }}-final" type="number" step="0.001" min="0" inputmode="decimal"
                            wire:model.live.debounce.500ms="legs.{{ $i }}.final_amount"
@@ -253,6 +254,7 @@
                     </p>
                     @error('legs.'.$i.'.final_amount') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
+                @endif
             </div>
 
             {{-- Extras sold with the trip (child seat, Causeway Plus…): pick one

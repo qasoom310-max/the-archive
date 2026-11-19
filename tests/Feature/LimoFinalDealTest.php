@@ -132,6 +132,31 @@ final class LimoFinalDealTest extends TestCase
         $this->assertSame(650.0, (float) $booking->refresh()->fare);
     }
 
+    public function test_a_pick_and_drop_trip_has_no_final_deal(): void
+    {
+        Livewire::test(BookingForm::class)
+            ->assertSet('legs.0.service_type', LimoLeg::TYPE_TRANSFER)
+            ->assertDontSeeHtml('data-final-deal');
+
+        // A deal typed on a chauffeur trip that is then switched to pick & drop
+        // is ignored: the trip goes back to its rate and typed discount.
+        $component = $this->form()
+            ->set('legs.0.final_amount', '600')
+            ->set('legs.0.service_type', LimoLeg::TYPE_TRANSFER)
+            ->set('legs.0.to_location', 'Airport')
+            ->set('legs.0.estimated_hours', '1')
+            ->set('legs.0.discount', '5')
+            ->assertDontSeeHtml('data-final-deal')
+            ->assertDontSeeHtml('data-deal-discount');
+        $this->assertSame(50.0, $component->instance()->grandTotal());
+
+        $component->call('save')->assertHasNoErrors();
+
+        $leg = LimoLeg::query()->sole();
+        $this->assertNull($leg->final_amount);
+        $this->assertSame(50.0, $leg->net_amount);
+    }
+
     public function test_a_quotation_prints_the_deal_as_its_total(): void
     {
         $customer = LimoCustomer::query()->create(['name' => 'Demo Guest', 'phone' => '39000000']);

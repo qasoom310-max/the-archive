@@ -79,12 +79,19 @@ trait HandlesTripLegs
     }
 
     /**
-     * The final deal typed on a trip, or null when the box is empty.
+     * The final deal typed on a trip, or null when the box is empty. Only a
+     * chauffeur trip has the box (the owner's call): a pick & drop trip is
+     * priced from its rate and discount, so a deal left behind by switching a
+     * chauffeur trip to pick & drop is ignored rather than silently winning.
      *
      * @param  array<string, string>  $leg
      */
     public function legFinal(array $leg): ?float
     {
+        if (($leg['service_type'] ?? '') !== LimoLeg::TYPE_CHAUFFEUR) {
+            return null;
+        }
+
         $value = trim((string) ($leg['final_amount'] ?? ''));
 
         return $value === '' || ! is_numeric($value) ? null : round((float) $value, 3);
@@ -531,7 +538,9 @@ trait HandlesTripLegs
             // below (that would need a discount bigger than the trip), and
             // never above what the rate works out to: charging more is a
             // higher rate, not a negative discount on the customer's paper.
-            $rules["legs.$i.final_amount"] = ['nullable', 'numeric', 'min:0', function (string $attribute, mixed $value, \Closure $fail) use ($i): void {
+            // Chauffeur trips only; a pick & drop trip has no box, so a value
+            // left over from a switch must not block the save.
+            $rules["legs.$i.final_amount"] = ($leg['service_type'] ?? '') !== LimoLeg::TYPE_CHAUFFEUR ? ['nullable'] : ['nullable', 'numeric', 'min:0', function (string $attribute, mixed $value, \Closure $fail) use ($i): void {
                 if (! is_numeric($value)) {
                     return;
                 }

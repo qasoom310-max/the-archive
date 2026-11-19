@@ -1,0 +1,55 @@
+{
+    "app": "limousine",
+    "title": { "en": "Final deal: type the price agreed with the customer", "ar": "السعر النهائي: اكتب السعر المتفق عليه مع العميل" },
+    "points": {
+        "en": [
+            "Each trip on a booking or a quotation has a new Final deal box. Type the price agreed with the customer and it replaces the total worked out from the rate.",
+            "The box is in your system's own colour, so it stands out as the price that counts."
+        ],
+        "ar": [
+            "لكل رحلة في الحجز أو عرض السعر خانة جديدة باسم السعر النهائي. اكتب السعر المتفق عليه مع العميل فيحل محل المجموع المحسوب من السعر.",
+            "الخانة بلون نظامك نفسه، فتظهر بوضوح على أنها السعر المعتمد."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, when a customer agreed a round price (for example 600 for a job the rate works out at 660), the office had to work out the discount by hand and type it, so the total came to the agreed figure.",
+            "Now you type the agreed price in Final deal and the system works out the discount for you. The Discount box then shows that figure and cannot be typed in, with the note \"Worked out from the final deal.\" The trip's total at the bottom reads Final deal, and the booking, its invoice and the quotation all come to the agreed price.",
+            "The final deal includes VAT and extras. It cannot be more than the price worked out from the rate (to charge more, raise the rate), and it cannot be less than the VAT and extras on the trip. Leave the box empty to go back to the worked-out price and your own discount.",
+            "Each trip has its own box. On a booking with several trips, the grand total is the trips added together."
+        ],
+        "ar": [
+            "سابقاً، عندما يتفق العميل على سعر مقرّب (مثلاً 600 لرحلة يحسبها السعر بـ 660)، كان على المكتب أن يحسب الخصم يدوياً ويكتبه حتى يصل المجموع إلى المبلغ المتفق عليه.",
+            "الآن تكتب السعر المتفق عليه في خانة السعر النهائي ويحسب النظام الخصم بنفسه. تعرض خانة الخصم عندها هذا المبلغ ولا يمكن الكتابة فيها، مع ملاحظة «محسوب من السعر النهائي.» ويظهر مجموع الرحلة في الأسفل باسم السعر النهائي، ويصل الحجز وفاتورته وعرض السعر جميعها إلى السعر المتفق عليه.",
+            "السعر النهائي يشمل ضريبة القيمة المضافة والإضافات. لا يمكن أن يزيد على السعر المحسوب (لتحصيل مبلغ أكبر ارفع السعر)، ولا أن يقل عن الضريبة والإضافات في الرحلة. اترك الخانة فارغة للعودة إلى السعر المحسوب والخصم الذي تكتبه بنفسك.",
+            "لكل رحلة خانتها الخاصة. وفي الحجز الذي فيه عدة رحلات، المجموع الكلي هو مجموع الرحلات."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Bookings, then New booking (or open an existing booking). For a quotation, open Quotations instead.",
+            "Fill in the trip as usual: the rate, the hours or days, and the VAT and extras if any.",
+            "In the coloured Final deal box under VAT, type the price agreed with the customer.",
+            "Check that the Discount box now shows the worked-out discount and the bottom of the trip reads Final deal with your price.",
+            "Press Save."
+        ],
+        "ar": [
+            "افتح الليموزين ثم الحجوزات ثم حجز جديد (أو افتح حجزاً موجوداً). ولعرض سعر افتح عروض الأسعار بدلاً من ذلك.",
+            "املأ الرحلة كالمعتاد: السعر، والساعات أو الأيام، والضريبة والإضافات إن وُجدت.",
+            "في خانة السعر النهائي الملونة تحت الضريبة، اكتب السعر المتفق عليه مع العميل.",
+            "تأكد أن خانة الخصم تعرض الآن الخصم المحسوب وأن أسفل الرحلة يظهر السعر النهائي بمبلغك.",
+            "اضغط حفظ."
+        ]
+    },
+    "images": [
+        {
+            "before": "before.png",
+            "after": "after.png",
+            "caption": { "en": "A 12-hour chauffeur trip at 55 an hour, agreed at 600.", "ar": "رحلة سائق خاص لمدة 12 ساعة بسعر 55 للساعة، متفق عليها بـ 600." }
+        },
+        {
+            "after": "after-other-colour.png",
+            "caption": { "en": "The same box in a system whose colour is blue.", "ar": "الخانة نفسها في نظام لونه أزرق." }
+        }
+    ]
+}

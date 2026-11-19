@@ -54,6 +54,7 @@ use Illuminate\Support\Facades\Storage;
  * @property array<int, mixed>|null $extras  Extras sold with the trip ({extra_id, name, price, qty} each), at the name and price they were sold at
  * @property float $extras_total  Sum of `extras`; already inside net_amount
  * @property float $net_amount
+ * @property float|null $final_amount  The price agreed with the customer ("final deal"), VAT and extras included; null = worked out from the rate
  * @property string|null $notes
  * @property string|null $signature_path   Customer's drawn signature (public disk)
  * @property Carbon|null $signed_at        When they signed — the proof's timestamp
@@ -150,7 +151,7 @@ final class LimoLeg extends Model
     protected $fillable = [
         'legable_type', 'legable_id', 'sequence', 'reference', 'status', 'service_type',
         'car_id', 'outside_company', 'outside_cost', 'driver_id', 'driver', 'driver_payment', 'from_location', 'from_country', 'from_location_url', 'to_location', 'to_country', 'to_location_url', 'start_at', 'hours', 'estimated_hours', 'days', 'units', 'vehicle',
-        'vehicle_details', 'rate', 'currency', 'quote_rate', 'exchange_rate', 'rate_basis', 'discount', 'vat', 'line_total', 'extras', 'extras_total', 'net_amount', 'notes',
+        'vehicle_details', 'rate', 'currency', 'quote_rate', 'exchange_rate', 'rate_basis', 'discount', 'vat', 'line_total', 'extras', 'extras_total', 'net_amount', 'final_amount', 'notes',
         'signature_path', 'signed_at', 'signed_name', 'signed_ip', 'service_order_sent_at',
         'cancelled_at', 'cancellation_reason', 'refund_outcome', 'refund_amount',
     ];
@@ -275,6 +276,7 @@ final class LimoLeg extends Model
             'extras' => 'array',
             'extras_total' => 'float',
             'net_amount' => 'float',
+            'final_amount' => 'float',
             'signed_at' => 'datetime',
             'service_order_sent_at' => 'datetime',
             'cancelled_at' => 'datetime',
@@ -542,6 +544,21 @@ final class LimoLeg extends Model
     public static function netFor(string $basis, float $rate, ?float $hours, int $days, float $discount, float $vat, int $units = 1): float
     {
         return round(max(0.0, self::grossFor($basis, $rate, $hours, $days, $units) - $discount) + $vat, 3);
+    }
+
+    /**
+     * The discount a "final deal" stands for: the gap between the price
+     * worked out from the rate (VAT and extras included) and the price agreed.
+     *
+     * The deal is kept as a discount, not as a second total, so every place
+     * that adds a trip up (the invoice, the quotation, the bill) still lands on
+     * the agreed price without knowing a deal exists. Never below zero: a deal
+     * above the worked-out price is refused on the form, never turned into a
+     * negative discount on a customer's paper.
+     */
+    public static function discountForFinal(float $gross, float $vat, float $extrasTotal, float $final): float
+    {
+        return round(max(0.0, $gross + $vat + $extrasTotal - $final), 3);
     }
 
     /**

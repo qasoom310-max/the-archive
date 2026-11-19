@@ -3791,5 +3791,11 @@
     "Added to the booking total. You can change it.": "يُضاف إلى إجمالي الحجز، ويمكنك تغييره.",
     "Ends at :time": "ينتهي الساعة :time",
     "Each day ends at :time": "ينتهي كل يوم الساعة :time",
-    "(next day)": "(اليوم التالي)"
+    "(next day)": "(اليوم التالي)",
+    "Final deal (BHD)": "السعر النهائي المتفق عليه (د.ب)",
+    "Final deal": "السعر النهائي",
+    "Worked out from the final deal.": "محسوب من السعر النهائي.",
+    "The price agreed with the customer for this trip, VAT and extras included. It replaces the total worked out from the rate. Leave it empty to use the worked-out price.": "السعر المتفق عليه مع العميل لهذه الرحلة، شاملاً ضريبة القيمة المضافة والإضافات. يحل محل المجموع المحسوب من السعر. اتركه فارغاً لاستخدام السعر المحسوب.",
+    "The final deal cannot be more than the price worked out from the rate (:amount). To charge more, raise the rate.": "لا يمكن أن يكون السعر النهائي أكبر من السعر المحسوب (:amount). لتحصيل مبلغ أكبر، ارفع السعر.",
+    "The final deal cannot be less than the VAT and extras on this trip (:amount).": "لا يمكن أن يكون السعر النهائي أقل من ضريبة القيمة المضافة والإضافات في هذه الرحلة (:amount)."
 }

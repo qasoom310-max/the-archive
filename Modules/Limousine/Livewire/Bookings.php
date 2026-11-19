@@ -1002,6 +1002,8 @@ final class Bookings extends Component
             'line_total' => LimoLeg::grossFor($basis, $rate, $hours, $days, $leg->units),
             // The extras sold with the trip are not edited here and stay on it.
             'net_amount' => round(LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat, $leg->units) + (float) $leg->extras_total, 3),
+            // This dialog has no final-deal box: the discount typed here rules.
+            'final_amount' => null,
         ]);
         $leg->save();
 

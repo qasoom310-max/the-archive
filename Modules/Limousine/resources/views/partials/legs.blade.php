@@ -21,12 +21,14 @@
             // The model's own arithmetic, not a copy of it: this figure is read
             // off the screen and agreed with a customer, so it must be the one
             // that gets saved rather than a second formula that can drift.
-            $discount = (float) (($leg['discount'] ?? '') === '' ? 0 : $leg['discount']);
-            $vat = (float) (($leg['vat'] ?? '') === '' ? 0 : $leg['vat']);
             $units = $this->legUnits();
-            $gross = \Modules\Limousine\Models\LimoLeg::grossFor($basis, $rate, $hours, $days, $units);
-            $extrasTotal = $this->legExtrasTotal($i);
-            $net = round(\Modules\Limousine\Models\LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat, $units) + $extrasTotal, 3);
+            $pricing = $this->legPricing($i);
+            $gross = $pricing['gross'];
+            $extrasTotal = $pricing['extras'];
+            $net = $pricing['net'];
+            $hasDeal = $pricing['final'] !== null;
+            // What the rate works out to with no discount: the most a deal can be.
+            $workedOut = round($pricing['gross'] + $pricing['vat'] + $pricing['extras'], 3);
         @endphp
         <div wire:key="leg-{{ $i }}" class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -224,11 +226,32 @@
                 @endunless
                 <div>
                     <label class="{{ $lbl }}">{{ __('Discount (BHD)') }}</label>
-                    <input type="number" step="0.001" min="0" placeholder="0" wire:model.live="legs.{{ $i }}.discount" class="o-input w-full">
+                    @if ($hasDeal)
+                        {{-- With a final deal the discount is the gap it stands for, not typed. --}}
+                        <input type="text" readonly tabindex="-1" value="{{ number_format($pricing['discount'], \App\Erp\Money\Currencies::active()->decimals, '.', '') }}"
+                               class="o-input w-full cursor-default bg-chrome-50 text-chrome-600" data-deal-discount aria-label="{{ __('Discount (BHD)') }}">
+                        <p class="mt-1 text-xs text-chrome-500">{{ __('Worked out from the final deal.') }}</p>
+                    @else
+                        <input type="number" step="0.001" min="0" placeholder="0" wire:model.live="legs.{{ $i }}.discount" class="o-input w-full">
+                    @endif
                 </div>
                 <div>
                     <label class="{{ $lbl }}">{{ __('VAT (BHD)') }}</label>
                     <input type="number" step="0.001" min="0" placeholder="0" wire:model.live="legs.{{ $i }}.vat" class="o-input w-full">
+                </div>
+
+                {{-- The price agreed with the customer. In the ERP's own colour
+                     (primary follows each user's accent, yellow by default) so it
+                     stands out as the figure that wins. --}}
+                <div class="rounded-xl border-2 border-primary-400 bg-primary-50 p-3 sm:col-span-2" data-final-deal>
+                    <label for="leg-{{ $i }}-final" class="mb-1 block text-sm font-semibold text-primary-700">{{ __('Final deal (BHD)') }}</label>
+                    <input id="leg-{{ $i }}-final" type="number" step="0.001" min="0" inputmode="decimal"
+                           wire:model.live.debounce.500ms="legs.{{ $i }}.final_amount"
+                           class="o-input w-full bg-white text-base font-semibold" placeholder="{{ \App\Erp\Views\ValueFormat::money($workedOut) }}">
+                    <p class="mt-1 text-xs text-chrome-600">
+                        {{ __('The price agreed with the customer for this trip, VAT and extras included. It replaces the total worked out from the rate. Leave it empty to use the worked-out price.') }}
+                    </p>
+                    @error('legs.'.$i.'.final_amount') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
             </div>
 
@@ -323,7 +346,7 @@
             {{-- Live leg total + net --}}
             <div class="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-chrome-100 pt-3 text-sm">
                 <span class="text-chrome-500">{{ __('Leg total') }} <span class="font-medium text-chrome-700">{{ \App\Erp\Views\ValueFormat::money($gross) }}</span>@if ($units > 1) <span class="text-xs text-chrome-500">({{ __(':units units', ['units' => $units]) }})</span>@endif</span>
-                <span class="flex items-center gap-2 rounded-lg bg-primary-50 px-3 py-1.5"><span class="font-semibold text-primary-800">{{ __('Net') }}</span><span class="font-bold text-primary-700">{{ \App\Erp\Views\ValueFormat::money($net) }}</span></span>
+                <span class="flex items-center gap-2 rounded-lg bg-primary-50 px-3 py-1.5"><span class="font-semibold text-primary-800">{{ $hasDeal ? __('Final deal') : __('Net') }}</span><span class="font-bold text-primary-700">{{ \App\Erp\Views\ValueFormat::money($net) }}</span></span>
             </div>
         </div>
     @endforeach

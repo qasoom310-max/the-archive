@@ -73,6 +73,61 @@ trait HandlesTripLegs
             'hours' => '', 'estimated_hours' => '', 'days' => '1', 'car_details' => '',
             'rate' => '', 'currency' => LimoLeg::DEFAULT_CURRENCY, 'quote_rate' => '', 'exchange_rate' => '',
             'rate_basis' => LimoLeg::BASIS_TRIP, 'discount' => '', 'vat' => '',
+            // The price agreed with the customer; blank = worked out from the rate.
+            'final_amount' => '',
+        ];
+    }
+
+    /**
+     * The final deal typed on a trip, or null when the box is empty.
+     *
+     * @param  array<string, string>  $leg
+     */
+    public function legFinal(array $leg): ?float
+    {
+        $value = trim((string) ($leg['final_amount'] ?? ''));
+
+        return $value === '' || ! is_numeric($value) ? null : round((float) $value, 3);
+    }
+
+    /**
+     * One trip's money, from the live inputs: what the rate works out to
+     * (`gross`), its VAT and extras, the discount in force and what the trip
+     * costs (`net`). With a final deal typed, `net` IS the deal and the
+     * discount is the gap the deal stands for. The live total on screen, the
+     * grand total and the save all read this, so they cannot disagree.
+     *
+     * @return array{gross: float, vat: float, extras: float, discount: float, net: float, final: float|null}
+     */
+    public function legPricing(int $i): array
+    {
+        $leg = $this->legs[$i] ?? [];
+        $basis = $leg['rate_basis'] ?? LimoLeg::BASIS_TRIP;
+        $rate = (float) (($leg['rate'] ?? '') === '' ? 0 : $leg['rate']);
+        // Hours and days count only where the price depends on them, exactly
+        // as persistLegs() saves them.
+        $chauffeur = ($leg['service_type'] ?? '') === LimoLeg::TYPE_CHAUFFEUR;
+        $hours = ($chauffeur || $basis === LimoLeg::BASIS_HOUR) && ($leg['hours'] ?? '') !== '' ? (float) $leg['hours'] : null;
+        $days = $chauffeur || $basis === LimoLeg::BASIS_DAY ? max(1, (int) (($leg['days'] ?? '') === '' ? 1 : $leg['days'])) : 1;
+        $vat = (float) (($leg['vat'] ?? '') === '' ? 0 : $leg['vat']);
+        $extras = $this->legExtrasTotal($i);
+        $gross = LimoLeg::grossFor($basis, $rate, $hours, $days, $this->legUnits());
+        $final = $this->legFinal($leg);
+
+        if ($final !== null) {
+            return [
+                'gross' => $gross, 'vat' => $vat, 'extras' => $extras,
+                'discount' => LimoLeg::discountForFinal($gross, $vat, $extras, $final),
+                'net' => $final, 'final' => $final,
+            ];
+        }
+
+        $discount = (float) (($leg['discount'] ?? '') === '' ? 0 : $leg['discount']);
+
+        return [
+            'gross' => $gross, 'vat' => $vat, 'extras' => $extras, 'discount' => $discount,
+            'net' => round(LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat, $this->legUnits()) + $extras, 3),
+            'final' => null,
         ];
     }
 
@@ -394,6 +449,7 @@ trait HandlesTripLegs
             'rate_basis' => $l->rate_basis,
             'discount' => (string) $l->discount,
             'vat' => (string) $l->vat,
+            'final_amount' => $l->final_amount !== null ? (string) $l->final_amount : '',
         ])->all();
 
         $this->legExtras = [];
@@ -471,6 +527,23 @@ trait HandlesTripLegs
             $rules["legs.$i.rate_basis"] = ['required', 'in:trip,hour,day'];
             $rules["legs.$i.discount"] = ['nullable', 'numeric', 'min:0'];
             $rules["legs.$i.vat"] = ['nullable', 'numeric', 'min:0'];
+            // A deal can bring the price down to the VAT and extras, never
+            // below (that would need a discount bigger than the trip), and
+            // never above what the rate works out to: charging more is a
+            // higher rate, not a negative discount on the customer's paper.
+            $rules["legs.$i.final_amount"] = ['nullable', 'numeric', 'min:0', function (string $attribute, mixed $value, \Closure $fail) use ($i): void {
+                if (! is_numeric($value)) {
+                    return;
+                }
+                $p = $this->legPricing($i);
+                $ceiling = round($p['gross'] + $p['vat'] + $p['extras'], 3);
+                $floor = round($p['vat'] + $p['extras'], 3);
+                if ((float) $value > $ceiling + 0.0005) {
+                    $fail(__('The final deal cannot be more than the price worked out from the rate (:amount). To charge more, raise the rate.', ['amount' => \App\Erp\Views\ValueFormat::money($ceiling)]));
+                } elseif ((float) $value < $floor - 0.0005) {
+                    $fail(__('The final deal cannot be less than the VAT and extras on this trip (:amount).', ['amount' => \App\Erp\Views\ValueFormat::money($floor)]));
+                }
+            }];
 
             foreach ($this->legExtras[$i] ?? [] as $j => $extra) {
                 $other = ($extra['extra'] ?? '') === 'other';
@@ -551,17 +624,8 @@ trait HandlesTripLegs
     public function grandTotal(): float
     {
         $sum = $this->legs === [] ? 0.0 : $this->jobCharges();
-        foreach ($this->legs as $i => $leg) {
-            $sum += $this->legExtrasTotal($i);
-            $sum += LimoLeg::netFor(
-                $leg['rate_basis'] ?? LimoLeg::BASIS_TRIP,
-                (float) ($leg['rate'] ?? 0),
-                ($leg['hours'] ?? '') !== '' ? (float) $leg['hours'] : null,
-                max(1, (int) ($leg['days'] ?? 1)),
-                (float) ($leg['discount'] ?? 0),
-                (float) ($leg['vat'] ?? 0),
-                $this->legUnits(),
-            );
+        foreach (array_keys($this->legs) as $i) {
+            $sum += $this->legPricing($i)['net'];
         }
 
         return round($sum, 3);
@@ -653,6 +717,13 @@ trait HandlesTripLegs
             $carId = ($leg['car_id'] ?? '') !== '' ? (int) $leg['car_id'] : null;
             $extras = $this->legExtrasForSave($i);
             $extrasTotal = LimoLeg::extrasTotalFor($extras);
+            $gross = LimoLeg::grossFor($basis, $rate, $hours, $days, $this->legUnits());
+            // A final deal stands in for the discount, so the invoice and the
+            // quotation still add up to the agreed price on their own.
+            $final = $this->legFinal($leg);
+            if ($final !== null) {
+                $discount = LimoLeg::discountForFinal($gross, $vat, $extrasTotal, $final);
+            }
 
             $attributes = [
                 'sequence' => $i,
@@ -676,11 +747,13 @@ trait HandlesTripLegs
                 'rate_basis' => $basis,
                 'discount' => $discount,
                 'vat' => $vat,
-                'line_total' => LimoLeg::grossFor($basis, $rate, $hours, $days, $this->legUnits()),
+                'line_total' => $gross,
                 'extras' => $extras === [] ? null : $extras,
                 'extras_total' => $extrasTotal,
                 // Extras are sold on top of the trip, after its discount and VAT.
-                'net_amount' => round(LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat, $this->legUnits()) + $extrasTotal, 3),
+                // With a deal the trip costs exactly the deal.
+                'net_amount' => $final ?? round(LimoLeg::netFor($basis, $rate, $hours, $days, $discount, $vat, $this->legUnits()) + $extrasTotal, 3),
+                'final_amount' => $final,
             ];
 
             // The car is only carried through the form where the form actually

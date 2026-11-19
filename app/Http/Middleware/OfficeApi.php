@@ -58,6 +58,18 @@ final class OfficeApi
             return self::error(401, 'Missing, unknown or revoked office key.');
         }
 
+        // The one request without a company: which companies may this key read?
+        if ($request->is('api/office/v1/workspaces')) {
+            $this->touch($token);
+            $request->attributes->set(self::TOKEN, $token);
+            self::readOnly(true);
+            try {
+                return $next($request);
+            } finally {
+                self::readOnly(false);
+            }
+        }
+
         $asked = $request->header(self::HEADER);
         $workspace = (is_string($asked) && ctype_digit($asked))
             ? Workspace::query()->find((int) $asked)
@@ -66,10 +78,7 @@ final class OfficeApi
             return self::error(403, 'This key may not read that workspace. Send its id in the X-Workspace header.');
         }
 
-        // On Main, before anything turns read-only. At most once a minute.
-        if ($token->last_used_at === null || $token->last_used_at->lt(Carbon::now()->subMinute())) {
-            $token->forceFill(['last_used_at' => Carbon::now()])->saveQuietly();
-        }
+        $this->touch($token);
 
         $before = [
             DB::getDefaultConnection(),
@@ -108,6 +117,14 @@ final class OfficeApi
             DB::setDefaultConnection($connection);
             DB::purge('tenant');
             CompanyTimezone::restore($timezone);
+        }
+    }
+
+    /** On Main, before anything turns read-only. At most once a minute. */
+    private function touch(OfficeToken $token): void
+    {
+        if ($token->last_used_at === null || $token->last_used_at->lt(Carbon::now()->subMinute())) {
+            $token->forceFill(['last_used_at' => Carbon::now()])->saveQuietly();
         }
     }
 

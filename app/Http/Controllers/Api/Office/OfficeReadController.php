@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\Office;
 
 use App\Http\Middleware\OfficeApi;
 use App\Models\ActivityLog;
+use App\Models\OfficeToken;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,6 +29,20 @@ use Modules\Accounting\Models\JournalEntry;
 final class OfficeReadController
 {
     use ReadsOfficeLists;
+
+    /** The companies this key may read (the only call that names no company). */
+    public function workspaces(Request $request): JsonResponse
+    {
+        $token = $request->attributes->get(OfficeApi::TOKEN);
+        if (! $token instanceof OfficeToken) {
+            abort(500);
+        }
+
+        $workspaces = Workspace::query()->whereIn('id', $token->workspace_ids)->orderByDesc('is_main')->orderBy('name')->get()
+            ->map(static fn (Workspace $w): array => ['id' => $w->id, 'name' => $w->name, 'main' => (bool) $w->is_main])->all();
+
+        return response()->json(['data' => $workspaces]);
+    }
 
     /** Which business this is, and the clock its times are in. */
     public function workspace(Request $request): JsonResponse

@@ -369,6 +369,54 @@ final class OfficeApiTest extends TestCase
         $this->getJson('/api/office/v1/rental/fleet', $this->headers($key, $main))->assertNotFound();
     }
 
+    public function test_a_key_lists_the_companies_it_may_read_without_naming_one(): void
+    {
+        $main = $this->main();
+        $owner = User::factory()->create(['email' => 'owner@erp.test', 'is_admin' => true, 'is_super_admin' => true]);
+        $other = app(WorkspaceManager::class)->provision('Kaleem', $owner, ['accounting']);
+        app(WorkspaceManager::class)->provision('Not on the key', $owner, ['accounting']);
+        $key = $this->key([$main, $other]);
+
+        $this->getJson('/api/office/v1/workspaces', ['Authorization' => 'Bearer '.$key])
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.main', true)
+            ->assertJsonPath('data.1.name', 'Kaleem');
+        $this->getJson('/api/office/v1/workspaces')->assertStatus(401);
+    }
+
+    // ── Keys from the owner's settings page ─────────────────────────
+
+    public function test_only_the_owner_creates_and_switches_off_keys_and_a_key_is_shown_once(): void
+    {
+        $main = $this->main();
+        $admin = User::factory()->create(['is_admin' => true]);
+        $owner = User::factory()->create(['is_admin' => true, 'is_super_admin' => true]);
+
+        $this->actingAs($admin)->get('/app/settings/ai-office')->assertForbidden();
+
+        $page = \Livewire\Livewire::actingAs($owner)->test(\App\Livewire\Settings\OfficeKeys::class)
+            ->assertSet('workspaceIds', [(int) $main->id])
+            ->set('name', 'AI office')
+            ->call('create')
+            ->assertHasNoErrors();
+
+        $plain = (string) $page->get('newKey');
+        $this->assertStringStartsWith('office_', $plain);
+        $this->getJson('/api/office/v1/workspace', $this->headers($plain, $main))->assertOk();
+
+        $page->call('dismissKey')->assertSet('newKey', null)->assertDontSee($plain);
+        $this->assertSame(1, ActivityLog::query()->where('action', 'office_key_created')->count());
+
+        $token = \App\Models\OfficeToken::query()->sole();
+        $page->call('revoke', $token->id);
+        $this->getJson('/api/office/v1/workspace', $this->headers($plain, $main))->assertStatus(401);
+        $this->assertSame(1, ActivityLog::query()->where('action', 'office_key_revoked')->count());
+
+        \Livewire\Livewire::actingAs($owner)->test(\App\Livewire\Settings\OfficeKeys::class)
+            ->set('workspaceIds', [])->call('create')->assertHasErrors('workspaceIds');
+    }
+
     // ── Keys from the command line ──────────────────────────────────
 
     public function test_keys_are_created_listed_and_revoked_from_the_command_line(): void

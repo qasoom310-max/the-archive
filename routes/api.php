@@ -54,6 +54,7 @@ Route::prefix('app')->middleware(AppLocale::class)->group(function (): void {
 | (OfficeApi). The rate limit runs first, while the cache is still Main's.
 */
 Route::prefix('office/v1')->middleware(['throttle:120,1', OfficeApi::class])->group(function (): void {
+    Route::get('/workspaces', [OfficeReadController::class, 'workspaces']);
     Route::get('/workspace', [OfficeReadController::class, 'workspace']);
     Route::get('/staff', [OfficeReadController::class, 'staff']);
     Route::get('/activity', [OfficeReadController::class, 'activity']);

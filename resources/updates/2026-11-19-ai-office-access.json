@@ -1,0 +1,50 @@
+{
+    "app": "system",
+    "title": { "en": "AI office access for the owner", "ar": "وصول مكتب الذكاء الاصطناعي للمالك" },
+    "points": {
+        "en": [
+            "The owner can now create a read-only key that lets the company's AI office read the ERP.",
+            "A key can only read: it can never add, change, pay or delete anything, and the owner can switch it off at any time."
+        ],
+        "ar": [
+            "يمكن للمالك الآن إنشاء مفتاح للقراءة فقط يسمح لمكتب الذكاء الاصطناعي في الشركة بقراءة النظام.",
+            "المفتاح للقراءة فقط: لا يستطيع أبداً إضافة أو تعديل أو دفع أو حذف أي شيء، ويمكن للمالك إيقافه في أي وقت."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, connecting the company's AI office to the ERP needed someone with access to the server, which only IT has.",
+            "Now the owner does it from Settings, in a new AI office tab that only the owner sees. The owner picks which companies the key may read and copies the key once; it is never shown again. Every key created or switched off is written in the activity log.",
+            "The AI office sees names, dates, amounts and states only. It never sees customers' phone numbers or ID numbers, or what one person earns. Staff do not need to do anything."
+        ],
+        "ar": [
+            "سابقاً، كان ربط مكتب الذكاء الاصطناعي بالنظام يحتاج إلى شخص لديه صلاحية الدخول إلى الخادم، وهذا متاح لقسم تقنية المعلومات فقط.",
+            "الآن يقوم المالك بذلك من الإعدادات، في تبويب جديد باسم مكتب الذكاء الاصطناعي لا يراه إلا المالك. يختار المالك الشركات التي يمكن للمفتاح قراءتها وينسخ المفتاح مرة واحدة فقط ولا يظهر مرة أخرى. يُسجَّل كل مفتاح يُنشأ أو يُوقف في سجل النشاط.",
+            "يرى مكتب الذكاء الاصطناعي الأسماء والتواريخ والمبالغ والحالات فقط. لا يرى أبداً أرقام هواتف العملاء أو أرقام هوياتهم أو راتب أي شخص. لا يحتاج الموظفون إلى فعل أي شيء."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Sign in as the owner and open Settings.",
+            "Press the AI office tab.",
+            "Leave the name as it is or change it, and tick the companies the AI office may read.",
+            "Press Create key.",
+            "Copy the key from the yellow box, paste it into the AI office under Settings → Company data (ERP), then press I have copied it.",
+            "To stop the AI office reading the ERP, press Switch off next to its key."
+        ],
+        "ar": [
+            "سجّل الدخول بصفتك المالك وافتح الإعدادات.",
+            "اضغط تبويب مكتب الذكاء الاصطناعي.",
+            "اترك الاسم كما هو أو غيّره، واختر الشركات التي يمكن لمكتب الذكاء الاصطناعي قراءتها.",
+            "اضغط إنشاء المفتاح.",
+            "انسخ المفتاح من المربع الأصفر، والصقه في مكتب الذكاء الاصطناعي في الإعدادات ← بيانات الشركة (ERP)، ثم اضغط لقد نسخته.",
+            "لإيقاف قراءة مكتب الذكاء الاصطناعي للنظام، اضغط إيقاف بجانب مفتاحه."
+        ]
+    },
+    "images": [
+        {
+            "after": "keys-after.png",
+            "caption": { "en": "The new AI office tab in Settings, seen only by the owner.", "ar": "تبويب مكتب الذكاء الاصطناعي الجديد في الإعدادات، ولا يراه إلا المالك." }
+        }
+    ]
+}

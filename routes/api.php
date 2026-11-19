@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\App\AuthController;
 use App\Http\Controllers\Api\App\DeviceController;
+use App\Http\Controllers\Api\Office\OfficeLimousineController;
+use App\Http\Controllers\Api\Office\OfficeMoneyController;
 use App\Http\Controllers\Api\Office\OfficeReadController;
+use App\Http\Controllers\Api\Office\OfficeRentalController;
 use App\Http\Middleware\AppLocale;
 use App\Http\Middleware\AppWorkspace;
 use App\Http\Middleware\OfficeApi;
@@ -51,8 +54,16 @@ Route::prefix('app')->middleware(AppLocale::class)->group(function (): void {
 | (OfficeApi). The rate limit runs first, while the cache is still Main's.
 */
 Route::prefix('office/v1')->middleware(['throttle:120,1', OfficeApi::class])->group(function (): void {
+    Route::get('/workspaces', [OfficeReadController::class, 'workspaces']);
     Route::get('/workspace', [OfficeReadController::class, 'workspace']);
     Route::get('/staff', [OfficeReadController::class, 'staff']);
     Route::get('/activity', [OfficeReadController::class, 'activity']);
     Route::get('/accounting/journal-entries', [OfficeReadController::class, 'journalEntries']);
+    Route::get('/limousine/trips', [OfficeLimousineController::class, 'trips']);
+    Route::get('/limousine/invoices', [OfficeLimousineController::class, 'invoices']);
+    Route::get('/limousine/expenses', [OfficeLimousineController::class, 'expenses']);
+    Route::get('/rental/orders', [OfficeRentalController::class, 'orders']);
+    Route::get('/rental/fleet', [OfficeRentalController::class, 'fleet']);
+    Route::get('/money/in', [OfficeMoneyController::class, 'in']);
+    Route::get('/money/out', [OfficeMoneyController::class, 'out']);
 });

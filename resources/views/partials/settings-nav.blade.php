@@ -46,6 +46,12 @@
         $sections[] = ['key' => 'web_bookings', 'label' => 'Web Bookings', 'url' => url('/app/settings/web-bookings')];
     }
 
+    // Keys for the AI office to read this ERP: the owner only, since a key reads
+    // every company it lists.
+    if ($authUser instanceof \App\Models\User && $authUser->isSuperAdmin()) {
+        $sections[] = ['key' => 'ai_office', 'label' => __('AI office'), 'url' => url('/app/settings/ai-office')];
+    }
+
     // Cloudflare Stream is a core integration (no module) — admin-only tab.
     if ($isAdmin) {
         $sections[] = ['key' => 'stream', 'label' => 'Cloudflare Stream', 'url' => url('/app/settings/stream')];

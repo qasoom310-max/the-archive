@@ -58,6 +58,8 @@ final class ActivityLog extends Model
         'user_paused' => 'Paused user',
         'user_unpaused' => 'Unpaused user',
         'settings_updated' => 'Updated settings',
+        'office_key_created' => 'Created AI office key',
+        'office_key_revoked' => 'Switched off AI office key',
         'backup_created' => 'Created backup',
         'backup_restored' => 'Restored backup',
         // Record workflow actions (orders, work orders, …).
@@ -106,6 +108,8 @@ final class ActivityLog extends Model
         'user_paused' => 'bg-amber-100 text-amber-700',
         'user_unpaused' => 'bg-emerald-100 text-emerald-700',
         'settings_updated' => 'bg-violet-100 text-violet-700',
+        'office_key_created' => 'bg-violet-100 text-violet-700',
+        'office_key_revoked' => 'bg-violet-100 text-violet-700',
         'backup_created' => 'bg-sky-100 text-sky-700',
         'backup_restored' => 'bg-amber-100 text-amber-700',
         'started' => 'bg-sky-100 text-sky-700',

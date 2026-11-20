@@ -1,0 +1,13 @@
+{
+    "name": "storefront",
+    "display_name": "Online store",
+    "summary": "Feeds the shop website from POS products and takes its orders into the Remote sales queue.",
+    "version": "1.0.0",
+    "author": "OpenERP",
+    "category": "Integration",
+    "depends": ["base", "pos"],
+    "providers": ["Modules\\Storefront\\Providers\\StorefrontServiceProvider"],
+    "models": [],
+    "application": false,
+    "sequence": 31
+}

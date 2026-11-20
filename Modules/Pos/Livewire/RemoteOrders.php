@@ -11,6 +11,8 @@ use App\Erp\Security\Permission;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -333,8 +335,27 @@ final class RemoteOrders extends Component
                 ->whereRaw('paid_total < total - 0.001')
                 ->sum('delivery_fee'), 3),
             'startUrl' => $startUrl,
+            'websiteNewCount' => $this->websiteNewCount(),
             'canCreate' => app(AccessControl::class)->allows(Auth::user(), 'pos.order', Permission::Create),
             'canFulfill' => app(AccessControl::class)->allows(Auth::user(), 'pos.order', Permission::Write),
         ]);
+    }
+
+    /**
+     * New orders waiting in the online store's inbox, or null when this
+     * database does not use the online store (Storefront module missing, or
+     * never switched on and never sent an order) — then there is no button.
+     * Read through the query builder so POS does not depend on that module.
+     */
+    private function websiteNewCount(): ?int
+    {
+        if (! Schema::hasTable('storefront_orders') || ! Schema::hasTable('storefront_configuration')) {
+            return null;
+        }
+
+        $inUse = DB::table('storefront_configuration')->where('enabled', true)->exists()
+            || DB::table('storefront_orders')->exists();
+
+        return $inUse ? DB::table('storefront_orders')->where('status', 'new')->count() : null;
     }
 }

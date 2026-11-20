@@ -31,6 +31,10 @@
         }
     }
 
+    if ($isAdmin && $installedModule('storefront')) {
+        $sections[] = ['key' => 'online_store', 'label' => 'Online store', 'url' => url('/app/settings/online-store')];
+    }
+
     if ($isAdmin && $installedModule('woocommerce')) {
         $sections[] = ['key' => 'woocommerce', 'label' => 'WooCommerce', 'url' => url('/app/settings/woocommerce')];
     }

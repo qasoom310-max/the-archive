@@ -30,6 +30,9 @@ return Application::configure(basePath: dirname(__DIR__))
             // The website posts a car-rental booking here the moment one is
             // placed. Server-to-server and HMAC-signed, like the callback above.
             'rental/web-booking',
+            // The shop website (Storefront module) sends orders here.
+            // Server-to-server and HMAC-signed (StoreSignature).
+            'storefront/v1/*',
         ]);
 
         // Trust the upstream proxy that terminates TLS in front of PHP

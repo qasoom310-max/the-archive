@@ -1,0 +1,79 @@
+{
+    "app": "pos",
+    "title": { "en": "Online store: website orders and website product details", "ar": "المتجر الإلكتروني: طلبات الموقع وتفاصيل المنتجات على الموقع" },
+    "points": {
+        "en": [
+            "A new shop website can now read your products straight from the system and send its orders in.",
+            "Website orders wait in a new Website orders inbox until someone accepts or rejects them.",
+            "Accepting an order turns it into a normal pay-on-delivery order in Remote sales.",
+            "A new Website products page holds each product's description and fragrance notes in English and Arabic."
+        ],
+        "ar": [
+            "يمكن الآن لموقع المتجر الجديد قراءة منتجاتك مباشرة من النظام وإرسال طلباته إليه.",
+            "تنتظر طلبات الموقع في صندوق جديد اسمه طلبات الموقع حتى يقبلها أحد أو يرفضها.",
+            "عند قبول الطلب يصبح طلب توصيل عادياً بالدفع عند الاستلام في مبيعات التوصيل.",
+            "صفحة جديدة اسمها منتجات الموقع تحفظ وصف كل منتج ونفحاته العطرية بالعربية والإنجليزية."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, products were copied to a separate WordPress shop. Only the name, price, stock and photos went across, nothing came back: an order placed on the website never reached the system, so stock and sales had to be fixed by hand.",
+            "Now the shop website asks the system for the product list itself, and every order placed on it arrives here. The system works out the prices itself, so a website can never set its own price, and only products marked \"Show in the online store\" with a name, category, price and photo can be bought.",
+            "A website order does not touch stock or money when it arrives. It waits in Website orders. Check it (call or WhatsApp the customer if needed), then press Accept: it goes into the open register as a remote order, paid on delivery, and appears in Remote sales as New, exactly like an order you type in yourself. Press Reject if it is not real; nothing is taken from stock.",
+            "The website also shows a description and the top, heart and base notes of each perfume. Those are typed on the new Website products page; the name, price, photos, category and stock still come from the product itself, so there is only one place to change them."
+        ],
+        "ar": [
+            "في السابق كانت المنتجات تُنسخ إلى متجر ووردبريس منفصل. كان ينتقل الاسم والسعر والمخزون والصور فقط، ولا يعود شيء: الطلب الذي يُقدَّم على الموقع لم يكن يصل إلى النظام، فكان يجب تصحيح المخزون والمبيعات يدوياً.",
+            "الآن يطلب موقع المتجر قائمة المنتجات من النظام بنفسه، وكل طلب يُقدَّم عليه يصل إلى هنا. النظام يحسب الأسعار بنفسه، فلا يستطيع الموقع أن يضع سعره الخاص، ولا يمكن شراء إلا المنتجات المعلَّم عليها \"إظهار في المتجر الإلكتروني\" والتي لها اسم وفئة وسعر وصورة.",
+            "طلب الموقع لا يمس المخزون أو المال عند وصوله. ينتظر في طلبات الموقع. راجعه (اتصل بالعميل أو راسله على واتساب عند الحاجة)، ثم اضغط قبول: يدخل الصندوق المفتوح كطلب توصيل بالدفع عند الاستلام، ويظهر في مبيعات التوصيل كطلب جديد، تماماً مثل الطلب الذي تدخله بنفسك. اضغط رفض إن لم يكن حقيقياً؛ لا يُخصم شيء من المخزون.",
+            "يعرض الموقع أيضاً وصفاً والنفحات العليا ونفحات القلب والنفحات الأساسية لكل عطر. تُكتب في صفحة منتجات الموقع الجديدة؛ أما الاسم والسعر والصور والفئة والمخزون فما زالت تأتي من المنتج نفسه، فهناك مكان واحد فقط لتغييرها."
+        ]
+    },
+    "guide": {
+        "en": [
+            "To handle a website order: open Point of Sale and make sure the register is open.",
+            "Open Remote sales, then press Website orders (the orange number is how many are waiting).",
+            "Read the order: customer, phone, address, items and total. Press WhatsApp to message the customer if you need to confirm.",
+            "Press Accept. The order moves to Remote sales as New; pack and deliver it as usual and collect the money there.",
+            "If the order is not real, press Reject, type why (optional) and press Reject order.",
+            "To write a perfume's description and notes: on Website orders press Website products.",
+            "Press Website details on the product, fill in the English and Arabic boxes (notes separated by commas) and press Save.",
+            "Tick Featured on the home page for the products the website should show first.",
+            "Administrators only, once: Settings, then Online store. Press Generate, copy the secret into the shop website, tick Connect the online store, set the delivery charge and press Save."
+        ],
+        "ar": [
+            "لمعالجة طلب من الموقع: افتح نقطة البيع وتأكد أن الصندوق مفتوح.",
+            "افتح مبيعات التوصيل ثم اضغط طلبات الموقع (الرقم البرتقالي هو عدد الطلبات المنتظرة).",
+            "اقرأ الطلب: العميل والهاتف والعنوان والأصناف والإجمالي. اضغط واتساب لمراسلة العميل إن احتجت إلى التأكيد.",
+            "اضغط قبول. ينتقل الطلب إلى مبيعات التوصيل كطلب جديد؛ جهّزه ووصّله كالمعتاد واستلم المبلغ من هناك.",
+            "إن لم يكن الطلب حقيقياً، اضغط رفض واكتب السبب (اختياري) ثم اضغط رفض الطلب.",
+            "لكتابة وصف العطر ونفحاته: في طلبات الموقع اضغط منتجات الموقع.",
+            "اضغط تفاصيل الموقع على المنتج، واملأ خانات العربية والإنجليزية (افصل النفحات بفواصل) ثم اضغط حفظ.",
+            "علّم مميّز في الصفحة الرئيسية للمنتجات التي يجب أن يعرضها الموقع أولاً.",
+            "للمسؤولين فقط، مرة واحدة: الإعدادات ثم المتجر الإلكتروني. اضغط إنشاء وانسخ السرّ إلى موقع المتجر، وعلّم ربط المتجر الإلكتروني، وحدد رسوم التوصيل ثم اضغط حفظ."
+        ]
+    },
+    "images": [
+        {
+            "before": "remote-before.png",
+            "after": "remote-after.png",
+            "caption": { "en": "Remote sales now has a Website orders button with the number waiting.", "ar": "صار في مبيعات التوصيل زر طلبات الموقع مع عدد الطلبات المنتظرة." }
+        },
+        {
+            "after": "website-orders.png",
+            "caption": { "en": "The Website orders inbox: Accept or Reject each order.", "ar": "صندوق طلبات الموقع: اقبل كل طلب أو ارفضه." }
+        },
+        {
+            "after": "website-orders-ar.png",
+            "caption": { "en": "The same inbox in Arabic.", "ar": "الصندوق نفسه بالعربية." }
+        },
+        {
+            "after": "website-products.png",
+            "caption": { "en": "Website products: description and fragrance notes in English and Arabic.", "ar": "منتجات الموقع: الوصف والنفحات العطرية بالعربية والإنجليزية." }
+        },
+        {
+            "after": "settings.png",
+            "caption": { "en": "Settings, Online store: connect the shop website (administrators only).", "ar": "الإعدادات، المتجر الإلكتروني: ربط موقع المتجر (للمسؤولين فقط)." }
+        }
+    ]
+}

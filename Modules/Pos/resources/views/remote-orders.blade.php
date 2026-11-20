@@ -51,6 +51,16 @@
         <div class="flex shrink-0 items-center gap-2">
             {{-- Where the collected money is tracked until it reaches the bank. --}}
             <a href="{{ url('/app/pos/settlements') }}" wire:navigate class="o-btn-ghost">{{ __('Delivery money') }}</a>
+            {{-- Orders from the online store wait in their own inbox until
+                 accepted (Storefront module; absent where it isn't installed). --}}
+            @if ($websiteNewCount !== null)
+                <a href="{{ url('/app/pos/website-orders') }}" wire:navigate class="o-btn-ghost">
+                    {{ __('Website orders') }}
+                    @if ($websiteNewCount > 0)
+                        <span class="rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-white">{{ $websiteNewCount }}</span>
+                    @endif
+                </a>
+            @endif
             @if ($canCreate)
                 <a href="{{ $startUrl }}" wire:navigate class="o-btn-primary">
                     <svg class="size-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 0 1 1 1v3h3a1 1 0 1 1 0 2h-3v3a1 1 0 1 1-2 0v-3H6a1 1 0 1 1 0-2h3V6a1 1 0 0 1 1-1Z"/></svg>

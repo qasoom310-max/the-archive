@@ -5732,3 +5732,36 @@ before the 14-day hold ends?" as "refund now", pressed Cancel and never found
 (`data-deposit-early`). Rules unchanged. Test: `RentalDepositSettlementTest` (+1).
 
 **Final deal on a limousine trip (shipped 2026-11-19).** Each leg on the booking AND quotation forms has a "Final deal (BHD)" box (`data-final-deal`) under VAT, styled with the `primary` palette so it takes each database's own colour (`company.accent`, yellow on Wanaan). `limo_legs.final_amount` (nullable decimal 12,3; Limousine migration `2026_11_19_950065`) holds the price agreed with the customer, **VAT and extras included**. It is kept as a DISCOUNT so nothing downstream had to change: `LimoLeg::discountForFinal(gross, vat, extras, final)` = gross + VAT + extras − final, saved in `discount`, and `net_amount` = the deal, so the fare, invoice, quotation PDF (subtotal − discount + VAT = total) and combined invoice all come to it on their own. Validation: the deal can't be above gross + VAT + extras (charge more = raise the rate; a negative discount must never reach a customer's paper) or below VAT + extras. While a deal is set the Discount box is read-only (`data-deal-discount`, "Worked out from the final deal."); clearing the deal goes back to the typed discount. `HandlesTripLegs::legPricing($i)` is now the ONE place a leg is priced on screen (the card, `grandTotal()` and the deal checks read it) and it counts hours/days only where the price depends on them, exactly as `persistLegs()` saves. Per trip, not per booking: a multi-trip booking's grand total is the trips added up. The bookings list quick edit (not opened from the list any more) clears `final_amount`. Quotation → booking copies it (`replicate`). Not shown on the WhatsApp assistant or staff app. **Chauffeur trips only (the owner's call, same day):** the box renders only on a chauffeur leg, `legFinal()` returns null for any other leg (so a deal left over from switching a chauffeur trip to pick & drop is ignored, and saving writes `final_amount` null), and the deal rule only runs on a chauffeur leg. Tests: `LimoFinalDealTest` (7).
+
+**Abdullah — staff assistant inside the ERP (shipped 2026-11-21).** The owner asked for
+an AI that pushes staff "in a strict and funny way". Pieces:
+- Core: `App\Erp\Abdullah\Abdullah` (settings `abdullah.*`, per-user language
+  `users.abdullah_language` ar|en|ml|tl + `users.abdullah_off`, `tell()` queues a box
+  message, `once()` says a finding once per key until resolved, `email()`, `reply()`),
+  `Voice` (Claude via `ClaudeVoice`, bound in AppServiceProvider; tests bind a fake) and
+  `TemplateVoice` (plain AR/EN fallback when no key / monthly limit / Claude error).
+  Tables `abdullah_messages` (never deleted; body null until written) and
+  `abdullah_alerts` (stable keys like `trip:leg:12`, `check:rate:leg:12`), core migration
+  `2026_11_21_100001` (also sets Prejita→ml, Via→tl, Mac→en by first name, once).
+- **The ERP decides what to say; Claude only phrases it** from the facts (the prompt
+  forbids any other number/name/reference, insults, and jokes about country/religion).
+  Do not let Abdullah judge entries himself.
+- Box: `App\Livewire\Abdullah\Box` in the layout (`@auth`), `wire:init` + 30 s poll
+  writes ≤2 pending messages and pops open for new ones; "I'm handling it" on a trip
+  message acknowledges its alerts (stops the emails).
+- Trips: `Modules\Limousine\Services\AbdullahTrips` every minute via `EachDatabase`
+  (`abdullah-trips`): today's open booking legs missing car or driver → ONE email to
+  `abdullah.ops_email` (default operation@wanaan-bh.com) every 15 min, max 12 per trip
+  (owner's choice, editable), box message once to `trip_reminders` users, then the
+  super admins once. Resolves itself when fixed / cancelled / time passed.
+- Checks: `Modules\Limousine\Services\AbdullahBookingWatch` (hooked in `BookingForm::save`
+  + `saveCustomer`): new-booking praise with the user's counts (by `prepared_by`), rate
+  ≥3× or ≤⅓ of the 120-day median for the same service type and basis (≥8 samples),
+  place within 2 letters of a saved location, advance > total, near-duplicate customer.
+  `Modules\Rental\Services\AbdullahOrderWatch` (hooked in `OrderForm::save`): new-order
+  praise + daily rate ≥2× or ≤½ the car's daily rate. All wrapped in try/catch: a save is
+  never stopped by Abdullah.
+- Owner page: Settings → Abdullah (`/app/settings/abdullah`, super admin only):
+  on/off, monthly Claude limit (default 3000 messages), ops email, timer, per-person
+  language and on/off, last 80 messages. `abdullah.*` hidden from central Settings.
+Tests: `tests/Feature/AbdullahTest.php` (15).

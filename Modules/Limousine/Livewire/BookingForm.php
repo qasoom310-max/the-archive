@@ -440,6 +440,9 @@ final class BookingForm extends Component
         // in step with the fare, until a payment freezes it.
         $invoice = $booking->syncInvoice();
 
+        // Abdullah: praise and a push on a new booking, and any slip the ERP can prove.
+        app(\Modules\Limousine\Services\AbdullahBookingWatch::class)->saved($booking, $wasNew, Auth::user() instanceof \App\Models\User ? Auth::user() : null);
+
         // A coupon carried in from the Refund coupons page is spent HERE, once
         // there is a priced booking for it to come off. Applying it any earlier
         // would be crediting a fare that did not exist yet.
@@ -686,6 +689,9 @@ final class BookingForm extends Component
             'phone' => trim($this->newCustomer['phone']),
             'email' => $this->trimOrNull($this->newCustomer['email']),
         ]);
+
+        // Abdullah: a new customer who looks like one already saved.
+        app(\Modules\Limousine\Services\AbdullahBookingWatch::class)->customerAdded($customer, Auth::user() instanceof \App\Models\User ? Auth::user() : null);
 
         $this->customer_id = $customer->id;
         // Assigning the property server-side does not fire Livewire's `updated`

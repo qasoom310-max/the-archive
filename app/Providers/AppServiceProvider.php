@@ -29,6 +29,8 @@ final class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(SettingManager::class);
+        // Abdullah's words: Claude in production, a fake in tests.
+        $this->app->bind(\App\Erp\Abdullah\Voice::class, \App\Erp\Abdullah\ClaudeVoice::class);
         $this->app->singleton(ActivityLogger::class);
         // Shared across the request so module service providers register their
         // notification providers into the one instance the bell reads.

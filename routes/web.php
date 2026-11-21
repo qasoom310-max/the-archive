@@ -182,6 +182,7 @@ Route::middleware('auth')->group(function (): void {
     // endpoints (mint a one-time upload URL, then read the video's watch URL).
     Route::get('/app/settings/stream', \App\Livewire\Settings\StreamSettings::class)->name('stream.settings');
     Route::get('/app/settings/ai-office', \App\Livewire\Settings\OfficeKeys::class)->name('ai-office.settings');
+    Route::get('/app/settings/abdullah', \App\Livewire\Settings\AbdullahSettings::class)->name('abdullah.settings');
     Route::get('/app/settings/customer-emails', \App\Livewire\Settings\CustomerEmailSettings::class)->name('customer-emails.settings');
     Route::post('/app/stream/upload-url', [\App\Http\Controllers\StreamUploadController::class, 'uploadUrl'])
         ->middleware('throttle:60,1')->name('stream.upload-url');

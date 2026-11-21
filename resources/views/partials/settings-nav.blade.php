@@ -50,6 +50,7 @@
     // every company it lists.
     if ($authUser instanceof \App\Models\User && $authUser->isSuperAdmin()) {
         $sections[] = ['key' => 'ai_office', 'label' => __('AI office'), 'url' => url('/app/settings/ai-office')];
+        $sections[] = ['key' => 'abdullah', 'label' => __('Abdullah'), 'url' => url('/app/settings/abdullah')];
     }
 
     // Cloudflare Stream is a core integration (no module) — admin-only tab.

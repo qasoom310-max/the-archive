@@ -493,6 +493,9 @@ final class OrderForm extends Component
 
         app(ActivityLogger::class)->logFor($order, $wasNew ? 'created' : 'updated');
 
+        // Abdullah: praise and a push on a new order, a question on an odd rate.
+        app(\Modules\Rental\Services\AbdullahOrderWatch::class)->saved($order, $wasNew, Auth::user() instanceof User ? Auth::user() : null);
+
         // Hold the car: a draft reserves it. If the vehicle changed, free the
         // old one (when nothing else holds it).
         if ($previousVehicleId !== null && $previousVehicleId !== $order->vehicle_id) {

@@ -1,0 +1,81 @@
+{
+    "app": "system",
+    "title": {
+        "en": "Meet Abdullah: your supervisor inside the ERP",
+        "ar": "تعرّف على عبدالله: مشرفك داخل النظام"
+    },
+    "points": {
+        "en": [
+            "Abdullah is a new assistant who lives in the corner of every screen. When he has something to say, his box opens by itself. You can answer him there.",
+            "When you save a new booking or rental order, he cheers you on, tells you how many you made today, and pushes you for the next one.",
+            "If a price is far from the usual, a place is spelled almost like a saved one, more is marked as paid than the total, or a new customer looks like one already saved, he tells you what to fix and where.",
+            "If a limousine trip today still has no driver or car, he emails operations every 15 minutes until it is fixed, and tells the owner if it is still missing after 12 reminders.",
+            "He speaks Arabic, English, Malayalam or Tagalog. Choose your language at the top of his box."
+        ],
+        "ar": [
+            "عبدالله مساعد جديد يعيش في زاوية كل شاشة. عندما يكون عنده ما يقوله، يفتح صندوقه وحده. ويمكنك الرد عليه هناك.",
+            "عندما تحفظ حجزاً جديداً أو طلب تأجير، يشجعك ويخبرك كم حجزاً عملت اليوم، ويدفعك للحجز التالي.",
+            "إذا كان السعر بعيداً عن المعتاد، أو مكان مكتوب قريباً من مكان محفوظ، أو المدفوع أكثر من المجموع، أو عميل جديد يشبه عميلاً محفوظاً، يخبرك بما يجب تصحيحه وأين.",
+            "إذا كانت رحلة ليموزين اليوم ما زالت بدون سائق أو سيارة، يرسل بريداً للعمليات كل 15 دقيقة حتى تُصحح، ويخبر المالك إذا بقيت ناقصة بعد 12 تذكيراً.",
+            "يتكلم العربية والإنجليزية والمالايالامية والتاغالوغية. اختر لغتك أعلى صندوقه."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, nothing in the system reminded anyone. A trip could reach its day with no driver until someone noticed, and a wrong price or a misspelled place stayed until someone else had to fix it later.",
+            "Now the ERP checks the work itself: trips today without a driver or car, prices three times the usual or a third of it, a place one or two letters off a saved place, more paid than the total, and a new customer whose name or phone matches a saved one. Abdullah only says what the ERP found. He never guesses, and he always gives the booking or trip number.",
+            "He is strict and a little funny, but he never insults anyone and never jokes about anyone's country. A message about a mistake goes only to the person who made the entry.",
+            "Trip reminders go to the operations email in one message listing every trip due. They stop by themselves when the trip has its car and driver, when it is cancelled, or when someone presses \"I'm handling it\" in Abdullah's box. After the last reminder the owner is told once.",
+            "Abdullah writes with Claude. If Claude cannot be used, he writes short plain sentences in Arabic or English instead, so the reminders never stop.",
+            "The owner can switch him off, change how often he reminds, change anyone's language, and read everything he has said, under Settings, then Abdullah."
+        ],
+        "ar": [
+            "في السابق لم يكن شيء في النظام يذكّر أحداً. كانت الرحلة تصل يومها بدون سائق حتى ينتبه أحد، والسعر الخاطئ أو المكان المكتوب خطأ يبقى حتى يضطر شخص آخر لتصحيحه لاحقاً.",
+            "الآن النظام نفسه يفحص العمل: رحلات اليوم بدون سائق أو سيارة، أسعار ثلاثة أضعاف المعتاد أو ثلثه، مكان يختلف بحرف أو حرفين عن مكان محفوظ، مدفوع أكثر من المجموع، وعميل جديد اسمه أو هاتفه يطابق عميلاً محفوظاً. عبدالله يقول فقط ما وجده النظام. لا يخمّن أبداً، ويذكر دائماً رقم الحجز أو الرحلة.",
+            "هو صارم وظريف قليلاً، لكنه لا يهين أحداً ولا يمزح عن بلد أحد. رسالة الخطأ تذهب فقط للشخص الذي أدخل البيانات.",
+            "تذكيرات الرحلات تذهب لبريد العمليات في رسالة واحدة تذكر كل الرحلات المستحقة. وتتوقف وحدها عندما يكون للرحلة سيارة وسائق، أو عندما تُلغى، أو عندما يضغط أحد «أنا أتولاها» في صندوق عبدالله. بعد آخر تذكير يُبلَّغ المالك مرة واحدة.",
+            "عبدالله يكتب باستخدام Claude. إذا لم يكن Claude متاحاً، يكتب جملاً قصيرة بسيطة بالعربية أو الإنجليزية بدلاً منه، فلا تتوقف التذكيرات أبداً.",
+            "المالك يستطيع إيقافه، وتغيير عدد مرات التذكير، وتغيير لغة أي شخص، وقراءة كل ما قاله، من الإعدادات ثم عبدالله."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Look at the bottom corner of the screen: Abdullah is the dark round button.",
+            "When his box opens, read what he says. If he names a booking or trip, open it and fix what he says.",
+            "To answer him, type in the box at the bottom and press Send.",
+            "For a trip without a driver, assign the car and driver on the booking. If you are already arranging it, press \"I'm handling it\" so the emails stop.",
+            "To change his language, choose it at the top of his box."
+        ],
+        "ar": [
+            "انظر إلى الزاوية السفلية من الشاشة: عبدالله هو الزر الدائري الداكن.",
+            "عندما يُفتح صندوقه، اقرأ ما يقول. إذا ذكر حجزاً أو رحلة، افتحها وصحّح ما يقوله.",
+            "للرد عليه، اكتب في الحقل أسفل الصندوق واضغط «إرسال».",
+            "لرحلة بدون سائق، عيّن السيارة والسائق في الحجز. إذا كنت تتابعها فعلاً، اضغط «أنا أتولاها» حتى تتوقف الرسائل.",
+            "لتغيير لغته، اخترها أعلى صندوقه."
+        ]
+    },
+    "images": [
+        {
+            "before": "screen-before.png",
+            "after": "box-after.png",
+            "caption": {
+                "en": "A screen of the ERP. After: Abdullah's box in the corner, with a trip reminder and a word on a new booking.",
+                "ar": "شاشة من النظام. بعد: صندوق عبدالله في الزاوية، مع تذكير برحلة وكلمة عن حجز جديد."
+            }
+        },
+        {
+            "after": "box-phone.png",
+            "caption": {
+                "en": "Abdullah on a phone.",
+                "ar": "عبدالله على الهاتف."
+            }
+        },
+        {
+            "after": "settings-after.png",
+            "caption": {
+                "en": "The owner's page: Settings, then Abdullah.",
+                "ar": "صفحة المالك: الإعدادات ثم عبدالله."
+            }
+        }
+    ]
+}

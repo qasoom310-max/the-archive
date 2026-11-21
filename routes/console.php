@@ -160,6 +160,20 @@ Schedule::call(function (): void {
     });
 })->everyFiveMinutes()->name('app-crew-reminders')->withoutOverlapping(10);
 
+// Abdullah: today's limousine trips still without a driver or car. Checked every
+// minute; each trip is emailed to operations on the owner's timer (15 minutes,
+// 12 times by default, set on Settings → Abdullah), then the owner is told.
+Schedule::call(function (): void {
+    \App\Erp\Tenancy\EachDatabase::run(static function (): void {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('limo_legs')
+            || ! \App\Erp\Abdullah\Abdullah::ready()) {
+            return;
+        }
+
+        app(\Modules\Limousine\Services\AbdullahTrips::class)->run();
+    });
+})->everyMinute()->name('abdullah-trips')->withoutOverlapping(10);
+
 // The app-store reviewers' made-up business (staff-app:review-demo): its trips
 // dated from now again and put back as they started, so a reviewer always finds
 // trips waiting for a car and driver. A no-op until the demo has been created.

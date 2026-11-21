@@ -355,6 +355,11 @@ final class SettingsPage extends Component
             return false;
         }
 
+        // Abdullah's settings live on his own tab (owner only).
+        if (str_starts_with($key, 'abdullah.')) {
+            return false;
+        }
+
         // The POS receipt printer is set on the POS app's own Settings tab.
         if (str_starts_with($key, 'pos.printer.')) {
             return false;

@@ -451,6 +451,11 @@
     {{-- Global command palette (⌘K) --}}
     <livewire:navigation.command-palette />
 
+    {{-- Abdullah, the staff assistant: pops up when he has something to say. --}}
+    @auth
+        <livewire:abdullah.box />
+    @endauth
+
     {{-- Global save toast. Reads the session 'toast' flash set by FormView::save
          (so it survives a wire:navigate redirect, including a redirect-to-same-URL
          like POS product edit) and also listens to the engine's `record-saved`

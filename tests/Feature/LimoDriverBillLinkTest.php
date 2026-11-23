@@ -173,14 +173,50 @@ final class LimoDriverBillLinkTest extends TestCase
         Livewire::withQueryParams(['bill' => (string) $bill->id])->test(ExpenseScan::class)->assertHasErrors('scan');
     }
 
-    public function test_a_bill_set_aside_is_kept_not_deleted(): void
+    public function test_a_rejected_bill_waits_under_the_drivers_name_until_he_is_told(): void
     {
         $bill = LimoDriverBill::query()->create(['driver_id' => $this->driver->id, 'leg_id' => $this->leg->id, 'photo_path' => 'p.jpg']);
 
-        Livewire::test(DriverBills::class)->call('discard', $bill->id)->assertSee('Set aside');
+        $page = Livewire::test(DriverBills::class)
+            ->call('openReject', $bill->id)
+            ->call('reject')
+            ->assertHasErrors('rejectReason')
+            ->set('rejectReason', 'Amount cannot be read')
+            ->call('reject')
+            ->assertHasNoErrors()
+            ->assertSeeHtml('data-to-tell')
+            ->assertSee('Sam Driver')
+            ->assertSee('Amount cannot be read');
 
-        $this->assertSame(LimoDriverBill::STATUS_DISCARDED, $bill->fresh()?->status);
+        $this->assertSame(LimoDriverBill::STATUS_REJECTED, $bill->fresh()?->status);
         $this->assertSame(0, LimoExpense::query()->count());
+
+        // Told in person: recorded, and it leaves the "to tell" list.
+        $page->call('markTold', $bill->id)->assertDontSeeHtml('data-to-tell');
+        $this->assertNotNull($bill->fresh()?->told_at);
+        $this->assertNotSame('', (string) $bill->fresh()?->told_by);
+
+        // The driver's own page says nothing: he is told face to face.
+        $link = $this->link();
+        Auth::logout();
+        $this->get($link)->assertOk()->assertDontSee('Amount cannot be read');
+    }
+
+    public function test_the_check_screen_rejects_with_a_reason_and_a_saved_bill_cannot_be_rejected(): void
+    {
+        $bill = LimoDriverBill::query()->create(['driver_id' => $this->driver->id, 'leg_id' => $this->leg->id, 'photo_path' => 'p.jpg']);
+
+        Livewire::withQueryParams(['bill' => (string) $bill->id])->test(ExpenseScan::class)
+            ->call('rejectBill')
+            ->assertHasErrors('rejectReason')
+            ->set('rejectReason', 'Not a company expense')
+            ->call('rejectBill')
+            ->assertRedirect(url('/app/limousine/expense/driver-bills'));
+        $this->assertSame('Not a company expense', $bill->fresh()?->reject_reason);
+
+        $saved = LimoDriverBill::query()->create(['driver_id' => $this->driver->id, 'leg_id' => $this->leg->id, 'photo_path' => 'q.jpg', 'status' => LimoDriverBill::STATUS_SAVED]);
+        $this->assertFalse($saved->reject('late', null));
+        $this->assertSame(LimoDriverBill::STATUS_SAVED, $saved->fresh()?->status);
     }
 
     public function test_the_photo_is_for_signed_in_staff_only(): void

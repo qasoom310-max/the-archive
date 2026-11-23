@@ -44,7 +44,7 @@ final class DriverBillController
                 'expired' => false,
                 'trip' => $trip,
                 'driverName' => (string) ($trip->driver ?? ''),
-                'sent' => LimoDriverBill::query()->where('leg_id', $trip->id)->where('driver_id', $driver)->count(),
+                'sent' => $this->counted($trip->id, $driver),
                 'max' => LimoDriverBill::MAX_PER_LINK,
                 'uploadUrl' => $request->fullUrl(),
             ])->render());
@@ -59,7 +59,7 @@ final class DriverBillController
                 return response()->json(['message' => __('This link has expired. Ask the office for a new one.')], 410);
             }
 
-            $sent = LimoDriverBill::query()->where('leg_id', $trip->id)->where('driver_id', $driver)->count();
+            $sent = $this->counted($trip->id, $driver);
             if ($sent >= LimoDriverBill::MAX_PER_LINK) {
                 return response()->json(['message' => __('This link has taken all the bills it can. Send the rest to the office.')], 422);
             }
@@ -92,6 +92,13 @@ final class DriverBillController
 
             return response()->json(['sent' => $sent + 1, 'max' => LimoDriverBill::MAX_PER_LINK]);
         });
+    }
+
+    /** Bills that use up the link: a rejected one does not, so it can be sent again. */
+    private function counted(int $legId, int $driverId): int
+    {
+        return LimoDriverBill::query()->where('leg_id', $legId)->where('driver_id', $driverId)
+            ->where('status', '!=', LimoDriverBill::STATUS_REJECTED)->count();
     }
 
     /** The photo, for the office (signed in, Read on expenses). */

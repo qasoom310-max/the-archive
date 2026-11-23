@@ -3936,5 +3936,18 @@
     "We owe him": "له علينا",
     "Holds now": "معه الآن",
     "Drivers hold now": "مع السائقين الآن",
-    "Of the money given, the drivers still hold (their bills already taken off)": "من المال المعطى، ما زال مع السائقين (بعد خصم فواتيرهم)"
+    "Of the money given, the drivers still hold (their bills already taken off)": "من المال المعطى، ما زال مع السائقين (بعد خصم فواتيرهم)",
+    "Bill rejected. It waits under his name until you tell him.": "رُفضت الفاتورة. تنتظر تحت اسمه حتى تبلغه.",
+    "It stays here under his name with your reason, until you tell him in person.": "تبقى هنا تحت اسمه مع سببك، حتى تبلغه شخصياً.",
+    "Reject": "رفض",
+    "Reject this bill": "رفض هذه الفاتورة",
+    "Rejected": "مرفوضة",
+    "Rejected: tell the driver in person": "مرفوضة: أبلغ السائق شخصياً",
+    "Say why the bill is rejected.": "اذكر سبب رفض الفاتورة.",
+    "Show him the bill and the reason when you meet him. He brings it again and you enter it again for checking.": "أره الفاتورة والسبب عندما تقابله. يحضرها مرة أخرى وتدخلها من جديد للمراجعة.",
+    "Told the driver": "تم إبلاغ السائق",
+    "Why is it rejected? You tell the driver in person.": "لماذا رُفضت؟ تبلغ السائق شخصياً.",
+    "e.g. the amount cannot be read, not a company expense": "مثلاً: المبلغ غير مقروء، ليست مصروفاً للشركة",
+    "told by :name on :date": "أبلغه :name في :date",
+    "Bills drivers photographed through the link sent with their trip. Check each one and save it, or reject it.": "فواتير صوّرها السائقون عبر الرابط المرسل مع رحلتهم. راجع كل واحدة واحفظها، أو ارفضها."
 }

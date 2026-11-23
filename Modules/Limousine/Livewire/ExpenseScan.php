@@ -172,6 +172,29 @@ final class ExpenseScan extends Component
         $this->resetValidation();
     }
 
+    public string $rejectReason = '';
+
+    /** Reject the driver's bill with the reason; it waits for the accountant to tell him in person. */
+    public function rejectBill(): void
+    {
+        $this->guardAccess(Permission::Create);
+        if ($this->billId <= 0) {
+            return;
+        }
+
+        $this->validate(['rejectReason' => ['required', 'string', 'max:500']], ['rejectReason.required' => __('Say why the bill is rejected.')]);
+
+        $bill = LimoDriverBill::query()->find($this->billId);
+        if ($bill === null || ! $bill->reject($this->rejectReason, Auth::id() !== null ? (int) Auth::id() : null)) {
+            $this->addError('scan', __('That bill was already checked.'));
+
+            return;
+        }
+
+        session()->flash('toast', __('Bill rejected. It waits under his name until you tell him.'));
+        $this->redirect(url('/app/limousine/expense/driver-bills'), navigate: true);
+    }
+
     /** A driver's bill, waiting: load what was read, the driver and his cash. */
     private function openDriverBill(int $id): void
     {
@@ -207,15 +230,8 @@ final class ExpenseScan extends Component
     /** Throw the scan away and start again; its photo goes with it. */
     public function discard(): void
     {
-        // A driver's bill is set aside, never deleted: it is his paper.
+        // A driver's bill is not thrown away here: it is rejected with a reason.
         if ($this->billId > 0) {
-            LimoDriverBill::query()->whereKey($this->billId)->where('status', LimoDriverBill::STATUS_NEW)->update([
-                'status' => LimoDriverBill::STATUS_DISCARDED,
-                'handled_by_user_id' => Auth::id(),
-                'handled_at' => now(),
-            ]);
-            $this->redirect(url('/app/limousine/expense/driver-bills'), navigate: true);
-
             return;
         }
 

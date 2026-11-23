@@ -220,11 +220,24 @@
 
                 {{-- Stays at the bottom of a phone screen while the boxes scroll,
                      so saving never needs a scroll back up or down. --}}
+                @if ($billPhoto)
+                    <div x-ref="rejectBox" hidden class="mt-4 rounded-xl border border-red-200 bg-red-50 p-3" data-reject-box>
+                        <label class="{{ $lbl }}">{{ __('Why is it rejected? You tell the driver in person.') }}</label>
+                        <input type="text" wire:model="rejectReason" maxlength="500" class="o-input w-full">
+                        @error('rejectReason') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        <button type="button" wire:click="rejectBill" class="mt-2 rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white">{{ __('Reject') }}</button>
+                    </div>
+                @endif
+
                 <div class="sticky bottom-0 z-10 -mx-5 -mb-5 mt-4 space-y-2 rounded-b-2xl border-t border-chrome-100 bg-white p-3 md:static md:mx-0 md:mb-0 md:border-0 md:p-0" data-scan-actions>
                     <button type="button" wire:click="saveAndNext" wire:loading.attr="disabled" wire:target="save,saveAndNext" class="o-btn-primary w-full justify-center py-3">{{ __('Save and scan next') }}</button>
                     <div class="flex gap-2">
                         <button type="button" wire:click="save" wire:loading.attr="disabled" wire:target="save,saveAndNext" class="o-btn-ghost flex-1 justify-center py-2.5 ring-1 ring-chrome-200">{{ __('Save and open it') }}</button>
-                        <button type="button" wire:click="discard" wire:confirm="{{ __('Throw this scan away without saving it?') }}" @click="preview = ''" class="o-btn-ghost">{{ __('Discard') }}</button>
+                        @if ($billPhoto)
+                            <button type="button" x-on:click="$refs.rejectBox.hidden = ! $refs.rejectBox.hidden" class="o-btn-ghost text-red-600" data-reject-toggle>{{ __('Reject') }}</button>
+                        @else
+                            <button type="button" wire:click="discard" wire:confirm="{{ __('Throw this scan away without saving it?') }}" @click="preview = ''" class="o-btn-ghost">{{ __('Discard') }}</button>
+                        @endif
                     </div>
                 </div>
             </div>

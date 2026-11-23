@@ -5,7 +5,7 @@
 
     <div class="mb-5">
         <h1 class="text-2xl font-bold tracking-tight text-chrome-900">{{ __('Bills from drivers') }}</h1>
-        <p class="mt-1 text-sm text-chrome-500">{{ __('Bills drivers photographed through the link sent with their trip. Check each one and save it, or set it aside.') }}</p>
+        <p class="mt-1 text-sm text-chrome-500">{{ __('Bills drivers photographed through the link sent with their trip. Check each one and save it, or reject it.') }}</p>
         <p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 ring-1 ring-amber-200" data-originals-rule>{{ __('Save a bill only when its original paper has reached the office. The VAT authority asks for the originals.') }}</p>
     </div>
 
@@ -37,7 +37,7 @@
                     @if ($canSave)
                         <div class="flex shrink-0 gap-2">
                             <a href="{{ url('/app/limousine/expense/scan') }}?bill={{ $bill->id }}" wire:navigate class="o-btn-primary text-sm" data-check-bill>{{ __('Check and save') }}</a>
-                            <button type="button" wire:click="discard({{ $bill->id }})" wire:confirm="{{ __('Set this bill aside? It is kept, but not saved as an expense.') }}" class="o-btn-ghost text-sm">{{ __('Set aside') }}</button>
+                            <button type="button" wire:click="openReject({{ $bill->id }})" class="o-btn-ghost text-sm text-red-600 ring-1 ring-red-200" data-reject-bill>{{ __('Reject') }}</button>
                         </div>
                     @endif
                 </li>
@@ -46,6 +46,53 @@
             @endforelse
         </ul>
     </div>
+
+    @if ($rejectingId !== null)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-chrome-900/50 p-4" x-on:keydown.escape.window="$wire.closeReject()">
+            <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl" x-on:click.outside="$wire.closeReject()" data-reject-dialog>
+                <h2 class="text-sm font-semibold text-chrome-800">{{ __('Reject this bill') }}</h2>
+                <p class="mt-1 text-xs text-chrome-500">{{ __('It stays here under his name with your reason, until you tell him in person.') }}</p>
+                <label class="mt-4 block text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Reason') }} <span class="text-red-500">*</span></label>
+                <input type="text" wire:model="rejectReason" maxlength="500" class="o-input mt-1 w-full" placeholder="{{ __('e.g. the amount cannot be read, not a company expense') }}">
+                @error('rejectReason') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                <div class="mt-5 flex justify-end gap-2">
+                    <button type="button" wire:click="closeReject" class="o-btn-ghost text-sm">{{ __('Close') }}</button>
+                    <button type="button" wire:click="reject" class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white">{{ __('Reject') }}</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Rejected bills stay here, under the driver's name, until he is told in person. --}}
+    @if ($toTell->isNotEmpty())
+        <div class="mb-6 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-red-200" data-to-tell>
+            <div class="border-b border-red-100 bg-red-50 px-5 py-3">
+                <div class="text-sm font-semibold text-red-800">{{ __('Rejected: tell the driver in person') }}</div>
+                <div class="text-xs text-red-700">{{ __('Show him the bill and the reason when you meet him. He brings it again and you enter it again for checking.') }}</div>
+            </div>
+            @foreach ($toTell as $driverName => $bills)
+                <div class="border-b border-chrome-50 px-5 py-3 last:border-0">
+                    <div class="mb-2 text-sm font-bold text-chrome-900">{{ $driverName }} <span class="ms-1 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">{{ $bills->count() }}</span></div>
+                    <ul class="space-y-2">
+                        @foreach ($bills as $bill)
+                            <li class="flex flex-wrap items-center gap-3 text-sm" wire:key="tell-{{ $bill->id }}" data-tell-bill="{{ $bill->id }}">
+                                <a href="{{ url('/app/limousine/expense/driver-bill/' . $bill->id . '/photo') }}" target="_blank" rel="noopener" class="block size-10 shrink-0 overflow-hidden rounded bg-chrome-100 ring-1 ring-chrome-900/10">
+                                    <img src="{{ url('/app/limousine/expense/driver-bill/' . $bill->id . '/photo') }}" alt="{{ __('The bill') }}" class="size-full object-cover" loading="lazy">
+                                </a>
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-xs text-chrome-500">{{ __('Trip') }} {{ $bill->leg?->reference ?? '—' }} · {{ __('sent') }} {{ $bill->created_at?->format('j-M') }}@if ($bill->readTotal() !== null) · {{ $money($bill->readTotal(), (string) ($bill->draft['currency'] ?? 'BHD')) }}@endif</div>
+                                    <div class="font-semibold text-red-700">{{ $bill->reject_reason }}</div>
+                                </div>
+                                @if ($canSave)
+                                    <button type="button" wire:click="markTold({{ $bill->id }})" class="o-btn-ghost text-xs ring-1 ring-chrome-200" data-told>{{ __('Told the driver') }}</button>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endforeach
+        </div>
+    @endif
 
     @if ($handled->isNotEmpty())
         <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/5">
@@ -56,6 +103,13 @@
                         <span class="text-chrome-700">{{ $bill->driver?->name ?? '—' }} · {{ __('Trip') }} {{ $bill->leg?->reference ?? '—' }}</span>
                         @if ($bill->status === 'saved' && $bill->expense)
                             <a href="{{ url('/app/limousine/expense/' . $bill->expense_id) }}" wire:navigate class="text-xs font-semibold text-emerald-700 hover:underline">{{ __('Saved as :ref', ['ref' => $bill->expense->reference]) }}</a>
+                        @elseif ($bill->status === 'rejected')
+                            <span class="text-xs" data-rejected-bill="{{ $bill->id }}">
+                                <span class="font-semibold text-red-600">{{ __('Rejected') }}: {{ $bill->reject_reason }}</span>
+                                @if ($bill->told_at)
+                                    <span class="text-chrome-500">· {{ __('told by :name on :date', ['name' => $bill->told_by ?: '—', 'date' => $bill->told_at->format('j-M')]) }}</span>
+                                @endif
+                            </span>
                         @else
                             <span class="text-xs text-chrome-400">{{ __('Set aside') }}</span>
                         @endif

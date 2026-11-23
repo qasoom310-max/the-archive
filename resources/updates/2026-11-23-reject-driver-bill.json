@@ -1,0 +1,66 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Bills from drivers: reject a bill with a reason, kept under the driver's name until you tell him",
+        "ar": "فواتير السائقين: ارفض الفاتورة مع السبب، وتبقى تحت اسم السائق حتى تبلغه"
+    },
+    "points": {
+        "en": [
+            "A driver's bill can now be rejected with a reason, from the list or from the check screen.",
+            "Rejected bills stay in Bills from drivers, under the driver's name, with the reason and the photo.",
+            "When you have told the driver in person, press Told the driver. It records who told him and when.",
+            "He brings the bill again and it is entered again for checking. A rejected bill never counts on his petty cash."
+        ],
+        "ar": [
+            "يمكن الآن رفض فاتورة السائق مع ذكر السبب، من القائمة أو من شاشة المراجعة.",
+            "الفواتير المرفوضة تبقى في «فواتير من السائقين» تحت اسم السائق، مع السبب والصورة.",
+            "بعد إبلاغ السائق شخصياً، اضغط «تم إبلاغ السائق». يُسجَّل من أبلغه ومتى.",
+            "يحضر الفاتورة مرة أخرى وتُدخل من جديد للمراجعة. الفاتورة المرفوضة لا تُخصم من عهدته أبداً."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, a bill that was not acceptable could only be set aside, with no reason and nothing telling anyone to speak to the driver.",
+            "The driver's link works for only 48 hours, so he is not told through it. The rejected bill stays with the accountant, listed under his name, until she meets him and shows him.",
+            "The reason is required. Pressing Told the driver keeps the bill in the history with who told him and when.",
+            "Only a bill still waiting can be rejected. A bill already saved is an expense; correct it in Expenses instead."
+        ],
+        "ar": [
+            "في السابق كانت الفاتورة غير المقبولة توضع جانباً فقط، بدون سبب ولا شيء يذكّر بإبلاغ السائق.",
+            "رابط السائق يعمل 48 ساعة فقط، فلا يُبلَّغ عبره. الفاتورة المرفوضة تبقى مع المحاسبة، تحت اسمه، حتى تقابله وتريه إياها.",
+            "السبب إلزامي. الضغط على «تم إبلاغ السائق» يبقي الفاتورة في السجل مع من أبلغه ومتى.",
+            "فقط الفاتورة المنتظرة يمكن رفضها. الفاتورة المحفوظة أصبحت مصروفاً؛ صحّحها من المصروفات."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Expenses, then Bills from drivers.",
+            "Press Reject on the bill, type the reason, and press Reject.",
+            "When you meet the driver, show him the bill and the reason under his name, then press Told the driver.",
+            "When he brings the corrected bill, enter it again with Scan a bill."
+        ],
+        "ar": [
+            "افتح الليموزين ثم المصروفات ثم «فواتير من السائقين».",
+            "اضغط «رفض» على الفاتورة، واكتب السبب، ثم اضغط «رفض».",
+            "عندما تقابل السائق، أره الفاتورة والسبب تحت اسمه، ثم اضغط «تم إبلاغ السائق».",
+            "عندما يحضر الفاتورة المصححة، أدخلها من جديد عبر «تصوير فاتورة»."
+        ]
+    },
+    "images": [
+        {
+            "before": "list-before.png",
+            "after": "list-after.png",
+            "caption": {
+                "en": "Bills from drivers. After: the Reject button, and rejected bills under the driver's name.",
+                "ar": "فواتير من السائقين. بعد: زر «رفض»، والفواتير المرفوضة تحت اسم السائق."
+            }
+        },
+        {
+            "after": "reject-dialog.png",
+            "caption": {
+                "en": "Rejecting a bill: the reason is required.",
+                "ar": "رفض فاتورة: السبب إلزامي."
+            }
+        }
+    ]
+}

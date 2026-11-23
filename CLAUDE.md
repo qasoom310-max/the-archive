@@ -5857,3 +5857,10 @@ the oldest open advance; `settle()` writes expenses already held as receipts).
 `outstanding()` ("Drivers hold now") = given on open advances − their lines. Open tab shows
 "Holds now" / "We owe him". Confirm/Settle still close an advance but no figure waits for
 them. Tests: `LimoPettyCashTest` (+2), `LimoExpenseScanTest` (rewritten default).
+**…reject with a reason (same day).** `LimoDriverBill::reject($reason, $userId)` (waiting
+bills only) → status `rejected` + `reject_reason`; from the list (`DriverBills::openReject/
+reject`) or the check screen (`ExpenseScan::rejectBill`, which replaced Discard for driver
+bills). The owner: the driver is told IN PERSON (his link lasts 48 h), so nothing shows on his
+page; the list keeps "Rejected: tell the driver in person" grouped by driver until
+`markTold()` stamps `told_at`/`told_by` (migration `2026_11_23_950071`). He brings it again and
+it is entered anew. Rejected bills don't use up the link's 20.

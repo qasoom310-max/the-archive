@@ -123,4 +123,26 @@ final class DailySummaryTest extends TestCase
 
         Livewire::test(DailySummary::class)->assertForbidden();
     }
+
+    /** Wanaan: money received in Limousine and Rent A Car counts as money in, split by section, on its date. */
+    public function test_car_income_counts_as_money_in_split_by_section(): void
+    {
+        app(ModuleManager::class)->install('limousine');
+        app(ModuleManager::class)->install('rental');
+        $today = Carbon::today()->toDateString();
+        \Illuminate\Support\Facades\DB::table('limo_receipts')->insert([
+            ['reference' => 'RCP/1', 'date' => $today, 'amount' => 30, 'method' => 'cash'],
+            ['reference' => 'RCP/2', 'date' => $today, 'amount' => 20, 'method' => 'transfer'],
+            ['reference' => 'RCP/3', 'date' => Carbon::yesterday()->toDateString(), 'amount' => 99, 'method' => 'cash'],
+        ]);
+        \Illuminate\Support\Facades\DB::table('rental_receipts')->insert(['reference' => 'RR/1', 'date' => $today, 'amount' => 15, 'method' => 'cash']);
+        Purchase::query()->create(['date' => $today, 'state' => PurchaseState::Confirmed, 'total' => 5, 'is_stock_purchase' => true]);
+
+        Livewire::test(DailySummary::class)
+            ->assertViewHas('today', fn (array $t): bool => $t['limo'] === 50.0 && $t['rental'] === 15.0 && $t['sales'] === 65.0 && $t['net'] === 60.0)
+            ->assertSeeHtml('data-income-split')
+            ->assertSeeHtml('data-car-costs-note')
+            ->assertSee('Limousine')
+            ->assertSee('Rent A Car');
+    }
 }

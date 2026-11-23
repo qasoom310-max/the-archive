@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Livewire\Pages;
 
+use App\Erp\Business\Features;
 use App\Erp\Settings\BusinessDay;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -21,7 +23,9 @@ use Modules\Purchases\Models\Purchase;
 
 /**
  * Daily Summary — a one-glance owner's CASH-FLOW view for a day: money IN
- * (POS sales), money OUT (confirmed purchases), and the Net Cash Flow
+ * (POS sales + Limousine and Rent A Car receipts, i.e. money actually received
+ * that day; rental deposits are on the order, not receipts, so never count),
+ * money OUT (confirmed purchases), and the Net Cash Flow
  * (sales − purchases). Net is shown red when negative so a cash-out day is
  * obvious. A date picker scopes the figures and a 7-day table gives the trend.
  * Admin-only (financial data).
@@ -49,24 +53,28 @@ final class DailySummary extends Component
     }
 
     /**
-     * Sales / purchases / net for a single business day.
+     * Money in / purchases / net for a single business day.
      *
-     * Sales are counted over the business day ({@see BusinessDay}): with the
-     * day starting at 08:00, a sale at 2 AM belongs to the evening before.
-     * A purchase carries a date and no time, so it stays on its date.
+     * Shop sales are counted over the business day ({@see BusinessDay}): with
+     * the day starting at 08:00, a sale at 2 AM belongs to the evening before.
+     * Limousine and Rent A Car receipts and purchases carry a date and no time,
+     * so they stay on their date.
      *
-     * @return array{sales: float, purchases: float, net: float}
+     * @return array{pos: float, limo: float, rental: float, sales: float, purchases: float, net: float}
      */
     private function dayTotals(string $date): array
     {
-        $sales = 0.0;
+        $pos = 0.0;
         if (Schema::hasTable('pos_orders')) {
-            $sales = (float) PosOrder::query()
+            $pos = (float) PosOrder::query()
                 ->where('state', OrderState::Done->value)
                 ->where('ordered_at', '>=', BusinessDay::window($date)[0]->toDateTimeString())
                 ->where('ordered_at', '<', BusinessDay::window($date)[1]->toDateTimeString())
                 ->sum('total');
         }
+
+        $limo = $this->receipts('limousine', 'limo_receipts', $date);
+        $rental = $this->receipts('rental', 'rental_receipts', $date);
 
         $purchases = 0.0;
         if (Schema::hasTable('purchases')) {
@@ -76,14 +84,37 @@ final class DailySummary extends Component
                 ->sum('total');
         }
 
-        $sales = round($sales, 2);
+        $pos = round($pos, 2);
+        $sales = round($pos + $limo + $rental, 2);
         $purchases = round($purchases, 2);
 
         return [
+            'pos' => $pos,
+            'limo' => $limo,
+            'rental' => $rental,
             'sales' => $sales,
             'purchases' => $purchases,
             'net' => round($sales - $purchases, 2),
         ];
+    }
+
+    /** Money received in one car section on a date (0 where the section is not used). */
+    private function receipts(string $module, string $table, string $date): float
+    {
+        if (! $this->uses($module, $table)) {
+            return 0.0;
+        }
+
+        return round((float) DB::table($table)->whereDate('date', $date)->sum('amount'), 2);
+    }
+
+    /** @var array<string, bool> */
+    private array $uses = [];
+
+    /** Whether this database runs that section (its table exists and its app is on). */
+    private function uses(string $module, string $table): bool
+    {
+        return $this->uses[$table] ??= Schema::hasTable($table) && Features::moduleAllowed($module);
     }
 
     public function render(): View
@@ -106,6 +137,11 @@ final class DailySummary extends Component
             'today' => $this->dayTotals($selected),
             'dayLabel' => $base->isoFormat('dddd, D MMMM YYYY'),
             'dayStartsAt' => BusinessDay::startHour(),
+            'sources' => [
+                'pos' => Schema::hasTable('pos_orders') && Features::moduleAllowed('pos'),
+                'limo' => $this->uses('limousine', 'limo_receipts'),
+                'rental' => $this->uses('rental', 'rental_receipts'),
+            ],
             'history' => $history,
         ]);
     }

@@ -1,13 +1,20 @@
 @php
     use App\Erp\Money\Currencies;
     $money = fn ($v) => Currencies::format((float) $v);
+    // Split money in by section only when more than shop sales feed it.
+    $split = $sources['limo'] || $sources['rental'];
+    $parts = array_filter([
+        'pos' => $sources['pos'] ? __('Shop sales') : null,
+        'limo' => $sources['limo'] ? __('Limousine') : null,
+        'rental' => $sources['rental'] ? __('Rent A Car') : null,
+    ]);
 @endphp
 
 <div class="mx-auto max-w-4xl p-4 sm:p-6">
     <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
             <h1 class="text-xl font-bold text-chrome-900">{{ __('Daily Summary') }}</h1>
-            <p class="text-sm text-chrome-500">{{ __('Money in (sales) vs money out (purchases) for the day.') }}</p>
+            <p class="text-sm text-chrome-500">{{ $split ? __('Money in (sales and money received) vs money out (purchases) for the day.') : __('Money in (sales) vs money out (purchases) for the day.') }}</p>
             <p class="text-xs text-chrome-400">{{ __('Cash flow, not accounting profit — buying stock shows as money out, not a loss.') }}</p>
         </div>
         <div class="flex items-end gap-3">
@@ -32,9 +39,19 @@
     {{-- Headline cards: Sales · Purchases · Net --}}
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
-            <p class="text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Daily Sales') }}</p>
+            <p class="text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ $split ? __('Money in') : __('Daily Sales') }}</p>
             <p class="mt-1 text-2xl font-bold text-emerald-600">{{ $money($today['sales']) }}</p>
-            <p class="mt-1 text-xs text-chrome-400">{{ __('Money in') }}</p>
+            <p class="mt-1 text-xs text-chrome-400">{{ $split ? __('Sales and money received') : __('Money in') }}</p>
+            @if ($split)
+                <dl class="mt-3 space-y-1 border-t border-chrome-100 pt-2 text-xs" data-income-split>
+                    @foreach ($parts as $key => $label)
+                        <div class="flex justify-between gap-2">
+                            <dt class="text-chrome-500">{{ $label }}</dt>
+                            <dd class="font-medium tabular-nums text-chrome-700">{{ $money($today[$key]) }}</dd>
+                        </div>
+                    @endforeach
+                </dl>
+            @endif
         </div>
         <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
             <p class="text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Daily Purchases') }}</p>
@@ -48,6 +65,9 @@
             <p class="mt-1 text-xs {{ $neg ? 'text-red-500' : 'text-emerald-600' }}">
                 {{ $neg ? __('In the red — spent more than earned') : __('Cash positive — more in than out') }}
             </p>
+            @if ($split)
+                <p class="mt-2 text-xs text-chrome-500" data-car-costs-note>{{ __('Car expenses and driver payments are not counted as money out here yet.') }}</p>
+            @endif
         </div>
     </div>
 
@@ -57,7 +77,12 @@
             <thead class="bg-chrome-50 text-xs uppercase tracking-wide text-chrome-500">
                 <tr>
                     <th class="px-4 py-2.5 text-start font-semibold">{{ __('Day') }}</th>
-                    <th class="px-4 py-2.5 text-end font-semibold">{{ __('Daily Sales') }}</th>
+                    @if ($split)
+                        @foreach ($parts as $label)
+                            <th class="px-4 py-2.5 text-end font-semibold">{{ $label }}</th>
+                        @endforeach
+                    @endif
+                    <th class="px-4 py-2.5 text-end font-semibold">{{ $split ? __('Money in') : __('Daily Sales') }}</th>
                     <th class="px-4 py-2.5 text-end font-semibold">{{ __('Daily Purchases') }}</th>
                     <th class="px-4 py-2.5 text-end font-semibold">{{ __('Net Cash Flow') }}</th>
                 </tr>
@@ -67,6 +92,11 @@
                     @php $rowNeg = $row['totals']['net'] < 0; @endphp
                     <tr class="hover:bg-chrome-50">
                         <td class="px-4 py-2.5 text-chrome-700">{{ $row['label'] }}</td>
+                        @if ($split)
+                            @foreach (array_keys($parts) as $key)
+                                <td class="px-4 py-2.5 text-end tabular-nums text-chrome-500">{{ $money($row['totals'][$key]) }}</td>
+                            @endforeach
+                        @endif
                         <td class="px-4 py-2.5 text-end tabular-nums text-chrome-700">{{ $money($row['totals']['sales']) }}</td>
                         <td class="px-4 py-2.5 text-end tabular-nums text-chrome-500">{{ $money($row['totals']['purchases']) }}</td>
                         <td class="px-4 py-2.5 text-end font-semibold tabular-nums {{ $rowNeg ? 'text-red-600' : 'text-emerald-700' }}">{{ $money($row['totals']['net']) }}</td>

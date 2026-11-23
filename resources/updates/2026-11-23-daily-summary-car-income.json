@@ -1,0 +1,59 @@
+{
+    "app": "system",
+    "title": {
+        "en": "Daily Summary now shows Limousine and Rent A Car income",
+        "ar": "الملخص اليومي يعرض الآن دخل الليموزين وتأجير السيارات"
+    },
+    "points": {
+        "en": [
+            "Money received in Limousine and in Rent A Car now counts as money in on the Daily Summary.",
+            "The first card shows the total and how much came from each section.",
+            "The 7-day table has a column for each section.",
+            "Car expenses and driver payments are not counted as money out yet."
+        ],
+        "ar": [
+            "المبالغ المستلمة في الليموزين وتأجير السيارات تُحسب الآن أموالاً داخلة في الملخص اليومي.",
+            "البطاقة الأولى تعرض المجموع وكم جاء من كل قسم.",
+            "جدول الأيام السبعة فيه عمود لكل قسم.",
+            "مصروفات السيارات ومدفوعات السائقين لا تُحسب أموالاً خارجة بعد."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the Daily Summary only counted shop sales as money in, so for the car business it showed nothing even on a busy day.",
+            "Now every receipt in Limousine and Rent A Car counts on the receipt's date: the money actually received that day.",
+            "Rental deposits are not income. They are held and refunded, so they are not counted.",
+            "Money out is still purchases only, so the Net Cash Flow reads higher than the real figure for the car business. A note on the page says so."
+        ],
+        "ar": [
+            "في السابق كان الملخص اليومي يحسب مبيعات المحل فقط كأموال داخلة، فلم يُظهر شيئاً لأعمال السيارات حتى في يوم مزدحم.",
+            "الآن يُحسب كل سند قبض في الليموزين وتأجير السيارات في تاريخ السند: المال المستلم فعلاً ذلك اليوم.",
+            "تأمينات الإيجار ليست دخلاً. فهي محجوزة وتُعاد، لذلك لا تُحسب.",
+            "الأموال الخارجة ما زالت المشتريات فقط، لذلك يظهر صافي التدفق النقدي أعلى من الحقيقي لأعمال السيارات. وتوجد ملاحظة بذلك في الصفحة."
+        ]
+    },
+    "guide": {
+        "en": [
+            "From the home screen, open Reports, then Daily Summary.",
+            "Choose the date at the top right.",
+            "Read the money in card: the total, then Limousine and Rent A Car.",
+            "Look at the table for the last 7 days, one column per section."
+        ],
+        "ar": [
+            "من الشاشة الرئيسية افتح التقارير، ثم الملخص اليومي.",
+            "اختر التاريخ في الأعلى.",
+            "اقرأ بطاقة الأموال الداخلة: المجموع، ثم الليموزين وتأجير السيارات.",
+            "انظر إلى جدول آخر 7 أيام، عمود لكل قسم."
+        ]
+    },
+    "images": [
+        {
+            "before": "summary-before.png",
+            "after": "summary-after.png",
+            "caption": {
+                "en": "Daily Summary. After: Limousine and Rent A Car income in the money in card and the table.",
+                "ar": "الملخص اليومي. بعد: دخل الليموزين وتأجير السيارات في بطاقة الأموال الداخلة والجدول."
+            }
+        }
+    ]
+}

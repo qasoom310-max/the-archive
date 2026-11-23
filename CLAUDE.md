@@ -5883,3 +5883,11 @@ recorded shows "Not recorded" in amber. Office scans (no driver bill) now stamp
 first and `PettyAdvancePage::linkExpenses()` adds every bill from `unlinkedExpensesFor()`
 (now ordered ascending; still a month before the advance date, ≤100) after a confirm showing
 count + total. A wrong one is taken off with Remove. Test: `LimoPettyCashTest` (adjusted).
+
+**Daily Summary counts car income (shipped 2026-11-23, Wanaan).** Money in = POS sales +
+Limousine receipts (`limo_receipts`) + Rent A Car receipts (`rental_receipts`) by receipt
+`date` (money actually received; rental deposits sit on the order, never receipts). A section
+counts only where its table exists AND `Features::moduleAllowed()`. When either car section
+is used, the first card reads "Money in" with a per-section split, the 7-day table gets a
+column per section, and a note says car expenses / driver payments are NOT yet money out
+(owner chose income only for now; Net reads high). Test: `DailySummaryTest` (+1).

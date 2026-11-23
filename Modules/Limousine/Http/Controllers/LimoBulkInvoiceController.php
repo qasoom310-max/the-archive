@@ -40,7 +40,7 @@ final class LimoBulkInvoiceController
         $data['bulkReference'] = (string) $model->reference;
         $data['issuedOn'] = $model->issue_date ?? $model->created_at;
 
-        $name = 'bulk-invoice-' . str_replace(['/', '\\', ' '], '-', (string) $model->reference) . '.pdf';
+        $name = 'tax-invoice-' . str_replace(['/', '\\', ' '], '-', (string) $model->reference) . '.pdf';
 
         return response($pdf->render($data), 200, [
             'Content-Type' => 'application/pdf',

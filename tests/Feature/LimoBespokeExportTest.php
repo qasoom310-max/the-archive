@@ -126,7 +126,7 @@ final class LimoBespokeExportTest extends TestCase
 
         $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
         $this->assertStringContainsString(
-            'invoice-' . str_replace(['/', '\\', ' '], '-', (string) $invoice->reference) . '.pdf',
+            'tax-invoice-' . str_replace(['/', '\\', ' '], '-', (string) $invoice->reference) . '.pdf',
             (string) $response->headers->get('Content-Disposition'),
         );
     }

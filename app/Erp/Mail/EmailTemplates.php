@@ -58,9 +58,9 @@ final class EmailTemplates
             'description' => 'Sent with a new invoice. {payment_status} becomes one of the three lines below, depending on what has been paid.',
             'apps' => ['limousine', 'rental'],
             'placeholders' => ['reference', 'total', 'paid', 'balance', 'payment_status'],
-            'subject' => '{company} — Invoice {reference}',
-            'heading' => 'Your invoice {reference}',
-            'intro' => "Thank you for choosing us. Please find your invoice attached.\n\n{payment_status}",
+            'subject' => '{company} — Tax Invoice {reference}',
+            'heading' => 'Your tax invoice {reference}',
+            'intro' => "Thank you for choosing us. Please find your tax invoice attached.\n\n{payment_status}",
             'outro' => '',
             'extras' => [
                 'status_paid' => ['label' => 'When paid in full', 'default' => 'This invoice is paid in full — your receipt is attached as well.'],

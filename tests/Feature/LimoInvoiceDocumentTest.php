@@ -98,6 +98,8 @@ final class LimoInvoiceDocumentTest extends TestCase
         $this->assertSame($trip, $data['lines'][0]['trip']);
         $html = view('limousine::invoice-pdf', $data)->render();
         $this->assertStringContainsString('Ref. #', $html);
+        // Titled a tax invoice (the owner's wording, 2026-11-23), on old invoices and new.
+        $this->assertStringContainsString('<div class="doc-title">Tax Invoice</div>', $html);
         $this->assertStringContainsString('<td>'.$trip.'</td>', $html);
         $this->assertStringNotContainsString('Booking #', $html);
         // What they actually want from a part-paid bill.

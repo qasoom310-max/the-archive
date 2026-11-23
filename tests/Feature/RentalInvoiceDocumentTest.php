@@ -122,6 +122,8 @@ final class RentalInvoiceDocumentTest extends TestCase
 
         $html = view('rental::invoice-pdf', $data)->render();
         $this->assertStringContainsString(__('Rental services'), $html);
+        // Titled a tax invoice (the owner's wording, 2026-11-23), on old invoices and new.
+        $this->assertStringContainsString('<div class="doc-title">Tax Invoice</div>', $html);
         $this->assertStringContainsString(\App\Erp\Views\ValueFormat::money(50.0), $html);
     }
 
@@ -135,7 +137,7 @@ final class RentalInvoiceDocumentTest extends TestCase
         $this->assertSame(200, $response->getStatusCode());
         $this->assertStringStartsWith('%PDF', (string) $response->getContent());
         $this->assertStringContainsString(
-            'invoice-' . str_replace(['/', '\\', ' '], '-', (string) $invoice->reference) . '.pdf',
+            'tax-invoice-' . str_replace(['/', '\\', ' '], '-', (string) $invoice->reference) . '.pdf',
             (string) $response->headers->get('Content-Disposition'),
         );
     }

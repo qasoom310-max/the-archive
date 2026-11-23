@@ -157,7 +157,7 @@ final class RentalInvoicePdf
 
     public function filename(RentalInvoice $invoice): string
     {
-        return 'invoice-' . str_replace(['/', '\\', ' '], '-', (string) $invoice->reference) . '.pdf';
+        return 'tax-invoice-' . str_replace(['/', '\\', ' '], '-', (string) $invoice->reference) . '.pdf';
     }
 
     /** Filename for a batch download of several ticked invoices. */

@@ -86,7 +86,7 @@ final class CustomerDocumentEmailTest extends TestCase
 
             return $mail->hasTo('helen@example.com')
                 && count($names) === 2
-                && str_starts_with($names[0], 'invoice-')
+                && str_starts_with($names[0], 'tax-invoice-')
                 && $names[1] === 'Terms-and-Conditions.pdf'
                 && $mail->fromAddress === 'Erp@wanaan-bh.com'
                 && str_contains($mail->document->subject, 'Invoice');
@@ -102,7 +102,7 @@ final class CustomerDocumentEmailTest extends TestCase
             $names = $this->attachmentNames($mail);
 
             return count($names) === 3
-                && str_starts_with($names[0], 'invoice-')
+                && str_starts_with($names[0], 'tax-invoice-')
                 && str_starts_with($names[1], 'receipt-')
                 && $names[2] === 'Terms-and-Conditions.pdf'
                 && str_contains(implode(' ', $mail->document->paragraphs), 'part of the payment');
@@ -133,7 +133,7 @@ final class CustomerDocumentEmailTest extends TestCase
 
             return str_contains($mail->document->subject, 'Receipt')
                 && str_starts_with($names[0], 'receipt-')
-                && str_starts_with($names[1], 'invoice-')
+                && str_starts_with($names[1], 'tax-invoice-')
                 && $names[2] === 'Terms-and-Conditions.pdf';
         });
     }

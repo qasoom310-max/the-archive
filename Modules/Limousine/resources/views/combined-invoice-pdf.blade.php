@@ -9,7 +9,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>{{ __('Invoice') }} — {{ $customer->name ?? '' }}</title>
+    <title>{{ __('Tax Invoice') }} — {{ $customer->name ?? '' }}</title>
     <x-pdf-styles />
     <style>
         @page { margin: 22px 24px 60px; }
@@ -30,7 +30,7 @@
             @endif
         </td>
         <td class="doc-title-block">
-            <div class="doc-title">{{ __('Invoice') }}@if (($bulkReference ?? '') !== '') {{ $bulkReference }}@endif</div>
+            <div class="doc-title">{{ __('Tax Invoice') }}@if (($bulkReference ?? '') !== '') {{ $bulkReference }}@endif</div>
             <div class="doc-ref">{{ __('Invoices covered') }}: <b>{{ implode(', ', $references) }}</b></div>
             <div class="doc-sub">{{ __('Issued') }}: {{ ($issuedOn ?? now())->isoFormat('DD-MMM-YYYY') }}</div>
         </td>

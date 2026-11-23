@@ -99,7 +99,7 @@ final class RentalDocumentEmails
                     [__('Balance due'), Currencies::format(max(0.0, $invoice->balance()))],
                 ],
                 attachments: $attachments,
-                label: __('Invoice') . ' ' . $reference,
+                label: __('Tax Invoice') . ' ' . $reference,
             ));
         });
     }

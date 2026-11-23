@@ -290,7 +290,7 @@ final class CustomerDocumentEmails
             ],
             facts: $facts,
             attachments: $attachments,
-            label: __('Invoice') . ' ' . $reference,
+            label: __('Tax Invoice') . ' ' . $reference,
         ));
     }
 

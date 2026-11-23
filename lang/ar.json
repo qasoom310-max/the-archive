@@ -3860,5 +3860,6 @@
     "Booking :reference shows :paid paid, but the total is only :total. Check the paid amount.": "الحجز :reference يظهر فيه مدفوع :paid، لكن المجموع :total فقط. راجع المبلغ المدفوع.",
     "The new customer \":new\" looks like \":existing\", who is already saved. Use the saved customer instead of making a second one.": "العميل الجديد «:new» يشبه «:existing» المحفوظ مسبقاً. استخدم العميل المحفوظ بدلاً من إنشاء عميل ثانٍ.",
     "Trip :reference is priced at :rate, but this kind of trip is usually about :usual. Check the price.": "سعر الرحلة :reference هو :rate، لكن هذا النوع من الرحلات عادة حوالي :usual. راجع السعر.",
-    "Order :reference is at :rate a day, but this car's daily rate is :usual. Check the price.": "الطلب :reference بسعر :rate في اليوم، لكن السعر اليومي لهذه السيارة :usual. راجع السعر."
+    "Order :reference is at :rate a day, but this car's daily rate is :usual. Check the price.": "الطلب :reference بسعر :rate في اليوم، لكن السعر اليومي لهذه السيارة :usual. راجع السعر.",
+    "Tax Invoice": "فاتورة ضريبية"
 }

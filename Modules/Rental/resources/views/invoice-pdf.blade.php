@@ -20,7 +20,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>{{ __('Invoice') }} {{ $reference }}</title>
+    <title>{{ __('Tax Invoice') }} {{ $reference }}</title>
     <style>
         @page { margin: 30px 34px 60px; }
         * { box-sizing: border-box; }

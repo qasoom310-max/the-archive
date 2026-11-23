@@ -5776,3 +5776,11 @@ an AI that pushes staff "in a strict and funny way". Pieces:
   on/off, monthly Claude limit (default 3000 messages), ops email, timer, per-person
   language and on/off, last 80 messages. `abdullah.*` hidden from central Settings.
 Tests: `tests/Feature/AbdullahTest.php` (15).
+
+**Invoices are titled "Tax Invoice" (2026-11-23, owner's request).** The document title on
+every invoice PDF (Limousine single / batch / combined / bulk, Rental single / batch — the
+two `partials/invoice-body` + `combined-invoice-pdf`), the PDF `<title>`, the email
+attachment label, the file names (`tax-invoice-…pdf`) and the default invoice email
+subject/heading/intro say **Tax Invoice** (AR `فاتورة ضريبية`). Screen labels (menus,
+"Invoices" lists, "New invoice") deliberately stay "Invoice". PDFs are rendered at
+download, so old invoices show it too; owner-edited email wording in Settings is kept.

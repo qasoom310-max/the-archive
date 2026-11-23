@@ -1,0 +1,53 @@
+{
+    "app": "system",
+    "title": {
+        "en": "Invoices are now titled Tax Invoice, old ones and new ones",
+        "ar": "الفواتير أصبح عنوانها «فاتورة ضريبية»، القديمة والجديدة"
+    },
+    "points": {
+        "en": [
+            "Every invoice printed or downloaded from Limousine and Rent A Car now says TAX INVOICE at the top.",
+            "Old invoices change too: download one again and it says Tax Invoice.",
+            "The invoice email says Tax Invoice in its subject, and the file is named tax-invoice."
+        ],
+        "ar": [
+            "كل فاتورة تُطبع أو تُنزَّل من الليموزين وتأجير السيارات مكتوب في أعلاها الآن «فاتورة ضريبية».",
+            "الفواتير القديمة تتغير أيضاً: نزّل أي فاتورة من جديد وستجد «فاتورة ضريبية».",
+            "بريد الفاتورة يذكر «فاتورة ضريبية» في عنوانه، واسم الملف يبدأ بـ tax-invoice."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the documents said only INVOICE.",
+            "Now the title is TAX INVOICE on the single invoice, on several invoices downloaded together, and on bulk invoices, in both Limousine and Rent A Car. Invoice numbers do not change.",
+            "Invoices are made fresh each time they are downloaded, so an old invoice shows the new title the next time it is opened. A copy already sent to a customer by email before today keeps the old title.",
+            "If you changed the invoice email wording yourself under Settings, Customer emails, your own wording is kept. Change the word there too if you want it."
+        ],
+        "ar": [
+            "في السابق كان مكتوباً على المستندات «فاتورة» فقط.",
+            "الآن العنوان «فاتورة ضريبية» على الفاتورة المفردة، وعلى عدة فواتير منزّلة معاً، وعلى الفواتير المجمّعة، في الليموزين وتأجير السيارات. أرقام الفواتير لا تتغير.",
+            "الفاتورة تُنشأ من جديد كل مرة تُنزَّل، فالفاتورة القديمة تظهر بالعنوان الجديد عند فتحها المرة القادمة. النسخة التي أُرسلت للعميل بالبريد قبل اليوم تبقى بالعنوان القديم.",
+            "إذا كنت غيّرت نص بريد الفاتورة بنفسك في الإعدادات، بريد العملاء، يبقى نصك كما هو. غيّر الكلمة هناك أيضاً إذا أردت."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine or Rent A Car, then Invoices.",
+            "Press the download button on any invoice. The PDF now says TAX INVOICE at the top."
+        ],
+        "ar": [
+            "افتح الليموزين أو تأجير السيارات، ثم الفواتير.",
+            "اضغط زر التنزيل على أي فاتورة. ملف PDF مكتوب في أعلاه الآن «فاتورة ضريبية»."
+        ]
+    },
+    "images": [
+        {
+            "before": "invoice-before.png",
+            "after": "invoice-after.png",
+            "caption": {
+                "en": "The same invoice before and after.",
+                "ar": "الفاتورة نفسها قبل وبعد."
+            }
+        }
+    ]
+}

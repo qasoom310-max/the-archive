@@ -317,7 +317,7 @@ final class LimoCombinedInvoicePdf
     {
         $name = (string) ($invoices->first()?->customer->name ?? 'customer');
 
-        return 'invoice-' . str_replace([' ', '/', '\\'], '-', $name) . '.pdf';
+        return 'tax-invoice-' . str_replace([' ', '/', '\\'], '-', $name) . '.pdf';
     }
 
     private function logoScale(): int

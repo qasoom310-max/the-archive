@@ -72,9 +72,9 @@ final class CustomerEmailSettingsTest extends TestCase
     {
         $mail = app(EmailTemplates::class)->compose('invoice', ['reference' => 'INV/1', 'payment_state' => 'unpaid']);
 
-        $this->assertSame('Wanaan Car Rental W.L.L — Invoice INV/1', $mail['subject']);
+        $this->assertSame('Wanaan Car Rental W.L.L — Tax Invoice INV/1', $mail['subject']);
         $this->assertSame([
-            'Thank you for choosing us. Please find your invoice attached.',
+            'Thank you for choosing us. Please find your tax invoice attached.',
             'The amount due is shown below. Payment details are printed on the invoice.',
         ], $mail['intro']);
     }

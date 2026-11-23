@@ -12,7 +12,7 @@
     <table class="head-meta">
         <tr>
             <td>
-                <div class="doc-title">{{ __('Invoice') }}</div>
+                <div class="doc-title">{{ __('Tax Invoice') }}</div>
                 @php
                     $statusClass = ['unpaid' => 'doc-badge-unpaid', 'partial' => 'doc-badge-partial', 'paid' => 'doc-badge-paid'][$status] ?? '';
                 @endphp

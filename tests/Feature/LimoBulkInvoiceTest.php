@@ -215,12 +215,13 @@ final class LimoBulkInvoiceTest extends TestCase
 
         $response = $this->get('/app/limousine/invoice/bulk/' . $bulk->id . '/download');
         $response->assertOk()->assertHeader('Content-Type', 'application/pdf');
-        $this->assertStringContainsString('bulk-invoice-BINV-00001.pdf', (string) $response->headers->get('Content-Disposition'));
+        $this->assertStringContainsString('tax-invoice-BINV-00001.pdf', (string) $response->headers->get('Content-Disposition'));
 
         $html = view('limousine::combined-invoice-pdf', [
             ...app(\Modules\Limousine\Services\LimoCombinedInvoicePdf::class)->viewData($bulk->invoices()->get()),
             'bulkReference' => 'BINV/00001',
         ])->render();
         $this->assertStringContainsString('BINV/00001', $html);
+        $this->assertStringContainsString('Tax Invoice BINV/00001', $html);
     }
 }

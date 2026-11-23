@@ -181,7 +181,7 @@ final class LimoInvoicePdf
 
     public function filename(LimoInvoice $invoice): string
     {
-        return 'invoice-' . str_replace(['/', '\\', ' '], '-', (string) $invoice->reference) . '.pdf';
+        return 'tax-invoice-' . str_replace(['/', '\\', ' '], '-', (string) $invoice->reference) . '.pdf';
     }
 
     /** Filename for a batch download of several ticked invoices. */

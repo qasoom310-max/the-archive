@@ -23,6 +23,9 @@ final class Expenses extends Component
         return view('limousine::expenses', [
             'total' => (float) LimoExpense::query()->sum('amount'),
             'canManage' => $user instanceof User && $user->canApproveMaintenance(),
+            'driverBills' => \Illuminate\Support\Facades\Schema::hasTable('limo_driver_bills')
+                ? \Modules\Limousine\Models\LimoDriverBill::query()->where('status', \Modules\Limousine\Models\LimoDriverBill::STATUS_NEW)->count()
+                : 0,
         ]);
     }
 }

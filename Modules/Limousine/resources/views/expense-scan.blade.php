@@ -222,6 +222,11 @@
 
             <div class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-chrome-900/5">
                 <p class="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-chrome-400">{{ __('The bill') }}</p>
+                @if ($billPhoto)
+                    <a href="{{ $billPhoto }}" target="_blank" rel="noopener" data-driver-bill-photo>
+                        <img src="{{ $billPhoto }}" alt="{{ __('The bill') }}" class="w-full rounded-lg">
+                    </a>
+                @endif
                 <template x-if="preview">
                     <img :src="preview" alt="{{ __('The bill') }}" class="w-full rounded-lg">
                 </template>

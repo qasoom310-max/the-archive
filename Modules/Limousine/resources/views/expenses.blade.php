@@ -19,6 +19,15 @@
         </x-slot:actions>
     </x-page-header>
 
+    {{-- Bills drivers sent through their trip link, waiting for the office. --}}
+    @if ($driverBills > 0)
+        <a href="{{ url('/app/limousine/expense/driver-bills') }}" wire:navigate data-driver-bills-banner
+           class="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm ring-1 ring-amber-200 hover:bg-amber-100">
+            <span class="font-semibold text-amber-900">{{ __('Bills from drivers to check: :count', ['count' => $driverBills]) }}</span>
+            <span class="text-xs font-semibold text-amber-800">{{ __('Open') }} →</span>
+        </a>
+    @endif
+
     {{-- Import expenses from a CSV (managers). Direct POST — Hostinger-safe.
          The expected columns are the same shape this screen's own export
          prints. A row is created directly at the figures given. --}}

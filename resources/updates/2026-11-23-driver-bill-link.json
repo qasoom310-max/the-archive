@@ -1,0 +1,84 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Limousine: drivers send their own bills through a link in the trip message",
+        "ar": "الليموزين: السائقون يرسلون فواتيرهم بأنفسهم عبر رابط في رسالة الرحلة"
+    },
+    "points": {
+        "en": [
+            "When you copy a trip for the driver, the message now ends with a link for that driver to photograph his bills for the trip.",
+            "The link works for 48 hours, only for the driver on the trip. If the trip goes to another driver, the old link stops.",
+            "The driver's bills are read for him and wait in Expenses under Bills from drivers.",
+            "The office opens each bill, checks the figures and the petty cash question, and saves it. Or sets it aside."
+        ],
+        "ar": [
+            "عند نسخ رحلة للسائق، تنتهي الرسالة الآن برابط ليصوّر هذا السائق فواتيره لهذه الرحلة.",
+            "الرابط يعمل 48 ساعة، وللسائق المعيّن على الرحلة فقط. إذا انتقلت الرحلة لسائق آخر يتوقف الرابط القديم.",
+            "فواتير السائق تُقرأ له وتنتظر في المصروفات تحت «فواتير من السائقين».",
+            "المكتب يفتح كل فاتورة ويراجع الأرقام وسؤال العهدة النقدية ويحفظها، أو يضعها جانباً."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, drivers handed their paper bills to the office, and someone in the office photographed each one.",
+            "Now the trip message has a link. The driver opens it on his phone, takes a photo of each bill, and the system reads the date, shop, amount and VAT. He needs no account.",
+            "The link names the trip and the driver, cannot be changed to another trip, and stops after 48 hours. It takes up to 20 bills.",
+            "Nothing becomes an expense on its own. Each bill waits under Expenses, Bills from drivers, where the office checks it on the same screen as Scan a bill: driver already chosen, his petty cash already offered. A bill that could not be read shows its photo to type from.",
+            "A bill set aside is kept with its photo. It is never deleted."
+        ],
+        "ar": [
+            "في السابق كان السائقون يسلّمون فواتيرهم الورقية للمكتب، ويصوّر أحد الموظفين كل واحدة.",
+            "الآن رسالة الرحلة فيها رابط. يفتحه السائق على هاتفه ويصوّر كل فاتورة، فيقرأ النظام التاريخ والمحل والمبلغ والضريبة. لا يحتاج إلى حساب.",
+            "الرابط يحدد الرحلة والسائق، ولا يمكن تغييره لرحلة أخرى، ويتوقف بعد 48 ساعة. يستقبل حتى 20 فاتورة.",
+            "لا يصبح شيء مصروفاً من نفسه. كل فاتورة تنتظر في المصروفات، «فواتير من السائقين»، حيث يراجعها المكتب في شاشة «تصوير فاتورة» نفسها: السائق مختار، وعهدته معروضة. الفاتورة التي لم تُقرأ تظهر صورتها للكتابة منها.",
+            "الفاتورة الموضوعة جانباً تُحفظ مع صورتها. لا تُحذف أبداً."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Assign the car and driver to the trip, then press the trip number in Bookings to copy it.",
+            "Send the message to the driver on WhatsApp as usual. The bill link is at the end.",
+            "The driver presses the link and takes a photo of each bill.",
+            "In the office, open Limousine, then Expenses. Press the yellow line \"Bills from drivers to check\".",
+            "Press Check and save on each bill, check the figures and the petty cash answer, and press Save."
+        ],
+        "ar": [
+            "عيّن السيارة والسائق للرحلة، ثم اضغط رقم الرحلة في الحجوزات لنسخها.",
+            "أرسل الرسالة للسائق على واتساب كالمعتاد. رابط الفواتير في آخرها.",
+            "يضغط السائق الرابط ويصوّر كل فاتورة.",
+            "في المكتب، افتح الليموزين ثم المصروفات. اضغط السطر الأصفر «فواتير من السائقين للمراجعة».",
+            "اضغط «راجع واحفظ» على كل فاتورة، وراجع الأرقام وجواب العهدة، ثم اضغط «حفظ»."
+        ]
+    },
+    "images": [
+        {
+            "after": "driver-phone.png",
+            "caption": {
+                "en": "What the driver sees when he opens the link.",
+                "ar": "ما يراه السائق عند فتح الرابط."
+            }
+        },
+        {
+            "before": "expenses-before.png",
+            "after": "expenses-after.png",
+            "caption": {
+                "en": "The Expenses page. After: the line telling you bills from drivers are waiting.",
+                "ar": "صفحة المصروفات. بعد: السطر الذي يخبرك أن فواتير السائقين بانتظار المراجعة."
+            }
+        },
+        {
+            "after": "driver-bills.png",
+            "caption": {
+                "en": "Bills from drivers, waiting to be checked.",
+                "ar": "فواتير من السائقين بانتظار المراجعة."
+            }
+        },
+        {
+            "after": "check-bill.png",
+            "caption": {
+                "en": "Checking a driver's bill before saving it.",
+                "ar": "مراجعة فاتورة سائق قبل حفظها."
+            }
+        }
+    ]
+}

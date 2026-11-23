@@ -18,6 +18,7 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Modules\Limousine\Http\Controllers\ExpenseBillController;
 use Modules\Limousine\Models\LimoDriver;
+use Modules\Limousine\Models\LimoDriverBill;
 use Modules\Limousine\Models\LimoPettyAdvance;
 use Modules\Limousine\Models\LimoExpense;
 use Modules\Limousine\Services\BillScanner;
@@ -46,6 +47,10 @@ final class ExpenseScan extends Component
      */
     #[Locked]
     public array $check = [];
+
+    /** A bill a driver sent through his trip link, being checked. Server-set only. */
+    #[Locked]
+    public int $billId = 0;
 
     /** The expense "Save and scan next" just saved, to confirm it on the next screen. */
     #[Locked]
@@ -116,6 +121,14 @@ final class ExpenseScan extends Component
         }
         $this->defaultAdvance();
 
+        // A bill a driver sent: opened from "Bills from drivers".
+        $bill = request()->query('bill');
+        if (is_string($bill) && ctype_digit($bill)) {
+            $this->openDriverBill((int) $bill);
+
+            return;
+        }
+
         // A scan can be reopened by its address while it is still parked
         // (the same owner-only check as review() applies).
         $token = request()->query('scan');
@@ -153,9 +166,53 @@ final class ExpenseScan extends Component
         $this->resetValidation();
     }
 
+    /** A driver's bill, waiting: load what was read, the driver and his cash. */
+    private function openDriverBill(int $id): void
+    {
+        $bill = LimoDriverBill::query()->where('status', LimoDriverBill::STATUS_NEW)->find($id);
+        if ($bill === null) {
+            $this->addError('scan', __('That bill was already checked.'));
+
+            return;
+        }
+
+        $this->billId = (int) $bill->id;
+        $this->driver = (string) $bill->driver_id;
+        $this->advance = '';
+        $this->defaultAdvance();
+
+        $draft = is_array($bill->draft) ? $bill->draft : [];
+        $plain = static fn (float $v): string => $v > 0.0 ? rtrim(rtrim(number_format($v, 3, '.', ''), '0'), '.') : '';
+        $this->check = array_values(array_filter(is_array($draft['check'] ?? null) ? $draft['check'] : [], 'is_string'));
+        if ($draft === []) {
+            $this->check[] = __('This bill could not be read. Type the figures from the photo.');
+        }
+        $this->date = (string) ($draft['date'] ?? now()->toDateString());
+        $this->category = (string) ($draft['category'] ?? 'other');
+        $this->currency = $this->knownCurrency((string) ($draft['currency'] ?? 'BHD'));
+        $this->exchange_rate = $this->rateFor($this->currency);
+        $this->payee = (string) ($draft['payee'] ?? '');
+        $this->net_amount = $plain((float) ($draft['net_amount'] ?? 0));
+        $this->vat_rate = (string) ($draft['vat_rate'] ?? '0');
+        $this->notes = (string) ($draft['notes'] ?? '');
+        $this->resetValidation();
+    }
+
     /** Throw the scan away and start again; its photo goes with it. */
     public function discard(): void
     {
+        // A driver's bill is set aside, never deleted: it is his paper.
+        if ($this->billId > 0) {
+            LimoDriverBill::query()->whereKey($this->billId)->where('status', LimoDriverBill::STATUS_NEW)->update([
+                'status' => LimoDriverBill::STATUS_DISCARDED,
+                'handled_by_user_id' => Auth::id(),
+                'handled_at' => now(),
+            ]);
+            $this->redirect(url('/app/limousine/expense/driver-bills'), navigate: true);
+
+            return;
+        }
+
         $scan = $this->token !== '' ? $this->scan($this->token) : null;
         if ($scan !== null) {
             Storage::disk(BillScanner::DISK)->delete($scan['path']);
@@ -291,6 +348,11 @@ final class ExpenseScan extends Component
         }
 
         session()->flash('toast', __('Expense :ref saved from the scanned bill.', ['ref' => (string) $expense->reference]));
+        if ($this->billId > 0) {
+            $this->redirect(url('/app/limousine/expense/driver-bills'), navigate: true);
+
+            return;
+        }
         $this->redirect(url('/app/limousine/expense/' . $expense->id), navigate: true);
     }
 
@@ -305,6 +367,14 @@ final class ExpenseScan extends Component
             return;
         }
 
+        // A driver's bill: back to the list for the next one.
+        if ($this->billId > 0) {
+            session()->flash('toast', __('Expense :ref saved from the scanned bill.', ['ref' => (string) $expense->reference]));
+            $this->redirect(url('/app/limousine/expense/driver-bills'), navigate: true);
+
+            return;
+        }
+
         $this->clear();
         $this->savedReference = (string) $expense->reference;
     }
@@ -314,9 +384,14 @@ final class ExpenseScan extends Component
     {
         $this->guardAccess(Permission::Create);
 
-        $scan = $this->token !== '' ? $this->scan($this->token) : null;
+        $bill = $this->billId > 0
+            ? LimoDriverBill::query()->where('status', LimoDriverBill::STATUS_NEW)->find($this->billId)
+            : null;
+        $scan = $bill !== null
+            ? ['user' => Auth::id(), 'path' => $bill->photo_path, 'draft' => []]
+            : ($this->token !== '' ? $this->scan($this->token) : null);
         if ($scan === null) {
-            $this->addError('scan', __('That scan has expired. Take the photo again.'));
+            $this->addError('scan', $this->billId > 0 ? __('That bill was already checked.') : __('That scan has expired. Take the photo again.'));
 
             return null;
         }
@@ -379,7 +454,16 @@ final class ExpenseScan extends Component
         }
         $expense->save();
 
-        Cache::forget(ExpenseBillController::cacheKey($this->token));
+        if ($bill !== null) {
+            $bill->forceFill([
+                'status' => LimoDriverBill::STATUS_SAVED,
+                'expense_id' => $expense->id,
+                'handled_by_user_id' => Auth::id(),
+                'handled_at' => now(),
+            ])->save();
+        } else {
+            Cache::forget(ExpenseBillController::cacheKey($this->token));
+        }
 
         if ($advance instanceof LimoPettyAdvance) {
             $this->countAgainst($advance, $expense);
@@ -438,7 +522,8 @@ final class ExpenseScan extends Component
             'driverName' => $this->driver === self::NO_DRIVER
                 ? __('Office bill, no driver')
                 : (string) (LimoDriver::query()->whereKey((int) $this->driver)->value('name') ?? ''),
-            'reviewing' => $this->token !== '',
+            'reviewing' => $this->token !== '' || $this->billId > 0,
+            'billPhoto' => $this->billId > 0 ? url('/app/limousine/expense/driver-bill/' . $this->billId . '/photo') : null,
             // The number this bill will get, to write on the paper.
             'nextReference' => $this->token !== '' ? LimoExpense::nextReference() : '',
             'categories' => LimoExpense::categoryOptions(),

@@ -844,6 +844,15 @@ final class LimoQueueRows
             }
         }
 
+        // The driver photographs his own bills for this trip through this
+        // link (48 hours). Only once a driver is on the trip: it is his link.
+        $billLink = \Modules\Limousine\Support\DriverBillLink::for($leg);
+        if ($billLink !== null && \Illuminate\Support\Facades\Schema::hasTable('limo_driver_bills')) {
+            $lines[] = '';
+            $lines[] = '📸 ' . __('Your bills for this trip (link works 48 hours)') . ':';
+            $lines[] = $billLink;
+        }
+
         return implode("\n", $lines);
     }
 

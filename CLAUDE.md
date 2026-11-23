@@ -5822,3 +5822,19 @@ month before the advance date, ≤100) with tick boxes; `linkExpenses()` →
 `PettyCash::addExpenseAsReceipt()` (shared with `ExpenseScan`; refuses a cleared advance,
 another driver's expense, or one already linked). `settle()` now stamps the `expense_id` it
 writes on each line, so settled receipts are never offered again. Tests: `LimoPettyCashTest` (+2).
+
+**Drivers send their own bills (shipped 2026-11-23).** `LimoQueueRows::whatsappText()` ends
+with `Modules\Limousine\Support\DriverBillLink::for($leg)` once a driver is on the trip:
+a temporary signed URL (48 h, carries `leg` + `driver` + `ws`), skipped when the route is
+not registered. Public `DriverBillController` (GET/POST `/driver-bills/{leg}/{driver}`,
+POST throttled 30/min): `hasValidSignature()` checked in the controller (expired/edited →
+a plain 410 page), the trip must still be that driver's and not cancelled, ≤20 bills per
+link, jpg/png/webp ≤12 MB on the PRIVATE disk (`limo_expense_bills/drivers/`), read by
+`BillScanner` when a key is set (unreadable is still kept). Table `limo_driver_bills`
+(Limousine migration `2026_11_23_950069`; status new|saved|discarded, never deleted).
+Office: `DriverBills` list (`/app/limousine/expense/driver-bills`, Read; Create to act) +
+an amber banner on Expenses; "Check and save" opens `ExpenseScan?bill=<id>` (`#[Locked]
+billId`, driver + advance preset, photo via the auth-only
+`/app/limousine/expense/driver-bill/{bill}/photo`); saving marks the bill saved with
+`expense_id`. The upload page is plain JS (no Livewire/Alpine on that page).
+Tests: `LimoDriverBillLinkTest` (7).

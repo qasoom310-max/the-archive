@@ -75,6 +75,10 @@ final class DailySummary extends Component
 
         $limo = $this->receipts('limousine', 'limo_receipts', $date);
         $rental = $this->receipts('rental', 'rental_receipts', $date);
+        // Money taken on rental orders (the Advance), dated since 23 Nov 2026.
+        if ($this->uses('rental', 'rental_order_payments')) {
+            $rental = round($rental + \Modules\Rental\Models\RentalOrderPayment::moneyOn($date), 2);
+        }
 
         $purchases = 0.0;
         if (Schema::hasTable('purchases')) {

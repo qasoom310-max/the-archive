@@ -159,6 +159,8 @@ final class PaymentCallbackController
             return;
         }
 
+        $order->paymentMethod = 'online';
+        $order->paymentNote = trim($ref) !== '' ? mb_substr('Paid online (' . trim($ref) . ')', 0, 255) : 'Paid online';
         $order->advance_amount = round((float) $order->advance_amount + $amount, 3);
         $order->recalcTotals();
         $order->save();

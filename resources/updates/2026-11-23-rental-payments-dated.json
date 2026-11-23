@@ -1,0 +1,73 @@
+{
+    "app": "rental",
+    "title": {
+        "en": "Rent A Car: every payment is saved with its date and counts in the Daily Summary",
+        "ar": "تأجير السيارات: كل دفعة تُحفظ بتاريخها وتُحسب في الملخص اليومي"
+    },
+    "points": {
+        "en": [
+            "Each time the Advance on a rental order goes up, the payment is saved with the date, the payment type and who took it.",
+            "Card payments through the payment link and payments on the website are saved the same way.",
+            "The Daily Summary now counts this money on the day it came in.",
+            "Coupon credit is shown but is not counted as money in.",
+            "The order shows a new list, Payments received."
+        ],
+        "ar": [
+            "في كل مرة تزيد فيها الدفعة المقدمة على طلب إيجار، تُحفظ الدفعة بالتاريخ وطريقة الدفع ومن استلمها.",
+            "الدفعات بالبطاقة عبر رابط الدفع والدفعات على الموقع تُحفظ بالطريقة نفسها.",
+            "الملخص اليومي يحسب هذا المال الآن في اليوم الذي وصل فيه.",
+            "رصيد القسيمة يظهر لكنه لا يُحسب مالاً داخلاً.",
+            "يظهر في الطلب قائمة جديدة «المبالغ المستلمة»."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the Advance on a rental order was one total with no date. The system could not tell which day the money came in, so the Daily Summary missed most Rent A Car money.",
+            "Now every change to the Advance is saved as its own line. You keep working the same way: type the money in Advance and choose the payment type. The line is written by itself.",
+            "If the Advance is lowered (a typing mistake or money given back), a minus line is saved on that day.",
+            "Coupon credit is saved as credit, so it never counts as money received.",
+            "Orders from before today have no dated lines, because their advances have no date. They are not counted in the daily figures."
+        ],
+        "ar": [
+            "في السابق كانت الدفعة المقدمة على طلب الإيجار مجموعاً واحداً بلا تاريخ. لم يكن النظام يعرف في أي يوم وصل المال، فكان الملخص اليومي يفوّت معظم مال تأجير السيارات.",
+            "الآن يُحفظ كل تغيير في الدفعة المقدمة كسطر مستقل. تعمل كما كنت: اكتب المبلغ في الدفعة المقدمة واختر طريقة الدفع. يُكتب السطر تلقائياً.",
+            "إذا خُفّضت الدفعة المقدمة (خطأ كتابة أو مال أُعيد)، يُحفظ سطر بالسالب في ذلك اليوم.",
+            "رصيد القسيمة يُحفظ كرصيد، فلا يُحسب أبداً مالاً مستلماً.",
+            "الطلبات من قبل اليوم ليس لها أسطر مؤرخة، لأن دفعاتها المقدمة بلا تاريخ. ولا تُحسب في الأرقام اليومية."
+        ]
+    },
+    "guide": {
+        "en": [
+            "When the customer pays, open the rental order.",
+            "Type the new total in Advance amount and choose the payment type.",
+            "Save the order.",
+            "Check the list Payments received under the payment type: today's payment is there.",
+            "Open Reports, then Daily Summary, to see it under Rent A Car."
+        ],
+        "ar": [
+            "عندما يدفع العميل، افتح طلب الإيجار.",
+            "اكتب المجموع الجديد في «الدفعة المقدمة» واختر طريقة الدفع.",
+            "احفظ الطلب.",
+            "انظر إلى قائمة «المبالغ المستلمة» تحت طريقة الدفع: دفعة اليوم موجودة.",
+            "افتح التقارير، ثم الملخص اليومي، لتراها تحت تأجير السيارات."
+        ]
+    },
+    "images": [
+        {
+            "before": "order-before.png",
+            "after": "order-after.png",
+            "caption": {
+                "en": "A rental order's payment box. After: each payment with its date, type and who took it.",
+                "ar": "خانة الدفع في طلب إيجار. بعد: كل دفعة بتاريخها وطريقتها ومن استلمها."
+            }
+        },
+        {
+            "before": "summary-before.png",
+            "after": "summary-after.png",
+            "caption": {
+                "en": "Daily Summary. After: Rent A Car includes money taken on orders.",
+                "ar": "الملخص اليومي. بعد: تأجير السيارات يشمل المال المستلم على الطلبات."
+            }
+        }
+    ]
+}

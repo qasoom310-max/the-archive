@@ -63,6 +63,15 @@ final class OrderImporter
      */
     public function import(string $path): array
     {
+        // Old orders: their money did not come in today, so no dated payments.
+        return RentalOrder::withoutPaymentLog(fn (): array => $this->importFile($path));
+    }
+
+    /**
+     * @return array{imported: int, reopened: int, skipped: int, failed: int}
+     */
+    private function importFile(string $path): array
+    {
         $result = ['imported' => 0, 'reopened' => 0, 'skipped' => 0, 'failed' => 0];
 
         $handle = fopen($path, 'r');

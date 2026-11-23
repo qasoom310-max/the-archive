@@ -13,6 +13,8 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * A rental order: a customer takes a vehicle for a date range at a chosen
@@ -307,6 +309,8 @@ final class RentalOrder extends Model implements DefinesIrModel, TakesCouponCred
      */
     public function applyCouponCredit(float $amount): void
     {
+        $this->paymentKind = RentalOrderPayment::KIND_CREDIT;
+        $this->paymentMethod = 'coupon';
         $this->advance_amount = round($this->advance_amount + $amount, 3);
         $this->recalcTotals();
         $this->save();
@@ -777,5 +781,93 @@ final class RentalOrder extends Model implements DefinesIrModel, TakesCouponCred
                 ]),
             ],
         );
+    }
+
+    /* ── Dated payments (see RentalOrderPayment) ─────────────────────────── */
+
+    /** What the next Advance change is, when not a plain payment (credit, online…). Not a column. */
+    public ?string $paymentKind = null;
+
+    /** How the next Advance change was paid, when not the order's payment type. Not a column. */
+    public ?string $paymentMethod = null;
+
+    /** A note for the next Advance change. Not a column. */
+    public ?string $paymentNote = null;
+
+    private static bool $logPayments = true;
+
+    /**
+     * Run without writing dated payments: imports and corrections of old
+     * figures, whose money did not come in today.
+     *
+     * @template T
+     *
+     * @param  \Closure(): T  $fn
+     * @return T
+     */
+    public static function withoutPaymentLog(\Closure $fn): mixed
+    {
+        $was = self::$logPayments;
+        self::$logPayments = false;
+        try {
+            return $fn();
+        } finally {
+            self::$logPayments = $was;
+        }
+    }
+
+    protected static function booted(): void
+    {
+        // created / updated, not saved: a second save in the same request (a
+        // reference stamped after insert) must not count the advance twice.
+        static::created(static function (RentalOrder $order): void {
+            $order->logAdvanceChange(0.0);
+        });
+        static::updated(static function (RentalOrder $order): void {
+            if ($order->wasChanged('advance_amount')) {
+                $order->logAdvanceChange((float) $order->getOriginal('advance_amount'));
+            }
+        });
+    }
+
+    /**
+     * Write one dated line for whatever the Advance just moved by. Done here,
+     * on the order, so the counter, the payment link, the website and coupons
+     * all leave the same trail without any of them having to remember.
+     */
+    private function logAdvanceChange(float $old): void
+    {
+        $kind = $this->paymentKind;
+        $method = $this->paymentMethod;
+        $note = $this->paymentNote;
+        $this->paymentKind = $this->paymentMethod = $this->paymentNote = null;
+
+        if (! self::$logPayments || ! Schema::hasTable('rental_order_payments')) {
+            return;
+        }
+
+        $delta = round((float) $this->advance_amount - $old, 3);
+        if (abs($delta) < 0.0005) {
+            return;
+        }
+
+        $user = Auth::user();
+        RentalOrderPayment::query()->create([
+            'order_id' => $this->id,
+            'date' => Carbon::today()->toDateString(),
+            'amount' => $delta,
+            'kind' => $kind ?? ($delta < 0 ? RentalOrderPayment::KIND_CORRECTION : RentalOrderPayment::KIND_PAYMENT),
+            'method' => $method ?? $this->payment_type,
+            'taken_by' => $user instanceof User ? $user->name : null,
+            'notes' => $note,
+        ]);
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<RentalOrderPayment, $this>
+     */
+    public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(RentalOrderPayment::class, 'order_id')->orderBy('date')->orderBy('id');
     }
 }

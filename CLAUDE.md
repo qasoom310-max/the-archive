@@ -5891,3 +5891,17 @@ counts only where its table exists AND `Features::moduleAllowed()`. When either 
 is used, the first card reads "Money in" with a per-section split, the 7-day table gets a
 column per section, and a note says car expenses / driver payments are NOT yet money out
 (owner chose income only for now; Net reads high). Test: `DailySummaryTest` (+1).
+
+**Rent A Car money is dated (shipped 2026-11-23).** A rental order's Advance is a running
+total with no date, and the payment link / website add to it without a receipt, so the Daily
+Summary missed most Rent A Car money. `RentalOrder` `created`/`updated` hooks (not `saved`,
+which double-counted a second save in one request) write a `RentalOrderPayment` row
+(`rental_order_payments`, Rental migration `2026_11_23_900071`) for every Advance change:
+date today, delta amount, kind `payment` / `correction` (lowered) / `credit` (coupon, never
+money), method = transient `$paymentMethod` or the order's `payment_type`, `taken_by` = the
+signed-in name. Transient non-column props `$paymentKind/$paymentMethod/$paymentNote` are set
+by `applyCouponCredit()`, the payment callback (`online`) and `WebBookingConverter` (`online`,
+dated the day of conversion). `OrderImporter` runs inside `RentalOrder::withoutPaymentLog()`;
+`OrderFigureCorrector` uses `saveQuietly()` (no hooks). Old orders have no rows. Daily Summary
+rental = receipts + `RentalOrderPayment::moneyOn()` (orders that still exist). The order form
+lists them under "Payments received". Test: `RentalOrderPaymentsTest` (4).

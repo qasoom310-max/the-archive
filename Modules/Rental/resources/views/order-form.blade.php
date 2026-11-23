@@ -578,6 +578,29 @@
                         @endforeach
                     </div>
                 </div>
+
+                {{-- Every change to the Advance, dated: what the Daily Summary counts. --}}
+                @php $orderPayments = $savedOrder?->payments ?? collect(); @endphp
+                @if ($orderPayments->isNotEmpty())
+                    <div class="mt-4 rounded-xl border border-chrome-200 p-3" data-order-payments>
+                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ __('Payments received') }}</p>
+                        <ul class="divide-y divide-chrome-100 text-sm">
+                            @foreach ($orderPayments as $p)
+                                <li class="flex flex-wrap items-center gap-x-3 gap-y-0.5 py-1.5" wire:key="op-{{ $p->id }}">
+                                    <span class="w-20 shrink-0 text-chrome-500">{{ $p->date?->isoFormat('DD-MMM-YY') }}</span>
+                                    <span class="min-w-0 flex-1 text-chrome-700">
+                                        @if ($p->kind === 'credit') {{ __('Coupon credit (not money)') }}
+                                        @elseif ($p->kind === 'correction') {{ __('Advance lowered') }}
+                                        @else {{ __('Payment') }}@endif
+                                        @if ($p->method && $p->kind !== 'credit') <span class="text-xs text-chrome-400">· {{ __(collect($paymentTypes)->firstWhere('value', $p->method)['label'] ?? ucfirst(str_replace('_', ' ', $p->method))) }}</span>@endif
+                                        @if ($p->taken_by) <span class="text-xs text-chrome-400">· {{ $p->taken_by }}</span>@endif
+                                    </span>
+                                    <span class="font-medium tabular-nums {{ $p->amount < 0 ? 'text-red-600' : ($p->kind === 'credit' ? 'text-chrome-400' : 'text-chrome-800') }}">{{ \App\Erp\Views\ValueFormat::money($p->amount) }}</span>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
             </section>
 
             {{-- Notes & documents --}}

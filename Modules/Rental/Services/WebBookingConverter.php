@@ -52,6 +52,8 @@ final class WebBookingConverter
 
                 'notes' => $this->notes($booking),
             ]);
+            $order->paymentMethod = 'online';
+            $order->paymentNote = 'Paid on the website';
             $order->save();
 
             $booking->status = RentalWebBooking::STATUS_COMPLETE;

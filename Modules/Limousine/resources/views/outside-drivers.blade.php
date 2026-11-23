@@ -18,6 +18,7 @@
             <p class="mt-1 text-sm text-chrome-500">{{ __('Commission drivers and what each is paid, trip by trip.') }}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2 print:hidden">
+            <a href="{{ url('/app/limousine/driver-payments') }}" wire:navigate class="o-btn-primary text-sm" data-driver-payments-link>{{ __('Driver payments') }}</a>
             <a href="{{ url('/app/limousine/driver') }}" wire:navigate class="o-btn-ghost text-sm">{{ __('Manage drivers') }}</a>
             <button type="button" onclick="window.print()" class="o-btn-ghost text-sm">{{ __('Print') }}</button>
         </div>
@@ -94,6 +95,15 @@
                     <div class="text-lg font-bold text-chrome-900" data-driver-total>{{ $money($driver['total']) }}</div>
                     @if ($driver['missing'] > 0)
                         <div class="text-xs font-medium text-amber-600">{{ __(':count with no amount', ['count' => $driver['missing']]) }}</div>
+                    @endif
+                    @php $owedNow = $balances[$driver['id']]['owed'] ?? null; @endphp
+                    @if ($owedNow !== null)
+                        <div class="mt-1 flex items-center justify-end gap-2 print:hidden" data-owed-now="{{ $driver['id'] }}">
+                            <span class="text-xs text-chrome-500">{{ __('Owed now') }}: <span class="font-semibold text-chrome-800">{{ $money(max(0.0, $owedNow)) }}</span></span>
+                            @if ($mayPay)
+                                <a href="{{ url('/app/limousine/driver-payments') }}?pay={{ $driver['id'] }}" wire:navigate class="rounded-lg bg-primary-400 px-2.5 py-1 text-xs font-semibold text-chrome-900">{{ __('Pay') }}</a>
+                            @endif
+                        </div>
                     @endif
                 </div>
             </header>

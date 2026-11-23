@@ -76,6 +76,9 @@ final class OutsideDrivers extends Component
             'periodFrom' => $from,
             'periodTo' => $to,
             'isMonth' => $this->from === '' && $this->to === '',
+            // What each is owed today, whatever period is shown above.
+            'balances' => \Illuminate\Support\Facades\Schema::hasTable('limo_driver_payments') ? app(\Modules\Limousine\Support\DriverBalances::class)->all() : [],
+            'mayPay' => Auth::user() instanceof User && Auth::user()->canConfirmPayments(),
         ]);
     }
 

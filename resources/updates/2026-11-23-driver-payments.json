@@ -1,0 +1,81 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Limousine: pay outside drivers and keep a record of every payment",
+        "ar": "الليموزين: الدفع للسائقين الخارجيين وحفظ سجل لكل دفعة"
+    },
+    "points": {
+        "en": [
+            "There is a new page, Driver payments. It shows each outside driver: what they earned, what was paid, and what is owed now.",
+            "Press Pay to pay a driver. Pay full fills in the whole amount owed, or type any amount you want.",
+            "Every payment keeps its date, amount, method, who asked for it and who recorded it.",
+            "Only the people the owner allows can be chosen as \"Requested by\": Ali and Abbas to begin with.",
+            "The Outside drivers page has a Driver payments button, and each driver shows what is owed now with a Pay button."
+        ],
+        "ar": [
+            "توجد صفحة جديدة: دفعات السائقين. تعرض كل سائق خارجي: ما اكتسبه، وما دُفع له، وما هو مستحق الآن.",
+            "اضغط «ادفع» للدفع لسائق. «ادفع الكامل» يكتب كامل المبلغ المستحق، أو اكتب أي مبلغ تريده.",
+            "كل دفعة تحفظ تاريخها ومبلغها وطريقتها ومن طلبها ومن سجّلها.",
+            "فقط الأشخاص الذين يسمح لهم المالك يمكن اختيارهم في «طلبها»: علي وعباس في البداية.",
+            "صفحة السائقين الخارجيين فيها زر «دفعات السائقين»، وكل سائق يظهر بجانبه المستحق الآن مع زر «ادفع»."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the Outside drivers page showed how much each driver should get for the month, but there was no way to record that they were paid. Nobody could see what was already paid or what was still owed.",
+            "Now each payment is saved with a number, for example DPAY/00001. What is owed is worked out from the commission on every trip the driver has driven, less everything paid to them.",
+            "Only trips that have already happened are owed. Trips given to a driver for later show as Booked ahead and become owed on their day.",
+            "Trips count from 1 November 2026, because earlier months were paid outside the system. The owner can change this date at the bottom of the page.",
+            "Paying more than is owed needs a tick, so a typing mistake is not saved by accident. A payment saved by mistake is cancelled by the owner with a reason. It stays on the list crossed out and is never deleted.",
+            "The owner and the accountants record payments. Administrators and supervisors can see the page but not pay."
+        ],
+        "ar": [
+            "في السابق كانت صفحة السائقين الخارجيين تعرض كم يستحق كل سائق في الشهر، لكن لم تكن هناك طريقة لتسجيل أنه دُفع له. لم يكن أحد يعرف ما دُفع وما بقي مستحقاً.",
+            "الآن تُحفظ كل دفعة برقم، مثل DPAY/00001. المستحق يُحسب من عمولة كل رحلة نفذها السائق، ناقص كل ما دُفع له.",
+            "فقط الرحلات التي تمت فعلاً تكون مستحقة. الرحلات المعطاة لسائق في وقت لاحق تظهر «محجوز مسبقاً» وتصبح مستحقة في يومها.",
+            "تُحسب الرحلات من 1 نوفمبر 2026، لأن الأشهر السابقة دُفعت خارج النظام. يستطيع المالك تغيير هذا التاريخ أسفل الصفحة.",
+            "الدفع أكثر من المستحق يحتاج علامة تأكيد، حتى لا يُحفظ خطأ في الكتابة بالصدفة. الدفعة المحفوظة بالخطأ يلغيها المالك مع ذكر السبب. تبقى في القائمة مشطوبة ولا تُحذف أبداً.",
+            "المالك والمحاسبون يسجلون الدفعات. المدراء والمشرفون يرون الصفحة لكن لا يدفعون."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Outside drivers, then press Driver payments.",
+            "Find the driver and press Pay.",
+            "Press Pay full for the whole amount owed, or type the amount you are paying.",
+            "Choose the date, the method and who asked for the payment (Ali or Abbas). Add a note if you want.",
+            "Press Save payment. The payment appears under Payments made, and what is owed goes down."
+        ],
+        "ar": [
+            "افتح الليموزين، ثم السائقون الخارجيون، ثم اضغط «دفعات السائقين».",
+            "ابحث عن السائق واضغط «ادفع».",
+            "اضغط «ادفع الكامل» لكامل المبلغ المستحق، أو اكتب المبلغ الذي تدفعه.",
+            "اختر التاريخ والطريقة ومن طلب الدفعة (علي أو عباس). أضف ملاحظة إذا أردت.",
+            "اضغط «حفظ الدفعة». تظهر الدفعة تحت «الدفعات المسددة»، وينقص المستحق."
+        ]
+    },
+    "images": [
+        {
+            "before": "drivers-before.png",
+            "after": "drivers-after.png",
+            "caption": {
+                "en": "The Outside drivers page. After: the Driver payments button, and what is owed now with a Pay button.",
+                "ar": "صفحة السائقين الخارجيين. بعد: زر «دفعات السائقين»، والمستحق الآن مع زر «ادفع»."
+            }
+        },
+        {
+            "after": "payments-after.png",
+            "caption": {
+                "en": "The new Driver payments page.",
+                "ar": "صفحة دفعات السائقين الجديدة."
+            }
+        },
+        {
+            "after": "pay-form.png",
+            "caption": {
+                "en": "Paying a driver: in full or any amount, with who asked for it.",
+                "ar": "الدفع لسائق: كامل المبلغ أو أي مبلغ، مع من طلبه."
+            }
+        }
+    ]
+}

@@ -31,6 +31,7 @@ use Throwable;
  * @property bool $is_accountant    May confirm payments (with super-admins); not even a regular admin can
  * @property bool $petty_cash_full  Every Limousine petty-cash action (issue, top up, confirm, settle) without the Accountant role
  * @property bool $can_change_customer_type  May switch an existing customer between Individual and Company
+ * @property bool $can_request_driver_payments  May be named as having asked for a limousine driver's payment
  * @property bool $can_backdate_rentals      May give a Rent A Car order a pick-up date in the past
  * @property bool $can_stamp_travel_permits  May print a travel authorization with the stamp and signature
  * @property bool $reports_access  Opens the owner's reports (Daily Summary, Profit & Expenses, Car income, Payroll) without being an admin

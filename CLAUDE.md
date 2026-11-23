@@ -5784,3 +5784,19 @@ attachment label, the file names (`tax-invoice-…pdf`) and the default invoice 
 subject/heading/intro say **Tax Invoice** (AR `فاتورة ضريبية`). Screen labels (menus,
 "Invoices" lists, "New invoice") deliberately stay "Invoice". PDFs are rendered at
 download, so old invoices show it too; owner-edited email wording in Settings is kept.
+
+**Limousine driver payments (shipped 2026-11-23).** `/app/limousine/driver-payments`
+(`Modules\Limousine\Livewire\DriverPayments`; seen by `OutsideDrivers::roleMayView()` +
+`limousine.driver` Read; paying = `canConfirmPayments()` (owner + accountants); cancelling,
+the start date and the requester list = super admin). Table `limo_driver_payments`
+(Limousine migration `2026_11_23_950067`; `LimoDriverPayment`, `DPAY/00001`, driver, amount,
+`paid_on` (not in the future), method cash|transfer|benefit, `requested_by_user_id`,
+`recorded_by_user_id`, note; **cancelled with a reason, never deleted**). "Requested by"
+must be a user with `users.can_request_driver_payments` (core migration
+`2026_11_23_100001` ticks first names Ali / Abbas; owner edits the list on the page).
+`Modules\Limousine\Support\DriverBalances`: earned = `driver_payment` on non-cancelled
+booking legs from `limousine.driver_pay_from` (default **2026-11-01**, because earlier
+months were paid outside the system) up to NOW; later legs = "booked ahead"; owed =
+earned − non-cancelled payments. Paying above what is owed needs `confirmAhead`. The
+Outside drivers page shows "Owed now" + a Pay link (`?pay=<driver>` opens the form).
+Tests: `LimoDriverPaymentsTest` (8).

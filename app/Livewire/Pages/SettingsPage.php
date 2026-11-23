@@ -373,6 +373,11 @@ final class SettingsPage extends Component
 
         // The limousine coupon rule is switched on the Limousine dashboard by
         // the owner / Supervisor accountant, never as a raw row here.
+        // From when outside drivers' trips count as owed: set on Driver payments.
+        if ($key === 'limousine.driver_pay_from') {
+            return false;
+        }
+
         if ($key === 'limousine.coupon_rule') {
             return false;
         }

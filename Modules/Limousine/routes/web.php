@@ -100,6 +100,8 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/earnings', LimoEarnings::class)->name('limousine.earnings');
     // Outside (commission) drivers and what each is paid per trip (admin only).
     Route::get('/app/limousine/outside-drivers', \Modules\Limousine\Livewire\OutsideDrivers::class)->name('limousine.outside_drivers');
+    // Paying outside drivers: what each is owed and every payment made.
+    Route::get('/app/limousine/driver-payments', \Modules\Limousine\Livewire\DriverPayments::class)->name('limousine.driver_payments');
 
     Route::get('/app/limousine/customer', Customers::class)->name('limousine.customer.index');
     // ONE customer page for both apps — the same person hires a car and books a

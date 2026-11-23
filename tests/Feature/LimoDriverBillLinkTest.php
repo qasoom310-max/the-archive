@@ -80,6 +80,9 @@ final class LimoDriverBillLinkTest extends TestCase
         $text = app(LimoQueueRows::class)->whatsappText($this->leg);
         $this->assertStringContainsString('/driver-bills/' . $this->leg->id . '/' . $this->driver->id, $text);
         $this->assertStringContainsString('48 hours', $text);
+        // The warning travels with the link, in both languages.
+        $this->assertStringContainsString(DriverBillLink::NOTE_EN, $text);
+        $this->assertStringContainsString(DriverBillLink::NOTE_AR, $text);
 
         $this->leg->forceFill(['driver_id' => null])->save();
         $this->assertNull(DriverBillLink::for($this->leg));
@@ -90,7 +93,8 @@ final class LimoDriverBillLinkTest extends TestCase
         $link = $this->link();
         Auth::logout();
 
-        $this->get($link)->assertOk()->assertSee('Send your bills')->assertSee((string) $this->leg->reference);
+        $this->get($link)->assertOk()->assertSee('Send your bills')->assertSee((string) $this->leg->reference)
+            ->assertSee(DriverBillLink::NOTE_EN)->assertSee(DriverBillLink::NOTE_AR);
         $this->post($link, ['file' => UploadedFile::fake()->image('bill.jpg', 600, 800)])->assertOk()->assertJson(['sent' => 1]);
 
         $bill = LimoDriverBill::query()->firstOrFail();

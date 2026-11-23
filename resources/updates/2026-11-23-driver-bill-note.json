@@ -1,0 +1,51 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Driver bill link: a clear warning that a photo is not the original bill",
+        "ar": "رابط فواتير السائق: تنبيه واضح أن الصورة ليست الفاتورة الأصلية"
+    },
+    "points": {
+        "en": [
+            "The driver's bill page now shows a yellow warning in English and Arabic: sending a photo does not count the bill on his petty cash.",
+            "It counts only when he hands the original bill to the Accounts department.",
+            "The same warning is in the trip message, right under the link."
+        ],
+        "ar": [
+            "صفحة فواتير السائق تعرض الآن تنبيهاً أصفر بالإنجليزية والعربية: إرسال الصورة لا يعني احتساب الفاتورة من عهدته.",
+            "تُحتسب فقط عند تسليم الفاتورة الأصلية لقسم الحسابات.",
+            "التنبيه نفسه موجود في رسالة الرحلة، تحت الرابط مباشرة."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the link only asked the driver to photograph his bills. A driver could think that sending a photo was enough.",
+            "Now the warning is in both languages at the same time, whatever language the phone uses, so every driver can read it.",
+            "For the office: keep a driver's bill under Bills from drivers until the original paper reaches Accounts. Answering Yes to the petty cash question counts it on his petty cash at once."
+        ],
+        "ar": [
+            "في السابق كان الرابط يطلب من السائق تصوير فواتيره فقط. وقد يظن السائق أن إرسال الصورة يكفي.",
+            "الآن التنبيه باللغتين معاً، أياً كانت لغة الهاتف، حتى يقرأه كل سائق.",
+            "للمكتب: اترك فاتورة السائق تحت «فواتير من السائقين» حتى تصل الورقة الأصلية إلى الحسابات. الإجابة «نعم» على سؤال العهدة تحتسبها من عهدته فوراً."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Copy the trip for the driver as usual. The warning is under the bill link.",
+            "When the driver's original bills reach Accounts, open Expenses, then Bills from drivers, and check and save them."
+        ],
+        "ar": [
+            "انسخ الرحلة للسائق كالمعتاد. التنبيه تحت رابط الفواتير.",
+            "عندما تصل فواتير السائق الأصلية إلى الحسابات، افتح المصروفات ثم «فواتير من السائقين» وراجعها واحفظها."
+        ]
+    },
+    "images": [
+        {
+            "before": "driver-phone-before.png",
+            "after": "driver-phone-after.png",
+            "caption": {
+                "en": "The driver's bill page. After: the warning in English and Arabic.",
+                "ar": "صفحة فواتير السائق. بعد: التنبيه بالإنجليزية والعربية."
+            }
+        }
+    ]
+}

@@ -27,6 +27,12 @@
                 @if ($trip->start_at) · {{ $trip->start_at->format('j M Y') }} @endif
             </p>
 
+            {{-- Both languages at once, whatever the page language: every driver must read it. --}}
+            <div class="mt-4 space-y-2 rounded-xl border-2 border-amber-400 bg-amber-50 p-4 text-sm font-semibold text-amber-900" role="note" data-original-bills-note>
+                <p dir="ltr">⚠️ {{ \Modules\Limousine\Support\DriverBillLink::NOTE_EN }}</p>
+                <p dir="rtl" lang="ar">⚠️ {{ \Modules\Limousine\Support\DriverBillLink::NOTE_AR }}</p>
+            </div>
+
             <div class="mt-5 flex flex-col gap-3">
                 <label class="o-btn-primary w-full cursor-pointer justify-center py-3" data-pick>
                     {{ __('Take a photo') }}

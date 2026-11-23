@@ -851,6 +851,8 @@ final class LimoQueueRows
             $lines[] = '';
             $lines[] = '📸 ' . __('Your bills for this trip (link works 48 hours)') . ':';
             $lines[] = $billLink;
+            $lines[] = '⚠️ ' . \Modules\Limousine\Support\DriverBillLink::NOTE_EN;
+            $lines[] = '⚠️ ' . \Modules\Limousine\Support\DriverBillLink::NOTE_AR;
         }
 
         return implode("\n", $lines);

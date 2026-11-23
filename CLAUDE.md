@@ -5838,3 +5838,8 @@ billId`, driver + advance preset, photo via the auth-only
 `/app/limousine/expense/driver-bill/{bill}/photo`); saving marks the bill saved with
 `expense_id`. The upload page is plain JS (no Livewire/Alpine on that page).
 Tests: `LimoDriverBillLinkTest` (7).
+**…with the originals warning (same day, the team's wording).** `DriverBillLink::NOTE_EN` /
+`NOTE_AR` are shown together (not via `__()`, on purpose) in an amber box on the upload page
+and under the link in the trip message: a photo is not counted on petty cash until the
+ORIGINAL bill reaches Accounts. The system does not enforce it: answering Yes on the check
+screen counts the bill at once, so the office waits for the paper before saving.

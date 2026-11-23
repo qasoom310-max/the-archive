@@ -22,6 +22,15 @@ final class DriverBillLink
 {
     public const HOURS = 48;
 
+    /**
+     * The warning every driver must see, in both languages at once (the team's
+     * wording, 2026-11-23): a photo is not a hand-over. Deliberately not run
+     * through __(): it is shown in English AND Arabic whatever the page's language.
+     */
+    public const NOTE_EN = 'Sending a photo here does NOT count the bill on your petty cash. It counts only when you hand the ORIGINAL bill to the Accounts department.';
+
+    public const NOTE_AR = 'إرسال صورة الفاتورة هنا لا يعني احتسابها من عهدتك. تُحتسب فقط عند تسليم الفاتورة الأصلية لقسم الحسابات.';
+
     public static function for(LimoLeg $leg): ?string
     {
         if ($leg->driver_id === null || ! \Illuminate\Support\Facades\Route::has('limousine.driver_bills.show')) {

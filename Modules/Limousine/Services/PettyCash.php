@@ -385,4 +385,116 @@ final class PettyCash
             ->limit(100)
             ->get();
     }
+
+    /**
+     * One driver's cash, for the audit: every movement in a period with the
+     * balance after each, and the opening balance from everything before.
+     *
+     *   + cash given        an advance, on its date
+     *   − bill              a receipt on one of his advances, on the bill's date,
+     *                       with the expense it was saved as (VAT, who received
+     *                       the original paper and when)
+     *   + paid back         overspend the float paid back to him, when settled
+     *   − written off short what was left unaccounted when settled
+     *
+     * Settling is not needed for any of it: a bill counts the day it is saved.
+     * The closing balance is what he still holds (below zero: we owe him).
+     *
+     * @return array{
+     *     opening: float, closing: float, in: float, out: float,
+     *     rows: list<array{date: string, kind: string, reference: string, advance_id: int|null, detail: string, expense: string, expense_id: int|null, vat: float, original: string, in: float, out: float, balance: float}>,
+     *     rejected: list<array{date: string, trip: string, reason: string, told: string}>
+     * }
+     */
+    public function driverStatement(int $driverId, ?Carbon $from = null, ?Carbon $to = null): array
+    {
+        $advances = LimoPettyAdvance::query()->where('driver_id', $driverId)->get();
+        $advanceIds = $advances->pluck('id')->all();
+        $lines = LimoPettyLine::query()->whereIn('advance_id', $advanceIds === [] ? [0] : $advanceIds)
+            ->with('expense:id,reference,vat_amount,original_received_at,original_received_by')->get();
+        $refs = $advances->pluck('reference', 'id');
+
+        $moves = [];
+        foreach ($advances as $a) {
+            $moves[] = ['date' => $a->date?->toDateString() ?? '', 'order' => 1, 'kind' => 'given', 'reference' => (string) $a->reference, 'advance_id' => (int) $a->id,
+                'detail' => trim(__('Given by :name', ['name' => (string) ($a->issued_by ?? '—')]) . ' ' . (string) ($a->notes ?? '')),
+                'expense' => '', 'expense_id' => null, 'vat' => 0.0, 'original' => '', 'in' => (float) $a->amount, 'out' => 0.0];
+
+            if ($a->isCleared() && $a->settled_at !== null) {
+                if ((float) $a->excess > 0.0005) {
+                    $moves[] = ['date' => $a->settled_at->toDateString(), 'order' => 3, 'kind' => 'paid_back', 'reference' => (string) $a->reference, 'advance_id' => (int) $a->id,
+                        'detail' => __('Overspend paid back to him'), 'expense' => '', 'expense_id' => null, 'vat' => 0.0, 'original' => '', 'in' => (float) $a->excess, 'out' => 0.0];
+                }
+                if ((float) $a->shortfall > 0.0005) {
+                    $moves[] = ['date' => $a->settled_at->toDateString(), 'order' => 4, 'kind' => 'short', 'reference' => (string) $a->reference, 'advance_id' => (int) $a->id,
+                        'detail' => __('Short when settled (not deducted from salary)'), 'expense' => '', 'expense_id' => null, 'vat' => 0.0, 'original' => '', 'in' => 0.0, 'out' => (float) $a->shortfall];
+                }
+            }
+        }
+
+        foreach ($lines as $line) {
+            $expense = $line->expense;
+            $original = '';
+            if ($expense?->original_received_at !== null) {
+                $original = trim((string) $expense->original_received_by . ' · ' . $expense->original_received_at->format('Y-m-d'), ' ·');
+            }
+            $moves[] = ['date' => $line->date?->toDateString() ?? '', 'order' => 2, 'kind' => 'bill', 'reference' => (string) ($refs[$line->advance_id] ?? ''), 'advance_id' => (int) $line->advance_id,
+                'detail' => trim((string) $line->category . ' · ' . (string) ($line->description ?? ''), ' ·'),
+                'expense' => (string) ($expense->reference ?? ''), 'expense_id' => $expense?->id !== null ? (int) $expense->id : null,
+                'vat' => round((float) ($expense->vat_amount ?? 0), 3), 'original' => $original, 'in' => 0.0, 'out' => (float) $line->amount];
+        }
+
+        usort($moves, static fn (array $a, array $b): int => [$a['date'], $a['order']] <=> [$b['date'], $b['order']]);
+
+        $fromDay = $from?->toDateString();
+        $toDay = $to?->toDateString();
+        $opening = 0.0;
+        $rows = [];
+        $in = 0.0;
+        $out = 0.0;
+        $balance = 0.0;
+
+        foreach ($moves as $m) {
+            if ($fromDay !== null && $m['date'] < $fromDay) {
+                $opening = round($opening + $m['in'] - $m['out'], 3);
+                $balance = $opening;
+
+                continue;
+            }
+            if ($toDay !== null && $m['date'] > $toDay) {
+                continue;
+            }
+
+            $balance = round($balance + $m['in'] - $m['out'], 3);
+            $in = round($in + $m['in'], 3);
+            $out = round($out + $m['out'], 3);
+            unset($m['order']);
+            $rows[] = $m + ['balance' => $balance];
+        }
+
+        $rejected = [];
+        if (\Illuminate\Support\Facades\Schema::hasColumn('limo_driver_bills', 'reject_reason')) {
+            $rejected = \Modules\Limousine\Models\LimoDriverBill::query()
+                ->where('driver_id', $driverId)
+                ->where('status', \Modules\Limousine\Models\LimoDriverBill::STATUS_REJECTED)
+                ->when($from !== null, fn ($q) => $q->where('handled_at', '>=', $from->copy()->startOfDay()))
+                ->when($to !== null, fn ($q) => $q->where('handled_at', '<=', $to->copy()->endOfDay()))
+                ->with('leg:id,reference')->orderBy('handled_at')->get()
+                ->map(static fn (\Modules\Limousine\Models\LimoDriverBill $b): array => [
+                    'date' => $b->handled_at?->toDateString() ?? '',
+                    'trip' => (string) ($b->leg->reference ?? ''),
+                    'reason' => (string) $b->reject_reason,
+                    'told' => $b->told_at !== null ? trim((string) $b->told_by . ' · ' . $b->told_at->format('Y-m-d'), ' ·') : '',
+                ])->values()->all();
+        }
+
+        return [
+            'opening' => $opening,
+            'closing' => round($opening + $in - $out, 3),
+            'in' => $in,
+            'out' => $out,
+            'rows' => $rows,
+            'rejected' => $rejected,
+        ];
+    }
 }

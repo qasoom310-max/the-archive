@@ -5864,3 +5864,16 @@ bills). The owner: the driver is told IN PERSON (his link lasts 48 h), so nothin
 page; the list keeps "Rejected: tell the driver in person" grouped by driver until
 `markTold()` stamps `told_at`/`told_by` (migration `2026_11_23_950071`). He brings it again and
 it is entered anew. Rejected bills don't use up the link's 20.
+
+**Driver cash statement for the audit (shipped 2026-11-23).** Petty Cash has a "Driver
+statement" tab (`tab=driver`, `?driver=` + `?smonth=` Y-m, ‹ › arrows, "All time"):
+`PettyCash::driverStatement($driverId, ?from, ?to)` lists every movement for ONE driver —
+cash given (advance date), each bill (petty line date; expense ref, VAT, who holds the
+original), paid back to him (excess, `settled_at`) and short (`settled_at`) — with opening
+balance (all before the period), running balance, closing = opening + in − out, plus his
+rejected bills in the period. Export via `DriverStatementExportController`
+(`limousine.petty_cash.driver_statement.{csv,excel,pdf,print}`, `limousine.petty_cash`
+export gate) using `Modules\Limousine\Support\DriverStatementRows`. A bill with no original
+recorded shows "Not recorded" in amber. Office scans (no driver bill) now stamp
+`original_received_at/_by` with the person scanning, since they hold the paper. Tests:
+`LimoPettyCashTest` (+2), `LimoExpenseScanTest` (+1).

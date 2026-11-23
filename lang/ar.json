@@ -3949,5 +3949,20 @@
     "Why is it rejected? You tell the driver in person.": "لماذا رُفضت؟ تبلغ السائق شخصياً.",
     "e.g. the amount cannot be read, not a company expense": "مثلاً: المبلغ غير مقروء، ليست مصروفاً للشركة",
     "told by :name on :date": "أبلغه :name في :date",
-    "Bills drivers photographed through the link sent with their trip. Check each one and save it, or reject it.": "فواتير صوّرها السائقون عبر الرابط المرسل مع رحلتهم. راجع كل واحدة واحفظها، أو ارفضها."
+    "Bills drivers photographed through the link sent with their trip. Check each one and save it, or reject it.": "فواتير صوّرها السائقون عبر الرابط المرسل مع رحلتهم. راجع كل واحدة واحفظها، أو ارفضها.",
+    "Bills and short": "الفواتير والعجز",
+    "Bills rejected in this period": "الفواتير المرفوضة في هذه الفترة",
+    "Cash given": "النقد المعطى",
+    "Choose a driver to see his cash statement.": "اختر سائقاً لرؤية كشف نقده.",
+    "Driver cash statement": "كشف نقد السائق",
+    "Driver statement": "كشف السائق",
+    "Given by :name": "أعطاه :name",
+    "No cash or bills for this driver in this period.": "لا نقد ولا فواتير لهذا السائق في هذه الفترة.",
+    "Original received": "استلام الأصل",
+    "Overspend paid back to him": "الزيادة رُدّت له",
+    "Paid back to him": "رُدّ له",
+    "Petty cash": "العهدة النقدية",
+    "Short when settled (not deducted from salary)": "عجز عند التسوية (لا يُخصم من الراتب)",
+    "not told yet": "لم يُبلَّغ بعد",
+    "told by :who": "أبلغه :who"
 }

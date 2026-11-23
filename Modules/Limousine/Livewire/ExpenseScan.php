@@ -504,6 +504,11 @@ final class ExpenseScan extends Component
             ])->save();
         } else {
             Cache::forget(ExpenseBillController::cacheKey($this->token));
+            // Scanned in the office: whoever scanned it holds the paper.
+            $expense->forceFill([
+                'original_received_at' => now(),
+                'original_received_by' => (string) (Auth::user()->name ?? ''),
+            ])->saveQuietly();
         }
 
         if ($advance instanceof LimoPettyAdvance) {

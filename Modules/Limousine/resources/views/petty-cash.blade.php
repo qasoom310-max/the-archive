@@ -51,7 +51,7 @@
         </div>
     </div>
 
-    @php $tabs = ['open' => __('Open'), 'cleared' => __('Cleared'), 'float' => __('Float history'), 'report' => __('Report')]; @endphp
+    @php $tabs = ['open' => __('Open'), 'cleared' => __('Cleared'), 'driver' => __('Driver statement'), 'float' => __('Float history'), 'report' => __('Report')]; @endphp
     <div class="mb-4 flex flex-wrap items-center gap-1 border-b border-chrome-200">
         @foreach ($tabs as $key => $label)
             <button wire:click="$set('tab', '{{ $key }}')"
@@ -64,7 +64,109 @@
         @endforeach
     </div>
 
-    @if ($tab === 'float')
+    @if ($tab === 'driver')
+        @php
+            $m = static fn (float $v): string => \App\Erp\Views\ValueFormat::money($v);
+            $kindsD = [
+                'given' => [__('Cash given'), 'bg-emerald-100 text-emerald-700'],
+                'bill' => [__('Bill'), 'bg-chrome-100 text-chrome-700'],
+                'paid_back' => [__('Paid back to him'), 'bg-sky-100 text-sky-700'],
+                'short' => [__('Short'), 'bg-red-100 text-red-700'],
+            ];
+            $stmtQuery = http_build_query(['driver' => $statementDriver, 'month' => $statementMonth]);
+        @endphp
+        <div class="mb-4 flex flex-wrap items-end gap-3" data-driver-statement>
+            <div>
+                <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Driver') }}</label>
+                <select wire:model.live="statementDriver" class="o-input w-60 text-sm">
+                    <option value="0">{{ __('Choose the driver…') }}</option>
+                    @foreach ($statementDrivers as $d)<option value="{{ $d->id }}">{{ $d->name }}</option>@endforeach
+                </select>
+            </div>
+            <div>
+                <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Month') }}</label>
+                <div class="flex items-center gap-1">
+                    <button type="button" wire:click="shiftStatementMonth(-1)" class="rounded-lg border border-chrome-200 px-2 py-1.5 text-sm text-chrome-600 hover:bg-chrome-50" aria-label="{{ __('Previous month') }}"><span class="rtl:hidden">‹</span><span class="hidden rtl:inline">›</span></button>
+                    <input type="month" wire:model.live="statementMonth" class="o-input text-sm">
+                    <button type="button" wire:click="shiftStatementMonth(1)" class="rounded-lg border border-chrome-200 px-2 py-1.5 text-sm text-chrome-600 hover:bg-chrome-50" aria-label="{{ __('Next month') }}"><span class="rtl:hidden">›</span><span class="hidden rtl:inline">‹</span></button>
+                </div>
+            </div>
+            <button type="button" wire:click="$set('statementMonth', 'all')"
+                    class="rounded-lg border px-3 py-1.5 text-sm font-medium {{ $statementMonth === 'all' ? 'border-primary-400 bg-primary-400 text-chrome-900' : 'border-chrome-200 text-chrome-600 hover:bg-chrome-50' }}">{{ __('All time') }}</button>
+            @if ($driverStatement !== null)
+                <div class="ms-auto flex flex-wrap gap-2">
+                    @foreach (['excel' => __('Excel'), 'pdf' => __('PDF'), 'print' => __('Print')] as $fmt => $label)
+                        <a href="{{ url('/app/limousine/petty_cash/driver-statement/' . $fmt) }}?{{ $stmtQuery }}" @if ($fmt === 'print') target="_blank" rel="noopener" @endif
+                           class="rounded-lg border border-chrome-200 px-3 py-1.5 text-xs font-medium text-chrome-600 transition hover:bg-chrome-50">{{ $label }}</a>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+
+        @if ($driverStatement === null)
+            <p class="rounded-2xl bg-white px-4 py-10 text-center text-sm text-chrome-400 shadow-sm ring-1 ring-chrome-900/5">{{ __('Choose a driver to see his cash statement.') }}</p>
+        @else
+            <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5"><div class="text-xs font-medium text-chrome-500">{{ __('Opening balance') }}</div><div class="mt-1 text-lg font-bold text-chrome-800">{{ $m($driverStatement['opening']) }}</div></div>
+                <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5"><div class="text-xs font-medium text-chrome-500">{{ __('Cash given') }}</div><div class="mt-1 text-lg font-bold text-emerald-700">+ {{ $m($driverStatement['in']) }}</div></div>
+                <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5"><div class="text-xs font-medium text-chrome-500">{{ __('Bills and short') }}</div><div class="mt-1 text-lg font-bold text-chrome-800">− {{ $m($driverStatement['out']) }}</div></div>
+                <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-chrome-900/5" data-statement-closing>
+                    <div class="text-xs font-medium text-chrome-500">{{ $driverStatement['closing'] < 0 ? __('We owe him') : __('Holds now') }}</div>
+                    <div class="mt-1 text-lg font-bold {{ $driverStatement['closing'] < 0 ? 'text-red-600' : 'text-chrome-900' }}">{{ $m(abs($driverStatement['closing'])) }}</div>
+                </div>
+            </div>
+
+            <div class="mb-6 overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/[0.06]">
+                <table class="w-full min-w-[980px] divide-y divide-chrome-100 text-sm">
+                    <thead class="bg-chrome-50 text-xs font-semibold uppercase tracking-wide text-chrome-500">
+                        <tr>
+                            <th class="px-3 py-2 text-start">{{ __('Date') }}</th>
+                            <th class="px-3 py-2 text-start">{{ __('Movement') }}</th>
+                            <th class="px-3 py-2 text-start">{{ __('Petty cash') }}</th>
+                            <th class="px-3 py-2 text-start">{{ __('Details') }}</th>
+                            <th class="px-3 py-2 text-start">{{ __('Expense') }}</th>
+                            <th class="px-3 py-2 text-end">{{ __('VAT') }}</th>
+                            <th class="px-3 py-2 text-start">{{ __('Original received') }}</th>
+                            <th class="px-3 py-2 text-end">{{ __('In') }}</th>
+                            <th class="px-3 py-2 text-end">{{ __('Out') }}</th>
+                            <th class="px-3 py-2 text-end">{{ __('Balance') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-chrome-50">
+                        <tr class="bg-chrome-50/60"><td class="px-3 py-2 text-chrome-500" colspan="9">{{ __('Opening balance') }}</td><td class="px-3 py-2 text-end font-semibold">{{ $m($driverStatement['opening']) }}</td></tr>
+                        @forelse ($driverStatement['rows'] as $r)
+                            @php [$kl, $kc] = $kindsD[$r['kind']]; @endphp
+                            <tr data-statement-row="{{ $r['kind'] }}">
+                                <td class="whitespace-nowrap px-3 py-2 text-chrome-600">{{ $r['date'] !== '' ? \Illuminate\Support\Carbon::parse($r['date'])->isoFormat('DD-MMM-YYYY') : '' }}</td>
+                                <td class="px-3 py-2"><span class="whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-semibold {{ $kc }}">{{ $kl }}</span></td>
+                                <td class="px-3 py-2">@if ($r['advance_id'])<a href="{{ url('/app/limousine/petty_cash/' . $r['advance_id']) }}" wire:navigate class="text-primary-700 hover:underline">{{ $r['reference'] }}</a>@endif</td>
+                                <td class="max-w-[16rem] truncate px-3 py-2 text-chrome-700" title="{{ $r['detail'] }}">{{ $r['detail'] }}</td>
+                                <td class="whitespace-nowrap px-3 py-2">@if ($r['expense_id'])<a href="{{ url('/app/limousine/expense/' . $r['expense_id']) }}" wire:navigate class="text-primary-700 hover:underline">{{ $r['expense'] }}</a>@endif</td>
+                                <td class="px-3 py-2 text-end text-chrome-600">{{ $r['vat'] > 0 ? $m($r['vat']) : '' }}</td>
+                                <td class="whitespace-nowrap px-3 py-2 text-xs {{ $r['kind'] === 'bill' && $r['original'] === '' ? 'text-amber-700' : 'text-chrome-600' }}">{{ $r['kind'] === 'bill' ? ($r['original'] !== '' ? $r['original'] : __('Not recorded')) : '' }}</td>
+                                <td class="px-3 py-2 text-end font-medium text-emerald-700">{{ $r['in'] > 0 ? $m($r['in']) : '' }}</td>
+                                <td class="px-3 py-2 text-end font-medium text-chrome-800">{{ $r['out'] > 0 ? $m($r['out']) : '' }}</td>
+                                <td class="px-3 py-2 text-end font-semibold {{ $r['balance'] < 0 ? 'text-red-600' : 'text-chrome-900' }}">{{ $m($r['balance']) }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="10" class="px-3 py-8 text-center text-sm text-chrome-400">{{ __('No cash or bills for this driver in this period.') }}</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            @if ($driverStatement['rejected'] !== [])
+                <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-red-200" data-statement-rejected>
+                    <h3 class="mb-2 text-sm font-semibold text-red-800">{{ __('Bills rejected in this period') }}</h3>
+                    <ul class="divide-y divide-chrome-50 text-sm">
+                        @foreach ($driverStatement['rejected'] as $rj)
+                            <li class="py-1.5 text-chrome-700">{{ $rj['date'] }} · {{ __('Trip') }} {{ $rj['trip'] ?: '—' }}: <span class="font-semibold text-red-700">{{ $rj['reason'] }}</span> <span class="text-xs text-chrome-500">· {{ $rj['told'] !== '' ? __('told by :who', ['who' => $rj['told']]) : __('not told yet') }}</span></li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+        @endif
+    @elseif ($tab === 'float')
         @php
             $m = fn ($v) => \App\Erp\Views\ValueFormat::money($v);
             $t = $statement['totals'];

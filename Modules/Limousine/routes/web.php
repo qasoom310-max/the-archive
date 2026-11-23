@@ -223,6 +223,10 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/petty_cash/export/excel', [LimoPettyAdvanceExportController::class, 'excel'])->name('limousine.petty_cash.export.excel');
     Route::get('/app/limousine/petty_cash/export/pdf', [LimoPettyAdvanceExportController::class, 'pdf'])->name('limousine.petty_cash.export.pdf');
     Route::get('/app/limousine/petty_cash/export/print', [LimoPettyAdvanceExportController::class, 'print'])->name('limousine.petty_cash.export.print');
+    // One driver's cash statement, for the audit.
+    foreach (['csv', 'excel', 'pdf', 'print'] as $format) {
+        Route::get('/app/limousine/petty_cash/driver-statement/' . $format, [\Modules\Limousine\Http\Controllers\DriverStatementExportController::class, $format])->name('limousine.petty_cash.driver_statement.' . $format);
+    }
     Route::post('/app/limousine/petty_cash/import', LimoPettyCashImportController::class)->name('limousine.petty_cash.import');
     Route::get('/app/limousine/petty_cash', PettyCash::class)->name('limousine.petty_cash.index');
     Route::get('/app/limousine/petty_cash/{id}', PettyAdvancePage::class)

@@ -479,4 +479,14 @@ final class LimoExpenseScanTest extends TestCase
             ->assertDontSeeHtml('data-scan-advance')
             ->call('saveAndNext')->assertHasNoErrors();
     }
+
+    /** Scanned in the office: the person scanning holds the original, and it is recorded for the audit. */
+    public function test_an_office_scan_records_who_holds_the_original(): void
+    {
+        Livewire::test(ExpenseScan::class)->set('driver', ExpenseScan::NO_DRIVER)->call('review', $this->parkedBill())->call('saveAndNext')->assertHasNoErrors();
+
+        $expense = LimoExpense::query()->firstOrFail();
+        $this->assertNotNull($expense->original_received_at);
+        $this->assertSame($this->admin->name, $expense->original_received_by);
+    }
 }

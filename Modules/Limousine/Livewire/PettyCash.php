@@ -38,7 +38,22 @@ final class PettyCash extends Component
         return 'limousine.petty_cash';
     }
 
-    /** open · cleared · float · report */
+    /** One driver's cash statement: the driver, and the month (Y-m) or "all". */
+    #[Url(as: 'driver', except: 0)]
+    public int $statementDriver = 0;
+
+    #[Url(as: 'smonth', except: '')]
+    public string $statementMonth = '';
+
+    public function shiftStatementMonth(int $by): void
+    {
+        $base = preg_match('/^\d{4}-\d{2}$/', $this->statementMonth) === 1
+            ? Carbon::parse($this->statementMonth . '-01')
+            : now()->startOfMonth()->subMonths($by);
+        $this->statementMonth = $base->addMonths($by)->format('Y-m');
+    }
+
+    /** open · cleared · float · report · driver */
     #[Url(except: '')]
     public string $tab = 'open';
 
@@ -53,6 +68,10 @@ final class PettyCash extends Component
     public function mount(): void
     {
         $this->guardAccess(Permission::Read);
+
+        if ($this->statementMonth === '') {
+            $this->statementMonth = now()->format('Y-m');
+        }
 
         if ($this->floatMonth === '') {
             $this->floatMonth = now()->format('Y-m');
@@ -301,6 +320,13 @@ final class PettyCash extends Component
             'canManage' => PettyCashService::mayManage(Auth::user()),
             'report' => $this->tab === 'report' ? $this->report() : null,
             'statement' => $this->tab === 'float' ? $this->floatStatement($petty) : null,
+            // Drivers who were ever given petty cash.
+            'statementDrivers' => $this->tab === 'driver'
+                ? LimoDriver::query()->whereIn('id', LimoPettyAdvance::query()->select('driver_id'))->orderBy('name')->get(['id', 'name'])
+                : collect(),
+            'driverStatement' => $this->tab === 'driver' && $this->statementDriver > 0
+                ? $petty->driverStatement($this->statementDriver, ...\Modules\Limousine\Support\DriverStatementRows::window($this->statementMonth))
+                : null,
         ]);
     }
 }

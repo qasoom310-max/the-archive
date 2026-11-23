@@ -597,4 +597,58 @@ final class LimoPettyCashTest extends TestCase
         $this->assertSame(1, \Modules\Limousine\Models\LimoPettyLine::query()->count());
         $this->assertSame(2, \Modules\Limousine\Models\LimoExpense::query()->count());
     }
+
+    /** The audit statement: cash given, each bill with its expense and original, the balance; no settle needed. */
+    public function test_a_driver_cash_statement_shows_every_movement_with_a_running_balance(): void
+    {
+        $this->asAccountant();
+        $sam = \Modules\Limousine\Models\LimoDriver::query()->create(['name' => 'Sam']);
+        $petty = app(\Modules\Limousine\Services\PettyCash::class);
+        $petty->topUp(500, '2026-10-01', null, 'Owner');
+        $october = $petty->issue($sam, 40, '2026-10-20', null, 'Abbas');
+        $november = $petty->issue($sam, 50, '2026-11-05', null, 'Abbas');
+        $this->assertNotNull($october);
+        $this->assertNotNull($november);
+
+        $bill = \Modules\Limousine\Models\LimoExpense::query()->create(['date' => '2026-10-25', 'category' => 'fuel', 'net_amount' => 10, 'vat_rate' => 10, 'payee' => 'Station', 'driver_id' => $sam->id]);
+        $bill->forceFill(['original_received_at' => '2026-10-26 10:00:00', 'original_received_by' => 'Amal'])->saveQuietly();
+        \Modules\Limousine\Models\LimoExpense::query()->create(['date' => '2026-11-10', 'category' => 'parking', 'amount' => 4, 'payee' => 'Car park', 'driver_id' => $sam->id]);
+
+        $s = $petty->driverStatement($sam->id, \Illuminate\Support\Carbon::parse('2026-11-01'), \Illuminate\Support\Carbon::parse('2026-11-30'));
+
+        // October: given 40, bill 11 → opening 29.
+        $this->assertSame(29.0, $s['opening']);
+        $this->assertSame(50.0, $s['in']);
+        $this->assertSame(4.0, $s['out']);
+        $this->assertSame(75.0, $s['closing']);
+        $this->assertSame(['given', 'bill'], array_column($s['rows'], 'kind'));
+        $this->assertSame(79.0, $s['rows'][0]['balance']);
+
+        $all = $petty->driverStatement($sam->id);
+        $this->assertSame('Amal · 2026-10-26', $all['rows'][1]['original']);
+        $this->assertSame(1.0, $all['rows'][1]['vat']);
+        $this->assertSame((string) $bill->reference, $all['rows'][1]['expense']);
+        $this->assertSame(75.0, $all['closing']);
+    }
+
+    public function test_the_statement_tab_and_its_print_and_excel(): void
+    {
+        $this->asAccountant();
+        $sam = \Modules\Limousine\Models\LimoDriver::query()->create(['name' => 'Sam Statement']);
+        $petty = app(\Modules\Limousine\Services\PettyCash::class);
+        $petty->topUp(100, now()->toDateString(), null, 'Owner');
+        $petty->issue($sam, 30, now()->toDateString(), null, 'Abbas');
+
+        Livewire::test(\Modules\Limousine\Livewire\PettyCash::class)
+            ->set('tab', 'driver')
+            ->assertSee('Choose a driver to see his cash statement.')
+            ->set('statementDriver', $sam->id)
+            ->assertSeeHtml('data-statement-row="given"')
+            ->assertSeeHtml('data-statement-closing');
+
+        \Illuminate\Support\Facades\Route::middleware('web')->group(base_path('Modules/Limousine/routes/web.php'));
+        \Illuminate\Support\Facades\Route::getRoutes()->refreshNameLookups();
+        $this->get('/app/limousine/petty_cash/driver-statement/print?driver=' . $sam->id . '&month=all')->assertOk()->assertSee('Sam Statement')->assertSee('Cash given');
+        $this->get('/app/limousine/petty_cash/driver-statement/excel?driver=' . $sam->id . '&month=all')->assertOk();
+    }
 }

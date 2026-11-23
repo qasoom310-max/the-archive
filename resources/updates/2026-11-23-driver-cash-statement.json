@@ -1,0 +1,70 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Limousine: a cash statement for each driver, ready for the auditor",
+        "ar": "الليموزين: كشف نقدي لكل سائق، جاهز للمدقق"
+    },
+    "points": {
+        "en": [
+            "Petty Cash has a new tab, Driver statement: choose a driver and a month.",
+            "It lists every cash movement for that driver: cash given, each bill, money paid back and any shortage, with a running balance.",
+            "Each bill shows its expense number, its VAT and who holds the original paper.",
+            "Download it as Excel or PDF, or print it, for the auditor."
+        ],
+        "ar": [
+            "في العهدة النقدية تبويب جديد «كشف السائق»: اختر السائق والشهر.",
+            "يعرض كل حركة نقدية لهذا السائق: النقد المعطى، وكل فاتورة، والمبالغ المعادة وأي نقص، مع الرصيد بعد كل حركة.",
+            "كل فاتورة تُظهر رقم المصروف وضريبتها ومن يحتفظ بالورقة الأصلية.",
+            "نزّله Excel أو PDF أو اطبعه للمدقق."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the petty cash report only counted advances that were already settled, so it could not show what a driver still held or how each amount was reached.",
+            "Now one page answers the auditor's question for any driver and any month: what he had at the start, what he was given, which bills came off it, and what he holds at the end.",
+            "The opening balance carries everything from before the month, so months follow on from each other. Choose All time to see his whole history.",
+            "Bills rejected in that month are listed under the table with the reason and whether the driver has been told.",
+            "Bills scanned in the office now record who scanned them as the holder of the original paper. Older bills with nothing recorded show \"Not recorded\" in amber, so you can find the paper before the audit."
+        ],
+        "ar": [
+            "في السابق كان تقرير العهدة يحسب فقط العهد المسواة، فلم يكن يُظهر ما بقي مع السائق ولا كيف وصل كل مبلغ.",
+            "الآن صفحة واحدة تجيب عن سؤال المدقق لأي سائق وأي شهر: ما كان معه في البداية، وما أُعطي، وأي فواتير خُصمت منه، وما بقي معه في النهاية.",
+            "الرصيد الافتتاحي يحمل كل ما قبل الشهر، فتتصل الأشهر ببعضها. اختر «كل الفترات» لترى تاريخه كاملاً.",
+            "الفواتير المرفوضة في ذلك الشهر تظهر تحت الجدول مع السبب وهل أُبلغ السائق.",
+            "الفواتير المصوّرة في المكتب تسجّل الآن من صوّرها على أنه من يحتفظ بالورقة الأصلية. الفواتير القديمة التي لا تسجيل لها تظهر «غير مسجّل» باللون الأصفر، لتجد الورقة قبل التدقيق."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Petty Cash.",
+            "Press the Driver statement tab.",
+            "Choose the driver from the list.",
+            "Use the arrows to choose the month, or press All time.",
+            "Press Excel, PDF or Print to give it to the auditor."
+        ],
+        "ar": [
+            "افتح الليموزين، ثم العهدة النقدية.",
+            "اضغط تبويب «كشف السائق».",
+            "اختر السائق من القائمة.",
+            "استخدم الأسهم لاختيار الشهر، أو اضغط «كل الفترات».",
+            "اضغط Excel أو PDF أو «طباعة» لتسليمه للمدقق."
+        ]
+    },
+    "images": [
+        {
+            "before": "petty-before.png",
+            "after": "statement-after.png",
+            "caption": {
+                "en": "Petty Cash. After: the new Driver statement tab for one driver and one month.",
+                "ar": "العهدة النقدية. بعد: تبويب «كشف السائق» الجديد لسائق واحد وشهر واحد."
+            }
+        },
+        {
+            "after": "statement-print.png",
+            "caption": {
+                "en": "The printed statement for the auditor.",
+                "ar": "الكشف المطبوع للمدقق."
+            }
+        }
+    ]
+}

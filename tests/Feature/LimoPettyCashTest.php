@@ -516,7 +516,6 @@ final class LimoPettyCashTest extends TestCase
             ->assertSee('Station')
             ->assertSee((string) $mine->reference)
             ->assertDontSee((string) $notMine->reference)
-            ->set('linkIds', [$mine->id, $notMine->id])
             ->call('linkExpenses')
             ->assertDontSeeHtml('data-unlinked-expenses');
 

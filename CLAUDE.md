@@ -5877,3 +5877,9 @@ export gate) using `Modules\Limousine\Support\DriverStatementRows`. A bill with 
 recorded shows "Not recorded" in amber. Office scans (no driver bill) now stamp
 `original_received_at/_by` with the person scanning, since they hold the paper. Tests:
 `LimoPettyCashTest` (+2), `LimoExpenseScanTest` (+1).
+
+**Driver's old bills: one "Add all, oldest first" button (2026-11-23).** The advance page's
+"His bills already in Expenses" lost its tick boxes (owner's request): the list is oldest
+first and `PettyAdvancePage::linkExpenses()` adds every bill from `unlinkedExpensesFor()`
+(now ordered ascending; still a month before the advance date, ≤100) after a confirm showing
+count + total. A wrong one is taken off with Remove. Test: `LimoPettyCashTest` (adjusted).

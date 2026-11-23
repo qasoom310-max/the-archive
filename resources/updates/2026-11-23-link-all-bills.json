@@ -1,0 +1,57 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Limousine petty cash: add all a driver's old bills with one button",
+        "ar": "عهدة الليموزين: أضف كل فواتير السائق القديمة بزر واحد"
+    },
+    "points": {
+        "en": [
+            "On a driver's petty cash, his bills already in Expenses are listed oldest first.",
+            "No more ticking: one button adds them all, from the oldest to the newest.",
+            "The button shows how many bills and their total before you press it."
+        ],
+        "ar": [
+            "في عهدة السائق، تظهر فواتيره الموجودة في المصروفات من الأقدم إلى الأحدث.",
+            "لا حاجة للتحديد: زر واحد يضيفها كلها، من الأقدم إلى الأحدث.",
+            "الزر يُظهر عدد الفواتير ومجموعها قبل أن تضغطه."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, each bill had a tick box and you had to tick them one by one, newest at the top.",
+            "Now the list starts with the oldest bill and one button adds every bill on it to this petty cash. You are asked to confirm first.",
+            "The bills are not added to Expenses again. If one was not paid from this cash, press Remove next to it afterwards.",
+            "Only bills from a month before the cash was given are listed, as before."
+        ],
+        "ar": [
+            "في السابق كان لكل فاتورة مربع تحديد وكان عليك تحديدها واحدة واحدة، والأحدث في الأعلى.",
+            "الآن تبدأ القائمة بأقدم فاتورة، وزر واحد يضيف كل فواتيرها إلى هذه العهدة. يُطلب منك التأكيد أولاً.",
+            "لا تُضاف الفواتير إلى المصروفات مرة ثانية. وإذا لم تُدفع إحداها من هذه العهدة، اضغط «إزالة» بجانبها بعد ذلك.",
+            "تظهر فقط الفواتير من شهر قبل إعطاء النقد، كما كان."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Petty Cash, and open the driver's petty cash.",
+            "Look at \"His bills already in Expenses\".",
+            "Press \"Add all bills, oldest first\" and confirm.",
+            "If a bill does not belong to this cash, press Remove next to it."
+        ],
+        "ar": [
+            "افتح الليموزين، ثم العهدة النقدية، وافتح عهدة السائق.",
+            "انظر إلى «فواتيره الموجودة في المصروفات».",
+            "اضغط «إضافة كل الفواتير، الأقدم أولاً» وأكّد.",
+            "إذا كانت فاتورة لا تخص هذه العهدة، اضغط «إزالة» بجانبها."
+        ]
+    },
+    "images": [
+        {
+            "before": "advance-before.png",
+            "after": "advance-after.png",
+            "caption": {
+                "en": "A driver's petty cash. After: oldest first, one button for all.",
+                "ar": "عهدة سائق. بعد: الأقدم أولاً، وزر واحد للكل."
+            }
+        }
+    ]
+}

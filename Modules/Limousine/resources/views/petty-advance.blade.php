@@ -158,24 +158,23 @@
                 @endif
 
                 {{-- Bills already scanned in Expenses for this driver and not on
-                     any petty cash: tick them to count them against this cash. --}}
+                     any petty cash: one button adds them all, oldest first. --}}
                 @if ($canEdit && $unlinked->isNotEmpty())
                     <div class="mt-5 rounded-xl border border-primary-600/30 bg-primary-400/10 p-4" data-unlinked-expenses>
                         <h3 class="text-sm font-semibold text-chrome-800">{{ __('His bills already in Expenses') }}</h3>
-                        <p class="mb-3 text-xs text-chrome-600">{{ __('Scanned for this driver but not on any petty cash yet. Tick the ones paid from this cash. They are not added to Expenses again.') }}</p>
+                        <p class="mb-3 text-xs text-chrome-600">{{ __('Scanned for this driver but not on any petty cash yet, oldest first. The button adds them all to this cash. They are not added to Expenses again. A wrong one can be removed after.') }}</p>
                         <ul class="divide-y divide-primary-600/10">
                             @foreach ($unlinked as $e)
                                 <li wire:key="unl-{{ $e->id }}">
-                                    <label class="flex cursor-pointer items-center gap-3 py-2 text-sm">
-                                        <input type="checkbox" value="{{ $e->id }}" wire:model="linkIds" class="size-4 rounded border-chrome-300 text-primary-600">
+                                    <div class="flex items-center gap-3 py-2 text-sm">
                                         <span class="w-16 shrink-0 text-chrome-600">{{ $e->date?->isoFormat('DD-MMM') }}</span>
                                         <span class="min-w-0 flex-1 truncate text-chrome-800">{{ $e->payee ?? '—' }} <span class="text-xs text-chrome-500">· {{ $e->reference }}</span></span>
                                         <span class="font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($e->amount) }}</span>
-                                    </label>
+                                    </div>
                                 </li>
                             @endforeach
                         </ul>
-                        <button type="button" wire:click="linkExpenses" wire:loading.attr="disabled" class="o-btn-primary mt-3 text-sm" data-link-expenses>{{ __('Add ticked to this petty cash') }}</button>
+                        <button type="button" wire:click="linkExpenses" wire:confirm="{{ __('Add all :count bills (:total) to this petty cash, oldest first?', ['count' => $unlinked->count(), 'total' => \App\Erp\Views\ValueFormat::money($unlinked->sum('amount'))]) }}" wire:loading.attr="disabled" class="o-btn-primary mt-3 text-sm" data-link-expenses>{{ __('Add all :count bills, oldest first (:total)', ['count' => $unlinked->count(), 'total' => \App\Erp\Views\ValueFormat::money($unlinked->sum('amount'))]) }}</button>
                     </div>
                 @endif
             </div>

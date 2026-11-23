@@ -366,7 +366,7 @@ final class PettyCash
 
     /**
      * The driver's expenses not on any petty cash yet: what can still be added
-     * to his advance. From a month before the cash was given, newest first.
+     * to his advance. From a month before the cash was given, oldest first.
      *
      * @return \Illuminate\Database\Eloquent\Collection<int, LimoExpense>
      */
@@ -380,8 +380,8 @@ final class PettyCash
             ->where('driver_id', $advance->driver_id)
             ->whereNotIn('id', LimoPettyLine::query()->whereNotNull('expense_id')->select('expense_id'))
             ->when($advance->date !== null, fn ($q) => $q->whereDate('date', '>=', $advance->date->copy()->subMonth()->toDateString()))
-            ->orderByDesc('date')
-            ->orderByDesc('id')
+            ->orderBy('date')
+            ->orderBy('id')
             ->limit(100)
             ->get();
     }

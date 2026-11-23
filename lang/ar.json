@@ -3964,5 +3964,8 @@
     "Petty cash": "العهدة النقدية",
     "Short when settled (not deducted from salary)": "عجز عند التسوية (لا يُخصم من الراتب)",
     "not told yet": "لم يُبلَّغ بعد",
-    "told by :who": "أبلغه :who"
+    "told by :who": "أبلغه :who",
+    "Scanned for this driver but not on any petty cash yet, oldest first. The button adds them all to this cash. They are not added to Expenses again. A wrong one can be removed after.": "مصوّرة لهذا السائق وليست على أي عهدة بعد، الأقدم أولاً. الزر يضيفها كلها إلى هذه العهدة. لا تُضاف إلى المصروفات مرة ثانية. ويمكن حذف أي فاتورة خاطئة بعد ذلك.",
+    "Add all :count bills (:total) to this petty cash, oldest first?": "إضافة كل الفواتير (:count) بمبلغ :total إلى هذه العهدة، الأقدم أولاً؟",
+    "Add all :count bills, oldest first (:total)": "إضافة كل الفواتير (:count)، الأقدم أولاً (:total)"
 }

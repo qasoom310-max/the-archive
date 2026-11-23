@@ -59,13 +59,9 @@ final class PettyAdvancePage extends Component
     }
 
     /**
-     * Expenses already scanned for this driver, ticked to add to this cash.
-     *
-     * @var list<int|string>
+     * Add ALL his bills already in Expenses to this cash in one press, oldest
+     * first down to the newest (no ticking). Each is a receipt; no new expenses.
      */
-    public array $linkIds = [];
-
-    /** Add the ticked expenses to this advance as his receipts (no new expenses). */
     public function linkExpenses(PettyCashService $petty): void
     {
         $this->guardAccess(Permission::Write);
@@ -76,14 +72,12 @@ final class PettyAdvancePage extends Component
         }
 
         $added = 0;
-        foreach (array_unique(array_map('intval', $this->linkIds)) as $id) {
-            $expense = \Modules\Limousine\Models\LimoExpense::query()->find($id);
-            if ($expense !== null && $petty->addExpenseAsReceipt($advance, $expense) !== null) {
+        foreach ($petty->unlinkedExpensesFor($advance) as $expense) {
+            if ($petty->addExpenseAsReceipt($advance, $expense) !== null) {
                 $added++;
             }
         }
 
-        $this->linkIds = [];
         session()->flash('toast', __('Receipts added to this petty cash: :count', ['count' => $added]));
     }
 

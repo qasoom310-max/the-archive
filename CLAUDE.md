@@ -96,6 +96,7 @@ php artisan migrate:rollback      # roll back last batch
 composer analyse                  # PHPStan level 6  (alias -> ./vendor/bin/phpstan analyse)
 composer test                     # PHPUnit suite    (alias -> php artisan test)
 composer check                    # analyse + test in one shot
+composer test:parallel            # same suite, one process per CPU (paratest) — what CI runs
 
 # --- Raw equivalents (if composer scripts unavailable) ---
 ./vendor/bin/phpstan analyse --no-progress
@@ -5232,6 +5233,16 @@ would be its own annoyance.
   (`DB_CONNECTION=sqlite`, `DB_DATABASE=:memory:`). This is mandatory — without it,
   `DatabaseMigrations`/`RefreshDatabase` tests run against and **wipe the dev DB**.
   Do not re-comment those lines.
+- **CI runs the tests in parallel (2026-11-23).** `composer test:parallel`
+  (`artisan test --parallel`, `brianium/paratest`) took CI from ~20 min to one
+  process per CPU. Each process already has its own in-memory DB; files are
+  separated by `Tests\TestCase::isolateParallelStorage()`, which moves
+  `storage_path()` and the `local`/`public` disk roots to
+  `storage/framework/testing/parallel-<token>/`. Without it, the tests that
+  clean up with `glob(storage_path('app/workspaces').'/*.sqlite')` deleted
+  another process's workspace database mid-test. **A new test that writes
+  files must go through `storage_path()` or a disk, never a hard-coded path,**
+  or it will be shared between processes again.
 - **Module install atomicity:** `ModuleManager` wraps migrate+registry in a
   transaction. SQLite/PostgreSQL have transactional DDL so rollback is clean; **MySQL
   auto-commits DDL**, so a mid-install failure on MySQL can leave partial tables.

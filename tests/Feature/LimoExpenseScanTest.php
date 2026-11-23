@@ -433,26 +433,25 @@ final class LimoExpenseScanTest extends TestCase
         $this->assertSame(1, LimoExpense::query()->count());
     }
 
-    public function test_a_driver_holding_cash_must_say_whether_the_bill_came_from_it(): void
+    public function test_the_drivers_oldest_cash_is_chosen_and_can_be_changed(): void
     {
-        [$driver] = $this->driverWithCash();
+        [$driver, $first] = $this->driverWithCash();
         $this->driverWithCash('Other Driver');
-        // A second open advance of the same driver: no guess.
-        app(\Modules\Limousine\Services\PettyCash::class)->issue($driver, 20, now()->toDateString(), null, 'Abbas');
+        // A second open advance of the same driver: the oldest is still the default.
+        $second = app(\Modules\Limousine\Services\PettyCash::class)->issue($driver, 20, now()->toDateString(), null, 'Abbas');
+        $this->assertNotNull($second);
 
         $page = Livewire::test(ExpenseScan::class)
             ->set('driver', (string) $driver->id)
-            ->assertSet('advance', '')
-            ->call('review', $this->parkedBill())
-            ->call('saveAndNext')
-            ->assertHasErrors('advance');
-        $this->assertSame(0, LimoExpense::query()->count());
+            ->assertSet('advance', (string) $first->id)
+            ->call('review', $this->parkedBill());
 
         // Another driver's cash is refused.
         $other = \Modules\Limousine\Models\LimoPettyAdvance::query()->where('driver_id', '!=', $driver->id)->firstOrFail();
         $page->set('advance', (string) $other->id)->call('saveAndNext')->assertHasErrors('advance');
+        $this->assertSame(0, LimoExpense::query()->count());
 
-        // "Not from petty cash" saves the expense and touches no advance.
+        // "Not from petty cash" saves the expense and touches no cash at all.
         $page->set('advance', ExpenseScan::NO_ADVANCE)->call('saveAndNext')->assertHasNoErrors();
         $this->assertSame(1, LimoExpense::query()->count());
         $this->assertSame(0, \Modules\Limousine\Models\LimoPettyLine::query()->count());

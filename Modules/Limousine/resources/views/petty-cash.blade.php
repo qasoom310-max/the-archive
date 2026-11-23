@@ -42,7 +42,7 @@
             <div class="mt-2 text-2xl font-bold {{ $balance < 0 ? 'text-red-600' : 'text-chrome-800' }}">{{ \App\Erp\Views\ValueFormat::money($balance) }}</div>
         </button>
         <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
-            <div class="text-sm font-medium text-chrome-600">{{ __('Out with drivers') }}</div>
+            <div class="text-sm font-medium text-chrome-600">{{ __('Drivers hold now') }}</div>
             <div class="mt-2 text-2xl font-bold text-amber-700">{{ \App\Erp\Views\ValueFormat::money($outstanding) }}</div>
         </div>
         <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
@@ -98,7 +98,7 @@
                 </li>
             </ul>
             <div class="mt-3 grid gap-2 text-xs text-chrome-500 sm:grid-cols-2">
-                <p>{{ __('Of the money given, still out with drivers (not settled yet)') }}: <span class="font-semibold text-amber-700">{{ $m($outstanding) }}</span></p>
+                <p>{{ __('Of the money given, the drivers still hold (their bills already taken off)') }}: <span class="font-semibold text-amber-700">{{ $m($outstanding) }}</span></p>
                 <p>{{ __('Short on settled advances') }}: <span class="font-semibold text-chrome-700">{{ $m($t['short']) }}</span> ({{ trans_choice(':count advance|:count advances', $t['short_count'], ['count' => $t['short_count']]) }}). {{ __('Recorded only: it does not come back into the float.') }}</p>
             </div>
         </div>
@@ -295,7 +295,14 @@
                                 <td class="px-4 py-2.5 text-chrome-600">{{ $group['advances']->first()?->date?->isoFormat('DD-MMM-YYYY') }}</td>
                                 <td class="px-4 py-2.5 text-end font-semibold text-chrome-900">{{ \App\Erp\Views\ValueFormat::money($group['given']) }}</td>
                                 <td class="px-4 py-2.5 text-end text-chrome-700">{{ \App\Erp\Views\ValueFormat::money($group['receipts']) }}</td>
-                                <td class="px-4 py-2.5 text-xs font-medium text-chrome-600">{{ __('Still out') }}: <span class="font-semibold text-chrome-800">{{ \App\Erp\Views\ValueFormat::money(max(0, $group['given'] - $group['receipts'])) }}</span></td>
+                                <td class="px-4 py-2.5 text-xs font-medium text-chrome-600" data-holds-now="{{ $group['key'] }}">
+                                    @php $holds = round($group['given'] - $group['receipts'], 3); @endphp
+                                    @if ($holds < 0)
+                                        {{ __('We owe him') }}: <span class="font-semibold text-red-600">{{ \App\Erp\Views\ValueFormat::money(-$holds) }}</span>
+                                    @else
+                                        {{ __('Holds now') }}: <span class="font-semibold text-chrome-900">{{ \App\Erp\Views\ValueFormat::money($holds) }}</span>
+                                    @endif
+                                </td>
                             </tr>
                             @foreach ($group['advances'] as $advance)
                                 @php

@@ -5848,3 +5848,12 @@ originals at year end).** `ExpenseScan` refuses to save a driver bill (`billId`)
 `$originalReceived` is ticked; the expense gets `original_received_at` / `original_received_by`
 (Limousine migration `2026_11_23_950070`), shown on the expense page. Bills waiting ≥2 days
 are marked red on the list. Office-scanned bills (paper already in hand) are not asked.
+
+**Petty cash: a driver's bills come off his cash by themselves (2026-11-23, the owner's
+process).** `LimoExpense::saved` (created, or `driver_id` changed) calls
+`PettyCash::countForDriver()` → the driver's OLDEST open advance, unless the caller set the
+non-column `$countOnPettyCash = false` (`ExpenseScan` asks its own question, defaulting to
+the oldest open advance; `settle()` writes expenses already held as receipts).
+`outstanding()` ("Drivers hold now") = given on open advances − their lines. Open tab shows
+"Holds now" / "We owe him". Confirm/Settle still close an advance but no figure waits for
+them. Tests: `LimoPettyCashTest` (+2), `LimoExpenseScanTest` (rewritten default).

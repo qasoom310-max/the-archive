@@ -273,16 +273,20 @@ final class ExpenseScan extends Component
             ->get();
     }
 
-    /** One open advance: it is the obvious answer, so it is chosen (and can be changed). */
+    /**
+     * The driver's oldest open cash is the answer unless someone says
+     * otherwise (the owner: bills come off by themselves). Can be changed,
+     * or set to "No, not from petty cash".
+     */
     private function defaultAdvance(): void
     {
         if ($this->advance !== '') {
             return;
         }
 
-        $open = $this->openAdvances();
-        if ($open->count() === 1) {
-            $this->advance = (string) $open->first()?->id;
+        $first = $this->openAdvances()->first();
+        if ($first !== null) {
+            $this->advance = (string) $first->id;
         }
     }
 
@@ -446,7 +450,10 @@ final class ExpenseScan extends Component
             'currency' => __('Currency'), 'exchange_rate' => __('Exchange rate'),
         ]);
 
-        $expense = new LimoExpense([
+        $expense = new LimoExpense();
+        // This screen asked the petty-cash question itself.
+        $expense->countOnPettyCash = false;
+        $expense->fill([
             'date' => $this->date,
             'category' => $this->category,
             'payee' => trim($this->payee) !== '' ? trim($this->payee) : null,

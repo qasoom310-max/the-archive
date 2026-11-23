@@ -179,12 +179,40 @@ final class PettyCash
         ];
     }
 
-    /** Money handed out but not yet settled — the float's exposure. */
+    /**
+     * Cash the drivers still hold: what was given on advances not yet closed,
+     * less the bills already counted on them. A bill comes off the moment it
+     * is saved; no confirm or settle is needed for this figure (the owner's
+     * rule, 2026-11-23).
+     */
     public function outstanding(): float
     {
-        return round((float) LimoPettyAdvance::query()
+        $open = LimoPettyAdvance::query()->where('status', '!=', LimoPettyAdvance::STATUS_CLEARED);
+        $given = (float) (clone $open)->sum('amount');
+        $bills = (float) LimoPettyLine::query()->whereIn('advance_id', (clone $open)->select('id'))->sum('amount');
+
+        return round($given - $bills, 3);
+    }
+
+    /**
+     * A bill saved for a driver comes off the cash he holds by itself: it goes
+     * on his OLDEST open advance. Nothing happens when he holds no open cash,
+     * or the bill is already on a petty cash.
+     */
+    public function countForDriver(LimoExpense $expense): ?LimoPettyLine
+    {
+        if ($expense->driver_id === null) {
+            return null;
+        }
+
+        $advance = LimoPettyAdvance::query()
+            ->where('driver_id', $expense->driver_id)
             ->where('status', '!=', LimoPettyAdvance::STATUS_CLEARED)
-            ->sum('amount'), 3);
+            ->orderBy('date')
+            ->orderBy('id')
+            ->first();
+
+        return $advance !== null ? $this->addExpenseAsReceipt($advance, $expense) : null;
     }
 
     public function topUp(float $amount, string $date, ?string $notes, string $byName): LimoPettyTopup
@@ -279,7 +307,10 @@ final class PettyCash
                 // is lost in translation.
                 $slot = \Modules\Limousine\Models\LimoPettyCategory::expenseSlotFor($line->category);
 
-                $written = LimoExpense::query()->create([
+                $written = new LimoExpense();
+                // Already a receipt on this advance: not counted a second time.
+                $written->countOnPettyCash = false;
+                $written->fill([
                     'date' => $line->date,
                     'category' => $slot,
                     'amount' => $line->amount,
@@ -294,6 +325,7 @@ final class PettyCash
                         ' —',
                     ),
                 ]);
+                $written->save();
 
                 // Remembered on the receipt, so it is never offered or written again.
                 $line->forceFill(['expense_id' => $written->id])->saveQuietly();

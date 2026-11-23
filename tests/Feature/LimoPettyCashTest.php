@@ -547,4 +547,54 @@ final class LimoPettyCashTest extends TestCase
 
         $this->assertCount(0, $petty->unlinkedExpensesFor($second));
     }
+
+    /** The owner's rule: a bill saved for a driver comes off his cash by itself, no confirm. */
+    public function test_a_bill_saved_for_a_driver_comes_off_his_cash_by_itself(): void
+    {
+        $this->asAccountant();
+        $sam = \Modules\Limousine\Models\LimoDriver::query()->create(['name' => 'Sam']);
+        $petty = app(\Modules\Limousine\Services\PettyCash::class);
+        $petty->topUp(500, now()->toDateString(), null, 'Owner');
+        $old = $petty->issue($sam, 50, now()->subDays(3)->toDateString(), null, 'Abbas');
+        $new = $petty->issue($sam, 30, now()->toDateString(), null, 'Abbas');
+        $this->assertNotNull($old);
+        $this->assertNotNull($new);
+        $this->assertSame(80.0, $petty->outstanding());
+
+        // Typed in Expenses with the driver: off his oldest cash, at once, unconfirmed.
+        $bill = \Modules\Limousine\Models\LimoExpense::query()->create(['date' => now()->toDateString(), 'category' => 'fuel', 'amount' => 12, 'payee' => 'Station', 'driver_id' => $sam->id]);
+        $this->assertSame($old->id, \Modules\Limousine\Models\LimoPettyLine::query()->where('expense_id', $bill->id)->value('advance_id'));
+        $this->assertSame(68.0, $petty->outstanding());
+
+        // An older bill given its driver later also comes off.
+        $later = \Modules\Limousine\Models\LimoExpense::query()->create(['date' => now()->toDateString(), 'category' => 'parking', 'amount' => 3, 'payee' => 'Car park']);
+        $this->assertSame(68.0, $petty->outstanding());
+        $later->forceFill(['driver_id' => $sam->id])->save();
+        $this->assertSame(65.0, $petty->outstanding());
+
+        // Editing it again does not count it twice.
+        $later->forceFill(['notes' => 'checked'])->save();
+        $this->assertSame(65.0, $petty->outstanding());
+        $this->assertSame(2, \Modules\Limousine\Models\LimoPettyLine::query()->count());
+    }
+
+    public function test_a_driver_with_no_cash_out_is_not_touched_and_settling_never_doubles(): void
+    {
+        $this->asAccountant();
+        $sam = \Modules\Limousine\Models\LimoDriver::query()->create(['name' => 'Sam']);
+        \Modules\Limousine\Models\LimoExpense::query()->create(['date' => now()->toDateString(), 'category' => 'fuel', 'amount' => 5, 'payee' => 'Station', 'driver_id' => $sam->id]);
+        $this->assertSame(0, \Modules\Limousine\Models\LimoPettyLine::query()->count());
+
+        $petty = app(\Modules\Limousine\Services\PettyCash::class);
+        $petty->topUp(100, now()->toDateString(), null, 'Owner');
+        $advance = $petty->issue($sam, 20, now()->toDateString(), null, 'Abbas');
+        $this->assertNotNull($advance);
+        $advance->lines()->create(['date' => now()->toDateString(), 'category' => 'Fuel', 'amount' => 20]);
+        $petty->confirm($advance, 'Amal');
+        $petty->settle($advance->fresh() ?? $advance, 'Amal');
+
+        // The expense settling wrote is not put on any cash a second time.
+        $this->assertSame(1, \Modules\Limousine\Models\LimoPettyLine::query()->count());
+        $this->assertSame(2, \Modules\Limousine\Models\LimoExpense::query()->count());
+    }
 }

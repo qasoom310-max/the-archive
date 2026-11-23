@@ -1,0 +1,57 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Petty cash: a driver's bills come off his cash by themselves",
+        "ar": "العهدة النقدية: فواتير السائق تُخصم من عهدته تلقائياً"
+    },
+    "points": {
+        "en": [
+            "When a bill is saved in Expenses with a driver chosen, it comes off the cash that driver holds at once. No confirm or settle is needed.",
+            "Petty Cash shows each driver's cash under Open: given, bills, and what he holds now.",
+            "The top card is now \"Drivers hold now\": the cash given, less the bills already saved."
+        ],
+        "ar": [
+            "عند حفظ فاتورة في المصروفات مع اختيار سائق، تُخصم فوراً من النقد الذي معه. لا حاجة لتأكيد أو تسوية.",
+            "العهدة النقدية تعرض نقد كل سائق تحت «مفتوحة»: المعطى، والفواتير، وما معه الآن.",
+            "البطاقة العلوية أصبحت «مع السائقين الآن»: النقد المعطى ناقص الفواتير المحفوظة."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, a bill only came off a driver's cash when someone linked it to his petty cash, and the top card showed all the cash given, as if no bill had been spent.",
+            "Now it works the way the team asked: Abbas gives a driver cash, and every bill the accountant saves for that driver (scanned, typed, or sent by the driver with its original paper) comes off what he holds. It goes on his oldest open petty cash.",
+            "A driver who spent more than he was given shows \"We owe him\" in red.",
+            "Scan a bill still lets you choose \"No, not from petty cash\" for a bill paid some other way. A typed expense with a driver always comes off his cash.",
+            "Confirm and Settle still exist to close a petty cash for good, but the figures no longer wait for them."
+        ],
+        "ar": [
+            "في السابق كانت الفاتورة لا تُخصم من نقد السائق إلا إذا رُبطت بعهدته، والبطاقة العلوية كانت تعرض كل النقد المعطى وكأن شيئاً لم يُصرف.",
+            "الآن يعمل كما طلب الفريق: عباس يعطي السائق نقداً، وكل فاتورة تحفظها المحاسبة لذلك السائق (مصوّرة، أو مكتوبة، أو أرسلها السائق مع أصلها الورقي) تُخصم مما معه. وتُضاف إلى أقدم عهدة مفتوحة له.",
+            "السائق الذي صرف أكثر مما أُعطي يظهر بجانبه «له علينا» بالأحمر.",
+            "«تصوير فاتورة» ما زال يسمح باختيار «لا، ليست من العهدة النقدية» لفاتورة دُفعت بطريقة أخرى. أما المصروف المكتوب مع سائق فيُخصم دائماً من نقده.",
+            "التأكيد والتسوية ما زالا موجودين لإغلاق العهدة نهائياً، لكن الأرقام لم تعد تنتظرهما."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Abbas: open Limousine, then Petty Cash, press Send to driver, and enter the driver, amount and date.",
+            "Accountant: save each of his bills in Expenses with that driver chosen.",
+            "Open Petty Cash, then the Open tab, to see what each driver holds now."
+        ],
+        "ar": [
+            "عباس: افتح الليموزين ثم العهدة النقدية، اضغط «إرسال لسائق»، وأدخل السائق والمبلغ والتاريخ.",
+            "المحاسبة: احفظي كل فاتورة له في المصروفات مع اختيار ذلك السائق.",
+            "افتح العهدة النقدية ثم «مفتوحة» لرؤية ما مع كل سائق الآن."
+        ]
+    },
+    "images": [
+        {
+            "before": "petty-before.png",
+            "after": "petty-after.png",
+            "caption": {
+                "en": "Petty Cash. After: \"Drivers hold now\" and each driver's cash after his bills.",
+                "ar": "العهدة النقدية. بعد: «مع السائقين الآن» ونقد كل سائق بعد فواتيره."
+            }
+        }
+    ]
+}

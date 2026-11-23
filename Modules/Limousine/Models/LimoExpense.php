@@ -150,8 +150,26 @@ final class LimoExpense extends Model implements DefinesIrModel
         return self::REFERENCE_PREFIX . ($highest + 1);
     }
 
+    /**
+     * False when the caller decides the petty cash itself (Scan a bill asks;
+     * settling already holds it as a receipt). Not a column.
+     */
+    public bool $countOnPettyCash = true;
+
     protected static function booted(): void
     {
+        // A bill saved for a driver comes off the cash he holds, by itself —
+        // also when a driver is chosen later on an older bill.
+        static::saved(static function (LimoExpense $expense): void {
+            if (! $expense->countOnPettyCash || $expense->driver_id === null
+                || ! ($expense->wasRecentlyCreated || $expense->wasChanged('driver_id'))
+                || ! \Illuminate\Support\Facades\Schema::hasColumn('limo_petty_lines', 'expense_id')) {
+                return;
+            }
+
+            app(\Modules\Limousine\Services\PettyCash::class)->countForDriver($expense);
+        });
+
         // Numbered before the row is written, so HasReference (which only
         // fills a blank reference) leaves it alone. A reference given by an
         // import is kept.

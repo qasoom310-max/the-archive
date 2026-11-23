@@ -3932,5 +3932,9 @@
     "Original paper received by :name on :date": "استلم :name الفاتورة الأصلية في :date",
     "Save a bill only when its original paper has reached the office. The VAT authority asks for the originals.": "احفظ الفاتورة فقط عندما تصل ورقتها الأصلية إلى المكتب. جهاز الضريبة يطلب الأصول.",
     "Save it only when the original paper bill has reached the office. Tick the box when you hold it.": "احفظها فقط عندما تصل الفاتورة الورقية الأصلية إلى المكتب. ضع علامة في المربع عندما تكون معك.",
-    "original not in after :count days": "الأصل لم يصل بعد :count أيام"
+    "original not in after :count days": "الأصل لم يصل بعد :count أيام",
+    "We owe him": "له علينا",
+    "Holds now": "معه الآن",
+    "Drivers hold now": "مع السائقين الآن",
+    "Of the money given, the drivers still hold (their bills already taken off)": "من المال المعطى، ما زال مع السائقين (بعد خصم فواتيرهم)"
 }

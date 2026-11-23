@@ -5802,3 +5802,17 @@ months were paid outside the system) up to NOW; later legs = "booked ahead"; owe
 earned − non-cancelled payments. Paying above what is owed needs `confirmAhead`. The
 Outside drivers page shows "Owed now" + a Pay link (`?pay=<driver>` opens the form).
 Tests: `LimoDriverPaymentsTest` (8).
+
+**Scanned driver bills count against THAT driver's petty cash (shipped 2026-11-23).** The
+owner's rule: petty cash belongs to the driver it was given to (advances key on
+`driver_id`), not to whoever handed it over. On `ExpenseScan`, a chosen driver with open
+advances (`issued`/`confirmed`) must answer `$advance` (his advance id, or `NO_ADVANCE`;
+one open advance is preselected; kept for the run, reset when the driver changes; another
+driver's advance is refused). Yes → the expense is saved as before (VAT, photo, currency)
+AND a `limo_petty_lines` row is added with `expense_id` (Limousine migration
+`2026_11_23_950068`), category = the petty category whose `expense_category` matches.
+`PettyCash::settle()` skips lines whose expense still exists (no double count) and now sets
+`driver_id` on the expenses it writes. `LimoExpense` saved → a linked line on an unsettled
+advance follows the amount; deleted → the line is unlinked (settling writes it back). The
+advance page tags such lines "Scanned in Expenses". The typed New expense form does not ask.
+Tests: `LimoExpenseScanTest` (+3), `LimoPettyCashTest` (+1).

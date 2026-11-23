@@ -18,6 +18,8 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Modules\Limousine\Http\Controllers\ExpenseBillController;
 use Modules\Limousine\Models\LimoDriver;
+use Modules\Limousine\Models\LimoPettyAdvance;
+use Modules\Limousine\Models\LimoPettyCategory;
 use Modules\Limousine\Models\LimoExpense;
 use Modules\Limousine\Services\BillScanner;
 
@@ -61,6 +63,16 @@ final class ExpenseScan extends Component
     #[Url(as: 'driver', except: '')]
     public string $driver = '';
 
+    /** Not paid from the driver's petty cash. */
+    public const NO_ADVANCE = 'none';
+
+    /**
+     * Was this bill paid from the cash the driver was given? An open petty-cash
+     * advance of THIS driver (its id), NO_ADVANCE, or empty while unanswered.
+     * Kept for the whole run, like the driver.
+     */
+    public string $advance = '';
+
     /** Bills saved for this driver in this run, and what they add up to (BHD). */
     #[Locked]
     public int $savedCount = 0;
@@ -103,6 +115,7 @@ final class ExpenseScan extends Component
         if ($this->driver !== self::NO_DRIVER && $this->driverId() === null) {
             $this->driver = '';
         }
+        $this->defaultAdvance();
 
         // A scan can be reopened by its address while it is still parked
         // (the same owner-only check as review() applies).
@@ -173,6 +186,42 @@ final class ExpenseScan extends Component
         $this->savedTotal = 0.0;
         $this->savedReference = '';
         $this->resetValidation('driver');
+        $this->advance = '';
+        $this->defaultAdvance();
+    }
+
+    /**
+     * The driver's petty-cash advances still open (given, not yet settled),
+     * oldest first: the cash his receipts are spent from.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, LimoPettyAdvance>
+     */
+    private function openAdvances(): \Illuminate\Database\Eloquent\Collection
+    {
+        $driverId = $this->driverId();
+        if ($driverId === null || ! \Illuminate\Support\Facades\Schema::hasColumn('limo_petty_lines', 'expense_id')) {
+            return new \Illuminate\Database\Eloquent\Collection();
+        }
+
+        return LimoPettyAdvance::query()
+            ->where('driver_id', $driverId)
+            ->whereIn('status', [LimoPettyAdvance::STATUS_ISSUED, LimoPettyAdvance::STATUS_CONFIRMED])
+            ->orderBy('date')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /** One open advance: it is the obvious answer, so it is chosen (and can be changed). */
+    private function defaultAdvance(): void
+    {
+        if ($this->advance !== '') {
+            return;
+        }
+
+        $open = $this->openAdvances();
+        if ($open->count() === 1) {
+            $this->advance = (string) $open->first()?->id;
+        }
     }
 
     /** Finished with this driver: back to choosing whose bills come next. */
@@ -280,6 +329,22 @@ final class ExpenseScan extends Component
             return null;
         }
 
+        // A driver who still holds petty cash: say whether this bill came out of it.
+        $open = $this->openAdvances();
+        $advance = null;
+        if ($open->isNotEmpty()) {
+            if ($this->advance === self::NO_ADVANCE) {
+                $advance = null;
+            } else {
+                $advance = $open->firstWhere('id', (int) $this->advance);
+                if ($advance === null) {
+                    $this->addError('advance', __('Say whether this bill was paid from the cash this driver was given.'));
+
+                    return null;
+                }
+            }
+        }
+
         $this->validate([
             'date' => ['required', 'date'],
             'category' => ['required', 'in:' . implode(',', array_column(LimoExpense::categoryOptions(), 'value'))],
@@ -317,10 +382,36 @@ final class ExpenseScan extends Component
 
         Cache::forget(ExpenseBillController::cacheKey($this->token));
 
+        if ($advance instanceof LimoPettyAdvance) {
+            $this->countAgainst($advance, $expense);
+        }
+
         $this->savedCount++;
         $this->savedTotal = round($this->savedTotal + (float) $expense->amount, 3);
 
         return $expense->refresh();
+    }
+
+    /**
+     * Put the bill on the driver's petty-cash advance as one of his receipts,
+     * pointing at the expense, so the cash he holds goes down now and settling
+     * the advance does not write the expense a second time.
+     */
+    private function countAgainst(LimoPettyAdvance $advance, LimoExpense $expense): void
+    {
+        $category = LimoPettyCategory::query()->where('expense_category', $expense->category)->value('name');
+        if (! is_string($category) || $category === '') {
+            $labels = array_column(LimoExpense::categoryOptions(), 'label', 'value');
+            $category = (string) ($labels[$expense->category] ?? 'Other');
+        }
+
+        $advance->lines()->create([
+            'date' => $expense->date?->toDateString() ?? now()->toDateString(),
+            'category' => $category,
+            'description' => trim((string) ($expense->payee ?? '') . ' · ' . (string) $expense->reference, ' ·'),
+            'amount' => round((float) $expense->amount, 3),
+            'expense_id' => $expense->id,
+        ]);
     }
 
     /**
@@ -350,6 +441,13 @@ final class ExpenseScan extends Component
             'available' => BillScanner::isAvailable(),
             'drivers' => LimoDriver::query()->where('active', true)->orWhere('id', (int) $this->driver)->orderBy('name')->get(['id', 'name']),
             'driverChosen' => $this->driver === self::NO_DRIVER || $this->driverId() !== null,
+            'openAdvances' => $this->openAdvances()->map(static fn (LimoPettyAdvance $a): array => [
+                'id' => (int) $a->id,
+                'reference' => (string) $a->reference,
+                'date' => $a->date?->format('j-M') ?? '',
+                'amount' => (float) $a->amount,
+                'left' => round((float) $a->amount - $a->linesTotal(), 3),
+            ])->all(),
             'driverName' => $this->driver === self::NO_DRIVER
                 ? __('Office bill, no driver')
                 : (string) (LimoDriver::query()->whereKey((int) $this->driver)->value('name') ?? ''),

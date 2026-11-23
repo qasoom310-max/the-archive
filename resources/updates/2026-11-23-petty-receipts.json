@@ -1,0 +1,71 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Limousine: a driver's scanned receipts come off the petty cash he was given",
+        "ar": "الليموزين: إيصالات السائق المصوّرة تُخصم من العهدة النقدية التي أُعطيت له"
+    },
+    "points": {
+        "en": [
+            "When you scan a bill for a driver who still holds petty cash, the page asks: paid from the cash this driver was given?",
+            "Choose Yes and the bill goes on that driver's petty cash as one of his receipts, so what he still holds goes down at once.",
+            "When the petty cash is settled, these bills are not written into Expenses a second time.",
+            "Receipts settled from petty cash now show the driver in the Driver column of Expenses."
+        ],
+        "ar": [
+            "عندما تصوّر فاتورة لسائق ما زالت معه عهدة نقدية، تسأل الصفحة: هل دُفعت من النقد الذي أُعطي لهذا السائق؟",
+            "اختر «نعم» فتُضاف الفاتورة إلى عهدة هذا السائق كأحد إيصالاته، فينقص ما بقي معه فوراً.",
+            "عند تسوية العهدة، لا تُكتب هذه الفواتير في المصروفات مرة ثانية.",
+            "الإيصالات المسواة من العهدة تظهر الآن باسم السائق في عمود «السائق» في المصروفات."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, a bill scanned in Expenses and the cash given to a driver were not connected. The petty cash still showed the full amount with the driver, and if the same receipts were also added to the petty cash, they were counted twice in Expenses.",
+            "Now the petty cash is always the driver's own: the advance given to him, whoever handed the money over. Scanning a bill for him offers only his open petty cash.",
+            "If he holds one open advance it is chosen for you. If he holds more than one, or none of them fits, you must choose, including \"No, not from petty cash\" for a bill paid some other way.",
+            "On the petty cash page the receipt shows \"Scanned in Expenses\" with a link to the expense. If the expense amount is corrected, the receipt follows until the petty cash is settled.",
+            "The bill keeps its VAT and its photo in Expenses, exactly as before."
+        ],
+        "ar": [
+            "في السابق لم تكن الفاتورة المصوّرة في المصروفات مرتبطة بالنقد المعطى للسائق. كانت العهدة تُظهر المبلغ كاملاً مع السائق، وإذا أُضيفت الإيصالات نفسها إلى العهدة أيضاً، كانت تُحسب مرتين في المصروفات.",
+            "الآن العهدة دائماً عهدة السائق نفسه: النقد الذي أُعطي له، أياً كان من سلّمه. تصوير فاتورة له يعرض فقط عهدته المفتوحة.",
+            "إذا كانت معه عهدة مفتوحة واحدة تُختار تلقائياً. وإذا كانت معه أكثر من واحدة، أو لا تنطبق، يجب أن تختار، ومنها «لا، ليست من العهدة النقدية» لفاتورة دُفعت بطريقة أخرى.",
+            "في صفحة العهدة يظهر الإيصال «مُصوّرة في المصروفات» مع رابط للمصروف. إذا صُحح مبلغ المصروف، يتبعه الإيصال حتى تُسوّى العهدة.",
+            "الفاتورة تحتفظ بضريبتها وصورتها في المصروفات كما كانت."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Expenses, then Scan a bill, and choose the driver.",
+            "Take the photo of his receipt.",
+            "Under \"Paid from the cash this driver was given?\", choose Yes and the petty cash (it is already chosen if he has only one), or No.",
+            "Press Save and scan next. Do not add the same receipt on the petty cash page as well.",
+            "When all his receipts are in, open Petty Cash, open his advance and settle it."
+        ],
+        "ar": [
+            "افتح الليموزين، ثم المصروفات، ثم «تصوير فاتورة»، واختر السائق.",
+            "صوّر إيصاله.",
+            "تحت «هل دُفعت من النقد الذي أُعطي لهذا السائق؟» اختر «نعم» والعهدة (تكون مختارة إذا كانت له عهدة واحدة)، أو «لا».",
+            "اضغط «حفظ وتصوير التالي». لا تُضف الإيصال نفسه في صفحة العهدة أيضاً.",
+            "عندما تكتمل إيصالاته، افتح العهدة النقدية، ثم عهدته، وسوّها."
+        ]
+    },
+    "images": [
+        {
+            "before": "scan-before.png",
+            "after": "scan-after.png",
+            "caption": {
+                "en": "Scanning a driver's bill. After: it asks whether the bill was paid from his petty cash.",
+                "ar": "تصوير فاتورة سائق. بعد: تسأل هل دُفعت من عهدته النقدية."
+            }
+        },
+        {
+            "before": "advance-before.png",
+            "after": "advance-after.png",
+            "caption": {
+                "en": "The driver's petty cash. After: the scanned bill is one of his receipts.",
+                "ar": "عهدة السائق النقدية. بعد: الفاتورة المصوّرة أحد إيصالاته."
+            }
+        }
+    ]
+}

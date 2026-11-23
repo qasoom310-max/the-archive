@@ -158,6 +158,25 @@ final class LimoExpense extends Model implements DefinesIrModel
             }
         });
 
+        // A scanned receipt counted against a driver's petty cash: if its
+        // amount is corrected, the advance follows, until it is settled.
+        static::saved(static function (LimoExpense $expense): void {
+            if ($expense->wasChanged('amount') && \Illuminate\Support\Facades\Schema::hasColumn('limo_petty_lines', 'expense_id')) {
+                LimoPettyLine::query()
+                    ->where('expense_id', $expense->id)
+                    ->whereHas('advance', static fn ($q) => $q->where('status', '!=', LimoPettyAdvance::STATUS_CLEARED))
+                    ->update(['amount' => $expense->amount]);
+            }
+        });
+
+        // Gone from Expenses: the receipt still counts against the driver's
+        // cash, and settling writes it back as an expense of its own.
+        static::deleted(static function (LimoExpense $expense): void {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('limo_petty_lines', 'expense_id')) {
+                LimoPettyLine::query()->where('expense_id', $expense->id)->update(['expense_id' => null]);
+            }
+        });
+
         static::saving(static function (LimoExpense $expense): void {
             $rate = (int) $expense->vat_rate;
             if (! in_array($rate, self::VAT_RATES, true)) {

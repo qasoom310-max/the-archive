@@ -23,6 +23,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $photo_path
  * @property int|null $car_id
  * @property string|null $vehicle  Label snapshot — survives the car being renamed or sold
+ * @property int|null $expense_id  The expense this receipt was scanned as; settling does not write it again
+ * @property-read LimoExpense|null $expense
  * @property-read LimoPettyAdvance|null $advance
  */
 final class LimoPettyLine extends Model
@@ -30,7 +32,7 @@ final class LimoPettyLine extends Model
     protected $table = 'limo_petty_lines';
 
     /** @var list<string> */
-    protected $fillable = ['advance_id', 'date', 'category', 'description', 'amount', 'photo_path', 'car_id', 'vehicle'];
+    protected $fillable = ['advance_id', 'date', 'category', 'description', 'amount', 'photo_path', 'car_id', 'vehicle', 'expense_id'];
 
     /** @var array<string, mixed> */
     protected $attributes = ['category' => 'Fuel', 'amount' => 0];
@@ -45,6 +47,7 @@ final class LimoPettyLine extends Model
             'car_id' => 'integer',
             'date' => 'date',
             'amount' => 'float',
+            'expense_id' => 'integer',
         ];
     }
 
@@ -54,5 +57,13 @@ final class LimoPettyLine extends Model
     public function advance(): BelongsTo
     {
         return $this->belongsTo(LimoPettyAdvance::class, 'advance_id');
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo<LimoExpense, $this>
+     */
+    public function expense(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(LimoExpense::class, 'expense_id');
     }
 }

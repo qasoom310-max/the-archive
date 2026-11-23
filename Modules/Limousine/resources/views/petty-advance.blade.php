@@ -64,11 +64,14 @@
                                         @if ($line->photo_path)
                                             <a href="{{ Storage::disk('public')->url($line->photo_path) }}" target="_blank" class="ms-1 text-xs text-primary-700 hover:underline">{{ __('Photo') }}</a>
                                         @endif
+                                        @if ($line->expense_id)
+                                            <a href="{{ url('/app/limousine/expense/' . $line->expense_id) }}" wire:navigate class="ms-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 hover:underline" data-line-expense>{{ __('Scanned in Expenses') }}</a>
+                                        @endif
                                     </td>
                                     <td class="py-2 text-end font-medium text-chrome-800">{{ \App\Erp\Views\ValueFormat::money($line->amount) }}</td>
                                     <td class="py-2 text-end">
                                         @if ($canEdit)
-                                            <button type="button" wire:click="removeLine({{ $line->id }})" class="text-xs text-red-500 hover:underline">{{ __('Remove') }}</button>
+                                            <button type="button" wire:click="removeLine({{ $line->id }})" @if ($line->expense_id) wire:confirm="{{ __('Take this receipt off this petty cash? The expense itself stays in Expenses.') }}" @endif class="text-xs text-red-500 hover:underline">{{ __('Remove') }}</button>
                                         @endif
                                     </td>
                                 </tr>

@@ -265,6 +265,12 @@ final class PettyCash
             $driverName = (string) ($advance->driver->name ?? '');
 
             foreach ($advance->lines as $line) {
+                // Scanned in Expenses already, against this driver's cash:
+                // the expense exists, so it is not written a second time.
+                if ($line->expense_id !== null && LimoExpense::query()->whereKey($line->expense_id)->exists()) {
+                    continue;
+                }
+
                 // The line stores the category's NAME (the owner's list); the
                 // ledger has fixed slots. An owner-invented category files
                 // under "other" but keeps its name in the notes, so nothing
@@ -276,6 +282,8 @@ final class PettyCash
                     'category' => $slot,
                     'amount' => $line->amount,
                     'payee' => $driverName,
+                    // Whose receipts these are, for the Driver column in Expenses.
+                    'driver_id' => $advance->driver_id,
                     'notes' => trim(
                         $advance->reference
                         . ($slot === 'other' ? ' — ' . $line->category : '')

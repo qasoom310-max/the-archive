@@ -481,4 +481,20 @@ final class LimoPettyCashTest extends TestCase
             ->assertSet('floatMonth', now()->subMonthNoOverflow()->format('Y-m'))
             ->assertSee('No money moved in or out of the float in this period.');
     }
+
+    /** Receipts settled from petty cash carry their driver, for the Driver filter in Expenses. */
+    public function test_settling_files_the_receipts_under_their_driver(): void
+    {
+        $this->asAccountant();
+        $driver = \Modules\Limousine\Models\LimoDriver::query()->create(['name' => 'Sam']);
+        $petty = app(\Modules\Limousine\Services\PettyCash::class);
+        $petty->topUp(100, now()->toDateString(), null, 'Owner');
+        $advance = $petty->issue($driver, 30, now()->toDateString(), null, 'Abbas');
+        $this->assertNotNull($advance);
+        $advance->lines()->create(['date' => now()->toDateString(), 'category' => 'Fuel', 'amount' => 30]);
+        $petty->confirm($advance, 'Amal');
+        $petty->settle($advance->fresh() ?? $advance, 'Amal');
+
+        $this->assertSame($driver->id, \Modules\Limousine\Models\LimoExpense::query()->firstOrFail()->driver_id);
+    }
 }

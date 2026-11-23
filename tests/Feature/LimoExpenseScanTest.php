@@ -380,4 +380,104 @@ final class LimoExpenseScanTest extends TestCase
             ->call('applyDynamicFilter', 'driver', '')
             ->assertSee('Office Paper Shop');
     }
+
+    /** @return array{0: \Modules\Limousine\Models\LimoDriver, 1: \Modules\Limousine\Models\LimoPettyAdvance} */
+    private function driverWithCash(string $name = 'Sam Driver', float $cash = 50): array
+    {
+        $driver = \Modules\Limousine\Models\LimoDriver::query()->create(['name' => $name]);
+        $petty = app(\Modules\Limousine\Services\PettyCash::class);
+        $petty->topUp(500, now()->toDateString(), null, 'Owner');
+        $advance = $petty->issue($driver, $cash, now()->toDateString(), null, 'Abbas');
+        $this->assertNotNull($advance);
+        \Modules\Limousine\Models\LimoPettyCategory::query()->firstOrCreate(['name' => 'Fuel'], ['expense_category' => 'fuel']);
+
+        return [$driver, $advance];
+    }
+
+    private function parkedBill(): string
+    {
+        $this->readerReturning(['net_amount' => 10.0, 'vat_amount' => 1.0, 'total' => 11.0, 'category' => 'fuel']);
+
+        return (string) $this->post('/app/limousine/expense/scan', ['file' => UploadedFile::fake()->image('bill.jpg', 600, 800)])->assertOk()->json('token');
+    }
+
+    /** The owner: a receipt scanned for a driver comes off the cash THAT driver was given. */
+    public function test_a_scanned_bill_counts_against_the_cash_its_driver_was_given(): void
+    {
+        [$driver, $advance] = $this->driverWithCash();
+
+        $page = Livewire::test(ExpenseScan::class)
+            ->set('driver', (string) $driver->id)
+            // One open advance: chosen for them.
+            ->assertSet('advance', (string) $advance->id)
+            ->call('review', $this->parkedBill())
+            ->assertSeeHtml('data-scan-advance')
+            ->call('saveAndNext')
+            ->assertHasNoErrors();
+
+        $expense = LimoExpense::query()->firstOrFail();
+        $line = $advance->lines()->firstOrFail();
+        $this->assertSame($expense->id, $line->expense_id);
+        $this->assertSame(11.0, $line->amount);
+        $this->assertSame($driver->id, $expense->driver_id);
+        $this->assertSame(11.0, $advance->fresh()?->linesTotal());
+
+        // The run keeps the answer for the next bill.
+        $page->call('review', $this->parkedBill())->assertSet('advance', (string) $advance->id);
+
+        // Settling does not write the scanned receipt a second time.
+        $petty = app(\Modules\Limousine\Services\PettyCash::class);
+        $petty->confirm($advance, 'Accountant');
+        $result = $petty->settle($advance->fresh() ?? $advance, 'Accountant');
+        $this->assertSame(39.0, $result['shortfall'] ?? null);
+        $this->assertSame(1, LimoExpense::query()->count());
+    }
+
+    public function test_a_driver_holding_cash_must_say_whether_the_bill_came_from_it(): void
+    {
+        [$driver] = $this->driverWithCash();
+        $this->driverWithCash('Other Driver');
+        // A second open advance of the same driver: no guess.
+        app(\Modules\Limousine\Services\PettyCash::class)->issue($driver, 20, now()->toDateString(), null, 'Abbas');
+
+        $page = Livewire::test(ExpenseScan::class)
+            ->set('driver', (string) $driver->id)
+            ->assertSet('advance', '')
+            ->call('review', $this->parkedBill())
+            ->call('saveAndNext')
+            ->assertHasErrors('advance');
+        $this->assertSame(0, LimoExpense::query()->count());
+
+        // Another driver's cash is refused.
+        $other = \Modules\Limousine\Models\LimoPettyAdvance::query()->where('driver_id', '!=', $driver->id)->firstOrFail();
+        $page->set('advance', (string) $other->id)->call('saveAndNext')->assertHasErrors('advance');
+
+        // "Not from petty cash" saves the expense and touches no advance.
+        $page->set('advance', ExpenseScan::NO_ADVANCE)->call('saveAndNext')->assertHasNoErrors();
+        $this->assertSame(1, LimoExpense::query()->count());
+        $this->assertSame(0, \Modules\Limousine\Models\LimoPettyLine::query()->count());
+    }
+
+    public function test_a_settled_advance_is_not_offered_and_corrections_follow_the_receipt(): void
+    {
+        [$driver, $advance] = $this->driverWithCash();
+
+        Livewire::test(ExpenseScan::class)->set('driver', (string) $driver->id)
+            ->call('review', $this->parkedBill())->call('saveAndNext')->assertHasNoErrors();
+
+        // The expense amount is corrected: the receipt on the cash follows.
+        $expense = LimoExpense::query()->firstOrFail();
+        $expense->forceFill(['net_amount' => 20, 'vat_rate' => 0])->save();
+        $this->assertSame(20.0, $advance->lines()->firstOrFail()->amount);
+
+        // Settled: no longer offered.
+        $petty = app(\Modules\Limousine\Services\PettyCash::class);
+        $petty->confirm($advance, 'Accountant');
+        $petty->settle($advance->fresh() ?? $advance, 'Accountant');
+
+        Livewire::test(ExpenseScan::class)->set('driver', (string) $driver->id)
+            ->call('review', $this->parkedBill())
+            ->assertDontSeeHtml('data-scan-advance')
+            ->call('saveAndNext')->assertHasNoErrors();
+    }
 }

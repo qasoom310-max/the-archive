@@ -3892,5 +3892,12 @@
     "Trips driven from :date up to now, less what was paid.": "الرحلات المنفذة من :date حتى الآن، ناقص ما دُفع.",
     "Trips given to drivers that have not happened yet. Owed once they are driven.": "رحلات أُعطيت للسائقين ولم تتم بعد. تصبح مستحقة عند تنفيذها.",
     "What each outside driver is owed, and every payment made to them.": "ما يستحقه كل سائق خارجي، وكل دفعة دُفعت له.",
-    "Who can ask for a payment": "من يستطيع طلب الدفعة"
+    "Who can ask for a payment": "من يستطيع طلب الدفعة",
+    "No, not from petty cash": "لا، ليست من العهدة النقدية",
+    "Paid from the cash this driver was given?": "هل دُفعت من النقد الذي أُعطي لهذا السائق؟",
+    "Say whether this bill was paid from the cash this driver was given.": "حدد هل دُفعت هذه الفاتورة من النقد الذي أُعطي لهذا السائق.",
+    "Scanned in Expenses": "مُصوّرة في المصروفات",
+    "Take this receipt off this petty cash? The expense itself stays in Expenses.": "إزالة هذا الإيصال من هذه العهدة؟ المصروف نفسه يبقى في المصروفات.",
+    "Yes puts this bill on that petty cash, so what the driver still holds goes down.": "«نعم» تضع هذه الفاتورة على تلك العهدة، فينقص ما بقي مع السائق.",
+    "Yes, from :reference (given :date, :left left)": "نعم، من :reference (أُعطيت :date، المتبقي :left)"
 }

@@ -130,6 +130,20 @@
                         </select>
                         @error('driver') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
+                    @if ($openAdvances !== [])
+                        <div class="rounded-lg bg-primary-400/15 p-3 ring-1 ring-primary-600/20" data-scan-advance>
+                            <label class="{{ $lbl }}">{{ __('Paid from the cash this driver was given?') }} <span class="text-red-500">*</span></label>
+                            <select wire:model="advance" class="o-input w-full">
+                                <option value="">{{ __('Choose…') }}</option>
+                                @foreach ($openAdvances as $a)
+                                    <option value="{{ $a['id'] }}">{{ __('Yes, from :reference (given :date, :left left)', ['reference' => $a['reference'], 'date' => $a['date'], 'left' => $money($a['left'], 'BHD')]) }}</option>
+                                @endforeach
+                                <option value="none">{{ __('No, not from petty cash') }}</option>
+                            </select>
+                            <p class="mt-1 text-xs text-chrome-500">{{ __('Yes puts this bill on that petty cash, so what the driver still holds goes down.') }}</p>
+                            @error('advance') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    @endif
                     <div>
                         <label class="{{ $lbl }}">{{ __('Date') }} <span class="text-red-500">*</span></label>
                         <x-date-field wire:model="date" class="o-input w-full" />

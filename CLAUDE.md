@@ -5843,3 +5843,8 @@ Tests: `LimoDriverBillLinkTest` (7).
 and under the link in the trip message: a photo is not counted on petty cash until the
 ORIGINAL bill reaches Accounts. The system does not enforce it: answering Yes on the check
 screen counts the bill at once, so the office waits for the paper before saving.
+**…saved only with the original paper (same day, the owner: the VAT authority asks for
+originals at year end).** `ExpenseScan` refuses to save a driver bill (`billId`) unless
+`$originalReceived` is ticked; the expense gets `original_received_at` / `original_received_by`
+(Limousine migration `2026_11_23_950070`), shown on the expense page. Bills waiting ≥2 days
+are marked red on the list. Office-scanned bills (paper already in hand) are not asked.

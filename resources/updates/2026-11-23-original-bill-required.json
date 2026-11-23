@@ -1,0 +1,65 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Bills from drivers are saved only with the original paper bill",
+        "ar": "فواتير السائقين لا تُحفظ إلا مع الفاتورة الورقية الأصلية"
+    },
+    "points": {
+        "en": [
+            "A bill a driver photographed can be saved only after you tick \"I have the ORIGINAL paper bill\".",
+            "The expense records who received the original and when.",
+            "Bills waiting more than two days for their original show it in red."
+        ],
+        "ar": [
+            "الفاتورة التي صوّرها السائق لا تُحفظ إلا بعد وضع علامة على «الفاتورة الورقية الأصلية معي».",
+            "يحفظ المصروف من استلم الأصل ومتى.",
+            "الفواتير التي تنتظر أصلها أكثر من يومين تظهر بالأحمر."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, a driver's photo could be saved as an expense, and counted on his petty cash, while the paper bill was still with him.",
+            "The VAT authority asks for the original bills at the end of the year, so a photo alone is not enough.",
+            "Now the check screen has a yellow box: \"I have the ORIGINAL paper bill\". Saving without ticking it is refused. When it is ticked, the expense shows \"Original paper received by\" with the name and date.",
+            "Until the paper arrives, the bill stays in Bills from drivers. After two days it is marked in red so you can chase the driver."
+        ],
+        "ar": [
+            "في السابق كان يمكن حفظ صورة السائق مصروفاً، واحتسابها من عهدته، والفاتورة الورقية ما زالت معه.",
+            "جهاز الضريبة يطلب الفواتير الأصلية في نهاية السنة، فالصورة وحدها لا تكفي.",
+            "الآن شاشة المراجعة فيها مربع أصفر: «الفاتورة الورقية الأصلية معي». الحفظ بدون العلامة مرفوض. وعند وضعها يُظهر المصروف «استلم الفاتورة الأصلية» مع الاسم والتاريخ.",
+            "حتى تصل الورقة، تبقى الفاتورة في «فواتير من السائقين». بعد يومين تظهر بالأحمر حتى تتابع مع السائق."
+        ]
+    },
+    "guide": {
+        "en": [
+            "When a driver hands in his original bills, open Limousine, then Expenses, then Bills from drivers.",
+            "Press Check and save on the bill that matches the paper.",
+            "Check the figures, tick \"I have the ORIGINAL paper bill\", and press Save.",
+            "File the paper with the other originals."
+        ],
+        "ar": [
+            "عندما يسلّم السائق فواتيره الأصلية، افتح الليموزين ثم المصروفات ثم «فواتير من السائقين».",
+            "اضغط «راجع واحفظ» على الفاتورة المطابقة للورقة.",
+            "راجع الأرقام، وضع علامة على «الفاتورة الورقية الأصلية معي»، ثم اضغط «حفظ».",
+            "احفظ الورقة مع باقي الأصول."
+        ]
+    },
+    "images": [
+        {
+            "before": "check-before.png",
+            "after": "check-after.png",
+            "caption": {
+                "en": "Checking a driver's bill. After: the original paper box that must be ticked.",
+                "ar": "مراجعة فاتورة سائق. بعد: مربع الفاتورة الأصلية الذي يجب وضع علامة عليه."
+            }
+        },
+        {
+            "before": "list-before.png",
+            "after": "list-after.png",
+            "caption": {
+                "en": "Bills from drivers. After: the rule at the top, and a bill whose original is late.",
+                "ar": "فواتير من السائقين. بعد: القاعدة في الأعلى، وفاتورة تأخر أصلها."
+            }
+        }
+    ]
+}

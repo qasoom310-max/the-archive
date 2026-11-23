@@ -6,6 +6,7 @@
     <div class="mb-5">
         <h1 class="text-2xl font-bold tracking-tight text-chrome-900">{{ __('Bills from drivers') }}</h1>
         <p class="mt-1 text-sm text-chrome-500">{{ __('Bills drivers photographed through the link sent with their trip. Check each one and save it, or set it aside.') }}</p>
+        <p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900 ring-1 ring-amber-200" data-originals-rule>{{ __('Save a bill only when its original paper has reached the office. The VAT authority asks for the originals.') }}</p>
     </div>
 
     <div class="mb-6 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chrome-900/5">
@@ -20,6 +21,10 @@
                         <div class="font-semibold text-chrome-900">{{ $bill->driver?->name ?? '—' }}</div>
                         <div class="text-xs text-chrome-500">
                             {{ __('Trip') }} {{ $bill->leg?->reference ?? '—' }} · {{ __('sent') }} {{ $bill->created_at?->format('j-M H:i') }}
+                            @php $days = (int) $bill->created_at?->diffInDays(now()); @endphp
+                            @if ($days >= 2)
+                                · <span class="font-semibold text-red-600">{{ __('original not in after :count days', ['count' => $days]) }}</span>
+                            @endif
                         </div>
                         <div class="text-xs {{ $bill->readTotal() !== null ? 'text-chrome-700' : 'text-amber-700' }}">
                             @if ($bill->readTotal() !== null)

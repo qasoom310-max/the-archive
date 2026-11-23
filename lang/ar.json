@@ -3927,5 +3927,10 @@
     "This link has taken all the bills it can. Send the rest to the office.": "هذا الرابط استقبل الحد الأقصى من الفواتير. أرسل الباقي إلى المكتب.",
     "To check": "للمراجعة",
     "Your bills for this trip (link works 48 hours)": "فواتيرك لهذه الرحلة (الرابط يعمل 48 ساعة)",
-    "bills sent with this link": "فواتير أُرسلت بهذا الرابط"
+    "bills sent with this link": "فواتير أُرسلت بهذا الرابط",
+    "I have the ORIGINAL paper bill. It is needed for the VAT authority.": "الفاتورة الورقية الأصلية معي. مطلوبة لجهاز الضريبة.",
+    "Original paper received by :name on :date": "استلم :name الفاتورة الأصلية في :date",
+    "Save a bill only when its original paper has reached the office. The VAT authority asks for the originals.": "احفظ الفاتورة فقط عندما تصل ورقتها الأصلية إلى المكتب. جهاز الضريبة يطلب الأصول.",
+    "Save it only when the original paper bill has reached the office. Tick the box when you hold it.": "احفظها فقط عندما تصل الفاتورة الورقية الأصلية إلى المكتب. ضع علامة في المربع عندما تكون معك.",
+    "original not in after :count days": "الأصل لم يصل بعد :count أيام"
 }

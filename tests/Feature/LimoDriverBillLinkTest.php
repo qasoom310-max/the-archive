@@ -152,6 +152,10 @@ final class LimoDriverBillLinkTest extends TestCase
             ->assertSet('advance', (string) $advance->id)
             ->assertSet('net_amount', '10')
             ->assertSeeHtml('data-driver-bill-photo')
+            // Not without the original paper: the VAT authority asks for it.
+            ->call('save')
+            ->assertHasErrors('originalReceived')
+            ->set('originalReceived', true)
             ->call('save')
             ->assertHasNoErrors()
             ->assertRedirect(url('/app/limousine/expense/driver-bills'));
@@ -159,6 +163,8 @@ final class LimoDriverBillLinkTest extends TestCase
         $expense = LimoExpense::query()->firstOrFail();
         $this->assertSame('limo_expense_bills/drivers/b.jpg', $expense->getAttribute('bill_path'));
         $this->assertSame($this->driver->id, $expense->driver_id);
+        $this->assertNotNull($expense->original_received_at);
+        $this->assertNotSame('', (string) $expense->original_received_by);
         $this->assertSame(LimoDriverBill::STATUS_SAVED, $bill->fresh()?->status);
         $this->assertSame($expense->id, $bill->fresh()?->expense_id);
         $this->assertSame(11.0, $advance->fresh()?->linesTotal());

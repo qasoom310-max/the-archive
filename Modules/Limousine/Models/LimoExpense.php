@@ -24,6 +24,8 @@ use Illuminate\Support\Carbon;
  * @property float $vat_amount  worked out from the two above
  * @property string|null $payee
  * @property int|null $booking_id
+ * @property Carbon|null $original_received_at  when the office confirmed it holds the paper bill
+ * @property string|null $original_received_by
  * @property int|null $driver_id  the driver whose bill this is; null for an office bill
  * @property-read LimoDriver|null $driver
  * @property-read string $driver_name
@@ -77,6 +79,7 @@ final class LimoExpense extends Model implements DefinesIrModel
             'vat_amount' => 'float',
             'booking_id' => 'integer',
             'driver_id' => 'integer',
+            'original_received_at' => 'datetime',
             'bill_amount' => 'float',
             'bill_rate' => 'float',
         ];

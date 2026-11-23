@@ -207,6 +207,15 @@
                     </div>
                 </div>
 
+                @if ($billPhoto)
+                    {{-- A driver only sent a photo: the paper must be here before it counts. --}}
+                    <label class="mt-4 flex items-start gap-3 rounded-xl border-2 border-amber-400 bg-amber-50 p-3 text-sm font-semibold text-amber-900" data-original-received>
+                        <input type="checkbox" wire:model="originalReceived" class="mt-0.5 size-5 rounded border-amber-500 text-amber-600">
+                        <span>{{ __('I have the ORIGINAL paper bill. It is needed for the VAT authority.') }}</span>
+                    </label>
+                    @error('originalReceived') <p class="mt-1 text-sm font-medium text-red-600">{{ $message }}</p> @enderror
+                @endif
+
                 @error('scan') <p class="mt-3 text-sm font-medium text-red-600">{{ $message }}</p> @enderror
 
                 {{-- Stays at the bottom of a phone screen while the boxes scroll,

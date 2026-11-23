@@ -19,6 +19,12 @@
         </a>
     @endif
 
+    @if ($expense?->original_received_at)
+        <p class="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 ring-1 ring-emerald-100" data-original-received-line>
+            ✓ {{ __('Original paper received by :name on :date', ['name' => $expense->original_received_by ?: '—', 'date' => $expense->original_received_at->format('j-M-Y')]) }}
+        </p>
+    @endif
+
     {{-- A bill in another currency: what the paper said, beside the BHD figures below. --}}
     @if ($expense && $expense->bill_currency !== 'BHD' && $expense->bill_amount !== null)
         <p class="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900" data-expense-bill-currency>

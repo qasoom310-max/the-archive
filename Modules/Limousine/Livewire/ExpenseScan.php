@@ -48,6 +48,12 @@ final class ExpenseScan extends Component
     #[Locked]
     public array $check = [];
 
+    /**
+     * A driver's photographed bill is saved only with its ORIGINAL paper in the
+     * office: the VAT authority asks for the originals at the year end.
+     */
+    public bool $originalReceived = false;
+
     /** A bill a driver sent through his trip link, being checked. Server-set only. */
     #[Locked]
     public int $billId = 0;
@@ -396,6 +402,12 @@ final class ExpenseScan extends Component
             return null;
         }
 
+        if ($bill !== null && ! $this->originalReceived) {
+            $this->addError('originalReceived', __('Save it only when the original paper bill has reached the office. Tick the box when you hold it.'));
+
+            return null;
+        }
+
         // Whose bill it is has to be said, even if the answer is "nobody's".
         if ($this->driver !== self::NO_DRIVER && $this->driverId() === null) {
             $this->addError('driver', __('Choose the driver these bills belong to, or choose "Office bill, no driver".'));
@@ -455,6 +467,12 @@ final class ExpenseScan extends Component
         $expense->save();
 
         if ($bill !== null) {
+            // Who holds the paper, for the VAT authority's year-end questions.
+            $expense->forceFill([
+                'original_received_at' => now(),
+                'original_received_by' => (string) (Auth::user()->name ?? ''),
+            ])->saveQuietly();
+
             $bill->forceFill([
                 'status' => LimoDriverBill::STATUS_SAVED,
                 'expense_id' => $expense->id,

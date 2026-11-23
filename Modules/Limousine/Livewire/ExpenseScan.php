@@ -19,7 +19,6 @@ use Livewire\Component;
 use Modules\Limousine\Http\Controllers\ExpenseBillController;
 use Modules\Limousine\Models\LimoDriver;
 use Modules\Limousine\Models\LimoPettyAdvance;
-use Modules\Limousine\Models\LimoPettyCategory;
 use Modules\Limousine\Models\LimoExpense;
 use Modules\Limousine\Services\BillScanner;
 
@@ -399,19 +398,7 @@ final class ExpenseScan extends Component
      */
     private function countAgainst(LimoPettyAdvance $advance, LimoExpense $expense): void
     {
-        $category = LimoPettyCategory::query()->where('expense_category', $expense->category)->value('name');
-        if (! is_string($category) || $category === '') {
-            $labels = array_column(LimoExpense::categoryOptions(), 'label', 'value');
-            $category = (string) ($labels[$expense->category] ?? 'Other');
-        }
-
-        $advance->lines()->create([
-            'date' => $expense->date?->toDateString() ?? now()->toDateString(),
-            'category' => $category,
-            'description' => trim((string) ($expense->payee ?? '') . ' · ' . (string) $expense->reference, ' ·'),
-            'amount' => round((float) $expense->amount, 3),
-            'expense_id' => $expense->id,
-        ]);
+        app(\Modules\Limousine\Services\PettyCash::class)->addExpenseAsReceipt($advance, $expense);
     }
 
     /**

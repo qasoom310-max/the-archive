@@ -5816,3 +5816,9 @@ AND a `limo_petty_lines` row is added with `expense_id` (Limousine migration
 advance follows the amount; deleted → the line is unlinked (settling writes it back). The
 advance page tags such lines "Scanned in Expenses". The typed New expense form does not ask.
 Tests: `LimoExpenseScanTest` (+3), `LimoPettyCashTest` (+1).
+**…and bills scanned before the link (same day).** The advance page lists
+`PettyCash::unlinkedExpensesFor()` (this driver's expenses not on any petty line, from a
+month before the advance date, ≤100) with tick boxes; `linkExpenses()` →
+`PettyCash::addExpenseAsReceipt()` (shared with `ExpenseScan`; refuses a cleared advance,
+another driver's expense, or one already linked). `settle()` now stamps the `expense_id` it
+writes on each line, so settled receipts are never offered again. Tests: `LimoPettyCashTest` (+2).

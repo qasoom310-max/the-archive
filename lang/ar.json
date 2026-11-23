@@ -3899,5 +3899,9 @@
     "Scanned in Expenses": "مُصوّرة في المصروفات",
     "Take this receipt off this petty cash? The expense itself stays in Expenses.": "إزالة هذا الإيصال من هذه العهدة؟ المصروف نفسه يبقى في المصروفات.",
     "Yes puts this bill on that petty cash, so what the driver still holds goes down.": "«نعم» تضع هذه الفاتورة على تلك العهدة، فينقص ما بقي مع السائق.",
-    "Yes, from :reference (given :date, :left left)": "نعم، من :reference (أُعطيت :date، المتبقي :left)"
+    "Yes, from :reference (given :date, :left left)": "نعم، من :reference (أُعطيت :date، المتبقي :left)",
+    "His bills already in Expenses": "فواتيره الموجودة في المصروفات",
+    "Scanned for this driver but not on any petty cash yet. Tick the ones paid from this cash. They are not added to Expenses again.": "صُوّرت لهذا السائق لكنها ليست على أي عهدة بعد. حدد التي دُفعت من هذا النقد. لن تُضاف إلى المصروفات مرة أخرى.",
+    "Add ticked to this petty cash": "أضف المحددة إلى هذه العهدة",
+    "Receipts added to this petty cash: :count": "الإيصالات المضافة إلى هذه العهدة: :count"
 }

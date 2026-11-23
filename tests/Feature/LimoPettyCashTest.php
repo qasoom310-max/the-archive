@@ -497,4 +497,54 @@ final class LimoPettyCashTest extends TestCase
 
         $this->assertSame($driver->id, \Modules\Limousine\Models\LimoExpense::query()->firstOrFail()->driver_id);
     }
+
+    /** Bills scanned for a driver before the link existed are added to his cash, not re-entered. */
+    public function test_his_bills_already_in_expenses_are_added_to_his_cash_without_a_second_expense(): void
+    {
+        $this->asAccountant();
+        $sam = \Modules\Limousine\Models\LimoDriver::query()->create(['name' => 'Sam']);
+        $other = \Modules\Limousine\Models\LimoDriver::query()->create(['name' => 'Other']);
+        $petty = app(\Modules\Limousine\Services\PettyCash::class);
+        $petty->topUp(100, now()->toDateString(), null, 'Owner');
+        $advance = $petty->issue($sam, 30, now()->toDateString(), null, 'Abbas');
+        $this->assertNotNull($advance);
+
+        $mine = \Modules\Limousine\Models\LimoExpense::query()->create(['date' => now()->toDateString(), 'category' => 'fuel', 'amount' => 12, 'payee' => 'Station', 'driver_id' => $sam->id]);
+        $notMine = \Modules\Limousine\Models\LimoExpense::query()->create(['date' => now()->toDateString(), 'category' => 'fuel', 'amount' => 9, 'payee' => 'Station', 'driver_id' => $other->id]);
+
+        Livewire::test(\Modules\Limousine\Livewire\PettyAdvancePage::class, ['id' => $advance->id])
+            ->assertSee('Station')
+            ->assertSee((string) $mine->reference)
+            ->assertDontSee((string) $notMine->reference)
+            ->set('linkIds', [$mine->id, $notMine->id])
+            ->call('linkExpenses')
+            ->assertDontSeeHtml('data-unlinked-expenses');
+
+        $this->assertSame(12.0, $advance->fresh()?->linesTotal());
+        $this->assertSame(0, \Modules\Limousine\Models\LimoPettyLine::query()->where('expense_id', $notMine->id)->count());
+
+        // Adding the same bill again does nothing; settling writes no second expense.
+        $this->assertNull($petty->addExpenseAsReceipt($advance->fresh() ?? $advance, $mine));
+        $petty->confirm($advance->fresh() ?? $advance, 'Amal');
+        $petty->settle($advance->fresh() ?? $advance, 'Amal');
+        $this->assertSame(2, \Modules\Limousine\Models\LimoExpense::query()->count());
+    }
+
+    public function test_receipts_written_by_settling_are_never_offered_again(): void
+    {
+        $this->asAccountant();
+        $sam = \Modules\Limousine\Models\LimoDriver::query()->create(['name' => 'Sam']);
+        $petty = app(\Modules\Limousine\Services\PettyCash::class);
+        $petty->topUp(100, now()->toDateString(), null, 'Owner');
+        $first = $petty->issue($sam, 20, now()->toDateString(), null, 'Abbas');
+        $this->assertNotNull($first);
+        $first->lines()->create(['date' => now()->toDateString(), 'category' => 'Fuel', 'amount' => 20]);
+        $petty->confirm($first, 'Amal');
+        $petty->settle($first->fresh() ?? $first, 'Amal');
+
+        $second = $petty->issue($sam, 20, now()->toDateString(), null, 'Abbas');
+        $this->assertNotNull($second);
+
+        $this->assertCount(0, $petty->unlinkedExpensesFor($second));
+    }
 }

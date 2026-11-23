@@ -1,0 +1,57 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Petty cash: add a driver's bills that were already scanned in Expenses",
+        "ar": "العهدة النقدية: أضف فواتير السائق المصوّرة مسبقاً في المصروفات"
+    },
+    "points": {
+        "en": [
+            "A driver's petty cash page now lists his bills that are already in Expenses but not on any petty cash.",
+            "Tick the ones he paid from this cash and press Add ticked to this petty cash. What he still holds goes down.",
+            "They are not written into Expenses again when the petty cash is settled."
+        ],
+        "ar": [
+            "صفحة العهدة النقدية للسائق تعرض الآن فواتيره الموجودة في المصروفات وليست على أي عهدة.",
+            "حدد التي دفعها من هذا النقد واضغط «أضف المحددة إلى هذه العهدة». ينقص ما بقي معه.",
+            "لا تُكتب في المصروفات مرة أخرى عند تسوية العهدة."
+        ]
+    },
+    "details": {
+        "en": [
+            "Bills scanned for a driver before today were saved in Expenses only. They were not on his petty cash, so the petty cash still showed all the money with him, and adding the same receipts again on the petty cash page would have counted them twice.",
+            "Now the petty cash page shows those bills in a yellow box: only this driver's, only ones not already on a petty cash, from a month before the cash was given.",
+            "Ticked bills become receipts on this petty cash and point at the expense they came from. Settling does not create new expenses for them.",
+            "A bill can be on only one petty cash. Bills that settling writes into Expenses are also remembered, so they are never offered again."
+        ],
+        "ar": [
+            "الفواتير المصوّرة لسائق قبل اليوم حُفظت في المصروفات فقط. لم تكن على عهدته، فكانت العهدة تُظهر كل المال معه، وإضافة الإيصالات نفسها مرة أخرى في صفحة العهدة كانت ستحسبها مرتين.",
+            "الآن صفحة العهدة تعرض هذه الفواتير في مربع أصفر: فواتير هذا السائق فقط، والتي ليست على عهدة، من شهر قبل إعطاء النقد.",
+            "الفواتير المحددة تصبح إيصالات على هذه العهدة وتشير إلى المصروف الذي جاءت منه. التسوية لا تنشئ لها مصروفات جديدة.",
+            "الفاتورة تكون على عهدة واحدة فقط. والفواتير التي تكتبها التسوية في المصروفات تُحفظ أيضاً، فلا تُعرض مرة أخرى."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Petty Cash, and open the driver's petty cash.",
+            "Look at the yellow box \"His bills already in Expenses\".",
+            "Tick every bill he paid from this cash.",
+            "Press Add ticked to this petty cash. Check the Settlement box, then settle when all his receipts are in."
+        ],
+        "ar": [
+            "افتح الليموزين، ثم العهدة النقدية، وافتح عهدة السائق.",
+            "انظر إلى المربع الأصفر «فواتيره الموجودة في المصروفات».",
+            "حدد كل فاتورة دفعها من هذا النقد.",
+            "اضغط «أضف المحددة إلى هذه العهدة». راجع مربع التسوية، ثم سوِّ العهدة عندما تكتمل إيصالاته."
+        ]
+    },
+    "images": [
+        {
+            "before": "advance-before.png",
+            "after": "advance-after.png",
+            "caption": {
+                "en": "A driver's petty cash. After: his bills already in Expenses, ready to tick.",
+                "ar": "عهدة سائق نقدية. بعد: فواتيره الموجودة في المصروفات جاهزة للتحديد."
+            }
+        }
+    ]
+}

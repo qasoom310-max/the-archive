@@ -12,6 +12,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Modules\Limousine\Models\LimoDriver;
 use Modules\Limousine\Models\LimoExpense;
+use Modules\Limousine\Models\LimoPettyCategory;
+use Modules\Limousine\Models\LimoPettyLine;
 use Modules\Limousine\Models\LimoPettyAdvance;
 use Modules\Limousine\Models\LimoPettyTopup;
 
@@ -277,7 +279,7 @@ final class PettyCash
                 // is lost in translation.
                 $slot = \Modules\Limousine\Models\LimoPettyCategory::expenseSlotFor($line->category);
 
-                LimoExpense::query()->create([
+                $written = LimoExpense::query()->create([
                     'date' => $line->date,
                     'category' => $slot,
                     'amount' => $line->amount,
@@ -292,9 +294,63 @@ final class PettyCash
                         ' —',
                     ),
                 ]);
+
+                // Remembered on the receipt, so it is never offered or written again.
+                $line->forceFill(['expense_id' => $written->id])->saveQuietly();
             }
 
             return ['receipts_total' => $total, 'shortfall' => $shortfall, 'excess' => $excess];
         });
+    }
+
+    /**
+     * Put an expense already in Expenses on a driver's advance as one of his
+     * receipts. Only HIS advance, only while it is open, and only an expense
+     * not already on any petty cash, so a receipt can never count twice.
+     */
+    public function addExpenseAsReceipt(LimoPettyAdvance $advance, LimoExpense $expense): ?LimoPettyLine
+    {
+        if ($advance->isCleared()
+            || $expense->driver_id === null
+            || (int) $expense->driver_id !== (int) $advance->driver_id
+            || LimoPettyLine::query()->where('expense_id', $expense->id)->exists()) {
+            return null;
+        }
+
+        $category = LimoPettyCategory::query()->where('expense_category', $expense->category)->value('name');
+        if (! is_string($category) || $category === '') {
+            $labels = array_column(LimoExpense::categoryOptions(), 'label', 'value');
+            $category = (string) ($labels[$expense->category] ?? 'Other');
+        }
+
+        return $advance->lines()->create([
+            'date' => $expense->date?->toDateString() ?? Carbon::now()->toDateString(),
+            'category' => $category,
+            'description' => trim((string) ($expense->payee ?? '') . ' · ' . (string) $expense->reference, ' ·'),
+            'amount' => round((float) $expense->amount, 3),
+            'expense_id' => $expense->id,
+        ]);
+    }
+
+    /**
+     * The driver's expenses not on any petty cash yet: what can still be added
+     * to his advance. From a month before the cash was given, newest first.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, LimoExpense>
+     */
+    public function unlinkedExpensesFor(LimoPettyAdvance $advance): \Illuminate\Database\Eloquent\Collection
+    {
+        if ($advance->isCleared() || $advance->driver_id === null) {
+            return new \Illuminate\Database\Eloquent\Collection();
+        }
+
+        return LimoExpense::query()
+            ->where('driver_id', $advance->driver_id)
+            ->whereNotIn('id', LimoPettyLine::query()->whereNotNull('expense_id')->select('expense_id'))
+            ->when($advance->date !== null, fn ($q) => $q->whereDate('date', '>=', $advance->date->copy()->subMonth()->toDateString()))
+            ->orderByDesc('date')
+            ->orderByDesc('id')
+            ->limit(100)
+            ->get();
     }
 }

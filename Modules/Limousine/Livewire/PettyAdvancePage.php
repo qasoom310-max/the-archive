@@ -58,6 +58,35 @@ final class PettyAdvancePage extends Component
         abort_unless(PettyCashService::mayConfirm(Auth::user()), 403);
     }
 
+    /**
+     * Expenses already scanned for this driver, ticked to add to this cash.
+     *
+     * @var list<int|string>
+     */
+    public array $linkIds = [];
+
+    /** Add the ticked expenses to this advance as his receipts (no new expenses). */
+    public function linkExpenses(PettyCashService $petty): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        $advance = $this->advance();
+        if ($advance === null || $advance->isCleared()) {
+            return;
+        }
+
+        $added = 0;
+        foreach (array_unique(array_map('intval', $this->linkIds)) as $id) {
+            $expense = \Modules\Limousine\Models\LimoExpense::query()->find($id);
+            if ($expense !== null && $petty->addExpenseAsReceipt($advance, $expense) !== null) {
+                $added++;
+            }
+        }
+
+        $this->linkIds = [];
+        session()->flash('toast', __('Receipts added to this petty cash: :count', ['count' => $added]));
+    }
+
     /** New receipt line. */
     public string $lineDate = '';
 
@@ -241,6 +270,7 @@ final class PettyAdvancePage extends Component
             'cars' => Vehicle::query()->orderBy('name')->get(['id', 'name', 'plate_no']),
             'canConfirm' => PettyCashService::mayConfirm(Auth::user()),
             'canEdit' => ! $advance->isCleared() && $this->mayAccess(Permission::Write),
+            'unlinked' => app(PettyCashService::class)->unlinkedExpensesFor($advance),
         ]);
     }
 }

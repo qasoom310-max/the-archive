@@ -73,6 +73,26 @@ final class LimoExpensesNamedAccessTest extends TestCase
         $this->assertSame(StaffRole::Staff, $provisioner->roleOf($via->fresh()));
     }
 
+    public function test_taking_it_back_removes_the_access_and_leaves_their_apps(): void
+    {
+        Setting::set('company.name', 'Wanaan Car Rental W.L.L');
+        $via = User::factory()->create(['name' => 'via', 'email' => 'via@example.com']);
+        $provisioner = app(UserProvisioner::class);
+        $provisioner->grantApps($via, ['limousine'], StaffRole::Staff);
+        $readBefore = $this->may($via, Permission::Read);
+
+        $this->runGrant();
+        $this->assertTrue($this->may($via, Permission::Create));
+
+        (require base_path('database/migrations/2026_11_23_100002_remove_named_staff_limousine_expenses_access.php'))->up();
+
+        $this->assertFalse($this->may($via, Permission::Create));
+        $this->assertFalse($this->may($via, Permission::Write));
+        $this->assertSame($readBefore, $this->may($via, Permission::Read));
+        $this->assertFalse(\DB::table('res_groups')->where('code', 'limousine_expenses')->exists());
+        $this->assertSame(StaffRole::Staff, $provisioner->roleOf($via->fresh()));
+    }
+
     public function test_nothing_changes_in_another_database(): void
     {
         Setting::set('company.name', 'Hashtag limo');

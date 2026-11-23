@@ -1,0 +1,71 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Limousine: delete a payment entered by mistake",
+        "ar": "الليموزين: حذف دفعة أُدخلت بالخطأ"
+    },
+    "points": {
+        "en": [
+            "The owner and the accountant can now delete a payment that was entered by mistake.",
+            "A bulk payment is deleted as a whole: all its receipts together.",
+            "The trips and invoices go back to unpaid by the same amount.",
+            "What was deleted is kept in the activity log."
+        ],
+        "ar": [
+            "يمكن للمالك والمحاسب الآن حذف دفعة أُدخلت بالخطأ.",
+            "الدفعة المجمّعة تُحذف كاملة: كل سنداتها معاً.",
+            "تعود الرحلات والفواتير غير مدفوعة بالمبلغ نفسه.",
+            "ما حُذف يبقى محفوظاً في سجل النشاط."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, there was no way to remove a wrong payment. A mistaken bulk payment left invoices showing paid and receipts that should not exist.",
+            "Now a Delete button removes the payment and undoes what it did: each trip's paid amount comes down and each invoice shows the right balance again.",
+            "A bulk payment is always deleted together, so you are never left with half of it.",
+            "Before deleting, the screen shows how many receipts, the total and their numbers, and asks you to confirm. It cannot be undone, so check it first.",
+            "Only the owner and the accountant see the button."
+        ],
+        "ar": [
+            "في السابق لم تكن هناك طريقة لإزالة دفعة خاطئة. الدفعة المجمّعة الخاطئة كانت تترك فواتير تظهر مدفوعة وسندات قبض لا يجب أن توجد.",
+            "الآن زر «حذف» يزيل الدفعة ويلغي ما فعلته: ينقص المبلغ المدفوع لكل رحلة وتُظهر كل فاتورة رصيدها الصحيح من جديد.",
+            "الدفعة المجمّعة تُحذف دائماً معاً، فلا يبقى نصفها.",
+            "قبل الحذف تعرض الشاشة عدد السندات والمجموع وأرقامها وتطلب التأكيد. لا يمكن التراجع، فتحقق أولاً.",
+            "يرى الزر المالك والمحاسب فقط."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Receipts.",
+            "If the payment is not confirmed yet, open the To confirm tab and press Delete on its row.",
+            "Otherwise, find one of its receipts in the list and press Edit.",
+            "At the bottom, check the receipt numbers and the total, then press Delete payment.",
+            "Confirm. The receipts are removed and the invoices show their balance again."
+        ],
+        "ar": [
+            "افتح الليموزين، ثم سندات القبض.",
+            "إذا لم تُؤكَّد الدفعة بعد، افتح تبويب «للتأكيد» واضغط «حذف» في صفها.",
+            "وإلا، ابحث عن أحد سنداتها في القائمة واضغط «تعديل».",
+            "في الأسفل، تحقق من أرقام السندات والمجموع، ثم اضغط «حذف الدفعة».",
+            "أكّد. تُزال السندات وتُظهر الفواتير رصيدها من جديد."
+        ]
+    },
+    "images": [
+        {
+            "before": "queue-before.png",
+            "after": "queue-after.png",
+            "caption": {
+                "en": "Receipts to confirm. After: a Delete button on each payment.",
+                "ar": "سندات للتأكيد. بعد: زر «حذف» على كل دفعة."
+            }
+        },
+        {
+            "before": "receipt-before.png",
+            "after": "receipt-after.png",
+            "caption": {
+                "en": "A receipt. After: delete the whole bulk payment it belongs to.",
+                "ar": "سند قبض. بعد: حذف الدفعة المجمّعة التي ينتمي إليها كاملة."
+            }
+        }
+    ]
+}

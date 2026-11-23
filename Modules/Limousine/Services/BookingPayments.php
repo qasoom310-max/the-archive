@@ -154,6 +154,55 @@ final class BookingPayments
     }
 
     /**
+     * Take back money recorded by mistake: delete the receipts and undo what
+     * they did. A receipt on a trip had also raised the booking's advance
+     * ({@see receive}), so that comes down by the same amount and the paid
+     * flag is worked out again; the invoice recomputes itself when its receipt
+     * goes. A charge receipt (no trip) only touches its invoice.
+     *
+     * One transaction: half a bulk payment taken back is worse than none.
+     * The activity log keeps every reference and amount, so the deletion is
+     * on the record even though the receipts are gone.
+     *
+     * @param  \Illuminate\Support\Collection<int, LimoReceipt>  $receipts
+     * @return array{count: int, total: float}
+     */
+    public function remove(\Illuminate\Support\Collection $receipts, string $reason = ''): array
+    {
+        $total = 0.0;
+        $lines = [];
+
+        DB::transaction(function () use ($receipts, &$total, &$lines): void {
+            foreach ($receipts as $receipt) {
+                $amount = round((float) $receipt->amount, 3);
+                $booking = $receipt->booking_id !== null ? LimoBooking::query()->lockForUpdate()->find($receipt->booking_id) : null;
+
+                $lines[] = trim(($receipt->reference ?? '#' . $receipt->id) . ' ' . number_format($amount, 3, '.', '')
+                    . ($receipt->invoice?->reference ? ' (' . $receipt->invoice->reference . ')' : ''));
+                $receipt->delete();
+                $total += $amount;
+
+                if ($booking !== null) {
+                    $booking->advance = round(max(0.0, (float) $booking->advance - $amount), 3);
+                    $booking->save();
+                    $booking->syncPaymentFromAdvance();
+                }
+            }
+        });
+
+        if ($lines !== []) {
+            app(\App\Erp\Activity\ActivityLogger::class)->log(
+                'deleted',
+                (string) __('Receipts'),
+                'Deleted ' . count($lines) . ' receipt(s), ' . number_format($total, 3, '.', '') . ' BHD'
+                    . (trim($reason) !== '' ? ' — ' . trim($reason) : '') . ': ' . implode('; ', $lines),
+            );
+        }
+
+        return ['count' => count($lines), 'total' => round($total, 3)];
+    }
+
+    /**
      * What the receipt says, in the words the customer reads.
      *
      * The balance is spelled out rather than left as a column, because "paid 25"

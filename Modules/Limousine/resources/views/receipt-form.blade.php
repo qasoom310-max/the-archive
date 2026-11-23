@@ -59,5 +59,22 @@
             <span wire:loading.remove wire:target="save">{{ __('Save payment') }}</span>
             <span wire:loading wire:target="save">{{ __('Saving…') }}</span>
         </button>
+
+        @if ($deleteGroup !== null && $deleteGroup->isNotEmpty())
+            @php $delTotal = (float) $deleteGroup->sum('amount'); @endphp
+            <div class="mt-6 rounded-lg border border-red-200 bg-red-50/60 p-3 text-sm" data-delete-payment>
+                <p class="font-medium text-red-700">{{ $deleteGroup->count() > 1 ? __('Entered by mistake? Delete the whole bulk payment') : __('Entered by mistake? Delete this payment') }}</p>
+                <p class="mt-1 text-xs text-red-600">
+                    {{ __(':count receipts, :total', ['count' => $deleteGroup->count(), 'total' => \App\Erp\Views\ValueFormat::money($delTotal)]) }}:
+                    {{ $deleteGroup->map(fn ($r) => $r->reference)->implode(', ') }}.
+                    {{ __('The trips and invoices go back to unpaid by that amount.') }}
+                </p>
+                <button type="button" wire:click="deletePayment"
+                        wire:confirm="{{ __('Delete this payment entered by mistake? :count receipts, :total. The trips and invoices go back to unpaid by that amount. This cannot be undone.', ['count' => $deleteGroup->count(), 'total' => \App\Erp\Views\ValueFormat::money($delTotal)]) }}"
+                        class="mt-2 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50">
+                    {{ __('Delete payment') }}
+                </button>
+            </div>
+        @endif
     </div>
 </div>

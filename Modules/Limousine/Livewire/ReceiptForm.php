@@ -196,6 +196,30 @@ final class ReceiptForm extends Component
         LimoBooking::query()->find($invoice->booking_id)?->syncPaymentFromAdvance();
     }
 
+    /**
+     * Delete this receipt — or, when it is part of a bulk payment, the whole
+     * bulk payment, since one slice alone would leave the rest misleading.
+     */
+    public function deletePayment(): void
+    {
+        $this->guardManualCreate();
+        $receipt = $this->id !== null ? LimoReceipt::query()->find($this->id) : null;
+        if ($receipt === null) {
+            return;
+        }
+
+        $receipts = $receipt->batch_id !== null
+            ? LimoReceipt::query()->where('batch_id', $receipt->batch_id)->get()
+            : collect([$receipt]);
+        $done = app(\Modules\Limousine\Services\BookingPayments::class)->remove($receipts, 'by ' . (string) (Auth::user()->name ?? ''));
+
+        session()->flash('toast', __('Payment deleted: :count receipts, :total', [
+            'count' => $done['count'],
+            'total' => \App\Erp\Views\ValueFormat::money($done['total']),
+        ]));
+        $this->redirect(url('/app/limousine/receipt'), navigate: true);
+    }
+
     public function render(): View
     {
         $invoice = $this->invoice_id !== null ? LimoInvoice::query()->with('customer:id,name')->find($this->invoice_id) : null;
@@ -213,6 +237,10 @@ final class ReceiptForm extends Component
                 ->get(),
             'selectedInvoice' => $invoice,
             'isEditing' => $this->id !== null,
+            // What Delete would take away: this receipt, or its whole bulk payment.
+            'deleteGroup' => ($r = $this->id !== null ? LimoReceipt::query()->find($this->id) : null) === null
+                ? null
+                : ($r->batch_id !== null ? LimoReceipt::query()->where('batch_id', $r->batch_id)->get() : collect([$r])),
         ]);
     }
 }

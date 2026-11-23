@@ -177,6 +177,30 @@ final class Receipts extends Component
         ));
     }
 
+    /**
+     * Delete a payment entered by mistake: a whole bulk payment (key = its
+     * batch id) or one receipt (key = "r-<id>"). Owner and Accountant only;
+     * the booking's paid amount and the invoices come back with it.
+     */
+    public function deletePayment(string $key): void
+    {
+        $this->guardConfirm();
+
+        $receipts = str_starts_with($key, 'r-')
+            ? LimoReceipt::query()->whereKey((int) substr($key, 2))->get()
+            : LimoReceipt::query()->where('batch_id', $key)->get();
+        if ($receipts->isEmpty()) {
+            return;
+        }
+
+        $done = app(\Modules\Limousine\Services\BookingPayments::class)->remove($receipts, 'by ' . (string) (Auth::user()->name ?? ''));
+        $this->selected = [];
+        session()->flash('toast', __('Payment deleted: :count receipts, :total', [
+            'count' => $done['count'],
+            'total' => \App\Erp\Views\ValueFormat::money($done['total']),
+        ]));
+    }
+
     /** Taken back — a mistake in confirming, not a deletion of history. */
     public function unconfirm(int $id): void
     {

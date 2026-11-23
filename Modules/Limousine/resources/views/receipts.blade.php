@@ -180,6 +180,12 @@
                                 {{ __('Download') }}
                             </a>
                             @if ($canConfirm)
+                                <button type="button" data-delete-payment
+                                        wire:click="deletePayment('{{ $first->batch_id ?? 'r-' . $first->id }}')"
+                                        wire:confirm="{{ __('Delete this payment entered by mistake? :count receipts, :total. The trips and invoices go back to unpaid by that amount. This cannot be undone.', ['count' => $group->count(), 'total' => \App\Erp\Views\ValueFormat::money($sum)]) }}"
+                                        class="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50">
+                                    {{ __('Delete') }}
+                                </button>
                                 <button type="button"
                                         wire:click="{{ $isBatch ? 'openConfirmBatch(\'' . $first->batch_id . '\')' : 'openConfirm(' . $first->id . ')' }}"
                                         class="o-btn-primary text-sm">

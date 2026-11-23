@@ -3974,5 +3974,12 @@
     "Sales and money received": "المبيعات والمبالغ المستلمة",
     "Payments received": "المبالغ المستلمة",
     "Coupon credit (not money)": "رصيد قسيمة (ليس مالاً)",
-    "Advance lowered": "تخفيض الدفعة المقدمة"
+    "Advance lowered": "تخفيض الدفعة المقدمة",
+    "Payment deleted: :count receipts, :total": "حُذفت الدفعة: :count سندات قبض، :total",
+    "Delete this payment entered by mistake? :count receipts, :total. The trips and invoices go back to unpaid by that amount. This cannot be undone.": "حذف هذه الدفعة المُدخلة بالخطأ؟ :count سندات قبض، :total. تعود الرحلات والفواتير غير مدفوعة بهذا المبلغ. لا يمكن التراجع عن ذلك.",
+    "Entered by mistake? Delete the whole bulk payment": "أُدخلت بالخطأ؟ احذف الدفعة المجمّعة كاملة",
+    "Entered by mistake? Delete this payment": "أُدخلت بالخطأ؟ احذف هذه الدفعة",
+    ":count receipts, :total": ":count سندات قبض، :total",
+    "The trips and invoices go back to unpaid by that amount.": "تعود الرحلات والفواتير غير مدفوعة بهذا المبلغ.",
+    "Delete payment": "حذف الدفعة"
 }

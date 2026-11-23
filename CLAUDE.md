@@ -5905,3 +5905,12 @@ dated the day of conversion). `OrderImporter` runs inside `RentalOrder::withoutP
 `OrderFigureCorrector` uses `saveQuietly()` (no hooks). Old orders have no rows. Daily Summary
 rental = receipts + `RentalOrderPayment::moneyOn()` (orders that still exist). The order form
 lists them under "Payments received". Test: `RentalOrderPaymentsTest` (4).
+
+**Delete a payment entered by mistake (shipped 2026-11-23).** Owner + Accountant
+(`canConfirmPayments()`) only. `BookingPayments::remove(Collection $receipts, $reason)`: one
+transaction; per receipt, delete it (the invoice recomputes) and, for a trip receipt, lower
+the booking's `advance` by the amount and `syncPaymentFromAdvance()`; logs every reference +
+amount to `activity_logs` (`deleted`). Entry points: Receipts "To confirm" row → Delete
+(`deletePayment('<batch_id>'|'r-<id>')`, a bulk row deletes the whole batch) and the receipt
+page (Edit) → "Delete payment" box (a bulk slice deletes its whole batch). Confirmed receipts
+can be deleted from the receipt page. Test: `LimoDeletePaymentTest` (3).

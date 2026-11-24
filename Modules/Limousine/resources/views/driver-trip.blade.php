@@ -28,7 +28,7 @@
         $stage = $started ? 'end' : 'start';
         $read = $run?->getAttribute($stage . '_read');
         $hasPhoto = ($run?->getAttribute($stage . '_photo') ?? null) !== null;
-        $fuels = ['Empty / فارغ', '1/8', '1/4', '3/8', '1/2', '5/8', '3/4', '7/8', 'Full / ممتلئ'];
+        $fuelNow = (int) ($read['fuel_eighths'] ?? 4);
     @endphp
 
     <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
@@ -101,13 +101,28 @@
                 <label class="block text-sm font-medium text-chrome-700">KM / عداد الكيلومترات
                     <input type="number" inputmode="numeric" min="1" id="km" class="o-input mt-1 w-full text-lg" value="{{ ($read['km'] ?? 0) > 0 ? $read['km'] : '' }}">
                 </label>
-                <label class="block text-sm font-medium text-chrome-700">Fuel / الوقود
-                    <select id="fuel" class="o-input mt-1 w-full text-lg">
-                        @foreach ($fuels as $i => $label)
-                            <option value="{{ $i }}" @selected((int) ($read['fuel_eighths'] ?? 4) === $i)>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </label>
+                {{-- A fuel tank of 8 bars instead of a list (the owner's call): filled
+                     from the photo, the driver taps a bar to correct it, E for empty. --}}
+                <div data-fuel-tank>
+                    <p class="text-sm font-medium text-chrome-700">Fuel / الوقود <span class="text-xs font-normal text-chrome-500">· tap to change / اضغط للتعديل</span></p>
+                    <input type="hidden" id="fuel" value="{{ $fuelNow }}">
+                    <div class="mt-2 flex items-end gap-4">
+                        <div class="flex flex-col items-center">
+                            <span class="text-xs font-bold text-emerald-700">F</span>
+                            <div class="relative mt-1 flex w-24 flex-col-reverse gap-1 rounded-2xl border-4 border-chrome-700 bg-chrome-50 p-1.5">
+                                @for ($i = 1; $i <= 8; $i++)
+                                    <button type="button" data-fuel-bar="{{ $i }}" aria-label="{{ $i }}/8"
+                                            class="h-7 w-full rounded-md ring-1 ring-chrome-300 transition"></button>
+                                @endfor
+                            </div>
+                            <button type="button" data-fuel-bar="0" class="mt-1 rounded-md px-3 py-0.5 text-xs font-bold text-red-600 ring-1 ring-red-200">E</button>
+                        </div>
+                        <div class="pb-8">
+                            <p class="text-3xl font-black tabular-nums text-chrome-900"><span id="fuelNum">{{ $fuelNow }}</span>/8</p>
+                            <p id="fuelWord" class="mt-1 text-sm font-semibold text-chrome-700"></p>
+                        </div>
+                    </div>
+                </div>
                 <button type="button" id="go" class="w-full rounded-xl py-4 text-lg font-bold text-white {{ $started ? 'bg-red-600' : 'bg-emerald-600' }}" data-trip-go="{{ $stage }}">
                     {{ $started ? 'End trip / إنهاء الرحلة' : 'Start trip / بدء الرحلة' }}
                 </button>
@@ -133,6 +148,23 @@
                 return fetch(url, { method: 'POST', body: body, headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': token } })
                     .then(function (r) { return r.json().then(function (j) { if (!r.ok) { throw new Error(j.message || ''); } return j; }); });
             }
+            var words = ['Empty / فارغ', 'Almost empty / شبه فارغ', 'Quarter / ربع', 'Less than half / أقل من النصف', 'Half / نصف', 'More than half / أكثر من النصف', 'Three quarters / ثلاثة أرباع', 'Almost full / شبه ممتلئ', 'Full / ممتلئ'];
+            function setFuel(n) {
+                n = Math.max(0, Math.min(8, parseInt(n, 10) || 0));
+                $('fuel').value = String(n);
+                $('fuelNum').textContent = n;
+                $('fuelWord').textContent = words[n];
+                var colour = n <= 2 ? 'bg-red-500' : (n <= 5 ? 'bg-amber-400' : 'bg-emerald-500');
+                document.querySelectorAll('[data-fuel-bar]').forEach(function (b) {
+                    var i = parseInt(b.getAttribute('data-fuel-bar'), 10);
+                    if (i === 0) { return; }
+                    b.className = 'h-7 w-full rounded-md ring-1 transition ' + (i <= n ? colour + ' ring-black/10' : 'bg-white ring-chrome-300');
+                });
+            }
+            document.querySelectorAll('[data-fuel-bar]').forEach(function (b) {
+                b.addEventListener('click', function () { setFuel(b.getAttribute('data-fuel-bar')); });
+            });
+            setFuel($('fuel').value);
             $('photo').addEventListener('change', function (e) {
                 var file = e.target.files[0]; if (!file) { return; }
                 $('error').hidden = true; busy(true);
@@ -142,7 +174,7 @@
                     $('confirm').hidden = false;
                     $('photoLabel').textContent = 'Take the photo again / أعد التصوير';
                     if (j.readable && j.km > 0) { $('km').value = j.km; } else { $('km').value = ''; $('readNote').textContent = 'The KM could not be read. Type it. / لم تتم قراءة العداد، اكتبه.'; }
-                    if (j.fuel_readable) { $('fuel').value = String(j.fuel_eighths); }
+                    if (j.fuel_readable) { setFuel(j.fuel_eighths); }
                     $('km').focus();
                 }).catch(function (err) { fail(err.message); });
                 e.target.value = '';

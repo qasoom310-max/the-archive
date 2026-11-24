@@ -1,0 +1,62 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Driver trip page: the fuel is a tank picture the driver taps",
+        "ar": "صفحة رحلة السائق: الوقود صورة خزان يضغط عليها السائق"
+    },
+    "points": {
+        "en": [
+            "The fuel list on the driver's trip page is now a picture of a fuel tank with 8 bars, from E (empty) to F (full).",
+            "It fills itself from the dashboard photo, and the driver taps a bar to correct it.",
+            "The level is also written in words in English and Arabic, such as Half / نصف."
+        ],
+        "ar": [
+            "قائمة الوقود في صفحة رحلة السائق أصبحت صورة خزان وقود من 8 أشرطة، من E (فارغ) إلى F (ممتلئ).",
+            "يمتلئ تلقائياً من صورة لوحة العدادات، ويضغط السائق على شريط لتصحيحه.",
+            "ويُكتب المستوى بالكلمات بالإنجليزية والعربية، مثل Half / نصف."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the driver chose the fuel from a list of fractions like 3/8 or 5/8, which was hard to read in a hurry.",
+            "Now he sees a tank: red when low, yellow in the middle, green when full. Tapping a bar sets the level; E sets it to empty.",
+            "What is saved has not changed: the level in eighths of a tank, shown the same way on the Trip record."
+        ],
+        "ar": [
+            "في السابق كان السائق يختار الوقود من قائمة كسور مثل 3/8 أو 5/8، وكان ذلك صعب القراءة على عجل.",
+            "الآن يرى خزاناً: أحمر عند الانخفاض، وأصفر في المنتصف، وأخضر عند الامتلاء. الضغط على شريط يحدد المستوى، و E يجعله فارغاً.",
+            "ما يُحفظ لم يتغير: المستوى بأثمان الخزان، ويظهر بالطريقة نفسها في سجل الرحلة."
+        ]
+    },
+    "guide": {
+        "en": [
+            "The driver opens his trip link and takes the dashboard photo.",
+            "The tank fills to the level read from the photo.",
+            "If it is wrong, he taps the bar that matches his gauge, or E if empty.",
+            "He presses Start trip, or End trip at the end."
+        ],
+        "ar": [
+            "يفتح السائق رابط رحلته ويصوّر لوحة العدادات.",
+            "يمتلئ الخزان إلى المستوى المقروء من الصورة.",
+            "إذا كان خطأ، يضغط على الشريط المطابق لمؤشره، أو E إذا كان فارغاً.",
+            "يضغط «بدء الرحلة»، أو «إنهاء الرحلة» في النهاية."
+        ]
+    },
+    "images": [
+        {
+            "before": "fuel-before.png",
+            "after": "fuel-after.png",
+            "caption": {
+                "en": "The start step. After: the fuel is a tank filled from the photo.",
+                "ar": "خطوة البدء. بعد: الوقود خزان ممتلئ من الصورة."
+            }
+        },
+        {
+            "after": "fuel-tapped.png",
+            "caption": {
+                "en": "The driver tapped the second bar: a quarter tank, shown in red.",
+                "ar": "ضغط السائق على الشريط الثاني: ربع خزان، بالأحمر."
+            }
+        }
+    ]
+}

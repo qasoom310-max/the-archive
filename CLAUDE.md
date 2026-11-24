@@ -5962,3 +5962,11 @@ reminders" people, kind `not_started`. (5) `DriverTripReport` (`/app/limousine/d
 Limousine home quick link "Driver trip records", booking Read): per driver per month — trips,
 recorded by himself, not started, ended by office, to check, score %, KM; click a driver for his
 trips. Tests: `LimoDriverTripLinkTest` (10).
+
+**Driver page fuel = a tappable tank (2026-11-24).** The fuel `<select>` on `driver-trip.blade.php`
+became an 8-bar tank (`data-fuel-tank`, bars `data-fuel-bar` 1–8 + an E button = 0, hidden
+`#fuel` input still posted as eighths): filled from the photo reading (`setFuel()`), tap to
+change, red ≤ 2, amber ≤ 5, green above, the level in words in both languages. No server change.
+**Never run phpunit in a shell that exported `DB_DATABASE` for the demo server** — phpunit.xml's
+`DB_DATABASE=:memory:` does not override an exported env var, and `DatabaseMigrations` wiped
+`database/demo.sqlite` once (restored from a scratchpad copy).

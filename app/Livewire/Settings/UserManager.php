@@ -814,6 +814,23 @@ final class UserManager extends Component
         $this->flipTripSwitch($id, TripStaffSwitches::REMINDERS);
     }
 
+    /** The owner's switch: may this person add late-payment charges (users.can_charge_late_fees). */
+    public function toggleLateFees(int $id): void
+    {
+        $this->guardAdmin();
+        abort_unless($this->actorIsSuperAdmin(), 403);
+        abort_unless(\Illuminate\Support\Facades\Schema::hasColumn('users', 'can_charge_late_fees'), 404);
+
+        $target = User::query()->find($id);
+        if ($target === null || $target->isAdmin()) {
+            return;
+        }
+
+        $on = ! $target->can_charge_late_fees;
+        $target->forceFill(['can_charge_late_fees' => $on])->save();
+        app(\App\Erp\Activity\ActivityLogger::class)->log('user_late_fees', (string) $target->email, ($on ? 'Late fees allowed for ' : 'Late fees removed from ') . $target->name);
+    }
+
     /** The owner opens or closes one report page for one person (users.report_pages). */
     public function toggleReportPage(int $id, string $page): void
     {
@@ -1102,6 +1119,7 @@ final class UserManager extends Component
                 ['id', 'name', 'email', 'is_admin', 'is_super_admin', 'is_accountant', 'is_paused', 'home_workspace_id'],
                 $tripSwitches ? [TripStaffSwitches::LOCK, TripStaffSwitches::REMINDERS] : [],
                 \Illuminate\Support\Facades\Schema::hasColumn('users', 'report_pages') ? ['report_pages'] : [],
+                \Illuminate\Support\Facades\Schema::hasColumn('users', 'can_charge_late_fees') ? ['can_charge_late_fees'] : [],
             ));
 
         return view('livewire.settings.user-manager', [

@@ -650,6 +650,15 @@ final class Bookings extends Component
             return;
         }
 
+        // The quick edit works on the trip that was clicked: refused when THAT
+        // trip is locked (active, completed or cancelled), for staff.
+        $clicked = $this->editingLegId !== null ? LimoLeg::query()->find($this->editingLegId) : null;
+        if ($clicked !== null && \Modules\Limousine\Support\TripLock::blocks($clicked, Auth::user())) {
+            $this->addError('editLock', \Modules\Limousine\Support\TripLock::message($clicked));
+
+            return;
+        }
+
         $this->validate([
             'edit.pickup_at' => ['nullable', 'date'],
             'edit.booking_to' => ['nullable', 'date', 'after_or_equal:edit.pickup_at'],
@@ -1262,6 +1271,13 @@ final class Bookings extends Component
             return;
         }
 
+        if (\Modules\Limousine\Support\TripLock::blocks($leg, Auth::user())) {
+            session()->flash('toast', \Modules\Limousine\Support\TripLock::message($leg));
+            $this->closeCancel();
+
+            return;
+        }
+
         // Cancelled once, and never a trip that ran: a dialog left open while
         // someone else cancelled or completed the trip must not hand out a
         // second coupon, or take a refund off the advance twice.
@@ -1300,6 +1316,12 @@ final class Bookings extends Component
 
         $leg = LimoLeg::query()->with('legable')->find($legId);
         if ($leg === null || $leg->status !== LimoLeg::STATUS_CANCELLED) {
+            return;
+        }
+
+        if (! \Modules\Limousine\Support\TripLock::mayCorrect(Auth::user())) {
+            session()->flash('toast', \Modules\Limousine\Support\TripLock::message($leg));
+
             return;
         }
 

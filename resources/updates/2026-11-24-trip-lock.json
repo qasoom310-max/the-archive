@@ -1,0 +1,59 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Active and completed trips are locked; only the owner or the accountant can correct them",
+        "ar": "الرحلات النشطة والمكتملة مقفلة؛ فقط المالك أو المحاسب يستطيع تصحيحها"
+    },
+    "points": {
+        "en": [
+            "Once a trip is active, its details are locked: customer, passenger, times, places, price, extras and car type.",
+            "Once it is completed or cancelled it is read-only: no edits, no cancelling and no changing the car or driver.",
+            "Staff can still write comments, add a new trip and take payments.",
+            "The owner and the accountant can still correct a locked trip, but must write the reason, which is kept in the activity log."
+        ],
+        "ar": [
+            "عندما تصبح الرحلة نشطة تُقفل تفاصيلها: العميل والراكب والأوقات والأماكن والسعر والإضافات ونوع السيارة.",
+            "وعندما تكتمل أو تُلغى تصبح للقراءة فقط: لا تعديل ولا إلغاء ولا تغيير للسيارة أو السائق.",
+            "ما زال بإمكان الموظفين كتابة الملاحظات وإضافة رحلة جديدة واستلام المدفوعات.",
+            "يستطيع المالك والمحاسب تصحيح الرحلة المقفلة، لكن يجب كتابة السبب، ويُحفظ في سجل النشاط."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, a finished trip could still be changed by anyone who could edit bookings, from the booking page, the bookings list or the staff app.",
+            "Now the booking page shows a lock banner and the locked fields cannot be typed in. The same rule applies on the bookings list (quick edit, cancel, restore) and when changing the car or driver.",
+            "While a trip is active the car can still be swapped, for example after a breakdown.",
+            "Each trip locks on its own: a booking's later trips stay editable.",
+            "Payments stay open on every trip, because money often comes after the trip."
+        ],
+        "ar": [
+            "في السابق كان بإمكان أي شخص يستطيع تعديل الحجوزات تغيير الرحلة المنتهية، من صفحة الحجز أو قائمة الحجوزات أو تطبيق الموظفين.",
+            "الآن تعرض صفحة الحجز شريط قفل ولا يمكن الكتابة في الحقول المقفلة. وتنطبق القاعدة نفسها في قائمة الحجوزات (التعديل السريع والإلغاء والاستعادة) وعند تغيير السيارة أو السائق.",
+            "أثناء نشاط الرحلة يمكن تبديل السيارة، مثلاً بعد عطل.",
+            "كل رحلة تُقفل وحدها: الرحلات اللاحقة في الحجز تبقى قابلة للتعديل.",
+            "المدفوعات تبقى مفتوحة في كل رحلة، لأن المال يصل غالباً بعد الرحلة."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Staff: on a locked booking write comments or take payment as usual; the locked fields are greyed out.",
+            "Owner or accountant: change what needs correcting, write the reason in Reason for correcting a locked trip, and save.",
+            "To see who corrected what, open the activity log."
+        ],
+        "ar": [
+            "الموظفون: في الحجز المقفل اكتبوا الملاحظات أو استلموا الدفع كالمعتاد؛ والحقول المقفلة باللون الرمادي.",
+            "المالك أو المحاسب: غيّر ما يحتاج تصحيحاً، واكتب السبب في «سبب تصحيح رحلة مقفلة»، واحفظ.",
+            "لمعرفة من صحّح ماذا، افتح سجل النشاط."
+        ]
+    },
+    "images": [
+        {
+            "before": "booking-before.png",
+            "after": "booking-after.png",
+            "caption": {
+                "en": "A completed booking, as the owner sees it. After: the lock banner and the locked trip. Staff see the fields greyed out.",
+                "ar": "حجز مكتمل كما يراه المالك. بعد: شريط القفل والرحلة المقفلة. ويرى الموظفون الحقول باللون الرمادي."
+            }
+        }
+    ]
+}

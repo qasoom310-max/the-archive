@@ -29,7 +29,8 @@ final class LimoRestoreCancelledTripTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        // Restoring a cancelled trip is a correction: the owner or the Accountant (2026-11-24).
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_accountant' => true]));
         app(ModuleManager::class)->install('limousine');
     }
 

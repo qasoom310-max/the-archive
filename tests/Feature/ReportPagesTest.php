@@ -62,4 +62,26 @@ final class ReportPagesTest extends TestCase
         Livewire::test(UserManager::class)->call('toggleReportPage', $hasan->id, 'profit');
         $this->assertFalse($hasan->fresh()?->hasReportPage('profit'));
     }
+
+    public function test_a_named_person_can_add_late_fees_and_the_owner_switches_it(): void
+    {
+        app(\App\Erp\Modules\ModuleManager::class)->install('limousine');
+        $this->grantEveryone('limousine.customer');
+        $customer = \Modules\Limousine\Models\LimoCustomer::query()->create(['name' => 'Demo Co', 'type' => 'company']);
+        $via = User::factory()->create(['name' => 'Via']);
+
+        $this->actingAs($via);
+        Livewire::test(\Modules\Limousine\Livewire\CustomerSummary::class, ['id' => $customer->id])->call('openFee')->assertForbidden();
+
+        $this->actingAs(User::factory()->create(['is_admin' => true, 'is_super_admin' => true]));
+        Livewire::test(UserManager::class)->assertSeeHtml('data-late-fees')->call('toggleLateFees', $via->id);
+        $this->assertTrue((bool) $via->fresh()?->can_charge_late_fees);
+
+        $this->actingAs($via->fresh() ?? $via);
+        Livewire::test(\Modules\Limousine\Livewire\CustomerSummary::class, ['id' => $customer->id])
+            ->call('openFee')->assertSet('charging', true)
+            ->set('feeAmount', '10')->set('feePeriod', 'November 2026')
+            ->call('saveFee')->assertHasNoErrors();
+        $this->assertSame(1, \Modules\Limousine\Models\LimoInvoice::query()->where('customer_id', $customer->id)->count());
+    }
 }

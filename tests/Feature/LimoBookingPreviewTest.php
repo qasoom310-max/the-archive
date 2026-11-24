@@ -164,10 +164,10 @@ final class LimoBookingPreviewTest extends TestCase
         session()->flash('booking_status', 'Booking done successfully. Ref. # 10021');
         session()->flash('booking_status_id', $booking->id);
 
-        $component = Livewire::test(Bookings::class);
-        $this->assertStringContainsString("wire:click=\"openPreview({$booking->id})\"", $component->html());
-
-        $component->call('openPreview', $booking->id)->assertSet('previewingId', $booking->id);
+        // The owner's call (2026-11-24): the banner opens the FULL booking, not the preview.
+        $html = Livewire::test(Bookings::class)->html();
+        $this->assertStringContainsString('data-banner-open-booking', $html);
+        $this->assertStringContainsString('/app/limousine/booking/' . $booking->id . '"', $html);
     }
 
     /**
@@ -197,7 +197,7 @@ final class LimoBookingPreviewTest extends TestCase
         $html = Livewire::test(Bookings::class)->html();
 
         $this->assertStringContainsString('data-saved-booking-actions', $html);
-        $this->assertSame(1, substr_count($html, "wire:click=\"openPreview({$booking->id})\""), 'View lives only in the menu.');
+        $this->assertSame(1, substr_count($html, 'data-banner-open-booking'), 'Open full booking lives only in the menu.');
         foreach ([$first, $return] as $trip) {
             $this->assertStringContainsString("wire:click=\"openPaymentLink({$trip->id})\"", $html);
             $this->assertStringContainsString(e(__('Create payment link — trip :ref', ['ref' => $trip->reference])), $html);

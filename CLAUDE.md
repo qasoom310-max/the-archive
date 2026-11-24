@@ -6028,3 +6028,24 @@ fares), `CorporateRates::guardAdmin` (edit too), `DailySummary`, `MonthlyProfit`
 "Reports & Team" box shows a non-admin exactly the tiles they may open. Owner switches: Settings →
 Users → a user's ⋮ → "Report pages" ticks (`UserManager::toggleReportPage`, super admin, never on
 a super admin, activity-logged; the list query now loads `report_pages`). Test: `ReportPagesTest` (3).
+
+**Active / completed / cancelled limousine trips are locked (shipped 2026-11-24).** Owner's rule:
+staff keep comments, new trips and payments; only the owner and the Accountant
+(`TripLock::mayCorrect()` = `canConfirmPayments()`) change a locked trip, with a reason logged
+(`booking_corrected`). `Modules\Limousine\Support\TripLock` (full = completed/cancelled, partial =
+active). BookingForm::save compares the submitted form with the STORED booking
+(`lockedChanges()`: customer/passenger/flight/email/type/requested by/meet & greet/units once any
+trip is locked; each locked trip's `legRow()` fields + extras, car allowed to change while
+active; a locked trip may not be removed) → staff get a `correctionReason` error, correctors must
+write a reason. `legRow()` / `legExtrasRow()` were split out of `HandlesTripLegs::loadLegs`.
+Page: banner (`data-booking-locked`), customer fields + locked trip cards are disabled fieldsets,
+Comments moved out of the fieldset. Also guarded: `TripCrew::assign` (completed/cancelled, list +
+staff app), `Bookings::saveEdit` (any locked trip), `confirmCancel`, `restoreLeg`,
+`BookingForm::cancelBooking` / `restoreBooking`. Payments (collect, mark paid/unpaid, coupons)
+stay open. The driver's End trip already completes the trip (and the booking when it is the last).
+Test: `LimoTripLockTest` (4).
+
+**Late fees for a named person (2026-11-24).** `users.can_charge_late_fees` (core migration
+`2026_11_24_100003`, granted to the user whose first name is Via). `User::canChargeLateFees()` =
+admin or the flag; `CustomerSummary::guardCharge` uses it. Owner switch: Settings → Users ⋮ →
+"Extra rights" → Can add late fees (`UserManager::toggleLateFees`). Test: `ReportPagesTest` (+1).

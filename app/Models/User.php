@@ -34,6 +34,7 @@ use Throwable;
  * @property bool $can_request_driver_payments  May be named as having asked for a limousine driver's payment
  * @property bool $can_backdate_rentals      May give a Rent A Car order a pick-up date in the past
  * @property bool $can_stamp_travel_permits  May print a travel authorization with the stamp and signature
+ * @property bool $can_charge_late_fees  May add a late-payment charge to a limousine customer without being an admin
  * @property list<string>|null $report_pages  Report pages opened to this person by name (see REPORT_PAGES)
  * @property bool $reports_access  Opens the owner's reports (Daily Summary, Profit & Expenses, Car income, Payroll) without being an admin
  * @property bool $trip_details_locked  Operations: a limousine trip's details stay hidden until it has a car and a driver
@@ -70,6 +71,7 @@ final class User extends Authenticatable
         'can_stamp_travel_permits',
         'reports_access',
         'report_pages',
+        'can_charge_late_fees',
         'is_paused',
         'paused_at',
         'home_workspace_id',
@@ -100,6 +102,7 @@ final class User extends Authenticatable
             'can_stamp_travel_permits' => 'boolean',
             'reports_access' => 'boolean',
             'report_pages' => 'array',
+            'can_charge_late_fees' => 'boolean',
             'trip_details_locked' => 'boolean',
             'trip_reminders' => 'boolean',
             'is_paused' => 'boolean',
@@ -230,6 +233,12 @@ final class User extends Authenticatable
             'daily', 'profit' => $this->seesOwnerReports() || $this->hasReportPage($page),
             default => $this->isAdmin() || $this->hasReportPage($page),
         };
+    }
+
+    /** Late-payment charges on a limousine customer: admins, and anyone the owner named. */
+    public function canChargeLateFees(): bool
+    {
+        return $this->isAdmin() || ($this->getAttribute('can_charge_late_fees') ?? false) === true;
     }
 
     public function hasReportPage(string $page): bool

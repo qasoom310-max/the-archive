@@ -86,7 +86,7 @@ final class CustomerSummary extends Component
      */
     private function guardCharge(): void
     {
-        abort_unless(Auth::user()?->isAdmin() ?? false, 403);
+        abort_unless(Auth::user()?->canChargeLateFees() ?? false, 403);
     }
 
     public function openFee(): void
@@ -312,7 +312,7 @@ final class CustomerSummary extends Component
             // What is actually payable, and how the typed figure would land.
             // A payment that spreads itself silently is one nobody can check.
             'settleable' => $account->settleable($customer),
-            'canCharge' => Auth::user()?->isAdmin() ?? false,
+            'canCharge' => Auth::user()?->canChargeLateFees() ?? false,
             'statementUrl' => url('/app/limousine/customer/' . $customer->id . '/statement'
                 . '?from=' . urlencode($this->from) . '&to=' . urlencode($this->to)),
             'payPlan' => $this->paying ? $account->plan($customer, (float) $this->payAmount) : [],

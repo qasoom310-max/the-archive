@@ -30,7 +30,16 @@
             // What the rate works out to with no discount: the most a deal can be.
             $workedOut = round($pricing['gross'] + $pricing['vat'] + $pricing['extras'], 3);
         @endphp
-        <div wire:key="leg-{{ $i }}" class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6">
+        @php
+            // A locked trip (booking page only): read-only for staff; the owner
+            // and the Accountant may correct it ({@see \Modules\Limousine\Support\TripLock}).
+            $legLocked = isset($lock) && in_array((string) ($leg['id'] ?? ''), [...($lock['locked'] ?? []), ...($lock['partial'] ?? [])], true);
+            $legFrozen = $legLocked && ! ($lock['mayCorrect'] ?? false);
+        @endphp
+        <fieldset @disabled($legFrozen) wire:key="leg-{{ $i }}" class="block rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6 {{ $legFrozen ? 'opacity-80' : '' }}" @if ($legLocked) data-leg-locked @endif>
+            @if ($legLocked)
+                <p class="mb-3 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">🔒 {{ in_array((string) ($leg['id'] ?? ''), $lock['partial'] ?? [], true) ? __('Active: locked') : __('Completed: locked') }}</p>
+            @endif
             <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <h3 class="text-sm font-semibold text-chrome-800">{{ __('Leg') }} {{ $i + 1 }}</h3>
                 <div class="flex items-center gap-3">
@@ -350,7 +359,7 @@
                 <span class="text-chrome-500">{{ __('Leg total') }} <span class="font-medium text-chrome-700">{{ \App\Erp\Views\ValueFormat::money($gross) }}</span>@if ($units > 1) <span class="text-xs text-chrome-500">({{ __(':units units', ['units' => $units]) }})</span>@endif</span>
                 <span class="flex items-center gap-2 rounded-lg bg-primary-50 px-3 py-1.5"><span class="font-semibold text-primary-800">{{ $hasDeal ? __('Final deal') : __('Net') }}</span><span class="font-bold text-primary-700">{{ \App\Erp\Views\ValueFormat::money($net) }}</span></span>
             </div>
-        </div>
+        </fieldset>
     @endforeach
 
     <button type="button" wire:click="addLeg" class="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-chrome-300 bg-white/60 py-3 text-sm font-medium text-chrome-600 hover:border-primary-400 hover:text-primary-700">

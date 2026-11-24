@@ -25,6 +25,7 @@ use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Services\BookingPayments;
 use Modules\Limousine\Services\CouponRedeemer;
 use Modules\Limousine\Services\CustomerDocumentEmails;
+use Modules\Limousine\Support\TripLock;
 use Modules\Limousine\Services\TripCancellation;
 use Modules\Limousine\Support\TripDetailsLock;
 use Modules\Limousine\Models\LimoReceipt;
@@ -140,6 +141,12 @@ final class BookingForm extends Component
     public string $notes = '';
 
     public string $status = LimoBooking::STATUS_QUEUE;
+
+    /**
+     * Why the owner or the Accountant changed a locked trip; required when
+     * they do, and written to the activity log ({@see TripLock}).
+     */
+    public string $correctionReason = '';
 
     public string $payment_status = LimoBooking::PAYMENT_UNPAID;
 
@@ -376,6 +383,27 @@ final class BookingForm extends Component
 
         $this->validateFocusing();
 
+        // Active / completed / cancelled trips are locked (the owner's rule,
+        // 2026-11-24): staff may still change comments and take money, never the
+        // job's terms. The owner and the Accountant may, with a logged reason.
+        $lockChanges = [];
+        if ($this->id !== null) {
+            $stored = LimoBooking::query()->with('legs')->find($this->id);
+            $lockChanges = $stored !== null ? $this->lockedChanges($stored) : [];
+            if ($lockChanges !== []) {
+                if (! TripLock::mayCorrect(Auth::user())) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'correctionReason' => __('These trips are locked and cannot be changed: :what. Only the owner or the accountant can change them.', ['what' => implode('; ', $lockChanges)]),
+                    ]);
+                }
+                if (trim($this->correctionReason) === '') {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'correctionReason' => __('You are changing a locked trip. Write the reason for the correction.'),
+                    ]);
+                }
+            }
+        }
+
         $wasNew = $this->id === null;
 
         $booking = $this->id !== null ? LimoBooking::query()->find($this->id) : new LimoBooking();
@@ -427,6 +455,15 @@ final class BookingForm extends Component
         $this->reference = (string) ($booking->reference ?? '');
 
         $this->persistLegs($booking); // updates legs + sets fare/amount = grand total
+
+        if ($lockChanges !== []) {
+            app(\App\Erp\Activity\ActivityLogger::class)->log(
+                'booking_corrected',
+                'Booking ' . (string) $booking->reference,
+                'Locked trip corrected by ' . (string) (Auth::user()->name ?? '') . ': ' . implode('; ', $lockChanges) . '. Reason: ' . trim($this->correctionReason),
+            );
+            $this->correctionReason = '';
+        }
 
         // After the legs have priced the job, decide the payment flag from the
         // money taken. This has to run AFTER persistLegs, which is what sets the
@@ -769,6 +806,14 @@ final class BookingForm extends Component
             return;
         }
 
+        // Completed trips are never cancelled (TripCancellation skips them); a
+        // trip running right now is locked for staff.
+        if (TripLock::bookingHasActive($booking) && ! TripLock::mayCorrect(Auth::user())) {
+            session()->flash('toast', __('This booking has an active trip, so it cannot be cancelled here. Only the owner or the accountant can do it.'));
+
+            return;
+        }
+
         $cancellation = app(TripCancellation::class);
         $said = [];
         $legs = $booking->legs()->whereIn('status', LimoLeg::OPEN_STATUSES)->orderBy('sequence')->get();
@@ -808,6 +853,12 @@ final class BookingForm extends Component
 
         $booking = $this->id !== null ? LimoBooking::query()->find($this->id) : null;
         if ($booking === null || $booking->status !== LimoBooking::STATUS_CANCELLED) {
+            return;
+        }
+
+        if (! TripLock::mayCorrect(Auth::user())) {
+            session()->flash('toast', __('A cancelled booking is locked. Only the owner or the accountant can restore it.'));
+
             return;
         }
 
@@ -941,6 +992,110 @@ final class BookingForm extends Component
         return $trips;
     }
 
+    /**
+     * What this save would change on a locked trip, in plain words; empty when
+     * nothing locked is touched. Compared with the trip as stored, so a stale
+     * page can't slip a change through.
+     *
+     * @return list<string>
+     */
+    private function lockedChanges(LimoBooking $booking): array
+    {
+        $locked = $booking->legs->filter(static fn (LimoLeg $l): bool => TripLock::of($l) !== null);
+        if ($locked->isEmpty()) {
+            return [];
+        }
+
+        $changes = [];
+        $same = static function (mixed $a, mixed $b): bool {
+            $a = trim((string) $a);
+            $b = trim((string) $b);
+            if (is_numeric($a) && is_numeric($b)) {
+                return abs((float) $a - (float) $b) < 0.0005;
+            }
+
+            return $a === $b;
+        };
+
+        // The customer and passenger: the whole booking's, so fixed once any
+        // trip has run or is running (a cancelled trip alone does not fix them).
+        $ran = $locked->contains(static fn (LimoLeg $l): bool => in_array($l->status, [LimoLeg::STATUS_ACTIVE, LimoLeg::STATUS_COMPLETED], true));
+        foreach ($ran ? [
+            'customer' => [$booking->customer_id, $this->customer_id],
+            'passenger' => [$booking->pax_name, $this->pax_name],
+            'passenger phone' => [$booking->pax_contact, $this->pax_contact],
+            'company reference' => [$booking->company_reference, $this->company_reference],
+            'flight' => [$booking->flight_number, $this->flight_number],
+            'email' => [$booking->email, $this->email],
+            'booking type' => [$booking->booking_type, $this->booking_type],
+            'requested by' => [$booking->requested_by, $this->requested_by],
+            'units' => [max(1, (int) $booking->num_cars), max(1, (int) $this->units)],
+            'meet & greet' => [(int) (bool) $booking->meet_greet . '|' . (string) $booking->meet_greet_name . '|' . (string) $booking->meet_greet_price,
+                (int) $this->meet_greet . '|' . ($this->meet_greet ? $this->meet_greet_name : '') . '|' . ($this->meet_greet ? $this->meet_greet_price : '')],
+        ] : [] as $what => [$was, $now]) {
+            if (! $same($was, $now)) {
+                $changes[] = $what;
+            }
+        }
+
+        $places = $this->placeCountries();
+        $byId = [];
+        foreach ($this->legs as $index => $leg) {
+            if (($leg['id'] ?? '') !== '') {
+                $byId[(string) $leg['id']] = $index;
+            }
+        }
+
+        foreach ($locked as $leg) {
+            $ref = (string) $leg->reference;
+            if (! isset($byId[(string) $leg->id])) {
+                $changes[] = "trip {$ref} removed";
+
+                continue;
+            }
+            $index = $byId[(string) $leg->id];
+            $given = $this->legs[$index];
+            $expected = $this->legRow($leg, $places);
+            // An active trip may still change car (a breakdown); a finished one may not.
+            $skip = TripLock::of($leg) === 'partial' ? ['id', 'car_id', 'car_details'] : ['id'];
+            foreach ($expected as $key => $value) {
+                if (! in_array($key, $skip, true) && ! $same($value, $given[$key] ?? '')) {
+                    $changes[] = "trip {$ref} " . str_replace('_', ' ', $key);
+                }
+            }
+            $norm = static fn (array $rows): string => json_encode(array_map(static fn (array $e): array => [(string) ($e['extra'] ?? ''), (int) ($e['qty'] ?? 1), (string) ($e['name'] ?? ''), round((float) ($e['price'] ?? 0), 3)], array_values($rows))) ?: '';
+            if ($norm($this->legExtrasRow($leg)) !== $norm($this->legExtras[$index] ?? [])) {
+                $changes[] = "trip {$ref} extras";
+            }
+        }
+
+        return array_values(array_unique($changes));
+    }
+
+    /**
+     * For the page: which of this booking's trips are locked for the person
+     * looking, and whether they may correct them.
+     *
+     * @return array{locked: list<string>, partial: list<string>, mayCorrect: bool}
+     */
+    private function lockState(): array
+    {
+        $state = ['locked' => [], 'partial' => [], 'mayCorrect' => TripLock::mayCorrect(Auth::user())];
+        if ($this->id === null) {
+            return $state;
+        }
+        foreach (LimoLeg::query()->whereMorphedTo('legable', LimoBooking::class)->where('legable_id', $this->id)->get() as $leg) {
+            $kind = TripLock::of($leg);
+            if ($kind === 'full') {
+                $state['locked'][] = (string) $leg->id;
+            } elseif ($kind === 'partial') {
+                $state['partial'][] = (string) $leg->id;
+            }
+        }
+
+        return $state;
+    }
+
     public function render(): View
     {
         if ($this->crewLocked) {
@@ -953,6 +1108,7 @@ final class BookingForm extends Component
         $grand = $this->grandTotal();
 
         return view('limousine::booking-form', [
+            'lock' => $this->lockState(),
             'fromWebsite' => $this->id !== null && WebsiteOrigin::limoBookings([$this->id]) !== [],
             // Active customers, plus whoever is already on this booking even
             // if since deactivated — otherwise editing an old booking whose

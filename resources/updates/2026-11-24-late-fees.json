@@ -1,0 +1,49 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "A named person can add late fees without being an admin",
+        "ar": "يمكن لشخص محدد إضافة رسوم التأخير دون أن يكون مسؤولاً"
+    },
+    "points": {
+        "en": [
+            "Via can now add a late payment charge to a limousine customer.",
+            "The owner can give or take this right for anyone in Settings, Users, under the person's menu: Can add late fees."
+        ],
+        "ar": [
+            "أصبح بإمكان Via إضافة رسوم تأخير الدفع لعميل الليموزين.",
+            "يستطيع المالك منح هذه الصلاحية أو سحبها لأي شخص من الإعدادات، المستخدمون، في قائمة الشخص: «يمكنه إضافة رسوم التأخير»."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, only administrators could add a late payment charge.",
+            "Now the owner can give it to a person by name, without making them an administrator."
+        ],
+        "ar": [
+            "في السابق كان المسؤولون فقط يستطيعون إضافة رسوم تأخير الدفع.",
+            "الآن يستطيع المالك منحها لشخص بالاسم، دون جعله مسؤولاً."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Customers, and open the customer's summary.",
+            "Press the late payment charge button, type the amount and the period, and save.",
+            "Owner: to give or remove the right, open Settings, Users, press the menu (⋮) next to the person and tick Can add late fees."
+        ],
+        "ar": [
+            "افتح الليموزين، ثم العملاء، وافتح ملخص العميل.",
+            "اضغط زر رسوم تأخير الدفع، واكتب المبلغ والفترة، واحفظ.",
+            "المالك: لمنح الصلاحية أو سحبها، افتح الإعدادات، المستخدمون، واضغط القائمة (⋮) بجانب الشخص وحدّد «يمكنه إضافة رسوم التأخير»."
+        ]
+    },
+    "images": [
+        {
+            "before": "users-before.png",
+            "after": "users-after.png",
+            "caption": {
+                "en": "A person's menu in Settings, Users. After: Can add late fees.",
+                "ar": "قائمة الشخص في الإعدادات، المستخدمون. بعد: «يمكنه إضافة رسوم التأخير»."
+            }
+        }
+    ]
+}

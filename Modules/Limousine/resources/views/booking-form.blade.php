@@ -80,10 +80,31 @@
         </div>
     @endif
 
+    @php
+        $lockedIds = [...($lock['locked'] ?? []), ...($lock['partial'] ?? [])];
+        $hasLock = $lockedIds !== [];
+        $frozen = $hasLock && ! ($lock['mayCorrect'] ?? false);
+    @endphp
+    {{-- Locked trips (active / completed / cancelled): the owner's rule, 2026-11-24. --}}
+    @if ($hasLock)
+        <div class="mb-4 flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm {{ $frozen ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-sky-300 bg-sky-50 text-sky-900' }}" data-booking-locked>
+            <span class="text-lg">🔒</span>
+            <div>
+                @if ($frozen)
+                    <p class="font-semibold">{{ __('This booking has active or completed trips, so their details are locked.') }}</p>
+                    <p class="mt-0.5">{{ __('You can still write comments, add a new trip and take payments. Only the owner or the accountant can change the locked details.') }}</p>
+                @else
+                    <p class="font-semibold">{{ __('This booking has active or completed trips.') }}</p>
+                    <p class="mt-0.5">{{ __('You can correct them because you are the owner or the accountant. Write the reason before saving; it is kept in the activity log.') }}</p>
+                @endif
+            </div>
+        </div>
+    @endif
+
     {{-- ── Customer & passenger ── --}}
     <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/[0.06] sm:p-6">
         <h2 class="mb-4 text-sm font-semibold text-chrome-800">{{ __('Customer & passenger') }}</h2>
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <fieldset @disabled($frozen) class="grid grid-cols-1 gap-4 sm:grid-cols-2 disabled:opacity-70" data-customer-fields>
             <div>
                 <div class="mb-1 flex items-center justify-between gap-2">
                     <label class="block text-sm font-medium text-chrome-700">{{ __('Customer') }} *</label>
@@ -175,10 +196,11 @@
                 @error('units') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 <p class="mt-1 text-xs text-chrome-500">{{ __('The price of every trip is multiplied by this. 2 cars for the same trip = 2.') }}</p>
             </div>
-            <div class="sm:col-span-2">
-                <label class="{{ $lbl }}">{{ __('Comments') }}</label>
-                <textarea wire:model="notes" rows="2" class="o-input w-full"></textarea>
-            </div>
+        </fieldset>
+        {{-- Comments stay open on a locked booking. --}}
+        <div class="mt-4">
+            <label class="{{ $lbl }}">{{ __('Comments') }}</label>
+            <textarea wire:model="notes" rows="2" class="o-input w-full"></textarea>
         </div>
     </div>
 
@@ -255,6 +277,13 @@
             <div class="flex items-center justify-between rounded-lg bg-primary-50 px-3 py-2"><dt class="font-semibold text-primary-800">{{ __('Balance') }}</dt><dd class="text-base font-bold text-primary-700">{{ \App\Erp\Views\ValueFormat::money($balance) }}</dd></div>
         </dl>
 
+        @if ($hasLock && ! $frozen)
+            <div class="mt-4" data-correction-reason>
+                <label class="{{ $lbl }}">{{ __('Reason for correcting a locked trip') }}</label>
+                <input type="text" wire:model="correctionReason" maxlength="255" class="o-input w-full" placeholder="{{ __('Needed only if you change a locked trip') }}">
+            </div>
+        @endif
+        @error('correctionReason') <p class="mt-2 text-sm text-red-600" data-lock-error>{{ $message }}</p> @enderror
         <button wire:click="save" wire:loading.attr="disabled" wire:target="save" class="o-btn-primary mt-4 w-full justify-center py-2.5 disabled:opacity-60">
             <span wire:loading.remove wire:target="save">{{ $isEditing ? __('Save booking') : __('Add record') }}</span>
             <span wire:loading wire:target="save">{{ __('Saving…') }}</span>

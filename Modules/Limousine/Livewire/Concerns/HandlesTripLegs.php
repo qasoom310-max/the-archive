@@ -424,11 +424,16 @@ trait HandlesTripLegs
     }
 
     /** Load legs from a saved parent into the form array. */
-    protected function loadLegs(LimoBooking|LimoQuotation $parent): void
+    /**
+     * One saved trip as the form holds it. Also what a save is compared
+     * against when the trip is locked ({@see \Modules\Limousine\Support\TripLock}).
+     *
+     * @param  array<string, string>  $placeCountries
+     * @return array<string, string>
+     */
+    protected function legRow(LimoLeg $l, array $placeCountries): array
     {
-        $placeCountries = $this->placeCountries();
-
-        $this->legs = $parent->legs->map(fn (LimoLeg $l): array => [
+        return [
             'id' => (string) $l->id,
             'service_type' => $l->service_type,
             'car_id' => $l->car_id !== null ? (string) $l->car_id : '',
@@ -457,16 +462,31 @@ trait HandlesTripLegs
             'discount' => (string) $l->discount,
             'vat' => (string) $l->vat,
             'final_amount' => $l->final_amount !== null ? (string) $l->final_amount : '',
-        ])->all();
+        ];
+    }
+
+    /**
+     * @return list<array{extra: string, qty: string, name: string, price: string}>
+     */
+    protected function legExtrasRow(LimoLeg $l): array
+    {
+        return array_map(static fn (array $e): array => [
+            'extra' => isset($e['extra_id']) ? (string) $e['extra_id'] : 'other',
+            'qty' => (string) max(1, (int) ($e['qty'] ?? 1)),
+            'name' => (string) ($e['name'] ?? ''),
+            'price' => (string) ($e['price'] ?? '0'),
+        ], array_values(array_filter((array) ($l->extras ?? []), 'is_array')));
+    }
+
+    protected function loadLegs(LimoBooking|LimoQuotation $parent): void
+    {
+        $placeCountries = $this->placeCountries();
+
+        $this->legs = $parent->legs->map(fn (LimoLeg $l): array => $this->legRow($l, $placeCountries))->all();
 
         $this->legExtras = [];
         foreach ($parent->legs->values() as $k => $l) {
-            $this->legExtras[$k] = array_map(static fn (array $e): array => [
-                'extra' => isset($e['extra_id']) ? (string) $e['extra_id'] : 'other',
-                'qty' => (string) max(1, (int) ($e['qty'] ?? 1)),
-                'name' => (string) ($e['name'] ?? ''),
-                'price' => (string) ($e['price'] ?? '0'),
-            ], array_values(array_filter((array) ($l->extras ?? []), 'is_array')));
+            $this->legExtras[$k] = $this->legExtrasRow($l);
         }
 
         $this->legCarsAtLoad = $parent->legs->mapWithKeys(static fn (LimoLeg $l): array => [

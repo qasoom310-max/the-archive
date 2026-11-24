@@ -41,6 +41,12 @@ final class TripCrew
      */
     public function assign(LimoLeg $leg, ?int $carId, ?int $driverId, ?string $pay = '', bool $startRequested = false, array|false|null $outside = null): array
     {
+        // A completed or cancelled trip is locked: no re-assigning, from the
+        // list or the staff app, except by the owner or the Accountant.
+        if (\Modules\Limousine\Support\TripLock::blocks($leg, \Illuminate\Support\Facades\Auth::user(), fullOnly: true)) {
+            return ['errors' => ['driver' => \Modules\Limousine\Support\TripLock::message($leg)], 'started' => false];
+        }
+
         $crewBefore = $leg->crewKey();
 
         if (is_array($outside)) {

@@ -338,7 +338,14 @@
                                         </button>
                                     @endif
                                     @if ($actorIsSuperAdmin && ! $user->isSuperAdmin() && \Illuminate\Support\Facades\Schema::hasColumn('users', 'report_pages'))
-                                        <p class="mt-1 border-t border-chrome-100 px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Report pages') }}</p>
+                                        <p class="mt-1 border-t border-chrome-100 px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Extra rights') }}</p>
+                                        @unless ($user->isAdmin())
+                                            <button type="button" wire:click="toggleLateFees({{ $user->id }})" data-late-fees
+                                                class="flex w-full items-center gap-2 px-3 py-1.5 text-start text-xs font-medium text-chrome-700 hover:bg-chrome-50">
+                                                <span class="flex size-4 items-center justify-center rounded border {{ $user->can_charge_late_fees ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-chrome-300' }}">@if ($user->can_charge_late_fees)✓@endif</span>
+                                                {{ __('Can add late fees') }}
+                                            </button>
+                                        @endunless
                                         @foreach (\App\Models\User::REPORT_PAGES as $pageKey => $pageName)
                                             <button type="button" wire:click="toggleReportPage({{ $user->id }}, '{{ $pageKey }}')" data-report-page="{{ $pageKey }}"
                                                 class="flex w-full items-center gap-2 px-3 py-1.5 text-start text-xs font-medium text-chrome-700 hover:bg-chrome-50">

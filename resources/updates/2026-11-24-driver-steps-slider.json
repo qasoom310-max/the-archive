@@ -1,0 +1,51 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Driver trip page: a progress line for the steps and a fuel slider",
+        "ar": "صفحة رحلة السائق: خط تقدم للخطوات وشريط منزلق للوقود"
+    },
+    "points": {
+        "en": [
+            "The three steps (Photo, Check, Start) are now a progress line: each circle turns green with a tick when its step is done.",
+            "The fuel is now a wide slider lying flat, like a volume slider, from E to F. It is set from the photo and the driver slides or taps it to correct it."
+        ],
+        "ar": [
+            "الخطوات الثلاث (الصورة، التحقق، البدء) أصبحت خط تقدم: كل دائرة تصبح خضراء بعلامة صح عند إتمام خطوتها.",
+            "الوقود أصبح شريطاً منزلقاً عريضاً أفقياً، مثل شريط الصوت، من E إلى F. يُضبط من الصورة ويسحبه السائق أو يضغط عليه لتصحيحه."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the steps were three boxes and the fuel was a row of bars, which drivers found hard to follow.",
+            "Now the driver sees at a glance which steps are done. The fuel slider shows E, ¼, ½, ¾ and F under it, the level in words above it, and turns red, yellow or green with the level.",
+            "What is saved has not changed."
+        ],
+        "ar": [
+            "في السابق كانت الخطوات ثلاثة مربعات والوقود صفاً من الأشرطة، ووجدها السائقون صعبة المتابعة.",
+            "الآن يرى السائق بنظرة واحدة الخطوات المنجزة. ويعرض شريط الوقود E و¼ و½ و¾ وF تحته، والمستوى بالكلمات فوقه، ويتلون بالأحمر أو الأصفر أو الأخضر حسب المستوى.",
+            "ما يُحفظ لم يتغير."
+        ]
+    },
+    "guide": {
+        "en": [
+            "The driver opens his trip link and takes the dashboard photo: the Photo circle turns green.",
+            "He checks the KM and slides the fuel to match his gauge.",
+            "He presses Start trip."
+        ],
+        "ar": [
+            "يفتح السائق رابط رحلته ويصوّر لوحة العدادات: تصبح دائرة الصورة خضراء.",
+            "يتحقق من العداد ويسحب الوقود ليطابق مؤشره.",
+            "يضغط «بدء الرحلة»."
+        ]
+    },
+    "images": [
+        {
+            "before": "check-before.png",
+            "after": "check-after.png",
+            "caption": {
+                "en": "The check step. After: a progress line and the fuel slider.",
+                "ar": "خطوة التحقق. بعد: خط التقدم وشريط الوقود."
+            }
+        }
+    ]
+}

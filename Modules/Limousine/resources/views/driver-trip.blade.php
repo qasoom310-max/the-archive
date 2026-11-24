@@ -18,6 +18,9 @@
         .tap { -webkit-tap-highlight-color: transparent; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .spin { animation: spin 1s linear infinite; }
+        .fuel-range { -webkit-appearance: none; appearance: none; height: 44px; border-radius: 9999px; background: #e5e7eb; outline: none; touch-action: pan-y; box-shadow: inset 0 0 0 2px rgba(0,0,0,.08); }
+        .fuel-range::-webkit-slider-thumb { -webkit-appearance: none; width: 40px; height: 40px; border-radius: 9999px; background: #fff; border: 3px solid #18181b; box-shadow: 0 2px 6px rgba(0,0,0,.25); cursor: pointer; }
+        .fuel-range::-moz-range-thumb { width: 36px; height: 36px; border-radius: 9999px; background: #fff; border: 3px solid #18181b; cursor: pointer; }
     </style>
 </head>
 <body class="min-h-full bg-chrome-100 font-sans antialiased">
@@ -100,10 +103,17 @@
             @endif
 
             {{-- Three steps, so he always knows where he is. --}}
-            <ol class="mt-4 grid grid-cols-3 gap-2 text-center text-[11px] font-semibold" id="steps">
-                <li data-step="1" class="rounded-xl px-1 py-2">① Photo<span class="ar">الصورة</span></li>
-                <li data-step="2" class="rounded-xl px-1 py-2">② Check<span class="ar">التحقق</span></li>
-                <li data-step="3" class="rounded-xl px-1 py-2">③ {{ $started ? 'End' : 'Start' }}<span class="ar">{{ $started ? 'الإنهاء' : 'البدء' }}</span></li>
+            {{-- A real progress line: a circle per step, green with a tick when done. --}}
+            <ol class="mt-5 flex items-start" id="steps">
+                @foreach ([['Photo', 'الصورة'], ['Check', 'التحقق'], [$started ? 'End' : 'Start', $started ? 'الإنهاء' : 'البدء']] as $n => [$en, $ar])
+                    <li data-step="{{ $n + 1 }}" class="relative flex flex-1 flex-col items-center text-center">
+                        @if ($n > 0)
+                            <span data-step-line class="absolute end-1/2 top-[18px] h-1 w-full -translate-y-1/2 rounded-full bg-chrome-200"></span>
+                        @endif
+                        <span data-step-dot class="relative z-10 flex size-9 items-center justify-center rounded-full bg-chrome-200 text-sm font-black text-chrome-500 ring-4 ring-white">{{ $n + 1 }}</span>
+                        <span data-step-label class="mt-1.5 text-xs font-bold text-chrome-400">{{ $en }}<span class="ar">{{ $ar }}</span></span>
+                    </li>
+                @endforeach
             </ol>
 
             <label class="tap mt-4 flex cursor-pointer items-center gap-4 rounded-2xl border-2 border-dashed {{ $hasPhoto ? 'border-chrome-200 bg-chrome-50' : 'border-primary-500 bg-primary-400/15' }} p-4" data-photo-pick>
@@ -132,22 +142,22 @@
                 </label>
 
                 {{-- A fuel tank of 8 bars (the owner's call): filled from the photo, tap to correct, E = empty. --}}
+                {{-- Fuel as a settings-style slider (the owner's call): set from the photo,
+                     drag or tap to correct. Eighths of a tank, 0 = E, 8 = F. --}}
                 <div data-fuel-tank>
-                    <div class="flex items-baseline justify-between">
-                        <span class="text-sm font-bold text-chrome-800">Fuel <span class="font-medium text-chrome-500">· الوقود</span></span>
-                        <span class="text-xs text-chrome-500">tap to change · اضغط للتعديل</span>
+                    <div class="flex items-center justify-between">
+                        <span class="flex items-center gap-2 text-sm font-bold text-chrome-800">
+                            <span class="flex size-8 items-center justify-center rounded-xl bg-amber-100 text-base">⛽</span>
+                            Fuel <span class="font-medium text-chrome-500">· الوقود</span>
+                        </span>
+                        <span class="text-end"><span id="fuelWord" class="block text-sm font-black text-chrome-900"></span><span class="text-[11px] text-chrome-500"><span id="fuelNum">{{ $fuelNow }}</span>/8</span></span>
                     </div>
                     <input type="hidden" id="fuel" value="{{ $fuelNow }}">
-                    <div class="mt-2 flex items-center gap-2">
-                        <button type="button" data-fuel-bar="0" class="tap h-14 w-10 shrink-0 rounded-xl bg-red-50 text-sm font-black text-red-600 ring-1 ring-red-200">E</button>
-                        <div class="flex h-14 flex-1 gap-1 rounded-2xl border-[3px] border-chrome-800 bg-chrome-50 p-1">
-                            @for ($i = 1; $i <= 8; $i++)
-                                <button type="button" data-fuel-bar="{{ $i }}" aria-label="{{ $i }}/8" class="tap h-full flex-1 rounded-lg ring-1 ring-chrome-300"></button>
-                            @endfor
-                        </div>
-                        <span class="shrink-0 text-sm font-black text-emerald-700">F</span>
+                    <input type="range" id="fuelRange" min="0" max="8" step="1" value="{{ $fuelNow }}" class="fuel-range mt-4 w-full" aria-label="Fuel">
+                    <div class="mt-1 flex justify-between px-1 text-xs font-bold text-chrome-500">
+                        <span class="text-red-600">E</span><span>¼</span><span>½</span><span>¾</span><span class="text-emerald-700">F</span>
                     </div>
-                    <p class="mt-2 text-center"><span class="text-2xl font-black tabular-nums text-chrome-900"><span id="fuelNum">{{ $fuelNow }}</span>/8</span> <span id="fuelWord" class="ms-2 text-sm font-semibold text-chrome-600"></span></p>
+                    <p class="mt-1 text-center text-[11px] text-chrome-400">slide or tap · اسحب أو اضغط</p>
                 </div>
             </div>
 
@@ -207,8 +217,14 @@
 
             function steps(n) {
                 document.querySelectorAll('#steps [data-step]').forEach(function (li) {
-                    var s = parseInt(li.getAttribute('data-step'), 10);
-                    li.className = 'rounded-xl px-1 py-2 ' + (s < n ? 'bg-emerald-100 text-emerald-800' : (s === n ? 'bg-chrome-900 text-white' : 'bg-chrome-100 text-chrome-400'));
+                    var k = parseInt(li.getAttribute('data-step'), 10);
+                    var dot = li.querySelector('[data-step-dot]'), label = li.querySelector('[data-step-label]'), line = li.querySelector('[data-step-line]');
+                    var done = k < n, now = k === n;
+                    dot.className = 'relative z-10 flex size-9 items-center justify-center rounded-full text-sm font-black ring-4 ring-white '
+                        + (done ? 'bg-emerald-500 text-white' : (now ? 'bg-chrome-900 text-white' : 'bg-chrome-200 text-chrome-500'));
+                    dot.textContent = done ? '✓' : String(k);
+                    label.className = 'mt-1.5 text-xs font-bold ' + (done ? 'text-emerald-700' : (now ? 'text-chrome-900' : 'text-chrome-400'));
+                    if (line) { line.className = 'absolute end-1/2 top-[18px] h-1 w-full -translate-y-1/2 rounded-full ' + (k <= n ? 'bg-emerald-500' : 'bg-chrome-200'); }
                 });
             }
             steps(hasPhoto ? 2 : 1);
@@ -216,19 +232,13 @@
             var words = ['Empty · فارغ', 'Almost empty · شبه فارغ', 'Quarter · ربع', 'Less than half · أقل من النصف', 'Half · نصف', 'More than half · أكثر من النصف', 'Three quarters · ثلاثة أرباع', 'Almost full · شبه ممتلئ', 'Full · ممتلئ'];
             function setFuel(n) {
                 n = Math.max(0, Math.min(8, parseInt(n, 10) || 0));
-                $('fuel').value = String(n);
+                $('fuel').value = String(n); $('fuelRange').value = String(n);
                 $('fuelNum').textContent = n;
                 $('fuelWord').textContent = words[n];
-                var colour = n <= 2 ? 'bg-red-500' : (n <= 5 ? 'bg-amber-400' : 'bg-emerald-500');
-                document.querySelectorAll('[data-fuel-bar]').forEach(function (b) {
-                    var i = parseInt(b.getAttribute('data-fuel-bar'), 10);
-                    if (i === 0) { return; }
-                    b.className = 'tap h-full flex-1 rounded-lg ring-1 ' + (i <= n ? colour + ' ring-black/10' : 'bg-white ring-chrome-300');
-                });
+                var colour = n <= 2 ? '#ef4444' : (n <= 5 ? '#f59e0b' : '#10b981'), pct = n / 8 * 100;
+                $('fuelRange').style.background = 'linear-gradient(to right, ' + colour + ' ' + pct + '%, #e5e7eb ' + pct + '%)';
             }
-            document.querySelectorAll('[data-fuel-bar]').forEach(function (b) {
-                b.addEventListener('click', function () { setFuel(b.getAttribute('data-fuel-bar')); });
-            });
+            $('fuelRange').addEventListener('input', function () { setFuel(this.value); });
             setFuel($('fuel').value);
 
             function fail(msg) {

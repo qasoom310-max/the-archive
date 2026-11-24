@@ -5980,3 +5980,9 @@ the AI reads, big KM box, horizontal 8-bar fuel tank, big Start/End button insid
 trip details after it with Call / Map buttons once unlocked; English with the Arabic under it
 (`$bi`). The plain date row left `details()` (it is in the header). Same ids/data-attributes, no
 server logic change.
+
+**Driver page: progress line + fuel slider (2026-11-24).** The 3 steps are a real stepper
+(circles joined by a line, `data-step-dot` / `data-step-line`; done = green ✓, current = dark).
+The fuel tank bars became a settings-style `<input type="range" id="fuelRange" min=0 max=8>`
+(`.fuel-range` CSS, gradient fill red/amber/green, ticks E ¼ ½ ¾ F); `#fuel` hidden input still
+posts eighths.

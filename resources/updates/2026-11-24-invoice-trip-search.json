@@ -1,0 +1,57 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Invoices: search by trip number to find the invoice for a bulk invoice",
+        "ar": "الفواتير: البحث برقم الرحلة لإيجاد فاتورتها عند عمل فاتورة مجمّعة"
+    },
+    "points": {
+        "en": [
+            "Typing a trip number (the \"Ref. #\" on the invoice) in the Invoices search now finds the invoice that bills it.",
+            "Each invoice row shows its trip numbers, and a note says when a trip has no invoice, is already in a bulk invoice, or is outside the dates picked."
+        ],
+        "ar": [
+            "كتابة رقم الرحلة («Ref. #» في الفاتورة) في بحث الفواتير تجد الآن الفاتورة الخاصة بها.",
+            "كل صف فاتورة يُظهر أرقام رحلاتها، وتظهر ملاحظة إذا لم تكن للرحلة فاتورة، أو كانت في فاتورة مجمّعة، أو خارج التواريخ المختارة."
+        ]
+    },
+    "details": {
+        "en": [
+            "To make a bulk invoice you tick a customer's invoices on the Invoices screen. The search there only looked at invoice numbers, customer names and booking numbers. The number printed on the invoice as \"Ref. #\" is the trip number, and typing it found nothing, so the invoice for that trip could not be found and ticked.",
+            "Now the search also finds the invoice by trip number, including the number a trip had before trips were renumbered, and old-system invoices that list several bookings.",
+            "Each invoice row shows its trip numbers under the invoice number, so you can see which trips you are ticking.",
+            "When you search a trip number, a line above the list says which invoice bills it. If the trip has no invoice yet, it says so with a link to the booking. If its invoice is already in a bulk invoice, it names that bulk invoice, because an invoice can be in one bulk invoice only. If the invoice is outside the service dates or tab you picked, it says so."
+        ],
+        "ar": [
+            "لعمل فاتورة مجمّعة تضع علامة على فواتير العميل في شاشة الفواتير. كان البحث هناك يبحث فقط في أرقام الفواتير وأسماء العملاء وأرقام الحجوزات. والرقم المطبوع في الفاتورة باسم «Ref. #» هو رقم الرحلة، وكتابته لم تكن تجد شيئاً، فلم يكن ممكناً إيجاد فاتورة تلك الرحلة ووضع علامة عليها.",
+            "الآن يجد البحث الفاتورة برقم الرحلة أيضاً، بما في ذلك الرقم القديم للرحلة قبل إعادة الترقيم، والفواتير القديمة التي تضم عدة حجوزات.",
+            "كل صف فاتورة يُظهر أرقام رحلاتها تحت رقم الفاتورة، لترى أي رحلات تختار.",
+            "عند البحث برقم رحلة يظهر سطر فوق القائمة يقول أي فاتورة تخصها. إذا لم تكن للرحلة فاتورة بعد يقول ذلك مع رابط للحجز. وإذا كانت فاتورتها في فاتورة مجمّعة يذكر اسمها، لأن الفاتورة لا تدخل إلا في فاتورة مجمّعة واحدة. وإذا كانت الفاتورة خارج تواريخ الخدمة أو التبويب المختار يقول ذلك."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Invoices.",
+            "Type the trip number in the Search box, for example 25489.",
+            "Tick the invoice that appears. Search the next trip number and tick its invoice too; the ticks stay while you search.",
+            "If a line above the list says the trip has no invoice, press \"Open the booking to create one\" and create it there. If it says the invoice is already in a bulk invoice, open the Bulk invoices tab to find it.",
+            "When all the invoices are ticked, press \"Make bulk invoice\"."
+        ],
+        "ar": [
+            "افتح الليموزين، ثم الفواتير.",
+            "اكتب رقم الرحلة في مربع البحث، مثلاً 25489.",
+            "ضع علامة على الفاتورة التي تظهر. ابحث برقم الرحلة التالية وضع علامة على فاتورتها أيضاً؛ تبقى العلامات أثناء البحث.",
+            "إذا قال السطر فوق القائمة إن الرحلة ليست لها فاتورة، اضغط «افتح الحجز لإنشاء فاتورة» وأنشئها هناك. وإذا قال إن الفاتورة في فاتورة مجمّعة، افتح تبويب الفواتير المجمّعة لتجدها.",
+            "بعد وضع العلامة على كل الفواتير، اضغط «إنشاء فاتورة مجمّعة»."
+        ]
+    },
+    "images": [
+        {
+            "before": "search-before.png",
+            "after": "search-after.png",
+            "caption": {
+                "en": "Searching a trip number: before, no invoices were found; now the invoice appears, with the trip number under it and a line saying which invoice bills the trip.",
+                "ar": "البحث برقم رحلة: في السابق لم تظهر أي فاتورة؛ الآن تظهر الفاتورة ورقم الرحلة تحتها، مع سطر يقول أي فاتورة تخص الرحلة."
+            }
+        }
+    ]
+}

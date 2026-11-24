@@ -5757,6 +5757,20 @@ bulk invoice, rows carry a BINV badge, Mark as sent toggle, cancel is
 with `bulkReference` + `issuedOn`. The old `/invoice/combined?ids=` route still
 works but has no button. Not a `DefinesIrModel`. Tests: `LimoBulkInvoiceTest` (9).
 
+**Invoices search finds trip numbers (fixed 2026-11-24).** The office builds a
+bulk invoice by searching the trips it covers, but the search only matched
+invoice / customer / booking / charge label, while the PDFs print the TRIP
+number as "Ref. #". `LimoInvoiceRows::query()` now also matches the booking's
+legs (`reference` or `previous_reference`, LIKE) and, for a whole number
+(`Support\TripInvoiceLookup::isTripNumber`, 3–9 digits), the exact invoices
+from `TripInvoiceLookup::invoiceIds()`: the booking's invoices PLUS old-system
+invoices whose notes list the booking (`LegacyInvoiceBookings::ids()`). Rows show
+their non-cancelled trip numbers (`data-invoice-trips`, `booking.legs`
+eager-loaded). A whole trip number also shows `TripInvoiceLookup::hints()` above
+the list (`data-trip-hint`): which invoice bills it, or "has no invoice yet"
+(link to the booking), "already in bulk invoice …", or "outside the dates or tab
+you picked". Test: `LimoInvoiceTripSearchTest` (6).
+
 **Limousine expenses carry a driver (shipped 2026-11-18).** `limo_expenses.driver_id`
 (nullable logical ref to the shared drivers table, migration `2026_11_18_950064`;
 `LimoExpense::driver()` + `driver_name` accessor). Engine arch: a Driver list column

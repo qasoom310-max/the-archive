@@ -22,6 +22,7 @@ use Modules\Limousine\Models\LimoReceipt;
 use Modules\Limousine\Services\BookingPayments;
 use Modules\Limousine\Services\BulkInvoices;
 use Modules\Limousine\Services\CustomerDocumentEmails;
+use Modules\Limousine\Support\TripInvoiceLookup;
 
 /**
  * The bills, and the three things anyone does with one.
@@ -409,7 +410,17 @@ final class Invoices extends Component
 
         return view('limousine::invoices', [
             'canManage' => $user instanceof User && $user->canApproveMaintenance(),
-            'invoices' => $onBulkTab ? null : $query->with('bulkInvoice:id,reference')->paginate(20),
+            // Searched a trip number: say which invoice bills it, and why it
+            // may not be in the list (none yet, already in a bulk invoice,
+            // outside the dates or tab picked). Worked out before paging.
+            'tripHints' => ! $onBulkTab && TripInvoiceLookup::isTripNumber($term)
+                ? TripInvoiceLookup::hints($term, (clone $query)->pluck('id')->map(fn ($id): int => (int) $id)->all())
+                : [],
+            'invoices' => $onBulkTab ? null : $query->with([
+                'bulkInvoice:id,reference',
+                // The trip numbers on each row: what the PDF prints as "Ref. #".
+                'booking.legs' => fn ($l) => $l->select(['id', 'legable_type', 'legable_id', 'reference', 'status', 'sequence'])->orderBy('sequence'),
+            ])->paginate(20),
             'onBulkTab' => $onBulkTab,
             'bulks' => $bulks,
             'bulkCount' => LimoBulkInvoice::query()->whereNull('cancelled_at')->count(),

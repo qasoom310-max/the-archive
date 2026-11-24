@@ -62,7 +62,7 @@
         <div class="min-w-[240px] flex-1">
             <label class="mb-1 block text-xs font-medium text-chrome-500">{{ __('Search') }}</label>
             <input type="search" wire:model.live.debounce.300ms="search" class="o-input w-full text-sm"
-                   placeholder="{{ __('Invoice, customer, booking…') }}">
+                   placeholder="{{ __('Invoice, customer, booking or trip number…') }}">
         </div>
         @unless ($onBulkTab)
         <div>
@@ -86,6 +86,31 @@
             <button type="button" wire:click="clearBulkFilter" class="ms-auto text-xs font-semibold text-primary-700 hover:underline">{{ __('Show all invoices') }}</button>
         </div>
     @endif
+
+    {{-- Searched a trip number: which invoice bills it, and why it may not
+         be in the list below. --}}
+    @foreach ($tripHints as $hint)
+        <div class="mb-3 rounded-2xl px-4 py-2.5 text-sm ring-1 {{ collect($hint['invoices'])->contains('listed', true) ? 'bg-chrome-50 text-chrome-700 ring-chrome-200' : 'bg-amber-50 text-amber-800 ring-amber-200' }}" data-trip-hint>
+            <span class="font-semibold">{{ __('Trip :trip', ['trip' => $hint['trip']]) }}</span>
+            <span class="text-chrome-500">· {{ __('booking :ref', ['ref' => $hint['booking']]) }}</span>
+            @if ($hint['cancelled'])
+                · {{ __('this trip is cancelled.') }}
+            @endif
+            @if ($hint['invoices'] === [])
+                · {{ __('has no invoice yet.') }}
+                <a href="{{ url('/app/limousine/booking/' . $hint['booking_id']) }}" wire:navigate class="font-semibold underline">{{ __('Open the booking to create one') }}</a>
+            @else
+                @foreach ($hint['invoices'] as $inv)
+                    · {{ __('billed on :invoice', ['invoice' => $inv['reference']]) }}
+                    @if ($inv['bulk'] !== null)
+                        <span class="font-semibold">({{ __('already in bulk invoice :ref, so it can\'t go in another one', ['ref' => $inv['bulk']]) }})</span>
+                    @elseif (! $inv['listed'])
+                        <span class="font-semibold">({{ __('not shown: it is outside the dates or tab you picked') }})</span>
+                    @endif
+                @endforeach
+            @endif
+        </div>
+    @endforeach
 
     {{-- One document for a month of work, instead of forty downloads. The
          selection survives paging and re-filtering, so a quarter can be
@@ -166,6 +191,14 @@
                             {{ $invoice->reference }}
                             @if ($invoice->bulkInvoice)
                                 <span class="ms-1 rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700" title="{{ __('In bulk invoice :reference', ['reference' => $invoice->bulkInvoice->reference]) }}" data-in-bulk>{{ $invoice->bulkInvoice->reference }}</span>
+                            @endif
+                            @php
+                                $tripRefs = $invoice->booking?->legs
+                                    ->reject(fn ($l) => $l->status === \Modules\Limousine\Models\LimoLeg::STATUS_CANCELLED)
+                                    ->pluck('reference')->filter()->values() ?? collect();
+                            @endphp
+                            @if ($tripRefs->isNotEmpty())
+                                <div class="text-xs font-normal text-chrome-400" data-invoice-trips>{{ trans_choice('Trip :refs|Trips :refs', $tripRefs->count(), ['refs' => $tripRefs->implode(', ')]) }}</div>
                             @endif
                         </td>
                         <td class="px-4 py-2 text-chrome-700">{{ $invoice->customer?->name ?? '—' }}</td>

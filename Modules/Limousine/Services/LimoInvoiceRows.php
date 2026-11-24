@@ -9,6 +9,7 @@ use App\Erp\Views\ValueFormat;
 use Illuminate\Database\Eloquent\Builder;
 use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Support\LiveEntry;
+use Modules\Limousine\Support\TripInvoiceLookup;
 
 /**
  * The one definition of an invoices-list row, read by both the screen and its
@@ -43,11 +44,22 @@ final class LimoInvoiceRows
         $term = trim($search);
         if ($term !== '') {
             $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $term) . '%';
-            $query->where(function ($q) use ($like): void {
-                $q->where('reference', 'like', $like)
+            // A whole trip number also finds an old-system invoice that names
+            // the trip's booking in its notes.
+            $tripInvoices = TripInvoiceLookup::isTripNumber($term) ? TripInvoiceLookup::invoiceIds($term) : [];
+            $query->where(function ($q) use ($like, $tripInvoices): void {
+                if ($tripInvoices !== []) {
+                    $q->orWhereIn('id', $tripInvoices);
+                }
+                $q->orWhere('reference', 'like', $like)
                     ->orWhere('charge_label', 'like', $like)
                     ->orWhereHas('customer', fn ($c) => $c->where('name', 'like', $like))
-                    ->orWhereHas('booking', fn ($b) => $b->where('reference', 'like', $like));
+                    ->orWhereHas('booking', fn ($b) => $b->where('reference', 'like', $like))
+                    // The trip number: what the invoice PDF prints as "Ref. #"
+                    // and what the office quotes, so it must find the bill too.
+                    // The number a trip had before the renumbering counts as well.
+                    ->orWhereHas('booking.legs', fn ($l) => $l->where('reference', 'like', $like)
+                        ->orWhere('previous_reference', 'like', $like));
             });
         }
 

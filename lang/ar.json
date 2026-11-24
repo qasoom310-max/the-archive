@@ -4096,5 +4096,14 @@
     "paid :when": "دُفع :when",
     "not paid yet": "لم يُدفع بعد",
     "Taken through the booking (advance)": "مستلم عبر الحجز (الدفعة المقدمة)",
-    "Paid on the invoice": "مدفوع على الفاتورة"
+    "Paid on the invoice": "مدفوع على الفاتورة",
+    "Invoice, customer, booking or trip number…": "فاتورة أو عميل أو حجز أو رقم رحلة…",
+    "Trip :refs|Trips :refs": "رحلة :refs|رحلات :refs",
+    "booking :ref": "الحجز :ref",
+    "this trip is cancelled.": "هذه الرحلة ملغاة.",
+    "has no invoice yet.": "ليس لها فاتورة بعد.",
+    "Open the booking to create one": "افتح الحجز لإنشاء فاتورة",
+    "billed on :invoice": "مفوترة في :invoice",
+    "already in bulk invoice :ref, so it can't go in another one": "موجودة في الفاتورة المجمّعة :ref، فلا يمكن إضافتها إلى فاتورة أخرى",
+    "not shown: it is outside the dates or tab you picked": "غير ظاهرة: خارج التواريخ أو التبويب الذي اخترته"
 }

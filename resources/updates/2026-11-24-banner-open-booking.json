@@ -1,0 +1,35 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "After saving a booking, the menu opens the full booking",
+        "ar": "بعد حفظ الحجز، القائمة تفتح الحجز كاملاً"
+    },
+    "points": {
+        "en": [
+            "On the \"Booking done successfully\" banner, the menu now says Open full booking and opens the booking page instead of a quick preview."
+        ],
+        "ar": [
+            "في شريط «تم الحجز بنجاح»، القائمة تقول الآن «فتح الحجز كاملاً» وتفتح صفحة الحجز بدلاً من المعاينة السريعة."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, View booking opened a small preview window, and you had to open the booking again to work on it.",
+            "Now one press takes you straight to the full booking."
+        ],
+        "ar": [
+            "في السابق كان «عرض الحجز» يفتح نافذة معاينة صغيرة، وكان عليك فتح الحجز مرة أخرى للعمل عليه.",
+            "الآن ضغطة واحدة تأخذك مباشرة إلى الحجز كاملاً."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Save a booking.",
+            "On the green banner press the menu (⋮), then Open full booking."
+        ],
+        "ar": [
+            "احفظ الحجز.",
+            "في الشريط الأخضر اضغط القائمة (⋮)، ثم «فتح الحجز كاملاً»."
+        ]
+    }
+}

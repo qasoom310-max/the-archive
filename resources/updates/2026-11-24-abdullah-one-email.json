@@ -1,0 +1,41 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Abdullah sends operations one email per round, not one per trip",
+        "ar": "عبدالله يرسل للعمليات بريداً واحداً لكل جولة، لا بريداً لكل رحلة"
+    },
+    "points": {
+        "en": [
+            "Trips without a car or driver are now sent to operations together: one email every 15 minutes listing all of them.",
+            "Trips the driver has not started are grouped the same way.",
+            "Fewer emails, and less spent on the AI."
+        ],
+        "ar": [
+            "الرحلات بدون سيارة أو سائق تُرسل الآن للعمليات معاً: بريد واحد كل 15 دقيقة يضمها كلها.",
+            "والرحلات التي لم يبدأها السائق تُجمع بالطريقة نفسها.",
+            "رسائل أقل، وتكلفة أقل على الذكاء الاصطناعي."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, each trip had its own 15-minute timer. Trips booked at different times came due at different minutes, so operations received many separate emails, and each one was a paid answer from the AI.",
+            "Now there is one clock. Every 15 minutes (or the time set in Settings, Abdullah) one email lists every trip still waiting. The number of reminders per trip and the message to the owner after the last one work as before.",
+            "A trip that comes due just after an email waits for the next round, at most 15 minutes."
+        ],
+        "ar": [
+            "في السابق كان لكل رحلة مؤقت 15 دقيقة خاص بها. والرحلات المحجوزة في أوقات مختلفة كانت تستحق في دقائق مختلفة، فتصل للعمليات رسائل كثيرة منفصلة، وكل واحدة إجابة مدفوعة من الذكاء الاصطناعي.",
+            "الآن توجد ساعة واحدة. كل 15 دقيقة (أو الوقت المحدد في الإعدادات، عبدالله) يضم بريد واحد كل الرحلات التي ما زالت تنتظر. وعدد التذكيرات لكل رحلة ورسالة المالك بعد آخر تذكير يعملان كما كانا.",
+            "الرحلة التي تستحق بعد البريد مباشرة تنتظر الجولة التالية، 15 دقيقة كحد أقصى."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Nothing to do. Operations now get one email per round with every trip in it.",
+            "To change how often, open Settings, Abdullah and change Remind every (minutes)."
+        ],
+        "ar": [
+            "لا شيء عليك فعله. تصل العمليات الآن رسالة واحدة لكل جولة فيها كل الرحلات.",
+            "لتغيير المدة، افتح الإعدادات، عبدالله وغيّر «التذكير كل (دقائق)»."
+        ]
+    }
+}

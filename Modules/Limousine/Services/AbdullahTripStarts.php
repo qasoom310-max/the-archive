@@ -19,8 +19,8 @@ use Modules\Limousine\Models\LimoTripRun;
  * can say "I was in a hurry" without the office knowing at the time.
  *
  * Run every minute. A trip counts once it is LATE_MINUTES past its pick-up and
- * for up to six hours after; each trip is reported ONCE (one email to the
- * operations address for all trips due, and the "Trip reminders" people see it
+ * for up to six hours after; each trip is reported ONCE, in at most one email
+ * per reminder interval for all trips due (and the "Trip reminders" people see it
  * in their box). Trips before the link existed (SINCE) are left alone.
  */
 final class AbdullahTripStarts
@@ -54,6 +54,13 @@ final class AbdullahTripStarts
                 && $leg->legable->status !== LimoBooking::STATUS_CANCELLED
                 && ! LimoTripRun::query()->where('leg_id', $leg->id)->where('driver_id', $leg->driver_id)->whereNotNull('started_at')->exists())
             ->values();
+
+        // One shared clock (as for trips without a driver): at most one email per
+        // interval, listing every trip not started that has not been reported.
+        $batch = $this->abdullah->alert('start:batch', 'start_batch');
+        if ($batch->last_sent_at !== null && $batch->last_sent_at->gt($now->copy()->subMinutes($this->abdullah->tripEveryMinutes())->addMinute())) {
+            return 0;
+        }
 
         $due = [];
         foreach ($legs as $leg) {
@@ -101,6 +108,7 @@ final class AbdullahTripStarts
         foreach ($due as [, $alert]) {
             $alert->forceFill(['sent_count' => 1, 'last_sent_at' => $now])->save();
         }
+        $batch->forceFill(['sent_count' => $batch->sent_count + 1, 'last_sent_at' => $now])->save();
 
         return count($dueLegs);
     }

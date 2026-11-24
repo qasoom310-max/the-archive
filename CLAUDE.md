@@ -6009,3 +6009,10 @@ prices USD/MTok; cache write 1.25×, read 0.1× input; unknown model = Opus 5). 
 `AiUsage::between()` feeds the "AI spending" box (today / this month / last month, USD and BD
 at the 0.376 peg, this month by use). An estimate — update `PRICES` when Anthropic changes them.
 Tests: `AiUsageTest` (2).
+
+**Abdullah's operations emails run on ONE shared clock (2026-11-24).** Owner noticed one email per
+trip. `AbdullahTrips::run()` no longer times each trip separately: an `AbdullahAlert` with key
+`trip:batch` (kind `trip_batch`) holds the last send, and every `abdullah.trip_every` minutes ONE
+email lists every trip still missing its crew (each trip's `sent_count` still counts toward the
+max / owner escalation). `AbdullahTripStarts` does the same with `start:batch`. A trip that comes
+due just after a send waits for the next round (up to the interval). Test: `AbdullahTest` (+1).

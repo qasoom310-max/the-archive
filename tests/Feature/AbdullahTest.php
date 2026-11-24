@@ -153,7 +153,26 @@ final class AbdullahTest extends TestCase
 
         Carbon::setTestNow(Carbon::now()->addMinutes(15));
         $this->assertSame(0, $trips->run()['emails']);
-        $this->assertSame($this->staff->id, AbdullahAlert::query()->value('acknowledged_by'));
+        $this->assertSame($this->staff->id, AbdullahAlert::query()->where('kind', 'trip')->value('acknowledged_by'));
+    }
+
+    public function test_trips_coming_due_at_different_times_share_one_email(): void
+    {
+        $trips = app(AbdullahTrips::class);
+        $this->trip();
+        $this->assertSame(1, $trips->run()['emails']);
+
+        // A second trip booked 5 minutes later waits for the shared clock
+        // instead of getting an email of its own.
+        Carbon::setTestNow(Carbon::now()->addMinutes(5));
+        $second = $this->trip();
+        $this->assertSame(0, $trips->run()['emails']);
+
+        Carbon::setTestNow(Carbon::now()->addMinutes(10));
+        $this->assertSame(1, $trips->run()['emails']);
+        Mail::assertSent(AbdullahMail::class, 2);
+        Mail::assertSent(AbdullahMail::class, static fn (AbdullahMail $m): bool => count($m->rows) === 2
+            && in_array((string) $second->reference, array_column($m->rows, 'reference'), true));
     }
 
     public function test_trips_of_other_days_and_trips_with_a_crew_are_left_alone(): void

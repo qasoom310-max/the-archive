@@ -17,8 +17,9 @@ use Modules\Limousine\Models\LimoLeg;
 /**
  * Abdullah chases today's trips that still have no driver or no car.
  *
- * Run every minute (routes/console.php). For each such trip he emails the
- * operations address on the owner's timer (every 15 minutes by default),
+ * Run every minute (routes/console.php). He emails the operations address on
+ * the owner's timer (every 15 minutes by default) ONE email listing every such
+ * trip — one shared clock, not one per trip — with each trip
  * at most 12 times (by default), all of the trips due in ONE email so the
  * mailbox is not flooded. The people with "Trip reminders" on also see it in
  * their box the first time, with an "I'm handling it" button that stops the
@@ -69,6 +70,13 @@ final class AbdullahTrips
         // A minute's give, so a run a few seconds early does not skip a round.
         $dueBefore = $now->copy()->subMinutes($every)->addMinute();
 
+        // ONE clock for all trips (the owner's call, 2026-11-24): at most one
+        // email per interval, holding every trip still missing its crew, rather
+        // than each trip on its own timer and a stream of single-trip emails
+        // (each one is a paid AI answer).
+        $batch = $this->abdullah->alert(self::BATCH_KEY, 'trip_batch');
+        $clockDue = $batch->last_sent_at === null || $batch->last_sent_at->lte($dueBefore);
+
         $due = [];
         $firstTime = [];
         $maxed = [];
@@ -87,7 +95,7 @@ final class AbdullahTrips
                 continue;
             }
 
-            if ($alert->last_sent_at === null || $alert->last_sent_at->lte($dueBefore)) {
+            if ($clockDue) {
                 $due[] = [$leg, $alert];
                 if ($alert->sent_count === 0) {
                     $firstTime[] = $leg;
@@ -117,6 +125,7 @@ final class AbdullahTrips
             foreach ($due as [, $alert]) {
                 $alert->forceFill(['sent_count' => $alert->sent_count + 1, 'last_sent_at' => $now])->save();
             }
+            $batch->forceFill(['sent_count' => $batch->sent_count + 1, 'last_sent_at' => $now])->save();
 
             // The box hears about a trip once; the email is what repeats.
             if ($firstTime !== []) {
@@ -159,6 +168,9 @@ final class AbdullahTrips
 
         return $done;
     }
+
+    /** The shared clock for the operations email. */
+    public const BATCH_KEY = 'trip:batch';
 
     public static function key(LimoLeg $leg): string
     {

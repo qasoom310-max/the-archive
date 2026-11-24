@@ -283,11 +283,63 @@ final class LimoBooking extends Model implements DefinesIrModel, TakesCouponCred
      */
     public function amountReceived(): float
     {
-        $invoices = array_key_exists('invoices_paid', $this->getAttributes())
+        $loaded = $this->getAttributes();
+        $invoices = array_key_exists('invoices_paid', $loaded)
             ? (float) $this->getAttribute('invoices_paid')
             : ($this->exists ? (float) $this->invoices()->sum('amount_paid') : 0.0);
+        $credit = array_key_exists('coupon_credit', $loaded)
+            ? (float) $this->getAttribute('coupon_credit')
+            : ($this->exists ? (float) $this->couponRedemptions()->sum('amount') : 0.0);
+        $refunds = array_key_exists('refunds_total', $loaded)
+            ? (float) $this->getAttribute('refunds_total')
+            : ($this->exists ? (float) $this->refundedLegs()->sum('refund_amount') : 0.0);
 
-        return round(max((float) $this->advance, $invoices), 3);
+        // Coupon credit reaches the advance only (it has no receipt), and a
+        // refund comes off the advance only (its receipts stay). So the invoice
+        // side is completed with both before the two are compared: otherwise a
+        // booking paid partly on its invoice and partly with a coupon showed
+        // the coupon as still owed.
+        return round(max((float) $this->advance, $invoices + $credit - $refunds), 3);
+    }
+
+    /**
+     * The same reading as {@see amountReceived()}, in SQL, for list sorting and
+     * the "owing" filter. `$bookings` is the bookings table (or its alias).
+     */
+    public static function receivedSql(string $bookings): string
+    {
+        $invoices = (new LimoInvoice())->getTable();
+        $redemptions = (new LimoCouponRedemption())->getTable();
+        $legs = (new LimoLeg())->getTable();
+        $morph = \Illuminate\Support\Facades\DB::connection()->getPdo()->quote((new self())->getMorphClass());
+        $refunded = \Illuminate\Support\Facades\DB::connection()->getPdo()->quote(LimoLeg::REFUND_REFUNDED);
+
+        $side = "((select coalesce(sum(rx_inv.amount_paid), 0) from {$invoices} rx_inv where rx_inv.booking_id = {$bookings}.id)"
+            . " + (select coalesce(sum(rx_cr.amount), 0) from {$redemptions} rx_cr where rx_cr.limo_booking_id = {$bookings}.id)"
+            . " - (select coalesce(sum(rx_leg.refund_amount), 0) from {$legs} rx_leg where rx_leg.legable_type = {$morph}"
+            . " and rx_leg.legable_id = {$bookings}.id and rx_leg.refund_outcome = {$refunded}))";
+
+        return "(case when {$bookings}.advance > {$side} then {$bookings}.advance else {$side} end)";
+    }
+
+    /**
+     * Coupon credit spent on this booking.
+     *
+     * @return HasMany<LimoCouponRedemption, $this>
+     */
+    public function couponRedemptions(): HasMany
+    {
+        return $this->hasMany(LimoCouponRedemption::class, 'limo_booking_id');
+    }
+
+    /**
+     * Trips cancelled with the money handed back.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphMany<LimoLeg, $this>
+     */
+    public function refundedLegs(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(LimoLeg::class, 'legable')->where('refund_outcome', LimoLeg::REFUND_REFUNDED);
     }
 
     /** What is still owed, counting money recorded on its invoices as well as the advance. */
@@ -362,7 +414,9 @@ final class LimoBooking extends Model implements DefinesIrModel, TakesCouponCred
      */
     public static function withInvoicesPaidOn(Builder $query): Builder
     {
-        return $query->withSum('invoices as invoices_paid', 'amount_paid');
+        return $query->withSum('invoices as invoices_paid', 'amount_paid')
+            ->withSum('couponRedemptions as coupon_credit', 'amount')
+            ->withSum('refundedLegs as refunds_total', 'refund_amount');
     }
 
     /**
@@ -389,17 +443,14 @@ final class LimoBooking extends Model implements DefinesIrModel, TakesCouponCred
     public static function owingOn(Builder $query): Builder
     {
         $bookings = $query->getModel()->getTable();
-        $paid = '(select coalesce(sum(owing_inv.amount_paid), 0) from ' . (new LimoInvoice)->getTable()
-            . ' owing_inv where owing_inv.booking_id = ' . $bookings . '.id)';
+        $received = self::receivedSql($bookings);
 
         return $query
             ->where($bookings . '.fare', '>', 0)
-            ->whereRaw($bookings . '.advance + 0.0005 < ' . $bookings . '.fare')
-            ->whereRaw($paid . ' + 0.0005 < ' . $bookings . '.fare')
-            ->where(function (Builder $q) use ($bookings, $paid): void {
+            ->whereRaw($received . ' + 0.0005 < ' . $bookings . '.fare')
+            ->where(function (Builder $q) use ($bookings, $received): void {
                 $q->where($bookings . '.payment_status', self::PAYMENT_UNPAID)
-                    ->orWhere($bookings . '.advance', '>', 0.0005)
-                    ->orWhereRaw($paid . ' > 0.0005');
+                    ->orWhereRaw($received . ' > 0.0005');
             });
     }
 

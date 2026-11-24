@@ -304,7 +304,10 @@ final class TripCancellation
             ->sum('refund_amount');
         $credited = (float) LimoCoupon::query()->where('limo_booking_id', $booking->id)->sum('amount');
 
-        $paid = max((float) $booking->advance + $refunded, (float) $booking->invoices()->sum('amount_paid'));
+        // Coupon credit spent on the booking sits on the advance only, so the
+        // invoice side needs it added to be compared fairly.
+        $spent = (float) $booking->couponRedemptions()->sum('amount');
+        $paid = max((float) $booking->advance + $refunded, (float) $booking->invoices()->sum('amount_paid') + $spent);
         if ($paid <= 0.001) {
             // Nothing ever recorded: the fare still carries every trip but the
             // refunded ones, and none were refunded here.

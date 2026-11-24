@@ -27,6 +27,7 @@ use Modules\Limousine\Services\CouponRedeemer;
 use Modules\Limousine\Services\CustomerDocumentEmails;
 use Modules\Limousine\Support\TripLock;
 use Modules\Limousine\Services\TripCancellation;
+use Modules\Limousine\Support\BookingMoney;
 use Modules\Limousine\Support\TripDetailsLock;
 use Modules\Limousine\Models\LimoReceipt;
 
@@ -1122,6 +1123,11 @@ final class BookingForm extends Component
             'couponCredit' => $credit = $this->couponCredit(),
             'balance' => round(max(0.0, $grand - (float) ($this->advance === '' ? '0' : $this->advance) - $credit), 3),
             'isEditing' => $this->id !== null,
+            // The total and every payment, laid out, so a balance nobody
+            // expects can be traced to what made it.
+            'money' => $this->id !== null && ($saved = LimoBooking::query()->find($this->id)) !== null
+                ? BookingMoney::of($saved)
+                : null,
             // Paid / partial / unpaid from the money on file, not the flag alone.
             'paymentState' => $this->id !== null
                 ? (LimoBooking::query()->find($this->id)?->paymentState() ?? $this->payment_status)

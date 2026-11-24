@@ -13,7 +13,6 @@ use Illuminate\Support\Facades\DB;
 use App\Erp\Search\PhoneSearch;
 use Modules\Limousine\Models\LimoBooking;
 use Modules\Limousine\Models\LimoCustomer;
-use Modules\Limousine\Models\LimoInvoice;
 use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Support\DriverAliases;
 use Modules\Limousine\Support\LiveEntry;
@@ -557,11 +556,8 @@ final class LimoQueueRows
     private function balanceColumn(): Expression
     {
         $b = $this->table(LimoBooking::class);
-        $i = (new LimoInvoice())->getTable();
-        // What was received: the advance or the invoices' paid, the larger
-        // (LimoBooking::amountReceived()).
-        $paid = "(select coalesce(sum(sort_inv.amount_paid), 0) from {$i} sort_inv where sort_inv.booking_id = {$b}.id)";
-        $received = "(case when {$b}.advance > {$paid} then {$b}.advance else {$paid} end)";
+        // What was received, read exactly as LimoBooking::amountReceived().
+        $received = LimoBooking::receivedSql($b);
 
         return DB::raw("case when {$b}.fare - {$received} < 0 then 0 else {$b}.fare - {$received} end");
     }

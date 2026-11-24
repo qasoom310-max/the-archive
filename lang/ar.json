@@ -4079,5 +4079,22 @@
     "cancelled": "ملغاة",
     "Can add late fees": "يمكنه إضافة رسوم التأخير",
     "Extra rights": "صلاحيات إضافية",
-    "This booking has an active trip, so it cannot be cancelled here. Only the owner or the accountant can do it.": "في هذا الحجز رحلة نشطة، لذلك لا يمكن إلغاؤه هنا. فقط المالك أو المحاسب يستطيع ذلك."
+    "This booking has an active trip, so it cannot be cancelled here. Only the owner or the accountant can do it.": "في هذا الحجز رحلة نشطة، لذلك لا يمكن إلغاؤه هنا. فقط المالك أو المحاسب يستطيع ذلك.",
+    "Money on this booking": "المبالغ في هذا الحجز",
+    "What the total is made of, and every payment recorded against it.": "مما يتكوّن الإجمالي، وكل دفعة مسجلة عليه.",
+    "The payments on file add up to more than \"Received\". Part of the money was recorded in one place only, so the balance shown in the list is too high. Check the payments below.": "مجموع الدفعات المسجلة أكبر من \"المستلم\". جزء من المبلغ سُجّل في مكان واحد فقط، لذلك الرصيد الظاهر في القائمة أعلى من الحقيقي. راجع الدفعات أدناه.",
+    "A payment link for :amount has not been paid yet. If the customer says they paid it online, the website did not tell us: check the store order.": "رابط دفع بمبلغ :amount لم يُدفع بعد. إذا قال العميل إنه دفع عبر الإنترنت فالموقع لم يُبلغنا: راجع الطلب في المتجر.",
+    "The total": "الإجمالي",
+    "refunded": "أُعيد المبلغ",
+    "kept, coupon given": "محتسب، وأُعطي قسيمة",
+    "kept, nothing given back": "محتسب، دون إعادة شيء",
+    "nothing was paid": "لم يُدفع شيء",
+    "Coupons given from this booking:": "قسائم صدرت من هذا الحجز:",
+    "on invoice :ref only": "على الفاتورة :ref فقط",
+    "No receipts.": "لا توجد إيصالات.",
+    "Coupon :code spent": "استُخدمت القسيمة :code",
+    "paid :when": "دُفع :when",
+    "not paid yet": "لم يُدفع بعد",
+    "Taken through the booking (advance)": "مستلم عبر الحجز (الدفعة المقدمة)",
+    "Paid on the invoice": "مدفوع على الفاتورة"
 }

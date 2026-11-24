@@ -3184,6 +3184,28 @@ customer page's booking list. Badge colours/words: `paymentBadgeClass()` /
 only) still drives the take-payment dialog, payment links and cancellations.
 Test: `LimoPartialPaymentTest` (10).
 
+**Received counts coupon credit with the invoice payments (fixed 2026-11-24).**
+`amountReceived()` was max(advance, invoices' amount_paid). Coupon credit
+reaches the ADVANCE only (no receipt), and a receipt from the Receipts screen /
+account payment / bulk invoice reaches the INVOICE only, so a booking paid partly
+each way showed the coupon as still owed. Now it is
+max(advance, invoices_paid + coupon credit spent − refunds on refunded trips)
+(a refund lowers the advance but leaves its receipts). The same reading in SQL is
+`LimoBooking::receivedSql($table)`, used by `owingOn()` (Unpaid tab, dashboard
+count) and `LimoQueueRows::balanceColumn()` (sort); `withInvoicesPaidOn()` also
+loads `coupon_credit` and `refunds_total`. `TripCancellation::stillHeld()` adds
+spent credit to the invoice side too. **Any new figure for "money received on a
+booking" must go through `amountReceived()` / `receivedSql()`.** The booking page
+also shows a **"Money on this booking"** box (`Support\BookingMoney::of()`,
+`partials/booking-money`, `data-booking-money`): trips with price and billed or
+not, meet & greet, total; every receipt (booking_id OR on its invoices, deduped,
+flagged "on invoice only"), coupons spent and issued, payment links with status;
+advance, invoice paid, Received, Still owed. Two warnings: an unpaid payment link
+(`links_waiting`, a callback that never came) and `disagrees` (receipts + credit −
+refunds > Received: money recorded in one place only, e.g. a receipt with a
+booking but no invoice). Built because a "fully paid but partial" report could
+not be traced from here. Test: `LimoBookingMoneyTest` (7).
+
 **Vehicle Type on a quotation reads BOTH car fields (fixed 2026-09-30):** the
 owner wrote a quote, chose the car on it, and the Vehicle Type column printed
 empty. Not a mistake of theirs — the form offers TWO ways to name the car, a

@@ -291,5 +291,9 @@
         <a href="{{ url('/app/limousine/booking') }}" wire:navigate class="mt-2 block text-center text-sm text-chrome-500 hover:text-chrome-700">{{ __('Cancel') }}</a>
     </div>
 
+    @if ($money !== null)
+        @include('limousine::partials.booking-money', ['money' => $money])
+    @endif
+
     @include('limousine::partials.customer-modal')
 </div>

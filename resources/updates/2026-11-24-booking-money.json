@@ -1,0 +1,57 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Bookings: a booking paid partly on its invoice and partly with a coupon no longer shows a false balance",
+        "ar": "الحجوزات: الحجز المدفوع جزء منه على الفاتورة وجزء بقسيمة لم يعد يُظهر رصيداً غير صحيح"
+    },
+    "points": {
+        "en": [
+            "A booking paid partly on its invoice and partly with a refund coupon now reads paid in full, not \"partial paid\".",
+            "The booking page has a new \"Money on this booking\" box: every trip in the total and every payment against it."
+        ],
+        "ar": [
+            "الحجز المدفوع جزء منه على الفاتورة وجزء بقسيمة استرداد يظهر الآن مدفوعاً بالكامل، لا «مدفوع جزئياً».",
+            "صفحة الحجز فيها مربع جديد «المبالغ في هذا الحجز»: كل رحلة في الإجمالي وكل دفعة عليه."
+        ]
+    },
+    "details": {
+        "en": [
+            "A booking keeps money in two places: what was taken through the booking itself, and what was paid on its invoice. A payment taken through the booking is written in both places, so the system counted the larger of the two as \"Received\".",
+            "A refund coupon spent on a booking is written only on the booking, and a payment entered on the Receipts screen only on the invoice. So when a customer paid part on the invoice and the rest with a coupon, the coupon was left out and its amount showed as still owed, even though the booking was paid in full. Now the coupon is counted with the invoice payments, so such a booking reads paid. Money refunded for a cancelled trip is also no longer counted as received.",
+            "Because nobody could see where a balance came from, the booking page now has a \"Money on this booking\" box. On the left: each trip with its price (a cancelled trip that is not charged is crossed out), meet and greet, and the total. On the right: every receipt with its date and method (and whether it was entered on the invoice only), coupons spent, payment links and whether they were paid, then what was taken through the booking, what was paid on the invoice, \"Received\" and \"Still owed\".",
+            "Two warnings appear when something does not add up: a payment link that has not been paid (if the customer says they paid online, the website did not tell us), and payments on file that add up to more than \"Received\" (money that was recorded in one place only)."
+        ],
+        "ar": [
+            "يحفظ الحجز المبالغ في مكانين: ما استُلم عبر الحجز نفسه، وما دُفع على فاتورته. الدفعة التي تُستلم عبر الحجز تُسجَّل في المكانين، لذلك كان النظام يعدّ الأكبر من الاثنين على أنه «المستلم».",
+            "قسيمة الاسترداد المستخدمة في الحجز تُسجَّل على الحجز فقط، والدفعة المُدخلة من شاشة الإيصالات تُسجَّل على الفاتورة فقط. فإذا دفع العميل جزءاً على الفاتورة والباقي بقسيمة، كانت القسيمة تُهمَل ويظهر مبلغها كأنه ما زال مستحقاً، مع أن الحجز مدفوع بالكامل. الآن تُحسب القسيمة مع دفعات الفاتورة، فيظهر الحجز مدفوعاً. كذلك لم يعد المبلغ المُعاد عن رحلة ملغاة يُحسب ضمن المستلم.",
+            "ولأن أحداً لم يكن يستطيع معرفة مصدر الرصيد، صار في صفحة الحجز مربع «المبالغ في هذا الحجز». في جهة: كل رحلة بسعرها (الرحلة الملغاة غير المحتسبة مشطوبة)، والاستقبال، والإجمالي. وفي الجهة الأخرى: كل إيصال بتاريخه وطريقته (وهل أُدخل على الفاتورة فقط)، والقسائم المستخدمة، وروابط الدفع وهل دُفعت، ثم ما استُلم عبر الحجز، وما دُفع على الفاتورة، و«المستلم» و«المتبقي».",
+            "يظهر تنبيهان عندما لا تتطابق المبالغ: رابط دفع لم يُدفع (إذا قال العميل إنه دفع عبر الإنترنت فالموقع لم يُبلغنا)، ودفعات مسجلة مجموعها أكبر من «المستلم» (مبلغ سُجّل في مكان واحد فقط)."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Bookings, then in the booking's row press the three dots and \"Open full booking\".",
+            "Scroll down below the Payment box to \"Money on this booking\".",
+            "Check the trips on the left add up to the total you agreed with the customer. If a trip is there that should not be, or a price is wrong, correct the trip above and save.",
+            "Check the payments on the right. If the customer paid money that is not listed, record it from the green payment button on the bookings list, or on the Receipts screen against this booking's invoice.",
+            "If a yellow box says a payment link has not been paid but the customer paid online, find the order on the website and send its details to the person who looks after the system."
+        ],
+        "ar": [
+            "افتح الليموزين، ثم الحجوزات، ثم في صف الحجز اضغط النقاط الثلاث و«فتح الحجز الكامل».",
+            "انزل تحت مربع الدفع إلى «المبالغ في هذا الحجز».",
+            "تأكد أن الرحلات في جهة الإجمالي تساوي المبلغ المتفق عليه مع العميل. إذا وُجدت رحلة لا يجب أن تكون، أو كان سعر خاطئاً، صحّح الرحلة في الأعلى واحفظ.",
+            "راجع الدفعات في الجهة الأخرى. إذا دفع العميل مبلغاً غير مذكور، سجّله من زر الدفع الأخضر في قائمة الحجوزات، أو من شاشة الإيصالات على فاتورة هذا الحجز.",
+            "إذا ظهر مربع أصفر يقول إن رابط الدفع لم يُدفع والعميل دفع عبر الإنترنت، ابحث عن الطلب في الموقع وأرسل تفاصيله للشخص المسؤول عن النظام."
+        ]
+    },
+    "images": [
+        {
+            "before": "money-before.png",
+            "after": "money-after.png",
+            "caption": {
+                "en": "The booking page: before, only the advance and the balance; now every trip and every payment, with a warning for an unpaid payment link.",
+                "ar": "صفحة الحجز: في السابق الدفعة المقدمة والرصيد فقط؛ الآن كل رحلة وكل دفعة، مع تنبيه لرابط دفع لم يُدفع."
+            }
+        }
+    ]
+}

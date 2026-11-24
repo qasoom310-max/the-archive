@@ -17,6 +17,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $last_status
  * @property string|null $last_error
  * @property \Illuminate\Support\Carbon|null $last_synced_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
  */
 final class WooCommerceProductLink extends Model
 {

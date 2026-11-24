@@ -1,0 +1,55 @@
+{
+    "app": "website",
+    "title": {
+        "en": "Product page: a new Website box shows whether the product reached the website, and why not",
+        "ar": "صفحة المنتج: مربع جديد «الموقع الإلكتروني» يُظهر هل وصل المنتج إلى الموقع، ولماذا لم يصل"
+    },
+    "points": {
+        "en": [
+            "Each product page now has a Website box: on the website, waiting, or refused, with the website's own reason.",
+            "A \"Send to website now\" button sends the product straight away and shows the result."
+        ],
+        "ar": [
+            "صفحة كل منتج فيها الآن مربع «الموقع الإلكتروني»: على الموقع، أو بانتظار الإرسال، أو مرفوض مع سبب الموقع نفسه.",
+            "زر «أرسل إلى الموقع الآن» يرسل المنتج فوراً ويُظهر النتيجة."
+        ]
+    },
+    "details": {
+        "en": [
+            "When a product was saved, the system sent it to the website in the background. If the website refused it, or the background sender was not running, the reason was written down where no screen showed it. A product that never appeared on the website looked exactly the same as one that was fine, so nobody could tell what was wrong.",
+            "Now, under the product form, a Website box says what happened: on the website (with a link to open it there), waiting to be sent, still waiting after ten minutes (the background sender is not running), refused by the website (with the website's exact reply), or not ready yet (missing a photo, category, price or name).",
+            "The \"Send to website now\" button sends this one product at once, without waiting for the background sender, and the box shows the answer. If sending to the website is switched off in the settings, the box says so.",
+            "The box only appears in businesses that have a website connected."
+        ],
+        "ar": [
+            "عند حفظ المنتج كان النظام يرسله إلى الموقع في الخلفية. إذا رفضه الموقع، أو كان المرسل في الخلفية متوقفاً، كان السبب يُسجَّل في مكان لا تُظهره أي شاشة. فكان المنتج الذي لم يظهر على الموقع يبدو تماماً مثل المنتج السليم، ولم يكن أحد يعرف ما المشكلة.",
+            "الآن، تحت نموذج المنتج، يقول مربع «الموقع الإلكتروني» ما حدث: على الموقع (مع رابط لفتحه هناك)، أو بانتظار الإرسال، أو ما زال بانتظار الإرسال بعد عشر دقائق (المرسل في الخلفية لا يعمل)، أو رفضه الموقع (مع رد الموقع كما هو)، أو غير جاهز بعد (تنقصه صورة أو فئة أو سعر أو اسم).",
+            "زر «أرسل إلى الموقع الآن» يرسل هذا المنتج فوراً دون انتظار المرسل في الخلفية، ويُظهر المربع الرد. وإذا كان إرسال المنتجات إلى الموقع متوقفاً في الإعدادات، يقول المربع ذلك.",
+            "يظهر المربع فقط في الأنشطة المرتبطة بموقع."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Point of Sale, then Products, and open the product.",
+            "Scroll down below the form to the Website box and read what it says.",
+            "If it says the product is not ready, add what the yellow note under \"Show in the online store\" asks for, then tick that box.",
+            "Press \"Send to website now\". A green line means it is on the website. If the box turns red, take a picture of the red message and send it to the person who looks after the system."
+        ],
+        "ar": [
+            "افتح نقطة البيع، ثم المنتجات، وافتح المنتج.",
+            "انزل تحت النموذج إلى مربع «الموقع الإلكتروني» واقرأ ما فيه.",
+            "إذا قال إن المنتج غير جاهز، أضف ما تطلبه الملاحظة الصفراء تحت «Show in the online store»، ثم ضع علامة في ذلك المربع.",
+            "اضغط «أرسل إلى الموقع الآن». السطر الأخضر يعني أن المنتج على الموقع. إذا صار المربع أحمر، صوّر الرسالة الحمراء وأرسلها للشخص المسؤول عن النظام."
+        ]
+    },
+    "images": [
+        {
+            "before": "website-before.png",
+            "after": "website-after.png",
+            "caption": {
+                "en": "Under the product form: before there was nothing about the website; now the Website box shows the website's reply and a Send now button.",
+                "ar": "تحت نموذج المنتج: في السابق لم يكن هناك شيء عن الموقع؛ الآن يُظهر مربع «الموقع الإلكتروني» رد الموقع وزر الإرسال الآن."
+            }
+        }
+    ]
+}

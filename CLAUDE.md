@@ -2088,6 +2088,19 @@ WooCommerce** (admin) → paste the store URL + REST consumer key/secret
 public `/woocommerce/webhook` endpoint (HMAC-verified) to import online orders
 + pull stock changes back into the ERP (the user picked two-way).
 
+**"Website" box on the product page (shipped 2026-11-24).** A push's outcome lived only in
+`woocommerce_product_links` (no screen), so "the product isn't on the site" could not be
+diagnosed without the server. `Modules\WooCommerce\Livewire\ProductWebsiteStatus`
+(`woocommerce::product-website-status`, embedded by FQCN in `pos::product-form` when
+`ProductWebsiteStatus::available()` = both tables exist AND a `store_url` is entered) shows
+`data-website-status`: `off` (connection not configured/enabled), `held_back` / `take_down`
+(not `publishesOnline()`), `on` (+ `{store_url}/?p={woo_id}` link), `failed` (the stored
+`last_error` verbatim), `queued`, `stuck` (queued > 10 min = the queue worker isn't
+draining), `taken_down`, `never`. "Send to website now" (`pos.product` Write) calls
+`WooCommerceService::pushNow()` synchronously (no queue), activity-logged. Refreshes on the
+form's `record-saved`. Tests: `WooCommerceModuleTest` (+9). **When a product "doesn't reach the
+site", ask for a picture of this box first.**
+
 **Phase 18 — Cloudflare Stream video (core, shipped 2026-06-25):**
 
 Browser-direct video upload to **Cloudflare Stream** + a public share link.

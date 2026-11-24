@@ -18,6 +18,7 @@ use Modules\Pos\Models\PosCategory;
 use Modules\Pos\Models\PosProduct;
 use Modules\WooCommerce\Console\TakeDownHeldBackProducts;
 use Modules\WooCommerce\Jobs\SyncProductToWooCommerce;
+use Modules\WooCommerce\Livewire\ProductWebsiteStatus;
 use Modules\WooCommerce\Livewire\WooCommerceSettings;
 use Modules\WooCommerce\Models\WooCommerceConfiguration;
 use Modules\WooCommerce\Models\WooCommerceProductLink;
@@ -658,5 +659,143 @@ final class WooCommerceModuleTest extends TestCase
 
         $this->assertTrue($component->get('syncError'));
         $this->assertStringContainsString('failed', (string) $component->get('syncMessage'));
+    }
+
+    // ── "Website" box on the product page ─────────────────────────────────
+
+    private function websiteBox(PosProduct $product): \Livewire\Features\SupportTesting\Testable
+    {
+        return Livewire::test(ProductWebsiteStatus::class, ['productId' => $product->id]);
+    }
+
+    public function test_the_website_box_shows_the_stores_refusal_in_its_own_words(): void
+    {
+        $this->install();
+        $this->configure();
+        Bus::fake();
+        $product = $this->product();
+        WooCommerceProductLink::query()->updateOrCreate(['pos_product_id' => $product->id], [
+            'last_status' => 'failed',
+            'last_error' => 'HTTP 400: {"code":"woocommerce_product_image_upload_error"}',
+        ]);
+
+        $this->websiteBox($product)
+            ->assertSeeHtml('data-website-status="failed"')
+            ->assertSee('woocommerce_product_image_upload_error');
+    }
+
+    public function test_send_now_pushes_straight_away_without_the_queue(): void
+    {
+        $this->install();
+        $this->configure();
+        Bus::fake();
+        $product = $this->product();
+        Http::fake([
+            '*/products/categories*' => Http::response([['id' => 5, 'name' => $product->category?->name]], 200),
+            '*/products?*' => Http::response([], 200),
+            '*/products' => Http::response(['id' => 4321], 201),
+        ]);
+
+        $this->websiteBox($product)
+            ->call('sendNow')
+            ->assertSet('resultOk', true)
+            ->assertSeeHtml('data-website-status="on"')
+            ->assertSeeHtml('https://shop.example.com/?p=4321');
+
+        $link = WooCommerceProductLink::query()->where('pos_product_id', $product->id)->firstOrFail();
+        $this->assertSame('synced', $link->last_status);
+        $this->assertSame(4321, $link->woo_id);
+        Bus::assertNotDispatched(SyncProductToWooCommerce::class);
+    }
+
+    public function test_send_now_reports_a_refusal(): void
+    {
+        $this->install();
+        $this->configure();
+        Bus::fake();
+        $product = $this->product();
+        Http::fake(['*' => Http::response('{"code":"woocommerce_rest_authentication_error"}', 401)]);
+
+        $this->websiteBox($product)
+            ->call('sendNow')
+            ->assertSet('resultOk', false)
+            ->assertSee('woocommerce_rest_authentication_error')
+            ->assertSeeHtml('data-website-status="failed"');
+    }
+
+    public function test_the_box_follows_a_save_on_the_product_form(): void
+    {
+        $this->install();
+        $this->configure();
+        Bus::fake();
+        $product = $this->product();
+        Http::fake(['*' => Http::response('nope', 500)]);
+
+        $box = $this->websiteBox($product)->call('sendNow')->assertSet('resultOk', false);
+        $this->assertNotSame('', $box->get('result'));
+
+        // A save queues a fresh push, so the old result no longer applies.
+        WooCommerceProductLink::query()->where('pos_product_id', $product->id)->update(['last_status' => 'queued', 'updated_at' => now()]);
+        $box->dispatch('record-saved', id: $product->id)
+            ->assertSet('result', '')
+            ->assertSeeHtml('data-website-status="queued"');
+    }
+
+    public function test_a_push_waiting_too_long_reads_as_stuck(): void
+    {
+        $this->install();
+        $this->configure();
+        Bus::fake();
+        $product = $this->product();
+        $link = WooCommerceProductLink::query()->updateOrCreate(['pos_product_id' => $product->id], ['last_status' => 'queued']);
+        WooCommerceProductLink::query()->whereKey($link->id)->update(['updated_at' => now()->subMinutes(30)]);
+
+        $this->websiteBox($product)->assertSeeHtml('data-website-status="stuck"');
+    }
+
+    public function test_a_switched_off_connection_says_so_and_offers_no_send(): void
+    {
+        $this->install();
+        $this->configure()->update(['enabled' => false]);
+        $product = $this->product();
+
+        $this->assertTrue(ProductWebsiteStatus::available());
+        $this->websiteBox($product)
+            ->assertSeeHtml('data-website-status="off"')
+            ->assertDontSeeHtml('data-website-send');
+    }
+
+    public function test_a_product_not_ready_is_explained_and_not_sent(): void
+    {
+        $this->install();
+        $this->configure();
+        Bus::fake();
+        Http::fake();
+        $product = $this->product(['image_path' => null]);
+
+        $this->websiteBox($product)
+            ->assertSeeHtml('data-website-status="held_back"')
+            ->assertDontSeeHtml('data-website-send')
+            ->call('sendNow')
+            ->assertSet('resultOk', false);
+
+        Http::assertNothingSent();
+    }
+
+    public function test_the_box_is_hidden_where_no_store_is_set_up(): void
+    {
+        $this->install();
+
+        $this->assertFalse(ProductWebsiteStatus::available());
+    }
+
+    public function test_a_user_without_product_access_cannot_open_the_box(): void
+    {
+        $this->install();
+        $this->configure();
+        $product = $this->product();
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+
+        $this->websiteBox($product)->assertForbidden();
     }
 }

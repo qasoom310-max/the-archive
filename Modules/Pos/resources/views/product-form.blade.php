@@ -13,6 +13,15 @@
         :key="'pos-product-form-' . ($product?->id ?? 'new')" />
 
     @if ($product)
+        {{-- Whether the product reached the online store, and why not. Only
+             where this database has a website connected. --}}
+        @if (class_exists(\Modules\WooCommerce\Livewire\ProductWebsiteStatus::class)
+            && \Modules\WooCommerce\Livewire\ProductWebsiteStatus::available())
+            <div class="mt-6">
+                @livewire(\Modules\WooCommerce\Livewire\ProductWebsiteStatus::class, ['productId' => $product->id], 'website-' . $product->id)
+            </div>
+        @endif
+
         {{-- Production shortcut — jump straight to a new batch of this product
              (perfumes POS only). --}}
         @if (\App\Erp\Business\Features::enabled(\App\Erp\Business\Feature::Production))

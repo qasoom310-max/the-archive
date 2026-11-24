@@ -466,6 +466,11 @@ final class WooCommerceService
             return null;
         }
 
-        return (int) app(WorkspaceManager::class)->current()->id;
+        // The database this request is really using, NOT the cookie. An
+        // account locked to one business reaches it with no cookie at all, so
+        // the cookie said Main: the queued push ran on Main, found no store
+        // settings there and quietly did nothing, and the product never
+        // reached the website.
+        return app(WorkspaceManager::class)->activeWorkspaceId();
     }
 }

@@ -97,6 +97,26 @@ final class WooCommerceModuleTest extends TestCase
         $this->assertStringContainsString('database is locked', (string) $result['error']);
     }
 
+    public function test_a_push_from_a_business_database_is_sent_back_to_it_without_a_cookie(): void
+    {
+        $owner = User::factory()->create(['is_admin' => true, 'email' => 'owner@erp.test']);
+        $manager = app(\App\Erp\Tenancy\WorkspaceManager::class);
+        $workspace = $manager->provision('Kaleem', $owner, ['woocommerce']);
+
+        \Illuminate\Support\Facades\Bus::fake();
+
+        // No workspace cookie: how an account locked to one business works.
+        $manager->withTenant((string) $workspace->databasePath(), function (): void {
+            $this->configure();
+            app(WooCommerceService::class)->syncProduct($this->product());
+        });
+
+        \Illuminate\Support\Facades\Bus::assertDispatched(
+            SyncProductToWooCommerce::class,
+            fn (SyncProductToWooCommerce $job): bool => $job->workspaceId === (int) $workspace->id,
+        );
+    }
+
     public function test_install_creates_the_config_and_link_tables(): void
     {
         $this->install();

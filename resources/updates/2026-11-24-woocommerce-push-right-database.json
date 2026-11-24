@@ -1,0 +1,41 @@
+{
+    "app": "website",
+    "title": {
+        "en": "Products saved by staff of one business now reach the website",
+        "ar": "المنتجات التي يحفظها موظفو نشاط واحد تصل الآن إلى الموقع"
+    },
+    "points": {
+        "en": [
+            "A product saved by a staff member whose account is tied to one business now reaches that business's website.",
+            "Before, that save was quietly sent to the wrong place and nothing appeared on the website."
+        ],
+        "ar": [
+            "المنتج الذي يحفظه موظف حسابه مربوط بنشاط واحد يصل الآن إلى موقع ذلك النشاط.",
+            "في السابق كان ذلك الحفظ يُرسل بصمت إلى المكان الخطأ ولا يظهر شيء في الموقع."
+        ]
+    },
+    "details": {
+        "en": [
+            "When a product is saved, the system sends it to the website a moment later, in the background. To do that it has to remember which business the product belongs to.",
+            "For an account tied to one business, it remembered the wrong one. The background step then found no website settings there and did nothing, without any error, so the product never appeared online.",
+            "Now it remembers the business the product was actually saved in. Products saved before today are not sent again on their own: open them and press \"Sync all active products now\" once."
+        ],
+        "ar": [
+            "عند حفظ منتج، يرسله النظام إلى الموقع بعد لحظة في الخلفية. ولذلك عليه أن يتذكر النشاط الذي ينتمي إليه المنتج.",
+            "بالنسبة للحساب المربوط بنشاط واحد، كان يتذكر النشاط الخطأ. فلا تجد خطوة الخلفية إعدادات موقع هناك ولا تفعل شيئاً، دون أي رسالة خطأ، فلا يظهر المنتج على الإنترنت أبداً.",
+            "الآن يتذكر النشاط الذي حُفظ فيه المنتج فعلاً. المنتجات المحفوظة قبل اليوم لا تُرسل من تلقاء نفسها: اضغط «مزامنة كل المنتجات النشطة الآن» مرة واحدة."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Settings, then WooCommerce.",
+            "Press \"Sync all active products now\" once, so products saved before today are sent.",
+            "From now on, saving a product is enough. It appears on the website within a minute or two."
+        ],
+        "ar": [
+            "افتح الإعدادات، ثم WooCommerce.",
+            "اضغط «مزامنة كل المنتجات النشطة الآن» مرة واحدة لترسل المنتجات المحفوظة قبل اليوم.",
+            "من الآن يكفي حفظ المنتج. يظهر على الموقع خلال دقيقة أو دقيقتين."
+        ]
+    }
+}

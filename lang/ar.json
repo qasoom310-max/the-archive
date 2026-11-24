@@ -3981,5 +3981,19 @@
     "Entered by mistake? Delete this payment": "أُدخلت بالخطأ؟ احذف هذه الدفعة",
     ":count receipts, :total": ":count سندات قبض، :total",
     "The trips and invoices go back to unpaid by that amount.": "تعود الرحلات والفواتير غير مدفوعة بهذا المبلغ.",
-    "Delete payment": "حذف الدفعة"
+    "Delete payment": "حذف الدفعة",
+    "Trip record": "سجل الرحلة",
+    "What the driver recorded on his trip link: KM, fuel, time and place at the start and the end.": "ما سجّله السائق في رابط رحلته: الكيلومترات والوقود والوقت والمكان عند البداية والنهاية.",
+    "Back to bookings": "العودة إلى الحجوزات",
+    "Driver's trip link": "رابط رحلة السائق",
+    "Finished": "انتهت",
+    "On the trip": "في الرحلة",
+    "Open map": "فتح الخريطة",
+    "Dashboard photo": "صورة لوحة العدادات",
+    "Check": "للمراجعة",
+    "Customer emailed that the driver is on the way at :time.": "أُرسل للعميل بريد بأن السائق في الطريق الساعة :time.",
+    "The driver has not opened or started this trip yet.": "لم يفتح السائق هذه الرحلة أو لم يبدأها بعد.",
+    "Trip record (KM & location)": "سجل الرحلة (الكيلومترات والموقع)",
+    "Empty": "فارغ",
+    "Full": "ممتلئ"
 }

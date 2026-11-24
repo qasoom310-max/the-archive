@@ -5914,3 +5914,29 @@ amount to `activity_logs` (`deleted`). Entry points: Receipts "To confirm" row �
 (`deletePayment('<batch_id>'|'r-<id>')`, a bulk row deletes the whole batch) and the receipt
 page (Edit) → "Delete payment" box (a bulk slice deletes its whole batch). Confirmed receipts
 can be deleted from the receipt page. Test: `LimoDeletePaymentTest` (3).
+
+**Driver trip link: KM + fuel photos, start/end location, one trip at a time (shipped
+2026-11-24).** Owner's request: drivers never updated car KM. The copied trip text
+(`LimoQueueRows::whatsappText`) is now, once a driver is on the trip,
+`DriverTripLink::message()`: "Your booking No X / Thank you (driver) for being part of
+Wanaan" + Arabic + the link. A trip with no driver keeps the old full text.
+`DriverTripLink::for()` = `URL::signedRoute` (leg + driver + `ws`, **no expiry**, owner's
+call); dead when the trip changes driver or is cancelled. Public `DriverTripController`
+(GET/POST `/driver-trip/{leg}/{driver}`, POST `action` = photo|start|end, throttled):
+details (time, type, passenger name + phone — customer as fallback, pick-up/drop-off with
+country + map link, car, comments, paid/collect), then a dashboard photo read by
+`DashboardReader` (`ClaudeDashboardReader`, same key/model as the bill reader; image shrunk
+by `BillScanner::shrinkImage()`) → the driver checks KM + fuel (eighths) → Start/End with
+browser geolocation (allowed to continue without; flagged). `DriverTrip` service:
+`limo_trip_runs` (Limousine migration `2026_11_24_950072`, unique leg+driver; photo saved
+before the button so nothing is lost); start sets leg Active, end sets Completed (+
+`syncStatusFromLegs`), car `odometer` only ever goes UP; end KM < start KM refused; flags for
+the office (KM below the car's last reading, jump > 1500, photo unreadable, driver changed the
+read KM/fuel, no location). **Blocking:** a driver with a started, not-ended trip cannot photo
+or start another (page shows "finish your other trip" + its link). Start emails the customer
+(`CustomerDocumentEmails::driverOnTheWay`, template `driver_on_the_way`, service email). The
+bill upload link (48 h from opening) shows on the page before, during and after the trip. Office: bookings row menu → "Trip record (KM
+& location)" → `TripRecord` (`/app/limousine/trip-record/{leg}`, `limousine.booking` Read):
+times, KM, fuel, Google Maps links, both photos (`limousine.trip_run.photo`), flags. NOT
+built (owner dropped it): live tracking. Tests: `LimoDriverTripLinkTest` (5),
+`LimoDriverBillLinkTest` (adjusted).

@@ -54,7 +54,7 @@ final class BillScanner
      */
     public function scan(string $image, string $mime): array
     {
-        [$image, $mime] = $this->shrink($image, $mime);
+        [$image, $mime] = self::shrinkImage($image, $mime);
 
         $reader = app()->bound(BillReader::class) ? app(BillReader::class) : new ClaudeBillReader();
         $read = $reader->read(self::apiKey(), AssistantConfiguration::current()->model(), $image, $mime);
@@ -161,7 +161,7 @@ final class BillScanner
      *
      * @return array{0: string, 1: string}
      */
-    private function shrink(string $image, string $mime): array
+    public static function shrinkImage(string $image, string $mime): array
     {
         if (! function_exists('imagecreatefromstring')) {
             return [$image, $mime];

@@ -198,6 +198,62 @@ final class CustomerDocumentEmails
     }
 
     /**
+     * The driver pressed Start trip on his link: he is on the way. Same
+     * address and facts as {@see driverAssigned}, no attachments.
+     */
+    public function driverOnTheWay(int $legId, bool $now = false): void
+    {
+        $this->mailer->later(function () use ($legId): void {
+            $leg = LimoLeg::query()->with('legable.customer')->find($legId);
+            $booking = $leg?->legable;
+            if ($leg === null || ! $booking instanceof LimoBooking) {
+                return;
+            }
+
+            $car = $leg->carForCustomer() ?? ['car' => trim((string) $leg->vehicle), 'plate' => ''];
+            $driver = $leg->driver_id !== null ? LimoDriver::query()->find($leg->driver_id) : null;
+            $customer = $booking->customer;
+            $reference = (string) $leg->reference;
+            $name = trim((string) ($driver->name ?? $leg->driver ?? ''));
+            $phone = trim((string) ($driver->phone ?? ''));
+
+            $facts = [[__('Trip no.'), $reference]];
+            if ($leg->start_at !== null) {
+                $facts[] = [__('Pick-up'), $leg->start_at->format('D j M Y, H:i')];
+            }
+            if ($name !== '') {
+                $facts[] = [__('Driver'), $name];
+            }
+            if ($phone !== '') {
+                $facts[] = [__("Driver's phone"), $phone];
+            }
+            if ($car['car'] !== '') {
+                $facts[] = [__('Car'), $car['car']];
+            }
+            if ($car['plate'] !== '') {
+                $facts[] = [__('Plate no.'), $car['plate']];
+            }
+
+            $this->mailer->send($customer?->serviceEmail(), CustomerDocument::fromTemplate(
+                type: 'driver_on_the_way',
+                customerName: (string) ($customer->name ?? ''),
+                vars: [
+                    'reference' => $reference,
+                    'pickup_time' => $leg->start_at?->format('D j M Y, H:i') ?? '',
+                    'driver' => $name,
+                    'driver_phone' => $phone,
+                    'car' => $car['car'],
+                    'plate' => $car['plate'],
+                ],
+                facts: $facts,
+                attachments: [],
+                label: __('Trip') . ' ' . $reference,
+                withTerms: false,
+            ));
+        }, $now);
+    }
+
+    /**
      * About an hour before a trip: the booking still owes money, so remind the
      * customer how much is left. No attachments, no terms. $to as above.
      */

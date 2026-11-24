@@ -88,6 +88,16 @@ final class EmailTemplates
             'intro' => 'Your driver and car for this trip are below. The driver will be waiting at the pick-up point on time.',
             'outro' => 'If anything changes, reply to this email or call us.',
         ],
+        'driver_on_the_way' => [
+            'label' => 'Driver on the way',
+            'description' => 'Sent when the driver presses Start trip on his trip link.',
+            'apps' => ['limousine'],
+            'placeholders' => ['reference', 'pickup_time', 'driver', 'driver_phone', 'car', 'plate'],
+            'subject' => '{company} — Your driver is on the way — {reference}',
+            'heading' => 'Your driver is on the way',
+            'intro' => '{driver} has started your trip {reference} and is on the way to you.',
+            'outro' => 'If you need anything, reply to this email or call us.',
+        ],
         'balance_reminder' => [
             'label' => 'Balance reminder',
             'description' => 'Sent about an hour before a trip booked on the website, when the customer paid part online and the rest is still owed.',

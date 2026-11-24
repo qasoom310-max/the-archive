@@ -1,0 +1,92 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Limousine: drivers get a trip link to record KM, fuel and location",
+        "ar": "الليموزين: يحصل السائق على رابط رحلة لتسجيل الكيلومترات والوقود والموقع"
+    },
+    "points": {
+        "en": [
+            "Copying a trip for its driver now gives a short message with his own trip link, in English and Arabic.",
+            "The link shows the trip details. Before leaving, the driver photographs the dashboard: the system reads the KM and the fuel and he checks them.",
+            "Start trip saves his location and emails the customer that the driver is on the way. End trip needs a second dashboard photo and saves his location again.",
+            "The car's KM updates by itself, and a driver cannot start a new trip until he ends the one he is on.",
+            "Each trip has a Trip record in the bookings menu: times, KM, fuel, map links, photos, and anything to check."
+        ],
+        "ar": [
+            "نسخ الرحلة للسائق يعطي الآن رسالة قصيرة فيها رابط رحلته، بالإنجليزية والعربية.",
+            "الرابط يعرض تفاصيل الرحلة. قبل التحرك يصوّر السائق لوحة العدادات: يقرأ النظام الكيلومترات والوقود ويتحقق منها السائق.",
+            "«بدء الرحلة» يحفظ موقعه ويرسل للعميل بريداً بأن السائق في الطريق. «إنهاء الرحلة» يحتاج صورة ثانية للوحة العدادات ويحفظ موقعه مرة أخرى.",
+            "عداد السيارة يُحدَّث تلقائياً، ولا يستطيع السائق بدء رحلة جديدة حتى ينهي الرحلة التي هو فيها.",
+            "لكل رحلة «سجل الرحلة» في قائمة الحجوزات: الأوقات والكيلومترات والوقود وروابط الخريطة والصور وما يحتاج مراجعة."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, drivers did not update the car's KM, and customer service could not follow it. The copied message held all the trip details in one long text.",
+            "Now the message is short: the booking number, a thank you and the link. The link works until the driver ends the trip. It stops if the trip is given to another driver or cancelled.",
+            "The page shows the date and time, the passenger's name and phone, the pick-up and drop-off with their country and map, the car, the comments and whether to collect money.",
+            "The KM and fuel are read from the photo, and the driver can correct them. Whatever does not add up is listed for the office to check: a KM lower than the car's last reading, a very large jump, a number the driver changed, a photo that could not be read, or no location.",
+            "When a trip is started the customer receives a short email that the driver is on the way. The wording can be changed in Settings, Customer emails.",
+            "Starting a trip marks it Active and ending it marks it Completed. The button to send bill photos is on the same page, before, during and after the trip.",
+            "There is no live tracking. Only the place at the start and at the end is saved."
+        ],
+        "ar": [
+            "في السابق لم يكن السائقون يحدّثون عداد السيارة، ولم تستطع خدمة العملاء متابعته. وكانت الرسالة المنسوخة تحمل كل تفاصيل الرحلة في نص طويل.",
+            "الآن الرسالة قصيرة: رقم الحجز وكلمة شكر والرابط. يعمل الرابط حتى ينهي السائق الرحلة، ويتوقف إذا أُعطيت الرحلة لسائق آخر أو أُلغيت.",
+            "تعرض الصفحة التاريخ والوقت واسم الراكب وهاتفه ومكان الاستلام والتوصيل مع الدولة والخريطة والسيارة والملاحظات وهل يحصّل مبلغاً.",
+            "تُقرأ الكيلومترات والوقود من الصورة، ويمكن للسائق تصحيحها. وما لا يتطابق يُعرض للمكتب لمراجعته: عداد أقل من آخر قراءة للسيارة، أو قفزة كبيرة جداً، أو رقم غيّره السائق، أو صورة لم تُقرأ، أو عدم وجود موقع.",
+            "عند بدء الرحلة يصل العميل بريد قصير بأن السائق في الطريق. ويمكن تغيير نصه من الإعدادات، رسائل العملاء.",
+            "بدء الرحلة يجعلها «نشطة» وإنهاؤها يجعلها «مكتملة». وزر إرسال صور الفواتير في الصفحة نفسها، قبل الرحلة وأثناءها وبعدها.",
+            "لا يوجد تتبع مباشر. يُحفظ فقط المكان عند البداية وعند النهاية."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Assign the car and the driver to the trip as usual.",
+            "Copy the trip for the driver and send it to him on WhatsApp.",
+            "The driver opens the link, reads the details and, before leaving, presses Take the photo and photographs the dashboard.",
+            "He checks the KM and fuel and presses Start trip, allowing location when the phone asks.",
+            "At the end he opens the same link, takes the dashboard photo again and presses End trip.",
+            "To check it, open the trip's menu in Bookings and press Trip record (KM & location)."
+        ],
+        "ar": [
+            "عيّن السيارة والسائق للرحلة كالمعتاد.",
+            "انسخ الرحلة للسائق وأرسلها له على واتساب.",
+            "يفتح السائق الرابط ويقرأ التفاصيل، وقبل التحرك يضغط «التقط الصورة» ويصوّر لوحة العدادات.",
+            "يتحقق من الكيلومترات والوقود ويضغط «بدء الرحلة»، ويسمح بالموقع عندما يطلب الهاتف.",
+            "في النهاية يفتح الرابط نفسه، ويصوّر لوحة العدادات مرة أخرى ويضغط «إنهاء الرحلة».",
+            "للمراجعة، افتح قائمة الرحلة في الحجوزات واضغط «سجل الرحلة (الكيلومترات والموقع)»."
+        ]
+    },
+    "images": [
+        {
+            "after": "driver-start.png",
+            "caption": {
+                "en": "The driver's page before the trip: details, then the dashboard photo.",
+                "ar": "صفحة السائق قبل الرحلة: التفاصيل، ثم صورة لوحة العدادات."
+            }
+        },
+        {
+            "after": "driver-end.png",
+            "caption": {
+                "en": "During the trip: the end photo and the bills.",
+                "ar": "أثناء الرحلة: صورة النهاية والفواتير."
+            }
+        },
+        {
+            "before": "menu-before.png",
+            "after": "menu-after.png",
+            "caption": {
+                "en": "The trip menu in Bookings. After: Trip record (KM & location).",
+                "ar": "قائمة الرحلة في الحجوزات. بعد: سجل الرحلة (الكيلومترات والموقع)."
+            }
+        },
+        {
+            "after": "record-after.png",
+            "caption": {
+                "en": "The trip record: start and end, KM, fuel, map links and what to check.",
+                "ar": "سجل الرحلة: البداية والنهاية والكيلومترات والوقود وروابط الخريطة وما يحتاج مراجعة."
+            }
+        }
+    ]
+}

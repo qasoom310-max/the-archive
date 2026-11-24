@@ -931,6 +931,15 @@
                                              above edits the same things (the owner's call). --}}
                                     @endif
 
+                                    {{-- What the driver recorded on his trip link. --}}
+                                    <a href="{{ url('/app/limousine/trip-record/' . $leg->id) }}" wire:navigate
+                                       @click="open = false" class="{{ $item }}" data-trip-record>
+                                        <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/>
+                                        </svg>
+                                        {{ __('Trip record (KM & location)') }}
+                                    </a>
+
                                     {{-- Service Order PDF — the per-trip sheet. --}}
                                     <a href="{{ url('/app/limousine/service-order/' . $leg->id) }}" target="_blank" rel="noopener"
                                        @click="open = false" class="{{ $item }}">

@@ -703,7 +703,7 @@ final class LimoQueueRows
      * whatever the job actually was. Falls back to it when a booking has no
      * type set, so the column is never blank.
      */
-    private function tripType(LimoLeg $leg, ?LimoBooking $booking): string
+    public function tripType(LimoLeg $leg, ?LimoBooking $booking): string
     {
         $type = $booking?->booking_type;
 
@@ -735,6 +735,15 @@ final class LimoQueueRows
         // the message that went to drivers before anyone was assigned.
         if (TripDetailsLock::hides($leg)) {
             return '';
+        }
+
+        // A trip with its driver gets only the short message and his trip link
+        // (the owner's wording, 2026-11-24): everything else is on the page,
+        // where he also records his KM, fuel and location. A trip without a
+        // driver yet keeps the full message, which is how one is offered round.
+        $tripLink = \Modules\Limousine\Services\DriverTrip::ready() ? \Modules\Limousine\Support\DriverTripLink::for($leg) : null;
+        if ($tripLink !== null) {
+            return \Modules\Limousine\Support\DriverTripLink::message($leg, $tripLink);
         }
 
         $booking = $this->bookingOf($leg);
@@ -907,7 +916,7 @@ final class LimoQueueRows
     }
 
     /** The car type asked for: the leg's own note first, else the booking's field (where the old system kept it). */
-    private function vehicleType(LimoLeg $leg, ?LimoBooking $booking): string
+    public function vehicleType(LimoLeg $leg, ?LimoBooking $booking): string
     {
         $details = trim((string) ($leg->vehicle_details ?? ''));
 
@@ -921,7 +930,7 @@ final class LimoQueueRows
      *
      * @return list<string>
      */
-    private function chauffeurWindow(LimoLeg $leg): array
+    public function chauffeurWindow(LimoLeg $leg): array
     {
         $start = $leg->start_at;
         if ($start === null) {
@@ -960,7 +969,7 @@ final class LimoQueueRows
      * nullable return type is also what keeps the null branch visible to static
      * analysis, which reads the relation as non-nullable.
      */
-    private function bookingOf(LimoLeg $leg): ?LimoBooking
+    public function bookingOf(LimoLeg $leg): ?LimoBooking
     {
         $parent = $leg->legable;
 

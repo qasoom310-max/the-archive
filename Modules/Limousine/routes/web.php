@@ -65,6 +65,10 @@ use Modules\Limousine\Livewire\Reports;
  * signature (trip + driver + 48 hours) is checked in the controller so an
  * expired link gets a plain page, not an error. Uploads are throttled.
  */
+Route::get('/driver-trip/{leg}/{driver}', [\Modules\Limousine\Http\Controllers\DriverTripController::class, 'show'])
+    ->whereNumber(['leg', 'driver'])->name('limousine.driver_trip.show');
+Route::post('/driver-trip/{leg}/{driver}', [\Modules\Limousine\Http\Controllers\DriverTripController::class, 'act'])
+    ->whereNumber(['leg', 'driver'])->middleware('throttle:30,1')->name('limousine.driver_trip.act');
 Route::get('/driver-bills/{leg}/{driver}', [\Modules\Limousine\Http\Controllers\DriverBillController::class, 'show'])
     ->whereNumber(['leg', 'driver'])->name('limousine.driver_bills.show');
 Route::post('/driver-bills/{leg}/{driver}', [\Modules\Limousine\Http\Controllers\DriverBillController::class, 'upload'])
@@ -242,6 +246,10 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/expense/scan', \Modules\Limousine\Livewire\ExpenseScan::class)->name('limousine.expense.scan');
     // Bills drivers sent through their trip link, waiting for the office.
     Route::get('/app/limousine/expense/driver-bills', \Modules\Limousine\Livewire\DriverBills::class)->name('limousine.expense.driver_bills');
+    Route::get('/app/limousine/trip-record/{leg}', \Modules\Limousine\Livewire\TripRecord::class)
+        ->whereNumber('leg')->name('limousine.trip_record');
+    Route::get('/app/limousine/trip-run/{run}/{stage}/photo', [\Modules\Limousine\Http\Controllers\DriverTripController::class, 'photo'])
+        ->whereNumber('run')->whereIn('stage', ['start', 'end'])->name('limousine.trip_run.photo');
     Route::get('/app/limousine/expense/driver-bill/{bill}/photo', [\Modules\Limousine\Http\Controllers\DriverBillController::class, 'photo'])
         ->whereNumber('bill')->name('limousine.expense.driver_bill.photo');
     Route::post('/app/limousine/expense/scan', [\Modules\Limousine\Http\Controllers\ExpenseBillController::class, 'scan'])

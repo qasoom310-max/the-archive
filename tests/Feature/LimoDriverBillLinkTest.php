@@ -75,14 +75,13 @@ final class LimoDriverBillLinkTest extends TestCase
         return (string) DriverBillLink::for($this->leg);
     }
 
-    public function test_the_copied_trip_carries_the_drivers_bill_link(): void
+    public function test_the_trip_page_carries_the_drivers_bill_link_once_started(): void
     {
+        // The copied message is now the trip link; the bill link and its
+        // warning sit on the trip page.
         $text = app(LimoQueueRows::class)->whatsappText($this->leg);
-        $this->assertStringContainsString('/driver-bills/' . $this->leg->id . '/' . $this->driver->id, $text);
-        $this->assertStringContainsString('48 hours', $text);
-        // The warning travels with the link, in both languages.
-        $this->assertStringContainsString(DriverBillLink::NOTE_EN, $text);
-        $this->assertStringContainsString(DriverBillLink::NOTE_AR, $text);
+        $this->assertStringContainsString('/driver-trip/' . $this->leg->id . '/' . $this->driver->id, $text);
+        $this->assertNotNull(DriverBillLink::for($this->leg));
 
         $this->leg->forceFill(['driver_id' => null])->save();
         $this->assertNull(DriverBillLink::for($this->leg));

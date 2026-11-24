@@ -60,7 +60,7 @@
             @if ($trip->start_at)
                 <p class="mt-1 text-lg font-semibold text-white/90">{{ $trip->start_at->isoFormat('ddd D MMM') }} · <span class="text-primary-400">{{ $trip->start_at->isoFormat('HH:mm') }}</span></p>
             @endif
-            <p class="mt-2 text-sm text-white/60">{{ str_replace(':driver', (string) $trip->driver, \Modules\Limousine\Support\DriverTripLink::THANKS_EN) }}</p>
+            <p class="mt-2 text-sm text-white/60">{{ str_replace(':driver', \Modules\Limousine\Support\DriverTripLink::driverName($trip), \Modules\Limousine\Support\DriverTripLink::THANKS_EN) }}</p>
         </div>
     </header>
 

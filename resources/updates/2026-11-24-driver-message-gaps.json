@@ -1,0 +1,37 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Driver message: a blank line between lines, and the name without the phone",
+        "ar": "رسالة السائق: سطر فارغ بين الأسطر، والاسم بدون الهاتف"
+    },
+    "points": {
+        "en": [
+            "The message copied for the driver now has a blank line between every line, so it reads cleanly in WhatsApp.",
+            "The thank-you line shows only the driver's name. Before, his phone number appeared next to it."
+        ],
+        "ar": [
+            "الرسالة المنسوخة للسائق فيها الآن سطر فارغ بين كل سطر، فتُقرأ بوضوح في واتساب.",
+            "سطر الشكر يعرض اسم السائق فقط. في السابق كان رقم هاتفه يظهر بجانبه."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the lines sat close together and the thank-you line read \"Thank you Name · phone for being part of Wanaan\".",
+            "Now each line is on its own with space around it, and the name comes from the driver's record. The header of the driver's trip page shows the name the same way."
+        ],
+        "ar": [
+            "في السابق كانت الأسطر متلاصقة وكان سطر الشكر يظهر «Thank you الاسم · الهاتف for being part of Wanaan».",
+            "الآن كل سطر مستقل مع مسافة حوله، والاسم يُؤخذ من سجل السائق. وأعلى صفحة رحلة السائق يعرض الاسم بالطريقة نفسها."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Copy the trip for the driver as usual.",
+            "Paste it in WhatsApp: the lines are spaced and his name appears without the phone."
+        ],
+        "ar": [
+            "انسخ الرحلة للسائق كالمعتاد.",
+            "الصقها في واتساب: الأسطر متباعدة واسمه يظهر بدون الهاتف."
+        ]
+    }
+}

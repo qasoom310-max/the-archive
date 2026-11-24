@@ -107,6 +107,10 @@ final class LimoDriverTripLinkTest extends TestCase
         // English only in the message; the Arabic is on the pages.
         $this->assertDoesNotMatchRegularExpression('/\p{Arabic}/u', $text);
         $this->assertStringContainsString('Thank you Sam Driver for being part of Wanaan', $text);
+        // Every line apart, and never the phone the trip label carries.
+        $this->assertStringContainsString("*\n\n", $text);
+        $this->leg->forceFill(['driver' => 'Sam Driver · +97330000000'])->save();
+        $this->assertStringNotContainsString('+97330000000', app(LimoQueueRows::class)->whatsappText($this->leg));
         $this->assertMatchesRegularExpression('#/d/[0-9a-z]+\.[0-9a-z]+\.[0-9a-z]+\.[A-Za-z0-9xy]{12}#', $text);
         $this->assertMatchesRegularExpression('#/b/[0-9a-z.]+\.[A-Za-z0-9xy]{12}#', $text);
         $this->assertStringContainsString(\Modules\Limousine\Support\DriverBillLink::NOTE_EN, $text);

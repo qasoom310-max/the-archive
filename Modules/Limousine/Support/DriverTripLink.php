@@ -58,20 +58,33 @@ final class DriverTripLink
      */
     public static function message(LimoLeg $leg, string $tripLink, ?string $billsLink): string
     {
-        $driver = trim((string) ($leg->driver ?? ''));
-
         $lines = ['*Ref. # ' . (string) ($leg->reference ?? '') . '*'];
         if ($leg->start_at !== null) {
             $lines[] = '*' . $leg->start_at->isoFormat('ddd DD-MMM-YY · HH:mm') . '*';
         }
-        $lines[] = str_replace(':driver', $driver, self::THANKS_EN);
-        $lines[] = '';
+        $lines[] = str_replace(':driver', self::driverName($leg), self::THANKS_EN);
         $lines[] = '🚗 Trip: ' . $tripLink;
         if ($billsLink !== null) {
             $lines[] = '🧾 Bills: ' . $billsLink;
             $lines[] = '⚠️ ' . DriverBillLink::NOTE_EN;
         }
 
-        return implode("\n", $lines);
+        // A blank line between every line (the owner's call): it reads cleanly in WhatsApp.
+        return implode("\n\n", $lines);
+    }
+
+    /**
+     * The driver's name alone. The trip keeps "name · phone" as its label, so
+     * the driver's own record is read first, and the label cut at " · " as a
+     * fallback.
+     */
+    public static function driverName(LimoLeg $leg): string
+    {
+        $name = $leg->driver_id !== null ? \Modules\Limousine\Models\LimoDriver::query()->whereKey($leg->driver_id)->value('name') : null;
+        if (is_string($name) && trim($name) !== '') {
+            return trim($name);
+        }
+
+        return trim(explode(' · ', (string) ($leg->driver ?? ''))[0]);
     }
 }

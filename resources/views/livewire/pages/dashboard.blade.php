@@ -198,9 +198,14 @@
                  'icon' => 'M1 5.5A1.5 1.5 0 0 1 2.5 4h15A1.5 1.5 0 0 1 19 5.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 1 14.5v-9ZM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM4.5 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm13 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z'],
             ];
             if (! $isAdmin) {
-                $ownerTiles = array_values(array_filter($ownerTiles, static fn (array $t): bool => in_array($t['url'], [
-                    '/reports/daily-summary', '/reports/profit', '/reports/car-income', '/app/limousine/outside-drivers', '/hr/payroll',
-                ], true)));
+                // A non-admin sees the tiles they may open: the owner-report set
+                // (reports_access) and/or the pages given to them one by one.
+                $viewer = auth()->user();
+                $pageOf = ['/fares' => 'fares', '/corporate-rates' => 'corporate', '/reports/daily-summary' => 'daily', '/reports/profit' => 'profit', '/reports/car-income' => 'car_income'];
+                $ownerReports = $viewer?->seesOwnerReports() ?? false;
+                $ownerTiles = array_values(array_filter($ownerTiles, static fn (array $t): bool => isset($pageOf[$t['url']])
+                    ? (bool) $viewer?->seesReportPage($pageOf[$t['url']])
+                    : ($ownerReports && in_array($t['url'], ['/app/limousine/outside-drivers', '/hr/payroll'], true))));
             }
         @endphp
         <div class="mb-6 rounded-xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">

@@ -45,7 +45,7 @@ final class DailySummary extends Component
     public function mount(): void
     {
         $user = Auth::user();
-        abort_unless($user instanceof User && $user->seesOwnerReports(), 403);
+        abort_unless($user instanceof User && $user->seesReportPage('daily'), 403);
 
         if ($this->date === '') {
             $this->date = BusinessDay::of();

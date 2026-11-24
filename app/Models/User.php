@@ -34,6 +34,7 @@ use Throwable;
  * @property bool $can_request_driver_payments  May be named as having asked for a limousine driver's payment
  * @property bool $can_backdate_rentals      May give a Rent A Car order a pick-up date in the past
  * @property bool $can_stamp_travel_permits  May print a travel authorization with the stamp and signature
+ * @property list<string>|null $report_pages  Report pages opened to this person by name (see REPORT_PAGES)
  * @property bool $reports_access  Opens the owner's reports (Daily Summary, Profit & Expenses, Car income, Payroll) without being an admin
  * @property bool $trip_details_locked  Operations: a limousine trip's details stay hidden until it has a car and a driver
  * @property bool $trip_reminders  Staff app: reminded about trips inside the 12 hours still without a car or driver
@@ -68,6 +69,7 @@ final class User extends Authenticatable
         'can_backdate_rentals',
         'can_stamp_travel_permits',
         'reports_access',
+        'report_pages',
         'is_paused',
         'paused_at',
         'home_workspace_id',
@@ -97,6 +99,7 @@ final class User extends Authenticatable
             'can_backdate_rentals' => 'boolean',
             'can_stamp_travel_permits' => 'boolean',
             'reports_access' => 'boolean',
+            'report_pages' => 'array',
             'trip_details_locked' => 'boolean',
             'trip_reminders' => 'boolean',
             'is_paused' => 'boolean',
@@ -198,11 +201,42 @@ final class User extends Authenticatable
 
     /**
      * Car income (revenue per car) is the owner's; a user granted the reports
-     * by name sees it too. A regular admin does not.
+     * by name sees it too, or one given the Car income page. A regular admin does not.
      */
     public function seesCarIncome(): bool
     {
-        return $this->isSuperAdmin() || $this->hasReportsAccess();
+        return $this->isSuperAdmin() || $this->hasReportsAccess() || $this->hasReportPage('car_income');
+    }
+
+    /** The pages that can be opened one by one (users.report_pages). */
+    public const REPORT_PAGES = [
+        'fares' => 'Website fares',
+        'corporate' => 'Corporate rates',
+        'daily' => 'Daily Summary',
+        'profit' => 'Profit & Expenses',
+        'car_income' => 'Car income',
+    ];
+
+    /**
+     * Whether this person may open one report page: an admin as before (Car
+     * income keeps its own owner rule), anyone else when the owner gave them
+     * that page by name. Opening Daily Summary or Profit this way does NOT
+     * open Payroll or the employee records.
+     */
+    public function seesReportPage(string $page): bool
+    {
+        return match ($page) {
+            'car_income' => $this->seesCarIncome(),
+            'daily', 'profit' => $this->seesOwnerReports() || $this->hasReportPage($page),
+            default => $this->isAdmin() || $this->hasReportPage($page),
+        };
+    }
+
+    public function hasReportPage(string $page): bool
+    {
+        $pages = $this->getAttribute('report_pages');
+
+        return is_array($pages) && in_array($page, $pages, true);
     }
 
     private function hasReportsAccess(): bool

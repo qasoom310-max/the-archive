@@ -337,6 +337,16 @@
                                             {{ $user->trip_reminders ? __('Turn off trip reminders') : __('Turn on trip reminders') }}
                                         </button>
                                     @endif
+                                    @if ($actorIsSuperAdmin && ! $user->isSuperAdmin() && \Illuminate\Support\Facades\Schema::hasColumn('users', 'report_pages'))
+                                        <p class="mt-1 border-t border-chrome-100 px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-chrome-400">{{ __('Report pages') }}</p>
+                                        @foreach (\App\Models\User::REPORT_PAGES as $pageKey => $pageName)
+                                            <button type="button" wire:click="toggleReportPage({{ $user->id }}, '{{ $pageKey }}')" data-report-page="{{ $pageKey }}"
+                                                class="flex w-full items-center gap-2 px-3 py-1.5 text-start text-xs font-medium text-chrome-700 hover:bg-chrome-50">
+                                                <span class="flex size-4 items-center justify-center rounded border {{ $user->hasReportPage($pageKey) ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-chrome-300' }}">@if ($user->hasReportPage($pageKey))✓@endif</span>
+                                                {{ __($pageName) }}
+                                            </button>
+                                        @endforeach
+                                    @endif
                                     @if ($inScope && ! $isSelf && ! $isLastAdmin)
                                         <button type="button" @click="open = false" wire:click="deleteUser({{ $user->id }})"
                                             wire:confirm="{{ __('Delete :name?', ['name' => $user->name]) }}"

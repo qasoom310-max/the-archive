@@ -6016,3 +6016,15 @@ trip. `AbdullahTrips::run()` no longer times each trip separately: an `AbdullahA
 email lists every trip still missing its crew (each trip's `sent_count` still counts toward the
 max / owner escalation). `AbdullahTripStarts` does the same with `start:batch`. A trip that comes
 due just after a send waits for the next round (up to the interval). Test: `AbdullahTest` (+1).
+
+**Report pages opened one by one (shipped 2026-11-24).** `users.report_pages` (JSON list, core
+migration `2026_11_24_100002`) with `User::REPORT_PAGES` = fares, corporate, daily, profit,
+car_income. `User::seesReportPage($page)`: fares/corporate = admin or listed; daily/profit =
+`seesOwnerReports()` or listed; car_income = `seesCarIncome()` (now also true when listed). The
+migration granted all five to users whose name's FIRST word is ali / hasan / hassan / abbas
+(logged), in Main and every workspace. Unlike `reports_access` this does NOT open Payroll or
+Employees. Gates changed: `PricingManager::guardAdmin` (fares — every action, so they can EDIT
+fares), `CorporateRates::guardAdmin` (edit too), `DailySummary`, `MonthlyProfit`; the dashboard
+"Reports & Team" box shows a non-admin exactly the tiles they may open. Owner switches: Settings →
+Users → a user's ⋮ → "Report pages" ticks (`UserManager::toggleReportPage`, super admin, never on
+a super admin, activity-logged; the list query now loads `report_pages`). Test: `ReportPagesTest` (3).

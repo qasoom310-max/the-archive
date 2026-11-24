@@ -112,7 +112,7 @@ final class PricingManager extends Component
     private function guardAdmin(): void
     {
         $user = Auth::user();
-        abort_unless($user instanceof User && $user->isAdmin(), 403);
+        abort_unless($user instanceof User && $user->seesReportPage('fares'), 403);
     }
 
     public function updatedService(): void

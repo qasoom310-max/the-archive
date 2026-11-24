@@ -1,0 +1,55 @@
+{
+    "app": "system",
+    "title": {
+        "en": "Report pages can be opened to a person one by one",
+        "ar": "يمكن فتح صفحات التقارير لشخص صفحة بصفحة"
+    },
+    "points": {
+        "en": [
+            "Ali, Hasan and Abbas can now open Website fares, Corporate rates, Daily Summary, Profit & Expenses and Car income.",
+            "This does not open Payroll or the employee records.",
+            "The owner can tick or untick each of these pages for anyone in Settings, Users, under the person's menu."
+        ],
+        "ar": [
+            "أصبح بإمكان علي وحسن وعباس فتح أسعار الموقع وأسعار الشركات والملخص اليومي والأرباح والمصروفات ودخل السيارات.",
+            "وهذا لا يفتح الرواتب ولا سجلات الموظفين.",
+            "يستطيع المالك تحديد كل صفحة أو إلغاءها لأي شخص من الإعدادات، المستخدمون، في قائمة الشخص."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, Website fares and Corporate rates were for administrators only, and the reports switch for non-admins opened Payroll and the employee records too.",
+            "Now each of the five pages is its own tick for each person. The pages appear for them in the Reports & Team box on the home page.",
+            "On Website fares and Corporate rates they can change prices, the same as an administrator."
+        ],
+        "ar": [
+            "في السابق كانت أسعار الموقع وأسعار الشركات للمسؤولين فقط، ومفتاح التقارير لغير المسؤولين كان يفتح الرواتب وسجلات الموظفين أيضاً.",
+            "الآن كل صفحة من الخمس علامة مستقلة لكل شخص. وتظهر لهم الصفحات في مربع «التقارير والفريق» في الصفحة الرئيسية.",
+            "في أسعار الموقع وأسعار الشركات يستطيعون تغيير الأسعار، مثل المسؤول."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Settings, then the Users tab.",
+            "Press the menu (⋮) next to the person.",
+            "Under Report pages, tick or untick each page.",
+            "The person sees the pages on the home page, in Reports & Team."
+        ],
+        "ar": [
+            "افتح الإعدادات، ثم تبويب «المستخدمون».",
+            "اضغط القائمة (⋮) بجانب الشخص.",
+            "تحت «صفحات التقارير»، حدّد كل صفحة أو ألغِ تحديدها.",
+            "يرى الشخص الصفحات في الصفحة الرئيسية، في «التقارير والفريق»."
+        ]
+    },
+    "images": [
+        {
+            "before": "users-before.png",
+            "after": "users-after.png",
+            "caption": {
+                "en": "A person's menu in Settings, Users. After: the Report pages ticks.",
+                "ar": "قائمة الشخص في الإعدادات، المستخدمون. بعد: علامات صفحات التقارير."
+            }
+        }
+    ]
+}

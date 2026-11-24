@@ -814,6 +814,30 @@ final class UserManager extends Component
         $this->flipTripSwitch($id, TripStaffSwitches::REMINDERS);
     }
 
+    /** The owner opens or closes one report page for one person (users.report_pages). */
+    public function toggleReportPage(int $id, string $page): void
+    {
+        $this->guardAdmin();
+        abort_unless($this->actorIsSuperAdmin(), 403);
+        abort_unless(array_key_exists($page, User::REPORT_PAGES) && \Illuminate\Support\Facades\Schema::hasColumn('users', 'report_pages'), 404);
+
+        $target = User::query()->find($id);
+        if ($target === null || $target->isSuperAdmin()) {
+            return;
+        }
+
+        $pages = is_array($target->report_pages) ? $target->report_pages : [];
+        $on = ! in_array($page, $pages, true);
+        $pages = $on ? array_values(array_unique([...$pages, $page])) : array_values(array_diff($pages, [$page]));
+        $target->forceFill(['report_pages' => $pages === [] ? null : $pages])->save();
+
+        app(\App\Erp\Activity\ActivityLogger::class)->log(
+            'user_report_page',
+            (string) $target->email,
+            ($on ? 'Opened ' : 'Closed ') . User::REPORT_PAGES[$page] . ' for ' . $target->name,
+        );
+    }
+
     /**
      * @param  TripStaffSwitches::LOCK|TripStaffSwitches::REMINDERS  $switch
      */
@@ -1077,6 +1101,7 @@ final class UserManager extends Component
             ->get(array_merge(
                 ['id', 'name', 'email', 'is_admin', 'is_super_admin', 'is_accountant', 'is_paused', 'home_workspace_id'],
                 $tripSwitches ? [TripStaffSwitches::LOCK, TripStaffSwitches::REMINDERS] : [],
+                \Illuminate\Support\Facades\Schema::hasColumn('users', 'report_pages') ? ['report_pages'] : [],
             ));
 
         return view('livewire.settings.user-manager', [

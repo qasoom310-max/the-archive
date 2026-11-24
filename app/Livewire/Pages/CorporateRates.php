@@ -153,7 +153,7 @@ final class CorporateRates extends Component
     private function guardAdmin(): void
     {
         $user = Auth::user();
-        abort_unless($user instanceof User && $user->isAdmin(), 403);
+        abort_unless($user instanceof User && $user->seesReportPage('corporate'), 403);
     }
 
     private function ready(): bool

@@ -70,6 +70,7 @@ final class ClaudeVoice implements Voice
             fallbacks: 'default',
             betas: ['server-side-fallback-2026-07-01'],
         );
+        \App\Erp\Ai\AiUsage::record('abdullah', $message);
 
         if (($message->stopReason ?? '') === 'refusal') {
             throw new RuntimeException('Abdullah could not write this message.');

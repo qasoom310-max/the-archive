@@ -37,6 +37,7 @@ final class ClaudeBrain implements Brain
             fallbacks: 'default',
             betas: ['server-side-fallback-2026-07-01'],
         );
+        \App\Erp\Ai\AiUsage::record('whatsapp', $message);
 
         $text = '';
         $calls = [];

@@ -4048,5 +4048,13 @@
     "Last tried :when.": "آخر محاولة :when.",
     "Waiting to be sent (since :when).": "بانتظار الإرسال (منذ :when).",
     "Still waiting to be sent after :when. The background sender is not running. Press \"Send to website now\".": "ما زال بانتظار الإرسال منذ :when. المرسل في الخلفية لا يعمل. اضغط «أرسل إلى الموقع الآن».",
-    "Not sent to the website yet. Press \"Send to website now\".": "لم يُرسل إلى الموقع بعد. اضغط «أرسل إلى الموقع الآن»."
+    "Not sent to the website yet. Press \"Send to website now\".": "لم يُرسل إلى الموقع بعد. اضغط «أرسل إلى الموقع الآن».",
+    "AI spending": "تكلفة الذكاء الاصطناعي",
+    "What Claude costs for Abdullah, the WhatsApp assistant and the photo readers, worked out from each answer. An estimate: the Anthropic bill is the record. Counted from 24 Nov 2026.": "تكلفة Claude لعبدالله ومساعد واتساب وقارئي الصور، محسوبة من كل إجابة. هي تقدير: فاتورة Anthropic هي المرجع. تُحسب من 24 نوفمبر 2026.",
+    ":count answers": ":count إجابة",
+    "This month by use": "هذا الشهر حسب الاستخدام",
+    "Answers": "الإجابات",
+    "Abdullah messages": "رسائل عبدالله",
+    "Reading bills": "قراءة الفواتير",
+    "Reading dashboards (KM & fuel)": "قراءة لوحات العدادات (الكيلومترات والوقود)"
 }

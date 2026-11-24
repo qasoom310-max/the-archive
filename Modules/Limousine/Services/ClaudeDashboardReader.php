@@ -57,6 +57,7 @@ final class ClaudeDashboardReader implements DashboardReader
             fallbacks: 'default',
             betas: ['server-side-fallback-2026-07-01'],
         );
+        \App\Erp\Ai\AiUsage::record('dashboard_reader', $message);
 
         if (($message->stopReason ?? '') === 'refusal') {
             throw new RuntimeException('The dashboard could not be read.');

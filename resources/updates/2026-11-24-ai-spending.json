@@ -1,0 +1,53 @@
+{
+    "app": "system",
+    "title": {
+        "en": "Settings, Abdullah: see what the AI costs",
+        "ar": "الإعدادات، عبدالله: اعرف تكلفة الذكاء الاصطناعي"
+    },
+    "points": {
+        "en": [
+            "Settings, Abdullah now has an AI spending box: today, this month and last month, in US dollars and in BD.",
+            "This month is split by use: Abdullah's messages, the WhatsApp assistant, reading bills and reading dashboards."
+        ],
+        "ar": [
+            "صفحة الإعدادات، عبدالله فيها الآن مربع «تكلفة الذكاء الاصطناعي»: اليوم وهذا الشهر والشهر الماضي، بالدولار وبالدينار.",
+            "هذا الشهر مقسّم حسب الاستخدام: رسائل عبدالله، ومساعد واتساب، وقراءة الفواتير، وقراءة لوحات العدادات."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the page only counted how many messages Abdullah wrote, not what they cost.",
+            "Now every answer from the AI records how much text went in and out, and the price is worked out from the AI's list price. The dinar figure uses the fixed rate of 0.376 BD to the dollar.",
+            "It is an estimate. The bill from Anthropic, the AI company, is the official record.",
+            "Spending is counted from 24 November 2026. Earlier use was not recorded."
+        ],
+        "ar": [
+            "في السابق كانت الصفحة تعدّ فقط عدد الرسائل التي كتبها عبدالله، لا تكلفتها.",
+            "الآن كل إجابة من الذكاء الاصطناعي تسجّل حجم النص الداخل والخارج، وتُحسب التكلفة من السعر المعلن. ويُحسب الدينار بالسعر الثابت 0.376 دينار للدولار.",
+            "هي تقدير. فاتورة Anthropic، شركة الذكاء الاصطناعي، هي المرجع الرسمي.",
+            "تُحسب التكلفة من 24 نوفمبر 2026. الاستخدام السابق لم يُسجَّل."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Settings, then the Abdullah tab.",
+            "Read the AI spending box at the top: today, this month and last month.",
+            "Look at the table under it to see which use cost what this month."
+        ],
+        "ar": [
+            "افتح الإعدادات، ثم تبويب «عبدالله».",
+            "اقرأ مربع «تكلفة الذكاء الاصطناعي» في الأعلى: اليوم وهذا الشهر والشهر الماضي.",
+            "انظر إلى الجدول تحته لترى تكلفة كل استخدام هذا الشهر."
+        ]
+    },
+    "images": [
+        {
+            "before": "abdullah-before.png",
+            "after": "abdullah-after.png",
+            "caption": {
+                "en": "Settings, Abdullah. After: the AI spending box at the top.",
+                "ar": "الإعدادات، عبدالله. بعد: مربع تكلفة الذكاء الاصطناعي في الأعلى."
+            }
+        }
+    ]
+}

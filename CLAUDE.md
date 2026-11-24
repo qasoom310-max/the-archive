@@ -5999,3 +5999,13 @@ server logic change.
 The fuel tank bars became a settings-style `<input type="range" id="fuelRange" min=0 max=8>`
 (`.fuel-range` CSS, gradient fill red/amber/green, ticks E ¼ ½ ¾ F); `#fuel` hidden input still
 posts eighths.
+
+**AI spending on Settings → Abdullah (shipped 2026-11-24).** Core table `ai_usage` (migration
+`2026_11_24_100001`: feature, model, input/output/cache tokens, `cost_usd`). `App\Erp\Ai\AiUsage::record($feature, $message)`
+is called right after every `messages->create` — `ClaudeVoice` (abdullah), `ClaudeBrain`
+(whatsapp), `ClaudeBillReader` (bill_reader), `ClaudeDashboardReader` (dashboard_reader) — and
+costs it from `$message->model` + `$message->usage` with `AiUsage::PRICES` (first-party list
+prices USD/MTok; cache write 1.25×, read 0.1× input; unknown model = Opus 5). Never throws.
+`AiUsage::between()` feeds the "AI spending" box (today / this month / last month, USD and BD
+at the 0.376 peg, this month by use). An estimate — update `PRICES` when Anthropic changes them.
+Tests: `AiUsageTest` (2).

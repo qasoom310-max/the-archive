@@ -85,6 +85,7 @@ final class ClaudeBillReader implements BillReader
             fallbacks: 'default',
             betas: ['server-side-fallback-2026-07-01'],
         );
+        \App\Erp\Ai\AiUsage::record('bill_reader', $message);
 
         if (($message->stopReason ?? '') === 'refusal') {
             throw new RuntimeException('The bill could not be read.');

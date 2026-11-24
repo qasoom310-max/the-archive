@@ -107,6 +107,10 @@ final class AbdullahSettings extends Component
             'abdullah' => $abdullah,
             'hasKey' => $abdullah->apiKey() !== '',
             'used' => $ready ? $abdullah->usedThisMonth() : 0,
+            // What the AI cost (Claude): today, this month by feature, last month.
+            'spendToday' => \App\Erp\Ai\AiUsage::between(\Illuminate\Support\Carbon::now()->startOfDay(), \Illuminate\Support\Carbon::now()),
+            'spendMonth' => \App\Erp\Ai\AiUsage::between(\Illuminate\Support\Carbon::now()->startOfMonth(), \Illuminate\Support\Carbon::now()),
+            'spendLast' => \App\Erp\Ai\AiUsage::between(\Illuminate\Support\Carbon::now()->subMonthNoOverflow()->startOfMonth(), \Illuminate\Support\Carbon::now()->subMonthNoOverflow()->endOfMonth()),
             'log' => $ready ? AbdullahMessage::query()->with('user:id,name')->whereNotNull('body')->latest('id')->limit(80)->get() : collect(),
         ]);
     }

@@ -11,6 +11,44 @@
 
     @include('partials.settings-nav', ['active' => 'abdullah'])
 
+    {{-- What the AI costs: the owner's request (2026-11-24). USD as Anthropic bills it, and BD. --}}
+    @php
+        $usd = static fn (float $v): string => '$' . number_format($v, 2);
+        $bd = static fn (float $v): string => number_format($v * \App\Erp\Ai\AiUsage::BHD_PER_USD, 2) . ' BD';
+    @endphp
+    <div class="mb-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-chrome-900/5" data-ai-spending>
+        <h2 class="text-sm font-semibold text-chrome-800">{{ __('AI spending') }}</h2>
+        <p class="mt-0.5 text-xs text-chrome-500">{{ __('What Claude costs for Abdullah, the WhatsApp assistant and the photo readers, worked out from each answer. An estimate: the Anthropic bill is the record. Counted from 24 Nov 2026.') }}</p>
+        <div class="mt-4 grid gap-3 sm:grid-cols-3">
+            @foreach ([[__('Today'), $spendToday], [__('This month'), $spendMonth], [__('Last month'), $spendLast]] as [$label, $s])
+                <div class="rounded-lg bg-chrome-50 p-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-chrome-500">{{ $label }}</p>
+                    <p class="mt-1 text-2xl font-bold tabular-nums text-chrome-900">{{ $usd($s['total']) }}</p>
+                    <p class="text-xs text-chrome-500">≈ {{ $bd($s['total']) }} · {{ __(':count answers', ['count' => $s['calls']]) }}</p>
+                </div>
+            @endforeach
+        </div>
+        @if ($spendMonth['features'] !== [])
+            <table class="mt-4 w-full text-sm">
+                <thead class="text-xs uppercase tracking-wide text-chrome-500">
+                    <tr><th class="py-1 text-start font-semibold">{{ __('This month by use') }}</th><th class="py-1 text-end font-semibold">{{ __('Answers') }}</th><th class="py-1 text-end font-semibold">USD</th><th class="py-1 text-end font-semibold">BD</th></tr>
+                </thead>
+                <tbody class="divide-y divide-chrome-100">
+                    @foreach (\App\Erp\Ai\AiUsage::FEATURES as $key => $name)
+                        @isset($spendMonth['features'][$key])
+                            <tr>
+                                <td class="py-1.5 text-chrome-700">{{ __($name) }}</td>
+                                <td class="py-1.5 text-end tabular-nums text-chrome-600">{{ $spendMonth['features'][$key]['calls'] }}</td>
+                                <td class="py-1.5 text-end font-medium tabular-nums text-chrome-800">{{ $usd($spendMonth['features'][$key]['cost']) }}</td>
+                                <td class="py-1.5 text-end tabular-nums text-chrome-600">{{ $bd($spendMonth['features'][$key]['cost']) }}</td>
+                            </tr>
+                        @endisset
+                    @endforeach
+                </tbody>
+            </table>
+        @endif
+    </div>
+
     <div class="mb-5 space-y-4 rounded-xl bg-white p-6 shadow-sm ring-1 ring-chrome-900/5" data-abdullah-settings>
         <label class="flex items-center gap-3">
             <input type="checkbox" wire:model="enabled" class="size-4 rounded border-chrome-300 text-primary-600">

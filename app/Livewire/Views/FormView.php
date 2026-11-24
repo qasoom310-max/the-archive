@@ -7,6 +7,7 @@ namespace App\Livewire\Views;
 use App\Erp\Activity\ActivityLogger;
 use App\Erp\Chatter\Chatterable;
 use App\Erp\Contracts\ProvidesFormFieldHints;
+use App\Erp\Contracts\ProvidesFormFieldWarnings;
 use App\Erp\Security\Permission;
 use App\Livewire\Concerns\HasAccessControl;
 use App\Erp\Translation\TranslatableModel;
@@ -545,6 +546,16 @@ final class FormView extends Component
             if ($field->readonly && ! $field->isImage() && ! $field->isFile()) {
                 $this->form[$field->field] = $this->formValue($record->getAttribute($field->field), $field);
             }
+
+            // A tick box is likewise put back to what was SAVED. The record
+            // may refuse a tick (a product with no photo cannot go on the
+            // website, so its saving hook turns that switch off), and the box
+            // must not go on showing a tick the database does not hold. Safe
+            // to do on every save: a tick box commits on the click itself, so
+            // there is never half-typed input in one to overwrite.
+            if ($field->widget === 'checkbox') {
+                $this->form[$field->field] = (bool) $record->getAttribute($field->field);
+            }
         }
 
         if ($record instanceof Chatterable) {
@@ -875,6 +886,16 @@ final class FormView extends Component
             }
         }
 
+        $warnings = [];
+        if ($record instanceof ProvidesFormFieldWarnings && $record->exists) {
+            foreach ($this->arch->formFields as $field) {
+                $warning = $record->formFieldWarning($field->field);
+                if ($warning !== null && $warning !== '') {
+                    $warnings[$field->field] = $warning;
+                }
+            }
+        }
+
         return view('livewire.views.form-view', [
             'fields' => $this->arch->formFields,
             'cols' => $this->arch->formCols,
@@ -884,6 +905,7 @@ final class FormView extends Component
             'prevId' => $this->prevId(),
             'nextId' => $this->nextId(),
             'hints' => $hints,
+            'warnings' => $warnings,
         ]);
     }
 }

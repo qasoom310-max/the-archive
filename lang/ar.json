@@ -4023,5 +4023,12 @@
     "How each driver used his trip link this month: recorded properly, ended by the office, or never started.": "كيف استخدم كل سائق رابط رحلته هذا الشهر: سجّلها كما يجب، أو أنهاها المكتب، أو لم يبدأها.",
     "Score": "النتيجة",
     "No trips with a driver this month.": "لا توجد رحلات بسائق هذا الشهر.",
-    "Score = trips the driver recorded himself ÷ trips that are over. Trips before 25 Nov 2026 are not counted: the link did not exist yet.": "النتيجة = الرحلات التي سجّلها السائق بنفسه ÷ الرحلات المنتهية. لا تُحسب الرحلات قبل 25 نوفمبر 2026: لم يكن الرابط موجوداً بعد."
+    "Score = trips the driver recorded himself ÷ trips that are over. Trips before 25 Nov 2026 are not counted: the link did not exist yet.": "النتيجة = الرحلات التي سجّلها السائق بنفسه ÷ الرحلات المنتهية. لا تُحسب الرحلات قبل 25 نوفمبر 2026: لم يكن الرابط موجوداً بعد.",
+    "a name": "اسم",
+    "a category": "فئة",
+    "a price": "سعر",
+    "a photo": "صورة",
+    ", ": "، ",
+    "Not on the website: this product is not active.": "غير ظاهر على الموقع: هذا المنتج غير نشط.",
+    "Not on the website yet. Add :items, then tick this box.": "غير ظاهر على الموقع بعد. أضف :items، ثم ضع علامة في هذا المربع."
 }

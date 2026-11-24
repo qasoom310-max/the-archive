@@ -1,0 +1,51 @@
+{
+    "app": "website",
+    "title": {
+        "en": "Product page: the online store tick box now shows the truth, and says what is missing",
+        "ar": "صفحة المنتج: مربع المتجر الإلكتروني يُظهر الآن الحقيقة ويقول ما الناقص"
+    },
+    "points": {
+        "en": [
+            "If a product cannot go on the website yet, ticking \"Show in the online store\" unticks itself straight away.",
+            "A yellow note under the box says what to add first, such as a photo."
+        ],
+        "ar": [
+            "إذا كان المنتج لا يمكن عرضه على الموقع بعد، فإن وضع علامة في «Show in the online store» تُزال تلقائياً فوراً.",
+            "ملاحظة صفراء تحت المربع تقول ما يجب إضافته أولاً، مثل صورة."
+        ]
+    },
+    "details": {
+        "en": [
+            "A product only goes on the website when it has a name, a category, a price and a photo. If one of them was missing, the system kept the product off the website, but the tick box on the product page stayed ticked. So the page said the product was on the website when it was not.",
+            "Now the box shows what was really saved. Tick it on a product that is not ready and the tick disappears at once, and a yellow note under it says what is missing, for example \"Add a photo, then tick this box\".",
+            "If the product is switched off (not Active), the note says that instead. The note only appears in businesses that are connected to a website."
+        ],
+        "ar": [
+            "لا يظهر المنتج على الموقع إلا إذا كان له اسم وفئة وسعر وصورة. إذا نقص أحدها كان النظام يُبقي المنتج خارج الموقع، لكن المربع في صفحة المنتج كان يبقى معلَّماً. فكانت الصفحة تقول إن المنتج على الموقع وهو ليس عليه.",
+            "الآن يُظهر المربع ما حُفظ فعلاً. ضع علامة على منتج غير جاهز فتختفي العلامة فوراً، وتظهر تحت المربع ملاحظة صفراء تقول ما الناقص، مثلاً «أضف صورة، ثم ضع علامة في هذا المربع».",
+            "إذا كان المنتج متوقفاً (غير نشط)، تقول الملاحظة ذلك بدلاً من ذلك. تظهر الملاحظة فقط في الأنشطة المرتبطة بموقع."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Point of Sale, then Products, and open the product.",
+            "Look at \"Show in the online store\". If a yellow note is under it, add what it asks for (for a photo, use the photo box on the same page).",
+            "Then tick \"Show in the online store\". When the tick stays, the product goes to the website within a minute or two."
+        ],
+        "ar": [
+            "افتح نقطة البيع، ثم المنتجات، وافتح المنتج.",
+            "انظر إلى «Show in the online store». إذا ظهرت تحته ملاحظة صفراء، أضف ما تطلبه (للصورة استخدم مربع الصورة في الصفحة نفسها).",
+            "ثم ضع علامة في «Show in the online store». عندما تبقى العلامة، يظهر المنتج على الموقع خلال دقيقة أو دقيقتين."
+        ]
+    },
+    "images": [
+        {
+            "before": "online-before.png",
+            "after": "online-after.png",
+            "caption": {
+                "en": "A product with no photo after ticking the box: before it stayed ticked, now it unticks and says why.",
+                "ar": "منتج بلا صورة بعد وضع العلامة: في السابق بقيت العلامة، الآن تُزال ويُذكر السبب."
+            }
+        }
+    ]
+}

@@ -117,6 +117,54 @@ final class WooCommerceModuleTest extends TestCase
         );
     }
 
+    private function productForm(PosProduct $product): \Livewire\Features\SupportTesting\Testable
+    {
+        return \Livewire\Livewire::test(\App\Livewire\Views\FormView::class, [
+            'model' => PosProduct::class,
+            'modelKey' => 'pos.product',
+            'recordId' => $product->id,
+        ]);
+    }
+
+    public function test_ticking_online_on_a_product_without_a_photo_unticks_and_says_why(): void
+    {
+        $this->install();
+        $this->configure();
+        Http::fake(['*' => Http::response(['id' => 1], 200)]);
+        $product = $this->product(['image_path' => null, 'publish_online' => false]);
+
+        $this->productForm($product)
+            ->set('form.publish_online', true)
+            // The record refused the tick, so the box shows what was saved…
+            ->assertSet('form.publish_online', false)
+            // …and says what is missing.
+            ->assertSeeHtml('data-field-warning="publish_online"')
+            ->assertSee('a photo');
+
+        $this->assertFalse((bool) $product->fresh()->publish_online);
+    }
+
+    public function test_a_product_ready_for_the_website_keeps_its_tick_and_no_warning(): void
+    {
+        $this->install();
+        $this->configure();
+        Http::fake(['*' => Http::response(['id' => 1], 200)]);
+        $product = $this->product(['publish_online' => false]);
+
+        $this->productForm($product)
+            ->set('form.publish_online', true)
+            ->assertSet('form.publish_online', true)
+            ->assertDontSeeHtml('data-field-warning="publish_online"');
+    }
+
+    public function test_no_website_warning_where_no_store_is_connected(): void
+    {
+        $this->install();
+        $product = $this->product(['image_path' => null]);
+
+        $this->productForm($product)->assertDontSeeHtml('data-field-warning="publish_online"');
+    }
+
     public function test_install_creates_the_config_and_link_tables(): void
     {
         $this->install();

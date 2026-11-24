@@ -6,6 +6,7 @@ namespace Modules\Pos\Models;
 
 use App\Erp\Contracts\DefinesIrModel;
 use App\Erp\Contracts\ProvidesFormFieldHints;
+use App\Erp\Contracts\ProvidesFormFieldWarnings;
 use App\Erp\Registry\FieldDefinition;
 use App\Erp\Registry\ModelDefinition;
 use App\Erp\Registry\ViewDefinition;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Schema;
 use Modules\Contacts\Models\Partner;
 use Spatie\Translatable\HasTranslations;
 
@@ -44,7 +46,7 @@ use Spatie\Translatable\HasTranslations;
  * @property-read int|null $available_servings
  * @property-read float $profit
  */
-final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFieldHints, TranslatableModel
+final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFieldHints, ProvidesFormFieldWarnings, TranslatableModel
 {
     use HasTranslations;
 
@@ -572,6 +574,54 @@ final class PosProduct extends Model implements DefinesIrModel, ProvidesFormFiel
         }
 
         return null;
+    }
+
+    /**
+     * Under "Show in the online store": say why the website will not list
+     * this product. Only in a database that is connected to a store, so a
+     * café with no website is not told on every product that it has no photo.
+     * Read from the SAVED record, so it agrees with what the website gets.
+     */
+    public function formFieldWarning(string $field): ?string
+    {
+        if ($field !== 'publish_online' || ! $this->exists || ! self::onlineStoreConnected()) {
+            return null;
+        }
+
+        if (! (bool) $this->active) {
+            return __('Not on the website: this product is not active.');
+        }
+
+        $labels = [
+            'name' => __('a name'),
+            'category' => __('a category'),
+            'price' => __('a price'),
+            'photo' => __('a photo'),
+        ];
+        $missing = array_map(static fn (string $item): string => $labels[$item], $this->missingForOnlineStore());
+
+        if ($missing !== []) {
+            return __('Not on the website yet. Add :items, then tick this box.', [
+                'items' => implode(__(', '), $missing),
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether this database pushes products to a website at all. The
+     * WooCommerce module may not be installed here, so nothing is assumed.
+     */
+    private static function onlineStoreConnected(): bool
+    {
+        try {
+            return class_exists(\Modules\WooCommerce\Models\WooCommerceConfiguration::class)
+                && Schema::hasTable('woocommerce_configuration')
+                && \Modules\WooCommerce\Models\WooCommerceConfiguration::current()->isConfigured();
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     public static function irModelDefinition(): ModelDefinition

@@ -5970,3 +5970,13 @@ change, red ≤ 2, amber ≤ 5, green above, the level in words in both language
 **Never run phpunit in a shell that exported `DB_DATABASE` for the demo server** — phpunit.xml's
 `DB_DATABASE=:memory:` does not override an exported env var, and `DatabaseMigrations` wiped
 `database/demo.sqlite` once (restored from a scratchpad copy).
+
+**Driver page redesign + English-only message (2026-11-24).** The copied message is now
+`*Ref. # X*` / `*ddd DD-MMM-YY · HH:mm*` / thanks / `🚗 Trip:` link / `🧾 Bills:` link + NOTE_EN —
+English only (owner: the Arabic is on the pages). `driver-trip.blade.php` rebuilt mobile-first:
+dark header (Ref, date + time, status pill), the ACTION card first (3-step tracker Photo → Check
+→ Start/End, big camera tile with a live preview of the photo, "Reading your dashboard…" while
+the AI reads, big KM box, horizontal 8-bar fuel tank, big Start/End button inside the card),
+trip details after it with Call / Map buttons once unlocked; English with the Arabic under it
+(`$bi`). The plain date row left `details()` (it is in the header). Same ids/data-attributes, no
+server logic change.

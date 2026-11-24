@@ -140,9 +140,8 @@ final class DriverTripController
 
         if ($leg->start_at !== null && $leg->service_type === LimoLeg::TYPE_CHAUFFEUR) {
             $out[] = ['label' => 'Time / الوقت', 'value' => implode(' · ', $rows->chauffeurWindow($leg))];
-        } elseif ($leg->start_at !== null) {
-            $out[] = ['label' => 'Date & time / التاريخ والوقت', 'value' => $leg->start_at->isoFormat('ddd DD-MMM-YY · HH:mm')];
         }
+        // A plain trip's date and time are in the page header.
         $out[] = ['label' => 'Type / النوع', 'value' => $rows->tripType($leg, $booking)];
 
         // The passenger the driver meets: name and phone only (the owner's call).
@@ -189,7 +188,7 @@ final class DriverTripController
         }
 
         if (! $started) {
-            $out[] = ['label' => 'Address & phone / العنوان والهاتف', 'value' => '🔒 Shown after you press Start trip. / يظهران بعد الضغط على «بدء الرحلة».', 'locked' => '1'];
+            $out[] = ['label' => 'Address & phone / العنوان والهاتف', 'value' => 'Shown after you press Start trip. / يظهران بعد الضغط على «بدء الرحلة».', 'locked' => '1'];
 
             return $out;
         }

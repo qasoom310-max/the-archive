@@ -1,25 +1,38 @@
 {{-- The driver's trip page, from the link the office copies to him.
      Standalone (no app chrome, no login, no Alpine): a driver on a phone,
-     usually inside WhatsApp. Every label is English AND Arabic at once. --}}
+     usually inside WhatsApp. The ACTION comes first (the owner's call): the
+     photo / Start / End card sits right under the header, the trip details
+     after it. Every label is English with the Arabic under it. --}}
 <!DOCTYPE html>
 <html lang="en" dir="ltr" class="h-full">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#18181b">
     <title>Wanaan · Trip</title>
     @vite(['resources/css/app.css'])
-    <style>.ar{direction:rtl;font-size:.92em}</style>
+    <style>
+        .ar { display: block; unicode-bidi: plaintext; text-align: start; font-size: .85em; opacity: .75; }
+        .tap { -webkit-tap-highlight-color: transparent; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
+    </style>
 </head>
-<body class="min-h-full bg-chrome-100 font-sans">
-<div class="mx-auto max-w-md space-y-4 p-4">
+<body class="min-h-full bg-chrome-100 font-sans antialiased">
+@php
+    // English line with its Arabic underneath, the one pattern used everywhere here.
+    $bi = static fn (string $en, string $ar): \Illuminate\Support\HtmlString => new \Illuminate\Support\HtmlString(e($en) . '<span class="ar" lang="ar">' . e($ar) . '</span>');
+@endphp
+
 @if ($invalid)
-    <div class="rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-chrome-900/5" data-trip-invalid>
-        <h1 class="text-lg font-bold text-chrome-900">This link no longer works</h1>
-        <p class="ar mt-1 font-bold text-chrome-900">هذا الرابط لم يعد يعمل</p>
-        <p class="mt-2 text-sm text-chrome-600">The trip was given to another driver or cancelled. Call the office.</p>
-        <p class="ar text-sm text-chrome-600">أُعطيت الرحلة لسائق آخر أو أُلغيت. اتصل بالمكتب.</p>
+    <div class="mx-auto max-w-md p-4">
+        <div class="mt-10 rounded-3xl bg-white p-8 text-center shadow-sm" data-trip-invalid>
+            <div class="mx-auto flex size-14 items-center justify-center rounded-full bg-red-100 text-2xl">⛔</div>
+            <h1 class="mt-4 text-lg font-bold text-chrome-900">{{ $bi('This link no longer works', 'هذا الرابط لم يعد يعمل') }}</h1>
+            <p class="mt-2 text-sm text-chrome-600">{{ $bi('The trip was given to another driver or cancelled. Call the office.', 'أُعطيت الرحلة لسائق آخر أو أُلغيت. اتصل بالمكتب.') }}</p>
+        </div>
     </div>
 @else
     @php
@@ -29,126 +42,178 @@
         $read = $run?->getAttribute($stage . '_read');
         $hasPhoto = ($run?->getAttribute($stage . '_photo') ?? null) !== null;
         $fuelNow = (int) ($read['fuel_eighths'] ?? 4);
+        $status = $ended ? ['Finished', 'انتهت', 'bg-emerald-400 text-emerald-950']
+            : ($started ? ['On the trip', 'في الرحلة', 'bg-sky-300 text-sky-950'] : ['Not started', 'لم تبدأ', 'bg-primary-400 text-chrome-900']);
     @endphp
 
-    <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5">
-        <p class="text-xs font-semibold uppercase tracking-wide text-chrome-500">Wanaan · ونان</p>
-        <h1 class="mt-1 text-lg font-bold text-chrome-900">Booking No {{ $trip->reference }}</h1>
-        <p class="ar font-bold text-chrome-900">رقم الحجز {{ $trip->reference }}</p>
-        <p class="mt-2 text-sm text-chrome-600">{{ str_replace(':driver', (string) $trip->driver, \Modules\Limousine\Support\DriverTripLink::THANKS_EN) }}</p>
-        <p class="ar text-sm text-chrome-600">{{ str_replace(':driver', (string) $trip->driver, \Modules\Limousine\Support\DriverTripLink::THANKS_AR) }}</p>
-
-        <div class="mt-3 flex items-center gap-2 text-xs font-semibold">
-            <span class="rounded-full px-2.5 py-1 {{ $started ? 'bg-emerald-100 text-emerald-700' : 'bg-primary-400 text-chrome-900' }}">1 · Start / البدء</span>
-            <span class="rounded-full px-2.5 py-1 {{ $ended ? 'bg-emerald-100 text-emerald-700' : ($started ? 'bg-primary-400 text-chrome-900' : 'bg-chrome-100 text-chrome-500') }}">2 · End / الإنهاء</span>
+    {{-- Header: what and when, at a glance. --}}
+    <header class="bg-chrome-900 px-5 pb-10 pt-6 text-white">
+        <div class="mx-auto max-w-md">
+            <div class="flex items-center justify-between">
+                <p class="text-xs font-bold uppercase tracking-[0.2em] text-primary-400">Wanaan</p>
+                <span class="rounded-full px-3 py-1 text-xs font-bold {{ $status[2] }}">{{ $status[0] }} · {{ $status[1] }}</span>
+            </div>
+            <h1 class="mt-3 text-3xl font-black tracking-tight">Ref. # {{ $trip->reference }}</h1>
+            @if ($trip->start_at)
+                <p class="mt-1 text-lg font-semibold text-white/90">{{ $trip->start_at->isoFormat('ddd D MMM') }} · <span class="text-primary-400">{{ $trip->start_at->isoFormat('HH:mm') }}</span></p>
+            @endif
+            <p class="mt-2 text-sm text-white/60">{{ str_replace(':driver', (string) $trip->driver, \Modules\Limousine\Support\DriverTripLink::THANKS_EN) }}</p>
         </div>
-    </div>
+    </header>
 
-    <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5" data-trip-details>
-        <h2 class="text-sm font-semibold text-chrome-800">Trip details <span class="ar">· تفاصيل الرحلة</span></h2>
-        <dl class="mt-2 divide-y divide-chrome-100 text-sm">
-            @foreach ($details as $row)
-                <div class="py-2 {{ isset($row['locked']) ? 'rounded-lg bg-amber-50 px-2' : '' }}" @isset($row['locked']) data-address-locked @endisset>
-                    <dt class="text-xs text-chrome-500">{{ $row['label'] }}</dt>
-                    <dd class="whitespace-pre-line font-medium text-chrome-900">
-                        @if (isset($row['url']))
-                            <a href="{{ $row['url'] }}" class="text-primary-700 underline" target="_blank" rel="noopener">{{ $row['value'] }}</a>
-                        @else
-                            {{ $row['value'] }}
-                        @endif
-                    </dd>
-                </div>
-            @endforeach
-        </dl>
-    </div>
+    <main class="mx-auto -mt-6 max-w-md space-y-4 px-4 pb-10">
 
     @if ($blocking !== null)
-        <div class="rounded-2xl border-2 border-red-300 bg-red-50 p-5" data-trip-blocked>
-            <p class="font-semibold text-red-800">Finish your other trip first: {{ $blocking->leg?->reference }}</p>
-            <p class="ar font-semibold text-red-800">أنهِ رحلتك الأخرى أولاً: {{ $blocking->leg?->reference }}</p>
-            <p class="mt-1 text-sm text-red-700">You can start this trip only after you press End trip on that one.</p>
-            <p class="ar text-sm text-red-700">لا يمكنك بدء هذه الرحلة إلا بعد الضغط على «إنهاء الرحلة» في تلك الرحلة.</p>
+        <section class="rounded-3xl bg-white p-5 shadow-lg ring-2 ring-red-300" data-trip-blocked>
+            <div class="flex items-start gap-3">
+                <div class="flex size-11 shrink-0 items-center justify-center rounded-full bg-red-100 text-xl">✋</div>
+                <div>
+                    <p class="font-bold text-red-800">{{ $bi('Finish your other trip first', 'أنهِ رحلتك الأخرى أولاً') }}</p>
+                    <p class="mt-1 text-sm text-chrome-600">{{ $bi('Ref. # ' . $blocking->leg?->reference . ' is still open. Press End trip on it, then come back.', 'الرحلة ' . $blocking->leg?->reference . ' ما زالت مفتوحة. اضغط «إنهاء الرحلة» فيها ثم ارجع.') }}</p>
+                </div>
+            </div>
             @if ($blockingUrl)
-                <a href="{{ $blockingUrl }}" class="o-btn-primary mt-3 w-full justify-center py-3">Open that trip / افتح تلك الرحلة</a>
+                <a href="{{ $blockingUrl }}" class="tap mt-4 flex h-14 items-center justify-center rounded-2xl bg-chrome-900 text-base font-bold text-white">{{ $bi('Open that trip', 'افتح تلك الرحلة') }}</a>
             @endif
-        </div>
+        </section>
     @elseif ($ended)
-        <div class="rounded-2xl bg-emerald-50 p-5 ring-1 ring-emerald-200" data-trip-ended>
-            <p class="font-semibold text-emerald-800">Trip finished. Thank you!</p>
-            <p class="ar font-semibold text-emerald-800">انتهت الرحلة. شكراً لك!</p>
-            <p class="mt-2 text-sm text-emerald-800">{{ $run->started_at?->isoFormat('HH:mm') }} → {{ $run->ended_at?->isoFormat('HH:mm') }} · {{ number_format((int) $run->start_km) }} → {{ number_format((int) $run->end_km) }} km</p>
-        </div>
+        <section class="rounded-3xl bg-white p-6 text-center shadow-lg" data-trip-ended>
+            <div class="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-100 text-3xl">✅</div>
+            <p class="mt-3 text-xl font-black text-chrome-900">{{ $bi('Trip finished. Thank you!', 'انتهت الرحلة. شكراً لك!') }}</p>
+            <div class="mt-4 grid grid-cols-3 gap-2 text-center">
+                <div class="rounded-2xl bg-chrome-50 p-3"><p class="text-[11px] font-semibold uppercase text-chrome-500">Time</p><p class="mt-1 font-bold tabular-nums">{{ $run->started_at?->isoFormat('HH:mm') }}–{{ $run->ended_at?->isoFormat('HH:mm') }}</p></div>
+                <div class="rounded-2xl bg-chrome-50 p-3"><p class="text-[11px] font-semibold uppercase text-chrome-500">KM</p><p class="mt-1 font-bold tabular-nums">{{ $run->distance() !== null ? number_format((int) $run->distance()) : '—' }}</p></div>
+                <div class="rounded-2xl bg-chrome-50 p-3"><p class="text-[11px] font-semibold uppercase text-chrome-500">Fuel</p><p class="mt-1 font-bold tabular-nums">{{ $run->end_fuel !== null ? $run->end_fuel . '/8' : '—' }}</p></div>
+            </div>
+        </section>
     @else
-        <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5" data-trip-step="{{ $stage }}">
+        {{-- THE ACTION: photo → check → Start / End. --}}
+        <section class="rounded-3xl bg-white p-5 shadow-lg" data-trip-step="{{ $stage }}">
             @if ($started)
-                <p class="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Trip started at {{ $run->started_at?->isoFormat('HH:mm') }} · {{ number_format((int) $run->start_km) }} km <span class="ar block">بدأت الرحلة الساعة {{ $run->started_at?->isoFormat('HH:mm') }}</span></p>
-                <h2 class="font-semibold text-chrome-900">When you finish: photo of the dashboard</h2>
-                <p class="ar font-semibold text-chrome-900">عند الانتهاء: صوّر لوحة العدادات</p>
+                <div class="mb-4 flex items-center gap-3 rounded-2xl bg-sky-50 p-3 text-sky-900">
+                    <span class="flex size-9 items-center justify-center rounded-full bg-sky-200 text-lg">🚗</span>
+                    <p class="text-sm font-semibold">{{ $bi('On the trip since ' . $run->started_at?->isoFormat('HH:mm') . ' · ' . number_format((int) $run->start_km) . ' km', 'في الرحلة منذ ' . $run->started_at?->isoFormat('HH:mm')) }}</p>
+                </div>
+                <h2 class="text-xl font-black text-chrome-900">{{ $bi('End your trip', 'أنهِ رحلتك') }}</h2>
             @else
-                <h2 class="font-semibold text-chrome-900">Before you leave: photo of the dashboard</h2>
-                <p class="ar font-semibold text-chrome-900">قبل التحرك: صوّر لوحة العدادات</p>
+                <h2 class="text-xl font-black text-chrome-900">{{ $bi('Start your trip', 'ابدأ رحلتك') }}</h2>
             @endif
-            <p class="mt-1 text-sm text-chrome-600">The KM and the fuel must both be clear in the photo.</p>
-            <p class="ar text-sm text-chrome-600">يجب أن يظهر عداد الكيلومترات ومؤشر الوقود بوضوح في الصورة.</p>
 
-            <label class="o-btn-{{ $hasPhoto ? 'ghost ring-1 ring-chrome-200' : 'primary' }} mt-4 w-full cursor-pointer justify-center py-3" data-photo-pick>
-                <span id="photoLabel">{{ $hasPhoto ? 'Take the photo again / أعد التصوير' : 'Take the photo / التقط الصورة' }}</span>
+            {{-- Three steps, so he always knows where he is. --}}
+            <ol class="mt-4 grid grid-cols-3 gap-2 text-center text-[11px] font-semibold" id="steps">
+                <li data-step="1" class="rounded-xl px-1 py-2">① Photo<span class="ar">الصورة</span></li>
+                <li data-step="2" class="rounded-xl px-1 py-2">② Check<span class="ar">التحقق</span></li>
+                <li data-step="3" class="rounded-xl px-1 py-2">③ {{ $started ? 'End' : 'Start' }}<span class="ar">{{ $started ? 'الإنهاء' : 'البدء' }}</span></li>
+            </ol>
+
+            <label class="tap mt-4 flex cursor-pointer items-center gap-4 rounded-2xl border-2 border-dashed {{ $hasPhoto ? 'border-chrome-200 bg-chrome-50' : 'border-primary-500 bg-primary-400/15' }} p-4" data-photo-pick>
+                <span class="flex size-14 shrink-0 items-center justify-center rounded-2xl {{ $hasPhoto ? 'bg-chrome-200' : 'bg-primary-400' }}">
+                    <svg class="size-7 text-chrome-900" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg>
+                </span>
+                <span class="min-w-0">
+                    <span id="photoLabel" class="block font-bold text-chrome-900">{{ $hasPhoto ? $bi('Take the photo again', 'أعد التصوير') : $bi('Photo of the dashboard', 'صوّر لوحة العدادات') }}</span>
+                    <span class="mt-0.5 block text-xs text-chrome-500">{{ $bi('KM and fuel must be clear', 'يجب أن يظهر العداد والوقود بوضوح') }}</span>
+                </span>
                 <input type="file" accept="image/*" capture="environment" class="hidden" id="photo">
             </label>
+            <img id="preview" alt="" class="mt-3 hidden max-h-48 w-full rounded-2xl object-cover">
 
-            <div id="confirm" class="mt-4 space-y-3" @if (! $hasPhoto) hidden @endif>
-                <p id="readNote" class="text-xs text-chrome-500">Check the numbers. Correct them if wrong. / تحقق من الأرقام وصححها إن كانت خاطئة.</p>
-                <label class="block text-sm font-medium text-chrome-700">KM / عداد الكيلومترات
-                    <input type="number" inputmode="numeric" min="1" id="km" class="o-input mt-1 w-full text-lg" value="{{ ($read['km'] ?? 0) > 0 ? $read['km'] : '' }}">
+            <div id="reading" hidden><div class="mt-4 flex items-center gap-3 rounded-2xl bg-chrome-50 p-4 text-sm font-semibold text-chrome-700">
+                <svg class="spin size-5 text-chrome-500" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" class="opacity-25"/><path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+                <span>{{ $bi('Reading your dashboard…', 'جارٍ قراءة لوحة العدادات…') }}</span>
+            </div></div>
+
+            <div id="confirm" class="mt-5 space-y-5" @if (! $hasPhoto) hidden @endif>
+                <p id="readNote" class="rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">{{ $bi('Check the numbers. Correct them if wrong.', 'تحقق من الأرقام وصححها إن كانت خاطئة.') }}</p>
+
+                <label class="block">
+                    <span class="text-sm font-bold text-chrome-800">KM <span class="font-medium text-chrome-500">· عداد الكيلومترات</span></span>
+                    <input type="number" inputmode="numeric" min="1" id="km" class="o-input mt-2 h-16 w-full rounded-2xl text-center text-3xl font-black tabular-nums tracking-wider" value="{{ ($read['km'] ?? 0) > 0 ? $read['km'] : '' }}" placeholder="000000">
                 </label>
-                {{-- A fuel tank of 8 bars instead of a list (the owner's call): filled
-                     from the photo, the driver taps a bar to correct it, E for empty. --}}
+
+                {{-- A fuel tank of 8 bars (the owner's call): filled from the photo, tap to correct, E = empty. --}}
                 <div data-fuel-tank>
-                    <p class="text-sm font-medium text-chrome-700">Fuel / الوقود <span class="text-xs font-normal text-chrome-500">· tap to change / اضغط للتعديل</span></p>
-                    <input type="hidden" id="fuel" value="{{ $fuelNow }}">
-                    <div class="mt-2 flex items-end gap-4">
-                        <div class="flex flex-col items-center">
-                            <span class="text-xs font-bold text-emerald-700">F</span>
-                            <div class="relative mt-1 flex w-24 flex-col-reverse gap-1 rounded-2xl border-4 border-chrome-700 bg-chrome-50 p-1.5">
-                                @for ($i = 1; $i <= 8; $i++)
-                                    <button type="button" data-fuel-bar="{{ $i }}" aria-label="{{ $i }}/8"
-                                            class="h-7 w-full rounded-md ring-1 ring-chrome-300 transition"></button>
-                                @endfor
-                            </div>
-                            <button type="button" data-fuel-bar="0" class="mt-1 rounded-md px-3 py-0.5 text-xs font-bold text-red-600 ring-1 ring-red-200">E</button>
-                        </div>
-                        <div class="pb-8">
-                            <p class="text-3xl font-black tabular-nums text-chrome-900"><span id="fuelNum">{{ $fuelNow }}</span>/8</p>
-                            <p id="fuelWord" class="mt-1 text-sm font-semibold text-chrome-700"></p>
-                        </div>
+                    <div class="flex items-baseline justify-between">
+                        <span class="text-sm font-bold text-chrome-800">Fuel <span class="font-medium text-chrome-500">· الوقود</span></span>
+                        <span class="text-xs text-chrome-500">tap to change · اضغط للتعديل</span>
                     </div>
+                    <input type="hidden" id="fuel" value="{{ $fuelNow }}">
+                    <div class="mt-2 flex items-center gap-2">
+                        <button type="button" data-fuel-bar="0" class="tap h-14 w-10 shrink-0 rounded-xl bg-red-50 text-sm font-black text-red-600 ring-1 ring-red-200">E</button>
+                        <div class="flex h-14 flex-1 gap-1 rounded-2xl border-[3px] border-chrome-800 bg-chrome-50 p-1">
+                            @for ($i = 1; $i <= 8; $i++)
+                                <button type="button" data-fuel-bar="{{ $i }}" aria-label="{{ $i }}/8" class="tap h-full flex-1 rounded-lg ring-1 ring-chrome-300"></button>
+                            @endfor
+                        </div>
+                        <span class="shrink-0 text-sm font-black text-emerald-700">F</span>
+                    </div>
+                    <p class="mt-2 text-center"><span class="text-2xl font-black tabular-nums text-chrome-900"><span id="fuelNum">{{ $fuelNow }}</span>/8</span> <span id="fuelWord" class="ms-2 text-sm font-semibold text-chrome-600"></span></p>
                 </div>
-                <button type="button" id="go" class="w-full rounded-xl py-4 text-lg font-bold text-white {{ $started ? 'bg-red-600' : 'bg-emerald-600' }}" data-trip-go="{{ $stage }}">
-                    {{ $started ? 'End trip / إنهاء الرحلة' : 'Start trip / بدء الرحلة' }}
-                </button>
-                <p class="text-xs text-chrome-500">Your location is saved when you press the button. / يُحفظ موقعك عند الضغط على الزر.</p>
             </div>
 
-            <p id="busy" hidden class="mt-4 text-sm font-medium text-chrome-600">Please wait… / يرجى الانتظار…</p>
-            <p id="error" hidden class="mt-4 text-sm font-medium text-red-600" role="alert"></p>
-        </div>
+                {{-- The big button, right under the numbers it saves. --}}
+                <div id="goBar" class="mt-6" @if (! $hasPhoto) hidden @endif>
+                <button type="button" id="go" data-trip-go="{{ $stage }}"
+                        class="tap flex h-16 w-full items-center justify-center gap-3 rounded-2xl text-lg font-black text-white shadow-xl {{ $started ? 'bg-red-600 active:bg-red-700' : 'bg-emerald-600 active:bg-emerald-700' }} disabled:opacity-60">
+                    <span id="goLabel">{{ $started ? 'End trip · إنهاء الرحلة' : 'Start trip · بدء الرحلة' }}</span>
+                </button>
+                <p class="mt-1.5 text-center text-[11px] text-chrome-500">📍 Your location is saved when you press · يُحفظ موقعك عند الضغط</p>
+            </div>
+
+            <p id="error" hidden class="mt-4 rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-700" role="alert"></p>
+        </section>
+
     @endif
 
+    {{-- The trip itself, after the action. --}}
+    <section class="rounded-3xl bg-white p-5 shadow-sm" data-trip-details>
+        <h2 class="text-sm font-bold uppercase tracking-wide text-chrome-500">Trip details · تفاصيل الرحلة</h2>
+        <dl class="mt-3 space-y-3">
+            @foreach ($details as $row)
+                @if (isset($row['locked']))
+                    <div class="flex items-center gap-3 rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-200" data-address-locked>
+                        <span class="text-2xl">🔒</span>
+                        <div>
+                            <dt class="text-xs font-semibold text-amber-800">{{ $row['label'] }}</dt>
+                            <dd class="text-sm font-semibold text-amber-900">{{ $row['value'] }}</dd>
+                        </div>
+                    </div>
+                @else
+                    <div class="flex items-start justify-between gap-3 border-b border-chrome-100 pb-3 last:border-0 last:pb-0">
+                        <div class="min-w-0">
+                            <dt class="text-xs text-chrome-500">{{ $row['label'] }}</dt>
+                            <dd class="whitespace-pre-line font-semibold text-chrome-900">{{ $row['value'] }}</dd>
+                        </div>
+                        @if (isset($row['url']))
+                            <a href="{{ $row['url'] }}" target="_blank" rel="noopener"
+                               class="tap shrink-0 rounded-xl px-3 py-2 text-xs font-bold {{ str_starts_with($row['url'], 'tel:') ? 'bg-emerald-600 text-white' : 'bg-chrome-900 text-white' }}">
+                                {{ str_starts_with($row['url'], 'tel:') ? '📞 Call' : '🧭 Map' }}
+                            </a>
+                        @endif
+                    </div>
+                @endif
+            @endforeach
+        </dl>
+    </section>
+
+    </main>
 
     @if (! $ended && $blocking === null)
     <script>
         (function () {
-            var url = @js($postUrl), stage = @js($stage);
+            var url = @js($postUrl), stage = @js($stage), hasPhoto = @js($hasPhoto);
             var token = document.querySelector('meta[name="csrf-token"]').content;
             var $ = function (id) { return document.getElementById(id); };
-            function busy(on) { $('busy').hidden = !on; $('go') && ($('go').disabled = on); }
-            function fail(msg) { busy(false); $('error').textContent = msg || 'Something went wrong. Try again. / حدث خطأ، حاول مرة أخرى.'; $('error').hidden = false; }
-            function post(body) {
-                body.append('_token', token);
-                return fetch(url, { method: 'POST', body: body, headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': token } })
-                    .then(function (r) { return r.json().then(function (j) { if (!r.ok) { throw new Error(j.message || ''); } return j; }); });
+
+            function steps(n) {
+                document.querySelectorAll('#steps [data-step]').forEach(function (li) {
+                    var s = parseInt(li.getAttribute('data-step'), 10);
+                    li.className = 'rounded-xl px-1 py-2 ' + (s < n ? 'bg-emerald-100 text-emerald-800' : (s === n ? 'bg-chrome-900 text-white' : 'bg-chrome-100 text-chrome-400'));
+                });
             }
-            var words = ['Empty / فارغ', 'Almost empty / شبه فارغ', 'Quarter / ربع', 'Less than half / أقل من النصف', 'Half / نصف', 'More than half / أكثر من النصف', 'Three quarters / ثلاثة أرباع', 'Almost full / شبه ممتلئ', 'Full / ممتلئ'];
+            steps(hasPhoto ? 2 : 1);
+
+            var words = ['Empty · فارغ', 'Almost empty · شبه فارغ', 'Quarter · ربع', 'Less than half · أقل من النصف', 'Half · نصف', 'More than half · أكثر من النصف', 'Three quarters · ثلاثة أرباع', 'Almost full · شبه ممتلئ', 'Full · ممتلئ'];
             function setFuel(n) {
                 n = Math.max(0, Math.min(8, parseInt(n, 10) || 0));
                 $('fuel').value = String(n);
@@ -158,45 +223,63 @@
                 document.querySelectorAll('[data-fuel-bar]').forEach(function (b) {
                     var i = parseInt(b.getAttribute('data-fuel-bar'), 10);
                     if (i === 0) { return; }
-                    b.className = 'h-7 w-full rounded-md ring-1 transition ' + (i <= n ? colour + ' ring-black/10' : 'bg-white ring-chrome-300');
+                    b.className = 'tap h-full flex-1 rounded-lg ring-1 ' + (i <= n ? colour + ' ring-black/10' : 'bg-white ring-chrome-300');
                 });
             }
             document.querySelectorAll('[data-fuel-bar]').forEach(function (b) {
                 b.addEventListener('click', function () { setFuel(b.getAttribute('data-fuel-bar')); });
             });
             setFuel($('fuel').value);
+
+            function fail(msg) {
+                $('reading').hidden = true; $('go').disabled = false;
+                $('error').textContent = msg || 'Something went wrong. Try again. · حدث خطأ، حاول مرة أخرى.';
+                $('error').hidden = false;
+            }
+            function post(body) {
+                body.append('_token', token);
+                return fetch(url, { method: 'POST', body: body, headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': token } })
+                    .then(function (r) { return r.json().then(function (j) { if (!r.ok) { throw new Error(j.message || ''); } return j; }); });
+            }
+
             $('photo').addEventListener('change', function (e) {
                 var file = e.target.files[0]; if (!file) { return; }
-                $('error').hidden = true; busy(true);
+                $('error').hidden = true;
+                $('preview').src = URL.createObjectURL(file); $('preview').classList.remove('hidden');
+                $('reading').hidden = false;
                 var fd = new FormData(); fd.append('action', 'photo'); fd.append('file', file);
                 post(fd).then(function (j) {
-                    busy(false);
-                    $('confirm').hidden = false;
-                    $('photoLabel').textContent = 'Take the photo again / أعد التصوير';
-                    if (j.readable && j.km > 0) { $('km').value = j.km; } else { $('km').value = ''; $('readNote').textContent = 'The KM could not be read. Type it. / لم تتم قراءة العداد، اكتبه.'; }
+                    $('reading').hidden = true;
+                    $('confirm').hidden = false; $('goBar').hidden = false;
+                    $('photoLabel').textContent = 'Take the photo again · أعد التصوير';
+                    if (j.readable && j.km > 0) { $('km').value = j.km; }
+                    else { $('km').value = ''; $('readNote').textContent = 'The KM could not be read. Type it. · لم تتم قراءة العداد، اكتبه.'; }
                     if (j.fuel_readable) { setFuel(j.fuel_eighths); }
-                    $('km').focus();
+                    steps(2);
+                    $('confirm').scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }).catch(function (err) { fail(err.message); });
                 e.target.value = '';
             });
+
             function send(pos) {
                 var fd = new FormData();
                 fd.append('action', stage); fd.append('km', $('km').value); fd.append('fuel', $('fuel').value);
                 if (pos) { fd.append('lat', pos.coords.latitude); fd.append('lng', pos.coords.longitude); fd.append('accuracy', pos.coords.accuracy); }
                 post(fd).then(function () { location.reload(); }).catch(function (err) { fail(err.message); });
             }
-            $('go') && $('go').addEventListener('click', function () {
-                if (!$('km').value) { fail('Type the KM. / اكتب عدد الكيلومترات.'); return; }
-                $('error').hidden = true; busy(true);
+            $('go').addEventListener('click', function () {
+                if (!$('km').value) { fail('Type the KM. · اكتب عدد الكيلومترات.'); $('km').focus(); return; }
+                $('error').hidden = true; $('go').disabled = true; steps(3);
+                $('goLabel').textContent = 'Please wait… · يرجى الانتظار…';
                 if (!navigator.geolocation) { send(null); return; }
                 navigator.geolocation.getCurrentPosition(send, function () {
-                    if (confirm('Your location could not be read. Allow location for this page and try again, or press OK to continue without it (the office will see that).\n\nتعذر قراءة موقعك. اسمح بالموقع لهذه الصفحة وحاول مرة أخرى، أو اضغط موافق للمتابعة بدونه (سيرى المكتب ذلك).')) { send(null); } else { busy(false); }
+                    if (confirm('Your location could not be read. Allow location and try again, or press OK to continue without it (the office will see that).\n\nتعذر قراءة موقعك. اسمح بالموقع وحاول مرة أخرى، أو اضغط موافق للمتابعة بدونه (سيرى المكتب ذلك).')) { send(null); }
+                    else { $('go').disabled = false; $('goLabel').textContent = @js($started ? 'End trip · إنهاء الرحلة' : 'Start trip · بدء الرحلة'); }
                 }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
             });
         })();
     </script>
     @endif
 @endif
-</div>
 </body>
 </html>

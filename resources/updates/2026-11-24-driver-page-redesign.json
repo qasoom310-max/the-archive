@@ -1,0 +1,71 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Driver trip page redesigned, and a shorter English message",
+        "ar": "إعادة تصميم صفحة رحلة السائق، ورسالة إنجليزية أقصر"
+    },
+    "points": {
+        "en": [
+            "The copied message is now: Ref. # with the date and time, a thank you, the trip link and the bills link. English only.",
+            "The driver's page opens with the action first: take the photo, check the numbers, Start trip. The trip details come after.",
+            "Big buttons, a photo preview, three clear steps (Photo, Check, Start) and Call and Map buttons once the trip is started."
+        ],
+        "ar": [
+            "الرسالة المنسوخة الآن: Ref. # مع التاريخ والوقت، وكلمة شكر، ورابط الرحلة ورابط الفواتير. بالإنجليزية فقط.",
+            "صفحة السائق تبدأ بالإجراء: التقاط الصورة، والتحقق من الأرقام، ثم «بدء الرحلة». وتأتي تفاصيل الرحلة بعد ذلك.",
+            "أزرار كبيرة، ومعاينة للصورة، وثلاث خطوات واضحة (الصورة، التحقق، البدء)، وأزرار الاتصال والخريطة بعد بدء الرحلة."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the message was in two languages and the page showed the details first, with the photo and the Start button further down.",
+            "Now the date and time of the trip are in the message itself, so the driver sees when it is without opening the link. The message is English only; the pages keep both languages.",
+            "On the page, the photo, the KM, the fuel tank and the Start or End button are together at the top. While the photo is read, the page says so.",
+            "After Start, the pick-up and drop-off have a Map button and the passenger's phone has a Call button."
+        ],
+        "ar": [
+            "في السابق كانت الرسالة بلغتين وكانت الصفحة تعرض التفاصيل أولاً، والصورة وزر البدء في الأسفل.",
+            "الآن تاريخ الرحلة ووقتها في الرسالة نفسها، فيعرف السائق موعدها دون فتح الرابط. والرسالة بالإنجليزية فقط، والصفحات تبقى باللغتين.",
+            "في الصفحة، الصورة والعداد وخزان الوقود وزر البدء أو الإنهاء معاً في الأعلى. وأثناء قراءة الصورة تظهر رسالة بذلك.",
+            "بعد البدء، يظهر زر «الخريطة» للاستلام والتوصيل، وزر «اتصال» لهاتف الراكب."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Copy the trip for the driver and send it on WhatsApp as usual.",
+            "The driver opens the trip link and taps the yellow camera box to photograph the dashboard.",
+            "He checks the KM and the fuel tank, then presses the green Start trip button.",
+            "At the end he opens the same link, photographs the dashboard again and presses the red End trip button."
+        ],
+        "ar": [
+            "انسخ الرحلة للسائق وأرسلها على واتساب كالمعتاد.",
+            "يفتح السائق رابط الرحلة ويضغط على مربع الكاميرا الأصفر لتصوير لوحة العدادات.",
+            "يتحقق من العداد وخزان الوقود، ثم يضغط الزر الأخضر «بدء الرحلة».",
+            "في النهاية يفتح الرابط نفسه، ويصوّر لوحة العدادات مرة أخرى ويضغط الزر الأحمر «إنهاء الرحلة»."
+        ]
+    },
+    "images": [
+        {
+            "before": "page-before.png",
+            "after": "page-after.png",
+            "caption": {
+                "en": "The driver's page. After: the photo step comes first.",
+                "ar": "صفحة السائق. بعد: خطوة الصورة تأتي أولاً."
+            }
+        },
+        {
+            "after": "photo-after.png",
+            "caption": {
+                "en": "After the photo: check the KM and fuel, then Start trip.",
+                "ar": "بعد الصورة: تحقق من العداد والوقود، ثم «بدء الرحلة»."
+            }
+        },
+        {
+            "after": "started-after.png",
+            "caption": {
+                "en": "During the trip: the End step, and the full trip details.",
+                "ar": "أثناء الرحلة: خطوة الإنهاء، وتفاصيل الرحلة كاملة."
+            }
+        }
+    ]
+}

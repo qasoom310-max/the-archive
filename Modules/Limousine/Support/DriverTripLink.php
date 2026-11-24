@@ -51,30 +51,25 @@ final class DriverTripLink
     }
 
     /**
-     * The message the office copies to the driver: trip number, thanks, then
-     * TWO links (the owner's call): the trip itself, and his bills, with the
-     * original-paper warning in both languages.
+     * The message the office copies to the driver (the owner's wording,
+     * 2026-11-24): trip number, date and time, thanks, then TWO links — the
+     * trip, and his bills with the original-paper warning. English only here;
+     * the pages behind the links carry the Arabic.
      */
     public static function message(LimoLeg $leg, string $tripLink, ?string $billsLink): string
     {
         $driver = trim((string) ($leg->driver ?? ''));
-        $ref = (string) ($leg->reference ?? '');
 
-        $lines = [
-            '*Your booking No ' . $ref . '*',
-            str_replace(':driver', $driver, self::THANKS_EN),
-            '*رقم حجزك ' . $ref . '*',
-            str_replace(':driver', $driver, self::THANKS_AR),
-            '',
-            '🚗 Trip / الرحلة:',
-            $tripLink,
-        ];
+        $lines = ['*Ref. # ' . (string) ($leg->reference ?? '') . '*'];
+        if ($leg->start_at !== null) {
+            $lines[] = '*' . $leg->start_at->isoFormat('ddd DD-MMM-YY · HH:mm') . '*';
+        }
+        $lines[] = str_replace(':driver', $driver, self::THANKS_EN);
+        $lines[] = '';
+        $lines[] = '🚗 Trip: ' . $tripLink;
         if ($billsLink !== null) {
-            $lines[] = '';
-            $lines[] = '🧾 Bills / الفواتير:';
-            $lines[] = $billsLink;
+            $lines[] = '🧾 Bills: ' . $billsLink;
             $lines[] = '⚠️ ' . DriverBillLink::NOTE_EN;
-            $lines[] = '⚠️ ' . DriverBillLink::NOTE_AR;
         }
 
         return implode("\n", $lines);

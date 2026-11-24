@@ -1,0 +1,49 @@
+{
+    "app": "system",
+    "title": {
+        "en": "Settings, Abdullah: an Add credit button for the AI",
+        "ar": "الإعدادات، عبدالله: زر «إضافة رصيد» للذكاء الاصطناعي"
+    },
+    "points": {
+        "en": [
+            "The AI spending box has an Add credit button that opens the Anthropic billing page in a new tab.",
+            "There you buy credit for the AI that Abdullah, the WhatsApp assistant and the photo readers use, or turn on auto-reload."
+        ],
+        "ar": [
+            "مربع تكلفة الذكاء الاصطناعي فيه زر «إضافة رصيد» يفتح صفحة الفوترة في Anthropic في تبويب جديد.",
+            "هناك تشتري رصيداً للذكاء الاصطناعي الذي يستخدمه عبدالله ومساعد واتساب وقارئا الصور، أو تفعّل الشحن التلقائي."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, there was no link in the ERP to top up the AI account.",
+            "Now the button takes you to the billing page. Sign in with the Anthropic account that owns the Claude key saved in WhatsApp, Assistant settings. When the credit runs out, Abdullah falls back to short plain sentences and the photo readers stop reading, so auto-reload is the safest choice."
+        ],
+        "ar": [
+            "في السابق لم يكن في النظام رابط لشحن حساب الذكاء الاصطناعي.",
+            "الآن الزر يأخذك إلى صفحة الفوترة. سجّل الدخول بحساب Anthropic الذي يملك مفتاح Claude المحفوظ في واتساب، إعدادات المساعد. وعندما ينفد الرصيد، يعود عبدالله إلى جمل قصيرة بسيطة ويتوقف قارئا الصور عن القراءة، لذلك الشحن التلقائي هو الخيار الأضمن."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Settings, then the Abdullah tab.",
+            "In the AI spending box press Add credit.",
+            "Sign in to Anthropic, then buy credit or turn on auto-reload."
+        ],
+        "ar": [
+            "افتح الإعدادات، ثم تبويب «عبدالله».",
+            "في مربع تكلفة الذكاء الاصطناعي اضغط «إضافة رصيد».",
+            "سجّل الدخول في Anthropic، ثم اشترِ رصيداً أو فعّل الشحن التلقائي."
+        ]
+    },
+    "images": [
+        {
+            "before": "spending-before.png",
+            "after": "spending-after.png",
+            "caption": {
+                "en": "The AI spending box. After: the Add credit button.",
+                "ar": "مربع تكلفة الذكاء الاصطناعي. بعد: زر «إضافة رصيد»."
+            }
+        }
+    ]
+}

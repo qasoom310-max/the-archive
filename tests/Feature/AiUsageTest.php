@@ -54,6 +54,7 @@ final class AiUsageTest extends TestCase
             ->assertSeeHtml('data-ai-spending')
             ->assertSee('$2.00')
             ->assertSee('0.75 BD')
-            ->assertSee('Abdullah messages');
+            ->assertSee('Abdullah messages')
+            ->assertSeeHtml('data-ai-refill');
     }
 }

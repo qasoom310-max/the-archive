@@ -38,6 +38,9 @@ final class AiUsage
         'claude-haiku-4-5' => [1.0, 5.0],
     ];
 
+    /** Where the Anthropic account behind the key is topped up (Console → Billing). */
+    public const BILLING_URL = 'https://console.anthropic.com/settings/billing';
+
     /** The Bahraini dinar is pegged at 0.376 to the dollar. */
     public const BHD_PER_USD = 0.376;
 

@@ -17,8 +17,14 @@
         $bd = static fn (float $v): string => number_format($v * \App\Erp\Ai\AiUsage::BHD_PER_USD, 2) . ' BD';
     @endphp
     <div class="mb-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-chrome-900/5" data-ai-spending>
-        <h2 class="text-sm font-semibold text-chrome-800">{{ __('AI spending') }}</h2>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-sm font-semibold text-chrome-800">{{ __('AI spending') }}</h2>
+            {{-- Where the owner tops up the Anthropic account behind the key. --}}
+            <a href="{{ \App\Erp\Ai\AiUsage::BILLING_URL }}" target="_blank" rel="noopener" data-ai-refill
+               class="o-btn-primary text-xs">{{ __('Add credit') }} ↗</a>
+        </div>
         <p class="mt-0.5 text-xs text-chrome-500">{{ __('What Claude costs for Abdullah, the WhatsApp assistant and the photo readers, worked out from each answer. An estimate: the Anthropic bill is the record. Counted from 24 Nov 2026.') }}</p>
+        <p class="mt-1 text-xs text-chrome-500">{{ __('Add credit opens the Anthropic billing page. Sign in with the account that owns the Claude key, then buy credits or turn on auto-reload so Abdullah never stops.') }}</p>
         <div class="mt-4 grid gap-3 sm:grid-cols-3">
             @foreach ([[__('Today'), $spendToday], [__('This month'), $spendMonth], [__('Last month'), $spendLast]] as [$label, $s])
                 <div class="rounded-lg bg-chrome-50 p-4">

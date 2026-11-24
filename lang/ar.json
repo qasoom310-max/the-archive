@@ -4056,5 +4056,7 @@
     "Answers": "الإجابات",
     "Abdullah messages": "رسائل عبدالله",
     "Reading bills": "قراءة الفواتير",
-    "Reading dashboards (KM & fuel)": "قراءة لوحات العدادات (الكيلومترات والوقود)"
+    "Reading dashboards (KM & fuel)": "قراءة لوحات العدادات (الكيلومترات والوقود)",
+    "Add credit": "إضافة رصيد",
+    "Add credit opens the Anthropic billing page. Sign in with the account that owns the Claude key, then buy credits or turn on auto-reload so Abdullah never stops.": "زر «إضافة رصيد» يفتح صفحة الفوترة في Anthropic. سجّل الدخول بالحساب الذي يملك مفتاح Claude، ثم اشترِ رصيداً أو فعّل الشحن التلقائي حتى لا يتوقف عبدالله."
 }

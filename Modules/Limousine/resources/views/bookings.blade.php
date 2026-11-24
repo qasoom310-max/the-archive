@@ -939,6 +939,15 @@
                                         </svg>
                                         {{ __('Trip record (KM & location)') }}
                                     </a>
+                                    @if ($mayEdit && in_array((int) $leg->id, $runningTrips, true))
+                                        <a href="{{ url('/app/limousine/trip-record/' . $leg->id) }}#end" wire:navigate
+                                           @click="open = false" class="{{ $item }} text-red-600" data-office-end-trip>
+                                            <svg class="{{ $icon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 7.5A2.25 2.25 0 0 1 7.5 5.25h9a2.25 2.25 0 0 1 2.25 2.25v9a2.25 2.25 0 0 1-2.25 2.25h-9a2.25 2.25 0 0 1-2.25-2.25v-9Z"/>
+                                            </svg>
+                                            {{ __('End trip for the driver') }}
+                                        </a>
+                                    @endif
 
                                     {{-- Service Order PDF — the per-trip sheet. --}}
                                     <a href="{{ url('/app/limousine/service-order/' . $leg->id) }}" target="_blank" rel="noopener"

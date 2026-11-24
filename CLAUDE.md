@@ -5940,3 +5940,25 @@ bill upload link (48 h from opening) shows on the page before, during and after 
 times, KM, fuel, Google Maps links, both photos (`limousine.trip_run.photo`), flags. NOT
 built (owner dropped it): live tracking. Tests: `LimoDriverTripLinkTest` (5),
 `LimoDriverBillLinkTest` (adjusted).
+
+**Trip link follow-up (shipped 2026-11-24): lock, two short links, office end, alert, monthly
+record.** (1) Before Start trip the driver page shows only time, type, passenger NAME,
+pick-up/drop-off COUNTRY and car; the address, map links, passenger phone, comments and
+payment appear after Start (`DriverTripController::details($leg, $started)`, owner's rule: it
+is what makes him record the start). (2) The copied message carries TWO short links
+(`ShortDriverLink`, no table: `/d/{ws36.leg36.driver36.hmac12}` and `/b/{…exp…}`; HMAC of
+kind+numbers with the app key; `ShortDriverLinkController` checks it and 302s to the full
+signed URL, so every usual check still runs). Bills link expiry = trip pick-up + 48 h
+(`DriverBillLink::expiresAt`, so the same trip gives the same link), else now + 48 h. The
+bills box was removed from the trip page. `DriverTripLink::for()` / `DriverBillLink::for()`
+stay the long signed URLs (the page POSTs to them); `::short()` is for messages. (3) Office:
+bookings row menu → "End trip for the driver" (only while a run is open; `$runningTrips` from
+`DriverTrip::runningLegs()`) → Trip record form (`TripRecord::endForDriver`, Write, reason
+required, KM/fuel optional, KM ≥ start) → `DriverTrip::endByOffice()` (`ended_by`/`ended_note`,
+migration `2026_11_24_950073`, flagged, trip Completed). (4) `AbdullahTripStarts` (every
+minute, `abdullah-trip-starts`): trips 15+ min past pick-up (≤ 6 h, from `SINCE` 25 Nov 2026)
+with a driver and no started run → ONE email to the ops address + box message to "Trip
+reminders" people, kind `not_started`. (5) `DriverTripReport` (`/app/limousine/driver-trips`,
+Limousine home quick link "Driver trip records", booking Read): per driver per month — trips,
+recorded by himself, not started, ended by office, to check, score %, KM; click a driver for his
+trips. Tests: `LimoDriverTripLinkTest` (10).

@@ -53,6 +53,35 @@
                 @endforeach
             </div>
 
+            @if ($run->ended_by)
+                <p class="mt-3 text-sm text-chrome-600" data-ended-by-office>{{ __('Ended by the office: :name', ['name' => $run->ended_by]) }}@if ($run->ended_note) — {{ $run->ended_note }}@endif</p>
+            @endif
+
+            @if ($mayEnd && $run->isRunning())
+                <div id="end" class="mt-4 rounded-xl border border-red-200 bg-red-50/60 p-4" data-office-end>
+                    <p class="font-semibold text-red-800">{{ __('End trip for the driver') }}</p>
+                    <p class="mt-1 text-xs text-red-700">{{ __('Only when the driver forgot to press End trip. Until it is ended he cannot start his next trip.') }}</p>
+                    <div class="mt-3 grid gap-3 sm:grid-cols-3">
+                        <label class="text-xs font-medium text-chrome-700">{{ __('End KM (if known)') }}
+                            <input type="number" min="1" wire:model="endKm" class="o-input mt-1 w-full">
+                        </label>
+                        <label class="text-xs font-medium text-chrome-700">{{ __('Fuel (if known)') }}
+                            <select wire:model="endFuel" class="o-input mt-1 w-full">
+                                <option value="">—</option>
+                                @foreach (range(0, 8) as $i)<option value="{{ $i }}">{{ __(\Modules\Limousine\Models\LimoTripRun::fuelLabel($i)) }}</option>@endforeach
+                            </select>
+                        </label>
+                        <label class="text-xs font-medium text-chrome-700">{{ __('Reason') }} *
+                            <input type="text" wire:model="endNote" maxlength="255" class="o-input mt-1 w-full" placeholder="{{ __('e.g. driver forgot, confirmed by phone') }}">
+                        </label>
+                    </div>
+                    @error('endKm') <p class="mt-2 text-xs text-red-600">{{ $message }}</p> @enderror
+                    @error('endNote') <p class="mt-2 text-xs text-red-600">{{ $message }}</p> @enderror
+                    <button type="button" wire:click="endForDriver({{ $run->id }})" wire:confirm="{{ __('End this trip for the driver?') }}"
+                            class="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">{{ __('End trip for the driver') }}</button>
+                </div>
+            @endif
+
             @if (! empty($run->flags))
                 <div class="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" data-trip-flags>
                     <p class="font-semibold">{{ __('Check') }}</p>

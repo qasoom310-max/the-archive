@@ -179,6 +179,65 @@ final class DriverTrip
     }
 
     /**
+     * The office ends a trip the driver forgot to end, so he can start his
+     * next one. KM and fuel are optional (the office may not know them); the
+     * record says who ended it and why, and is flagged for a look.
+     */
+    public function endByOffice(LimoLeg $leg, LimoTripRun $run, ?int $km, ?int $fuel, string $by, string $note): ?string
+    {
+        if (! $run->isStarted()) {
+            return (string) __('The driver has not started this trip.');
+        }
+        if ($run->isEnded()) {
+            return null;
+        }
+        if ($km !== null && $run->start_km !== null && $km < $run->start_km) {
+            return (string) __('The end KM cannot be lower than the start KM (:km).', ['km' => $run->start_km]);
+        }
+
+        $flags = $run->flags ?? [];
+        $flags[] = "Ended by the office ({$by}), not the driver: no end photo or location." . ($note !== '' ? " Reason: {$note}" : '');
+
+        DB::transaction(function () use ($leg, $run, $km, $fuel, $by, $note, $flags): void {
+            $run->forceFill([
+                'ended_at' => Carbon::now(),
+                'ended_by' => mb_substr($by, 0, 120),
+                'ended_note' => $note !== '' ? mb_substr($note, 0, 255) : null,
+                'end_km' => $km, 'end_fuel' => $fuel,
+                'flags' => array_values(array_unique($flags)),
+            ])->save();
+
+            if ($km !== null) {
+                $this->raiseOdometer($run->car_id !== null ? Vehicle::query()->find($run->car_id) : null, $km);
+            }
+
+            if (in_array($leg->status, LimoLeg::OPEN_STATUSES, true)) {
+                $leg->status = LimoLeg::STATUS_COMPLETED;
+                $leg->save();
+                $this->syncBooking($leg);
+            }
+        });
+
+        return null;
+    }
+
+    /**
+     * Trips (leg ids) a driver started and has not ended, among these.
+     *
+     * @param  list<int>  $legIds
+     * @return list<int>
+     */
+    public static function runningLegs(array $legIds): array
+    {
+        if ($legIds === [] || ! self::ready()) {
+            return [];
+        }
+
+        return LimoTripRun::query()->whereIn('leg_id', $legIds)->whereNotNull('started_at')->whereNull('ended_at')
+            ->pluck('leg_id')->map(static fn ($id): int => (int) $id)->unique()->values()->all();
+    }
+
+    /**
      * What the photo said against what the driver confirmed.
      *
      * @param  array<string, mixed>|null  $read

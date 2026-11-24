@@ -174,6 +174,19 @@ Schedule::call(function (): void {
     });
 })->everyMinute()->name('abdullah-trips')->withoutOverlapping(10);
 
+// Abdullah: trips past their time whose driver has not pressed Start trip on his
+// trip link. Each trip is reported once to operations.
+Schedule::call(function (): void {
+    \App\Erp\Tenancy\EachDatabase::run(static function (): void {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('limo_trip_runs')
+            || ! \App\Erp\Abdullah\Abdullah::ready()) {
+            return;
+        }
+
+        app(\Modules\Limousine\Services\AbdullahTripStarts::class)->run();
+    });
+})->everyMinute()->name('abdullah-trip-starts')->withoutOverlapping(10);
+
 // The app-store reviewers' made-up business (staff-app:review-demo): its trips
 // dated from now again and put back as they started, so a reviewer always finds
 // trips waiting for a car and driver. A no-op until the demo has been created.

@@ -31,6 +31,28 @@ final class DriverBillLink
 
     public const NOTE_AR = 'إرسال صورة الفاتورة هنا لا يعني احتسابها من عهدتك. تُحتسب فقط عند تسليم الفاتورة الأصلية لقسم الحسابات.';
 
+    /**
+     * When the bills link stops: 48 hours after the trip's pick-up, or 48
+     * hours from now if that has already passed. Tied to the trip, not the
+     * moment of copying, so the same trip gives the same (short) link.
+     */
+    public static function expiresAt(LimoLeg $leg): Carbon
+    {
+        $byTrip = $leg->start_at?->copy()->addHours(self::HOURS)->startOfHour();
+
+        return $byTrip !== null && $byTrip->isFuture() ? $byTrip : Carbon::now()->addHours(self::HOURS)->startOfHour();
+    }
+
+    /** The short address for the message, or null without a driver. */
+    public static function short(LimoLeg $leg): ?string
+    {
+        if ($leg->driver_id === null || ! \Illuminate\Support\Facades\Route::has('limousine.driver_bills.short')) {
+            return null;
+        }
+
+        return ShortDriverLink::bills($leg, self::expiresAt($leg));
+    }
+
     public static function for(LimoLeg $leg): ?string
     {
         if ($leg->driver_id === null || ! \Illuminate\Support\Facades\Route::has('limousine.driver_bills.show')) {

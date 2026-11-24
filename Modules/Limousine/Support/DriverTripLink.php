@@ -40,23 +40,43 @@ final class DriverTripLink
         return URL::signedRoute('limousine.driver_trip.show', $params);
     }
 
+    /** The short address for the message, or null without a driver. */
+    public static function short(LimoLeg $leg): ?string
+    {
+        if ($leg->driver_id === null || ! Route::has('limousine.driver_trip.short')) {
+            return null;
+        }
+
+        return ShortDriverLink::trip($leg);
+    }
+
     /**
-     * The message the office copies to the driver: trip number, thanks, link,
-     * in English then Arabic. Everything else is on the page behind the link.
+     * The message the office copies to the driver: trip number, thanks, then
+     * TWO links (the owner's call): the trip itself, and his bills, with the
+     * original-paper warning in both languages.
      */
-    public static function message(LimoLeg $leg, string $link): string
+    public static function message(LimoLeg $leg, string $tripLink, ?string $billsLink): string
     {
         $driver = trim((string) ($leg->driver ?? ''));
         $ref = (string) ($leg->reference ?? '');
 
-        return implode("\n", [
+        $lines = [
             '*Your booking No ' . $ref . '*',
             str_replace(':driver', $driver, self::THANKS_EN),
-            '',
             '*رقم حجزك ' . $ref . '*',
             str_replace(':driver', $driver, self::THANKS_AR),
             '',
-            '👉 ' . $link,
-        ]);
+            '🚗 Trip / الرحلة:',
+            $tripLink,
+        ];
+        if ($billsLink !== null) {
+            $lines[] = '';
+            $lines[] = '🧾 Bills / الفواتير:';
+            $lines[] = $billsLink;
+            $lines[] = '⚠️ ' . DriverBillLink::NOTE_EN;
+            $lines[] = '⚠️ ' . DriverBillLink::NOTE_AR;
+        }
+
+        return implode("\n", $lines);
     }
 }

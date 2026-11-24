@@ -65,6 +65,10 @@ use Modules\Limousine\Livewire\Reports;
  * signature (trip + driver + 48 hours) is checked in the controller so an
  * expired link gets a plain page, not an error. Uploads are throttled.
  */
+Route::get('/d/{code}', [\Modules\Limousine\Http\Controllers\ShortDriverLinkController::class, 'trip'])
+    ->where('code', '[0-9a-z.xyA-Z_-]{8,80}')->middleware('throttle:60,1')->name('limousine.driver_trip.short');
+Route::get('/b/{code}', [\Modules\Limousine\Http\Controllers\ShortDriverLinkController::class, 'bills'])
+    ->where('code', '[0-9a-z.xyA-Z_-]{8,80}')->middleware('throttle:60,1')->name('limousine.driver_bills.short');
 Route::get('/driver-trip/{leg}/{driver}', [\Modules\Limousine\Http\Controllers\DriverTripController::class, 'show'])
     ->whereNumber(['leg', 'driver'])->name('limousine.driver_trip.show');
 Route::post('/driver-trip/{leg}/{driver}', [\Modules\Limousine\Http\Controllers\DriverTripController::class, 'act'])
@@ -246,6 +250,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/limousine/expense/scan', \Modules\Limousine\Livewire\ExpenseScan::class)->name('limousine.expense.scan');
     // Bills drivers sent through their trip link, waiting for the office.
     Route::get('/app/limousine/expense/driver-bills', \Modules\Limousine\Livewire\DriverBills::class)->name('limousine.expense.driver_bills');
+    Route::get('/app/limousine/driver-trips', \Modules\Limousine\Livewire\DriverTripReport::class)->name('limousine.driver_trips');
     Route::get('/app/limousine/trip-record/{leg}', \Modules\Limousine\Livewire\TripRecord::class)
         ->whereNumber('leg')->name('limousine.trip_record');
     Route::get('/app/limousine/trip-run/{run}/{stage}/photo', [\Modules\Limousine\Http\Controllers\DriverTripController::class, 'photo'])

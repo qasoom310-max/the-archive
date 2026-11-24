@@ -26,6 +26,8 @@ use Illuminate\Support\Carbon;
  * @property float|null $start_lng
  * @property int|null $start_accuracy
  * @property Carbon|null $ended_at
+ * @property string|null $ended_by  Office user who ended it for the driver; null = the driver
+ * @property string|null $ended_note  Why the office ended it
  * @property string|null $end_photo
  * @property array<string, mixed>|null $end_read
  * @property int|null $end_km

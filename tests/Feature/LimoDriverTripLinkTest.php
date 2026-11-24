@@ -98,20 +98,111 @@ final class LimoDriverTripLinkTest extends TestCase
             ->assertOk()->assertJson(['readable' => true, 'km' => self::$km, 'fuel_eighths' => 6]);
     }
 
-    public function test_the_copied_message_is_the_number_thanks_and_link(): void
+    public function test_the_copied_message_has_two_short_links_and_no_address(): void
     {
         $text = app(LimoQueueRows::class)->whatsappText($this->leg);
 
         $this->assertStringContainsString('Your booking No ' . $this->leg->reference, $text);
         $this->assertStringContainsString('Thank you Sam Driver for being part of Wanaan', $text);
-        $this->assertStringContainsString('/driver-trip/' . $this->leg->id . '/' . $this->driver->id, $text);
+        $this->assertMatchesRegularExpression('#/d/[0-9a-z]+\.[0-9a-z]+\.[0-9a-z]+\.[A-Za-z0-9xy]{12}#', $text);
+        $this->assertMatchesRegularExpression('#/b/[0-9a-z.]+\.[A-Za-z0-9xy]{12}#', $text);
+        $this->assertStringContainsString(\Modules\Limousine\Support\DriverBillLink::NOTE_AR, $text);
         $this->assertStringNotContainsString('Demo Hotel', $text);
+        $this->assertStringNotContainsString('signature=', $text);
+
+        // The short trip link opens the trip; a changed code does not.
+        $short = (string) DriverTripLink::short($this->leg);
+        $this->assertLessThan(70, strlen($short));
+        $target = $this->get($short)->assertRedirect()->headers->get('Location');
+        $this->get((string) $target)->assertOk()->assertSeeHtml('data-trip-step="start"');
+        $this->get(substr($short, 0, -1) . (str_ends_with($short, 'a') ? 'b' : 'a'))->assertNotFound();
+
+        $bills = (string) \Modules\Limousine\Support\DriverBillLink::short($this->leg);
+        $billsTarget = $this->get($bills)->assertRedirect()->headers->get('Location');
+        $this->get((string) $billsTarget)->assertOk()->assertSee('Send your bills');
+    }
+
+    public function test_the_address_and_phone_stay_hidden_until_the_driver_starts(): void
+    {
+        $link = $this->link();
+        $this->get($link)->assertOk()->assertSee('Mr Demo')->assertSee('Bahrain')
+            ->assertDontSee('Demo Hotel')->assertDontSee('+973 3111 1111')->assertSeeHtml('data-address-locked');
+
+        $this->photo($link);
+        $this->post($link, ['action' => 'start', 'km' => 52340, 'fuel' => 6, 'lat' => 26.2, 'lng' => 50.5])->assertOk();
+
+        $this->get($link)->assertOk()->assertSee('Demo Hotel')->assertSee('+973 3111 1111')->assertDontSeeHtml('data-address-locked');
+    }
+
+    public function test_the_office_ends_a_forgotten_trip_so_the_driver_can_start_the_next(): void
+    {
+        $second = $this->trip();
+        $this->photo($this->link());
+        $this->post($this->link(), ['action' => 'start', 'km' => 52340, 'fuel' => 6])->assertOk();
+        $this->get($this->link($second))->assertSeeHtml('data-trip-blocked');
+
+        $this->grantEveryone('limousine.booking');
+        $run = LimoTripRun::query()->sole();
+        Livewire::test(TripRecord::class, ['leg' => $this->leg->id])
+            ->assertSeeHtml('data-office-end')
+            ->call('endForDriver', $run->id)->assertHasErrors('endNote')
+            ->set('endNote', 'Driver forgot, confirmed by phone')->set('endKm', '52300')
+            ->call('endForDriver', $run->id)->assertHasErrors('endKm')
+            ->set('endKm', '52390')->call('endForDriver', $run->id)->assertHasNoErrors()
+            ->assertSeeHtml('data-ended-by-office');
+
+        $run->refresh();
+        $this->assertTrue($run->isEnded());
+        $this->assertNotNull($run->ended_by);
+        $this->assertSame(52390, $this->car->fresh()?->odometer);
+        $this->assertSame(LimoLeg::STATUS_COMPLETED, $this->leg->fresh()?->status);
+        $this->get($this->link($second))->assertDontSeeHtml('data-trip-blocked');
+    }
+
+    public function test_abdullah_tells_operations_once_when_a_trip_is_not_started(): void
+    {
+        Mail::fake();
+        \App\Erp\Settings\Setting::set('abdullah.ops_email', 'ops@wanaan.test');
+        $this->leg->forceFill(['start_at' => \Illuminate\Support\Carbon::now()->subMinutes(20)])->save();
+        \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2026-11-26 10:00:00'));
+        $this->leg->forceFill(['start_at' => \Illuminate\Support\Carbon::now()->subMinutes(20)])->save();
+
+        $starts = app(\Modules\Limousine\Services\AbdullahTripStarts::class);
+        $this->assertSame(1, $starts->run());
+        $this->assertSame(0, $starts->run());
+        Mail::assertSent(\App\Erp\Abdullah\AbdullahMail::class, static fn ($m): bool => $m->hasTo('ops@wanaan.test'));
+
+        // A trip the driver started is never reported.
+        $other = $this->trip();
+        $other->forceFill(['start_at' => \Illuminate\Support\Carbon::now()->subMinutes(30)])->save();
+        LimoTripRun::query()->create(['leg_id' => $other->id, 'driver_id' => $this->driver->id, 'started_at' => \Illuminate\Support\Carbon::now()->subMinutes(35)]);
+        $this->assertSame(0, $starts->run());
+        \Illuminate\Support\Carbon::setTestNow();
+    }
+
+    public function test_the_monthly_driver_record_counts_each_kind(): void
+    {
+        \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2026-12-20 12:00:00'));
+        $done = $this->trip();
+        $missed = $this->trip();
+        $done->forceFill(['start_at' => '2026-12-05 09:00:00'])->save();
+        $missed->forceFill(['start_at' => '2026-12-06 09:00:00'])->save();
+        $this->leg->forceFill(['start_at' => '2027-01-02 09:00:00'])->save();
+        LimoTripRun::query()->create(['leg_id' => $done->id, 'driver_id' => $this->driver->id, 'started_at' => '2026-12-05 08:50:00', 'ended_at' => '2026-12-05 10:00:00', 'start_km' => 100, 'end_km' => 160]);
+
+        $this->grantEveryone('limousine.booking');
+        Livewire::test(\Modules\Limousine\Livewire\DriverTripReport::class)
+            ->set('month', '2026-12')
+            ->assertViewHas('rows', fn (array $rows): bool => count($rows) === 1
+                && $rows[0]['trips'] === 2 && $rows[0]['done'] === 1 && $rows[0]['missed'] === 1 && $rows[0]['km'] === 60)
+            ->assertSee('50%');
+        \Illuminate\Support\Carbon::setTestNow();
     }
 
     public function test_start_and_end_record_km_fuel_location_and_update_the_car(): void
     {
         $link = $this->link();
-        $this->get($link)->assertOk()->assertSee('Mr Demo')->assertSee('+973 3111 1111')->assertSee('Bahrain')->assertSeeHtml('data-trip-go="start"');
+        $this->get($link)->assertOk()->assertSee('Mr Demo')->assertSee('Bahrain')->assertSeeHtml('data-trip-go="start"');
 
         $this->photo($link);
         $this->post($link, ['action' => 'start', 'km' => 52340, 'fuel' => 6, 'lat' => 26.2, 'lng' => 50.5, 'accuracy' => 12])->assertOk();

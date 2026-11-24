@@ -35,6 +35,43 @@ final class TripRecord extends Component
         return 'limousine.booking';
     }
 
+    /** The office's end-trip form (the driver forgot to press End). */
+    public string $endKm = '';
+
+    public string $endFuel = '';
+
+    public string $endNote = '';
+
+    public function endForDriver(int $runId): void
+    {
+        $this->guardAccess(Permission::Write);
+
+        $data = $this->validate([
+            'endKm' => ['nullable', 'integer', 'min:1', 'max:9999999'],
+            'endFuel' => ['nullable', 'integer', 'min:0', 'max:8'],
+            'endNote' => ['required', 'string', 'max:255'],
+        ]);
+
+        $leg = LimoLeg::query()->findOrFail($this->legId);
+        $run = LimoTripRun::query()->where('leg_id', $leg->id)->whereKey($runId)->firstOrFail();
+        $error = app(DriverTrip::class)->endByOffice(
+            $leg, $run,
+            $data['endKm'] !== null && $data['endKm'] !== '' ? (int) $data['endKm'] : null,
+            $data['endFuel'] !== null && $data['endFuel'] !== '' ? (int) $data['endFuel'] : null,
+            (string) (\Illuminate\Support\Facades\Auth::user()->name ?? ''),
+            trim((string) $data['endNote']),
+        );
+
+        if ($error !== null) {
+            $this->addError('endKm', $error);
+
+            return;
+        }
+
+        $this->reset('endKm', 'endFuel', 'endNote');
+        session()->flash('toast', __('Trip ended for the driver. He can start his next trip.'));
+    }
+
     public function mount(int $leg): void
     {
         $this->guardAccess(Permission::Read);
@@ -54,7 +91,8 @@ final class TripRecord extends Component
             'leg' => $leg,
             'runs' => $runs,
             'drivers' => $drivers,
-            'link' => DriverTripLink::for($leg),
+            'link' => DriverTripLink::short($leg),
+            'mayEnd' => $this->mayAccess(Permission::Write),
         ]);
     }
 }

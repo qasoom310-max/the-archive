@@ -1,0 +1,94 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Driver trip link: address locked until Start, two short links, and the office can follow every driver",
+        "ar": "رابط رحلة السائق: العنوان مقفل حتى «البدء»، ورابطان قصيران، والمكتب يتابع كل سائق"
+    },
+    "points": {
+        "en": [
+            "Before the driver presses Start trip he sees only the time, the passenger's name, the countries and the car. The address, map, passenger phone, comments and payment open after Start.",
+            "The driver's message now has two short links: one for the trip and one for bills.",
+            "If a driver forgets to end a trip, the office can end it for him from the trip's menu in Bookings.",
+            "Abdullah emails operations when a trip is 15 minutes past its time and the driver has not started it.",
+            "A new page, Driver trip records, shows each driver's month: trips recorded, not started, ended by the office, and a score."
+        ],
+        "ar": [
+            "قبل أن يضغط السائق «بدء الرحلة» يرى فقط الوقت واسم الراكب والدول والسيارة. ويظهر العنوان والخريطة وهاتف الراكب والملاحظات والدفع بعد البدء.",
+            "رسالة السائق فيها الآن رابطان قصيران: واحد للرحلة وواحد للفواتير.",
+            "إذا نسي السائق إنهاء الرحلة، يستطيع المكتب إنهاءها نيابة عنه من قائمة الرحلة في الحجوزات.",
+            "يرسل عبدالله بريداً للعمليات عندما تتجاوز الرحلة وقتها بـ 15 دقيقة ولم يبدأها السائق.",
+            "صفحة جديدة «سجلات رحلات السائقين» تعرض شهر كل سائق: الرحلات المسجلة وغير المبدوءة والتي أنهاها المكتب، ونتيجة."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the trip page showed everything from the start, so a driver could skip the dashboard photo and still do the trip.",
+            "Now the details he needs to reach the passenger open only after the photo and Start trip. That is what makes the record happen.",
+            "The links are now short and easy to read in WhatsApp. The trip link works until the trip is ended. The bills link works until 48 hours after the trip's pick-up time.",
+            "The office's End trip for the driver asks for a reason. KM and fuel are optional. The record shows that the office ended it, and who.",
+            "Abdullah tells operations once per trip, and only for trips from 25 November 2026, when the link started.",
+            "The score is the trips the driver recorded himself out of the trips that are over."
+        ],
+        "ar": [
+            "في السابق كانت صفحة الرحلة تعرض كل شيء من البداية، فكان السائق يستطيع تجاوز صورة لوحة العدادات ويقوم بالرحلة.",
+            "الآن التفاصيل التي يحتاجها للوصول إلى الراكب لا تظهر إلا بعد الصورة و«بدء الرحلة». وهذا ما يضمن التسجيل.",
+            "الروابط الآن قصيرة وسهلة القراءة في واتساب. رابط الرحلة يعمل حتى تنتهي الرحلة. ورابط الفواتير يعمل حتى 48 ساعة بعد وقت استلام الرحلة.",
+            "«إنهاء الرحلة نيابة عن السائق» في المكتب يطلب سبباً. والكيلومترات والوقود اختيارية. ويُظهر السجل أن المكتب أنهاها ومن أنهاها.",
+            "يبلّغ عبدالله العمليات مرة واحدة لكل رحلة، وفقط للرحلات من 25 نوفمبر 2026، عندما بدأ الرابط.",
+            "النتيجة هي الرحلات التي سجّلها السائق بنفسه من الرحلات المنتهية."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Copy the trip for the driver as usual and send it on WhatsApp. It holds the trip link and the bills link.",
+            "The driver opens the trip link, takes the dashboard photo and presses Start trip. Then the address and phone appear.",
+            "If he forgot to end it: in Bookings open the trip's menu, press End trip for the driver, type the reason and press the button.",
+            "Each month: on the Limousine home page press Driver trip records, choose the month, and click a driver to see his trips."
+        ],
+        "ar": [
+            "انسخ الرحلة للسائق كالمعتاد وأرسلها على واتساب. فيها رابط الرحلة ورابط الفواتير.",
+            "يفتح السائق رابط الرحلة، ويصوّر لوحة العدادات ويضغط «بدء الرحلة». بعدها يظهر العنوان والهاتف.",
+            "إذا نسي إنهاءها: في الحجوزات افتح قائمة الرحلة، واضغط «إنهاء الرحلة نيابة عن السائق»، واكتب السبب واضغط الزر.",
+            "كل شهر: في صفحة الليموزين الرئيسية اضغط «سجلات رحلات السائقين»، واختر الشهر، واضغط على سائق لترى رحلاته."
+        ]
+    },
+    "images": [
+        {
+            "before": "driver-before.png",
+            "after": "driver-after.png",
+            "caption": {
+                "en": "The driver's page before Start. After: the address and phone are locked.",
+                "ar": "صفحة السائق قبل البدء. بعد: العنوان والهاتف مقفلان."
+            }
+        },
+        {
+            "after": "driver-started.png",
+            "caption": {
+                "en": "After Start trip: the address, map and phone open.",
+                "ar": "بعد «بدء الرحلة»: يظهر العنوان والخريطة والهاتف."
+            }
+        },
+        {
+            "before": "menu-before.png",
+            "after": "menu-after.png",
+            "caption": {
+                "en": "The trip menu. After: End trip for the driver, while a trip is open.",
+                "ar": "قائمة الرحلة. بعد: «إنهاء الرحلة نيابة عن السائق» أثناء رحلة مفتوحة."
+            }
+        },
+        {
+            "after": "office-end.png",
+            "caption": {
+                "en": "The office ends a forgotten trip, with a reason.",
+                "ar": "المكتب ينهي رحلة منسية، مع السبب."
+            }
+        },
+        {
+            "after": "report-after.png",
+            "caption": {
+                "en": "Driver trip records: each driver's month and score.",
+                "ar": "سجلات رحلات السائقين: شهر كل سائق ونتيجته."
+            }
+        }
+    ]
+}

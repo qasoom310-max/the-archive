@@ -41,7 +41,6 @@
         <div class="mt-3 flex items-center gap-2 text-xs font-semibold">
             <span class="rounded-full px-2.5 py-1 {{ $started ? 'bg-emerald-100 text-emerald-700' : 'bg-primary-400 text-chrome-900' }}">1 · Start / البدء</span>
             <span class="rounded-full px-2.5 py-1 {{ $ended ? 'bg-emerald-100 text-emerald-700' : ($started ? 'bg-primary-400 text-chrome-900' : 'bg-chrome-100 text-chrome-500') }}">2 · End / الإنهاء</span>
-            <span class="rounded-full px-2.5 py-1 {{ $ended ? 'bg-primary-400 text-chrome-900' : 'bg-chrome-100 text-chrome-500' }}">3 · Bills / الفواتير</span>
         </div>
     </div>
 
@@ -49,7 +48,7 @@
         <h2 class="text-sm font-semibold text-chrome-800">Trip details <span class="ar">· تفاصيل الرحلة</span></h2>
         <dl class="mt-2 divide-y divide-chrome-100 text-sm">
             @foreach ($details as $row)
-                <div class="py-2">
+                <div class="py-2 {{ isset($row['locked']) ? 'rounded-lg bg-amber-50 px-2' : '' }}" @isset($row['locked']) data-address-locked @endisset>
                     <dt class="text-xs text-chrome-500">{{ $row['label'] }}</dt>
                     <dd class="whitespace-pre-line font-medium text-chrome-900">
                         @if (isset($row['url']))
@@ -120,16 +119,6 @@
         </div>
     @endif
 
-    @if ($billsUrl && $blocking === null)
-        <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-chrome-900/5" data-trip-bills>
-            <h2 class="font-semibold text-chrome-900">Bills for this trip <span class="ar">· فواتير هذه الرحلة</span></h2>
-            <div class="mt-2 space-y-1 rounded-lg border-2 border-amber-400 bg-amber-50 p-3 text-xs font-semibold text-amber-900">
-                <p>⚠️ {{ \Modules\Limousine\Support\DriverBillLink::NOTE_EN }}</p>
-                <p class="ar">⚠️ {{ \Modules\Limousine\Support\DriverBillLink::NOTE_AR }}</p>
-            </div>
-            <a href="{{ $billsUrl }}" class="o-btn-ghost mt-3 w-full justify-center py-3 ring-1 ring-chrome-200">Send a bill photo / أرسل صورة فاتورة</a>
-        </div>
-    @endif
 
     @if (! $ended && $blocking === null)
     <script>

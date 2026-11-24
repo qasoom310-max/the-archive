@@ -1,6 +1,6 @@
 @php
     $lbl = 'mb-1 block text-xs font-semibold uppercase tracking-wide text-chrome-500';
-    $kinds = ['chat' => __('Chat'), 'booking' => __('New booking'), 'check' => __('Mistake'), 'trip' => __('Trip without driver'), 'escalation' => __('Told the owner')];
+    $kinds = ['chat' => __('Chat'), 'booking' => __('New booking'), 'check' => __('Mistake'), 'trip' => __('Trip without driver'), 'not_started' => __('Trip not started'), 'escalation' => __('Told the owner')];
 @endphp
 
 <div class="mx-auto max-w-4xl p-4 sm:p-6">

@@ -18,7 +18,6 @@ use Modules\Limousine\Models\LimoLeg;
 use Modules\Limousine\Models\LimoTripRun;
 use Modules\Limousine\Services\DriverTrip;
 use Modules\Limousine\Services\LimoQueueRows;
-use Modules\Limousine\Support\DriverBillLink;
 use Modules\Limousine\Support\DriverTripLink;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -47,10 +46,12 @@ final class DriverTripController
                 'invalid' => false,
                 'trip' => $trip,
                 'run' => $run,
-                'details' => $this->details($trip),
+                // The pick-up address, map, comments and money stay hidden until he
+                // has recorded the start (the owner's rule: that is what makes him
+                // do it). Before that: when, who, which countries, which car.
+                'details' => $this->details($trip, $run?->isStarted() ?? false),
                 'blocking' => $blocking,
-                'blockingUrl' => $blocking?->leg !== null ? DriverTripLink::for($blocking->leg) : null,
-                'billsUrl' => DriverBillLink::for($trip),
+                'blockingUrl' => $blocking?->leg !== null ? DriverTripLink::short($blocking->leg) : null,
                 'postUrl' => $request->fullUrl(),
             ])->render());
         });
@@ -129,9 +130,9 @@ final class DriverTripController
     /**
      * What the driver needs for the trip, as label → value rows.
      *
-     * @return list<array{label: string, value: string, url?: string}>
+     * @return list<array{label: string, value: string, url?: string, locked?: string}>
      */
-    private function details(LimoLeg $leg): array
+    private function details(LimoLeg $leg, bool $started): array
     {
         $rows = app(LimoQueueRows::class);
         $booking = $rows->bookingOf($leg);
@@ -154,7 +155,9 @@ final class DriverTripController
         if ($pax !== '') {
             $out[] = ['label' => 'Passenger / الراكب', 'value' => $pax];
         }
-        if ($paxPhone !== '') {
+        // The phone is locked with the address (option 1, 2026-11-24): with it
+        // a driver could ask the passenger where to go and skip the start.
+        if ($paxPhone !== '' && $started) {
             $out[] = ['label' => 'Phone / الهاتف', 'value' => $paxPhone, 'url' => 'tel:' . preg_replace('/[^0-9+]/', '', $paxPhone)];
         }
         if ($booking?->meet_greet) {
@@ -162,6 +165,14 @@ final class DriverTripController
         }
 
         foreach ([['Pick up / الاستلام', $leg->from_country, $leg->from_location, $leg->from_location_url], ['Drop off / التوصيل', $leg->to_country, $leg->to_location, $leg->to_location_url]] as [$label, $country, $place, $url]) {
+            if (! $started) {
+                $where = $this->country($country);
+                if ($where !== '') {
+                    $out[] = ['label' => $label, 'value' => $where];
+                }
+
+                continue;
+            }
             $where = trim(implode(' — ', array_filter([$this->country($country), trim((string) $place)])));
             if ($where !== '') {
                 $row = ['label' => $label, 'value' => $where];
@@ -175,6 +186,12 @@ final class DriverTripController
         $car = trim(implode(' · ', array_filter([$rows->vehicleType($leg, $booking), trim((string) $leg->vehicle)])));
         if ($car !== '') {
             $out[] = ['label' => 'Car / السيارة', 'value' => $car];
+        }
+
+        if (! $started) {
+            $out[] = ['label' => 'Address & phone / العنوان والهاتف', 'value' => '🔒 Shown after you press Start trip. / يظهران بعد الضغط على «بدء الرحلة».', 'locked' => '1'];
+
+            return $out;
         }
 
         $notes = array_values(array_unique(array_filter([trim((string) ($booking->notes ?? '')), trim((string) ($leg->notes ?? ''))])));

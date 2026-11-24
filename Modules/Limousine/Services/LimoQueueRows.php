@@ -741,9 +741,11 @@ final class LimoQueueRows
         // (the owner's wording, 2026-11-24): everything else is on the page,
         // where he also records his KM, fuel and location. A trip without a
         // driver yet keeps the full message, which is how one is offered round.
-        $tripLink = \Modules\Limousine\Services\DriverTrip::ready() ? \Modules\Limousine\Support\DriverTripLink::for($leg) : null;
+        $tripLink = \Modules\Limousine\Services\DriverTrip::ready() ? \Modules\Limousine\Support\DriverTripLink::short($leg) : null;
         if ($tripLink !== null) {
-            return \Modules\Limousine\Support\DriverTripLink::message($leg, $tripLink);
+            $bills = \Illuminate\Support\Facades\Schema::hasTable('limo_driver_bills') ? \Modules\Limousine\Support\DriverBillLink::short($leg) : null;
+
+            return \Modules\Limousine\Support\DriverTripLink::message($leg, $tripLink, $bills);
         }
 
         $booking = $this->bookingOf($leg);

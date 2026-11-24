@@ -32,6 +32,12 @@ final class TemplateVoice
                     is_array($facts['trips'] ?? null) ? $facts['trips'] : [],
                 )),
             ]),
+            'not_started' => $t('These trips are past their time and the driver has not pressed Start trip: :trips', [
+                'trips' => implode(', ', array_map(
+                    static fn ($trip): string => is_array($trip) ? ((string) ($trip['reference'] ?? '') . ' (' . (string) ($trip['time'] ?? '') . ', ' . (string) ($trip['driver'] ?? '') . ')') : '',
+                    is_array($facts['trips'] ?? null) ? $facts['trips'] : [],
+                )),
+            ]),
             default => $t('I can only help a little right now. Please try again later.'),
         };
     }

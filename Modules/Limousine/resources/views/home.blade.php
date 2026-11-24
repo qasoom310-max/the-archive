@@ -84,6 +84,10 @@
                             && app(\App\Erp\Security\AccessControl::class)->allows($viewer, 'limousine.driver', \App\Erp\Security\Permission::Read)) {
                             $quickLinks[] = ['Outside drivers', '/app/limousine/outside-drivers'];
                         }
+                        if ($viewer instanceof \App\Models\User
+                            && app(\App\Erp\Security\AccessControl::class)->allows($viewer, 'limousine.booking', \App\Erp\Security\Permission::Read)) {
+                            $quickLinks[] = ['Driver trip records', '/app/limousine/driver-trips'];
+                        }
                     @endphp
                     @foreach ($quickLinks as [$lbl, $href])
                         <a href="{{ url($href) }}" wire:navigate class="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white/90 ring-1 ring-white/10 transition hover:bg-white/20">{{ __($lbl) }}</a>

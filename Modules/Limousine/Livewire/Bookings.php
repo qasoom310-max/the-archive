@@ -1779,6 +1779,7 @@ final class Bookings extends Component
             'activeCustomer' => $customerId,
             'counts' => $counts,
             // Each row's booking's invoice and receipts, for the 3-dot menu.
+            'runningTrips' => \Modules\Limousine\Services\DriverTrip::runningLegs(array_map(static fn (LimoLeg $l): int => (int) $l->id, $legs->items())),
             'paperwork' => $this->paperwork(array_map(static fn (LimoLeg $l): int => (int) $l->legable_id, $legs->items())),
             // Bookings made on the website, for a "Website" badge on the row.
             'fromWebsite' => WebsiteOrigin::limoBookings(array_map(static fn (LimoLeg $l): int => (int) $l->legable_id, $legs->items())),

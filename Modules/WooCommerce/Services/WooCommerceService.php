@@ -102,14 +102,23 @@ final class WooCommerceService
         // already pushed are cheap updates).
         $deadline = microtime(true) + self::SYNC_ALL_BUDGET_SECONDS;
 
-        foreach (PosProduct::query()->where('active', true)->cursor() as $product) {
+        // The ids are read up front, NOT walked with cursor(). A cursor keeps a
+        // read open on the database for the whole sync (up to the budget),
+        // and on a workspace's SQLite file that read blocks every other
+        // writer — the till, the queued pushes. When one of them had started
+        // writing, our own status write then failed at once with "database is
+        // locked" (SQLite refuses rather than wait, because both would wait on
+        // each other). Kaleem hit exactly that on 2026-11-24.
+        $ids = PosProduct::query()->where('active', true)->orderBy('id')->pluck('id');
+
+        foreach ($ids as $id) {
             if (microtime(true) >= $deadline) {
                 $remaining++;
 
                 continue;
             }
 
-            $result = $this->pushNow((int) $product->id, 'sync');
+            $result = $this->pushNow((int) $id, 'sync');
 
             if ($result['ok']) {
                 $synced++;
@@ -142,10 +151,20 @@ final class WooCommerceService
             // half-way through a sync. It is a failed push like any other.
             $error = Str::limit($e->getMessage(), 300);
 
+            // Recording the failure can itself fail (the database busy is the
+            // usual reason it failed in the first place). That must not turn
+            // one failed product into a stopped sync.
             if ($link !== null) {
-                $link->last_status = 'failed';
-                $link->last_error = $error;
-                $link->save();
+                try {
+                    $link->last_status = 'failed';
+                    $link->last_error = $error;
+                    $link->save();
+                } catch (\Throwable $saveError) {
+                    Log::warning('WooCommerce push failure could not be recorded', [
+                        'product' => $posProductId,
+                        'error' => Str::limit($saveError->getMessage(), 300),
+                    ]);
+                }
             }
 
             Log::warning('WooCommerce push failed', ['product' => $posProductId, 'action' => $action, 'error' => $error]);

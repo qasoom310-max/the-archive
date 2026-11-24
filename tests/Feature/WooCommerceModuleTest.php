@@ -76,6 +76,27 @@ final class WooCommerceModuleTest extends TestCase
         ], $attributes));
     }
 
+    public function test_a_busy_database_fails_one_product_instead_of_stopping_the_sync(): void
+    {
+        $this->install();
+        $this->configure();
+        $this->product(['barcode' => 'OUD-001']);
+        $this->product(['barcode' => 'OUD-002', 'name' => 'Musk']);
+
+        Http::fake(['*' => Http::response(['id' => 1], 200)]);
+
+        // Every status write hits a locked database, the way Kaleem's did.
+        WooCommerceProductLink::saving(static function (): never {
+            throw new \RuntimeException('SQLSTATE[HY000]: General error: 5 database is locked');
+        });
+
+        $result = app(WooCommerceService::class)->syncAllActiveNow();
+
+        $this->assertSame(0, $result['synced']);
+        $this->assertSame(2, $result['failed']);
+        $this->assertStringContainsString('database is locked', (string) $result['error']);
+    }
+
     public function test_install_creates_the_config_and_link_tables(): void
     {
         $this->install();

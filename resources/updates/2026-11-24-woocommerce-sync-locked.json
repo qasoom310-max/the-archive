@@ -1,0 +1,41 @@
+{
+    "app": "website",
+    "title": {
+        "en": "\"Sync all active products now\" no longer stops with \"database is locked\"",
+        "ar": "زر «مزامنة كل المنتجات النشطة الآن» لم يعد يتوقف برسالة «database is locked»"
+    },
+    "points": {
+        "en": [
+            "Pressing \"Sync all active products now\" while the shop is selling no longer stops the whole sync with a red \"database is locked\" message.",
+            "If one product cannot be updated, the sync carries on with the rest and counts it as failed."
+        ],
+        "ar": [
+            "الضغط على «مزامنة كل المنتجات النشطة الآن» أثناء البيع في المحل لم يعد يوقف المزامنة كلها برسالة حمراء «database is locked».",
+            "إذا تعذّر تحديث منتج واحد، تكمل المزامنة بقية المنتجات وتعدّه منتجاً فشل."
+        ]
+    },
+    "details": {
+        "en": [
+            "Before, the sync read the product list for the whole time it ran, up to about 20 seconds. While it did that, anyone else saving in the same database had to wait for it, such as the till taking a sale. When one of them had already started saving, the sync's own save was refused at once with \"database is locked\", and the whole sync stopped half way.",
+            "Now the sync reads the list of products first, then works through them one by one, so it no longer holds the database while it talks to the website. If saving one product's result still fails, that product is counted as failed and the sync goes on to the next one.",
+            "Products already pushed before the message appeared were not lost. Pressing the button again finishes the rest."
+        ],
+        "ar": [
+            "في السابق كانت المزامنة تقرأ قائمة المنتجات طوال مدة عملها، حتى 20 ثانية تقريباً. خلال ذلك كان على أي شخص آخر يحفظ في قاعدة البيانات نفسها أن ينتظرها، مثل نقطة البيع عند تسجيل عملية بيع. وإذا كان أحدهم قد بدأ الحفظ فعلاً، يُرفض حفظ المزامنة فوراً برسالة «database is locked» وتتوقف المزامنة كلها في منتصفها.",
+            "الآن تقرأ المزامنة قائمة المنتجات أولاً، ثم تمر عليها واحداً واحداً، فلم تعد تمسك قاعدة البيانات أثناء تواصلها مع الموقع. وإذا فشل حفظ نتيجة منتج واحد، يُعدّ ذلك المنتج فاشلاً وتنتقل المزامنة إلى المنتج التالي.",
+            "المنتجات التي أُرسلت قبل ظهور الرسالة لم تضِع. اضغط الزر مرة أخرى لإكمال الباقي."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Settings, then WooCommerce.",
+            "Press \"Sync all active products now\".",
+            "Read the result under the button. If it says some products failed, press the button again later."
+        ],
+        "ar": [
+            "افتح الإعدادات، ثم WooCommerce.",
+            "اضغط «مزامنة كل المنتجات النشطة الآن».",
+            "اقرأ النتيجة تحت الزر. إذا ذكرت أن بعض المنتجات فشلت، اضغط الزر مرة أخرى لاحقاً."
+        ]
+    }
+}

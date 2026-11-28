@@ -106,6 +106,31 @@ $detail = function ( $label, $value ) {
 				$detail( __( 'Car', 'wanaan-service-order' ), $row->vehicle );
 				$detail( __( 'Delivery to', 'wanaan-service-order' ), $row->pickup );
 				?>
+				<?php elseif ( $trips = WSO_Repository::trips( $row ) ) : ?>
+				<?php // One link for a booking of several trips: every trip it pays for. ?>
+				<?php foreach ( $trips as $i => $trip ) : ?>
+				<div class="wso-section-title">
+					<?php
+					/* translators: 1: trip position, 2: how many trips. */
+					echo esc_html( sprintf( __( 'Trip %1$d of %2$d', 'wanaan-service-order' ), $i + 1, count( $trips ) ) );
+					?>
+				</div>
+				<?php
+				$detail( __( 'Confirmation No', 'wanaan-service-order' ), isset( $trip['ref'] ) ? $trip['ref'] : '' );
+				$detail( __( 'Service Date', 'wanaan-service-order' ), isset( $trip['date'] ) ? $trip['date'] : '' );
+				$detail( __( 'Service Time', 'wanaan-service-order' ), isset( $trip['time'] ) ? $trip['time'] : '' );
+				$detail( __( 'Pick up', 'wanaan-service-order' ), isset( $trip['pickup'] ) ? $trip['pickup'] : '' );
+				$detail( __( 'Drop off', 'wanaan-service-order' ), isset( $trip['dropoff'] ) ? $trip['dropoff'] : '' );
+				$detail( __( 'Vehicle', 'wanaan-service-order' ), isset( $trip['vehicle'] ) ? $trip['vehicle'] : '' );
+				?>
+				<?php endforeach; ?>
+				<div class="wso-section-title"><?php esc_html_e( 'Passenger', 'wanaan-service-order' ); ?></div>
+				<?php
+				$detail( __( 'Flight Number', 'wanaan-service-order' ), $row->flight_number );
+				$detail( __( 'PAX Name', 'wanaan-service-order' ), $row->pax_name );
+				$detail( __( 'PAX Contact', 'wanaan-service-order' ), $row->pax_contact );
+				$detail( __( 'Remark', 'wanaan-service-order' ), $row->remark );
+				?>
 				<?php else : ?>
 				<div class="wso-section-title"><?php esc_html_e( 'Trip', 'wanaan-service-order' ); ?></div>
 				<?php

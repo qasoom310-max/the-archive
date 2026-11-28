@@ -191,14 +191,29 @@ class WSO_Woo {
 			);
 		}
 
-		$details = array(
-			'Trip no.'          => (string) $row->confirmation_no,
-			'Booking no.'       => (string) $row->booking_no,
-			'Date'              => $date,
-			'Pick-up time'      => (string) $row->service_time,
-			'Pick up'           => (string) $row->pickup,
-			'Drop off'          => (string) $row->dropoff,
-			'Vehicle'           => (string) $row->vehicle,
+		$trips = WSO_Repository::trips( $row );
+		if ( $trips ) {
+			// One link for a booking of several trips: one line per trip.
+			$details = array(
+				'Trip no.'    => (string) $row->confirmation_no,
+				'Booking no.' => (string) $row->booking_no,
+			);
+			foreach ( $trips as $i => $trip ) {
+				$details[ 'Trip ' . ( $i + 1 ) ] = self::trip_line( $trip );
+			}
+		} else {
+			$details = array(
+				'Trip no.'     => (string) $row->confirmation_no,
+				'Booking no.'  => (string) $row->booking_no,
+				'Date'         => $date,
+				'Pick-up time' => (string) $row->service_time,
+				'Pick up'      => (string) $row->pickup,
+				'Drop off'     => (string) $row->dropoff,
+				'Vehicle'      => (string) $row->vehicle,
+			);
+		}
+
+		$details += array(
 			'Flight no.'        => (string) $row->flight_number,
 			'Customer'          => (string) $row->customer_name,
 			'Telephone'         => (string) $row->telephone,
@@ -213,6 +228,23 @@ class WSO_Woo {
 				return '' !== $value;
 			}
 		);
+	}
+
+	/**
+	 * One trip of several on a single line:
+	 * "26382 · Thu 5 Nov 2026 08:00 · Airport → Dammam · Sedan".
+	 *
+	 * @param array<string, string> $trip
+	 * @return string
+	 */
+	public static function trip_line( array $trip ) {
+		$get = static function ( $key ) use ( $trip ) {
+			return isset( $trip[ $key ] ) ? trim( (string) $trip[ $key ] ) : '';
+		};
+		$when  = trim( self::nice_date( $get( 'date' ) ) . ' ' . $get( 'time' ) );
+		$route = implode( ' → ', array_filter( array( $get( 'pickup' ), $get( 'dropoff' ) ) ) );
+
+		return implode( ' · ', array_filter( array( $get( 'ref' ), $when, $route, $get( 'vehicle' ) ) ) );
 	}
 
 	/**

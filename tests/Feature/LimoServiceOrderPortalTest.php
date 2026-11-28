@@ -144,6 +144,79 @@ final class LimoServiceOrderPortalTest extends TestCase
     }
 
     /**
+     * A link raised from the second trip's row still pays for the whole booking,
+     * so the customer's page lists every trip it covers (a cancelled one that is
+     * off the bill left out), not only the one it was opened from.
+     */
+    public function test_a_link_on_a_booking_of_several_trips_lists_every_trip(): void
+    {
+        $this->enablePortal();
+        $first = $this->trip(45.0);
+        $booking = $first->legable;
+        $this->assertInstanceOf(LimoBooking::class, $booking);
+        $second = $booking->legs()->create([
+            'sequence' => 1, 'reference' => '10008', 'status' => LimoLeg::STATUS_QUEUE,
+            'start_at' => now()->addDays(2)->setTime(18, 30), 'from_location' => 'Dammam Airport',
+            'to_location' => 'Home', 'rate' => 45.0, 'net_amount' => 45.0,
+        ]);
+        $booking->legs()->create([
+            'sequence' => 2, 'reference' => '10009', 'status' => LimoLeg::STATUS_CANCELLED,
+            'refund_outcome' => LimoLeg::REFUND_NONE, 'start_at' => now()->addDays(3),
+            'from_location' => 'X', 'to_location' => 'Y', 'rate' => 45.0, 'net_amount' => 45.0,
+        ]);
+
+        Http::fake(['*/wp-json/wanaan/v1/booking' => Http::response(['url' => 'https://wanaan-bh.com/service-order/y', 'token' => 'y'], 200)]);
+
+        $this->assertTrue(app(ServiceOrderPortalClient::class)->push($this->link($second, 90.0)));
+
+        Http::assertSent(static function ($request): bool {
+            $data = json_decode($request->body(), true);
+            $trips = $data['trips'] ?? [];
+
+            return $data['confirmation_no'] === '10007, 10008'
+                && $data['amount'] === '90.000'
+                && count($trips) === 2
+                && $trips[0]['ref'] === '10007' && $trips[0]['pickup'] === 'Home'
+                && $trips[1]['ref'] === '10008' && $trips[1]['time'] === '18:30'
+                && $trips[1]['dropoff'] === 'Home'
+                // Older plugins read the single fields: the first trip.
+                && $data['pickup'] === 'Home' && $data['dropoff'] === 'Dammam Airport';
+        });
+    }
+
+    public function test_many_trip_numbers_stay_inside_the_portal_column(): void
+    {
+        $trips = collect(range(10001, 10020))->map(static fn (int $n): LimoLeg => new LimoLeg(['reference' => (string) $n]));
+
+        $numbers = ServiceOrderPortalClient::tripNumbers($trips);
+
+        $this->assertLessThanOrEqual(64, mb_strlen($numbers));
+        $this->assertStringStartsWith('10001, 10002', $numbers);
+        $this->assertMatchesRegularExpression('/ \+\d+$/', $numbers);
+    }
+
+    public function test_the_dialog_says_the_link_covers_every_trip(): void
+    {
+        $this->enablePortal();
+        $first = $this->trip(45.0);
+        $booking = $first->legable;
+        $this->assertInstanceOf(LimoBooking::class, $booking);
+        $second = $booking->legs()->create([
+            'sequence' => 1, 'reference' => '10008', 'status' => LimoLeg::STATUS_QUEUE,
+            'start_at' => now()->addDays(2), 'from_location' => 'Dammam Airport',
+            'to_location' => 'Home', 'rate' => 45.0, 'net_amount' => 45.0,
+        ]);
+        $booking->recalcTotal();
+        $booking->save();
+
+        Livewire::test(Bookings::class)
+            ->call('openPaymentLink', $second->id)
+            ->assertSet('paymentAmount', '90.000')
+            ->assertSeeHtml('data-payment-link-covers')
+            ->assertSee('10007, 10008');
+    }
+
+    /**
      * The payment page and the store's order emails name the car the customer
      * booked, never the plate dispatch happened to assign.
      */

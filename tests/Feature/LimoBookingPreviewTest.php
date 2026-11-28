@@ -171,10 +171,10 @@ final class LimoBookingPreviewTest extends TestCase
     }
 
     /**
-     * The banner's 3-dot menu holds just View and the payment link — one link
-     * per trip on a round trip, named by its number. No View button outside it.
+     * The banner's 3-dot menu holds just View and ONE payment link, for the
+     * whole booking (it pays every trip). No View button outside it.
      */
-    public function test_the_success_banner_menu_offers_view_and_a_payment_link_per_trip(): void
+    public function test_the_success_banner_menu_offers_view_and_one_payment_link_for_all_trips(): void
     {
         $config = \Modules\Limousine\Models\LimoPortalConfiguration::current();
         $config->portal_url = 'https://wanaan-bh.com';
@@ -198,10 +198,10 @@ final class LimoBookingPreviewTest extends TestCase
 
         $this->assertStringContainsString('data-saved-booking-actions', $html);
         $this->assertSame(1, substr_count($html, 'data-banner-open-booking'), 'Open full booking lives only in the menu.');
-        foreach ([$first, $return] as $trip) {
-            $this->assertStringContainsString("wire:click=\"openPaymentLink({$trip->id})\"", $html);
-            $this->assertStringContainsString(e(__('Create payment link — trip :ref', ['ref' => $trip->reference])), $html);
-        }
+        $this->assertSame(1, substr_count($html, 'data-banner-payment-link'), 'One link for the whole booking.');
+        $this->assertStringContainsString(e(__('Create payment link — all trips')), $html);
+        $this->assertStringNotContainsString(e(__('Create payment link — trip :ref', ['ref' => $return->reference])), $html);
+        $this->assertStringContainsString("wire:click=\"openPaymentLink({$first->id})\"", $html);
     }
 
     /** The banner shows the trip's details under the reference, and copies them with it. */

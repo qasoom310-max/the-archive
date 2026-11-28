@@ -4107,5 +4107,7 @@
     "already in bulk invoice :ref, so it can't go in another one": "موجودة في الفاتورة المجمّعة :ref، فلا يمكن إضافتها إلى فاتورة أخرى",
     "not shown: it is outside the dates or tab you picked": "غير ظاهرة: خارج التواريخ أو التبويب الذي اخترته",
     "For this trip. Money received on booking :reference pays the earliest trip first.": "لهذه الرحلة. المبلغ المستلم على الحجز :reference يُحسب للرحلة الأقدم أولاً.",
-    "For this trip. Still owed on the whole booking :reference: :total.": "لهذه الرحلة. المتبقي على الحجز كاملاً :reference: :total."
+    "For this trip. Still owed on the whole booking :reference: :total.": "لهذه الرحلة. المتبقي على الحجز كاملاً :reference: :total.",
+    "Create payment link — all trips": "إنشاء رابط دفع — كل الرحلات",
+    "For booking :booking, trip :trips.|For booking :booking, all :count trips: :trips.": "للحجز :booking، الرحلة :trips.|للحجز :booking، كل الرحلات (:count): :trips."
 }

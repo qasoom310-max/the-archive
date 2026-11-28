@@ -63,6 +63,10 @@ class WSO_Repository {
 			$row[ $col ] = isset( $data[ $col ] ) ? sanitize_text_field( (string) $data[ $col ] ) : null;
 		}
 
+		// Every trip the link pays for (ERP 2026-11-28+): a booking of several
+		// trips is paid with one link.
+		$row['trips'] = self::clean_trips( isset( $data['trips'] ) ? $data['trips'] : null );
+
 		if ( $existing ) {
 			$wpdb->update( wanaan_so_table(), $row, array( 'id' => $existing->id ) );
 			return self::find_by_erp_payment_id( $erp_payment_id );
@@ -79,6 +83,48 @@ class WSO_Repository {
 		}
 
 		return self::find_by_erp_payment_id( $erp_payment_id );
+	}
+
+	/**
+	 * The ERP's trip list, cleaned and stored as JSON; null for one trip or none.
+	 *
+	 * @param mixed $trips
+	 * @return string|null
+	 */
+	private static function clean_trips( $trips ) {
+		if ( ! is_array( $trips ) ) {
+			return null;
+		}
+
+		$clean = array();
+		foreach ( array_slice( $trips, 0, 50 ) as $trip ) {
+			if ( ! is_array( $trip ) ) {
+				continue;
+			}
+			$item = array();
+			foreach ( array( 'ref', 'date', 'time', 'pickup', 'dropoff', 'vehicle' ) as $key ) {
+				$item[ $key ] = isset( $trip[ $key ] ) ? sanitize_text_field( (string) $trip[ $key ] ) : '';
+			}
+			$clean[] = $item;
+		}
+
+		return count( $clean ) > 1 ? wp_json_encode( $clean ) : null;
+	}
+
+	/**
+	 * The trips stored on a row: a list when the link pays for several trips,
+	 * otherwise empty (the single fields describe the one trip).
+	 *
+	 * @param object $row
+	 * @return array<int, array<string, string>>
+	 */
+	public static function trips( $row ) {
+		if ( ! isset( $row->trips ) || '' === (string) $row->trips ) {
+			return array();
+		}
+		$trips = json_decode( (string) $row->trips, true );
+
+		return is_array( $trips ) && count( $trips ) > 1 ? array_values( $trips ) : array();
 	}
 
 	/**

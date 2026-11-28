@@ -1,0 +1,67 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Payment link: one link pays for every trip in the booking",
+        "ar": "رابط الدفع: رابط واحد يدفع كل رحلات الحجز"
+    },
+    "points": {
+        "en": [
+            "A payment link always takes money for the whole booking. The link window now says so and lists every trip it covers.",
+            "The customer's payment page and the website's order email show every trip in the booking, not only one.",
+            "After saving a booking with several trips, the menu offers one \"Create payment link — all trips\" instead of one per trip."
+        ],
+        "ar": [
+            "رابط الدفع يأخذ المبلغ دائماً عن الحجز كاملاً. نافذة الرابط تقول ذلك الآن وتذكر كل الرحلات التي يشملها.",
+            "صفحة الدفع عند العميل وإيميل الطلب من الموقع تُظهر كل رحلات الحجز، لا رحلة واحدة فقط.",
+            "بعد حفظ حجز فيه عدة رحلات، تعرض القائمة خياراً واحداً «إنشاء رابط دفع — كل الرحلات» بدل رابط لكل رحلة."
+        ]
+    },
+    "details": {
+        "en": [
+            "The money on a payment link was already for the whole booking: the amount starts at what is still owed on the booking, and a payment lands on the booking. But the customer's payment page showed only the trip the link was made from. A customer with two trips saw one trip and a price for two.",
+            "Now the payment page lists each trip (number, date, time, pick-up, drop-off, car), and the order email the website sends shows one line per trip. The link window in the system says which booking and which trips the link is for.",
+            "Because one link covers the whole booking, the menu after saving a booking no longer offers a separate link for each trip. To take a deposit, choose 25% or 50%, or type an amount, as before.",
+            "The website part has to be updated once by whoever manages the website. Until then, a link still takes the right amount and shows all the trip numbers, but the full list of trips appears only after the update."
+        ],
+        "ar": [
+            "المبلغ في رابط الدفع كان أصلاً عن الحجز كاملاً: يبدأ بالمتبقي على الحجز، والدفعة تُسجَّل على الحجز. لكن صفحة الدفع عند العميل كانت تُظهر الرحلة التي أُنشئ منها الرابط فقط. فالعميل الذي لديه رحلتان يرى رحلة واحدة وسعر رحلتين.",
+            "الآن تُظهر صفحة الدفع كل رحلة (الرقم والتاريخ والوقت ومكان الانطلاق والوصول والسيارة)، وإيميل الطلب من الموقع يُظهر سطراً لكل رحلة. ونافذة الرابط في النظام تذكر الحجز والرحلات التي يشملها الرابط.",
+            "لأن الرابط الواحد يشمل الحجز كاملاً، لم تعد القائمة بعد حفظ الحجز تعرض رابطاً منفصلاً لكل رحلة. لأخذ عربون اختر 25% أو 50% أو اكتب مبلغاً كما كان.",
+            "جزء الموقع يحتاج تحديثاً مرة واحدة من المسؤول عن الموقع. وحتى ذلك الحين يأخذ الرابط المبلغ الصحيح ويذكر أرقام كل الرحلات، لكن قائمة الرحلات كاملة تظهر بعد التحديث فقط."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Bookings.",
+            "Press the three dots on any trip of the booking and choose Create payment link.",
+            "Read the blue line at the top: it names the booking and every trip the link pays for.",
+            "Choose 25%, 50% or Full balance, or type an amount, then press Create link.",
+            "Copy the link and send it to the customer. Their page lists every trip."
+        ],
+        "ar": [
+            "افتح الليموزين، ثم الحجوزات.",
+            "اضغط النقاط الثلاث على أي رحلة من الحجز واختر «إنشاء رابط دفع».",
+            "اقرأ السطر الأزرق في الأعلى: يذكر الحجز وكل الرحلات التي يدفعها الرابط.",
+            "اختر 25% أو 50% أو كامل المتبقي، أو اكتب مبلغاً، ثم اضغط «إنشاء الرابط».",
+            "انسخ الرابط وأرسله للعميل. صفحته تُظهر كل الرحلات."
+        ]
+    },
+    "images": [
+        {
+            "before": "link-before.png",
+            "after": "link-after.png",
+            "caption": {
+                "en": "The link window now says which booking and trips the link pays for.",
+                "ar": "نافذة الرابط تذكر الآن الحجز والرحلات التي يدفعها الرابط."
+            }
+        },
+        {
+            "before": "page-before.png",
+            "after": "page-after.png",
+            "caption": {
+                "en": "The customer's payment page: before, one trip; now, every trip in the booking.",
+                "ar": "صفحة الدفع عند العميل: في السابق رحلة واحدة؛ الآن كل رحلات الحجز."
+            }
+        }
+    ]
+}

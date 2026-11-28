@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Modules\Limousine\Services;
 
 use App\Erp\Tenancy\WorkspaceManager;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -144,7 +145,11 @@ final class ServiceOrderPortalClient
             }
         }
 
-        $remark = (string) ($leg->notes ?? '');
+        // The link takes money for the whole booking, so the customer sees every
+        // trip in it, not only the one the agent opened the dialog from.
+        $trips = $booking !== null ? self::tripsOf($booking, $leg) : collect([$leg]);
+        $first = $trips->first() ?? $leg;
+        $remark = (string) ($first->notes ?? '');
 
         return [
             'service' => 'limousine',
@@ -152,27 +157,80 @@ final class ServiceOrderPortalClient
             'erp_booking_id' => $link->booking_id,
             'erp_leg_id' => $link->leg_id,
             'ws' => $this->workspaceId(),
-            'confirmation_no' => (string) ($leg->reference ?? ''),
+            'confirmation_no' => self::tripNumbers($trips),
+            // Each trip, for the pay page and the store's order email (plugin
+            // 1.2.0+). The single fields below stay the first trip's, for older
+            // plugins.
+            'trips' => $trips->map(static fn (LimoLeg $trip): array => [
+                'ref' => (string) ($trip->reference ?? ''),
+                'date' => $trip->start_at?->format('Y-m-d') ?? '',
+                'time' => $trip->start_at?->format('H:i') ?? '',
+                'pickup' => (string) ($trip->from_location ?? ''),
+                'dropoff' => (string) ($trip->to_location ?? ''),
+                'vehicle' => $trip->billedVehicle($booking),
+            ])->values()->all(),
             'booking_no' => $bookingNo,
             'date' => now()->format('Y-m-d'),
             'customer_name' => $customerName,
             'telephone' => $telephone,
             'email' => $email,
-            'service_date' => $leg->start_at?->format('Y-m-d') ?? '',
-            'service_time' => $leg->start_at?->format('H:i') ?? '',
+            'service_date' => $first->start_at?->format('Y-m-d') ?? '',
+            'service_time' => $first->start_at?->format('H:i') ?? '',
             // The car the customer booked (type, never the assigned plate).
-            'vehicle' => $leg->billedVehicle($booking),
+            'vehicle' => $first->billedVehicle($booking),
             'flight_number' => $flightNumber,
             'pax_name' => $paxName,
             'pax_contact' => $paxContact,
-            'pickup' => (string) ($leg->from_location ?? ''),
-            'dropoff' => (string) ($leg->to_location ?? ''),
+            'pickup' => (string) ($first->from_location ?? ''),
+            'dropoff' => (string) ($first->to_location ?? ''),
             // Sent as a fixed-3-decimal string so BHD amounts cross the wire
             // exactly (45.000), never as a lossy float.
             'amount' => number_format((float) $link->amount, 3, '.', ''),
             'currency' => (string) $link->currency,
             'remark' => $remark !== '' ? $remark : $bookingNotes,
         ];
+    }
+
+    /**
+     * The trips a payment link on this booking pays for: every trip still
+     * charged (a cancelled one only when it is kept on the bill), in order.
+     * Falls back to the trip the dialog was opened from.
+     *
+     * @return Collection<int, LimoLeg>
+     */
+    public static function tripsOf(LimoBooking $booking, LimoLeg $fallback): Collection
+    {
+        $trips = $booking->legs()->orderBy('sequence')->orderBy('id')->get()
+            ->filter(static fn (LimoLeg $trip): bool => $trip->isBillable())
+            ->values();
+
+        return $trips->isEmpty() ? collect([$fallback]) : $trips;
+    }
+
+    /**
+     * "26382, 26383" — the trip numbers, kept inside the portal's 64-character
+     * column ("26382, 26383 +4" when there are too many to list).
+     *
+     * @param  Collection<int, LimoLeg>  $trips
+     */
+    public static function tripNumbers(Collection $trips): string
+    {
+        $refs = $trips->map(static fn (LimoLeg $trip): string => trim((string) ($trip->reference ?? '')))
+            ->filter(static fn (string $ref): bool => $ref !== '')
+            ->values();
+
+        $shown = [];
+        foreach ($refs as $i => $ref) {
+            $rest = $refs->count() - $i - 1;
+            $candidate = implode(', ', [...$shown, $ref]) . ($rest > 0 ? ' +' . $rest : '');
+            if (mb_strlen($candidate) > 64) {
+                break;
+            }
+            $shown[] = $ref;
+        }
+        $left = $refs->count() - count($shown);
+
+        return implode(', ', $shown) . ($left > 0 ? ' +' . $left : '');
     }
 
     /**

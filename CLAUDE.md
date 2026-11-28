@@ -3892,6 +3892,19 @@ constant `WANAAN_SO_VERSION` (currently 1.0.6). Structure:
 **Live since 2026-09-03 on Tap live keys.** The plugin is edited by re-uploading a freshly
 built ZIP in WP admin (there's no CI for `wp-plugin/`).
 
+**One payment link shows every trip of the booking (ERP + plugin 1.2.0, 2026-11-28).** The link's
+MONEY was always booking-wide (amount = `balanceDue()`, settled on the booking), but the push sent
+only the clicked leg's facts. `ServiceOrderPortalClient::tripsOf($booking, $leg)` (billable legs by
+sequence, else the clicked leg) now feeds a `trips` list (ref/date/time/pickup/dropoff/vehicle);
+`confirmation_no` = `tripNumbers()` ("26382, 26383", capped at the portal's 64-char column with
+"+N"); the single fields stay the FIRST trip's for plugins older than 1.2.0. Bookings dialog shows
+`paymentLinkCovers()` (`data-payment-link-covers`); the saved-booking banner offers ONE
+`data-banner-payment-link` ("— all trips") instead of one per trip. Plugin 1.2.0: schema v4 column
+`trips` (JSON, only when > 1 trip, `WSO_Repository::clean_trips()` / `trips()`), the pay page
+renders "Trip N of M" blocks, `WSO_Woo::trip_details()` gives one "Trip N" line each
+(`trip_line()`, Arabic label "الرحلة N"). The line name "Limousine Service · Trip 26382, 26383"
+still matches `RentalWebBooking::isPaymentLink()`. Tests: `LimoServiceOrderPortalTest` (+3).
+
 **The store's order emails show the trip (plugin 1.0.8, 2026-11-02).** The WooCommerce
 "New order" email said only "Limousine Service". `WSO_Woo::trip_details($row)` builds the
 trip (trip no., booking no., date, pick-up time, pick up, drop off, vehicle, flight, customer,

@@ -86,6 +86,10 @@ class WSO_Arabic {
 
 	/** The Arabic label for a stored trip key, or the key itself. */
 	public static function label( $key ) {
+		if ( preg_match( '/^Trip (\d+)$/', (string) $key, $m ) ) {
+			return 'الرحلة ' . $m[1];
+		}
+
 		return isset( self::LABELS[ $key ] ) ? self::LABELS[ $key ] : $key;
 	}
 
@@ -144,7 +148,7 @@ class WSO_Arabic {
 			if ( in_array( $key, self::DATE_KEYS, true ) ) {
 				$value = self::date( $value );
 			}
-			$label = isset( self::LABELS[ $key ] ) ? self::LABELS[ $key ] : wp_strip_all_tags( (string) $meta->display_key );
+			$label = ( isset( self::LABELS[ $key ] ) || preg_match( '/^Trip \d+$/', $key ) ) ? self::label( $key ) : wp_strip_all_tags( (string) $meta->display_key );
 
 			// The label is not given WooCommerce's label class: its stylesheet
 			// floats that to the left, which is what reversed the line.

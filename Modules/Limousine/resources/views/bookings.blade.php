@@ -156,8 +156,8 @@
                 </button>
 
                 {{-- The two things done right after booking: look at it, or send
-                     the customer a payment link (one per trip on a round trip,
-                     named by its number). Same `rowActionsMenu` (fixed panel,
+                     the customer a payment link (one for the whole booking,
+                     every trip in it). Same `rowActionsMenu` (fixed panel,
                      flips above when there is no room below) as the rows. --}}
                 @if ($savedBooking !== null)
                     @php
@@ -187,15 +187,14 @@
                                 </svg>
                                 {{ __('Open full booking') }}
                             </a>
-                            @if ($portalOn)
-                                @foreach ($bTrips as $trip)
-                                    <button type="button" @click="open = false" wire:click="openPaymentLink({{ $trip->id }})" class="{{ $bItem }}">
-                                        <svg class="{{ $bIcon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3M3.75 19.5h16.5A2.25 2.25 0 0 0 22.5 17.25V6.75A2.25 2.25 0 0 0 20.25 4.5H3.75A2.25 2.25 0 0 0 1.5 6.75v10.5A2.25 2.25 0 0 0 3.75 19.5Z"/>
-                                        </svg>
-                                        {{ $bMany ? __('Create payment link — trip :ref', ['ref' => $trip->reference]) : __('Create payment link') }}
-                                    </button>
-                                @endforeach
+                            {{-- One link for the whole booking: it pays every trip in it. --}}
+                            @if ($portalOn && $bTrips->isNotEmpty())
+                                <button type="button" @click="open = false" wire:click="openPaymentLink({{ $bTrips->first()->id }})" class="{{ $bItem }}" data-banner-payment-link>
+                                    <svg class="{{ $bIcon }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3M3.75 19.5h16.5A2.25 2.25 0 0 0 22.5 17.25V6.75A2.25 2.25 0 0 0 20.25 4.5H3.75A2.25 2.25 0 0 0 1.5 6.75v10.5A2.25 2.25 0 0 0 3.75 19.5Z"/>
+                                    </svg>
+                                    {{ $bMany ? __('Create payment link — all trips') : __('Create payment link') }}
+                                </button>
                             @endif
                         </div>
                     </div>
@@ -1670,6 +1669,12 @@
                 </div>
 
                 <div class="px-5 py-4">
+                    @php $covers = $this->paymentLinkCovers(); @endphp
+                    @if ($covers !== null)
+                        <p class="mb-3 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800" data-payment-link-covers>
+                            {{ trans_choice('For booking :booking, trip :trips.|For booking :booking, all :count trips: :trips.', $covers['count'], ['booking' => $covers['booking'], 'trips' => $covers['trips'], 'count' => $covers['count']]) }}
+                        </p>
+                    @endif
                     @if ($paymentLinkUrl === '')
                         {{-- Quick shares: a deposit of 25% or 50% of the booking total, or the full balance. --}}
                         @php $shares = $this->paymentShares(); @endphp

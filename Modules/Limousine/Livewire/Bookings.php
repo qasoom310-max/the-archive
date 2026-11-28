@@ -1157,6 +1157,34 @@ final class Bookings extends Component
         ], self::PAYMENT_SHARES));
     }
 
+    /**
+     * What the open payment link pays for: the booking and every trip in it.
+     * The link always takes money for the whole booking, whichever trip's row
+     * it was opened from.
+     *
+     * @return array{booking: string, trips: string, count: int}|null
+     */
+    public function paymentLinkCovers(): ?array
+    {
+        if ($this->paymentLegId === null) {
+            return null;
+        }
+
+        $leg = LimoLeg::query()->with('legable')->find($this->paymentLegId);
+        $booking = $leg?->legable instanceof LimoBooking ? $leg->legable : null;
+        if ($leg === null || $booking === null) {
+            return null;
+        }
+
+        $trips = ServiceOrderPortalClient::tripsOf($booking, $leg);
+
+        return [
+            'booking' => (string) $booking->reference,
+            'trips' => ServiceOrderPortalClient::tripNumbers($trips),
+            'count' => $trips->count(),
+        ];
+    }
+
     /** Fill the amount from one of the quick shares. */
     public function usePaymentShare(int $percent): void
     {

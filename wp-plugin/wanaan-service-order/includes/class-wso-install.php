@@ -9,7 +9,7 @@ defined( 'ABSPATH' ) || exit;
 class WSO_Install {
 
 	/** Bumped when the table schema changes; drives maybe_upgrade(). */
-	const SCHEMA_VERSION = '3';
+	const SCHEMA_VERSION = '4';
 
 	const SCHEMA_OPTION = 'wanaan_so_schema_version';
 
@@ -80,6 +80,7 @@ class WSO_Install {
 			pickup TEXT NULL,
 			dropoff TEXT NULL,
 			remark TEXT NULL,
+			trips LONGTEXT NULL,
 			amount DECIMAL(12,3) NOT NULL DEFAULT 0,
 			currency VARCHAR(8) NOT NULL DEFAULT 'BHD',
 			status VARCHAR(16) NOT NULL DEFAULT 'unpaid',

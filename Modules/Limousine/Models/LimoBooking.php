@@ -302,6 +302,116 @@ final class LimoBooking extends Model implements DefinesIrModel, TakesCouponCred
         return round(max((float) $this->advance, $invoices + $credit - $refunds), 3);
     }
 
+    /** @var array<int, array{received: float, owed: float, share: float}>|null */
+    private ?array $tripSharesCache = null;
+
+    private string $tripSharesCacheKey = '';
+
+    private function tripSharesKey(): string
+    {
+        return implode('|', [
+            (string) $this->advance, (string) $this->fare, (string) $this->meet_greet_price, (string) $this->meet_greet,
+            (string) $this->updated_at, (string) $this->getAttribute('invoices_paid'),
+            $this->relationLoaded('legs') ? (string) $this->legs->count() : '-',
+        ]);
+    }
+
+    /** Forget the per-trip split along with everything else. */
+    public function refresh(): static
+    {
+        $this->tripSharesCache = null;
+
+        return parent::refresh();
+    }
+
+    /**
+     * Each trip's part of the booking's money, so a list of trips can show
+     * what THAT trip has had paid and still owes instead of repeating the
+     * booking's whole balance on every row (two 45 BD trips read "90 owed"
+     * twice, and a driver copying one was told to collect both).
+     *
+     * A trip's share is its price (meet & greet goes on the first). Money
+     * received pays the trips in order, earliest first, so what is still owed
+     * sits on the later trips. The trips' owed always add up to
+     * {@see amountOwed()} and their received to {@see amountReceived()}; a
+     * cancelled trip that is not charged has neither.
+     *
+     * @return array<int, array{received: float, owed: float, share: float}> keyed by leg id
+     */
+    public function tripShares(): array
+    {
+        // Remembered for the rows of one page, but only while the booking's
+        // money is what it was when worked out.
+        $key = $this->tripSharesKey();
+        if ($this->tripSharesCache !== null && $this->tripSharesCacheKey === $key) {
+            return $this->tripSharesCache;
+        }
+        $this->tripSharesCacheKey = $key;
+
+        $legs = $this->relationLoaded('legs') ? $this->legs : $this->legs()->get();
+        $legs = $legs->sortBy([['sequence', 'asc'], ['id', 'asc']])->values();
+
+        $out = [];
+        $billable = [];
+        foreach ($legs as $leg) {
+            /** @var LimoLeg $leg */
+            $out[(int) $leg->id] = ['received' => 0.0, 'owed' => 0.0, 'share' => 0.0];
+            if ($leg->isBillable()) {
+                $billable[] = (int) $leg->id;
+                $out[(int) $leg->id]['share'] = round((float) $leg->net_amount, 3);
+            }
+        }
+        if ($billable === []) {
+            return $this->tripSharesCache = $out;
+        }
+        $out[$billable[0]]['share'] = round($out[$billable[0]]['share'] + $this->meetGreetCharge(), 3);
+
+        // Received pays the earliest trips first; anything over the trips'
+        // prices (an old booking whose fare differs) stays on the first.
+        $left = $this->amountReceived();
+        foreach ($billable as $id) {
+            $take = min($out[$id]['share'], max(0.0, $left));
+            $out[$id]['received'] = round($take, 3);
+            $left = round($left - $take, 3);
+        }
+        if ($left > 0.0005) {
+            $out[$billable[0]]['received'] = round($out[$billable[0]]['received'] + $left, 3);
+        }
+
+        // What is owed sits on the latest trips; anything over their prices
+        // (a fare above the trips) stays on the first.
+        $owed = $this->amountOwed();
+        foreach (array_reverse($billable) as $id) {
+            $take = min($out[$id]['share'], max(0.0, $owed));
+            $out[$id]['owed'] = round($take, 3);
+            $owed = round($owed - $take, 3);
+        }
+        if ($owed > 0.0005) {
+            $out[$billable[0]]['owed'] = round($out[$billable[0]]['owed'] + $owed, 3);
+        }
+
+        return $this->tripSharesCache = $out;
+    }
+
+    /**
+     * Paid / partial / unpaid for ONE trip, from its share of the money.
+     */
+    public function tripPaymentState(int $legId): string
+    {
+        // Only a part-paid booking splits: paid (also "marked paid" with
+        // nothing written down) and unpaid hold for every trip alike.
+        $state = $this->paymentState();
+        $share = $this->tripShares()[$legId] ?? null;
+        if ($state !== self::PAYMENT_PARTIAL || $share === null || $share['share'] <= 0.0005) {
+            return $state;
+        }
+        if ($share['owed'] <= 0.0005) {
+            return self::PAYMENT_PAID;
+        }
+
+        return $share['received'] > 0.0005 ? self::PAYMENT_PARTIAL : self::PAYMENT_UNPAID;
+    }
+
     /**
      * The same reading as {@see amountReceived()}, in SQL, for list sorting and
      * the "owing" filter. `$bookings` is the bookings table (or its alias).

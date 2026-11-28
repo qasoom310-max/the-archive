@@ -1,0 +1,55 @@
+{
+    "app": "limousine",
+    "title": {
+        "en": "Bookings: each trip shows its own balance, not the whole booking's",
+        "ar": "الحجوزات: كل رحلة تُظهر المتبقي عليها هي، لا المتبقي على الحجز كاملاً"
+    },
+    "points": {
+        "en": [
+            "When several trips are booked together, each row now shows what that trip has received and still owes. Two 45 BD trips show 45 owed each, not 90 each.",
+            "The message copied for a driver, and the driver's trip page, ask him to collect only his own trip's balance."
+        ],
+        "ar": [
+            "عند حجز عدة رحلات معاً، يُظهر كل صف الآن ما استُلم عن تلك الرحلة وما بقي عليها. رحلتان بـ 45 دينار تُظهر كل واحدة 45 متبقياً، لا 90 لكل واحدة.",
+            "رسالة السائق المنسوخة وصفحة الرحلة للسائق تطلبان منه تحصيل المتبقي على رحلته فقط."
+        ]
+    },
+    "details": {
+        "en": [
+            "The Received and Balance columns on the bookings list showed the whole booking's money on every trip of it. Two trips of 45 BD booked together each showed 90 owed, which read as 180 in total, when the customer owes 90 for both.",
+            "Now each row shows that trip's own part. Money received pays the trips in order, earliest first, so if 60 BD was paid on two 45 BD trips, the first shows paid and the second shows 30 owed. The trips' balances always add up to what is owed on the booking. Holding the mouse over a Balance figure shows the whole booking's balance.",
+            "The Payment badge also follows the trip: a trip already covered shows Paid even while a later trip of the same booking is still owed.",
+            "The copied message for a driver used to tell him to collect the whole booking's balance, so two drivers on one booking could each be told to collect everything. Now it, and his trip page, give only his own trip's balance."
+        ],
+        "ar": [
+            "كان عمودا «المستلم» و«المتبقي» في قائمة الحجوزات يُظهران مبلغ الحجز كاملاً على كل رحلة منه. فرحلتان بـ 45 دينار محجوزتان معاً كانت كل واحدة تُظهر 90 متبقياً، فيبدو المجموع 180، والعميل لا يدين إلا بـ 90 للاثنتين.",
+            "الآن يُظهر كل صف نصيب رحلته فقط. المبلغ المستلم يُحسب للرحلات بالترتيب، الأقدم أولاً، فإذا دُفع 60 دينار عن رحلتين بـ 45، تظهر الأولى مدفوعة والثانية متبقٍ عليها 30. ومجموع المتبقي على الرحلات يساوي دائماً المتبقي على الحجز. وعند وضع الفأرة على رقم المتبقي يظهر المتبقي على الحجز كاملاً.",
+            "شارة الدفع تتبع الرحلة أيضاً: الرحلة التي غُطّي مبلغها تظهر «مدفوع» حتى لو بقي مبلغ على رحلة لاحقة من نفس الحجز.",
+            "كانت رسالة السائق المنسوخة تطلب منه تحصيل المتبقي على الحجز كاملاً، فقد يُطلب من سائقين في حجز واحد أن يحصّل كل منهما المبلغ كله. الآن تذكر الرسالة، وصفحة رحلته، المتبقي على رحلته فقط."
+        ]
+    },
+    "guide": {
+        "en": [
+            "Open Limousine, then Bookings.",
+            "Look at the Received and Balance columns: each row is now that trip's own part.",
+            "To see what is still owed on the whole booking, hold the mouse over the Balance figure.",
+            "Take a payment with the green button as before. It pays the booking, and the balances move to the trips in order, earliest first."
+        ],
+        "ar": [
+            "افتح الليموزين، ثم الحجوزات.",
+            "انظر إلى عمودي «المستلم» و«المتبقي»: كل صف الآن نصيب رحلته فقط.",
+            "لمعرفة المتبقي على الحجز كاملاً، ضع الفأرة على رقم المتبقي.",
+            "استلم الدفعة بالزر الأخضر كما كان. الدفعة تُسجَّل على الحجز، ويتوزع المتبقي على الرحلات بالترتيب، الأقدم أولاً."
+        ]
+    },
+    "images": [
+        {
+            "before": "balance-before.png",
+            "after": "balance-after.png",
+            "caption": {
+                "en": "Two 45 BD trips booked together: before, each showed 90 owed; now each shows its own 45.",
+                "ar": "رحلتان بـ 45 دينار محجوزتان معاً: في السابق أظهرت كل واحدة 90 متبقياً؛ الآن تُظهر كل واحدة 45 الخاصة بها."
+            }
+        }
+    ]
+}

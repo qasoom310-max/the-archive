@@ -4105,5 +4105,7 @@
     "Open the booking to create one": "افتح الحجز لإنشاء فاتورة",
     "billed on :invoice": "مفوترة في :invoice",
     "already in bulk invoice :ref, so it can't go in another one": "موجودة في الفاتورة المجمّعة :ref، فلا يمكن إضافتها إلى فاتورة أخرى",
-    "not shown: it is outside the dates or tab you picked": "غير ظاهرة: خارج التواريخ أو التبويب الذي اخترته"
+    "not shown: it is outside the dates or tab you picked": "غير ظاهرة: خارج التواريخ أو التبويب الذي اخترته",
+    "For this trip. Money received on booking :reference pays the earliest trip first.": "لهذه الرحلة. المبلغ المستلم على الحجز :reference يُحسب للرحلة الأقدم أولاً.",
+    "For this trip. Still owed on the whole booking :reference: :total.": "لهذه الرحلة. المتبقي على الحجز كاملاً :reference: :total."
 }

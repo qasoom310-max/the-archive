@@ -3184,6 +3184,24 @@ customer page's booking list. Badge colours/words: `paymentBadgeClass()` /
 only) still drives the take-payment dialog, payment links and cancellations.
 Test: `LimoPartialPaymentTest` (10).
 
+**Each trip row shows its OWN share of the money (changed 2026-11-28, the owner's
+call).** The bookings list used to repeat the booking's Received / Balance on every
+trip (deliberately: "the customer settles the job"), so two 45 BD trips booked
+together read 90 owed each. `LimoBooking::tripShares()` (keyed by leg id:
+`share`, `received`, `owed`) splits it: share = trip `net_amount` (meet & greet on
+the first billable trip; uncharged cancelled trips 0); received fills trips
+earliest first (sequence, id), owed sits on the latest; any mismatch with the fare
+(old imports) lands on the first trip, so owed always sums to `amountOwed()` and
+received to `amountReceived()`. `tripPaymentState($legId)` splits only a PARTIAL
+booking (paid / unpaid / marked-paid hold for every trip). Used by
+`LimoQueueRows::row()` (`received`, `balance`, `payment`; `booking_balance` = the
+whole booking, tooltip only), `whatsappText()` (the driver collects his trip only)
+and `DriverTripController` (driver page "Collect"). Booking legs are eager-loaded in
+the queue's `legable` constraint; the split is memoised on the instance, keyed on
+the money fields and cleared by `refresh()`. Still booking-level, on purpose: the
+take-payment dialog amount, the Unpaid tab filter, the customer boxes, the Balance
+sort. Test: `LimoTripShareTest` (6).
+
 **Received counts coupon credit with the invoice payments (fixed 2026-11-24).**
 `amountReceived()` was max(advance, invoices' amount_paid). Coupon credit
 reaches the ADVANCE only (no receipt), and a receipt from the Receipts screen /

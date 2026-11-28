@@ -198,14 +198,16 @@ final class DriverTripController
             $out[] = ['label' => 'Comments / ملاحظات', 'value' => implode("\n", $notes)];
         }
 
-        $state = $booking?->paymentState() ?? LimoBooking::PAYMENT_PAID;
+        // This trip's part only: a booking of two trips must not have each
+        // driver collect the whole booking.
+        $state = $booking?->tripPaymentState((int) $leg->id) ?? LimoBooking::PAYMENT_PAID;
         if ($state === LimoBooking::PAYMENT_PAID) {
             $out[] = ['label' => 'Payment / الدفع', 'value' => '✅ Paid / مدفوع'];
         } else {
             $value = $state === LimoBooking::PAYMENT_PARTIAL ? '🟡 Part paid / مدفوع جزئياً' : '❌ Unpaid / غير مدفوع';
             $customer = $booking?->customer;
             if ($customer === null || ! $customer->isCompany()) {
-                $value .= "\nCollect / حصّل: " . number_format($booking?->amountOwed() ?? 0.0, 3) . ' BD';
+                $value .= "\nCollect / حصّل: " . number_format($booking?->tripShares()[(int) $leg->id]['owed'] ?? 0.0, 3) . ' BD';
             }
             $out[] = ['label' => 'Payment / الدفع', 'value' => $value];
         }

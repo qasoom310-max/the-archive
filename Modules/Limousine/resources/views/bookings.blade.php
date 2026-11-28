@@ -677,22 +677,22 @@
                         <td class="px-2 py-2 text-end font-medium text-chrome-900"
                             title="{{ __('Price of this trip') }}">{{ $money($row['amount']) }}
                             {{-- Below lg the Balance column is hidden, so what is still
-                                 owed reads under the price (the owner's call). It is the
-                                 whole booking's balance, as in that column. --}}
+                                 owed reads under the price (the owner's call). It is this
+                                 trip's part, as in that column. --}}
                             @if ($row['balance'] > 0)
                                 <span class="mt-0.5 block whitespace-nowrap text-[11px] font-semibold text-amber-700 lg:hidden" data-amount-balance
-                                      title="{{ __('Still owed on booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ __('Balance') }} {{ $money($row['balance']) }}</span>
+                                      title="{{ __('For this trip. Still owed on the whole booking :reference: :total.', ['reference' => $row['booking_reference'], 'total' => $money($row['booking_balance'] ?? $row['balance'])]) }}">{{ __('Balance') }} {{ $money($row['balance']) }}</span>
                             @endif
                         </td>
-                        {{-- Received and Balance are the whole BOOKING's: the customer
-                             settles the job, not a leg of it, so a booking of three trips
-                             shows one balance repeated down its rows rather than a third
-                             on each. The tooltips say so, because two money columns that
-                             repeat beside one that doesn't reads as double-counting. --}}
+                        {{-- Received and Balance are THIS TRIP's part of the booking's
+                             money (LimoBooking::tripShares, the owner's call 2026-11-28):
+                             two 45 BD trips booked together showed "90 owed" on each and
+                             read as 180. Money pays the earliest trip first. The tooltip
+                             gives the whole booking's balance. --}}
                         <td class="hidden px-2 py-2 text-end text-emerald-700 lg:table-cell"
-                            title="{{ __('Received against booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['received']) }}</td>
+                            title="{{ __('For this trip. Money received on booking :reference pays the earliest trip first.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['received']) }}</td>
                         <td class="hidden px-2 py-2 text-end lg:table-cell {{ $row['balance'] > 0 ? 'text-amber-700' : 'text-chrome-600' }}"
-                            title="{{ __('Still owed on booking :reference — the whole job, not this trip alone.', ['reference' => $row['booking_reference']]) }}">{{ $money($row['balance']) }}</td>
+                            title="{{ __('For this trip. Still owed on the whole booking :reference: :total.', ['reference' => $row['booking_reference'], 'total' => $money($row['booking_balance'] ?? $row['balance'])]) }}">{{ $money($row['balance']) }}</td>
                         {{-- The country's short code sits above each place (KSA over
                              "Dammam"), so a cross-border trip reads at a glance. --}}
                         <td class="px-2 py-2 text-chrome-900">

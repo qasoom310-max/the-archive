@@ -35,7 +35,7 @@ use Modules\Limousine\Support\TripDetailsLock;
  * @phpstan-type QueueRow array{
  *     leg_id: int, booking_id: int, reference: string, booking_reference: string,
  *     from_date: string, to_date: string, eta: string, type: string, customer: string, customer_id: int, passenger: string, contact_phone: string,
- *     amount: float, received: float, balance: float, pickup: string, dropoff: string,
+ *     amount: float, received: float, balance: float, booking_balance: float, pickup: string, dropoff: string,
  *     vehicle: string, vehicle_type: string, driver: string, added_by: string, comments: string, booked_time: string,
  *     status: string, payment: string
  * }
@@ -104,7 +104,9 @@ final class LimoQueueRows
             ->with('legable.customer:id,name,type,phone')
             ->with('legable', function (Relation $legable): void {
                 if ($legable instanceof MorphTo) {
-                    $legable->constrain([LimoBooking::class => static fn (Builder $b): Builder => LimoBooking::withInvoicesPaidOn($b)]);
+                    // With its trips, so each row can show its own share of the money.
+                    $legable->constrain([LimoBooking::class => static fn (Builder $b): Builder => LimoBooking::withInvoicesPaidOn($b)
+                        ->with('legs:id,legable_type,legable_id,sequence,status,refund_outcome,net_amount')]);
                 }
             })
             // Sorting can reach through to the parent booking, which means a
@@ -634,10 +636,15 @@ final class LimoQueueRows
             // Who rides, under a COMPANY's name: the account is not the person
             // the driver meets. Not a printed column, like contact_phone.
             'passenger' => $hidden ? '' : $this->passenger($booking),
-            // The leg's own price; the money below is the whole booking's.
+            // The trip's own price, and the trip's own part of the money
+            // (LimoBooking::tripShares): two trips booked together no longer
+            // each show the whole booking's balance.
             'amount' => round((float) $leg->net_amount, 3),
-            'received' => $booking?->amountReceived() ?? 0.0,
-            'balance' => $booking?->amountOwed() ?? 0.0,
+            'received' => $booking?->tripShares()[(int) $leg->id]['received'] ?? 0.0,
+            'balance' => $booking?->tripShares()[(int) $leg->id]['owed'] ?? 0.0,
+            // The whole booking's balance, for the screen's tooltip. Not a
+            // printed column: exports read by heading.
+            'booking_balance' => $booking?->amountOwed() ?? 0.0,
             'pickup' => $hidden ? TripDetailsLock::place($leg->from_country) : (string) ($leg->from_location ?? ''),
             'dropoff' => $hidden && trim((string) ($leg->to_location ?? '')) !== ''
                 ? TripDetailsLock::place($leg->to_country)
@@ -666,7 +673,7 @@ final class LimoQueueRows
             'comments' => $hidden ? '' : (string) ($booking->notes ?? ''),
             'booked_time' => $booking?->created_at?->isoFormat('DD-MMM-YY HH:mm') ?? '',
             // paid / partial / unpaid, read from the money (LimoBooking::paymentState()).
-            'payment' => $booking?->paymentState() ?? '',
+            'payment' => $booking?->tripPaymentState((int) $leg->id) ?? '',
             'status' => (string) ($leg->status ?? ''),
         ];
     }
@@ -833,8 +840,9 @@ final class LimoQueueRows
         // or unpaid. Only a private customer gets the amount to collect: a
         // company's trips are settled on its account, not by the driver taking
         // cash from whoever is riding, so no figure is printed for one.
-        $balance = $booking?->amountOwed() ?? 0.0;
-        $state = $booking?->paymentState() ?? LimoBooking::PAYMENT_PAID;
+        // This trip's part only: a driver collects for the trip he drives.
+        $balance = $booking?->tripShares()[(int) $leg->id]['owed'] ?? 0.0;
+        $state = $booking?->tripPaymentState((int) $leg->id) ?? LimoBooking::PAYMENT_PAID;
         $lines[] = '';
 
         if ($state === LimoBooking::PAYMENT_PAID) {
